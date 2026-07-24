@@ -118,7 +118,6 @@ export function useCameraControls() {
     rotate,
     rotateX,
     rotateY,
-    zoom: setCameraZoom,
     zoomIn,
     zoomOut,
     reset: resetCamera,

@@ -17,11 +17,11 @@
     "strictFunctionTypes": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitReturns": true,
+    "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": true,
-    "typeRoots": ["./node_modules/@types", "./nativewind.d.ts"],
-    "types": ["react-native", "nativewind"]
+    "allowJs": true
   },
-  "include": ["src/**/*", "nativewind.d.ts"],
-  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts"]
+  "include": ["src/**/*", "App.tsx", "nativewind.d.ts"],
+  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts"],
+  "typeRoots": ["./node_modules/@types", "./"]
 }

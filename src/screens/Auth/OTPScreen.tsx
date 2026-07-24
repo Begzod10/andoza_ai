@@ -11,7 +11,6 @@ export default function OTPScreen({ route, navigation }: any) {
   const [timer, setTimer] = useState(60)
   const [canResend, setCanResend] = useState(false)
   const setUser = useAppStore((state) => state.setUser)
-  const setAuthenticated = useAppStore((state) => state.setAuthenticated)
 
   useEffect(() => {
     if (timer > 0) {
@@ -41,7 +40,6 @@ export default function OTPScreen({ route, navigation }: any) {
         await AsyncStorage.setItem('refresh_token', response.data.refresh_token)
 
         setUser(userData)
-        setAuthenticated(true)
         navigation.navigate('HomeTab')
       }
     } catch (error: any) {

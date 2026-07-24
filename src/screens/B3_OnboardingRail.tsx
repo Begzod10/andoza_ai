@@ -20,7 +20,7 @@ interface PaintColor {
 
 interface ColorGroup {
   title: string
-  colors: PaintColor[]
+  colors: readonly PaintColor[]
 }
 
 const PAINT_COLORS: ColorGroup[] = [

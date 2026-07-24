@@ -141,7 +141,6 @@ export default function B2_3DEntryScreen({ navigation }: B2_3DEntryProps) {
         {/* Perspective container */}
         <View
           style={{
-            perspective: transform.perspective,
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
@@ -171,7 +170,6 @@ export default function B2_3DEntryScreen({ navigation }: B2_3DEntryProps) {
                 top: 40,
                 left: 0,
                 backgroundColor: wallColor,
-                backgroundImage: wallPattern,
                 borderColor: '#D1D5DB',
                 borderWidth: 1,
                 zIndex: 1,

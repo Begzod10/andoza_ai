@@ -27,8 +27,11 @@ export default function ProjectsScreen({ navigation }: any) {
   }
 
   const handleSelectProject = (projectId: string) => {
-    setActiveProject(projectId)
-    navigation.navigate('Measurement')
+    const project = projects.find((p) => p.id === projectId)
+    if (project) {
+      setActiveProject(project)
+      navigation.navigate('Measurement')
+    }
   }
 
   const handleCreateProject = () => {

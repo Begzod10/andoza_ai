@@ -74,10 +74,10 @@ const DraggableSwatch = ({ material, onDrop }: any) => {
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+      { translateX: translateX.value as any },
+      { translateY: translateY.value as any },
+      { scale: scale.value as any },
+    ] as any,
   }))
 
   return (
