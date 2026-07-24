@@ -36,6 +36,16 @@ def mock_redis():
     redis.delete = AsyncMock(return_value=1)
     redis.incr = AsyncMock(return_value=1)
     redis.expire = AsyncMock(return_value=True)
+
+    # Mock pipeline for batched operations
+    pipe = AsyncMock()
+    pipe.incr = AsyncMock(return_value=pipe)
+    pipe.expire = AsyncMock(return_value=pipe)
+    pipe.execute = AsyncMock(return_value=[1, True])
+    # pipeline() is sync, not async
+    from unittest.mock import MagicMock
+    redis.pipeline = MagicMock(return_value=pipe)
+
     return redis
 
 
