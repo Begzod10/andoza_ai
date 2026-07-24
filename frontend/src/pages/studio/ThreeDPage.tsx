@@ -6,6 +6,8 @@ import {
   ContactShadows,
   SoftShadows,
   PerformanceMonitor,
+  AdaptiveDpr,
+  AdaptiveEvents,
   Html,
   useGLTF,
   Grid,
@@ -28,6 +30,10 @@ import type { Room } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
+
+// Explicit (default-on since three r152, but pinned here so a future three
+// upgrade can't silently regress the color pipeline)
+THREE.ColorManagement.enabled = true;
 
 // ─── Postprocessing — N8AO ambient occlusion + SMAA anti-alias ───────────────
 // Mounted only when highQuality3d && declineCount < 2.
@@ -3000,11 +3006,16 @@ export default function ThreeDPage() {
           gl={{
             antialias: true,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.1,
+            toneMappingExposure: 1.15,
+            outputColorSpace: THREE.SRGBColorSpace,
+            powerPreference: 'high-performance',
           }}
           onPointerMissed={() => setSelectedFurId(null)}
           dpr={dpr}
         >
+          {/* Drop resolution during interaction, restore at rest */}
+          <AdaptiveDpr />
+          <AdaptiveEvents />
           <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
           <fog attach="fog" args={["#E8E4DC", 12, 30]} />
 

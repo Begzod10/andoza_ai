@@ -30,11 +30,13 @@ function makeCanvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D]
   return [c, ctx]
 }
 
-function canvasToTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+function canvasToTexture(canvas: HTMLCanvasElement, linear = false): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
-  tex.colorSpace = THREE.SRGBColorSpace
+  // Only color (albedo) maps are sRGB; data maps (roughness, normal, AO)
+  // must stay linear or the renderer decodes them wrongly (washed materials).
+  tex.colorSpace = linear ? THREE.NoColorSpace : THREE.SRGBColorSpace
   tex.anisotropy = 8
   return tex
 }
@@ -128,7 +130,7 @@ function drawParquetRoughness(size: number): THREE.CanvasTexture {
   ctx.fillStyle = '#888888'
   ctx.fillRect(0, 0, size, size)
   addGrain(ctx, size, 0.15)
-  return canvasToTexture(c)
+  return canvasToTexture(c, true)
 }
 
 function drawParquetHerringboneMap(size: number): THREE.CanvasTexture {
@@ -192,7 +194,7 @@ function drawTileCeramicRoughness(size: number): THREE.CanvasTexture {
       ctx.fillRect(col * tileSize + 1, row * tileSize + 1, tileSize - 3, tileSize - 3)
     }
   }
-  return canvasToTexture(c)
+  return canvasToTexture(c, true)
 }
 
 function drawTileMarbleMap(size: number): THREE.CanvasTexture {
@@ -233,7 +235,7 @@ function drawPlasterRoughness(size: number): THREE.CanvasTexture {
   ctx.fillStyle = '#AAAAAA'
   ctx.fillRect(0, 0, size, size)
   addGrain(ctx, size, 0.3)
-  return canvasToTexture(c)
+  return canvasToTexture(c, true)
 }
 
 function drawConcreteMap(size: number): THREE.CanvasTexture {
@@ -264,7 +266,7 @@ function drawPaintRoughness(size: number): THREE.CanvasTexture {
   ctx.fillStyle = '#BBBBBB'
   ctx.fillRect(0, 0, size, size)
   addGrain(ctx, size, 0.08)
-  return canvasToTexture(c)
+  return canvasToTexture(c, true)
 }
 
 // ─── Height-map drawers for normal-map generation ────────────────────────────
