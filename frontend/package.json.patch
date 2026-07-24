@@ -1,0 +1,11 @@
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -10,6 +10,8 @@
+     "build": "vite build",
+     "preview": "vite preview",
+     "test": "vitest",
++    "test:coverage": "vitest --coverage",
++    "test:ui": "vitest --ui",
+     "lint": "eslint . --ext .ts,.tsx",
+     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\""
+   },
