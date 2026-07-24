@@ -876,25 +876,30 @@ function WindowPanes({
 
 // ─── Baseboard trim ────────────────────────────────────────────────────────────
 
-/** Returns (centerLocal, segLen) pairs in meters, skipping door openings. */
+/** Returns (centerLocal, segLen) pairs in meters, skipping floor-level openings. */
 function boardSegments(
   wallLenM: number,
   elements: WallElement[],
 ): Array<{ center: number; len: number }> {
   const wallLenMm = wallLenM * 1000;
+  const BOARD_H_MM = 100; // keep in sync with Baseboard h = 0.1
   const resolved = resolveElementPositions(elements, wallLenMm);
-  const doors = resolved.filter(e => e.type === 'eshik').sort((a, b) => a.position - b.position);
+  // The board must break at ANY opening that reaches the floor: doors,
+  // balcony doors, and floor-to-ceiling windows (sill below board height).
+  const cuts = resolved
+    .filter(e => (e.sill_height ?? 0) < BOARD_H_MM)
+    .sort((a, b) => a.position - b.position);
 
-  if (doors.length === 0) return [{ center: 0, len: wallLenM }];
+  if (cuts.length === 0) return [{ center: 0, len: wallLenM }];
 
   const segs: Array<{ center: number; len: number }> = [];
   let cursor = 0;
-  for (const door of doors) {
-    if (door.position > cursor) {
-      const lenMm = door.position - cursor;
-      segs.push({ center: ((cursor + door.position) / 2 - wallLenMm / 2) / 1000, len: lenMm / 1000 });
+  for (const cut of cuts) {
+    if (cut.position > cursor) {
+      const lenMm = cut.position - cursor;
+      segs.push({ center: ((cursor + cut.position) / 2 - wallLenMm / 2) / 1000, len: lenMm / 1000 });
     }
-    cursor = door.position + door.width;
+    cursor = Math.max(cursor, cut.position + cut.width);
   }
   if (cursor < wallLenMm) {
     segs.push({ center: ((cursor + wallLenMm) / 2 - wallLenMm / 2) / 1000, len: (wallLenMm - cursor) / 1000 });
