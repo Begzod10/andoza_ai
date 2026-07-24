@@ -11,7 +11,6 @@ type ConverterState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error'
 export function Image3DConverter({ onModelReady, onError }: Image3DConverterProps) {
   const [state, setState] = useState<ConverterState>('idle')
   const [imageUrl, setImageUrl] = useState('')
-  const [taskId, setTaskId] = useState('')
   const [result, setResult] = useState<ConvertImageTo3DResponse | null>(null)
   const [error, setError] = useState('')
 
