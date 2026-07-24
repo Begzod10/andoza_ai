@@ -34,6 +34,7 @@ import {
   WallFade, WallBody, WallTopRim, CornerPosts, FloorSlab,
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
+import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 
@@ -3105,6 +3106,13 @@ export default function ThreeDPage() {
         </div>
 
         {/* Canvas area */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
+        {isMebelTab && (
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+            <MebelPlanView />
+          </div>
+        )}
         <div className="flex-1 min-h-0 relative">
 
           {/* Hint overlay — bottom-left of canvas */}
@@ -3279,6 +3287,7 @@ export default function ThreeDPage() {
             />
           </Suspense>
         </Canvas>
+        </div>
         </div>
       </div>
 
