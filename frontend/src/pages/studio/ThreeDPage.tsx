@@ -2321,9 +2321,9 @@ export function RoomScene({
           />
 
           {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera */}
-          <mesh ref={ceilingRef} position={[0, H + 0.025, 0]} castShadow receiveShadow>
-            <boxGeometry args={[W, 0.05, D]} />
-            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} />
+          <mesh ref={ceilingRef} position={[0, H + 0.001, 0]} castShadow receiveShadow>
+            <planeGeometry args={[W + 2 * T, D + 2 * T]} />
+            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} />
           </mesh>
 
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
@@ -2920,10 +2920,10 @@ export default function ThreeDPage() {
       <div
         className={[
           /* mobile base */
-          'fixed bottom-0 left-0 right-0 z-50 max-h-[72vh] rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out',
+          'fixed bottom-0 left-0 right-0 z-50 max-h-[72vh] rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden',
           showPanel ? 'translate-y-0' : 'translate-y-full',
           /* desktop override */
-          'lg:static lg:translate-y-0 lg:max-h-none lg:h-full lg:rounded-none lg:shadow-none lg:z-auto',
+          'lg:static lg:translate-y-0 lg:max-h-none lg:h-full lg:rounded-none lg:shadow-none lg:z-auto lg:overflow-auto',
         ].join(' ')}
       >
         {/* Mobile drag handle */}
