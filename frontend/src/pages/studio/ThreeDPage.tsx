@@ -25,9 +25,9 @@ import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
-import { getRooms } from "@/lib/api";
+import { getRooms, deleteRoom } from "@/lib/api";
 import type { Room } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   WallFade, WallBody, WallTopRim, CornerPosts, FloorSlab,
   useHiddenWalls, type CutawayMode,
@@ -1603,6 +1603,23 @@ const SIBLING_LABEL_STYLE: React.CSSProperties = {
   boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
 };
 
+const SIBLING_DELETE_STYLE: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  border: '1px solid #FECACA',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#DC2626',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1,
+  cursor: 'pointer',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
 function roomFootprint(r: Room, activeId: string, activeW: number, activeD: number): { w: number; d: number } {
   if (r.id === activeId) return { w: activeW, d: activeD };
   const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
@@ -1653,6 +1670,7 @@ function SiblingRooms({
   activeD,
   activePos,
   onOpen,
+  onDelete,
 }: {
   rooms: Room[];
   activeId: string;
@@ -1660,6 +1678,7 @@ function SiblingRooms({
   activeD: number;
   activePos: { x: number; z: number } | null;
   onOpen: (roomId: string) => void;
+  onDelete: (roomId: string, name: string) => void;
 }) {
   const layout = useMemo(() => {
     if (rooms.length < 2) return [];
@@ -1704,9 +1723,18 @@ function SiblingRooms({
               </mesh>
             ))}
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
-              <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">
-                {sib.name} ↗
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">
+                  {sib.name} ↗
+                </button>
+                <button
+                  style={SIBLING_DELETE_STYLE}
+                  onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
+                  title="Xonani o'chirish"
+                >
+                  ✕
+                </button>
+              </div>
             </Html>
           </group>
         );
@@ -2766,12 +2794,23 @@ export default function ThreeDPage() {
   // Sibling rooms for the top-view floor plan (fetched outside the Canvas —
   // contexts don't bridge into the R3F tree)
   const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
+  const queryClient = useQueryClient();
   const { data: aptRooms } = useQuery({
     queryKey: ['apt-rooms', aptId],
     queryFn: () => getRooms(aptId!),
     enabled: topView && !!aptId,
     staleTime: 5_000,
   });
+
+  async function handleDeleteSibling(id: string, name: string) {
+    if (!window.confirm(`"${name}" xonasini o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+    try {
+      await deleteRoom(id);
+      queryClient.invalidateQueries({ queryKey: ['apt-rooms', aptId] });
+    } catch (err) {
+      alert("Xonani o'chirib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
+    }
+  }
 
   // Backfill: legacy rooms have no stored position. Assign this room its slot
   // in the shared absolute frame so the "+ add room" anchor math and the
@@ -3181,6 +3220,7 @@ export default function ThreeDPage() {
                   try { await onSave(); } catch { /* offline — switch anyway */ }
                   navigate(`/studio/${id}`);
                 }}
+                onDelete={handleDeleteSibling}
               />
             )}
             <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} />
