@@ -14,7 +14,7 @@ import {
   RoundedBox,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { DesignPanel } from "@/components/studio/DesignPanel";
@@ -2779,7 +2779,9 @@ export default function ThreeDPage() {
   const furniture = useRoomStore((s) => s.furniture);
   const moveFurniture = useRoomStore((s) => s.moveFurniture);
   const activeLayoutPos = useRoomStore((s) => s.layoutPos);
-  const [activePhase, setActivePhase] = useState<PhaseKey>('boyoq');
+  // The Mebelirovka tab opens the same editor pre-set to the furnishing phase
+  const isMebelTab = useLocation().pathname.endsWith('/mebel');
+  const [activePhase, setActivePhase] = useState<PhaseKey>(isMebelTab ? 'mebel' : 'boyoq');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);

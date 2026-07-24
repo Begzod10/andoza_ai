@@ -11,6 +11,7 @@ import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 function StudioNav({ roomId }: { roomId: string }) {
   const navItems = [
     { to: `/studio/${roomId}/ichkarida`, label: "3D" },
+    { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
     { to: `/studio/${roomId}/elektr`, label: "Elektr" },
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
