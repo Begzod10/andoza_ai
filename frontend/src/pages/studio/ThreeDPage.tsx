@@ -20,6 +20,8 @@ import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
+import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -2782,6 +2784,8 @@ export default function ThreeDPage() {
   // The Mebelirovka tab opens the same editor pre-set to the furnishing phase
   const isMebelTab = useLocation().pathname.endsWith('/mebel');
   const [activePhase, setActivePhase] = useState<PhaseKey>(isMebelTab ? 'mebel' : 'boyoq');
+  // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
+  const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
@@ -3108,6 +3112,28 @@ export default function ThreeDPage() {
             Drag: aylantirish · Scroll: zoom
           </p>
 
+          {/* Mebelirovka quick actions — doors/windows editor + 3D model import */}
+          {isMebelTab && (
+            <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+              <button
+                onClick={() => setElementsSheetOpen(true)}
+                title="Eshik va derazalarni qo'shish yoki tahrirlash"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/95 border border-gray-200 shadow-md text-[12px] font-semibold text-gray-700 hover:bg-white transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="3" width="9" height="18" rx="1" />
+                  <circle cx="10.5" cy="12" r="0.8" fill="currentColor" />
+                  <rect x="16" y="6" width="5" height="7" rx="0.5" />
+                  <path d="M18.5 6v7M16 9.5h5" />
+                </svg>
+                Eshik / Deraza
+              </button>
+              <div className="[&>button]:w-full">
+                <ModelImportButton compact />
+              </div>
+            </div>
+          )}
+
           {/* Bottom CTA */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
             <button
@@ -3287,6 +3313,7 @@ export default function ThreeDPage() {
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
+      <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
       <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
     </div>
   );
