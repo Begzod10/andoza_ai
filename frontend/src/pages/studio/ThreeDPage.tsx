@@ -28,6 +28,10 @@ import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
 import { getRooms } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import {
+  WallFade, WallBody, WallTopRim, CornerPosts, FloorSlab,
+  useHiddenWalls, type CutawayMode,
+} from "@/features/studio/diorama";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 
@@ -814,10 +818,12 @@ function WindowPanes({
   geometry,
   wallWidth,
   wallDepth,
+  hiddenWalls,
 }: {
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
+  hiddenWalls?: ReadonlySet<string>;
 }) {
   const panes: React.ReactElement[] = [];
   const s = 1 / 1000;
@@ -830,6 +836,7 @@ function WindowPanes({
   ];
 
   for (const wd of wallDefs) {
+    if (hiddenWalls?.has(wd.id)) continue;
     const wall = geometry.walls.find((w) => w.id === wd.id);
     if (!wall) continue;
 
@@ -892,7 +899,7 @@ function boardSegments(
   return segs;
 }
 
-function Baseboard({ width, depth, geometry }: { width: number; depth: number; geometry: RoomGeometry }) {
+function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; depth: number; geometry: RoomGeometry; hiddenWalls?: ReadonlySet<string> }) {
   const h = 0.1;
   const t = 0.02;
   const color = "#E0D8CC";
@@ -910,22 +917,22 @@ function Baseboard({ width, depth, geometry }: { width: number; depth: number; g
   const mat = <meshStandardMaterial color={color} roughness={0.7} />;
   return (
     <group>
-      {segsA.map((s, i) => (
+      {!hiddenWalls?.has('A') && segsA.map((s, i) => (
         <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.001]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
-      {segsC.map((s, i) => (
+      {!hiddenWalls?.has('C') && segsC.map((s, i) => (
         <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.001]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
-      {segsB.map((s, i) => (
+      {!hiddenWalls?.has('B') && segsB.map((s, i) => (
         <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.001, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
-      {segsD.map((s, i) => (
+      {!hiddenWalls?.has('D') && segsD.map((s, i) => (
         <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.001, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
@@ -2345,6 +2352,7 @@ export function RoomScene({
   composerActive,
   highQuality,
   lightsOn,
+  cutaway = 'off',
   selectedWall,
   onWallClick,
   isFloorSelected,
@@ -2358,6 +2366,7 @@ export function RoomScene({
   composerActive: boolean;
   highQuality: boolean;
   lightsOn: boolean;
+  cutaway?: CutawayMode;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
@@ -2440,13 +2449,22 @@ export function RoomScene({
 
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
+  // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
+  const hiddenWalls = useHiddenWalls(cutaway)
+  const cutawayOn = cutaway !== 'off'
+
+  // Resolved wall elements (mm) for the solid wall bodies
+  const bodyElsA = useMemo(() => resolveElementPositions(wallA?.elements ?? [], W * 1000), [wallA?.elements, W])
+  const bodyElsC = useMemo(() => resolveElementPositions(wallC?.elements ?? [], W * 1000), [wallC?.elements, W])
+
   // In topView the camera must see through the ceiling, but the ceiling box must still
   // block the directional sun (shadow map). Move it to layer 2 so the main camera
   // ignores it while the sun's shadow camera (which has layer 2 enabled) still sees it.
+  // The cutaway diorama is an open box, so the ceiling hides there too.
   useLayoutEffect(() => {
     if (!ceilingRef.current) return
-    ceilingRef.current.layers.set(topView ? 2 : 0)
-  }, [topView])
+    ceilingRef.current.layers.set(topView || cutawayOn ? 2 : 0)
+  }, [topView, cutawayOn])
 
   return (
     <group>
@@ -2467,32 +2485,62 @@ export function RoomScene({
           </mesh>
 
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
-          <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
-            elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
-            isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
-            panelSettings={panelsA} />
+          <WallFade hidden={hiddenWalls.has('A')}>
+            <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
+              elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
+              isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
+              panelSettings={panelsA} />
+            {cutawayOn && <>
+              <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />
+              <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />
+            </>}
+          </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
-          <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
-            elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
-            isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
-            panelSettings={panelsB} />
+          <WallFade hidden={hiddenWalls.has('B')}>
+            <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
+              elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
+              isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
+              panelSettings={panelsB} />
+            {cutawayOn && <>
+              <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} elements={elementsBOuter} />
+              <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />
+            </>}
+          </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
-          <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
-            elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
-            isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
-            panelSettings={panelsC} />
+          <WallFade hidden={hiddenWalls.has('C')}>
+            <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
+              elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
+              isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
+              panelSettings={panelsC} />
+            {cutawayOn && <>
+              <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} elements={bodyElsC} />
+              <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />
+            </>}
+          </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
-          <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
-            elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
-            isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
-            panelSettings={panelsD} />
+          <WallFade hidden={hiddenWalls.has('D')}>
+            <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
+              elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
+              isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
+              panelSettings={panelsD} />
+            {cutawayOn && <>
+              <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} elements={elementsDOuter} />
+              <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />
+            </>}
+          </WallFade>
 
-          <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} />
-          <Baseboard width={W} depth={D} geometry={geometry} />
+          <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
+          <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
           <CornerShadows width={W} depth={D} composerActive={composerActive} />
+
+          {/* Diorama frame: floating slab + corner posts outlining the box */}
+          {cutawayOn && <>
+            <FloorSlab W={W} D={D} T={T} />
+            <CornerPosts W={W} D={D} T={T} H={H} />
+          </>}
         </>
       ) : (
         /* N-wall polygon room — only available when geometry.vertices is set */
@@ -2697,6 +2745,7 @@ export default function ThreeDPage() {
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [lightsOn, setLightsOn] = useState(true);
   const [sceneLightOn, setSceneLightOn] = useState(true);
+  const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
@@ -2736,10 +2785,21 @@ export default function ThreeDPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aptRooms, room.id]);
 
-  const cam = useMemo(
-    () => getCamera(preset, W, D, H),
-    [preset, W, D, H],
-  );
+  const cam = useMemo(() => {
+    // Cutaway modes view the room from OUTSIDE as a three-quarter product shot
+    if (cutaway !== 'off' && preset !== 'top') {
+      return {
+        position: [W * 0.9 + 2.5, H * 1.8, D * 0.9 + 2.5] as [number, number, number],
+        target: [0, H * 0.32, 0] as [number, number, number],
+      };
+    }
+    return getCamera(preset, W, D, H);
+  }, [preset, cutaway, W, D, H]);
+
+  // Re-trigger the camera animation when the cutaway mode changes
+  useEffect(() => {
+    setPresetVersion((n) => n + 1);
+  }, [cutaway]);
 
   // Limit orbit radius to shorter room dimension so camera stays inside
   const interiorMaxDist = Math.min(W, D) * 0.85;
@@ -2920,6 +2980,28 @@ export default function ThreeDPage() {
                 </form>
               )
             })()}
+            {/* Cutaway mode: interior → auto cutaway → fixed diorama */}
+            <button
+              onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
+              title={
+                cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                : "Ichki ko'rinishga qaytish"
+              }
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                cutaway !== 'off'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+                <path d="M3 8l9 5 9-5M12 13v9" />
+              </svg>
+              <span className="hidden sm:inline">
+                {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
+              </span>
+            </button>
             {/* Scene light (sun + environment) toggle */}
             <button
               onClick={() => setSceneLightOn(v => !v)}
@@ -3073,6 +3155,7 @@ export default function ThreeDPage() {
               composerActive={useComposer}
               highQuality={highQuality3d}
               lightsOn={lightsOn}
+              cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
               onWallClick={(id) => {
                 setSelectedWall(id);
@@ -3112,11 +3195,11 @@ export default function ThreeDPage() {
               enableDamping
               dampingFactor={0.06}
               enablePan={false}
-              minDistance={topView ? topMinDist : 0.25}
-              maxDistance={topView ? Math.max(W, D) * 4 : interiorMaxDist}
-              maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
+              minDistance={topView ? topMinDist : cutaway !== 'off' ? 2 : 0.25}
+              maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
+              maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : -0.45}
+              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : -0.45}
               zoomSpeed={0.8}
             />
 
