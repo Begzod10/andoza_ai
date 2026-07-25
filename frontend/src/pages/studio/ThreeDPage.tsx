@@ -1120,22 +1120,22 @@ function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; dep
   return (
     <group>
       {!hiddenWalls?.has('A') && segsA.map((s, i) => (
-        <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.003]}>
+        <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.006]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('C') && segsC.map((s, i) => (
-        <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.003]}>
+        <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.006]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('B') && segsB.map((s, i) => (
-        <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.003, h / 2, s.center]}>
+        <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.006, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('D') && segsD.map((s, i) => (
-        <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.003, h / 2, s.center]}>
+        <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.006, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
