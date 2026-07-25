@@ -2553,9 +2553,9 @@ function NWallRoomShell({
         />
       </mesh>
 
-      {/* Ceiling — same shape, flipped */}
-      <mesh geometry={floorGeo} rotation={[Math.PI / 2, 0, 0]} position={[0, H, 0]} castShadow>
-        <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} />
+      {/* Ceiling — same shape, flipped; offset slightly to avoid edge seams */}
+      <mesh geometry={floorGeo} rotation={[Math.PI / 2, 0, 0]} position={[0, H + 0.001, 0]} castShadow>
+        <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} flatShading={true} />
       </mesh>
 
       {/* One wall box per polygon edge */}
