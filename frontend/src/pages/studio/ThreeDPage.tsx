@@ -1641,8 +1641,8 @@ export function SceneLighting({
   return (
     <>
       {/* Neutral white ambient lighting — no shadows or directional effects */}
-      <ambientLight color="#FFFFFF" intensity={1.2} />
-      <hemisphereLight color="#FFFFFF" groundColor="#FFFFFF" intensity={0.3} />
+      <ambientLight color="#FFFFFF" intensity={0.65} />
+      <hemisphereLight color="#FFFFFF" groundColor="#FFFFFF" intensity={0.65} />
     </>
   );
 }
