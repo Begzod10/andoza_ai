@@ -2839,17 +2839,20 @@ export default function ThreeDPage() {
     return getCamera(preset, W, D, H);
   }, [preset, cutaway, W, D, H]);
 
-  // Re-trigger the camera animation when the cutaway mode changes
+  // Recenter the camera on the room's centre when the cutaway mode changes or
+  // a DIFFERENT room loads (switching rooms only changes the :roomId param —
+  // the page does not remount, so pan/orbit drift would otherwise carry over).
+  // Skips the mount pass: the initial framing comes from initCam, not an
+  // animation.
+  const camKeyRef = useRef<{ roomId: string; cutaway: CutawayMode } | null>(null);
   useEffect(() => {
-    setPresetVersion((n) => n + 1);
-  }, [cutaway]);
-
-  // Recenter the orbit pivot on the room's centre whenever a different room
-  // loads (switching rooms only changes the :roomId param — the page does NOT
-  // remount, so pan/orbit drift would otherwise carry over to the new room)
-  useEffect(() => {
-    setPresetVersion((n) => n + 1);
-  }, [room.id]);
+    const prev = camKeyRef.current;
+    camKeyRef.current = { roomId: room.id, cutaway };
+    if (!prev) return;
+    if (prev.roomId !== room.id || prev.cutaway !== cutaway) {
+      setPresetVersion((n) => n + 1);
+    }
+  }, [room.id, cutaway]);
 
   // Limit orbit radius to shorter room dimension so camera stays inside
   const interiorMaxDist = Math.min(W, D) * 0.85;
@@ -3030,6 +3033,18 @@ export default function ThreeDPage() {
                 </form>
               )
             })()}
+            {/* Recenter: snap the orbit pivot back to the room centre */}
+            <button
+              onClick={() => setPresetVersion(n => n + 1)}
+              title="Markazlash — kamerani xona markaziga qaytarish"
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+              </svg>
+              <span className="hidden sm:inline">Markaz</span>
+            </button>
             {/* Cutaway mode: interior → auto cutaway → fixed diorama */}
             <button
               onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
