@@ -137,6 +137,11 @@ const routes: RouteObject[] = [
         element: withSuspense(<ThreeDPage />),
       },
       {
+        // Same editor, opened in the furnishing phase (Mebelirovka tab)
+        path: "mebel",
+        element: withSuspense(<ThreeDPage />),
+      },
+      {
         path: "elektr",
         element: withSuspense(<PlacementPage />),
       },

@@ -7,7 +7,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.database import get_db
 from app.api.v1.deps import get_current_user
 from app.models import User
 from app.services.meshy import MeshyError, get_meshy_client

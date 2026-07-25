@@ -6,26 +6,52 @@ import {
   ContactShadows,
   SoftShadows,
   PerformanceMonitor,
+  AdaptiveDpr,
+  AdaptiveEvents,
   Html,
   useGLTF,
   Grid,
   RoundedBox,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
+import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
+import { getRooms, deleteRoom } from "@/lib/api";
 import type { Room } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  WallFade, WallBody, WallTopRim, CornerPosts, FloorSlab,
+  useHiddenWalls, type CutawayMode,
+} from "@/features/studio/diorama";
+import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
+
+// Explicit (default-on since three r152, but pinned here so a future three
+// upgrade can't silently regress the color pipeline)
+THREE.ColorManagement.enabled = true;
+
+// Dev-only: expose the live scene graph for debugging / smoke checks
+function DevSceneHandle() {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__scene = scene;
+    }
+  }, [scene]);
+  return null;
+}
 
 // ─── Postprocessing — N8AO ambient occlusion + SMAA anti-alias ───────────────
 // Mounted only when highQuality3d && declineCount < 2.
@@ -806,10 +832,12 @@ function WindowPanes({
   geometry,
   wallWidth,
   wallDepth,
+  hiddenWalls,
 }: {
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
+  hiddenWalls?: ReadonlySet<string>;
 }) {
   const panes: React.ReactElement[] = [];
   const s = 1 / 1000;
@@ -822,6 +850,7 @@ function WindowPanes({
   ];
 
   for (const wd of wallDefs) {
+    if (hiddenWalls?.has(wd.id)) continue;
     const wall = geometry.walls.find((w) => w.id === wd.id);
     if (!wall) continue;
 
@@ -840,7 +869,7 @@ function WindowPanes({
       const pD = wd.axis === "Z" ? elW : 0.02;
 
       panes.push(
-        <mesh key={`${wd.id}-${el.position}`} position={[px, elY, pz]}>
+        <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
           <boxGeometry args={[pW, elH, pD]} />
           <meshPhysicalMaterial
             color="#B0CCE0"
@@ -858,25 +887,30 @@ function WindowPanes({
 
 // ─── Baseboard trim ────────────────────────────────────────────────────────────
 
-/** Returns (centerLocal, segLen) pairs in meters, skipping door openings. */
+/** Returns (centerLocal, segLen) pairs in meters, skipping floor-level openings. */
 function boardSegments(
   wallLenM: number,
   elements: WallElement[],
 ): Array<{ center: number; len: number }> {
   const wallLenMm = wallLenM * 1000;
+  const BOARD_H_MM = 100; // keep in sync with Baseboard h = 0.1
   const resolved = resolveElementPositions(elements, wallLenMm);
-  const doors = resolved.filter(e => e.type === 'eshik').sort((a, b) => a.position - b.position);
+  // The board must break at ANY opening that reaches the floor: doors,
+  // balcony doors, and floor-to-ceiling windows (sill below board height).
+  const cuts = resolved
+    .filter(e => (e.sill_height ?? 0) < BOARD_H_MM)
+    .sort((a, b) => a.position - b.position);
 
-  if (doors.length === 0) return [{ center: 0, len: wallLenM }];
+  if (cuts.length === 0) return [{ center: 0, len: wallLenM }];
 
   const segs: Array<{ center: number; len: number }> = [];
   let cursor = 0;
-  for (const door of doors) {
-    if (door.position > cursor) {
-      const lenMm = door.position - cursor;
-      segs.push({ center: ((cursor + door.position) / 2 - wallLenMm / 2) / 1000, len: lenMm / 1000 });
+  for (const cut of cuts) {
+    if (cut.position > cursor) {
+      const lenMm = cut.position - cursor;
+      segs.push({ center: ((cursor + cut.position) / 2 - wallLenMm / 2) / 1000, len: lenMm / 1000 });
     }
-    cursor = door.position + door.width;
+    cursor = Math.max(cursor, cut.position + cut.width);
   }
   if (cursor < wallLenMm) {
     segs.push({ center: ((cursor + wallLenMm) / 2 - wallLenMm / 2) / 1000, len: (wallLenMm - cursor) / 1000 });
@@ -884,7 +918,7 @@ function boardSegments(
   return segs;
 }
 
-function Baseboard({ width, depth, geometry }: { width: number; depth: number; geometry: RoomGeometry }) {
+function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; depth: number; geometry: RoomGeometry; hiddenWalls?: ReadonlySet<string> }) {
   const h = 0.1;
   const t = 0.02;
   const color = "#E0D8CC";
@@ -902,22 +936,22 @@ function Baseboard({ width, depth, geometry }: { width: number; depth: number; g
   const mat = <meshStandardMaterial color={color} roughness={0.7} />;
   return (
     <group>
-      {segsA.map((s, i) => (
+      {!hiddenWalls?.has('A') && segsA.map((s, i) => (
         <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.001]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
-      {segsC.map((s, i) => (
+      {!hiddenWalls?.has('C') && segsC.map((s, i) => (
         <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.001]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
-      {segsB.map((s, i) => (
+      {!hiddenWalls?.has('B') && segsB.map((s, i) => (
         <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.001, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
-      {segsD.map((s, i) => (
+      {!hiddenWalls?.has('D') && segsD.map((s, i) => (
         <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.001, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
@@ -1539,11 +1573,13 @@ const ADD_ROOM_BTN_STYLE: React.CSSProperties = {
   lineHeight: 1,
 };
 
-function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H: number; onAdd: () => void; disabled?: boolean }) {
+export type RoomSide = 'north' | 'south' | 'east' | 'west';
+
+function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean }) {
   const btnY = H * 0.5;
   const gap = 1.5;
 
-  const sides: { key: string; pos: [number, number, number] }[] = [
+  const sides: { key: RoomSide; pos: [number, number, number] }[] = [
     { key: 'north', pos: [0,             btnY, -(D / 2 + gap)] },
     { key: 'south', pos: [0,             btnY,  D / 2 + gap]   },
     { key: 'east',  pos: [ W / 2 + gap,  btnY, 0]              },
@@ -1556,7 +1592,7 @@ function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H:
         <Html key={key} position={pos} center zIndexRange={[100, 0]}>
           <button
             style={{ ...ADD_ROOM_BTN_STYLE, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'wait' : 'pointer' }}
-            onClick={onAdd}
+            onClick={() => onAdd(key)}
             disabled={disabled}
             title="Xona qo'shish"
           >
@@ -1564,6 +1600,164 @@ function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H:
           </button>
         </Html>
       ))}
+    </>
+  );
+}
+
+// ─── Sibling rooms (top view floor plan) ──────────────────────────────────────
+// Renders the apartment's other rooms as flat clickable outlines beside the
+// active room. Data and navigation come in as props: router/query contexts
+// don't bridge into the R3F Canvas tree.
+
+const SIBLING_LABEL_STYLE: React.CSSProperties = {
+  padding: '4px 12px',
+  borderRadius: 999,
+  border: '1px solid #E5E0D5',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#4A4438',
+  fontSize: 12,
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+};
+
+const SIBLING_DELETE_STYLE: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  border: '1px solid #FECACA',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#DC2626',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1,
+  cursor: 'pointer',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+function roomFootprint(r: Room, activeId: string, activeW: number, activeD: number): { w: number; d: number } {
+  if (r.id === activeId) return { w: activeW, d: activeD };
+  const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
+  const wallA = r.geometry?.walls?.find((w) => w.id === 'A');
+  return { w: wallB?.length ?? 3, d: wallA?.length ?? 4 };
+}
+
+function roomLayoutPos(r: Room | undefined): { x: number; z: number } | undefined {
+  const p = (r?.state as { layoutPos?: { x: number; z: number } } | null | undefined)?.layoutPos;
+  return p && Number.isFinite(p.x) && Number.isFinite(p.z) ? p : undefined;
+}
+
+/**
+ * Absolute apartment position for every room, in ONE shared frame:
+ * rooms with a stored layoutPos use it verbatim; legacy rooms (no position)
+ * form a row along X with the first of them at the origin — the same origin
+ * the "+ add room" flow assumes for unpositioned anchors.
+ */
+function computeAbsolutePositions(
+  rooms: Room[],
+  activeId: string,
+  activeW: number,
+  activeD: number,
+): Map<string, { x: number; z: number }> {
+  const GAP = 1.2;
+  const abs = new Map<string, { x: number; z: number }>();
+  let cursor = 0;
+  let originOffset: number | null = null;
+  for (const r of rooms) {
+    const stored = roomLayoutPos(r);
+    if (stored) {
+      abs.set(r.id, stored);
+      continue;
+    }
+    const { w } = roomFootprint(r, activeId, activeW, activeD);
+    const slot = cursor + w / 2;
+    cursor += w + GAP;
+    if (originOffset === null) originOffset = slot; // first legacy room = origin
+    abs.set(r.id, { x: slot - originOffset, z: 0 });
+  }
+  return abs;
+}
+
+function SiblingRooms({
+  rooms,
+  activeId,
+  activeW,
+  activeD,
+  activePos,
+  onOpen,
+  onDelete,
+}: {
+  rooms: Room[];
+  activeId: string;
+  activeW: number;
+  activeD: number;
+  activePos: { x: number; z: number } | null;
+  onOpen: (roomId: string) => void;
+  onDelete: (roomId: string, name: string) => void;
+}) {
+  const layout = useMemo(() => {
+    if (rooms.length < 2) return [];
+    const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+    // The view is centred on the active room — subtract its absolute position.
+    const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+    return rooms
+      .filter((r) => r.id !== activeId)
+      .map((r) => {
+        const { w, d } = roomFootprint(r, activeId, activeW, activeD);
+        const p = abs.get(r.id) ?? { x: 0, z: 0 };
+        return { room: r, w, d, x: p.x - anchor.x, z: p.z - anchor.z };
+      });
+  }, [rooms, activeId, activeW, activeD, activePos]);
+
+  return (
+    <>
+      {layout.map(({ room: sib, w, d, x, z }) => {
+        const open = () => onOpen(sib.id);
+        const h = sib.ceiling_h ?? 2.7;
+        const walls: Array<{ p: [number, number, number]; s: [number, number, number] }> = [
+          { p: [0, h / 2, -d / 2], s: [w + 0.08, h, 0.08] },
+          { p: [0, h / 2, d / 2], s: [w + 0.08, h, 0.08] },
+          { p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
+          { p: [w / 2, h / 2, 0], s: [0.08, h, d] },
+        ];
+        return (
+          <group key={sib.id} position={[x, 0, z]}>
+            <mesh
+              position={[0, 0.02, 0]}
+              onClick={(e) => { e.stopPropagation(); open(); }}
+              onPointerOver={() => { document.body.style.cursor = 'pointer'; }}
+              onPointerOut={() => { document.body.style.cursor = 'auto'; }}
+            >
+              <boxGeometry args={[w, 0.04, d]} />
+              <meshStandardMaterial color="#D9C9A8" transparent opacity={0.85} />
+            </mesh>
+            {walls.map((seg, i) => (
+              <mesh key={i} position={seg.p}>
+                <boxGeometry args={seg.s} />
+                <meshStandardMaterial color="#C9C2B4" transparent opacity={0.65} />
+              </mesh>
+            ))}
+            <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">
+                  {sib.name} ↗
+                </button>
+                <button
+                  style={SIBLING_DELETE_STYLE}
+                  onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
+                  title="Xonani o'chirish"
+                >
+                  ✕
+                </button>
+              </div>
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -2205,6 +2399,7 @@ export function RoomScene({
   composerActive,
   highQuality,
   lightsOn,
+  cutaway = 'off',
   selectedWall,
   onWallClick,
   isFloorSelected,
@@ -2218,6 +2413,7 @@ export function RoomScene({
   composerActive: boolean;
   highQuality: boolean;
   lightsOn: boolean;
+  cutaway?: CutawayMode;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
@@ -2300,13 +2496,22 @@ export function RoomScene({
 
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
+  // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
+  const hiddenWalls = useHiddenWalls(cutaway)
+  const cutawayOn = cutaway !== 'off'
+
+  // Resolved wall elements (mm) for the solid wall bodies
+  const bodyElsA = useMemo(() => resolveElementPositions(wallA?.elements ?? [], W * 1000), [wallA?.elements, W])
+  const bodyElsC = useMemo(() => resolveElementPositions(wallC?.elements ?? [], W * 1000), [wallC?.elements, W])
+
   // In topView the camera must see through the ceiling, but the ceiling box must still
   // block the directional sun (shadow map). Move it to layer 2 so the main camera
   // ignores it while the sun's shadow camera (which has layer 2 enabled) still sees it.
+  // The cutaway diorama is an open box, so the ceiling hides there too.
   useLayoutEffect(() => {
     if (!ceilingRef.current) return
-    ceilingRef.current.layers.set(topView ? 2 : 0)
-  }, [topView])
+    ceilingRef.current.layers.set(topView || cutawayOn ? 2 : 0)
+  }, [topView, cutawayOn])
 
   return (
     <group>
@@ -2327,32 +2532,54 @@ export function RoomScene({
           </mesh>
 
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
-          <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
-            elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
-            isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
-            panelSettings={panelsA} />
+          <WallFade hidden={hiddenWalls.has('A')}>
+            <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
+              elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
+              isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
+              panelSettings={panelsA} />
+            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />
+            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
+          </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
-          <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
-            elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
-            isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
-            panelSettings={panelsB} />
+          <WallFade hidden={hiddenWalls.has('B')}>
+            <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
+              elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
+              isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
+              panelSettings={panelsB} />
+            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} elements={elementsBOuter} />
+            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
+          </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
-          <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
-            elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
-            isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
-            panelSettings={panelsC} />
+          <WallFade hidden={hiddenWalls.has('C')}>
+            <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
+              elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
+              isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
+              panelSettings={panelsC} />
+            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} elements={bodyElsC} />
+            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
+          </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
-          <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
-            elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
-            isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
-            panelSettings={panelsD} />
+          <WallFade hidden={hiddenWalls.has('D')}>
+            <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
+              elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
+              isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
+              panelSettings={panelsD} />
+            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} elements={elementsDOuter} />
+            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
+          </WallFade>
 
-          <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} />
-          <Baseboard width={W} depth={D} geometry={geometry} />
+          <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
+          <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
           <CornerShadows width={W} depth={D} composerActive={composerActive} />
+
+          {/* Diorama frame: floating slab + corner posts outlining the box */}
+          {cutawayOn && <>
+            <FloorSlab W={W} D={D} T={T} />
+            <CornerPosts W={W} D={D} T={T} H={H} />
+          </>}
         </>
       ) : (
         /* N-wall polygon room — only available when geometry.vertices is set */
@@ -2509,17 +2736,35 @@ const RENO_STAGES: Array<{ key: PhaseKey; label: string }> = [
 
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
-  const { geometry, designState, highQuality3d } = useRoomStore();
+  const { geometry, designState, highQuality3d, resetRoom } = useRoomStore();
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
 
-  async function handleAddRoom() {
+  async function handleAddRoom(side: RoomSide) {
     if (addingRoom) return;
     setAddingRoom(true);
     try { await onSave(); } catch { /* continue even if save fails (offline mode) */ }
     setAddingRoom(false);
     const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
-    navigate(aptId ? `/wizard?apartmentId=${aptId}` : '/wizard');
+    // Anchor info for directional placement — captured before resetRoom clears it
+    const myPos = useRoomStore.getState().layoutPos ?? { x: 0, z: 0 };
+    // Clear the current room from the store (roomId, draftId, geometry, …).
+    // The wizard's handleSave() bails out when roomId is already set, so a
+    // stale roomId means the new room is never created via createRoom().
+    resetRoom();
+    if (aptId) {
+      const q = new URLSearchParams({
+        apartmentId: aptId,
+        side,
+        ax: String(myPos.x),
+        az: String(myPos.z),
+        aw: String(W),
+        ad: String(D),
+      });
+      navigate(`/wizard?${q.toString()}`);
+    } else {
+      navigate('/wizard');
+    }
   }
 
   // Fall back to geometry wall lengths when API room has width/length = 0
@@ -2538,11 +2783,18 @@ export default function ThreeDPage() {
   const useComposer = highQuality3d && declineCount < 2;
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [lightsOn, setLightsOn] = useState(true);
+  const [sceneLightOn, setSceneLightOn] = useState(true);
+  const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
   const moveFurniture = useRoomStore((s) => s.moveFurniture);
-  const [activePhase, setActivePhase] = useState<PhaseKey>('boyoq');
+  const activeLayoutPos = useRoomStore((s) => s.layoutPos);
+  // The Mebelirovka tab opens the same editor pre-set to the furnishing phase
+  const isMebelTab = useLocation().pathname.endsWith('/mebel');
+  const [activePhase, setActivePhase] = useState<PhaseKey>(isMebelTab ? 'mebel' : 'boyoq');
+  // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
+  const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
@@ -2553,10 +2805,65 @@ export default function ThreeDPage() {
 
 
   const topView = preset === "top";
-  const cam = useMemo(
-    () => getCamera(preset, W, D, H),
-    [preset, W, D, H],
-  );
+
+  // Sibling rooms for the top-view floor plan (fetched outside the Canvas —
+  // contexts don't bridge into the R3F tree)
+  const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
+  const queryClient = useQueryClient();
+  const { data: aptRooms } = useQuery({
+    queryKey: ['apt-rooms', aptId],
+    queryFn: () => getRooms(aptId!),
+    enabled: topView && !!aptId,
+    staleTime: 5_000,
+  });
+
+  async function handleDeleteSibling(id: string, name: string) {
+    if (!window.confirm(`"${name}" xonasini o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+    try {
+      await deleteRoom(id);
+      queryClient.invalidateQueries({ queryKey: ['apt-rooms', aptId] });
+    } catch (err) {
+      alert("Xonani o'chirib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
+    }
+  }
+
+  // Backfill: legacy rooms have no stored position. Assign this room its slot
+  // in the shared absolute frame so the "+ add room" anchor math and the
+  // sibling rendering agree; the next save persists it.
+  useEffect(() => {
+    if (!aptRooms) return;
+    const s = useRoomStore.getState();
+    if (s.layoutPos || s.roomId !== room.id) return;
+    const pos = computeAbsolutePositions(aptRooms, room.id, W, D).get(room.id);
+    if (pos) s.setLayoutPos(pos);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aptRooms, room.id]);
+
+  const cam = useMemo(() => {
+    // Cutaway modes view the room from OUTSIDE as a three-quarter product shot
+    if (cutaway !== 'off' && preset !== 'top') {
+      return {
+        position: [W * 0.9 + 2.5, H * 1.8, D * 0.9 + 2.5] as [number, number, number],
+        target: [0, H * 0.32, 0] as [number, number, number],
+      };
+    }
+    return getCamera(preset, W, D, H);
+  }, [preset, cutaway, W, D, H]);
+
+  // Recenter the camera on the room's centre when the cutaway mode changes or
+  // a DIFFERENT room loads (switching rooms only changes the :roomId param —
+  // the page does not remount, so pan/orbit drift would otherwise carry over).
+  // Skips the mount pass: the initial framing comes from initCam, not an
+  // animation.
+  const camKeyRef = useRef<{ roomId: string; cutaway: CutawayMode } | null>(null);
+  useEffect(() => {
+    const prev = camKeyRef.current;
+    camKeyRef.current = { roomId: room.id, cutaway };
+    if (!prev) return;
+    if (prev.roomId !== room.id || prev.cutaway !== cutaway) {
+      setPresetVersion((n) => n + 1);
+    }
+  }, [room.id, cutaway]);
 
   // Limit orbit radius to shorter room dimension so camera stays inside
   const interiorMaxDist = Math.min(W, D) * 0.85;
@@ -2737,6 +3044,56 @@ export default function ThreeDPage() {
                 </form>
               )
             })()}
+            {/* Recenter: snap the orbit pivot back to the room centre */}
+            <button
+              onClick={() => setPresetVersion(n => n + 1)}
+              title="Markazlash — kamerani xona markaziga qaytarish"
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+              </svg>
+              <span className="hidden sm:inline">Markaz</span>
+            </button>
+            {/* Cutaway mode: interior → auto cutaway → fixed diorama */}
+            <button
+              onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
+              title={
+                cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                : "Ichki ko'rinishga qaytish"
+              }
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                cutaway !== 'off'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+                <path d="M3 8l9 5 9-5M12 13v9" />
+              </svg>
+              <span className="hidden sm:inline">
+                {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
+              </span>
+            </button>
+            {/* Scene light (sun + environment) toggle */}
+            <button
+              onClick={() => setSceneLightOn(v => !v)}
+              title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                sceneLightOn
+                  ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
+                  : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+              <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
+            </button>
             <button
               onClick={() => setLightsOn(v => !v)}
               title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
@@ -2779,12 +3136,41 @@ export default function ThreeDPage() {
         </div>
 
         {/* Canvas area */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
+        {isMebelTab && (
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+            <MebelPlanView />
+          </div>
+        )}
         <div className="flex-1 min-h-0 relative">
 
           {/* Hint overlay — bottom-left of canvas */}
           <p className="absolute bottom-16 left-4 z-10 text-[10px] text-white/40 pointer-events-none select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,.5)' }}>
             Drag: aylantirish · Scroll: zoom
           </p>
+
+          {/* Mebelirovka quick actions — doors/windows editor + 3D model import */}
+          {isMebelTab && (
+            <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+              <button
+                onClick={() => setElementsSheetOpen(true)}
+                title="Eshik va derazalarni qo'shish yoki tahrirlash"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/95 border border-gray-200 shadow-md text-[12px] font-semibold text-gray-700 hover:bg-white transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="3" width="9" height="18" rx="1" />
+                  <circle cx="10.5" cy="12" r="0.8" fill="currentColor" />
+                  <rect x="16" y="6" width="5" height="7" rx="0.5" />
+                  <path d="M18.5 6v7M16 9.5h5" />
+                </svg>
+                Eshik / Deraza
+              </button>
+              <div className="[&>button]:w-full">
+                <ModelImportButton compact />
+              </div>
+            </div>
+          )}
 
           {/* Bottom CTA */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
@@ -2807,12 +3193,18 @@ export default function ThreeDPage() {
           gl={{
             antialias: true,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.1,
+            toneMappingExposure: 1.15,
+            outputColorSpace: THREE.SRGBColorSpace,
+            powerPreference: 'high-performance',
           }}
           onPointerMissed={() => setSelectedFurId(null)}
           dpr={dpr}
         >
-          <color attach="background" args={["#E8E4DC"]} />
+          {/* Drop resolution during interaction, restore at rest */}
+          <AdaptiveDpr />
+          <AdaptiveEvents />
+          <DevSceneHandle />
+          <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
           <fog attach="fog" args={["#E8E4DC", 12, 30]} />
 
           {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
@@ -2845,13 +3237,20 @@ export default function ThreeDPage() {
           />
 
           <Suspense fallback={null}>
-            <SceneLighting
-              width={W}
-              depth={D}
-              height={H}
-              highQuality={highQuality3d}
-            />
-            <Environment preset="apartment" environmentIntensity={0.35} />
+            {sceneLightOn && (
+              <>
+                <SceneLighting
+                  width={W}
+                  depth={D}
+                  height={H}
+                  highQuality={highQuality3d}
+                />
+                <Environment preset="apartment" environmentIntensity={0.35} />
+              </>
+            )}
+            {/* Scene light off: barely-visible ambient so the room stays navigable;
+                the room's own lamps (lightsOn) become the dominant light source */}
+            {!sceneLightOn && <ambientLight intensity={0.08} color="#8090B0" />}
 
             <RoomScene
               room={room}
@@ -2862,6 +3261,7 @@ export default function ThreeDPage() {
               composerActive={useComposer}
               highQuality={highQuality3d}
               lightsOn={lightsOn}
+              cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
               onWallClick={(id) => {
                 setSelectedWall(id);
@@ -2875,6 +3275,21 @@ export default function ThreeDPage() {
             />
             <SwapButtons W={W} D={D} H={H} />
             {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}
+            {topView && aptRooms && (
+              <SiblingRooms
+                rooms={aptRooms}
+                activeId={room.id}
+                activeW={W}
+                activeD={D}
+                activePos={activeLayoutPos}
+                onOpen={async (id) => {
+                  // Persist the current room before switching so edits survive
+                  try { await onSave(); } catch { /* offline — switch anyway */ }
+                  navigate(`/studio/${id}`);
+                }}
+                onDelete={handleDeleteSibling}
+              />
+            )}
             <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
             <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} />
@@ -2886,12 +3301,19 @@ export default function ThreeDPage() {
               target={initCam.target}
               enableDamping
               dampingFactor={0.06}
-              enablePan={false}
-              minDistance={topView ? topMinDist : 0.25}
-              maxDistance={topView ? Math.max(W, D) * 4 : interiorMaxDist}
-              maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
+              enablePan
+              panSpeed={0.9}
+              screenSpacePanning
+              mouseButtons={{
+                LEFT: THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.PAN,
+                RIGHT: THREE.MOUSE.PAN,
+              }}
+              minDistance={topView ? topMinDist : cutaway !== 'off' ? 2 : 0.25}
+              maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
+              maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : -0.45}
+              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : -0.45}
               zoomSpeed={0.8}
             />
 
@@ -2903,6 +3325,7 @@ export default function ThreeDPage() {
             />
           </Suspense>
         </Canvas>
+        </div>
         </div>
       </div>
 
@@ -2937,6 +3360,7 @@ export default function ThreeDPage() {
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
+      <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
       <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
     </div>
   );
