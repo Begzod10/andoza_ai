@@ -787,11 +787,11 @@ function Scene({
           shadow-mapSize={[2048, 2048]}
           shadow-camera-near={0.1}
           shadow-camera-far={30}
-          shadow-camera-left={-10}
-          shadow-camera-right={10}
-          shadow-camera-top={10}
-          shadow-camera-bottom={-10}
-          shadow-bias={-0.0001}
+          shadow-camera-left={-12}
+          shadow-camera-right={12}
+          shadow-camera-top={12}
+          shadow-camera-bottom={-12}
+          shadow-bias={0.0}
         />
       )}
 
@@ -799,7 +799,7 @@ function Scene({
       <hemisphereLight
         color={timeOfDay === "kech" ? "#3040A0" : "#FAEBD7"}
         groundColor={timeOfDay === "kech" ? "#101010" : "#8B7355"}
-        intensity={timeOfDay === "kech" ? 0.3 : 0.5}
+        intensity={timeOfDay === "kech" ? 0.3 : 0.65}
       />
 
       {/* Interior lamp (evening mode) */}
