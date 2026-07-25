@@ -2844,6 +2844,13 @@ export default function ThreeDPage() {
     setPresetVersion((n) => n + 1);
   }, [cutaway]);
 
+  // Recenter the orbit pivot on the room's centre whenever a different room
+  // loads (switching rooms only changes the :roomId param — the page does NOT
+  // remount, so pan/orbit drift would otherwise carry over to the new room)
+  useEffect(() => {
+    setPresetVersion((n) => n + 1);
+  }, [room.id]);
+
   // Limit orbit radius to shorter room dimension so camera stays inside
   const interiorMaxDist = Math.min(W, D) * 0.85;
   // Top view: keep camera above ceiling — ceiling is hidden so user can scroll "through" it
