@@ -248,7 +248,9 @@ function WoodFloor({
         if (i % 2 === 0) {
           ctx.strokeStyle = "rgba(0,0,0,0.13)";
           ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(i * plankW + 2, W / 2); ctx.lineTo((i + 1) * plankW - 2, W / 2); ctx.stroke();
+          const lineOffset = Math.sin(i * 1.8) * 12; // Randomize line position per plank to prevent seam alignment
+          const lineY = W / 2 + lineOffset;
+          ctx.beginPath(); ctx.moveTo(i * plankW + 2, lineY); ctx.lineTo((i + 1) * plankW - 2, lineY); ctx.stroke();
         }
       }
       repeatX = width / unitM;
@@ -277,7 +279,9 @@ function WoodFloor({
         }
         ctx.strokeStyle = "rgba(0,0,0,0.12)";
         ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(i * plankW + 2, W / 2); ctx.lineTo((i + 1) * plankW - 2, W / 2); ctx.stroke();
+        const lineOffset = Math.sin(i * 2.1) * 10; // Randomize line position per plank to prevent seam alignment
+        const lineY = W / 2 + lineOffset;
+        ctx.beginPath(); ctx.moveTo(i * plankW + 2, lineY); ctx.lineTo((i + 1) * plankW - 2, lineY); ctx.stroke();
       }
       repeatX = width / unitM;
       repeatY = depth / unitM;
