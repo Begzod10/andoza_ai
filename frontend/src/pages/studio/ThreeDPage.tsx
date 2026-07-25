@@ -2889,11 +2889,25 @@ function CameraAnimator({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetPos, targetLookAt, version]);
 
+  // Latest look-at destination for the drag-interrupt handler (the effect
+  // below subscribes once, so it must not close over a stale vector)
+  const lookAtRef = useRef(targetLookAt);
+  useEffect(() => { lookAtRef.current = targetLookAt }, [targetLookAt]);
+
   // Pause animation while user drags
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    const onStart = () => { userDragging.current = true; isAnimating.current = false; };
+    const onStart = () => {
+      // Grabbing the view mid-animation used to freeze the orbit target at a
+      // mid-lerp point — rotation then pivoted around nowhere. Snap the pivot
+      // to its destination (the room centre) before handing over control.
+      if (isAnimating.current) {
+        controls.target.copy(lookAtRef.current);
+      }
+      userDragging.current = true;
+      isAnimating.current = false;
+    };
     const onEnd = () => { userDragging.current = false; };
     controls.addEventListener("start", onStart);
     controls.addEventListener("end", onEnd);
