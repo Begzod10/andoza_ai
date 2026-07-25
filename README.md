@@ -5,20 +5,17 @@ AI-powered home renovation and room design platform for Uzbekistan.
 ## Quick Start
 
 ```bash
-# 1. Copy env files
+# 1. Copy env files (defaults work with docker-compose out of the box)
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
-# 2. Start all services
+# 2. Start all services (the api container runs migrations automatically)
 docker-compose up -d
 
-# 3. Run migrations
-docker-compose exec api alembic upgrade head
-
-# 4. Seed data
+# 3. Seed data
 docker-compose exec api python app/seeds.py
 
-# 5. Open app
+# 4. Open app
 open http://localhost:5173
 ```
 
