@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState, useRef, useEffect } from "react";
+import { Suspense, useMemo, useState, useRef, useEffect, memo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Sky, ContactShadows, SoftShadows, Lightformer } from "@react-three/drei";
 import { useRoomStore } from "@/store/roomStore";
@@ -96,7 +96,7 @@ interface WallSegmentProps {
   oboyTex?: THREE.CanvasTexture | null;
 }
 
-function WallSegment({
+const WallSegment = memo(function WallSegment({
   position,
   size,
   color,
@@ -117,6 +117,17 @@ function WallSegment({
     setOboyRepeat(oboyTex, faceW, faceH);
   }
 
+  // Memoize material properties to prevent recreation
+  const matProps = useMemo(() => ({
+    color: oboyTex ? "#FFFFFF" : color,
+    map: oboyTex ?? null,
+    roughness: oboyTex ? 0.85 : roughness,
+    metalness: 0.0,
+    envMapIntensity: 1.2,
+    emissive: isSelected ? new THREE.Color("#D85A30") : new THREE.Color(0x000000),
+    emissiveIntensity: isSelected ? 0.25 : 0,
+  }), [oboyTex, color, roughness, isSelected]);
+
   return (
     <mesh
       ref={meshRef}
@@ -126,18 +137,10 @@ function WallSegment({
       onClick={onClick}
     >
       <boxGeometry args={size} />
-      <meshStandardMaterial
-        color={oboyTex ? "#FFFFFF" : color}
-        map={oboyTex ?? null}
-        roughness={oboyTex ? 0.85 : roughness}
-        metalness={0.0}
-        envMapIntensity={1.2}
-        emissive={isSelected ? new THREE.Color("#D85A30") : new THREE.Color(0x000000)}
-        emissiveIntensity={isSelected ? 0.25 : 0}
-      />
+      <meshStandardMaterial {...matProps} />
     </mesh>
   );
-}
+});
 
 // ─── Wall with openings ───────────────────────────────────────────────────────
 

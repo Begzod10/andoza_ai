@@ -828,6 +828,88 @@ function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isS
 
 // ─── Window glass panes ───────────────────────────────────────────────────────
 
+function WindowFrames({
+  geometry,
+  wallWidth,
+  wallDepth,
+  hiddenWalls,
+}: {
+  geometry: RoomGeometry;
+  wallWidth: number;
+  wallDepth: number;
+  hiddenWalls?: ReadonlySet<string>;
+}) {
+  const frames: React.ReactElement[] = [];
+  const s = 1 / 1000;
+  const FRAME_W = 0.05; // 5cm frame width
+  const frameMat = <meshStandardMaterial color="#C0B8A8" roughness={0.6} metalness={0.1} />;
+
+  const wallDefs = [
+    { id: "A", axis: "X" as const, cz: -wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "C", axis: "X" as const, cz: wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "B", axis: "Z" as const, cx: wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "D", axis: "Z" as const, cx: -wallWidth / 2, cz: 0, length: wallDepth },
+  ];
+
+  for (const wd of wallDefs) {
+    if (hiddenWalls?.has(wd.id)) continue;
+    const wall = geometry.walls.find((w) => w.id === wd.id);
+    if (!wall) continue;
+
+    const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
+    for (const el of resolvedWallEls) {
+      if (el.type !== "deraza" && el.type !== "balkon") continue;
+
+      const elW = el.width * s;
+      const elH = el.height * s;
+      const elBottomY = el.sill_height * s;
+      const elTopY = elBottomY + elH;
+      const offset = (el.position + el.width / 2 - wd.length * 500) * s;
+
+      const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
+      const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
+      const isHorizontal = wd.axis === "X";
+      const fW = isHorizontal ? elW : FRAME_W;
+      const fD = isHorizontal ? FRAME_W : elW;
+
+      const key = `frame-${wd.id}-${el.id ?? el.position}`;
+
+      // Left frame
+      frames.push(
+        <mesh key={`${key}-L`} position={[px - elW / 2 + FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+          <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Right frame
+      frames.push(
+        <mesh key={`${key}-R`} position={[px + elW / 2 - FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+          <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Top frame
+      frames.push(
+        <mesh key={`${key}-T`} position={[px, elTopY + FRAME_W / 2, pz]}>
+          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Sill (bottom frame with visible edge)
+      frames.push(
+        <mesh key={`${key}-S`} position={[px, elBottomY - FRAME_W / 2, pz]}>
+          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+          {frameMat}
+        </mesh>,
+      );
+    }
+  }
+  return <>{frames}</>;
+}
+
 function WindowPanes({
   geometry,
   wallWidth,
@@ -870,13 +952,14 @@ function WindowPanes({
 
       panes.push(
         <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
-          <boxGeometry args={[pW, elH, pD]} />
+          <planeGeometry args={[pW - 0.01, elH - 0.01]} />
           <meshPhysicalMaterial
             color="#B0CCE0"
             transparent
             opacity={0.22}
             roughness={0.05}
             metalness={0.0}
+            envMapIntensity={0.3}
           />
         </mesh>,
       );
@@ -2571,6 +2654,7 @@ export function RoomScene({
             {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
 
+          <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
           <CornerShadows width={W} depth={D} composerActive={composerActive} />
