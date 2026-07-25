@@ -2526,10 +2526,8 @@ export function RoomScene({
               elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
               isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
               panelSettings={panelsA} />
-            {cutawayOn && <>
-              <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />
-              <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />
-            </>}
+            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />
+            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
@@ -2538,10 +2536,8 @@ export function RoomScene({
               elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
               isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
               panelSettings={panelsB} />
-            {cutawayOn && <>
-              <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} elements={elementsBOuter} />
-              <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />
-            </>}
+            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} elements={elementsBOuter} />
+            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
           </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
@@ -2550,10 +2546,8 @@ export function RoomScene({
               elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
               isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
               panelSettings={panelsC} />
-            {cutawayOn && <>
-              <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} elements={bodyElsC} />
-              <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />
-            </>}
+            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} elements={bodyElsC} />
+            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
           </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
@@ -2562,10 +2556,8 @@ export function RoomScene({
               elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
               isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
               panelSettings={panelsD} />
-            {cutawayOn && <>
-              <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} elements={elementsDOuter} />
-              <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />
-            </>}
+            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} elements={elementsDOuter} />
+            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
 
           <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />

@@ -16,6 +16,9 @@ type ElType = WallElement['type']
 
 const T = 250          // wall thickness in plan, mm
 const MARGIN = 520     // viewBox margin for labels, mm
+// Minimum pier between an opening and the room corner — keeps the wall
+// band continuous around corners ("welded" look, and buildable in reality)
+const CORNER_MARGIN = 200
 
 const DEFAULTS: Record<ElType, Omit<WallElement, 'id' | 'position'>> = {
   deraza: { type: 'deraza', width: 900, height: 1200, sill_height: 800 },
@@ -43,6 +46,56 @@ interface WallDef {
   uAxis: 'x' | 'y'
 }
 
+/**
+ * Architectural dimension chain for the selected element: wall edge → element
+ * → wall edge, drawn in GLOBAL plan coordinates (the per-wall transforms
+ * mirror/rotate, which would flip text).
+ */
+function DimRuler({ wallId, len, p, w, W, Dp }: {
+  wallId: string; len: number; p: number; w: number; W: number; Dp: number
+}) {
+  const horizontal = wallId === 'A' || wallId === 'C'
+  const OFF = 450
+  const fixed = wallId === 'A' ? OFF : wallId === 'C' ? Dp - OFF : wallId === 'B' ? W - OFF : OFF
+  const edge = wallId === 'A' ? 0 : wallId === 'C' ? Dp : wallId === 'B' ? W : 0
+  const spans: Array<[number, number, boolean]> = (
+    [[0, p, false], [p, p + w, true], [p + w, len, false]] as Array<[number, number, boolean]>
+  ).filter(([a, b]) => b - a > 1)
+
+  return (
+    <g stroke="#8A857A" strokeWidth={18} fontFamily="ui-sans-serif, system-ui" fontWeight={600}>
+      {spans.map(([a, b, isEl], i) => {
+        const mid = (a + b) / 2
+        const label = String(Math.round(b - a))
+        const color = isEl ? SELECT : '#6B665C'
+        if (horizontal) {
+          return (
+            <g key={i}>
+              <line x1={a} y1={fixed} x2={b} y2={fixed} stroke={color} />
+              <line x1={a} y1={fixed - 110} x2={a} y2={fixed + 110} stroke={color} />
+              <line x1={b} y1={fixed - 110} x2={b} y2={fixed + 110} stroke={color} />
+              <line x1={a} y1={edge} x2={a} y2={fixed} strokeDasharray="40 50" strokeWidth={9} />
+              <line x1={b} y1={edge} x2={b} y2={fixed} strokeDasharray="40 50" strokeWidth={9} />
+              <text x={mid} y={fixed - 80} textAnchor="middle" fontSize={180} fill={color} stroke="none">{label}</text>
+            </g>
+          )
+        }
+        const textX = wallId === 'D' ? fixed + 140 : fixed - 140
+        return (
+          <g key={i}>
+            <line x1={fixed} y1={a} x2={fixed} y2={b} stroke={color} />
+            <line x1={fixed - 110} y1={a} x2={fixed + 110} y2={a} stroke={color} />
+            <line x1={fixed - 110} y1={b} x2={fixed + 110} y2={b} stroke={color} />
+            <line x1={edge} y1={a} x2={fixed} y2={a} strokeDasharray="40 50" strokeWidth={9} />
+            <line x1={edge} y1={b} x2={fixed} y2={b} strokeDasharray="40 50" strokeWidth={9} />
+            <text x={textX} y={mid} textAnchor={wallId === 'D' ? 'start' : 'end'} dominantBaseline="middle" fontSize={180} fill={color} stroke="none">{label}</text>
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
 export function MebelPlanView() {
   const geometry = useRoomStore((s) => s.geometry)
   const addElement = useRoomStore((s) => s.addElement)
@@ -53,6 +106,9 @@ export function MebelPlanView() {
   const [selected, setSelected] = useState<{ wallId: string; id: string } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dragRef = useRef<{ wallId: string; id: string; grabOffset: number; uAxis: 'x' | 'y'; len: number; width: number } | null>(null)
+  // Right-mouse-button panning of the plan
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const panRef = useRef<{ sx: number; sy: number; ox: number; oy: number; scale: number } | null>(null)
 
   const wallA = geometry.walls.find((w) => w.id === 'A')
   const wallB = geometry.walls.find((w) => w.id === 'B')
@@ -94,16 +150,33 @@ export function MebelPlanView() {
     return wall.uAxis === 'x' ? p.x : p.y
   }
 
+  function startPan(e: React.PointerEvent<SVGSVGElement>) {
+    if (e.button !== 2) return
+    e.preventDefault()
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const vbWidth = W + 2 * T + 2 * MARGIN
+    panRef.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y, scale: vbWidth / rect.width }
+    svg.setPointerCapture?.(e.pointerId)
+  }
+
   function handleWallTap(wall: WallDef, e: React.PointerEvent) {
+    if (e.button !== 0) return
     if (!tool) return
     const def = DEFAULTS[tool]
     const u = wallU(wall, e.clientX, e.clientY)
-    const pos = Math.round(Math.min(Math.max(u - def.width / 2, 0), wall.len - def.width))
+    const pos = Math.round(Math.min(
+      Math.max(u - def.width / 2, CORNER_MARGIN),
+      wall.len - def.width - CORNER_MARGIN,
+    ))
+    if (pos < CORNER_MARGIN) return // wall too short for this element
     addElement(wall.id, { ...def, position: pos })
     setSelected(null)
   }
 
   function startDrag(wall: WallDef, el: WallElement, e: React.PointerEvent) {
+    if (e.button !== 0) return
     e.stopPropagation()
     setSelected({ wallId: wall.id, id: el.id })
     const u = wallU(wall, e.clientX, e.clientY)
@@ -119,23 +192,54 @@ export function MebelPlanView() {
   }
 
   function handleMove(e: React.PointerEvent) {
+    const panState = panRef.current
+    if (panState) {
+      setPan({
+        x: panState.ox - (e.clientX - panState.sx) * panState.scale,
+        y: panState.oy - (e.clientY - panState.sy) * panState.scale,
+      })
+      return
+    }
     const d = dragRef.current
     if (!d) return
     const p = svgPointFromClient(e.clientX, e.clientY)
     const u = d.uAxis === 'x' ? p.x : p.y
-    const pos = Math.round(Math.min(Math.max(u - d.grabOffset, 0), d.len - d.width))
+    const pos = Math.round(Math.min(
+      Math.max(u - d.grabOffset, CORNER_MARGIN),
+      d.len - d.width - CORNER_MARGIN,
+    ))
     updateElement(d.wallId, d.id, { position: pos })
   }
 
   function endDrag() {
     dragRef.current = null
+    panRef.current = null
   }
 
   const selEl = selected
     ? geometry.walls.find((w) => w.id === selected.wallId)?.elements.find((e) => e.id === selected.id)
     : null
 
-  const vb = `${-T - MARGIN} ${-T - MARGIN} ${W + 2 * T + 2 * MARGIN} ${Dp + 2 * T + 2 * MARGIN}`
+  // Resolved copy of the selection: auto-centred elements store position 0,
+  // but dimensions and edits must use the actual placed position.
+  const selWallLen = selected ? (selected.wallId === 'A' || selected.wallId === 'C' ? W : Dp) : 0
+  const selResolved = selected
+    ? resolveElementPositions(
+        geometry.walls.find((w) => w.id === selected.wallId)?.elements ?? [],
+        selWallLen,
+      ).find((e) => e.id === selected.id) ?? null
+    : null
+
+  function setSelectedPos(posMm: number) {
+    if (!selected || !selResolved) return
+    const clamped = Math.round(Math.min(
+      Math.max(posMm, CORNER_MARGIN),
+      selWallLen - selResolved.width - CORNER_MARGIN,
+    ))
+    updateElement(selected.wallId, selected.id, { position: clamped })
+  }
+
+  const vb = `${-T - MARGIN + pan.x} ${-T - MARGIN + pan.y} ${W + 2 * T + 2 * MARGIN} ${Dp + 2 * T + 2 * MARGIN}`
 
   return (
     <div className="h-full flex min-h-0">
@@ -181,6 +285,7 @@ export function MebelPlanView() {
         </div>
         <p className="mt-3 text-[10px] leading-4 text-gray-400">
           {tool ? "Devorga bosib joylashtiring. Elementni sudrab siljiting." : 'Element tanlang'}
+          <br />O'ng tugmani bosib turib planni suring.
         </p>
       </div>
 
@@ -190,9 +295,11 @@ export function MebelPlanView() {
           ref={svgRef}
           viewBox={vb}
           className="flex-1 min-h-0 w-full touch-none"
+          onPointerDown={startPan}
           onPointerMove={handleMove}
           onPointerUp={endDrag}
           onPointerLeave={endDrag}
+          onContextMenu={(e) => e.preventDefault()}
         >
           {/* floor */}
           <rect x={0} y={0} width={W} height={Dp} fill={FLOOR_FILL} />
@@ -204,11 +311,12 @@ export function MebelPlanView() {
             <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
           ))}
 
-          {/* walls: horizontal (A/C) span the full outer width; B/D sit between them */}
+          {/* walls: all four bars run the FULL outer span and overlap at the
+              corners, so the frame always reads as one welded outline */}
           <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={WALL_DARK} />
           <rect x={-T} y={Dp} width={W + 2 * T} height={T} fill={WALL_DARK} />
-          <rect x={-T} y={0} width={T} height={Dp} fill={WALL_DARK} />
-          <rect x={W} y={0} width={T} height={Dp} fill={WALL_DARK} />
+          <rect x={-T} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
+          <rect x={W} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
 
           {/* per-wall hit areas + elements in local (u,v) space */}
           {walls.map((wall) => {
@@ -272,6 +380,18 @@ export function MebelPlanView() {
             )
           })}
 
+          {/* dimension chain for the selected element */}
+          {selected && selResolved && (
+            <DimRuler
+              wallId={selected.wallId}
+              len={selWallLen}
+              p={selResolved.position}
+              w={selResolved.width}
+              W={W}
+              Dp={Dp}
+            />
+          )}
+
           {/* labels + dimensions */}
           <g fill="#8A857A" fontFamily="ui-sans-serif, system-ui" fontWeight={600}>
             <text x={W / 2} y={-T - 240} textAnchor="middle" fontSize={260}>A</text>
@@ -315,6 +435,46 @@ export function MebelPlanView() {
                   className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
                 />
               </label>
+            )}
+            {selResolved && (
+              <>
+                {/* exact distances from the wall edges (mm) */}
+                <label className="flex items-center gap-1 text-[11px] text-gray-500">
+                  Chapdan
+                  <input
+                    type="number" step={10}
+                    value={selResolved.position}
+                    onChange={(e) => setSelectedPos(Number(e.target.value) || 0)}
+                    className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                  />
+                </label>
+                <label className="flex items-center gap-1 text-[11px] text-gray-500">
+                  O'ngdan
+                  <input
+                    type="number" step={10}
+                    value={selWallLen - selResolved.position - selResolved.width}
+                    onChange={(e) => setSelectedPos(selWallLen - selResolved.width - (Number(e.target.value) || 0))}
+                    className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                  />
+                </label>
+                {/* nudge buttons, 50mm per tap */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setSelectedPos(selResolved.position - 50)}
+                    title="Chapga surish (50mm)"
+                    className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    onClick={() => setSelectedPos(selResolved.position + 50)}
+                    title="O'ngga surish (50mm)"
+                    className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </>
             )}
             <button
               onClick={() => { removeElement(selected.wallId, selected.id); setSelected(null) }}
