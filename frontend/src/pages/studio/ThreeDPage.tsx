@@ -2931,6 +2931,8 @@ export default function ThreeDPage() {
     const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
     // Anchor info for directional placement — captured before resetRoom clears it
     const myPos = useRoomStore.getState().layoutPos ?? { x: 0, z: 0 };
+    // Carry the current view into the new room's studio (fresh mount there)
+    sessionStorage.setItem('uytamir-studio-entry-view', preset);
     // Clear the current room from the store (roomId, draftId, geometry, …).
     // The wizard's handleSave() bails out when roomId is already set, so a
     // stale roomId means the new room is never created via createRoom().
@@ -2957,7 +2959,16 @@ export default function ThreeDPage() {
   const D = room.length > 0 ? room.length : (geoWallA?.length ?? 4000) / 1000;
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7;
 
-  const [preset, setPreset] = useState<ViewPreset>("back");
+  // The add-room flow stashes the view it was started from (usually 'top'),
+  // so the NEW room's studio opens in the same framing, centred on the room.
+  // The flag is cleared in an effect, NOT in the initializer — StrictMode
+  // runs initializers twice and the second pass would lose the value.
+  const [preset, setPreset] = useState<ViewPreset>(() =>
+    sessionStorage.getItem('uytamir-studio-entry-view') === 'top' ? 'top' : 'back',
+  );
+  useEffect(() => {
+    sessionStorage.removeItem('uytamir-studio-entry-view');
+  }, []);
   const [presetVersion, setPresetVersion] = useState(0);
   const [dpr, setDpr] = useState<number | [number, number]>([1, 2]);
   // Two consecutive PerformanceMonitor declines required before killing shadows / composer
