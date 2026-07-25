@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { nanoid } from 'nanoid'
-import { convertToGlb, SUPPORTED_FORMATS } from '@/lib/modelConverter'
+import { convertFilesToGlb, SUPPORTED_FORMATS } from '@/lib/modelConverter'
 import { saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { useRoomStore } from '@/store/roomStore'
 import { useGLTF } from '@react-three/drei'
@@ -11,16 +11,16 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
   const [warn, setWarn] = React.useState<string | null>(null)
   const addUserFurniture = useRoomStore((s) => s.addUserFurniture)
 
-  async function handleFile(file: File) {
+  async function handleFiles(files: File[]) {
     setStatus('loading')
     setWarn(null)
     try {
-      const { buffer, info } = await convertToGlb(file)
+      const { buffer, info, mainFile } = await convertFilesToGlb(files)
 
       if (!info.hasTextures) {
         setWarn(
-          `Bu model tekstura xaritalarisiz (${info.materialCount} material, faqat rang). ` +
-          `Yaxshi ko'rinish uchun teksturalı GLB yuklang.`,
+          `Teksturalar topilmadi (${info.materialCount} material, faqat rang). ` +
+          `Model faylini teksturalari bilan BIRGA tanlang (Ctrl bosib bir nechta fayl).`,
         )
       }
 
@@ -30,7 +30,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
 
       useGLTF.preload(modelPath)
 
-      const baseName = file.name.replace(/\.(glb|gltf|obj|fbx)$/i, '').replace(/_/g, ' ')
+      const baseName = mainFile.name.replace(/\.(glb|gltf|obj|fbx)$/i, '').replace(/_/g, ' ')
       addUserFurniture({
         id,
         name: baseName,
@@ -62,11 +62,12 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
         <input
           ref={fileRef}
           type="file"
+          multiple
           accept={SUPPORTED_FORMATS}
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) { handleFile(f); e.target.value = '' }
+            const fs = Array.from(e.target.files ?? [])
+            if (fs.length) { handleFiles(fs); e.target.value = '' }
           }}
         />
         <button
@@ -78,7 +79,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
             {status === 'loading' ? '⏳' : status === 'done' ? '✅' : '+'}
           </span>
           <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
-          <span className="text-[9px] text-gray-400 leading-tight">GLB · GLTF · OBJ · FBX</span>
+          <span className="text-[9px] text-gray-400 leading-tight">GLB · GLTF · OBJ · FBX + teksturalar</span>
         </button>
       </>
     )
@@ -89,11 +90,12 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
       <input
         ref={fileRef}
         type="file"
+        multiple
         accept={SUPPORTED_FORMATS}
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) { handleFile(f); e.target.value = '' }
+          const fs = Array.from(e.target.files ?? [])
+          if (fs.length) { handleFiles(fs); e.target.value = '' }
         }}
       />
       <button
@@ -109,7 +111,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
       >
         {status === 'loading' ? 'Yuklanmoqda...' :
          status === 'done'    ? '✓ Qo\'shildi'  :
-                                '+ Model qo\'shish (GLB · GLTF · OBJ · FBX)'}
+                                '+ Model qo\'shish (model + teksturalarini birga tanlang)'}
       </button>
       {warn && <p className="text-xs text-amber-600 leading-snug">{warn}</p>}
     </div>

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
@@ -11,7 +12,15 @@ export interface ModelInfo {
   materialCount: number
 }
 
-export const SUPPORTED_FORMATS = '.glb,.gltf,.obj,.fbx'
+// The picker accepts the model plus its companion files (textures, .bin, .mtl)
+export const SUPPORTED_FORMATS =
+  '.glb,.gltf,.obj,.fbx,.bin,.mtl,.png,.jpg,.jpeg,.webp,.bmp,.tga,.ktx2'
+
+const MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx']
+
+function extOf(name: string): string {
+  return name.split('.').pop()?.toLowerCase() ?? ''
+}
 
 function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
@@ -29,7 +38,8 @@ function extractSceneInfo(root: THREE.Object3D): ModelInfo {
     materialCount += mats.length
     for (const m of mats) {
       if (m instanceof THREE.MeshStandardMaterial && m.map) hasTextures = true
-      if (m instanceof THREE.MeshBasicMaterial   && m.map) hasTextures = true
+      if (m instanceof THREE.MeshBasicMaterial && m.map) hasTextures = true
+      if (m instanceof THREE.MeshPhongMaterial && m.map) hasTextures = true
     }
   })
 
@@ -56,42 +66,89 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   })
 }
 
-export async function convertToGlb(
-  file: File,
-): Promise<{ buffer: ArrayBuffer; info: ModelInfo }> {
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  const url = URL.createObjectURL(file)
+/**
+ * Convert a model plus its companion files (external textures, .bin buffers,
+ * .mtl material libraries) into a single self-contained GLB.
+ *
+ * Every relative resource reference inside the model resolves against the
+ * selected files by filename via a LoadingManager URL modifier — this is what
+ * makes "load the textures from the model's folder" work in a browser, where
+ * loaders cannot read sibling files from disk on their own.
+ */
+export async function convertFilesToGlb(
+  files: File[],
+): Promise<{ buffer: ArrayBuffer; info: ModelInfo; mainFile: File }> {
+  const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
+  if (!mainFile) {
+    throw new Error("3D model fayli topilmadi (.glb, .gltf, .obj yoki .fbx tanlang)")
+  }
+
+  // filename (lowercased) → blob URL for every selected file
+  const resources = new Map<string, string>()
+  for (const f of files) {
+    resources.set(f.name.toLowerCase(), URL.createObjectURL(f))
+  }
+
+  const manager = new THREE.LoadingManager()
+  manager.setURLModifier((url) => {
+    // Match by trailing filename so "textures/wood.jpg", "./wood.jpg" and
+    // "wood.jpg" all resolve to the picked file with that name.
+    const base = decodeURIComponent(url.split(/[\\/]/).pop() ?? '')
+      .split('?')[0]
+      .toLowerCase()
+    return resources.get(base) ?? url
+  })
+
+  const mainUrl = resources.get(mainFile.name.toLowerCase())!
+  const ext = extOf(mainFile.name)
 
   try {
     if (ext === 'glb') {
-      // GLB: load to extract scene info, but keep original bytes
+      // GLB embeds its textures — keep original bytes, load only for info
       const [buffer, gltf] = await Promise.all([
-        file.arrayBuffer(),
-        new GLTFLoader().loadAsync(url),
+        mainFile.arrayBuffer(),
+        new GLTFLoader(manager).loadAsync(mainUrl),
       ])
-      return { buffer, info: extractSceneInfo(gltf.scene) }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
 
     if (ext === 'gltf') {
-      const gltf = await new GLTFLoader().loadAsync(url)
+      const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene) }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
 
     if (ext === 'obj') {
-      const scene = await new OBJLoader().loadAsync(url)
+      const loader = new OBJLoader(manager)
+      const mtlFile = files.find((f) => extOf(f.name) === 'mtl')
+      if (mtlFile) {
+        const mtl = await new MTLLoader(manager).loadAsync(
+          resources.get(mtlFile.name.toLowerCase())!,
+        )
+        mtl.preload()
+        loader.setMaterials(mtl)
+      }
+      const scene = await loader.loadAsync(mainUrl)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile }
     }
 
     if (ext === 'fbx') {
-      const scene = await new FBXLoader().loadAsync(url)
+      const scene = await new FBXLoader(manager).loadAsync(mainUrl)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)
   } finally {
-    URL.revokeObjectURL(url)
+    for (const u of resources.values()) URL.revokeObjectURL(u)
   }
+}
+
+/** Single-file convenience wrapper (kept for compatibility). */
+export async function convertToGlb(
+  file: File,
+): Promise<{ buffer: ArrayBuffer; info: ModelInfo }> {
+  const { buffer, info } = await convertFilesToGlb([file])
+  return { buffer, info }
 }
