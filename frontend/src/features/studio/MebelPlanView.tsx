@@ -19,6 +19,38 @@ const MARGIN = 520     // viewBox margin for labels, mm
 // Minimum pier between an opening and the room corner — keeps the wall
 // band continuous around corners ("welded" look, and buildable in reality)
 const CORNER_MARGIN = 200
+// Minimum clear wall between two openings (user requirement: 20 cm)
+const EL_GAP = 200
+
+/**
+ * Nearest collision-free position for an element of `width` on a wall.
+ * Respects corner piers and a minimum gap to every other element.
+ * Returns null when the element cannot fit anywhere near the desired spot.
+ */
+function clampElementPosition(
+  desired: number,
+  width: number,
+  wallLen: number,
+  others: Array<{ position: number; width: number }>,
+): number | null {
+  const minPos = CORNER_MARGIN
+  const maxPos = wallLen - width - CORNER_MARGIN
+  if (maxPos < minPos) return null
+  let pos = Math.min(Math.max(desired, minPos), maxPos)
+  const sorted = [...others].sort((a, b) => a.position - b.position)
+  for (const o of sorted) {
+    const before = o.position - EL_GAP - width // last valid pos left of o
+    const after = o.position + o.width + EL_GAP // first valid pos right of o
+    if (pos > before && pos < after) {
+      pos = desired - before <= after - desired ? before : after
+    }
+  }
+  pos = Math.min(Math.max(pos, minPos), maxPos)
+  const ok = sorted.every(
+    (o) => pos + width + EL_GAP <= o.position || pos >= o.position + o.width + EL_GAP,
+  )
+  return ok ? Math.round(pos) : null
+}
 
 const DEFAULTS: Record<ElType, Omit<WallElement, 'id' | 'position'>> = {
   deraza: { type: 'deraza', width: 900, height: 1200, sill_height: 800 },
@@ -161,16 +193,25 @@ export function MebelPlanView() {
     svg.setPointerCapture?.(e.pointerId)
   }
 
+  function resolvedWallEls(wallId: string, len: number) {
+    return resolveElementPositions(
+      geometry.walls.find((w) => w.id === wallId)?.elements ?? [],
+      len,
+    )
+  }
+
   function handleWallTap(wall: WallDef, e: React.PointerEvent) {
     if (e.button !== 0) return
     if (!tool) return
     const def = DEFAULTS[tool]
     const u = wallU(wall, e.clientX, e.clientY)
-    const pos = Math.round(Math.min(
-      Math.max(u - def.width / 2, CORNER_MARGIN),
-      wall.len - def.width - CORNER_MARGIN,
-    ))
-    if (pos < CORNER_MARGIN) return // wall too short for this element
+    const pos = clampElementPosition(
+      u - def.width / 2,
+      def.width,
+      wall.len,
+      resolvedWallEls(wall.id, wall.len),
+    )
+    if (pos === null) return // no collision-free spot on this wall
     addElement(wall.id, { ...def, position: pos })
     setSelected(null)
   }
@@ -204,10 +245,9 @@ export function MebelPlanView() {
     if (!d) return
     const p = svgPointFromClient(e.clientX, e.clientY)
     const u = d.uAxis === 'x' ? p.x : p.y
-    const pos = Math.round(Math.min(
-      Math.max(u - d.grabOffset, CORNER_MARGIN),
-      d.len - d.width - CORNER_MARGIN,
-    ))
+    const others = resolvedWallEls(d.wallId, d.len).filter((el) => el.id !== d.id)
+    const pos = clampElementPosition(u - d.grabOffset, d.width, d.len, others)
+    if (pos === null) return // blocked — keep last valid position
     updateElement(d.wallId, d.id, { position: pos })
   }
 
@@ -232,11 +272,20 @@ export function MebelPlanView() {
 
   function setSelectedPos(posMm: number) {
     if (!selected || !selResolved) return
-    const clamped = Math.round(Math.min(
-      Math.max(posMm, CORNER_MARGIN),
-      selWallLen - selResolved.width - CORNER_MARGIN,
-    ))
+    const others = resolvedWallEls(selected.wallId, selWallLen).filter((el) => el.id !== selected.id)
+    const clamped = clampElementPosition(posMm, selResolved.width, selWallLen, others)
+    if (clamped === null) return
     updateElement(selected.wallId, selected.id, { position: clamped })
+  }
+
+  /** Width change that keeps the element collision-free (rejected if it can't fit). */
+  function setSelectedWidth(widthMm: number) {
+    if (!selected || !selResolved) return
+    const w = Math.max(200, Math.round(widthMm))
+    const others = resolvedWallEls(selected.wallId, selWallLen).filter((el) => el.id !== selected.id)
+    const pos = clampElementPosition(selResolved.position, w, selWallLen, others)
+    if (pos === null) return
+    updateElement(selected.wallId, selected.id, { width: w, position: pos })
   }
 
   const vb = `${-T - MARGIN + pan.x} ${-T - MARGIN + pan.y} ${W + 2 * T + 2 * MARGIN} ${Dp + 2 * T + 2 * MARGIN}`
@@ -414,17 +463,24 @@ export function MebelPlanView() {
             <span className="text-[11px] font-bold text-gray-600">
               {selEl.type === 'eshik' ? 'Eshik' : selEl.type === 'deraza' ? 'Deraza' : 'Balkon'} · {selected.wallId}
             </span>
-            {([['Eni', 'width'], ['Bo\'yi', 'height']] as const).map(([label, key]) => (
-              <label key={key} className="flex items-center gap-1 text-[11px] text-gray-500">
-                {label}
-                <input
-                  type="number" step={50}
-                  value={selEl[key]}
-                  onChange={(e) => updateElement(selected.wallId, selected.id, { [key]: Number(e.target.value) || 0 })}
-                  className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
-                />
-              </label>
-            ))}
+            <label className="flex items-center gap-1 text-[11px] text-gray-500">
+              Eni
+              <input
+                type="number" step={50}
+                value={selEl.width}
+                onChange={(e) => setSelectedWidth(Number(e.target.value) || 0)}
+                className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+              />
+            </label>
+            <label className="flex items-center gap-1 text-[11px] text-gray-500">
+              Bo'yi
+              <input
+                type="number" step={50}
+                value={selEl.height}
+                onChange={(e) => updateElement(selected.wallId, selected.id, { height: Number(e.target.value) || 0 })}
+                className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+              />
+            </label>
             {selEl.type === 'deraza' && (
               <label className="flex items-center gap-1 text-[11px] text-gray-500">
                 Pol-dan
