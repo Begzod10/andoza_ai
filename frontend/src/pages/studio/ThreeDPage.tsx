@@ -2100,12 +2100,19 @@ function DraggableFurnitureItem({
   const selRef = useRef<THREE.Group>(null)
 
   // Compute Y offset and XZ footprint ONCE per clone, before R3F sets position.
-  const { yOffUnit, geomHW, geomHD } = useMemo(() => {
+  const { yOffUnit, geomHW, geomHD, geomHH, geomCX, geomCZ } = useMemo(() => {
     const box = new THREE.Box3().setFromObject(cloned)
+    const ok = isFinite(box.min.x)
     return {
-      yOffUnit: isFinite(box.min.y) ? -box.min.y : 0,
-      geomHW: isFinite(box.max.x) ? (box.max.x - box.min.x) / 2 : 0.3,
-      geomHD: isFinite(box.max.z) ? (box.max.z - box.min.z) / 2 : 0.3,
+      yOffUnit: ok ? -box.min.y : 0,
+      geomHW: ok ? (box.max.x - box.min.x) / 2 : 0.3,
+      geomHD: ok ? (box.max.z - box.min.z) / 2 : 0.3,
+      geomHH: ok ? (box.max.y - box.min.y) / 2 : 0.5,
+      // Bounding-box centre in the model's local space — many models pivot at
+      // a corner, so the selection cage must centre on the GEOMETRY, not the
+      // pivot, or cage and mesh visibly disagree.
+      geomCX: ok ? (box.min.x + box.max.x) / 2 : 0,
+      geomCZ: ok ? (box.min.z + box.max.z) / 2 : 0,
     }
   }, [cloned])
 
@@ -2122,7 +2129,11 @@ function DraggableFurnitureItem({
   }, [cloned, item.colorOverrides])
 
   useFrame(() => {
-    if (!isDragging) return
+    if (!isDragging) {
+      // restore the cage after a live-scale drag hid it
+      if (selRef.current && !selRef.current.visible) selRef.current.visible = true
+      return
+    }
     if (toolMode === 'move' && groupRef.current && dragPosRef.current) {
       groupRef.current.position.x = dragPosRef.current.x
       groupRef.current.position.z = dragPosRef.current.z
@@ -2133,6 +2144,8 @@ function DraggableFurnitureItem({
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
       const liveScale = entry.scale * (dragScaleRef.current ?? 1)
       primitiveRef.current.scale.setScalar(liveScale)
+      // cage is sized for the committed scale — hide it while live-scaling
+      if (selRef.current) selRef.current.visible = false
     }
   })
 
@@ -2144,9 +2157,10 @@ function DraggableFurnitureItem({
     const sc = entry.scale * so0
     const w = geomHW * sc * 2 + 0.06
     const d = geomHD * sc * 2 + 0.06
-    const h = (entry.sizeM.h ?? 1) * so0 + 0.06
+    // Height from the real geometry — catalog sizeM.h can disagree with it
+    const h = geomHH * sc * 2 + 0.06
     return new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d))
-  }, [entry, so0, geomHW, geomHD])
+  }, [entry, so0, geomHW, geomHD, geomHH])
   useEffect(() => () => { cageGeo?.dispose() }, [cageGeo])
 
   if (!entry || !modelPath) return null
@@ -2176,33 +2190,36 @@ function DraggableFurnitureItem({
         onPointerEnter={() => { document.body.style.cursor = meshCursor }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
       />
-      {/* Selection indicators — rotate WITH the model so the cage always hugs it */}
+      {/* Selection indicators — rotate WITH the model and centre on its
+          bounding box (models often pivot at a corner, not the middle) */}
       {isSelected && (
         <group ref={selRef} rotation={[0, item.rotation, 0]}>
-          {/* Flat footprint outline — clearly visible in top/isometric view */}
-          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[fw + 0.08, fd + 0.08]} />
-            <meshBasicMaterial color="#2563EB" transparent opacity={0} />
-          </mesh>
-          {/* Ground-level border rect using 4 thin box edges */}
-          {[
-            { pos: [0, 0.012, -(fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
-            { pos: [0, 0.012,  (fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
-            { pos: [-(fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
-            { pos: [ (fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
-          ].map((edge, i) => (
-            <mesh key={i} position={edge.pos}>
-              <boxGeometry args={edge.scale} />
-              <meshBasicMaterial color="#2563EB" />
+          <group position={[geomCX * s, 0, geomCZ * s]}>
+            {/* Flat footprint outline — clearly visible in top/isometric view */}
+            <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[fw + 0.08, fd + 0.08]} />
+              <meshBasicMaterial color="#2563EB" transparent opacity={0} />
             </mesh>
-          ))}
-          {/* 3D selection cage — pure box EDGES (a triangle wireframe would
-              draw face diagonals that read as a rotated box) */}
-          {cageGeo && (
-            <lineSegments geometry={cageGeo} position={[0, modelH / 2, 0]}>
-              <lineBasicMaterial color="#2563EB" />
-            </lineSegments>
-          )}
+            {/* Ground-level border rect using 4 thin box edges */}
+            {[
+              { pos: [0, 0.012, -(fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
+              { pos: [0, 0.012,  (fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
+              { pos: [-(fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
+              { pos: [ (fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
+            ].map((edge, i) => (
+              <mesh key={i} position={edge.pos}>
+                <boxGeometry args={edge.scale} />
+                <meshBasicMaterial color="#2563EB" />
+              </mesh>
+            ))}
+            {/* 3D selection cage — pure box EDGES (a triangle wireframe would
+                draw face diagonals that read as a rotated box) */}
+            {cageGeo && (
+              <lineSegments geometry={cageGeo} position={[0, geomHH * s, 0]}>
+                <lineBasicMaterial color="#2563EB" />
+              </lineSegments>
+            )}
+          </group>
         </group>
       )}
       {toolMode === 'move' && (
