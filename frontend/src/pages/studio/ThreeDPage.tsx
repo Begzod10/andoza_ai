@@ -3267,7 +3267,14 @@ export default function ThreeDPage() {
               target={initCam.target}
               enableDamping
               dampingFactor={0.06}
-              enablePan={false}
+              enablePan
+              panSpeed={0.9}
+              screenSpacePanning
+              mouseButtons={{
+                LEFT: THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.PAN,
+                RIGHT: THREE.MOUSE.PAN,
+              }}
               minDistance={topView ? topMinDist : cutaway !== 'off' ? 2 : 0.25}
               maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
