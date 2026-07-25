@@ -1636,10 +1636,10 @@ export function SceneLighting({
     <>
       {highQuality && <SoftShadows size={22} samples={10} focus={0} />}
       {/* Low-intensity sky fill — dominant light is the directional sun */}
-      <hemisphereLight color="#FFE8CC" groundColor="#3A3020" intensity={0.22} />
+      <hemisphereLight color="#FFE8CC" groundColor="#3A3020" intensity={0.28} />
       <directionalLight
         ref={sunRef}
-        position={[width * 1.5, height * 2.5, depth * 1.2]}
+        position={[width * 0.4, height * 2.5, depth * 1.2]}
         intensity={1.85}
         color="#FFF5E8"
         castShadow
@@ -1650,7 +1650,7 @@ export function SceneLighting({
         shadow-camera-right={hw}
         shadow-camera-top={hd}
         shadow-camera-bottom={-hd}
-        shadow-bias={-0.001}
+        shadow-bias={0.0}
       />
     </>
   );
