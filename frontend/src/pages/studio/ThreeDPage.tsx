@@ -898,11 +898,19 @@ function WindowFrames({
         </mesh>,
       );
 
-      // Sill (bottom frame with visible edge)
+      // Sill (bottom frame with visible edge and detail)
       frames.push(
         <mesh key={`${key}-S`} position={[px, elBottomY - FRAME_W / 2, pz]}>
           <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
           {frameMat}
+        </mesh>,
+      );
+
+      // Sill lip detail (slight overhang for visual interest)
+      frames.push(
+        <mesh key={`${key}-SL`} position={[px, elBottomY - FRAME_W - 0.005, pz]}>
+          <boxGeometry args={[fW + 2 * FRAME_W + 0.01, 0.005, fD + 0.01]} />
+          <meshStandardMaterial color="#D4C4B4" roughness={0.5} metalness={0.1} />
         </mesh>,
       );
     }
@@ -980,11 +988,16 @@ function DoorFrames({
         </mesh>,
       );
 
-      // Threshold (door sill at floor level)
+      // Threshold (door sill at floor level) with wear finish
       frames.push(
         <mesh key={`${key}-H`} position={[px, 0.01, pz]}>
           <boxGeometry args={[fW + 2 * FRAME_W, 0.01, fD]} />
-          <meshStandardMaterial color="#6B5344" roughness={0.8} metalness={0.0} />
+          <meshStandardMaterial
+            color="#5A4A3A"
+            roughness={0.75}
+            metalness={0.08}
+            envMapIntensity={0.1}
+          />
         </mesh>,
       );
     }
