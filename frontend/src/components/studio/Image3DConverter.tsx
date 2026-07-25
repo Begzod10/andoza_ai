@@ -32,7 +32,6 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
         wait_for_completion: false,
       })
 
-      setTaskId(response.task_id)
       setState('processing')
 
       // Poll for completion
@@ -61,7 +60,6 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
   function handleReset() {
     setState('idle')
     setImageUrl('')
-    setTaskId('')
     setResult(null)
     setError('')
   }
