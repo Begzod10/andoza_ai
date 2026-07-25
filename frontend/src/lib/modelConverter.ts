@@ -55,6 +55,35 @@ function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   }
 }
 
+/**
+ * Asset packs often ship a huge backdrop/ground plane with the model (a photo
+ * studio cyclorama). Detect and remove them: trivial geometry (a few
+ * triangles), essentially flat, and nearly as large as the whole scene.
+ * Real furniture parts (mirrors, glass shelves) are far smaller relative to
+ * the model or have real thickness/topology.
+ */
+function stripBackdropPlanes(root: THREE.Object3D): number {
+  const rootBox = new THREE.Box3().setFromObject(root)
+  const rootSize = rootBox.getSize(new THREE.Vector3())
+  const rootMax = Math.max(rootSize.x, rootSize.y, rootSize.z) || 1
+  const doomed: THREE.Object3D[] = []
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const geo = child.geometry as THREE.BufferGeometry
+    const idx = geo.getIndex()
+    const triCount = (idx ? idx.count : geo.getAttribute('position')?.count ?? 0) / 3
+    if (triCount > 4) return // only trivial quads
+    const box = new THREE.Box3().setFromObject(child)
+    const s = box.getSize(new THREE.Vector3())
+    const dims = [s.x, s.y, s.z].sort((a, b) => a - b)
+    const isFlat = dims[0] < rootMax * 0.02
+    const isHuge = dims[2] > rootMax * 0.7
+    if (isFlat && isHuge) doomed.push(child)
+  })
+  for (const m of doomed) m.removeFromParent()
+  return doomed.length
+}
+
 function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     new GLTFExporter().parse(
@@ -116,16 +145,20 @@ export async function convertFilesToGlb(
 
   try {
     if (ext === 'glb') {
-      // GLB embeds its textures — keep original bytes, load only for info
-      const [buffer, gltf] = await Promise.all([
+      // GLB embeds its textures — keep original bytes unless we had to strip
+      // a bundled backdrop plane (then the scene must be re-packed)
+      const [origBuffer, gltf] = await Promise.all([
         mainFile.arrayBuffer(),
         new GLTFLoader(manager).loadAsync(mainUrl),
       ])
+      const stripped = stripBackdropPlanes(gltf.scene)
+      const buffer = stripped > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
 
     if (ext === 'gltf') {
       const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
+      stripBackdropPlanes(gltf.scene)
       await awaitTextures()
       const buffer = await toGlbBuffer(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
@@ -142,6 +175,7 @@ export async function convertFilesToGlb(
         loader.setMaterials(mtl)
       }
       const scene = await loader.loadAsync(mainUrl)
+      stripBackdropPlanes(scene)
       await awaitTextures()
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
@@ -149,6 +183,7 @@ export async function convertFilesToGlb(
 
     if (ext === 'fbx') {
       const scene = await new FBXLoader(manager).loadAsync(mainUrl)
+      stripBackdropPlanes(scene)
       await awaitTextures()
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
