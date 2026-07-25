@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState, useRef } from "react";
+import { Suspense, useMemo, useState, useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Sky, ContactShadows, SoftShadows, Lightformer } from "@react-three/drei";
 import { useRoomStore } from "@/store/roomStore";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import MaterialPanel from "./MaterialPanel";
 import type { Room, Material } from "@/lib/api";
 import * as THREE from "three";
-import { getMaterialTextures, inferTextureKey } from "@/lib/materialTextures";
+import { getMaterialTextures, inferTextureKey, disposeMaterialTextures } from "@/lib/materialTextures";
 import type { MaterialTextureKey } from "@/lib/materialTextures";
 import { createOboyTexture, setOboyRepeat } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -869,6 +869,15 @@ export default function ThreeDStudio({ room }: ThreeDStudioProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [materialColorMap, setMaterialColorMap] = useState<Map<string, string>>(new Map());
   const [materialTextureMeta, setMaterialTextureMeta] = useState<Map<string, MaterialTextureMeta>>(new Map());
+
+  // Cleanup material textures on unmount
+  useEffect(() => {
+    return () => {
+      materialTextureMeta.forEach((meta) => {
+        disposeMaterialTextures(meta.key);
+      });
+    };
+  }, [materialTextureMeta]);
 
   const saveMutation = useMutation({
     mutationFn: (designState: Record<string, unknown>) =>

@@ -64,7 +64,7 @@ function RealismEffects({ enabled }: { enabled: boolean }) {
       <N8AO
         halfRes
         aoRadius={0.4}
-        intensity={2.5}
+        intensity={1.9}
         distanceFalloff={0.4}
         quality="performance"
         depthAwareUpsampling
@@ -312,12 +312,12 @@ function WoodFloor({
 
   return (
     <group onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} castShadow receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
         <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
       </mesh>
       {isSelected && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]} renderOrder={1}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
           <planeGeometry args={[width + 0.04, depth + 0.04]} />
           <meshBasicMaterial color="#D85A30" opacity={0.18} transparent depthWrite={false} />
         </mesh>
@@ -937,22 +937,22 @@ function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; dep
   return (
     <group>
       {!hiddenWalls?.has('A') && segsA.map((s, i) => (
-        <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.001]}>
+        <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.003]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('C') && segsC.map((s, i) => (
-        <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.001]}>
+        <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.003]}>
           <boxGeometry args={[s.len, h, t]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('B') && segsB.map((s, i) => (
-        <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.001, h / 2, s.center]}>
+        <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.003, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
       {!hiddenWalls?.has('D') && segsD.map((s, i) => (
-        <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.001, h / 2, s.center]}>
+        <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.003, h / 2, s.center]}>
           <boxGeometry args={[t, h, s.len]} />{mat}
         </mesh>
       ))}
@@ -1008,7 +1008,7 @@ function CeilingLightDisk({ x, z, height, emit = true }: {
         <meshStandardMaterial
           color={emit ? "#F0F8FF" : "#707070"}
           emissive={emit ? "#C8E8FF" : "#000000"}
-          emissiveIntensity={emit ? 2.2 : 0.4}
+          emissiveIntensity={emit ? 1.9 : 0}
           roughness={1}
         />
       </mesh>
@@ -2526,9 +2526,9 @@ export function RoomScene({
           />
 
           {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera */}
-          <mesh ref={ceilingRef} position={[0, H + 0.001, 0]} castShadow receiveShadow>
+          <mesh ref={ceilingRef} position={[0, H, 0]} castShadow>
             <planeGeometry args={[W + 2 * T, D + 2 * T]} />
-            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} />
+            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.FrontSide} />
           </mesh>
 
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
