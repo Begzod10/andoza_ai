@@ -164,6 +164,7 @@ function WoodFloor({
   isSelected?: boolean;
   onClick?: () => void;
 }) {
+  console.log("WoodFloor called with:", { width, depth, floorType });
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
 
@@ -199,7 +200,7 @@ function WoodFloor({
 
   const texture = useMemo<THREE.CanvasTexture>(() => {
     const canvas = document.createElement("canvas");
-    const W = 512;
+    const W = 1024; // Doubled from 512 to reduce repeat count and visible tiling artifacts
     canvas.width = W;
     canvas.height = W;
     const ctx = canvas.getContext("2d")!;
@@ -248,7 +249,7 @@ function WoodFloor({
         if (i % 2 === 0) {
           ctx.strokeStyle = "rgba(0,0,0,0.13)";
           ctx.lineWidth = 1;
-          const lineOffset = Math.sin(i * 1.8) * 12; // Randomize line position per plank to prevent seam alignment
+          const lineOffset = Math.sin(i * 1.8) * 30; // Increased variation (±30px) to break repeating pattern more visibly
           const lineY = W / 2 + lineOffset;
           ctx.beginPath(); ctx.moveTo(i * plankW + 2, lineY); ctx.lineTo((i + 1) * plankW - 2, lineY); ctx.stroke();
         }
@@ -279,7 +280,7 @@ function WoodFloor({
         }
         ctx.strokeStyle = "rgba(0,0,0,0.12)";
         ctx.lineWidth = 1;
-        const lineOffset = Math.sin(i * 2.1) * 10; // Randomize line position per plank to prevent seam alignment
+        const lineOffset = Math.sin(i * 2.1) * 25; // Increased variation (±25px) to break repeating pattern more visibly
         const lineY = W / 2 + lineOffset;
         ctx.beginPath(); ctx.moveTo(i * plankW + 2, lineY); ctx.lineTo((i + 1) * plankW - 2, lineY); ctx.stroke();
       }
@@ -306,6 +307,7 @@ function WoodFloor({
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(repeatX, repeatY);
+    console.log("Floor texture created:", { floorType, canvasSize: W, repeatX, repeatY, textureSize: tex.image.width });
     return tex;
   }, [width, depth, floorType, floorColor]);
 

@@ -924,6 +924,8 @@ export default function ThreeDStudio({ room }: ThreeDStudioProps) {
     ? (surfaces[selectedSurface as keyof AppliedSurfaces] ?? null)
     : null;
 
+  console.log("ThreeDStudio render - room dimensions:", { width: room.width, length: room.length, ceiling_height: room.ceiling_height, geometry });
+
   return (
     <div className="flex h-full min-h-0 relative">
       {/* 3D Canvas */}
