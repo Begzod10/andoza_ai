@@ -2095,6 +2095,7 @@ function DraggableFurnitureItem({
   }, [scene])
   const groupRef = useRef<THREE.Group>(null)
   const primitiveRef = useRef<THREE.Object3D>(null)
+  const selRef = useRef<THREE.Group>(null)
 
   // Compute Y offset and XZ footprint ONCE per clone, before R3F sets position.
   const { yOffUnit, geomHW, geomHD } = useMemo(() => {
@@ -2125,11 +2126,26 @@ function DraggableFurnitureItem({
       groupRef.current.position.z = dragPosRef.current.z
     } else if (toolMode === 'rotate' && primitiveRef.current && dragRotRef.current !== null) {
       primitiveRef.current.rotation.y = dragRotRef.current
+      // keep the selection cage glued to the model during live rotation
+      if (selRef.current) selRef.current.rotation.y = dragRotRef.current
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
       const liveScale = entry.scale * (dragScaleRef.current ?? 1)
       primitiveRef.current.scale.setScalar(liveScale)
     }
   })
+
+  // Clean 12-edge selection cage — a triangle wireframe draws face diagonals,
+  // which reads as a "rotated" box around the model.
+  const so0 = item.scaleOverride ?? 1
+  const cageGeo = useMemo(() => {
+    if (!entry) return null
+    const sc = entry.scale * so0
+    const w = geomHW * sc * 2 + 0.06
+    const d = geomHD * sc * 2 + 0.06
+    const h = (entry.sizeM.h ?? 1) * so0 + 0.06
+    return new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d))
+  }, [entry, so0, geomHW, geomHD])
+  useEffect(() => () => { cageGeo?.dispose() }, [cageGeo])
 
   if (!entry || !modelPath) return null
 
@@ -2158,9 +2174,9 @@ function DraggableFurnitureItem({
         onPointerEnter={() => { document.body.style.cursor = meshCursor }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
       />
-      {/* Selection indicators — flat ground outline (top view) + 3D box (perspective) */}
+      {/* Selection indicators — rotate WITH the model so the cage always hugs it */}
       {isSelected && (
-        <>
+        <group ref={selRef} rotation={[0, item.rotation, 0]}>
           {/* Flat footprint outline — clearly visible in top/isometric view */}
           <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[fw + 0.08, fd + 0.08]} />
@@ -2178,12 +2194,14 @@ function DraggableFurnitureItem({
               <meshBasicMaterial color="#2563EB" />
             </mesh>
           ))}
-          {/* 3D wireframe box — visible in perspective view */}
-          <mesh position={[0, modelH / 2, 0]}>
-            <boxGeometry args={[fw + 0.06, modelH + 0.06, fd + 0.06]} />
-            <meshBasicMaterial color="#2563EB" wireframe />
-          </mesh>
-        </>
+          {/* 3D selection cage — pure box EDGES (a triangle wireframe would
+              draw face diagonals that read as a rotated box) */}
+          {cageGeo && (
+            <lineSegments geometry={cageGeo} position={[0, modelH / 2, 0]}>
+              <lineBasicMaterial color="#2563EB" />
+            </lineSegments>
+          )}
+        </group>
       )}
       {toolMode === 'move' && (
         <Html position={[0, buttonH, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: 'none' }}>
