@@ -7,6 +7,7 @@ import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { cn } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
+import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
 function StudioNav({ roomId }: { roomId: string }) {
   const navItems = [
@@ -45,6 +46,9 @@ export default function StudioPage() {
   const location = useLocation();
   const storeState = useRoomStore();
   const { draftId, loadDraftState, setApartmentId } = useRoomStore();
+  // Restore user-imported model blobs from IndexedDB — mounted HERE (not in
+  // DesignPanel) so uploaded models reappear on reload without opening panels
+  useRestoreUserModels();
   const isDirty = useRoomStore((s) => s.isDirty);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -218,11 +222,17 @@ export default function StudioPage() {
       // The store holds a DIFFERENT room's data (e.g. switching rooms from the
       // top-view floor plan). Replace it wholesale so every room opens with its
       // own geometry and design instead of inheriting the previous room's.
+      // The user-imported model LIBRARY is a per-user asset, not per-room —
+      // carry it across the reset or uploaded models vanish on room switch.
+      const keepUserFurniture = s.userFurniture;
       s.resetRoom();
       if (state) loadDraftState(state);
       // loadRoom last: authoritative ids + geometry (with door/window elements)
       // from the API override whatever the state blob carried.
       useRoomStore.getState().loadRoom(apiRoom);
+      if (useRoomStore.getState().userFurniture.length === 0 && keepUserFurniture.length > 0) {
+        useRoomStore.setState({ userFurniture: keepUserFurniture });
+      }
       return;
     }
     if (!state) return;

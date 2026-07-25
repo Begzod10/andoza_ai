@@ -2338,17 +2338,29 @@ function DraggableFurnitureModels({
     )
   }
 
+  // Half-extents of an item's AABB after its yaw rotation — a model authored
+  // long along Z and rotated 90° occupies X, and vice versa. Using unrotated
+  // extents locked dragging on one axis for rotated large items.
+  function rotatedHalf(hw: number, hd: number, rot: number): { hw: number; hd: number } {
+    const c = Math.abs(Math.cos(rot))
+    const s = Math.abs(Math.sin(rot))
+    return { hw: hw * c + hd * s, hd: hw * s + hd * c }
+  }
+
   // AABB overlap test using actual geometry footprints, not catalog sizeM
   function wouldCollide(draggingId: string, nx: number, nz: number): boolean {
     const all = furnitureRef.current
-    const aFP = footprintsRef.current.get(draggingId)
-    if (!aFP) return false
+    const aFP0 = footprintsRef.current.get(draggingId)
+    if (!aFP0) return false
+    const dragItem = all.find((f) => f.id === draggingId)
+    const aFP = rotatedHalf(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
     const GAP = 0.03 // 3 cm minimum clearance
 
     for (const f of all) {
       if (f.id === draggingId) continue
-      const bFP = footprintsRef.current.get(f.id)
-      if (!bFP) continue
+      const bFP0 = footprintsRef.current.get(f.id)
+      if (!bFP0) continue
+      const bFP = rotatedHalf(bFP0.hw, bFP0.hd, f.rotation)
       const dx = Math.abs(nx - f.x / 1000)
       const dz = Math.abs(nz - f.y / 1000)
       if (dx < aFP.hw + bFP.hw + GAP && dz < aFP.hd + bFP.hd + GAP) return true
@@ -2363,8 +2375,11 @@ function DraggableFurnitureModels({
       const fp = footprintsRef.current.get(item.id)
       const entry = resolveEntry(item.furniture_id)
       const so = item.scaleOverride ?? 1
-      const hw = fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2
-      const hd = fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2
+      const hw0 = fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2
+      const hd0 = fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2
+      // Wall clamping must use the ROTATED extents, or a long model turned
+      // 90° gets its free axis locked against the walls
+      const { hw, hd } = rotatedHalf(hw0, hd0, item.rotation)
       const WALL_MARGIN = 0.05 // 5 cm clearance from wall inner face
       dragHalfRef.current = { w: hw + WALL_MARGIN, d: hd + WALL_MARGIN }
       dragPosRef.current.set(item.x / 1000, 0, item.y / 1000)

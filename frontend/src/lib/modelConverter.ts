@@ -99,6 +99,18 @@ export async function convertFilesToGlb(
     return resources.get(base) ?? url
   })
 
+  // loadAsync resolves when the MODEL is parsed — texture images may still be
+  // downloading through the manager. Exporting before they finish produced
+  // texture-less GLBs, so wait for the manager's full queue (with a cap).
+  let allLoaded = false
+  const managerDone = new Promise<void>((resolve) => {
+    manager.onLoad = () => { allLoaded = true; resolve() }
+  })
+  const awaitTextures = async () => {
+    if (allLoaded) return
+    await Promise.race([managerDone, new Promise((r) => setTimeout(r, 8000))])
+  }
+
   const mainUrl = resources.get(mainFile.name.toLowerCase())!
   const ext = extOf(mainFile.name)
 
@@ -114,6 +126,7 @@ export async function convertFilesToGlb(
 
     if (ext === 'gltf') {
       const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
+      await awaitTextures()
       const buffer = await toGlbBuffer(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
@@ -129,12 +142,14 @@ export async function convertFilesToGlb(
         loader.setMaterials(mtl)
       }
       const scene = await loader.loadAsync(mainUrl)
+      await awaitTextures()
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
     }
 
     if (ext === 'fbx') {
       const scene = await new FBXLoader(manager).loadAsync(mainUrl)
+      await awaitTextures()
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
     }

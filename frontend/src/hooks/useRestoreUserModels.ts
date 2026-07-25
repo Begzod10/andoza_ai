@@ -8,6 +8,9 @@ export function useRestoreUserModels() {
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const setUserFurniturePath = useRoomStore((s) => s.setUserFurniturePath)
 
+  // Reactive: room switches can reload userFurniture entries with empty
+  // modelPath (blob URLs never survive persistence) — restore whenever any
+  // entry is missing its live URL, not only on first mount.
   useEffect(() => {
     for (const entry of userFurniture) {
       if (entry.modelPath) continue  // already live
@@ -18,6 +21,5 @@ export function useRestoreUserModels() {
         setUserFurniturePath(entry.id, url)
       })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [userFurniture, setUserFurniturePath])
 }
