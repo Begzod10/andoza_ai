@@ -910,6 +910,88 @@ function WindowFrames({
   return <>{frames}</>;
 }
 
+function DoorFrames({
+  geometry,
+  wallWidth,
+  wallDepth,
+  hiddenWalls,
+}: {
+  geometry: RoomGeometry;
+  wallWidth: number;
+  wallDepth: number;
+  hiddenWalls?: ReadonlySet<string>;
+}) {
+  const frames: React.ReactElement[] = [];
+  const s = 1 / 1000;
+  const FRAME_W = 0.05; // 5cm frame width
+  const frameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
+
+  const wallDefs = [
+    { id: "A", axis: "X" as const, cz: -wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "C", axis: "X" as const, cz: wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "B", axis: "Z" as const, cx: wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "D", axis: "Z" as const, cx: -wallWidth / 2, cz: 0, length: wallDepth },
+  ];
+
+  for (const wd of wallDefs) {
+    if (hiddenWalls?.has(wd.id)) continue;
+    const wall = geometry.walls.find((w) => w.id === wd.id);
+    if (!wall) continue;
+
+    const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
+    for (const el of resolvedWallEls) {
+      if (el.type !== "eshik") continue; // Only doors
+
+      const elW = el.width * s;
+      const elH = el.height * s;
+      const elBottomY = el.sill_height * s;
+      const elTopY = elBottomY + elH;
+      const offset = (el.position + el.width / 2 - wd.length * 500) * s;
+
+      const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
+      const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
+      const isHorizontal = wd.axis === "X";
+      const fW = isHorizontal ? elW : FRAME_W;
+      const fD = isHorizontal ? FRAME_W : elW;
+
+      const key = `door-${wd.id}-${el.id ?? el.position}`;
+
+      // Left frame
+      frames.push(
+        <mesh key={`${key}-L`} position={[px - elW / 2 + FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+          <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Right frame
+      frames.push(
+        <mesh key={`${key}-R`} position={[px + elW / 2 - FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+          <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Top frame
+      frames.push(
+        <mesh key={`${key}-T`} position={[px, elTopY + FRAME_W / 2, pz]}>
+          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+          {frameMat}
+        </mesh>,
+      );
+
+      // Threshold (door sill at floor level)
+      frames.push(
+        <mesh key={`${key}-H`} position={[px, 0.01, pz]}>
+          <boxGeometry args={[fW + 2 * FRAME_W, 0.01, fD]} />
+          <meshStandardMaterial color="#6B5344" roughness={0.8} metalness={0.0} />
+        </mesh>,
+      );
+    }
+  }
+  return <>{frames}</>;
+}
+
 function WindowPanes({
   geometry,
   wallWidth,
@@ -2655,6 +2737,7 @@ export function RoomScene({
           </WallFade>
 
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
+          <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
           <CornerShadows width={W} depth={D} composerActive={composerActive} />
