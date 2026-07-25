@@ -1043,7 +1043,6 @@ function WindowPanes({
       const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
       const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
       const pW = wd.axis === "X" ? elW : 0.02;
-      const pD = wd.axis === "Z" ? elW : 0.02;
 
       panes.push(
         <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
