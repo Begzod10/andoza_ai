@@ -1640,24 +1640,9 @@ export function SceneLighting({
 
   return (
     <>
-      {highQuality && <SoftShadows size={22} samples={10} focus={0} />}
-      {/* Low-intensity sky fill — dominant light is the directional sun */}
-      <hemisphereLight color="#FFE8CC" groundColor="#3A3020" intensity={0.28} />
-      <directionalLight
-        ref={sunRef}
-        position={[width * 0.4, height * 2.5, depth * 1.2]}
-        intensity={1.85}
-        color="#FFF5E8"
-        castShadow
-        shadow-mapSize={[mapSize, mapSize]}
-        shadow-camera-near={0.1}
-        shadow-camera-far={40}
-        shadow-camera-left={-hw}
-        shadow-camera-right={hw}
-        shadow-camera-top={hd}
-        shadow-camera-bottom={-hd}
-        shadow-bias={0.0}
-      />
+      {/* Neutral white ambient lighting — no shadows or directional effects */}
+      <ambientLight color="#FFFFFF" intensity={1.2} />
+      <hemisphereLight color="#FFFFFF" groundColor="#FFFFFF" intensity={0.3} />
     </>
   );
 }
@@ -2831,16 +2816,7 @@ export function RoomScene({
 
       <CeilingLights width={W} depth={D} height={H} lightsOn={lightsOn} highQuality={highQuality} />
 
-      {showContactShadows && (
-        <ContactShadows
-          position={[0, 0.01, 0]}
-          opacity={0.55}
-          scale={[W + 1, D + 1]}
-          blur={2.2}
-          far={0.5}
-          resolution={highQuality ? 512 : 256}
-        />
-      )}
+      {/* ContactShadows removed for neutral lighting */}
     </group>
   );
 }
