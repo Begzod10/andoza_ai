@@ -464,6 +464,9 @@ export const useRoomStore = create<RoomStore>()(
               id: w.id,
               length: lengthMm,
               elements: (w.elements ?? []).map((e) => ({
+                // API elements carry no id — mint one so selection, drag and
+                // removal stay per-element (undefined ids match each other)
+                id: nanoid(),
                 type: e.type as WallElement['type'],
                 width: Math.round(e.width * 1000),
                 height: Math.round(e.height * 1000),
@@ -696,4 +699,9 @@ export function computeNetWallArea(
 /** Total count of all wall openings across every wall. */
 export function computeOpeningsCount(geometry: RoomGeometry): number {
   return geometry.walls.reduce((sum, w) => sum + w.elements.length, 0)
+}
+
+// Dev-only debugging handle (also used by e2e smoke checks)
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as Record<string, unknown>).__roomStore = useRoomStore
 }

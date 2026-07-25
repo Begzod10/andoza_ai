@@ -42,6 +42,17 @@ import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 // upgrade can't silently regress the color pipeline)
 THREE.ColorManagement.enabled = true;
 
+// Dev-only: expose the live scene graph for debugging / smoke checks
+function DevSceneHandle() {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__scene = scene;
+    }
+  }, [scene]);
+  return null;
+}
+
 // ─── Postprocessing — N8AO ambient occlusion + SMAA anti-alias ───────────────
 // Mounted only when highQuality3d && declineCount < 2.
 // drei Html overlays (SwapButtons, drag handles) are DOM portals — unaffected
@@ -858,7 +869,7 @@ function WindowPanes({
       const pD = wd.axis === "Z" ? elW : 0.02;
 
       panes.push(
-        <mesh key={`${wd.id}-${el.position}`} position={[px, elY, pz]}>
+        <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
           <boxGeometry args={[pW, elH, pD]} />
           <meshPhysicalMaterial
             color="#B0CCE0"
@@ -3192,6 +3203,7 @@ export default function ThreeDPage() {
           {/* Drop resolution during interaction, restore at rest */}
           <AdaptiveDpr />
           <AdaptiveEvents />
+          <DevSceneHandle />
           <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
           <fog attach="fog" args={["#E8E4DC", 12, 30]} />
 

@@ -333,13 +333,13 @@ export function MebelPlanView() {
                   style={{ cursor: tool ? 'copy' : 'default' }}
                   onPointerDown={(e) => handleWallTap(wall, e)}
                 />
-                {els.map((el) => {
+                {els.map((el, i) => {
                   const isSel = selected?.id === el.id
                   const p = el.position
                   const w = el.width
                   return (
                     <g
-                      key={el.id}
+                      key={el.id ?? `${wall.id}-${i}`}
                       style={{ cursor: 'grab' }}
                       onPointerDown={(e) => startDrag(wall, el, e)}
                     >
