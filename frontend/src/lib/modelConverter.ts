@@ -105,7 +105,59 @@ function stripBackdropPlanes(root: THREE.Object3D): number {
 }
 
 const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
+// Extensions a model may REQUEST for a texture — includes formats browsers
+// can't decode (.tx/.tif/.tga/.psd are common in 3ds Max/Corona exports).
+// Requests for these are texture-like even when no picked file can serve them.
+const TEXTURE_REQUEST_EXT = /\.(tx|tiff?|tga|psd|png|jpe?g|webp|bmp)$/i
 const DIFFUSE_HINTS = ['diffuse', 'albedo', 'basecolor', 'base_color', 'color', '_col', '_d']
+
+/** Filename without its last extension. */
+function stemOf(name: string): string {
+  const i = name.lastIndexOf('.')
+  return i > 0 ? name.slice(0, i) : name
+}
+
+/** Case/space/underscore-insensitive comparison key: keep only [a-z0-9]. */
+function normStem(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+/** Trailing filename of a URL/path, decoded, query stripped, lowercased. */
+function urlBasename(url: string): string {
+  const raw = url.split(/[\\/]/).pop() ?? ''
+  let base = raw
+  try {
+    base = decodeURIComponent(raw)
+  } catch {
+    /* malformed escape — use the raw segment */
+  }
+  return base.split('?')[0].toLowerCase()
+}
+
+/**
+ * Fuzzy-match a requested texture basename against the picked IMAGE files
+ * when the exact basename lookup failed. Cascade, strictest first:
+ *  (a) identical stem with a different (picked) image extension
+ *      — foo.tx → foo.jpg / foo.png / foo.webp …
+ *  (b) case/space/underscore-insensitive stem equality ("Wood Oak-2.tif" ≈
+ *      "wood_oak2.jpg")
+ *  (c) normalized-stem containment in either direction
+ * `imageKeys` are lowercased basenames of picked image files, so image
+ * requests only ever match image files.
+ */
+function resolveImageKey(requestedBase: string, imageKeys: string[]): string | undefined {
+  const stem = stemOf(requestedBase)
+  const sameStem = imageKeys.find((k) => stemOf(k) === stem)
+  if (sameStem) return sameStem
+  const nStem = normStem(stem)
+  if (!nStem) return undefined
+  const normEqual = imageKeys.find((k) => normStem(stemOf(k)) === nStem)
+  if (normEqual) return normEqual
+  return imageKeys.find((k) => {
+    const nk = normStem(stemOf(k))
+    return nk.length > 0 && (nk.includes(nStem) || nStem.includes(nk))
+  })
+}
 
 /**
  * Best-effort automatic texturing: for every material that ended up WITHOUT a
@@ -123,7 +175,6 @@ function autoAssignDiffuseMaps(
 ): Promise<number> {
   const imgs = files.filter((f) => IMG_EXT.test(f.name))
   if (imgs.length === 0) return Promise.resolve(0)
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const loader = new THREE.TextureLoader()
   const texCache = new Map<string, Promise<THREE.Texture | null>>()
 
@@ -154,9 +205,20 @@ function autoAssignDiffuseMaps(
     for (const m of mats) {
       if (!(m instanceof THREE.MeshStandardMaterial) && !(m instanceof THREE.MeshPhongMaterial)) continue
       if (m.map) continue
-      const mName = norm(m.name || child.name || '')
-      let cand = mName ? imgs.find((f) => norm(f.name).includes(mName) || mName.includes(norm(f.name.replace(IMG_EXT, '')))) : undefined
-      if (!cand) cand = imgs.find((f) => DIFFUSE_HINTS.some((h) => norm(f.name).includes(norm(h))))
+      const mName = normStem(m.name || child.name || '')
+      // Same fuzzy cascade as texture-request resolution: normalized-stem
+      // equality first, then containment in either direction.
+      let cand: File | undefined
+      if (mName) {
+        cand = imgs.find((f) => normStem(stemOf(f.name)) === mName)
+        if (!cand) {
+          cand = imgs.find((f) => {
+            const nf = normStem(stemOf(f.name))
+            return nf.length > 0 && (nf.includes(mName) || mName.includes(nf))
+          })
+        }
+      }
+      if (!cand) cand = imgs.find((f) => DIFFUSE_HINTS.some((h) => normStem(f.name).includes(normStem(h))))
       if (!cand && imgs.length === 1) cand = imgs[0]
       if (!cand) continue
       ensureUVs(child.geometry as THREE.BufferGeometry)
@@ -193,7 +255,7 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
  */
 export async function convertFilesToGlb(
   files: File[],
-): Promise<{ buffer: ArrayBuffer; info: ModelInfo; mainFile: File }> {
+): Promise<{ buffer: ArrayBuffer; info: ModelInfo; mainFile: File; missingTextures: string[] }> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
     throw new Error("3D model fayli topilmadi (.glb, .gltf, .obj yoki .fbx tanlang)")
@@ -201,19 +263,46 @@ export async function convertFilesToGlb(
 
   // filename (lowercased) → blob URL for every selected file
   const resources = new Map<string, string>()
+  // blob URL → original picked filename, to name failures on already-resolved
+  // URLs (e.g. a picked .psd the browser cannot decode)
+  const blobToName = new Map<string, string>()
   for (const f of files) {
-    resources.set(f.name.toLowerCase(), URL.createObjectURL(f))
+    const blob = URL.createObjectURL(f)
+    resources.set(f.name.toLowerCase(), blob)
+    blobToName.set(blob, f.name.toLowerCase())
   }
+
+  // Lowercased basenames of picked files that are browser-decodable images —
+  // the only valid fuzzy-match targets for texture requests
+  const imageKeys = files
+    .filter((f) => IMG_EXT.test(f.name))
+    .map((f) => f.name.toLowerCase())
+
+  // Texture-like resources the model requested but no picked file could serve
+  // (deduplicated by basename)
+  const missing = new Set<string>()
 
   const manager = new THREE.LoadingManager()
   manager.setURLModifier((url) => {
-    // Match by trailing filename so "textures/wood.jpg", "./wood.jpg" and
-    // "wood.jpg" all resolve to the picked file with that name.
-    const base = decodeURIComponent(url.split(/[\\/]/).pop() ?? '')
-      .split('?')[0]
-      .toLowerCase()
-    return resources.get(base) ?? url
+    // Match by trailing filename so "textures/wood.jpg", "./wood.jpg",
+    // "C:\maps\wood.jpg" and "wood.jpg" all resolve to the picked file.
+    const base = urlBasename(url)
+    const exact = resources.get(base)
+    if (exact) return exact
+    if (TEXTURE_REQUEST_EXT.test(base)) {
+      // Exotic extension / renamed file — fuzzy-match against picked images
+      const fuzzyKey = resolveImageKey(base, imageKeys)
+      const fuzzy = fuzzyKey ? resources.get(fuzzyKey) : undefined
+      if (fuzzy) return fuzzy
+      missing.add(base)
+    }
+    return url
   })
+  manager.onError = (url) => {
+    const base = blobToName.get(url) ?? urlBasename(url)
+    if (TEXTURE_REQUEST_EXT.test(base)) missing.add(base)
+  }
+  const missingList = () => Array.from(missing).sort()
 
   // loadAsync resolves when the MODEL is parsed — texture images may still be
   // downloading through the manager. Exporting before they finish produced
@@ -242,7 +331,7 @@ export async function convertFilesToGlb(
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList() }
     }
 
     if (ext === 'gltf') {
@@ -252,7 +341,7 @@ export async function convertFilesToGlb(
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList() }
     }
 
     if (ext === 'obj') {
@@ -271,7 +360,7 @@ export async function convertFilesToGlb(
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList() }
     }
 
     if (ext === 'fbx') {
@@ -281,7 +370,7 @@ export async function convertFilesToGlb(
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList() }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)

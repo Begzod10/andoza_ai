@@ -26,9 +26,18 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
     setStatus('loading')
     setWarn(null)
     try {
-      const { buffer, info, mainFile } = await convertFilesToGlb(files)
+      const { buffer, info, mainFile, missingTextures } = await convertFilesToGlb(files)
 
-      if (!info.hasTextures) {
+      if (missingTextures.length > 0) {
+        // Name the exact files the model asked for but the pick didn't include
+        const names =
+          missingTextures.slice(0, 6).join(', ') +
+          (missingTextures.length > 6 ? '…' : '')
+        setWarn(
+          `Model quyidagi tekstura fayllarini so'raydi: ${names}. ` +
+          `Ularni model bilan birga tanlang yoki papka orqali yuklang.`,
+        )
+      } else if (!info.hasTextures) {
         setWarn(
           `Teksturalar topilmadi (${info.materialCount} material, faqat rang). ` +
           `Model faylini teksturalari bilan BIRGA tanlang (Ctrl bosib bir nechta fayl).`,
