@@ -12,6 +12,8 @@ import {
   useGLTF,
   Grid,
   RoundedBox,
+  GizmoHelper,
+  GizmoViewport,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
@@ -41,6 +43,55 @@ import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 // Explicit (default-on since three r152, but pinned here so a future three
 // upgrade can't silently regress the color pipeline)
 THREE.ColorManagement.enabled = true;
+
+// Double-click navigation: focus the orbit pivot on whatever was clicked;
+// double-clicking empty space recenters on the room.
+function DoubleClickFocus({
+  controlsRef,
+  onEmpty,
+}: {
+  controlsRef: RefObject<OrbitControlsImpl | null>;
+  onEmpty: () => void;
+}) {
+  const { gl, camera, scene } = useThree();
+  const rc = useMemo(() => new THREE.Raycaster(), []);
+  const goal = useRef<THREE.Vector3 | null>(null);
+  const onEmptyRef = useRef(onEmpty);
+  onEmptyRef.current = onEmpty;
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const onDbl = (e: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      const ndc = new THREE.Vector2(
+        ((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1,
+      );
+      rc.setFromCamera(ndc, camera);
+      const hit = rc.intersectObjects(scene.children, true).find((h) => {
+        const mesh = h.object as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.visible) return false;
+        const m = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        // skip invisible hit-helpers (transparent opacity-0 planes)
+        return !(m && m.transparent && m.opacity < 0.05);
+      });
+      if (hit) goal.current = hit.point.clone();
+      else onEmptyRef.current();
+    };
+    el.addEventListener('dblclick', onDbl);
+    return () => el.removeEventListener('dblclick', onDbl);
+  }, [gl, camera, scene, rc]);
+
+  useFrame(() => {
+    const c = controlsRef.current;
+    if (!c || !goal.current) return;
+    c.target.lerp(goal.current, 0.18);
+    if (c.target.distanceTo(goal.current) < 0.01) goal.current = null;
+    c.update();
+  });
+
+  return null;
+}
 
 // Dev-only: expose the live scene graph for debugging / smoke checks
 function DevSceneHandle() {
@@ -164,7 +215,6 @@ function WoodFloor({
   isSelected?: boolean;
   onClick?: () => void;
 }) {
-  console.log("WoodFloor called with:", { width, depth, floorType });
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
 
@@ -307,7 +357,6 @@ function WoodFloor({
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(repeatX, repeatY);
-    console.log("Floor texture created:", { floorType, canvasSize: W, repeatX, repeatY, textureSize: tex.image.width });
     return tex;
   }, [width, depth, floorType, floorColor]);
 
@@ -3056,6 +3105,7 @@ export default function ThreeDPage() {
   const [lightsOn, setLightsOn] = useState(true);
   const [sceneLightOn, setSceneLightOn] = useState(true);
   const [cutaway, setCutaway] = useState<CutawayMode>('off');
+  const [showHelp, setShowHelp] = useState(false);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
@@ -3120,6 +3170,42 @@ export default function ThreeDPage() {
     }
     return getCamera(preset, W, D, H);
   }, [preset, cutaway, W, D, H]);
+
+  // Keyboard shortcuts — desktop power-user navigation
+  const selectedFurIdRef = useRef<string | null>(null);
+  selectedFurIdRef.current = selectedFurId;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      switch (e.key.toLowerCase()) {
+        case '1': setToolMode('select'); break;
+        case '2': setToolMode('move'); break;
+        case '3': setToolMode('rotate'); break;
+        case '4': setToolMode('scale'); break;
+        case 't': setPreset((p) => (p === 'top' ? 'back' : 'top')); setPresetVersion((n) => n + 1); break;
+        case 'k': setCutaway((m) => (m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')); break;
+        case 'n': setSceneLightOn((v) => !v); break;
+        case 'l': setLightsOn((v) => !v); break;
+        case 'f':
+        case 'home': setPresetVersion((n) => n + 1); break;
+        case 'delete':
+        case 'backspace': {
+          const id = selectedFurIdRef.current;
+          if (id) {
+            useRoomStore.getState().removeFurniture(id);
+            setSelectedFurId(null);
+          }
+          break;
+        }
+        case 'escape': setSelectedFurId(null); setSelectedWall(null); setShowHelp(false); break;
+        case '?': setShowHelp((v) => !v); break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Recenter the camera on the room's centre when the cutaway mode changes or
   // a DIFFERENT room loads (switching rooms only changes the :roomId param —
@@ -3315,6 +3401,14 @@ export default function ThreeDPage() {
                 </form>
               )
             })()}
+            {/* Navigation help */}
+            <button
+              onClick={() => setShowHelp(v => !v)}
+              title="Boshqaruv bo'yicha yordam"
+              className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            >
+              ?
+            </button>
             {/* Recenter: snap the orbit pivot back to the room centre */}
             <button
               onClick={() => setPresetVersion(n => n + 1)}
@@ -3327,16 +3421,21 @@ export default function ThreeDPage() {
               </svg>
               <span className="hidden sm:inline">Markaz</span>
             </button>
-            {/* Cutaway mode: interior → auto cutaway → fixed diorama */}
+            {/* Cutaway mode: interior → auto cutaway → fixed diorama.
+                Disabled in top view where the shell is already open. */}
             <button
               onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
+              disabled={topView}
               title={
-                cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                topView ? "Yuqoridan ko'rinishda kesma shart emas"
+                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
                 : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
                 : "Ichki ko'rinishga qaytish"
               }
               className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                cutaway !== 'off'
+                topView
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                  : cutaway !== 'off'
                   ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
                   : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
               }`}
@@ -3417,9 +3516,41 @@ export default function ThreeDPage() {
         <div className="flex-1 min-h-0 relative">
 
           {/* Hint overlay — bottom-left of canvas */}
-          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-white/40 pointer-events-none select-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,.5)' }}>
-            Drag: aylantirish · Scroll: zoom
+          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
+            Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus
           </p>
+
+          {/* Navigation help card */}
+          {showHelp && (
+            <div className="absolute top-3 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-bold text-gray-900">Boshqaruv</p>
+                <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+              </div>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sichqoncha</p>
+              <ul className="space-y-0.5 mb-2">
+                <li>Chap tugma — aylantirish</li>
+                <li>O'ng / o'rta tugma — surish</li>
+                <li>G'ildirak — yaqinlashtirish</li>
+                <li>Ikki marta bosish — shu nuqtaga fokus</li>
+                <li>Bo'sh joyga ikki marta — markazga qaytish</li>
+                <li>Pastki o'ngdagi o'qlar — ko'rinishni burish</li>
+              </ul>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sensor ekran</p>
+              <ul className="space-y-0.5 mb-2">
+                <li>Bir barmoq — aylantirish</li>
+                <li>Ikki barmoq — surish va masshtab</li>
+              </ul>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
+              <ul className="space-y-0.5">
+                <li><b>1–4</b> — Tanlash / Siljitish / Aylantirish / O'lcham</li>
+                <li><b>T</b> — Yuqoridan / 3D &nbsp; <b>K</b> — Kesma</li>
+                <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
+                <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
+                <li><b>Esc</b> — bekor qilish</li>
+              </ul>
+            </div>
+          )}
 
           {/* Mebelirovka quick actions — doors/windows editor + 3D model import */}
           {isMebelTab && (
@@ -3476,7 +3607,12 @@ export default function ThreeDPage() {
           <AdaptiveEvents />
           <DevSceneHandle />
           <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
-          <fog attach="fog" args={["#E8E4DC", 12, 30]} />
+          {/* Fog matches the background (night fog was beige on a dark scene)
+              and relaxes in top view where the camera legitimately sits far */}
+          <fog
+            attach="fog"
+            args={[sceneLightOn ? "#E8E4DC" : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+          />
 
           {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
           {topView && (
@@ -3504,6 +3640,11 @@ export default function ThreeDPage() {
             onDecline={() => {
               setDpr(1);
               setDeclineCount(n => n + 1);
+            }}
+            onIncline={() => {
+              // Quality recovers after transient hitches (texture uploads etc.)
+              setDpr([1, 2]);
+              setDeclineCount(n => Math.max(0, n - 1));
             }}
           />
 
@@ -3569,12 +3710,14 @@ export default function ThreeDPage() {
 
             <OrbitControls
               ref={controlsRef}
+              makeDefault
               target={initCam.target}
               enableDamping
               dampingFactor={0.06}
               enablePan
               panSpeed={0.9}
               screenSpacePanning
+              zoomToCursor
               mouseButtons={{
                 LEFT: THREE.MOUSE.ROTATE,
                 MIDDLE: THREE.MOUSE.PAN,
@@ -3594,6 +3737,20 @@ export default function ThreeDPage() {
               controlsRef={controlsRef}
               version={presetVersion}
             />
+
+            {/* Double-click to focus; empty double-click recenters the room */}
+            <DoubleClickFocus
+              controlsRef={controlsRef}
+              onEmpty={() => setPresetVersion((n) => n + 1)}
+            />
+
+            {/* Orientation gizmo — click an axis to snap the view */}
+            <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
+              <GizmoViewport
+                axisColors={['#D85A30', '#7FB069', '#5B8DEF']}
+                labelColor="#3A342E"
+              />
+            </GizmoHelper>
           </Suspense>
         </Canvas>
         </div>

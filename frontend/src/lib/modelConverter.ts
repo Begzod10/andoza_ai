@@ -104,6 +104,72 @@ function stripBackdropPlanes(root: THREE.Object3D): number {
   return doomed.length
 }
 
+const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
+const DIFFUSE_HINTS = ['diffuse', 'albedo', 'basecolor', 'base_color', 'color', '_col', '_d']
+
+/**
+ * Best-effort automatic texturing: for every material that ended up WITHOUT a
+ * color map, try to bind a diffuse texture from the picked files —
+ * 1) an image whose filename contains the material/mesh name,
+ * 2) otherwise an image with a diffuse-ish name (albedo/basecolor/diffuse…),
+ * 3) otherwise, if exactly one image was picked, use it.
+ * Only the diffuse/albedo map is bound (per product decision) — full PBR sets
+ * still come from proper GLTF/MTL references when present.
+ */
+function autoAssignDiffuseMaps(
+  root: THREE.Object3D,
+  files: File[],
+  resources: Map<string, string>,
+): Promise<number> {
+  const imgs = files.filter((f) => IMG_EXT.test(f.name))
+  if (imgs.length === 0) return Promise.resolve(0)
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const loader = new THREE.TextureLoader()
+  const texCache = new Map<string, Promise<THREE.Texture | null>>()
+
+  const loadTex = (file: File): Promise<THREE.Texture | null> => {
+    const key = file.name.toLowerCase()
+    if (!texCache.has(key)) {
+      texCache.set(key, new Promise((res) => {
+        loader.load(
+          resources.get(key)!,
+          (t) => {
+            t.colorSpace = THREE.SRGBColorSpace
+            t.wrapS = t.wrapT = THREE.RepeatWrapping
+            t.flipY = false // GLTF convention; exporter re-encodes accordingly
+            res(t)
+          },
+          undefined,
+          () => res(null),
+        )
+      }))
+    }
+    return texCache.get(key)!
+  }
+
+  const jobs: Promise<boolean>[] = []
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const mats = Array.isArray(child.material) ? child.material : [child.material]
+    for (const m of mats) {
+      if (!(m instanceof THREE.MeshStandardMaterial) && !(m instanceof THREE.MeshPhongMaterial)) continue
+      if (m.map) continue
+      const mName = norm(m.name || child.name || '')
+      let cand = mName ? imgs.find((f) => norm(f.name).includes(mName) || mName.includes(norm(f.name.replace(IMG_EXT, '')))) : undefined
+      if (!cand) cand = imgs.find((f) => DIFFUSE_HINTS.some((h) => norm(f.name).includes(norm(h))))
+      if (!cand && imgs.length === 1) cand = imgs[0]
+      if (!cand) continue
+      jobs.push(loadTex(cand).then((t) => {
+        if (!t) return false
+        m.map = t
+        m.needsUpdate = true
+        return true
+      }))
+    }
+  })
+  return Promise.all(jobs).then((r) => r.filter(Boolean).length)
+}
+
 function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     new GLTFExporter().parse(
@@ -172,7 +238,8 @@ export async function convertFilesToGlb(
         new GLTFLoader(manager).loadAsync(mainUrl),
       ])
       const stripped = stripBackdropPlanes(gltf.scene)
-      const buffer = stripped > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
+      const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      const buffer = stripped + assigned > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
 
@@ -180,6 +247,7 @@ export async function convertFilesToGlb(
       const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(gltf.scene)
       await awaitTextures()
+      await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = await toGlbBuffer(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
@@ -197,6 +265,7 @@ export async function convertFilesToGlb(
       const scene = await loader.loadAsync(mainUrl)
       stripBackdropPlanes(scene)
       await awaitTextures()
+      await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
     }
@@ -205,6 +274,7 @@ export async function convertFilesToGlb(
       const scene = await new FBXLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(scene)
       await awaitTextures()
+      await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile }
     }
