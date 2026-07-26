@@ -1,5 +1,6 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls, Environment } from "@react-three/drei";
+import { PointerLockControls } from "@react-three/drei";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { useRef, useState, useEffect, Suspense } from "react";
 import * as THREE from "three";
 import type { PointerLockControls as PointerLockControlsImpl } from "three-stdlib";
@@ -143,7 +144,7 @@ export default function WalkthroughPage() {
 
         <Suspense fallback={null}>
           <SceneLighting width={roomW} depth={roomD} height={roomH} highQuality={true} />
-          <Environment preset="apartment" environmentIntensity={0.3} />
+          <SafeEnvironment intensity={0.3} />
 
           <RoomScene
             room={room}
