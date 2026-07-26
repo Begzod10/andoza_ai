@@ -239,14 +239,16 @@ export async function convertFilesToGlb(
         new GLTFLoader(manager).loadAsync(mainUrl),
       ])
       const stripped = stripBackdropPlanes(gltf.scene)
+      const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
-      const buffer = stripped + assigned > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
+      const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile }
     }
 
     if (ext === 'gltf') {
       const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(gltf.scene)
+      ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = await toGlbBuffer(gltf.scene)
@@ -265,6 +267,7 @@ export async function convertFilesToGlb(
       }
       const scene = await loader.loadAsync(mainUrl)
       stripBackdropPlanes(scene)
+      ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
@@ -274,6 +277,7 @@ export async function convertFilesToGlb(
     if (ext === 'fbx') {
       const scene = await new FBXLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(scene)
+      ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
@@ -292,6 +296,7 @@ export interface GlbMaterialInfo {
   index: number
   name: string
   hasMap: boolean
+  hasUVs: boolean
 }
 
 function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
@@ -336,7 +341,12 @@ export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterial
     const label = meshName && matName && meshName !== matName
       ? `${meshName} · ${matName}`
       : meshName || matName || `Qism ${i + 1}`
-    return { index: i, name: label, hasMap: !!p.mat.map }
+    return {
+      index: i,
+      name: label,
+      hasMap: !!p.mat.map,
+      hasUVs: hasUsableUVs(p.mesh.geometry as THREE.BufferGeometry),
+    }
   })
 }
 
@@ -346,22 +356,26 @@ export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterial
  * single texel and the part renders as one flat colour. Generate simple
  * box-projected UVs from the bounding box so manual textures actually show.
  */
-function ensureUVs(geometry: THREE.BufferGeometry) {
+/** Whether a geometry has UVs that can actually display a texture. */
+export function hasUsableUVs(geometry: THREE.BufferGeometry): boolean {
   const existing = geometry.getAttribute('uv')
-  if (existing) {
-    // Degenerate UVs (all identical) are as useless as none — detect cheaply
-    let min = Infinity
-    let max = -Infinity
-    for (let i = 0; i < existing.count; i++) {
-      const u = existing.getX(i)
-      const v = existing.getY(i)
-      if (u < min) min = u
-      if (v < min) min = v
-      if (u > max) max = u
-      if (v > max) max = v
-    }
-    if (max - min > 1e-5) return
+  if (!existing) return false
+  // Degenerate UVs (all identical) are as useless as none — detect cheaply
+  let min = Infinity
+  let max = -Infinity
+  for (let i = 0; i < existing.count; i++) {
+    const u = existing.getX(i)
+    const v = existing.getY(i)
+    if (u < min) min = u
+    if (v < min) min = v
+    if (u > max) max = u
+    if (v > max) max = v
   }
+  return max - min > 1e-5
+}
+
+function ensureUVs(geometry: THREE.BufferGeometry): boolean {
+  if (hasUsableUVs(geometry)) return false
   geometry.computeBoundingBox()
   const bb = geometry.boundingBox!
   const size = new THREE.Vector3().subVectors(bb.max, bb.min)
@@ -394,6 +408,17 @@ function ensureUVs(geometry: THREE.BufferGeometry) {
     uv[i * 2 + 1] = v
   }
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  return true
+}
+
+/** Generate UVs for every unwrapped mesh in a scene; returns how many were fixed. */
+function ensureSceneUVs(root: THREE.Object3D): number {
+  let fixed = 0
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (mesh.isMesh && mesh.geometry && ensureUVs(mesh.geometry as THREE.BufferGeometry)) fixed++
+  })
+  return fixed
 }
 
 function assignPartTexture(p: PartRef, tex: THREE.Texture) {

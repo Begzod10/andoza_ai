@@ -1065,6 +1065,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
                 <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${m.hasMap ? 'bg-green-500' : 'bg-gray-300'}`} />
                   <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
+                  {!m.hasUVs && (
+                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
+                  )}
                   <span className="text-[10px] text-gray-400 shrink-0">{m.hasMap ? 'tekstura ✓' : "yo'q"}</span>
                   <button
                     onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
