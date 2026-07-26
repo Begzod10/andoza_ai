@@ -1058,7 +1058,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
               <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
             </div>
             <p className="text-[11px] text-gray-400 mb-3">
-              {texEditor.mats.length} ta material kanali. Har biriga alohida rasm qo'yish mumkin.
+              {texEditor.mats.length} ta qism. Har biriga alohida rasm qo'yish mumkin — umumiy materiallar avtomatik ajratiladi.
             </p>
             <div className="max-h-72 overflow-y-auto space-y-1.5">
               {texEditor.mats.map((m) => (

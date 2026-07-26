@@ -299,43 +299,65 @@ function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
   })
 }
 
-/** Unique skinnable materials in a stable traversal order (index = channel). */
-function collectMaterials(root: THREE.Object3D): SkinableMaterial[] {
-  const seen = new Set<string>()
-  const out: SkinableMaterial[] = []
+interface PartRef {
+  mesh: THREE.Mesh
+  slot: number // material slot within the mesh (multi-material meshes)
+  mat: SkinableMaterial
+}
+
+/**
+ * Every skinnable PART of the model in stable traversal order. A part is one
+ * mesh × material slot — finer than unique materials, because asset packs
+ * often share one material across many objects (blanket + pillows + sheet),
+ * and users need to texture those independently.
+ */
+function collectParts(root: THREE.Object3D): PartRef[] {
+  const out: PartRef[] = []
   root.traverse((child) => {
-    if (!(child as THREE.Mesh).isMesh) return
-    const mats = Array.isArray((child as THREE.Mesh).material)
-      ? ((child as THREE.Mesh).material as THREE.Material[])
-      : [(child as THREE.Mesh).material as THREE.Material]
-    for (const m of mats) {
-      if (
-        (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhongMaterial) &&
-        !seen.has(m.uuid)
-      ) {
-        seen.add(m.uuid)
-        out.push(m)
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    mats.forEach((m, slot) => {
+      if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhongMaterial) {
+        out.push({ mesh, slot, mat: m })
       }
-    }
+    })
   })
   return out
 }
 
-/** List a stored model's material channels (name + whether a diffuse is bound). */
+/** List a stored model's parts (object name + whether a diffuse is bound). */
 export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterialInfo[]> {
   const gltf = await parseGlb(buffer)
-  return collectMaterials(gltf.scene).map((m, i) => ({
-    index: i,
-    name: m.name || `Material ${i + 1}`,
-    hasMap: !!m.map,
-  }))
+  return collectParts(gltf.scene).map((p, i) => {
+    const meshName = p.mesh.name?.trim()
+    const matName = p.mat.name?.trim()
+    const label = meshName && matName && meshName !== matName
+      ? `${meshName} · ${matName}`
+      : meshName || matName || `Qism ${i + 1}`
+    return { index: i, name: label, hasMap: !!p.mat.map }
+  })
+}
+
+function assignPartTexture(p: PartRef, tex: THREE.Texture) {
+  // Clone the material so a shared material doesn't texture OTHER parts too
+  const cloned = p.mat.clone()
+  cloned.map = tex
+  cloned.color.set('#ffffff') // don't tint the texture with the old flat colour
+  cloned.needsUpdate = true
+  if (Array.isArray(p.mesh.material)) {
+    p.mesh.material[p.slot] = cloned
+  } else {
+    p.mesh.material = cloned
+  }
 }
 
 /**
  * Manually skin a stored GLB with an image.
- * - targetIndex given: bind ONLY that material channel (per-part texturing).
- * - targetIndex omitted: bind every unmapped material, or all of them when
- *   the model is already fully mapped (so the action always has an effect).
+ * - targetIndex given: bind ONLY that part (material cloned first, so parts
+ *   sharing a material are textured independently).
+ * - targetIndex omitted: bind every unmapped part, or all of them when the
+ *   model is already fully mapped (so the action always has an effect).
  * Re-exports a self-contained GLB.
  */
 export async function applyTextureToGlb(
@@ -344,7 +366,7 @@ export async function applyTextureToGlb(
   targetIndex?: number,
 ): Promise<ArrayBuffer> {
   const gltf = await parseGlb(buffer)
-  const mats = collectMaterials(gltf.scene)
+  const parts = collectParts(gltf.scene)
   const url = URL.createObjectURL(imageFile)
   try {
     const tex = await new Promise<THREE.Texture>((resolve, reject) => {
@@ -354,19 +376,15 @@ export async function applyTextureToGlb(
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping
     tex.flipY = false
 
-    let targets: SkinableMaterial[]
+    let targets: PartRef[]
     if (targetIndex !== undefined) {
-      targets = mats[targetIndex] ? [mats[targetIndex]] : []
+      targets = parts[targetIndex] ? [parts[targetIndex]] : []
     } else {
-      const unmapped = mats.filter((m) => !m.map)
-      targets = unmapped.length > 0 ? unmapped : mats
+      const unmapped = parts.filter((p) => !p.mat.map)
+      targets = unmapped.length > 0 ? unmapped : parts
     }
-    if (targets.length === 0) throw new Error('Modelda mos material topilmadi')
-    for (const m of targets) {
-      m.map = tex
-      m.color.set('#ffffff') // don't tint the texture with the old flat colour
-      m.needsUpdate = true
-    }
+    if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
+    for (const p of targets) assignPartTexture(p, tex)
     return await toGlbBuffer(gltf.scene)
   } finally {
     URL.revokeObjectURL(url)
