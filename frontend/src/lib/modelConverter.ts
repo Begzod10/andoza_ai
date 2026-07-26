@@ -285,19 +285,66 @@ export async function convertFilesToGlb(
   }
 }
 
+type SkinableMaterial = THREE.MeshStandardMaterial | THREE.MeshPhongMaterial
+
+export interface GlbMaterialInfo {
+  index: number
+  name: string
+  hasMap: boolean
+}
+
+function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
+  return new Promise((resolve, reject) => {
+    new GLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
+  })
+}
+
+/** Unique skinnable materials in a stable traversal order (index = channel). */
+function collectMaterials(root: THREE.Object3D): SkinableMaterial[] {
+  const seen = new Set<string>()
+  const out: SkinableMaterial[] = []
+  root.traverse((child) => {
+    if (!(child as THREE.Mesh).isMesh) return
+    const mats = Array.isArray((child as THREE.Mesh).material)
+      ? ((child as THREE.Mesh).material as THREE.Material[])
+      : [(child as THREE.Mesh).material as THREE.Material]
+    for (const m of mats) {
+      if (
+        (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhongMaterial) &&
+        !seen.has(m.uuid)
+      ) {
+        seen.add(m.uuid)
+        out.push(m)
+      }
+    }
+  })
+  return out
+}
+
+/** List a stored model's material channels (name + whether a diffuse is bound). */
+export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterialInfo[]> {
+  const gltf = await parseGlb(buffer)
+  return collectMaterials(gltf.scene).map((m, i) => ({
+    index: i,
+    name: m.name || `Material ${i + 1}`,
+    hasMap: !!m.map,
+  }))
+}
+
 /**
- * Manually skin a stored GLB with an image: binds the picked image as the
- * diffuse map on every material that has none (or on ALL materials when the
- * model is already fully mapped, so the action always has a visible effect),
- * then re-exports a self-contained GLB.
+ * Manually skin a stored GLB with an image.
+ * - targetIndex given: bind ONLY that material channel (per-part texturing).
+ * - targetIndex omitted: bind every unmapped material, or all of them when
+ *   the model is already fully mapped (so the action always has an effect).
+ * Re-exports a self-contained GLB.
  */
 export async function applyTextureToGlb(
   buffer: ArrayBuffer,
   imageFile: File,
+  targetIndex?: number,
 ): Promise<ArrayBuffer> {
-  const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
-    new GLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
-  })
+  const gltf = await parseGlb(buffer)
+  const mats = collectMaterials(gltf.scene)
   const url = URL.createObjectURL(imageFile)
   try {
     const tex = await new Promise<THREE.Texture>((resolve, reject) => {
@@ -307,20 +354,13 @@ export async function applyTextureToGlb(
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping
     tex.flipY = false
 
-    const unmapped: Array<THREE.MeshStandardMaterial | THREE.MeshPhongMaterial> = []
-    const mapped: Array<THREE.MeshStandardMaterial | THREE.MeshPhongMaterial> = []
-    gltf.scene.traverse((child) => {
-      if (!(child as THREE.Mesh).isMesh) return
-      const mats = Array.isArray((child as THREE.Mesh).material)
-        ? ((child as THREE.Mesh).material as THREE.Material[])
-        : [(child as THREE.Mesh).material as THREE.Material]
-      for (const m of mats) {
-        if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhongMaterial) {
-          (m.map ? mapped : unmapped).push(m)
-        }
-      }
-    })
-    const targets = unmapped.length > 0 ? unmapped : mapped
+    let targets: SkinableMaterial[]
+    if (targetIndex !== undefined) {
+      targets = mats[targetIndex] ? [mats[targetIndex]] : []
+    } else {
+      const unmapped = mats.filter((m) => !m.map)
+      targets = unmapped.length > 0 ? unmapped : mats
+    }
     if (targets.length === 0) throw new Error('Modelda mos material topilmadi')
     for (const m of targets) {
       m.map = tex

@@ -13,7 +13,8 @@ import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-import { applyTextureToGlb } from "@/lib/modelConverter";
+import { applyTextureToGlb, listGlbMaterials } from "@/lib/modelConverter";
+import type { GlbMaterialInfo } from "@/lib/modelConverter";
 import { getModelFromDb, saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 
@@ -106,28 +107,49 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
 
-  // ── Manual texturing of imported models ─────────────────────────────
+  // ── Manual texturing of imported models (per material channel) ──────
   const texInputRef = React.useRef<HTMLInputElement>(null);
-  const texTargetRef = React.useRef<string | null>(null);
+  const texTargetRef = React.useRef<{ entryId: string; index?: number } | null>(null);
   const [texBusy, setTexBusy] = React.useState<string | null>(null);
+  const [texEditor, setTexEditor] = React.useState<{ entryId: string; name: string; mats: GlbMaterialInfo[] } | null>(null);
 
-  async function handleTextureFile(file: File) {
-    const id = texTargetRef.current;
-    texTargetRef.current = null;
-    const entry = userFurniture.find((e) => e.id === id);
-    if (!id || !entry) return;
-    setTexBusy(id);
+  async function openTexEditor(entryId: string) {
+    const entry = userFurniture.find((e) => e.id === entryId);
+    if (!entry) return;
+    setTexBusy(entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
       if (!buf) throw new Error('Model fayli topilmadi');
-      const newBuf = await applyTextureToGlb(buf, file);
+      const mats = await listGlbMaterials(buf);
+      setTexEditor({ entryId, name: entry.name, mats });
+    } catch (err) {
+      alert('Model o\'qib bo\'lmadi: ' + (err instanceof Error ? err.message : 'xato'));
+    } finally {
+      setTexBusy(null);
+    }
+  }
+
+  async function handleTextureFile(file: File) {
+    const target = texTargetRef.current;
+    texTargetRef.current = null;
+    if (!target) return;
+    const entry = userFurniture.find((e) => e.id === target.entryId);
+    if (!entry) return;
+    setTexBusy(target.entryId);
+    try {
+      const buf = await getModelFromDb(entry.blobId);
+      if (!buf) throw new Error('Model fayli topilmadi');
+      const newBuf = await applyTextureToGlb(buf, file, target.index);
       await saveModelToDb(entry.blobId, newBuf);
       const newUrl = arrayBufferToBlobUrl(newBuf);
       useGLTF.preload(newUrl);
-      setUserFurniturePath(id, newUrl);
+      setUserFurniturePath(target.entryId, newUrl);
       useRoomStore.setState((s) => ({
-        userFurniture: s.userFurniture.map((e) => (e.id === id ? { ...e, hasTextures: true } : e)),
+        userFurniture: s.userFurniture.map((e) => (e.id === target.entryId ? { ...e, hasTextures: true } : e)),
       }));
+      // refresh the channel list so the ✓ badges update
+      const mats = await listGlbMaterials(newBuf);
+      setTexEditor((prev) => (prev && prev.entryId === target.entryId ? { ...prev, mats } : prev));
     } catch (err) {
       alert("Tekstura qo'yib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
     } finally {
@@ -990,10 +1012,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
                 </button>
                 {entry.isUser && entry.modelPath && (
                   <button
-                    onClick={() => { texTargetRef.current = entry.id; texInputRef.current?.click(); }}
+                    onClick={() => openTexEditor(entry.id)}
                     disabled={texBusy === entry.id}
                     className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
-                    title="Rasmdan tekstura qo'yish (diffuse)"
+                    title="Teksturalarni boshqarish (kanallar bo'yicha)"
                   >{texBusy === entry.id ? '⏳' : '🖼'}</button>
                 )}
                 {entry.isUser && (
@@ -1025,6 +1047,46 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
             e.target.value = '';
           }}
         />
+      </div>
+
+      {/* Material channel editor — one image per channel */}
+      {texEditor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setTexEditor(null)}>
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold text-gray-900 truncate">{texEditor.name}</p>
+              <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
+            </div>
+            <p className="text-[11px] text-gray-400 mb-3">
+              {texEditor.mats.length} ta material kanali. Har biriga alohida rasm qo'yish mumkin.
+            </p>
+            <div className="max-h-72 overflow-y-auto space-y-1.5">
+              {texEditor.mats.map((m) => (
+                <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${m.hasMap ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
+                  <span className="text-[10px] text-gray-400 shrink-0">{m.hasMap ? 'tekstura ✓' : "yo'q"}</span>
+                  <button
+                    onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
+                    disabled={texBusy === texEditor.entryId}
+                    className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
+                  >
+                    {texBusy === texEditor.entryId ? '⏳' : 'Rasm'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => { texTargetRef.current = { entryId: texEditor.entryId }; texInputRef.current?.click(); }}
+              disabled={texBusy === texEditor.entryId}
+              className="mt-3 w-full text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-xl py-2 hover:border-brand/40 hover:text-brand disabled:opacity-40"
+            >
+              Barcha bo'sh kanallarga bitta rasm
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="hidden">
       </div>
 
       {furniture.length > 0 && (
