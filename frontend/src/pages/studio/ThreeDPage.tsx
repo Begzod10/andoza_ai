@@ -44,6 +44,10 @@ import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 // upgrade can't silently regress the color pipeline)
 THREE.ColorManagement.enabled = true;
 
+// Wall thickness — kept minimal so walls read as planes (a true zero-width
+// plane would be backface-culled from outside and reopen corner cracks)
+const WALL_T = 0.05;
+
 // Double-click navigation: focus the orbit pivot on whatever was clicked;
 // double-clicking empty space recenters on the room.
 function DoubleClickFocus({
@@ -1722,8 +1726,8 @@ export function SceneLighting({
 const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D: number; H: number }) {
   const { geometry, swapAdjacentElements } = useRoomStore();
   const s = 1 / 1000;
-  const T = 0.25;
-  const T_MM = 250;
+  const T = WALL_T;
+  const T_MM = WALL_T * 1000;
   const buttonY = H * 0.42;
 
   const wallDefs = useMemo(() => [
@@ -2634,7 +2638,7 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
-  const T = 0.18  // 18 cm wall thickness for polygon rooms
+  const T = WALL_T  // thin plane-like walls (shared constant)
 
   return (
     <group>
@@ -2760,7 +2764,7 @@ export function RoomScene({
   const W = isLegacyAbcd ? W_abcd : W_poly
   const D = isLegacyAbcd ? D_abcd : D_poly
   const H = (room.ceiling_height > 0 ? room.ceiling_height : 2.7);
-  const T = 0.25; // 25 cm wall thickness (used only for legacy ABCD)
+  const T = WALL_T; // thin plane-like walls (shared constant)
   const wallC = geometry.walls.find((w) => w.id === "C");
   const wallD = geometry.walls.find((w) => w.id === "D");
 
