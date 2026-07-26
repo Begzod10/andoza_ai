@@ -933,10 +933,14 @@ function WindowFrames({
       const fD = isHorizontal ? FRAME_W : elW;
 
       const key = `frame-${wd.id}-${el.id ?? el.position}`;
+      // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
+      // offsetting X on side walls pushed them perpendicular out of the wall
+      const jamb = elW / 2 - FRAME_W / 2;
+      const midY = (elBottomY + elTopY) / 2;
 
       // Left frame
       frames.push(
-        <mesh key={`${key}-L`} position={[px - elW / 2 + FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+        <mesh key={`${key}-L`} position={isHorizontal ? [px - jamb, midY, pz] : [px, midY, pz - jamb]}>
           <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
           {frameMat}
         </mesh>,
@@ -944,7 +948,7 @@ function WindowFrames({
 
       // Right frame
       frames.push(
-        <mesh key={`${key}-R`} position={[px + elW / 2 - FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+        <mesh key={`${key}-R`} position={isHorizontal ? [px + jamb, midY, pz] : [px, midY, pz + jamb]}>
           <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
           {frameMat}
         </mesh>,
@@ -1023,10 +1027,13 @@ function DoorFrames({
       const fD = isHorizontal ? FRAME_W : elW;
 
       const key = `door-${wd.id}-${el.id ?? el.position}`;
+      // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D)
+      const jamb = elW / 2 - FRAME_W / 2;
+      const midY = (elBottomY + elTopY) / 2;
 
       // Left frame
       frames.push(
-        <mesh key={`${key}-L`} position={[px - elW / 2 + FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+        <mesh key={`${key}-L`} position={isHorizontal ? [px - jamb, midY, pz] : [px, midY, pz - jamb]}>
           <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
           {frameMat}
         </mesh>,
@@ -1034,7 +1041,7 @@ function DoorFrames({
 
       // Right frame
       frames.push(
-        <mesh key={`${key}-R`} position={[px + elW / 2 - FRAME_W / 2, (elBottomY + elTopY) / 2, pz]}>
+        <mesh key={`${key}-R`} position={isHorizontal ? [px + jamb, midY, pz] : [px, midY, pz + jamb]}>
           <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
           {frameMat}
         </mesh>,
