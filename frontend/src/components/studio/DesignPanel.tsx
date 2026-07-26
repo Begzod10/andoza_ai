@@ -13,6 +13,9 @@ import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
+import { applyTextureToGlb } from "@/lib/modelConverter";
+import { getModelFromDb, saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
+import { useGLTF } from "@react-three/drei";
 
 type PhaseKey = 'suvoq' | 'shpaklovka' | 'boyoq' | 'pol' | 'montaj' | 'mebel'
 
@@ -98,10 +101,39 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
 
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture } =
+          userFurniture, removeUserFurniture, setUserFurniturePath } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
+
+  // ── Manual texturing of imported models ─────────────────────────────
+  const texInputRef = React.useRef<HTMLInputElement>(null);
+  const texTargetRef = React.useRef<string | null>(null);
+  const [texBusy, setTexBusy] = React.useState<string | null>(null);
+
+  async function handleTextureFile(file: File) {
+    const id = texTargetRef.current;
+    texTargetRef.current = null;
+    const entry = userFurniture.find((e) => e.id === id);
+    if (!id || !entry) return;
+    setTexBusy(id);
+    try {
+      const buf = await getModelFromDb(entry.blobId);
+      if (!buf) throw new Error('Model fayli topilmadi');
+      const newBuf = await applyTextureToGlb(buf, file);
+      await saveModelToDb(entry.blobId, newBuf);
+      const newUrl = arrayBufferToBlobUrl(newBuf);
+      useGLTF.preload(newUrl);
+      setUserFurniturePath(id, newUrl);
+      useRoomStore.setState((s) => ({
+        userFurniture: s.userFurniture.map((e) => (e.id === id ? { ...e, hasTextures: true } : e)),
+      }));
+    } catch (err) {
+      alert("Tekstura qo'yib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
+    } finally {
+      setTexBusy(null);
+    }
+  }
   const floorType = designState.floorType;
 
   const [coveringMode, setCoveringMode] = React.useState<CoveringMode>("paint");
@@ -956,6 +988,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
                 >
                   + Qo'shish
                 </button>
+                {entry.isUser && entry.modelPath && (
+                  <button
+                    onClick={() => { texTargetRef.current = entry.id; texInputRef.current?.click(); }}
+                    disabled={texBusy === entry.id}
+                    className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
+                    title="Rasmdan tekstura qo'yish (diffuse)"
+                  >{texBusy === entry.id ? '⏳' : '🖼'}</button>
+                )}
                 {entry.isUser && (
                   <button
                     onClick={() => removeUserFurniture(entry.id)}
@@ -972,6 +1012,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
           <ModelImportButton compact />
         </div>
+
+        {/* Hidden image input for manual texturing */}
+        <input
+          ref={texInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleTextureFile(f);
+            e.target.value = '';
+          }}
+        />
       </div>
 
       {furniture.length > 0 && (

@@ -285,6 +285,54 @@ export async function convertFilesToGlb(
   }
 }
 
+/**
+ * Manually skin a stored GLB with an image: binds the picked image as the
+ * diffuse map on every material that has none (or on ALL materials when the
+ * model is already fully mapped, so the action always has a visible effect),
+ * then re-exports a self-contained GLB.
+ */
+export async function applyTextureToGlb(
+  buffer: ArrayBuffer,
+  imageFile: File,
+): Promise<ArrayBuffer> {
+  const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
+    new GLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
+  })
+  const url = URL.createObjectURL(imageFile)
+  try {
+    const tex = await new Promise<THREE.Texture>((resolve, reject) => {
+      new THREE.TextureLoader().load(url, resolve, undefined, reject)
+    })
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+    tex.flipY = false
+
+    const unmapped: Array<THREE.MeshStandardMaterial | THREE.MeshPhongMaterial> = []
+    const mapped: Array<THREE.MeshStandardMaterial | THREE.MeshPhongMaterial> = []
+    gltf.scene.traverse((child) => {
+      if (!(child as THREE.Mesh).isMesh) return
+      const mats = Array.isArray((child as THREE.Mesh).material)
+        ? ((child as THREE.Mesh).material as THREE.Material[])
+        : [(child as THREE.Mesh).material as THREE.Material]
+      for (const m of mats) {
+        if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhongMaterial) {
+          (m.map ? mapped : unmapped).push(m)
+        }
+      }
+    })
+    const targets = unmapped.length > 0 ? unmapped : mapped
+    if (targets.length === 0) throw new Error('Modelda mos material topilmadi')
+    for (const m of targets) {
+      m.map = tex
+      m.color.set('#ffffff') // don't tint the texture with the old flat colour
+      m.needsUpdate = true
+    }
+    return await toGlbBuffer(gltf.scene)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 /** Single-file convenience wrapper (kept for compatibility). */
 export async function convertToGlb(
   file: File,
