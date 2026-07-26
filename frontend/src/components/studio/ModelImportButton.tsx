@@ -5,11 +5,22 @@ import { saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { useRoomStore } from '@/store/roomStore'
 import { useGLTF } from '@react-three/drei'
 
+const IMPORT_EXTS = /\.(glb|gltf|obj|fbx|bin|mtl|png|jpe?g|webp|bmp|tga|ktx2)$/i
+
 export function ModelImportButton({ compact = false }: { compact?: boolean }) {
   const fileRef = React.useRef<HTMLInputElement>(null)
+  const folderRef = React.useRef<HTMLInputElement>(null)
   const [status, setStatus] = React.useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [warn, setWarn] = React.useState<string | null>(null)
   const addUserFurniture = useRoomStore((s) => s.addUserFurniture)
+
+  // Folder pick: take every relevant file inside (textures may live in
+  // subfolders like textures/) — this is "load textures from the model's
+  // folder" done the only way a browser allows
+  function onFolderPicked(list: FileList | null) {
+    const fs = Array.from(list ?? []).filter((f) => IMPORT_EXTS.test(f.name)).slice(0, 400)
+    if (fs.length) handleFiles(fs)
+  }
 
   async function handleFiles(files: File[]) {
     setStatus('loading')
@@ -70,6 +81,13 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
             if (fs.length) { handleFiles(fs); e.target.value = '' }
           }}
         />
+        <input
+          ref={folderRef}
+          type="file"
+          className="hidden"
+          {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+          onChange={(e) => { onFolderPicked(e.target.files); e.target.value = '' }}
+        />
         <button
           onClick={() => fileRef.current?.click()}
           disabled={status === 'loading'}
@@ -80,6 +98,14 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
           </span>
           <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
           <span className="text-[9px] text-gray-400 leading-tight">GLB · GLTF · OBJ · FBX + teksturalar</span>
+        </button>
+        <button
+          onClick={() => folderRef.current?.click()}
+          disabled={status === 'loading'}
+          className="w-full text-[10px] font-medium text-gray-400 hover:text-brand transition-colors py-1"
+          title="Model papkasini tanlang — teksturalar ichidagi papkalardan ham yuklanadi"
+        >
+          📁 Papka orqali yuklash
         </button>
       </>
     )
@@ -98,6 +124,13 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
           if (fs.length) { handleFiles(fs); e.target.value = '' }
         }}
       />
+      <input
+        ref={folderRef}
+        type="file"
+        className="hidden"
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        onChange={(e) => { onFolderPicked(e.target.files); e.target.value = '' }}
+      />
       <button
         onClick={() => fileRef.current?.click()}
         disabled={status === 'loading'}
@@ -112,6 +145,14 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
         {status === 'loading' ? 'Yuklanmoqda...' :
          status === 'done'    ? '✓ Qo\'shildi'  :
                                 '+ Model qo\'shish (model + teksturalarini birga tanlang)'}
+      </button>
+      <button
+        onClick={() => folderRef.current?.click()}
+        disabled={status === 'loading'}
+        className="w-full text-xs py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:border-brand/50 hover:text-brand transition-colors"
+        title="Model papkasini tanlang — teksturalar ichidagi papkalardan ham yuklanadi"
+      >
+        📁 Papka orqali yuklash (teksturalar bilan)
       </button>
       {warn && <p className="text-xs text-amber-600 leading-snug">{warn}</p>}
     </div>

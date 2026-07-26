@@ -69,16 +69,26 @@ function stripBackdropPlanes(root: THREE.Object3D): number {
   const doomed: THREE.Object3D[] = []
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
-    const geo = child.geometry as THREE.BufferGeometry
-    const idx = geo.getIndex()
-    const triCount = (idx ? idx.count : geo.getAttribute('position')?.count ?? 0) / 3
-    if (triCount > 4) return // only trivial quads
     const box = new THREE.Box3().setFromObject(child)
     const s = box.getSize(new THREE.Vector3())
     const dims = [s.x, s.y, s.z].sort((a, b) => a - b)
-    const isFlat = dims[0] < rootMax * 0.02
+    const isFlat = dims[0] < rootMax * 0.03
     const isHuge = dims[2] > rootMax * 0.7
-    if (isFlat && isHuge) doomed.push(child)
+    if (!isFlat || !isHuge) return
+
+    const geo = child.geometry as THREE.BufferGeometry
+    const idx = geo.getIndex()
+    const triCount = (idx ? idx.count : geo.getAttribute('position')?.count ?? 0) / 3
+
+    // Cloth-sim backdrops are subdivided into thousands of triangles, so a
+    // low poly count alone can't be the only signal. A flat, scene-sized
+    // sheet ALSO qualifies when it lies at the very bottom of the scene and
+    // covers most of its footprint (a ground cloth) — real furniture parts
+    // like glass tabletops sit higher and cover less.
+    const touchesBottom = box.min.y <= rootBox.min.y + rootSize.y * 0.05
+    const coversFootprint = s.x * s.z > rootSize.x * rootSize.z * 0.6
+
+    if (triCount <= 4 || (touchesBottom && coversFootprint)) doomed.push(child)
   })
   for (const m of doomed) m.removeFromParent()
   return doomed.length
