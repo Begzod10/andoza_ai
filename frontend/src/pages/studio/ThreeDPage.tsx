@@ -33,7 +33,7 @@ import { getRooms, deleteRoom } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  WallFade, WallBody, WallTopRim, CornerPosts, FloorSlab,
+  WallFade, WallTopRim, CornerPosts, FloorSlab,
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
@@ -44,9 +44,10 @@ import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 // upgrade can't silently regress the color pipeline)
 THREE.ColorManagement.enabled = true;
 
-// Wall thickness — kept minimal so walls read as planes (a true zero-width
-// plane would be backface-culled from outside and reopen corner cracks)
-const WALL_T = 0.05;
+// Walls are WIDTHLESS planes: surfaces sit exactly on the room boundary, so
+// corners share their edge precisely (welded), and from outside the camera
+// sees straight into the room (backface-culled) — dollhouse style.
+const WALL_T = 0;
 
 // Double-click navigation: focus the orbit pivot on whatever was clicked;
 // double-clicking empty space recenters on the room.
@@ -2638,7 +2639,7 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
-  const T = WALL_T  // thin plane-like walls (shared constant)
+  const T = 0.02  // polygon walls stay as boxes — 2cm minimum to avoid degenerate geometry
 
   return (
     <group>
@@ -2817,10 +2818,6 @@ export function RoomScene({
   const hiddenWalls = useHiddenWalls(cutaway)
   const cutawayOn = cutaway !== 'off'
 
-  // Resolved wall elements (mm) for the solid wall bodies
-  const bodyElsA = useMemo(() => resolveElementPositions(wallA?.elements ?? [], W * 1000), [wallA?.elements, W])
-  const bodyElsC = useMemo(() => resolveElementPositions(wallC?.elements ?? [], W * 1000), [wallC?.elements, W])
-
   // In topView the camera must see through the ceiling, but the ceiling box must still
   // block the directional sun (shadow map). Move it to layer 2 so the main camera
   // ignores it while the sun's shadow camera (which has layer 2 enabled) still sees it.
@@ -2864,7 +2861,7 @@ export function RoomScene({
               elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
               isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
               panelSettings={panelsA} />
-            {false && <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />}
+
             {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 
@@ -2874,7 +2871,7 @@ export function RoomScene({
               elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
               isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
               panelSettings={panelsB} />
-            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} elements={elementsBOuter} />
+
             {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
           </WallFade>
 
@@ -2884,7 +2881,7 @@ export function RoomScene({
               elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
               isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
               panelSettings={panelsC} />
-            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} elements={bodyElsC} />
+
             {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
           </WallFade>
 
@@ -2894,7 +2891,7 @@ export function RoomScene({
               elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
               isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
               panelSettings={panelsD} />
-            <WallBody length={D + 2 * T} height={H} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} elements={elementsDOuter} />
+
             {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
 
