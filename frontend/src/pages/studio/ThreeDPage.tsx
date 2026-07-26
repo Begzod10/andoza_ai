@@ -2768,8 +2768,17 @@ export function RoomScene({
             onClick={onFloorClick}
           />
 
-          {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera */}
-          <mesh ref={ceilingRef} position={[0, H, 0]} castShadow>
+          {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera.
+              PlaneGeometry is built in the XY plane with its normal on +Z (see three.js
+              PlaneGeometry source: vertices pushed as (x, -y, 0), normals (0, 0, 1)).
+              A previous refactor (box→plane, commit e8b4b6b) dropped the rotation that
+              the box replaced, leaving this as a giant *vertical* Y-Z slab bisecting the
+              room instead of a horizontal ceiling — the real source of the long-standing
+              "bright triangular artifact" (a sliver of that mis-oriented slab poking past
+              the wall silhouette at grazing angles). Rotating +90° about X lays the plane
+              flat in the XZ plane at y = H with its normal pointing down (-Y), i.e. facing
+              into the room so FrontSide correctly renders the interior-facing side. */}
+          <mesh ref={ceilingRef} position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
             <planeGeometry args={[W + 2 * T, D + 2 * T]} />
             <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.FrontSide} />
           </mesh>
