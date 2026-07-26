@@ -2532,7 +2532,8 @@ function DraggableFurnitureModels({
         dragRotRef.current = Math.round(rawRot / step) * step
       } else if (toolMode === 'scale') {
         const deltaY = scaleStartYRef.current - e.clientY // drag up = bigger
-        const newScale = Math.max(0.1, Math.min(5, scaleStartValueRef.current * Math.pow(2, deltaY / 200)))
+        // Generous bounds: unit-misdetected imports may need large corrections
+        const newScale = Math.max(0.05, Math.min(20, scaleStartValueRef.current * Math.pow(2, deltaY / 200)))
         dragScaleRef.current = newScale
       }
     }

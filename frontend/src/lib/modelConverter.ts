@@ -27,12 +27,11 @@ function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const size = box.getSize(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
 
-  // Auto-detect units: mm >100, cm >10, feet 5–10 (US asset packs — a 7ft
-  // bed read as metres becomes a room-filling monster), else metres.
-  // Single furniture pieces genuinely 5–10 METRES wide are practically
-  // nonexistent, so the feet band is safe.
+  // Auto-detect units: mm >1000, cm 10–1000 (a 220-unit bed is a 2.2m bed
+  // authored in cm, NOT mm — the old >100→mm rule shrank such models 10×),
+  // feet 5–10 (US asset packs), else metres.
   let toM =
-    maxDim > 100 ? 0.001 :
+    maxDim > 1000 ? 0.001 :
     maxDim > 10 ? 0.01 :
     maxDim >= 5 ? 0.3048 :
     1
