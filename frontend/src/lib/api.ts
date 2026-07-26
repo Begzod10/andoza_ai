@@ -209,6 +209,7 @@ export interface RoomWall {
 
 export interface RoomGeometryData {
   walls: RoomWall[];
+  vertices?: [number, number][];
 }
 
 export interface Room {

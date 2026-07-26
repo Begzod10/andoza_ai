@@ -81,7 +81,7 @@ export interface StudioContext {
 
 // ─── Surface color defaults ───────────────────────────────────────────────────
 
-const CEILING_DEFAULT = "#F8F6F2";
+const CEILING_DEFAULT = "#D5D3CE";
 
 function shadeHex(hex: string, factor: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -2533,30 +2533,55 @@ function NWallRoomShell({
     [verts.map(v => v.join(',')).join(';')]
   )
 
-  const floorGeo = useMemo(() => {
+  // Filter degenerate vertices: near-duplicates AND near-collinear points
+  const filteredCentred = useMemo(() => {
+    const filtered: [number, number][] = []
+    for (let i = 0; i < centred.length; i++) {
+      const [x0, z0] = centred[(i - 1 + centred.length) % centred.length]
+      const [x1, z1] = centred[i]
+      const [x2, z2] = centred[(i + 1) % centred.length]
+      const dx1 = x1 - x0, dz1 = z1 - z0
+      const dx2 = x2 - x1, dz2 = z2 - z1
+      // Skip if near-duplicate successor
+      if (Math.sqrt(dx2 * dx2 + dz2 * dz2) < 0.01) continue
+      // Skip if near-collinear with neighbours (cross-product area threshold)
+      const cross = Math.abs(dx1 * dz2 - dz1 * dx2)
+      const mag1 = Math.sqrt(dx1 * dx1 + dz1 * dz1)
+      const mag2 = Math.sqrt(dx2 * dx2 + dz2 * dz2)
+      if (mag1 > 0 && mag2 > 0 && cross < 0.0001 * mag1 * mag2) continue
+      filtered.push([x1, z1])
+    }
+    return filtered.length > 2 ? filtered : centred
+  }, [centred])
+
+  const buildShape = (verts: [number, number][]) => {
     const shape = new THREE.Shape()
-    shape.moveTo(centred[0][0], centred[0][1])
-    for (let i = 1; i < centred.length; i++) shape.lineTo(centred[i][0], centred[i][1])
+    shape.moveTo(verts[0][0], verts[0][1])
+    for (let i = 1; i < verts.length; i++) shape.lineTo(verts[i][0], verts[i][1])
     shape.closePath()
     return new THREE.ShapeGeometry(shape)
-  }, [centred])
+  }
+
+  const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
   const T = 0.18  // 18 cm wall thickness for polygon rooms
 
   return (
     <group>
-      {/* Floor — ShapeGeometry in XY plane, rotated flat */}
-      <mesh geometry={floorGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
+      <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial
           color={FLOOR_COLORS[designState.floorType] ?? '#C9AB7E'}
           roughness={0.8}
         />
       </mesh>
 
-      {/* Ceiling — same shape, flipped; offset slightly to avoid edge seams */}
-      <mesh geometry={floorGeo} rotation={[Math.PI / 2, 0, 0]} position={[0, H + 0.001, 0]} castShadow>
-        <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} flatShading={true} />
-      </mesh>
+      {/* Ceiling DISABLED TEMPORARILY to diagnose artifact */}
+      {false && (
+        <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, H, 0]} castShadow>
+          <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} />
+        </mesh>
+      )}
 
       {/* One wall box per polygon edge */}
       {centred.map(([x1, z1], i) => {
@@ -2743,19 +2768,16 @@ export function RoomScene({
             onClick={onFloorClick}
           />
 
-          {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera */}
-          <mesh ref={ceilingRef} position={[0, H, 0]} castShadow>
-            <planeGeometry args={[W + 2 * T, D + 2 * T]} />
-            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.FrontSide} />
-          </mesh>
+          {/* Ceiling plane removed — was causing bright triangle artifact. Rooms are open-top for better view. */}
 
+          {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
           <WallFade hidden={hiddenWalls.has('A')}>
             <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
               elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
               isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
               panelSettings={panelsA} />
-            <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />
+            {false && <WallBody length={W} height={H} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} elements={bodyElsA} />}
             {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 

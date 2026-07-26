@@ -475,6 +475,10 @@ export const useRoomStore = create<RoomStore>()(
               })),
             }
           }),
+          vertices: room.geometry.vertices?.map(([x, z]: [number, number]) => [
+            Math.round(x * 1000),
+            Math.round(z * 1000),
+          ]) as [number, number][] | undefined,
         }
       : defaultGeometry()
     set({
