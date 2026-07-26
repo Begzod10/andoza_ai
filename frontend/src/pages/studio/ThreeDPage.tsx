@@ -114,9 +114,9 @@ function RealismEffects({ enabled }: { enabled: boolean }) {
     <EffectComposer multisampling={0}>
       <N8AO
         halfRes
-        aoRadius={0.4}
-        intensity={1.9}
-        distanceFalloff={0.4}
+        aoRadius={0.35}
+        intensity={1.1}
+        distanceFalloff={0.5}
         quality="performance"
         depthAwareUpsampling
       />
@@ -1103,12 +1103,14 @@ function WindowPanes({
         <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
           <planeGeometry args={[pW - 0.01, elH - 0.01]} />
           <meshPhysicalMaterial
-            color="#B0CCE0"
+            color="#B8D4EC"
             transparent
-            opacity={0.22}
-            roughness={0.05}
-            metalness={0.0}
-            envMapIntensity={0.3}
+            opacity={0.18}
+            roughness={0.04}
+            metalness={0}
+            envMapIntensity={0.9}
+            clearcoat={0.6}
+            clearcoatRoughness={0.1}
           />
         </mesh>,
       );
@@ -1165,7 +1167,7 @@ function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; dep
   const segsB = boardSegments(depth, wallB?.elements ?? []);
   const segsD = boardSegments(depth, wallD?.elements ?? []);
 
-  const mat = <meshStandardMaterial color={color} roughness={0.7} />;
+  const mat = <meshStandardMaterial color={color} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />;
   return (
     <group>
       {!hiddenWalls?.has('A') && segsA.map((s, i) => (
@@ -1689,9 +1691,28 @@ export function SceneLighting({
 
   return (
     <>
-      {/* Neutral white ambient lighting — no shadows or directional effects */}
-      <ambientLight color="#FFFFFF" intensity={0.65} />
-      <hemisphereLight color="#FFFFFF" groundColor="#FFFFFF" intensity={0.65} />
+      {/* Warm low-angle directional "sun" for form-shading and realistic shadows */}
+      <directionalLight
+        ref={sunRef}
+        color="#FFF3DE"
+        intensity={highQuality ? 1.6 : 1.2}
+        position={[width * 0.8, height * 2.2, depth * 0.6]}
+        castShadow
+        shadow-mapSize={[mapSize, mapSize]}
+        shadow-camera-left={-hw}
+        shadow-camera-right={hw}
+        shadow-camera-top={hd}
+        shadow-camera-bottom={-hd}
+        shadow-camera-near={0.5}
+        shadow-camera-far={height * 3 + Math.max(width, depth)}
+        shadow-bias={-0.0008}
+        shadow-normalBias={0.02}
+        shadow-radius={4}
+      />
+      {/* Cool sky-bounce fill light — much dimmer so shadows read clearly */}
+      <hemisphereLight color="#DCE8FF" groundColor="#CFC6B4" intensity={0.35} />
+      {/* Ambient floor to prevent pitch-black occluded areas */}
+      <ambientLight color="#FFFFFF" intensity={0.18} />
     </>
   );
 }
@@ -2900,7 +2921,18 @@ export function RoomScene({
 
       <CeilingLights width={W} depth={D} height={H} lightsOn={lightsOn} highQuality={highQuality} />
 
-      {/* ContactShadows removed for neutral lighting */}
+      {/* Ground contact shadows for furniture grounding */}
+      {showContactShadows && (
+        <ContactShadows
+          position={[0, 0.005, 0]}
+          opacity={composerActive ? 0.35 : 0.5}
+          scale={Math.max(W, D) * 1.4}
+          blur={2.2}
+          far={2}
+          resolution={512}
+          color="#000000"
+        />
+      )}
     </group>
   );
 }
@@ -3590,7 +3622,7 @@ export default function ThreeDPage() {
 
         <Canvas
           shadows="soft"
-          camera={{ position: initCam.position, fov: 55, near: 0.05, far: 80 }}
+          camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
           style={{ width: "100%", height: "100%" }}
           gl={{
             antialias: true,
