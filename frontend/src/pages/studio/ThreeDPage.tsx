@@ -2,7 +2,6 @@ import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
-  Environment,
   ContactShadows,
   SoftShadows,
   PerformanceMonitor,
@@ -19,6 +18,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
@@ -3905,7 +3905,7 @@ export default function ThreeDPage() {
                   height={H}
                   highQuality={highQuality3d}
                 />
-                <Environment preset="apartment" environmentIntensity={0.35} />
+                <SafeEnvironment intensity={0.35} />
               </>
             )}
             {/* Scene light off: barely-visible ambient so the room stays navigable;

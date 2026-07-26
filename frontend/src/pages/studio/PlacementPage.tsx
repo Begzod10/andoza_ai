@@ -2,7 +2,8 @@ import { Suspense, useState, useRef, useCallback, useEffect, useMemo } from 'rea
 import { useOutletContext } from 'react-router-dom'
 import { nanoid } from 'nanoid'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Environment } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
+import { SafeEnvironment } from '@/components/studio/SafeEnvironment'
 import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
@@ -1408,7 +1409,7 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
         if (!cfg) return null
         return <WireLine3D key={el.id} el={el} panel={panel} W={W} D={D} wireH={wireChannelH} cw={cfg.cw} color={cfg.color}/>
       })}
-      <Environment preset="apartment" environmentIntensity={0.35}/>
+      <SafeEnvironment intensity={0.35}/>
     </>
   )
 }
