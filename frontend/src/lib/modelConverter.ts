@@ -159,6 +159,7 @@ function autoAssignDiffuseMaps(
       if (!cand) cand = imgs.find((f) => DIFFUSE_HINTS.some((h) => norm(f.name).includes(norm(h))))
       if (!cand && imgs.length === 1) cand = imgs[0]
       if (!cand) continue
+      ensureUVs(child.geometry as THREE.BufferGeometry)
       jobs.push(loadTex(cand).then((t) => {
         if (!t) return false
         m.map = t
@@ -339,7 +340,64 @@ export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterial
   })
 }
 
+/**
+ * Meshes exported from Corona/V-Ray scenes often have NO UV coordinates
+ * (procedural materials never needed them) — a bound texture then samples a
+ * single texel and the part renders as one flat colour. Generate simple
+ * box-projected UVs from the bounding box so manual textures actually show.
+ */
+function ensureUVs(geometry: THREE.BufferGeometry) {
+  const existing = geometry.getAttribute('uv')
+  if (existing) {
+    // Degenerate UVs (all identical) are as useless as none — detect cheaply
+    let min = Infinity
+    let max = -Infinity
+    for (let i = 0; i < existing.count; i++) {
+      const u = existing.getX(i)
+      const v = existing.getY(i)
+      if (u < min) min = u
+      if (v < min) min = v
+      if (u > max) max = u
+      if (v > max) max = v
+    }
+    if (max - min > 1e-5) return
+  }
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox!
+  const size = new THREE.Vector3().subVectors(bb.max, bb.min)
+  const pos = geometry.getAttribute('position')
+  const normal = geometry.getAttribute('normal')
+  const uv = new Float32Array(pos.count * 2)
+  const n = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i)
+    const y = pos.getY(i)
+    const z = pos.getZ(i)
+    if (normal) n.set(normal.getX(i), normal.getY(i), normal.getZ(i))
+    else n.set(0, 1, 0)
+    const ax = Math.abs(n.x)
+    const ay = Math.abs(n.y)
+    const az = Math.abs(n.z)
+    let u: number
+    let v: number
+    if (ay >= ax && ay >= az) {
+      u = (x - bb.min.x) / (size.x || 1)
+      v = (z - bb.min.z) / (size.z || 1)
+    } else if (ax >= az) {
+      u = (z - bb.min.z) / (size.z || 1)
+      v = (y - bb.min.y) / (size.y || 1)
+    } else {
+      u = (x - bb.min.x) / (size.x || 1)
+      v = (y - bb.min.y) / (size.y || 1)
+    }
+    uv[i * 2] = u
+    uv[i * 2 + 1] = v
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+
 function assignPartTexture(p: PartRef, tex: THREE.Texture) {
+  ensureUVs(p.mesh.geometry as THREE.BufferGeometry)
   // Clone the material so a shared material doesn't texture OTHER parts too
   const cloned = p.mat.clone()
   cloned.map = tex
