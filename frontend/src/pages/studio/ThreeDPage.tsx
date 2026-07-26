@@ -1695,8 +1695,8 @@ export function SceneLighting({
       <directionalLight
         ref={sunRef}
         color="#FFF3DE"
-        intensity={highQuality ? 1.6 : 1.2}
-        position={[width * 0.8, height * 2.2, depth * 0.6]}
+        intensity={highQuality ? 1.3 : 1.0}
+        position={[width * 0.3, height * 1.8, depth * 0.3]}
         castShadow
         shadow-mapSize={[mapSize, mapSize]}
         shadow-camera-left={-hw}
@@ -2898,7 +2898,8 @@ export function RoomScene({
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
-          <CornerShadows width={W} depth={D} composerActive={composerActive} />
+          {/* CornerShadows disabled: real directional shadows now provide corner depth */}
+          {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
 
           {/* Diorama frame: floating slab + corner posts outlining the box */}
           {cutawayOn && <>
