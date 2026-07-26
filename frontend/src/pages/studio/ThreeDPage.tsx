@@ -2768,7 +2768,11 @@ export function RoomScene({
             onClick={onFloorClick}
           />
 
-          {/* Ceiling plane removed — was causing bright triangle artifact. Rooms are open-top for better view. */}
+          {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera */}
+          <mesh ref={ceilingRef} position={[0, H, 0]} castShadow>
+            <planeGeometry args={[W + 2 * T, D + 2 * T]} />
+            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.FrontSide} />
+          </mesh>
 
           {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
