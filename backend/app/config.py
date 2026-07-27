@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     # Application
     # ------------------------------------------------------------------ #
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,http://localhost:8082"
 
     @property
     def CORS_ORIGINS(self) -> List[str]:
