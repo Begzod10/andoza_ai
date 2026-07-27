@@ -19,6 +19,7 @@ import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
@@ -411,6 +412,8 @@ interface WallProps {
   isSelected?: boolean;
   onClick?: () => void;
   panelSettings?: WallPanelSettings;
+  /** Suvoq bosqichi: photo-real plaster PBR material on every segment */
+  plaster?: boolean;
 }
 
 /*
@@ -448,6 +451,7 @@ function WallSegment({
   imageTexture,
   texAspect,
   isSelected,
+  plaster = false,
 }: {
   seg: Seg;
   covering: WallCovering;
@@ -456,6 +460,8 @@ function WallSegment({
   /** texW / texH of the uploaded image (1 for unknown / square) */
   texAspect: number;
   isSelected: boolean;
+  /** Suvoq bosqichi: render the photo-real plaster PBR material instead of the covering */
+  plaster?: boolean;
 }) {
   const mat = useMemo(() => {
     if (covering.kind !== 'oboy' || !baseTexture) return null;
@@ -509,12 +515,37 @@ function WallSegment({
       covering.kind === 'texture' ? covering.rotation : 0,
   ]);
 
+  // Suvoq (plaster) phase: world-anchored PBR maps, cloned per segment so the
+  // pattern flows uninterrupted across door/window cuts. Clones share the
+  // underlying image — loaded once for the whole session.
+  const plasterMaps = useMemo(() => {
+    if (!plaster) return null;
+    return clonePlasterMapsFor(seg.pw, seg.ph, seg.startMm / 1000, seg.startYm);
+  }, [plaster, seg.pw, seg.ph, seg.startMm, seg.startYm]);
+
   const paintColor = covering.kind === 'paint' ? covering.color : '#ffffff';
 
   return (
     <mesh position={[seg.px, seg.py, seg.pz]} rotation={[0, seg.ry, 0]} castShadow receiveShadow>
       <planeGeometry args={[seg.pw, seg.ph]} />
-      {covering.kind === 'paint' ? (
+      {plaster && plasterMaps ? (
+        <meshStandardMaterial
+          map={plasterMaps.map}
+          normalMap={plasterMaps.normalMap}
+          normalScale={PLASTER_NORMAL_SCALE}
+          roughnessMap={plasterMaps.roughnessMap}
+          aoMap={plasterMaps.aoMap}
+          // Full-strength AO makes the sun-averted walls go near-black with
+          // real photo maps (the scene's ambient fill is only ~0.18) — soften
+          // it and lean more on IBL so every wall stays readable.
+          aoMapIntensity={0.5}
+          roughness={1}
+          metalness={0}
+          envMapIntensity={0.6}
+          emissive={isSelected ? "#D85A30" : "#000000"}
+          emissiveIntensity={isSelected ? 0.15 : 0}
+        />
+      ) : covering.kind === 'paint' ? (
         <meshStandardMaterial color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
@@ -711,7 +742,7 @@ function WallPanelGrid({
   );
 }
 
-function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings }: WallProps) {
+function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
   const oboyTexture = useMemo(() => {
     if (covering.kind !== 'oboy') return null;
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor);
@@ -866,6 +897,7 @@ function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isS
           imageTexture={imageTexture}
           texAspect={texAspect}
           isSelected={isSelected}
+          plaster={plaster}
         />
       ))}
       {panelSettings?.enabled && (
@@ -2731,6 +2763,7 @@ export function RoomScene({
   onWallClick,
   isFloorSelected,
   onFloorClick,
+  plasterWalls = false,
 }: {
   room: Room;
   geometry: RoomGeometry;
@@ -2745,6 +2778,8 @@ export function RoomScene({
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
   onFloorClick?: () => void;
+  /** Suvoq bosqichi ko'rinishi: barcha devorlar photo-real plaster bilan */
+  plasterWalls?: boolean;
 }) {
   // Legacy 4-wall ABCD rectangle — use the existing precise rendering.
   // Any other layout (N-wall from RoomPlan) uses NWallRoomShell.
@@ -2866,7 +2901,7 @@ export function RoomScene({
           {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
           <WallFade hidden={hiddenWalls.has('A')}>
-            <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
+            <Wall plaster={plasterWalls} wallId="A" length={W} height={H} thickness={T} covering={coveringA}
               elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
               isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
               panelSettings={panelsA} />
@@ -2876,7 +2911,7 @@ export function RoomScene({
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
           <WallFade hidden={hiddenWalls.has('B')}>
-            <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
+            <Wall plaster={plasterWalls} wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
               elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
               isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
               panelSettings={panelsB} />
@@ -2886,7 +2921,7 @@ export function RoomScene({
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
           <WallFade hidden={hiddenWalls.has('C')}>
-            <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
+            <Wall plaster={plasterWalls} wallId="C" length={W} height={H} thickness={T} covering={coveringC}
               elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
               isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
               panelSettings={panelsC} />
@@ -2896,7 +2931,7 @@ export function RoomScene({
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
           <WallFade hidden={hiddenWalls.has('D')}>
-            <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
+            <Wall plaster={plasterWalls} wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
               elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
               isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
               panelSettings={panelsD} />
@@ -3728,14 +3763,19 @@ export default function ThreeDPage() {
               composerActive={useComposer}
               highQuality={highQuality3d}
               lightsOn={lightsOn}
+              plasterWalls={activePhase === 'suvoq'}
               cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
               onWallClick={(id) => {
+                // Suvoq bosqichida devorlar tahrirlashga ochiq emas — kamera
+                // boshqaruvi paytidagi tasodifiy klik fazani almashtirmasin.
+                if (activePhase === 'suvoq') return;
                 setSelectedWall(id);
                 setActivePhase('boyoq');
               }}
               isFloorSelected={selectedWall === 'FLOOR'}
               onFloorClick={() => {
+                if (activePhase === 'suvoq') return;
                 setSelectedWall('FLOOR');
                 setActivePhase('boyoq');
               }}

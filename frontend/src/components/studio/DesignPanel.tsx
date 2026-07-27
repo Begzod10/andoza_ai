@@ -1173,7 +1173,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
         {phase === 'boyoq' && WallSection}
         {phase === 'pol'   && FloorSection}
         {phase === 'mebel' && MebelSection}
-        {(phase === 'suvoq' || phase === 'shpaklovka' || phase === 'montaj') && (
+        {phase === 'suvoq' && (
+          <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+            <span className="text-2xl">🧱</span>
+            <p className="text-sm text-gray-500 font-medium">Suvoq materiali qo'llandi</p>
+            <p className="text-xs text-gray-400">Devorlar haqiqiy suvoq (plaster) ko'rinishida</p>
+          </div>
+        )}
+        {(phase === 'shpaklovka' || phase === 'montaj') && (
           <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
             <span className="text-2xl">🏗️</span>
             <p className="text-sm text-gray-400">Bu bosqich uchun sozlamalar yo'q</p>
