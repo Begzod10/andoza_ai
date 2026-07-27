@@ -13,8 +13,10 @@ import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-import { applyTextureToGlb, listGlbMaterials } from "@/lib/modelConverter";
+import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
+import { useFileDrop, isImageFile, MODEL_FILE_RE } from "@/hooks/useFileDrop";
+import { useModelImport } from "@/hooks/useModelImport";
 import { getModelFromDb, saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 
@@ -92,6 +94,146 @@ function PanelInput({
   );
 }
 
+/**
+ * One row of the material editor. Accepts image drops so a texture can be
+ * dragged straight onto the part it belongs to; dropping several images at
+ * once binds a full PBR set (diffuse + normal + roughness + AO).
+ */
+function PartRow({ mat, busy, onFiles, onPick }: {
+  mat: GlbMaterialInfo;
+  busy: boolean;
+  onFiles(files: File[]): void;
+  onPick(): void;
+}) {
+  const { isOver, dropProps } = useFileDrop({
+    onDrop: onFiles,
+    accept: isImageFile,
+    dragKind: 'image',
+    disabled: busy,
+  });
+
+  return (
+    <div
+      {...dropProps}
+      className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition-colors ${
+        isOver ? 'border-brand bg-brand/10 border-dashed' : 'border-gray-200'
+      }`}
+    >
+      <span className={`w-2 h-2 rounded-full shrink-0 ${mat.hasMap ? 'bg-green-500' : 'bg-gray-300'}`} />
+      <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={mat.name}>
+        {isOver ? 'Rasmni qo\'yib yuboring' : mat.name}
+      </span>
+      {!mat.hasUVs && (
+        <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
+      )}
+      <span className="text-[10px] text-gray-400 shrink-0">{mat.hasMap ? 'tekstura ✓' : "yo'q"}</span>
+      <button
+        onClick={onPick}
+        disabled={busy}
+        className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
+      >
+        {busy ? '⏳' : 'Rasm'}
+      </button>
+    </div>
+  );
+}
+
+interface ModelCardEntry {
+  id: string;
+  name: string;
+  emoji: string;
+  sizeM: { w: number; d: number };
+  isUser: boolean;
+  modelPath?: string;
+  hasTextures?: boolean;
+}
+
+/**
+ * Catalog / user-model tile. User models double as image drop targets: an
+ * image dropped here skins every untextured part at once (the quick path),
+ * while the 🖼 editor gives per-part control.
+ */
+function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles }: {
+  entry: ModelCardEntry;
+  count: number;
+  busy: boolean;
+  onPlace(): void;
+  onOpenTexEditor(): void;
+  onRemove(): void;
+  onFiles(files: File[]): void;
+}) {
+  const ready = !entry.isUser || !!entry.modelPath;
+  const canTexture = entry.isUser && !!entry.modelPath;
+  const { isOver, dropProps } = useFileDrop({
+    onDrop: onFiles,
+    accept: isImageFile,
+    dragKind: 'image',
+    disabled: !canTexture || busy,
+  });
+
+  return (
+    <div
+      {...(canTexture ? dropProps : {})}
+      className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
+        ${isOver ? 'border-brand border-dashed bg-brand/5'
+                 : count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
+    >
+      {/* Thumbnail */}
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
+        {isOver ? '🖼' : entry.emoji}
+        {entry.isUser && !entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
+        )}
+        {entry.isUser && !entry.hasTextures && entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="px-2 py-1.5 flex-1">
+        <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">
+          {isOver ? "Tekstura qo'yish" : entry.name}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+      </div>
+
+      {/* Count badge */}
+      {count > 0 && (
+        <span className="absolute top-1 left-1 bg-brand text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          {count}×
+        </span>
+      )}
+
+      {/* Actions row */}
+      <div className="flex border-t border-gray-100">
+        <button
+          onClick={() => ready && onPlace()}
+          disabled={!ready}
+          className="flex-1 py-1.5 text-brand text-sm font-bold hover:bg-brand/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          title="Qo'shish"
+        >
+          + Qo'shish
+        </button>
+        {canTexture && (
+          <button
+            onClick={onOpenTexEditor}
+            disabled={busy}
+            className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
+            title="Teksturalarni boshqarish (kanallar bo'yicha) — yoki rasmni shu kartaga sudrab tashlang"
+          >{busy ? '⏳' : '🖼'}</button>
+        )}
+        {entry.isUser && (
+          <button
+            onClick={onRemove}
+            className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
+            title="Modelni o'chirish"
+          >✕</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
   room: Room;
   phase: PhaseKey;
@@ -106,6 +248,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
+
+  // ── Drag & drop of model files anywhere on the Mebel panel ──────────
+  const { importFiles: importModelFiles, status: modelImportStatus, warn: modelImportWarn } = useModelImport();
+  const [dropHint, setDropHint] = React.useState<string | null>(null);
+  const { isOver: modelDropOver, dropProps: modelDropProps } = useFileDrop({
+    accept: (f) => MODEL_FILE_RE.test(f.name),
+    disabled: modelImportStatus === 'loading',
+    onDrop: (files) => {
+      // A lone image dropped on the panel background is ambiguous — it only
+      // means something on a model card or a part row.
+      if (!files.some((f) => /\.(glb|gltf|obj|fbx)$/i.test(f.name))) {
+        setDropHint("Rasmni model kartasi ustiga yoki 🖼 muharridagi qism ustiga tashlang");
+        setTimeout(() => setDropHint(null), 4000);
+        return;
+      }
+      setDropHint(null);
+      void importModelFiles(files);
+    },
+  });
 
   // ── Manual texturing of imported models (per material channel) ──────
   const texInputRef = React.useRef<HTMLInputElement>(null);
@@ -129,17 +290,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
     }
   }
 
-  async function handleTextureFile(file: File) {
-    const target = texTargetRef.current;
-    texTargetRef.current = null;
-    if (!target) return;
+  /**
+   * Bind one or more images to a model part. Several files at once = a full
+   * PBR material (diffuse + normal + roughness + AO), each routed to its
+   * channel by filename; a single file is just the diffuse case.
+   */
+  async function applyMaterialFiles(target: { entryId: string; index?: number }, files: File[]) {
     const entry = userFurniture.find((e) => e.id === target.entryId);
-    if (!entry) return;
+    if (!entry || files.length === 0) return;
     setTexBusy(target.entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
       if (!buf) throw new Error('Model fayli topilmadi');
-      const newBuf = await applyTextureToGlb(buf, file, target.index);
+      const newBuf = await applyMaterialToGlb(buf, files, target.index);
       await saveModelToDb(entry.blobId, newBuf);
       const newUrl = arrayBufferToBlobUrl(newBuf);
       useGLTF.preload(newUrl);
@@ -184,7 +347,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
       targetWall === "ALL"
         ? designState.wallCoverings.ALL
         : (designState.wallCoverings[targetWall] ?? designState.wallCoverings.ALL);
-    if (c.kind === "paint") {
+    if (c.kind === "paint" || c.kind === "plaster") {
+      // Bare plaster is the pre-finish state — offer the paint tab, which is
+      // the first thing a user does to it.
       setCoveringMode("paint");
     } else if (c.kind === "texture") {
       setCoveringMode("texture");
@@ -945,8 +1110,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
   })
 
   const MebelSection = (
-    <section>
+    <section
+      {...modelDropProps}
+      className={`relative rounded-xl transition-colors ${modelDropOver ? 'ring-2 ring-brand ring-offset-2' : ''}`}
+    >
       <h3 className="text-sm font-semibold text-gray-900 mb-2">3D Modellar</h3>
+
+      {modelDropOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/85 border-2 border-dashed border-brand">
+          <p className="text-sm font-semibold text-brand text-center px-4">
+            ⬇ Model faylini qo'yib yuboring<br />
+            <span className="text-[11px] font-normal text-gray-500">GLB · GLTF · OBJ · FBX (+ teksturalari)</span>
+          </p>
+        </div>
+      )}
+      {modelImportStatus === 'loading' && (
+        <p className="text-[11px] text-brand mb-2 animate-pulse">Model yuklanmoqda...</p>
+      )}
+      {dropHint && <p className="text-[11px] text-amber-600 mb-2">{dropHint}</p>}
+      {modelImportWarn && <p className="text-[11px] text-amber-600 mb-2 leading-snug">{modelImportWarn}</p>}
 
       {/* Category chips */}
       <div className="flex gap-1.5 flex-wrap mb-3">
@@ -969,64 +1151,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
       <div className="grid grid-cols-2 gap-2 mb-3">
         {filteredEntries.map((entry) => {
           const count = furniture.filter((f) => f.furniture_id === entry.id).length;
-          const ready = !entry.isUser || !!entry.modelPath;
           return (
-            <div
+            <ModelCard
               key={entry.id}
-              className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
-                ${count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
-            >
-              {/* Thumbnail */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
-                {entry.emoji}
-                {entry.isUser && !entry.modelPath && (
-                  <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
-                )}
-                {entry.isUser && !('hasTextures' in entry && entry.hasTextures) && entry.modelPath && (
-                  <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="px-2 py-1.5 flex-1">
-                <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">{entry.name}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
-              </div>
-
-              {/* Count badge */}
-              {count > 0 && (
-                <span className="absolute top-1 left-1 bg-brand text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                  {count}×
-                </span>
-              )}
-
-              {/* Actions row */}
-              <div className="flex border-t border-gray-100">
-                <button
-                  onClick={() => ready && placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
-                  disabled={!ready}
-                  className="flex-1 py-1.5 text-brand text-sm font-bold hover:bg-brand/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title="Qo'shish"
-                >
-                  + Qo'shish
-                </button>
-                {entry.isUser && entry.modelPath && (
-                  <button
-                    onClick={() => openTexEditor(entry.id)}
-                    disabled={texBusy === entry.id}
-                    className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
-                    title="Teksturalarni boshqarish (kanallar bo'yicha)"
-                  >{texBusy === entry.id ? '⏳' : '🖼'}</button>
-                )}
-                {entry.isUser && (
-                  <button
-                    onClick={() => removeUserFurniture(entry.id)}
-                    className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
-                    title="Modelni o'chirish"
-                  >✕</button>
-                )}
-              </div>
-            </div>
+              entry={{
+                id: entry.id,
+                name: entry.name,
+                emoji: entry.emoji,
+                sizeM: entry.sizeM,
+                isUser: entry.isUser,
+                modelPath: 'modelPath' in entry ? entry.modelPath : undefined,
+                hasTextures: 'hasTextures' in entry ? entry.hasTextures : undefined,
+              }}
+              count={count}
+              busy={texBusy === entry.id}
+              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
+              onOpenTexEditor={() => openTexEditor(entry.id)}
+              onRemove={() => removeUserFurniture(entry.id)}
+              onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
+            />
           );
         })}
 
@@ -1040,10 +1183,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
           ref={texInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleTextureFile(f);
+            const fs = Array.from(e.target.files ?? []);
+            const target = texTargetRef.current;
+            texTargetRef.current = null;
+            if (fs.length && target) void applyMaterialFiles(target, fs);
             e.target.value = '';
           }}
         />
@@ -1058,25 +1204,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
               <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
             </div>
             <p className="text-[11px] text-gray-400 mb-3">
-              {texEditor.mats.length} ta qism. Har biriga alohida rasm qo'yish mumkin — umumiy materiallar avtomatik ajratiladi.
+              {texEditor.mats.length} ta qism. Rasmni to'g'ridan-to'g'ri qism ustiga sudrab tashlang —
+              bir nechta rasm birga tashlansa, nomiga qarab kanallarga taqsimlanadi
+              (rang · normal · rough · AO).
             </p>
             <div className="max-h-72 overflow-y-auto space-y-1.5">
               {texEditor.mats.map((m) => (
-                <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${m.hasMap ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
-                  {!m.hasUVs && (
-                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
-                  )}
-                  <span className="text-[10px] text-gray-400 shrink-0">{m.hasMap ? 'tekstura ✓' : "yo'q"}</span>
-                  <button
-                    onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
-                    disabled={texBusy === texEditor.entryId}
-                    className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
-                  >
-                    {texBusy === texEditor.entryId ? '⏳' : 'Rasm'}
-                  </button>
-                </div>
+                <PartRow
+                  key={m.index}
+                  mat={m}
+                  busy={texBusy === texEditor.entryId}
+                  onFiles={(files) => void applyMaterialFiles({ entryId: texEditor.entryId, index: m.index }, files)}
+                  onPick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
+                />
               ))}
             </div>
             <button
