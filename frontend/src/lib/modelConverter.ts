@@ -509,18 +509,119 @@ function ensureSceneUVs(root: THREE.Object3D): number {
   return fixed
 }
 
-function assignPartTexture(p: PartRef, tex: THREE.Texture) {
+/** PBR channels a dropped image can be bound to. */
+export type MapChannel = 'map' | 'normalMap' | 'roughnessMap' | 'aoMap' | 'metalnessMap'
+
+/**
+ * Guess a PBR channel from a texture filename. Asset packs are wildly
+ * inconsistent, so match the widest common spellings and fall back to the
+ * diffuse channel — an unrecognised name is far more likely to be the colour
+ * map (albedo/basecolor/diffuse/"wood.jpg") than anything else.
+ */
+export function guessMapChannel(fileName: string): MapChannel {
+  const n = fileName.toLowerCase()
+  if (/normal|_nor[_.-]|nor_gl|_nrm|_norm/.test(n)) return 'normalMap'
+  if (/rough|_rgh|glossiness/.test(n)) return 'roughnessMap'
+  if (/occlusion|ambientocclusion|[_-]ao[_.-]|[_-]ao$/.test(n)) return 'aoMap'
+  if (/metal|_mtl[_.-]/.test(n)) return 'metalnessMap'
+  return 'map'
+}
+
+/** Colour maps are sRGB; every data map must stay linear or lighting breaks. */
+function channelColorSpace(ch: MapChannel): string {
+  return ch === 'map' ? THREE.SRGBColorSpace : THREE.NoColorSpace
+}
+
+/**
+ * Bind one or more channels to a single part. The material is cloned first so
+ * parts sharing a material (common in asset packs) stay independent.
+ */
+function assignPartMaps(p: PartRef, maps: Partial<Record<MapChannel, THREE.Texture>>) {
   ensureUVs(p.mesh.geometry as THREE.BufferGeometry)
-  // Clone the material so a shared material doesn't texture OTHER parts too
   const cloned = p.mat.clone()
-  cloned.map = tex
-  cloned.color.set('#ffffff') // don't tint the texture with the old flat colour
+
+  if (maps.map) {
+    cloned.map = maps.map
+    cloned.color.set('#ffffff') // don't tint the texture with the old flat colour
+  }
+  if (maps.normalMap) cloned.normalMap = maps.normalMap
+  if (maps.aoMap) {
+    // three r152+ reads aoMap from uv channel 1; these meshes only have uv0.
+    maps.aoMap.channel = 0
+    cloned.aoMap = maps.aoMap
+  }
+  // Roughness/metalness only exist on the standard (PBR) material.
+  if (cloned instanceof THREE.MeshStandardMaterial) {
+    if (maps.roughnessMap) {
+      cloned.roughnessMap = maps.roughnessMap
+      cloned.roughness = 1 // the map modulates this scalar — 1 = use it as-is
+    }
+    if (maps.metalnessMap) {
+      cloned.metalnessMap = maps.metalnessMap
+      cloned.metalness = 1
+    }
+  }
+
   cloned.needsUpdate = true
   if (Array.isArray(p.mesh.material)) {
     p.mesh.material[p.slot] = cloned
   } else {
     p.mesh.material = cloned
   }
+}
+
+function loadTexture(file: File, channel: MapChannel): Promise<THREE.Texture> {
+  const url = URL.createObjectURL(file)
+  return new Promise<THREE.Texture>((resolve, reject) => {
+    new THREE.TextureLoader().load(url, resolve, undefined, reject)
+  })
+    .then((tex) => {
+      tex.colorSpace = channelColorSpace(channel) as THREE.ColorSpace
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+      tex.flipY = false
+      return tex
+    })
+    .finally(() => URL.revokeObjectURL(url))
+}
+
+/**
+ * Skin a stored GLB with a whole material — one image per PBR channel,
+ * classified by filename (diffuse / normal / roughness / AO / metalness).
+ * Dropping a single image is just the one-file case of this.
+ *
+ * - targetIndex given: bind ONLY that part.
+ * - targetIndex omitted: bind every unmapped part, or all of them when the
+ *   model is already fully mapped (so the action always has an effect).
+ */
+export async function applyMaterialToGlb(
+  buffer: ArrayBuffer,
+  imageFiles: File[],
+  targetIndex?: number,
+): Promise<ArrayBuffer> {
+  if (imageFiles.length === 0) throw new Error('Rasm tanlanmadi')
+  const gltf = await parseGlb(buffer)
+  const parts = collectParts(gltf.scene)
+
+  const targets =
+    targetIndex !== undefined
+      ? (parts[targetIndex] ? [parts[targetIndex]] : [])
+      : (parts.filter((p) => !p.mat.map).length > 0 ? parts.filter((p) => !p.mat.map) : parts)
+  if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
+
+  // Last file wins per channel — dropping two diffuse images is a user slip,
+  // not a reason to fail.
+  const maps: Partial<Record<MapChannel, THREE.Texture>> = {}
+  for (const file of imageFiles) {
+    const channel = guessMapChannel(file.name)
+    maps[channel] = await loadTexture(file, channel)
+  }
+
+  for (const p of targets) {
+    // Each part needs its own texture instances — sharing one Texture object
+    // across materials is fine in three, but cloning keeps per-part edits safe.
+    assignPartMaps(p, maps)
+  }
+  return await toGlbBuffer(gltf.scene)
 }
 
 /**
@@ -536,30 +637,9 @@ export async function applyTextureToGlb(
   imageFile: File,
   targetIndex?: number,
 ): Promise<ArrayBuffer> {
-  const gltf = await parseGlb(buffer)
-  const parts = collectParts(gltf.scene)
-  const url = URL.createObjectURL(imageFile)
-  try {
-    const tex = await new Promise<THREE.Texture>((resolve, reject) => {
-      new THREE.TextureLoader().load(url, resolve, undefined, reject)
-    })
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-    tex.flipY = false
-
-    let targets: PartRef[]
-    if (targetIndex !== undefined) {
-      targets = parts[targetIndex] ? [parts[targetIndex]] : []
-    } else {
-      const unmapped = parts.filter((p) => !p.mat.map)
-      targets = unmapped.length > 0 ? unmapped : parts
-    }
-    if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
-    for (const p of targets) assignPartTexture(p, tex)
-    return await toGlbBuffer(gltf.scene)
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+  // Single-image case of applyMaterialToGlb — the image is classified by name,
+  // so a file called *_normal.png still lands on the right channel.
+  return applyMaterialToGlb(buffer, [imageFile], targetIndex)
 }
 
 /** Single-file convenience wrapper (kept for compatibility). */
