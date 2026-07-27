@@ -19,8 +19,11 @@ import * as THREE from 'three'
 
 const BASE = '/textures/plaster'
 
-/** Physical size (metres) one tile of the texture covers on a wall. */
-export const PLASTER_TILE_M = 1.5
+/**
+ * Physical size (metres) one tile covers. 1 m keeps the maths obvious and the
+ * grain life-size: a 3 × 3 m wall shows exactly 3 × 3 tiles.
+ */
+export const PLASTER_TILE_M = 1.0
 
 export interface PlasterMaps {
   map: THREE.Texture
@@ -39,14 +42,58 @@ function configure(tex: THREE.Texture, srgb: boolean): THREE.Texture {
   return tex
 }
 
+/** 1×1 pixel of a flat colour — the stand-in when a map file is missing. */
+function solidTexture(css: string): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = c.height = 1
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = css
+  ctx.fillRect(0, 0, 1, 1)
+  return c
+}
+
+/**
+ * Neutral value each channel falls back to, so a missing file degrades to
+ * plain concrete instead of a white/undefined surface:
+ * flat grey albedo, flat normal, full roughness, no occlusion.
+ */
+const FALLBACK_FILL: Record<string, string> = {
+  diff: '#7C7E80',
+  nor_gl: '#8080ff',
+  rough: '#ffffff',
+  ao: '#ffffff',
+}
+
+/**
+ * Load one map. The texture object is returned immediately and filled in when
+ * the image arrives; on failure it is filled with its neutral colour instead,
+ * which needs no React state — three just re-uploads the new image.
+ */
+function loadMap(loader: THREE.TextureLoader, name: keyof typeof FALLBACK_FILL, srgb: boolean): THREE.Texture {
+  const tex = loader.load(
+    `${BASE}/${name}.jpg`,
+    undefined,
+    undefined,
+    () => {
+      console.warn(
+        `[plaster] ${BASE}/${name}.jpg topilmadi — tekis rangga o'tildi. ` +
+        `Haqiqiy teksturani shu nom bilan public/textures/plaster/ ichiga qo'ying.`,
+      )
+      tex.image = solidTexture(FALLBACK_FILL[name])
+      tex.needsUpdate = true
+    },
+  )
+  return configure(tex, srgb)
+}
+
 /** Load (once) and return the shared plaster texture set. */
 export function getPlasterMaps(): PlasterMaps {
   if (cached) return cached
   const loader = new THREE.TextureLoader()
-  const map = configure(loader.load(`${BASE}/diff.jpg`), true)
-  const normalMap = configure(loader.load(`${BASE}/nor_gl.jpg`), false)
-  const roughnessMap = configure(loader.load(`${BASE}/rough.jpg`), false)
-  const aoMap = configure(loader.load(`${BASE}/ao.jpg`), false)
+  const map = loadMap(loader, 'diff', true)
+  const normalMap = loadMap(loader, 'nor_gl', false)
+  const roughnessMap = loadMap(loader, 'rough', false)
+  const aoMap = loadMap(loader, 'ao', false)
   // Sample AO from the primary uv set — wall planes have no uv2 (three r152+:
   // aoMap reads channel 1 by default, channel 0 is the regular uv attribute).
   aoMap.channel = 0

@@ -70,7 +70,12 @@ export interface UserFurnitureEntry {
 
 export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
 
+/** Flat stand-in colour for plastered walls (2-D views, swatches, estimates). */
+export const PLASTER_BASE_COLOR = '#7C7E80'
+
 export type WallCovering =
+  /** Raw plastered/concrete wall — how a room looks before any finishing. */
+  | { kind: 'plaster' }
   | { kind: 'paint'; color: string }
   | { kind: 'oboy'; patternId: string; baseColor: string; accentColor: string }
   | { kind: 'texture'; url: string; color: string; repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }
@@ -125,6 +130,7 @@ export function resolveWallColor(
   wallId?: string,
 ): string {
   const c = resolveWallCovering(coverings, wallId)
+  if (c.kind === 'plaster') return PLASTER_BASE_COLOR
   return c.kind === 'paint' ? c.color : c.kind === 'texture' ? c.color : c.baseColor
 }
 
@@ -228,7 +234,9 @@ const defaultGeometry = (): RoomGeometry => ({
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const DEFAULT_DESIGN_STATE: DesignState = {
-  wallCoverings: { ALL: { kind: 'paint', color: '#D8D3C8' } },
+  // A brand-new room starts as bare plastered concrete — the real state of a
+  // flat before any finishing work, and the baseline every phase builds on.
+  wallCoverings: { ALL: { kind: 'plaster' } },
   floorType: 'parquet',
   wallPanels: {
     ALL: {

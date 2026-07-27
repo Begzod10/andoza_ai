@@ -16,7 +16,7 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
-import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
+import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
@@ -25,6 +25,9 @@ import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { useModelImport } from "@/hooks/useModelImport";
+import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
+import { nanoid } from "nanoid";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -524,17 +527,18 @@ function WallSegment({
   // Suvoq (plaster) phase: world-anchored PBR maps, cloned per segment so the
   // pattern flows uninterrupted across door/window cuts. Clones share the
   // underlying image — loaded once for the whole session.
+  const showPlaster = plaster || covering.kind === 'plaster';
   const plasterMaps = useMemo(() => {
-    if (!plaster) return null;
+    if (!showPlaster) return null;
     return clonePlasterMapsFor(seg.pw, seg.ph, seg.startMm / 1000, seg.startYm);
-  }, [plaster, seg.pw, seg.ph, seg.startMm, seg.startYm]);
+  }, [showPlaster, seg.pw, seg.ph, seg.startMm, seg.startYm]);
 
   const paintColor = covering.kind === 'paint' ? covering.color : '#ffffff';
 
   return (
     <mesh position={[seg.px, seg.py, seg.pz]} rotation={[0, seg.ry, 0]} castShadow receiveShadow>
       <planeGeometry args={[seg.pw, seg.ph]} />
-      {plaster && plasterMaps ? (
+      {showPlaster && plasterMaps ? (
         <meshStandardMaterial
           map={plasterMaps.map}
           normalMap={plasterMaps.normalMap}
@@ -542,12 +546,14 @@ function WallSegment({
           roughnessMap={plasterMaps.roughnessMap}
           aoMap={plasterMaps.aoMap}
           // Full-strength AO makes the sun-averted walls go near-black with
-          // real photo maps (the scene's ambient fill is only ~0.18) — soften
-          // it and lean more on IBL so every wall stays readable.
-          aoMapIntensity={0.5}
+          // real photo maps (the scene's ambient fill is only ~0.18).
+          aoMapIntensity={0.3}
           roughness={1}
           metalness={0}
-          envMapIntensity={0.6}
+          // The apartment HDR is a warm outdoor scene; at high intensity it
+          // casts neutral-grey plaster brown. Keep IBL low so raw concrete
+          // reads as concrete, and let the analytic lights carry the shaping.
+          envMapIntensity={0.3}
           emissive={isSelected ? "#D85A30" : "#000000"}
           emissiveIntensity={isSelected ? 0.15 : 0}
         />
@@ -2767,6 +2773,9 @@ function DraggableFurnitureModels({
 // ─── Full room scene ──────────────────────────────────────────────────────────
 
 function shadeCovering(covering: WallCovering, factor: number): WallCovering {
+  // Plaster carries no colour of its own — the PBR maps and the scene lights
+  // do the shading, so a per-wall tint here would only fight them.
+  if (covering.kind === 'plaster') return covering
   if (covering.kind === 'paint') {
     return { kind: 'paint', color: shadeHex(covering.color, factor) }
   }
@@ -2881,7 +2890,8 @@ function NWallRoomShell({
           resolveWallCovering(designState.wallCoverings, wallId),
           shadeFactor,
         )
-        const baseColor = covering.kind === 'paint' ? covering.color
+        const baseColor = covering.kind === 'plaster' ? PLASTER_BASE_COLOR
+          : covering.kind === 'paint' ? covering.color
           : covering.kind === 'texture' ? covering.color
           : covering.baseColor
         const isSelected = selectedWall === wallId
@@ -3285,7 +3295,7 @@ const RENO_STAGES: Array<{ key: PhaseKey; label: string }> = [
 
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
-  const { geometry, designState, highQuality3d, resetRoom } = useRoomStore();
+  const { geometry, designState, highQuality3d, resetRoom, placeFurniture } = useRoomStore();
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
 
@@ -3363,6 +3373,31 @@ export default function ThreeDPage() {
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+
+  // ── Drop a model file straight into the room ────────────────────────
+  // Imported like a picked file, then placed immediately and the Mebel phase
+  // opened, so the dropped object is both visible and editable in one gesture.
+  const { importFiles: importModelFiles, status: modelDropStatus, warn: modelDropWarn } = useModelImport();
+  const { isOver: modelDropOver, dropProps: viewportDropProps } = useFileDrop({
+    accept: (f) => MODEL_FILE_RE.test(f.name),
+    disabled: modelDropStatus === 'loading',
+    onDrop: (files) => {
+      if (!files.some((f) => /\.(glb|gltf|obj|fbx)$/i.test(f.name))) return;
+      void importModelFiles(files).then((entryId) => {
+        if (!entryId) return;
+        const placed = useRoomStore.getState().furniture.length;
+        placeFurniture({
+          id: nanoid(),
+          furniture_id: entryId,
+          x: (placed * 300) % 1000,
+          y: (placed * 300) % 1000,
+          rotation: 0,
+        });
+        setActivePhase('mebel');
+      });
+    },
+  });
+
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -3786,7 +3821,25 @@ export default function ThreeDPage() {
             <MebelPlanView />
           </div>
         )}
-        <div className="flex-1 min-h-0 relative">
+        <div className="flex-1 min-h-0 relative" {...viewportDropProps}>
+
+          {/* Model drag & drop over the viewport */}
+          {(modelDropOver || modelDropStatus === 'loading') && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-brand/10 backdrop-blur-[1px] border-4 border-dashed border-brand rounded-lg">
+              <div className="bg-white/95 rounded-2xl px-6 py-4 shadow-xl text-center">
+                <p className="text-2xl mb-1">{modelDropStatus === 'loading' ? '⏳' : '📦'}</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {modelDropStatus === 'loading' ? 'Model yuklanmoqda...' : "Modelni xonaga qo'yib yuboring"}
+                </p>
+                <p className="text-[11px] text-gray-500 mt-0.5">GLB · GLTF · OBJ · FBX (+ teksturalari)</p>
+              </div>
+            </div>
+          )}
+          {modelDropWarn && (
+            <p className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-[80%] bg-amber-50 border border-amber-200 text-amber-700 text-[11px] px-3 py-1.5 rounded-lg shadow">
+              {modelDropWarn}
+            </p>
+          )}
 
           {/* Hint overlay — bottom-left of canvas */}
           <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
