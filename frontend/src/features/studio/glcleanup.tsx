@@ -31,13 +31,18 @@ interface BoundaryState {
 }
 
 export class CanvasErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+  { children: React.ReactNode; onError?: (err: Error) => void },
   BoundaryState
 > {
   state: BoundaryState = { failed: false }
 
   static getDerivedStateFromError(): BoundaryState {
     return { failed: true }
+  }
+
+  componentDidCatch(err: Error) {
+    console.error('[studio] Canvas failed:', err)
+    this.props.onError?.(err)
   }
 
   render() {

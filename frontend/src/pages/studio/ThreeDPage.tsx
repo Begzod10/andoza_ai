@@ -3149,6 +3149,8 @@ export default function ThreeDPage() {
   const [sceneLightOn, setSceneLightOn] = useState(true);
   const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [showHelp, setShowHelp] = useState(false);
+  // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
+  const [glAttempt, setGlAttempt] = useState(0);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
@@ -3631,20 +3633,27 @@ export default function ThreeDPage() {
             </button>
           </div>
 
-        <CanvasErrorBoundary>
+        <CanvasErrorBoundary
+          key={glAttempt}
+          onError={() => {
+            // One automatic retry with safer GL settings — pressured iGPUs
+            // often accept a modest context after refusing the fancy one
+            if (glAttempt === 0) setTimeout(() => setGlAttempt(1), 150);
+          }}
+        >
         <Canvas
           shadows="soft"
           camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
           style={{ width: "100%", height: "100%" }}
           gl={{
-            antialias: true,
+            antialias: glAttempt === 0,
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.15,
             outputColorSpace: THREE.SRGBColorSpace,
-            powerPreference: 'high-performance',
+            powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
           }}
           onPointerMissed={() => setSelectedFurId(null)}
-          dpr={dpr}
+          dpr={glAttempt === 0 ? dpr : 1}
         >
           {/* Drop resolution during interaction, restore at rest */}
           <AdaptiveDpr />
