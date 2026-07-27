@@ -53,9 +53,12 @@ class UserOut(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    """Returned by auth endpoints; the JWT is delivered via HttpOnly cookie, not here."""
+    """Returned by auth endpoints. JWT is both in HttpOnly cookie (web) and response body (mobile)."""
 
     user: UserOut
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
 
 
 class RegisterRequest(BaseModel):

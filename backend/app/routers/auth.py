@@ -192,10 +192,16 @@ async def verify_otp_endpoint(
     logger.info("user_authenticated", user_id=str(user.id), phone=body.phone)
 
     subject = str(user.id)
-    _set_auth_cookie(response, create_access_token(subject))
-    _set_refresh_cookie(response, create_refresh_token(subject))
+    access_token = create_access_token(subject)
+    refresh_token = create_refresh_token(subject)
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, refresh_token)
 
-    return LoginResponse(user=UserOut.model_validate(user))
+    return LoginResponse(
+        user=UserOut.model_validate(user),
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 @router.get(
@@ -323,7 +329,13 @@ async def login_with_password(
     logger.info("user_logged_in", user_id=str(user.id), username=body.username)
 
     subject = str(user.id)
-    _set_auth_cookie(response, create_access_token(subject))
-    _set_refresh_cookie(response, create_refresh_token(subject))
+    access_token = create_access_token(subject)
+    refresh_token = create_refresh_token(subject)
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, refresh_token)
 
-    return LoginResponse(user=UserOut.model_validate(user))
+    return LoginResponse(
+        user=UserOut.model_validate(user),
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
