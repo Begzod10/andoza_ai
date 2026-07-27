@@ -37,6 +37,7 @@ import {
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
+import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 
@@ -3630,6 +3631,7 @@ export default function ThreeDPage() {
             </button>
           </div>
 
+        <CanvasErrorBoundary>
         <Canvas
           shadows="soft"
           camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
@@ -3648,6 +3650,8 @@ export default function ThreeDPage() {
           <AdaptiveDpr />
           <AdaptiveEvents />
           <DevSceneHandle />
+          {/* Return the WebGL context slot immediately on tab switches */}
+          <ReleaseGLOnUnmount />
           <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
           {/* Fog matches the background (night fog was beige on a dark scene)
               and relaxes in top view where the camera legitimately sits far */}
@@ -3795,6 +3799,7 @@ export default function ThreeDPage() {
             </GizmoHelper>
           </Suspense>
         </Canvas>
+        </CanvasErrorBoundary>
         </div>
         </div>
       </div>
