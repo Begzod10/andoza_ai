@@ -1,8 +1,10 @@
 import apiClient from '../config/api'
 import { RoomState, RoomStateType } from '../types'
 
+export type ConditionState = 'xom' | 'suvoq' | 'tayyor'
+
 /**
- * Fetch current room state
+ * Fetch current room state (condition/renovation level)
  */
 export async function getRoomState(roomId: string): Promise<RoomState> {
   const response = await apiClient.get<RoomState>(`/rooms/${roomId}/state`)
@@ -10,7 +12,7 @@ export async function getRoomState(roomId: string): Promise<RoomState> {
 }
 
 /**
- * Update room state (condition selection)
+ * Update room overall condition state
  */
 export async function updateRoomState(
   roomId: string,
@@ -23,11 +25,11 @@ export async function updateRoomState(
 }
 
 /**
- * Update floor state
+ * Update floor condition state
  */
 export async function updateFloorState(
   roomId: string,
-  floorState: 'xom' | 'suvoq' | 'tayyor'
+  floorState: ConditionState
 ): Promise<RoomState> {
   const response = await apiClient.patch<RoomState>(`/rooms/${roomId}/state`, {
     floor_state: floorState,
@@ -36,14 +38,27 @@ export async function updateFloorState(
 }
 
 /**
- * Update ceiling state
+ * Update ceiling condition state
  */
 export async function updateCeilingState(
   roomId: string,
-  ceilingState: 'xom' | 'suvoq' | 'tayyor'
+  ceilingState: ConditionState
 ): Promise<RoomState> {
   const response = await apiClient.patch<RoomState>(`/rooms/${roomId}/state`, {
     ceiling_state: ceilingState,
+  })
+  return response.data
+}
+
+/**
+ * Update walls condition state
+ */
+export async function updateWallsState(
+  roomId: string,
+  wallsState: ConditionState
+): Promise<RoomState> {
+  const response = await apiClient.patch<RoomState>(`/rooms/${roomId}/state`, {
+    walls_state: wallsState,
   })
   return response.data
 }
