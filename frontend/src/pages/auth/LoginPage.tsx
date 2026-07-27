@@ -89,7 +89,7 @@ export default function LoginPage() {
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
 
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>("otp-phone");
 
   // Username/password fields
   const [username, setUsername] = useState("");
@@ -246,23 +246,17 @@ export default function LoginPage() {
     <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5">
       {/* Logo */}
       <div className="mb-8 text-center">
-        <img src="/logo.svg" alt="UyVision" className="w-48 mx-auto mb-4" />
-        <p className="text-sm text-muted">Interior dizayn platformasi</p>
+        <div className="text-5xl font-bold text-gray-900 mb-2">👋 Salom</div>
+        <p className="text-lg text-muted">UyTa'mir-ga xush kelibsiz</p>
       </div>
 
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-md p-6">
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-md p-8">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
           <>
-            <button
-              onClick={() => { setMode("otp-phone"); resetError(); }}
-              className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-4"
-            >
-              ← {uz.auth.orqaga}
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">{uz.auth.otp_kod}</h2>
-            <p className="text-sm text-muted mb-5">
-              <span className="font-medium text-gray-900">{phone}</span> raqamiga yuborildi
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">✓ Kod yuborildi</h2>
+            <p className="text-sm text-muted mb-6">
+              <span className="font-medium text-gray-900">{phone}</span> raqamiga 6 xonali kod yuboramiz
             </p>
             <div className="flex gap-2 justify-center mb-5">
               {otp.map((digit, i) => (
@@ -297,29 +291,16 @@ export default function LoginPage() {
           </>
         ) : (
           <>
-            {/* ── Tabs ── */}
-            <div className="flex rounded-xl bg-gray-100 p-1 mb-5 gap-1">
-              <button
-                onClick={() => switchMode("login")}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  mode === "login" ? "bg-white text-gray-900 shadow-sm" : "text-muted hover:text-gray-700"
-                }`}
-              >
-                Kirish
-              </button>
-              <button
-                onClick={() => switchMode("register")}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  mode === "register" ? "bg-white text-gray-900 shadow-sm" : "text-muted hover:text-gray-700"
-                }`}
-              >
-                Ro'yxatdan o'tish
-              </button>
-            </div>
-
             {/* ── Login tab ── */}
             {mode === "login" && (
               <>
+                <button
+                  onClick={() => switchMode("otp-phone")}
+                  className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-6"
+                >
+                  ← {uz.auth.orqaga}
+                </button>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Kirish</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">Username</label>
@@ -351,29 +332,35 @@ export default function LoginPage() {
                 <button
                   onClick={handleLogin}
                   disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-6 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? uz.common.yuklanmoqda : "Kirish"}
                 </button>
 
-                {/* OTP divider */}
-                <div className="flex items-center gap-3 my-4">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs text-muted">yoki</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-muted">
+                    Akkauntingiz yo'qmi?{' '}
+                    <button
+                      onClick={() => switchMode("register")}
+                      className="text-brand font-medium hover:underline transition-colors"
+                    >
+                      Ro'yxatdan o'tish
+                    </button>
+                  </p>
                 </div>
-                <button
-                  onClick={() => switchMode("otp-phone")}
-                  className="w-full border border-gray-200 text-gray-700 rounded-xl py-3 text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  📱 SMS kod bilan kirish
-                </button>
               </>
             )}
 
             {/* ── Register tab ── */}
             {mode === "register" && (
               <>
+                <button
+                  onClick={() => switchMode("otp-phone")}
+                  className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-6"
+                >
+                  ← {uz.auth.orqaga}
+                </button>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Ro'yxatdan o'tish</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">Ism (ixtiyoriy)</label>
@@ -424,42 +411,79 @@ export default function LoginPage() {
                 <button
                   onClick={handleRegister}
                   disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-6 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
                 </button>
+
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-muted">
+                    Allaqachon akkauntingiz bormi?{' '}
+                    <button
+                      onClick={() => switchMode("login")}
+                      className="text-brand font-medium hover:underline transition-colors"
+                    >
+                      Kirish
+                    </button>
+                  </p>
+                </div>
               </>
             )}
 
             {/* ── OTP phone step ── */}
             {mode === "otp-phone" && (
               <>
-                <button
-                  onClick={() => switchMode("login")}
-                  className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-4"
-                >
-                  ← {uz.auth.orqaga}
-                </button>
-                <h2 className="text-base font-semibold text-gray-900 mb-1">SMS kod bilan kirish</h2>
-                <p className="text-sm text-muted mb-4">Telefon raqamingizga SMS kod yuboramiz</p>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">{uz.auth.telefon}</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleRequestOTP()}
-                  placeholder={uz.auth.telefon_placeholder}
-                  autoFocus
-                  autoComplete="tel"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
-                />
-                {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">Telefon raqam</h2>
+                <p className="text-sm text-muted mb-6">Loginiga uchun telefon raqam talab qilinadi</p>
+
+                <div className="mb-6">
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Telefon raqam</label>
+                  <div className="flex items-center border-2 border-blue-300 rounded-lg px-4 py-3 bg-blue-50 focus-within:ring-2 focus-within:ring-brand/40">
+                    <span className="text-gray-600 font-medium">+998</span>
+                    <input
+                      type="tel"
+                      value={phone.replace(/\+998/, '')}
+                      onChange={(e) => setPhone(`+998${e.target.value.replace(/[^\d]/g, '')}`)}
+                      onKeyDown={(e) => e.key === "Enter" && handleRequestOTP()}
+                      placeholder="90 123 45 67"
+                      autoFocus
+                      autoComplete="tel"
+                      disabled={loading}
+                      className="flex-1 ml-2 bg-transparent text-gray-900 font-medium text-base placeholder-gray-400 focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Sms kod shu raqamga yuboriladi</p>
+                </div>
+
+                {error && <p className="text-xs text-red-500 mb-4 text-center">{error}</p>}
+
                 <button
                   onClick={handleRequestOTP}
-                  disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={loading || !phone}
+                  className={`w-full rounded-lg py-4 font-bold text-white transition-colors ${
+                    loading || !phone ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
                 >
-                  {loading ? uz.common.yuklanmoqda : uz.auth.otp_yuborish}
+                  {loading ? uz.common.yuklanmoqda : "OTP Yuborish"}
+                </button>
+
+                <div className="mt-8 bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    📱 Siz kiritgan raqamga 6 xonali kod yuboriladi. Agar SMS kelmaydigan bo'lsa, 2-3 minutdan keyin qayta urinib ko'ring.
+                  </p>
+                </div>
+
+                {/* Option to use username/password */}
+                <div className="flex items-center gap-3 mt-8">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-muted">yoki</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+                <button
+                  onClick={() => switchMode("login")}
+                  className="w-full mt-4 border border-gray-200 text-gray-700 rounded-lg py-3 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  🔐 Username bilan kirish
                 </button>
               </>
             )}
