@@ -43,7 +43,9 @@ uploads/
 .playwright-mcp/
 
 # ── Claude session files ──────────────────────────────────────────────────────
-.claude/
+.claude/*
+# ...but keep shared skills checked in
+!.claude/skills/
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .idea/
