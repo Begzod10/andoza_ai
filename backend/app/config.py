@@ -72,8 +72,13 @@ class Settings(BaseSettings):
     # AI features
     # ------------------------------------------------------------------ #
     AI_FEATURES_ENABLED: bool = False
-    # OpenAI — see app/services/llm.py
+    # OpenAI-compatible LLM provider — see app/services/llm.py.
+    # Leave OPENAI_BASE_URL empty for api.openai.com; point it at another
+    # OpenAI-compatible endpoint to switch providers, e.g. Google Gemini:
+    #   OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+    #   OPENAI_API_KEY=<Gemini key>  AI_MODEL_*=gemini-2.5-flash
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
     AI_MODEL_BUILDER: str = "gpt-4-turbo"
     AI_MODEL_EXPLAINER: str = "gpt-4-mini"
 
