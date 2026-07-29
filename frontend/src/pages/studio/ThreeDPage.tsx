@@ -38,6 +38,12 @@ import {
 } from "@/features/studio/diorama";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
+import {
+  partKeyFor, resolvePartKey, resolvePartFromMesh, partLabel,
+  applyHiddenParts, hasMeshesOutsidePart, setPartHighlight, exportPartToGlb,
+} from "@/lib/modelParts";
+import { saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
+import { nanoid } from "nanoid";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 
@@ -2085,9 +2091,10 @@ function FurnitureItem({ item }: { item: PlacedFurniture }) {
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
   const cloned = useMemo(() => {
     const c = scene.clone(true)
+    applyHiddenParts(c, item.hiddenParts)
     prepareMesh(c)
     return c
-  }, [scene]);
+  }, [scene, item.hiddenParts]);
 
   // Compute bottom offset ONCE per clone, before R3F touches the object's position.
   // Storing scale-independent value so it stays correct when scaleOverride changes.
@@ -2130,7 +2137,14 @@ FURNITURE_CATALOG.forEach((e) => useGLTF.preload(e.modelPath));
 
 // ─── Draggable furniture (ThreeDPage only) ────────────────────────────────────
 
-type ToolMode = 'select' | 'move' | 'rotate' | 'scale'
+type ToolMode = 'select' | 'move' | 'rotate' | 'scale' | 'part'
+
+/** Part selection: which sub-object of which placed item is active. */
+export interface SelectedPart {
+  itemId: string
+  partKey: string
+  label: string
+}
 
 function DraggableFurnitureItem({
   item,
@@ -2143,6 +2157,8 @@ function DraggableFurnitureItem({
   onMeshPointerDown,
   onButtonPointerDown,
   onFootprint,
+  selectedPartKey,
+  onSelectPart,
 }: {
   item: PlacedFurniture
   isDragging: boolean
@@ -2154,18 +2170,105 @@ function DraggableFurnitureItem({
   onMeshPointerDown: (e: ThreeEvent<PointerEvent>) => void
   onButtonPointerDown: (e: React.PointerEvent) => void
   onFootprint: (id: string, hw: number, hd: number) => void
+  /** Active part key when this item owns the current part selection */
+  selectedPartKey: string | null
+  onSelectPart: (part: SelectedPart | null) => void
 }) {
   const entry = useFurnitureEntry(item.furniture_id)
   const modelPath = entry?.modelPath ?? ''
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
   const cloned = useMemo(() => {
     const c = scene.clone(true)
+    applyHiddenParts(c, item.hiddenParts)
     prepareMesh(c)
     return c
-  }, [scene])
+  }, [scene, item.hiddenParts])
   const groupRef = useRef<THREE.Group>(null)
   const primitiveRef = useRef<THREE.Object3D>(null)
   const selRef = useRef<THREE.Group>(null)
+  const { invalidate } = useThree()
+  const [detaching, setDetaching] = useState(false)
+
+  // If pruning removed the last mesh, the item is an empty shell — drop it.
+  useEffect(() => {
+    let hasMesh = false
+    cloned.traverse((c) => { if ((c as THREE.Mesh).isMesh) hasMesh = true })
+    if (!hasMesh) useRoomStore.getState().removeFurniture(item.id)
+  }, [cloned, item.id])
+
+  // Highlight the selected part; cleanup restores the materials (the node may
+  // already be pruned on cleanup — resolvePartKey then returns null, fine).
+  useEffect(() => {
+    if (!selectedPartKey) return
+    const node = resolvePartKey(cloned, selectedPartKey)
+    if (!node) return
+    setPartHighlight(node, true)
+    invalidate()
+    return () => { setPartHighlight(node, false); invalidate() }
+  }, [selectedPartKey, cloned, invalidate])
+
+  function handlePartClick(e: ThreeEvent<PointerEvent>) {
+    e.stopPropagation()
+    const part = resolvePartFromMesh(cloned, e.object)
+    const key = partKeyFor(cloned, part)
+    if (!key) return
+    onSelectPart({ itemId: item.id, partKey: key, label: partLabel(part) })
+  }
+
+  function deleteSelectedPart() {
+    if (!selectedPartKey) return
+    const node = resolvePartKey(cloned, selectedPartKey)
+    onSelectPart(null)
+    if (node && !hasMeshesOutsidePart(cloned, node)) {
+      // Last visible part — removing it leaves an invisible, unclickable shell
+      useRoomStore.getState().removeFurniture(item.id)
+      return
+    }
+    useRoomStore.getState().hideFurniturePart(item.id, selectedPartKey)
+  }
+
+  async function detachSelectedPart() {
+    if (!selectedPartKey || detaching) return
+    const node = resolvePartKey(cloned, selectedPartKey)
+    if (!node) return
+    setDetaching(true)
+    try {
+      const { buffer, sizeM, worldCenter } = await exportPartToGlb(node)
+      const id = nanoid()
+      await saveModelToDb(id, buffer)
+      const path = arrayBufferToBlobUrl(buffer)
+      useGLTF.preload(path)
+      const store = useRoomStore.getState()
+      store.addUserFurniture({
+        id,
+        name: partLabel(node),
+        emoji: '🧩',
+        blobId: id,
+        modelPath: path,
+        scale: 1, // world rotation+scale are baked into the exported GLB
+        sizeM,
+        hasTextures: entry?.hasTextures ?? false,
+      })
+      store.placeFurniture({
+        id: `furn_${id}`,
+        furniture_id: id,
+        x: worldCenter.x * 1000,
+        y: worldCenter.z * 1000,
+        rotation: 0,
+      })
+      onSelectPart(null)
+      if (hasMeshesOutsidePart(cloned, node)) {
+        store.hideFurniturePart(item.id, selectedPartKey)
+      } else {
+        store.removeFurniture(item.id)
+      }
+    } catch (err) {
+      console.error('[PartDetach] failed:', err)
+      alert("Qismni ajratib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'))
+    } finally {
+      setDetaching(false)
+    }
+  }
 
   // Compute Y offset and XZ footprint ONCE per clone, before R3F sets position.
   const { yOffUnit, geomHW, geomHD, geomHH, geomCX, geomCZ } = useMemo(() => {
@@ -2242,6 +2345,7 @@ function DraggableFurnitureItem({
   const fw = geomHW * s * 2   // actual footprint width
   const fd = geomHD * s * 2   // actual footprint depth
   const meshCursor = toolMode === 'select' ? 'pointer'
+                   : toolMode === 'part'   ? 'crosshair'
                    : toolMode === 'rotate' ? 'ew-resize'
                    : toolMode === 'scale'  ? 'ns-resize'
                    : 'grab'
@@ -2254,10 +2358,62 @@ function DraggableFurnitureItem({
         position={[0, yOff, 0]}
         rotation={[0, item.rotation, 0]}
         scale={s}
-        onPointerDown={onMeshPointerDown}
+        onPointerDown={toolMode === 'part' ? handlePartClick : onMeshPointerDown}
         onPointerEnter={() => { document.body.style.cursor = meshCursor }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
       />
+      {/* Part-mode action bar — floats above the model while a part is selected */}
+      {toolMode === 'part' && selectedPartKey && (
+        <Html position={[0, buttonH, 0]} center zIndexRange={[110, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              pointerEvents: 'all', display: 'flex', alignItems: 'center', gap: 6,
+              background: 'rgba(255,255,255,0.96)', borderRadius: 10, padding: '5px 8px',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.25)', border: '1px solid rgba(0,0,0,0.08)',
+              whiteSpace: 'nowrap', userSelect: 'none',
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {partLabel(resolvePartKey(cloned, selectedPartKey) ?? cloned)}
+            </span>
+            <button
+              onClick={detachSelectedPart}
+              disabled={detaching}
+              title="Qismni alohida obyekt sifatida ajratish"
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 7,
+                border: '1px solid #2563EB', background: '#EFF6FF', color: '#2563EB',
+                cursor: detaching ? 'wait' : 'pointer',
+              }}
+            >
+              {detaching ? '⏳' : 'Ajratish'}
+            </button>
+            <button
+              onClick={deleteSelectedPart}
+              disabled={detaching}
+              title="Qismni o'chirish"
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 7,
+                border: '1px solid #DC2626', background: '#FEF2F2', color: '#DC2626',
+                cursor: 'pointer',
+              }}
+            >
+              O'chirish
+            </button>
+            <button
+              onClick={() => onSelectPart(null)}
+              title="Bekor qilish"
+              style={{
+                fontSize: 11, fontWeight: 700, padding: '3px 6px', borderRadius: 7,
+                border: 'none', background: 'transparent', color: '#9CA3AF', cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </Html>
+      )}
       {/* Selection indicators — rotate WITH the model and centre on its
           bounding box (models often pivot at a corner, not the middle) */}
       {isSelected && (
@@ -2365,6 +2521,8 @@ function DraggableFurnitureModels({
   toolMode,
   selectedId,
   onSelectItem,
+  selectedPart,
+  onSelectPart,
 }: {
   controlsRef: RefObject<OrbitControlsImpl | null>
   roomW: number
@@ -2372,6 +2530,8 @@ function DraggableFurnitureModels({
   toolMode: ToolMode
   selectedId: string | null
   onSelectItem: (id: string) => void
+  selectedPart: SelectedPart | null
+  onSelectPart: (part: SelectedPart | null) => void
 }) {
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
@@ -2563,6 +2723,8 @@ function DraggableFurnitureModels({
             onMeshPointerDown={(e) => startDragFromMesh(item, e)}
             onButtonPointerDown={(e) => startDragFromButton(item, e)}
             onFootprint={handleFootprint}
+            selectedPartKey={selectedPart?.itemId === item.id ? selectedPart.partKey : null}
+            onSelectPart={onSelectPart}
           />
         </Suspense>
       ))}
@@ -3152,6 +3314,7 @@ export default function ThreeDPage() {
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
+  const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
   const moveFurniture = useRoomStore((s) => s.moveFurniture);
@@ -3219,6 +3382,8 @@ export default function ThreeDPage() {
   // Keyboard shortcuts — desktop power-user navigation
   const selectedFurIdRef = useRef<string | null>(null);
   selectedFurIdRef.current = selectedFurId;
+  const selectedPartRef = useRef<SelectedPart | null>(null);
+  selectedPartRef.current = selectedPart;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -3229,6 +3394,7 @@ export default function ThreeDPage() {
         case '2': setToolMode('move'); break;
         case '3': setToolMode('rotate'); break;
         case '4': setToolMode('scale'); break;
+        case '5': setToolMode('part'); break;
         case 't': setPreset((p) => (p === 'top' ? 'back' : 'top')); setPresetVersion((n) => n + 1); break;
         case 'k': setCutaway((m) => (m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')); break;
         case 'n': setSceneLightOn((v) => !v); break;
@@ -3237,6 +3403,13 @@ export default function ThreeDPage() {
         case 'home': setPresetVersion((n) => n + 1); break;
         case 'delete':
         case 'backspace': {
+          // A selected part takes precedence over the whole item
+          const part = selectedPartRef.current;
+          if (part) {
+            useRoomStore.getState().hideFurniturePart(part.itemId, part.partKey);
+            setSelectedPart(null);
+            break;
+          }
           const id = selectedFurIdRef.current;
           if (id) {
             useRoomStore.getState().removeFurniture(id);
@@ -3244,13 +3417,19 @@ export default function ThreeDPage() {
           }
           break;
         }
-        case 'escape': setSelectedFurId(null); setSelectedWall(null); setShowHelp(false); break;
+        case 'escape': setSelectedPart(null); setSelectedFurId(null); setSelectedWall(null); setShowHelp(false); break;
         case '?': setShowHelp((v) => !v); break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Leaving part mode (or switching rooms) drops any live part selection
+  useEffect(() => {
+    if (toolMode !== 'part') setSelectedPart(null);
+  }, [toolMode]);
+  useEffect(() => { setSelectedPart(null); }, [room.id]);
 
   // Recenter the camera on the room's centre when the cutaway mode changes or
   // a DIFFERENT room loads (switching rooms only changes the :roomId param —
@@ -3414,6 +3593,20 @@ export default function ThreeDPage() {
                   <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
                 </svg>
                 <span className="hidden sm:inline">O'lcham</span>
+              </button>
+              <button
+                onClick={() => setToolMode('part')}
+                title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
+                  <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
+                  <path d="M16 3.5l-8 4.5"/>
+                </svg>
+                <span className="hidden sm:inline">Qismlar</span>
               </button>
             </div>
             {toolMode === 'rotate' && selectedFurId && (() => {
@@ -3588,7 +3781,7 @@ export default function ThreeDPage() {
               </ul>
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
-                <li><b>1–4</b> — Tanlash / Siljitish / Aylantirish / O'lcham</li>
+                <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
                 <li><b>T</b> — Yuqoridan / 3D &nbsp; <b>K</b> — Kesma</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
                 <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
@@ -3652,7 +3845,7 @@ export default function ThreeDPage() {
             outputColorSpace: THREE.SRGBColorSpace,
             powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
           }}
-          onPointerMissed={() => setSelectedFurId(null)}
+          onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); }}
           dpr={glAttempt === 0 ? dpr : 1}
         >
           {/* Drop resolution during interaction, restore at rest */}
@@ -3757,7 +3950,7 @@ export default function ThreeDPage() {
                 onDelete={handleDeleteSibling}
               />
             )}
-            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} />
+            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} selectedPart={selectedPart} onSelectPart={setSelectedPart} />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
             <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} />
 

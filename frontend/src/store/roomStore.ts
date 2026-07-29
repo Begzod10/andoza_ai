@@ -53,6 +53,8 @@ export interface PlacedFurniture {
   scaleOverride?: number
   /** Per-material color tints (material name → hex). '*' = wildcard for all materials. */
   colorOverrides?: Record<string, string>
+  /** Deleted/detached sub-object keys ("indexPath:name" from modelParts.ts) — pruned from the scene graph on load. */
+  hiddenParts?: string[]
 }
 
 export interface UserFurnitureEntry {
@@ -185,6 +187,7 @@ interface RoomStore {
   resizeFurniture(id: string, scaleOverride: number): void
   removeFurniture(id: string): void
   setFurnitureColors(id: string, overrides: Record<string, string>): void
+  hideFurniturePart(id: string, partKey: string): void
   addElectrical(e: PlacedElectrical): void
   moveElectrical(id: string, positionMm: number): void
   removeElectrical(id: string): void
@@ -406,6 +409,17 @@ export const useRoomStore = create<RoomStore>()(
       isDirty: true,
       furniture: state.furniture.map((f) =>
         f.id === id ? { ...f, colorOverrides: overrides } : f,
+      ),
+    }))
+  },
+
+  hideFurniturePart(id, partKey) {
+    set((state) => ({
+      isDirty: true,
+      furniture: state.furniture.map((f) =>
+        f.id === id && !(f.hiddenParts ?? []).includes(partKey)
+          ? { ...f, hiddenParts: [...(f.hiddenParts ?? []), partKey] }
+          : f,
       ),
     }))
   },
