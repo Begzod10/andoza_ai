@@ -14,6 +14,7 @@ import type { MaterialTextureKey } from "@/lib/materialTextures";
 import { createOboyTexture, setOboyRepeat } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import type { DesignState } from "@/store/roomStore";
+import { DEFAULT_HDRI } from "@/lib/hdri";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -816,7 +817,7 @@ function Scene({
       )}
 
       {/* Environment map — IBL for realistic surface reflections */}
-      <Environment preset="apartment" background={false} />
+      <Environment files={DEFAULT_HDRI} background />
 
       {/* Contact shadows baked onto floor (faster than shadow maps, looks great) */}
       <ContactShadows

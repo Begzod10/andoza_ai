@@ -30,6 +30,10 @@ class EnvironmentErrorBoundary extends Component<{ children: ReactNode }, Bounda
 interface SafeEnvironmentProps {
   /** Forwarded to drei's `environmentIntensity` */
   intensity?: number
+  /** HDR to load; defaults to the bundled offline-safe lebombo preset */
+  files?: string
+  /** Forwarded to drei's `background` — paints the HDRI as the visible sky */
+  background?: boolean
 }
 
 /**
@@ -37,11 +41,11 @@ interface SafeEnvironmentProps {
  * from our own public/ folder, and if it still fails to load (or decode) the
  * error boundary swallows the crash so the scene keeps its analytic lights.
  */
-export function SafeEnvironment({ intensity = 0.35 }: SafeEnvironmentProps) {
+export function SafeEnvironment({ intensity = 0.35, files = LOCAL_HDR, background = false }: SafeEnvironmentProps) {
   return (
     <EnvironmentErrorBoundary>
       <Suspense fallback={null}>
-        <Environment files={LOCAL_HDR} environmentIntensity={intensity} />
+        <Environment files={files} environmentIntensity={intensity} background={background} />
       </Suspense>
     </EnvironmentErrorBoundary>
   )

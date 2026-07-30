@@ -7,6 +7,7 @@ import type { PointerLockControls as PointerLockControlsImpl } from "three-stdli
 import { useOutletContext } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
 import { RoomScene, SceneLighting, FurnitureModels, type StudioContext } from "./ThreeDPage";
+import { DEFAULT_HDRI } from "@/lib/hdri";
 
 // ─── Movement controller ──────────────────────────────────────────────────────
 
@@ -140,11 +141,11 @@ export default function WalkthroughPage() {
         shadows="soft"
         style={{ width: "100%", height: "100%" }}
       >
-        <color attach="background" args={["#E8E4DC"]} />
-
         <Suspense fallback={null}>
           <SceneLighting width={roomW} depth={roomD} height={roomH} highQuality={true} />
-          <SafeEnvironment intensity={0.3} />
+          {/* background: the HDRI is what shows through the windows — a solid
+              scene colour here would paint over it */}
+          <SafeEnvironment files={DEFAULT_HDRI} intensity={0.3} background/>
 
           <RoomScene
             room={room}
