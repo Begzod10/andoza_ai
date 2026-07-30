@@ -40,6 +40,7 @@ import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
+import { DEFAULT_HDRI } from "@/lib/hdri";
 
 // Explicit (default-on since three r152, but pinned here so a future three
 // upgrade can't silently regress the color pipeline)
@@ -2997,6 +2998,36 @@ function getCamera(preset: ViewPreset, W: number, D: number, H: number) {
   }
 }
 
+/**
+ * Push a framing away from its target so a narrower canvas still shows the
+ * whole room.
+ *
+ * The presets above are written in room units only, so they implicitly assume
+ * the wide 3D-tab canvas. The Mebelirovka tab gives the viewport roughly half
+ * that width, and a perspective camera's horizontal field of view shrinks with
+ * the aspect ratio — same pose, less room visible. Scaling the eye-to-target
+ * distance restores the framing. The result is capped at `maxDist` because
+ * OrbitControls clamps beyond it, and a target the animator can never reach
+ * would leave it lerping forever.
+ */
+function fitFramingToAspect(
+  cam: { position: [number, number, number]; target: [number, number, number] },
+  scale: number,
+  maxDist: number,
+) {
+  if (scale <= 1) return cam;
+  const [px, py, pz] = cam.position;
+  const [tx, ty, tz] = cam.target;
+  const dx = px - tx, dy = py - ty, dz = pz - tz;
+  const dist = Math.hypot(dx, dy, dz);
+  if (dist === 0) return cam;
+  const s = Math.min(dist * scale, maxDist * 0.98) / dist;
+  return {
+    position: [tx + dx * s, ty + dy * s, tz + dz * s] as [number, number, number],
+    target: cam.target,
+  };
+}
+
 // ─── Camera animator (lerp, no Canvas remount) ────────────────────────────────
 
 function CameraAnimator({
@@ -3169,6 +3200,39 @@ export default function ThreeDPage() {
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
+  // Live aspect ratio of the 3D canvas. The Mebelirovka tab hands the viewport
+  // only half the width, so the framing has to be recomputed per tab instead of
+  // being derived from the room dimensions alone.
+  const canvasBoxRef = useRef<HTMLDivElement | null>(null);
+  const [canvasAspect, setCanvasAspect] = useState(16 / 9);
+  const lastCanvasWidth = useRef(0);
+  useEffect(() => {
+    const el = canvasBoxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
+      setCanvasAspect(width / height);
+      // Any tab switch resizes this slot under a camera that keeps its old
+      // pose, so the room ends up off to one side. Re-run the framing whenever
+      // the width really changes — keyed on size rather than on which tab is
+      // open, so it covers both directions and survives a remount.
+      const prev = lastCanvasWidth.current;
+      lastCanvasWidth.current = width;
+      if (prev > 0 && Math.abs(width - prev) / prev > 0.05) {
+        setPresetVersion((n) => n + 1);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 1 on a comfortably wide canvas, growing as it narrows. Capped so a very
+  // slim viewport doesn't fling the camera into the far plane.
+  const fitScale = useMemo(() => {
+    const REF_ASPECT = 1.6;
+    return canvasAspect >= REF_ASPECT ? 1 : Math.min(REF_ASPECT / canvasAspect, 2.2);
+  }, [canvasAspect]);
 
   const topView = preset === "top";
 
@@ -3208,13 +3272,19 @@ export default function ThreeDPage() {
   const cam = useMemo(() => {
     // Cutaway modes view the room from OUTSIDE as a three-quarter product shot
     if (cutaway !== 'off' && preset !== 'top') {
-      return {
+      return fitFramingToAspect({
         position: [W * 0.9 + 2.5, H * 1.8, D * 0.9 + 2.5] as [number, number, number],
         target: [0, H * 0.32, 0] as [number, number, number],
-      };
+      }, fitScale, Math.max(W, D) * 4 + 6);
     }
-    return getCamera(preset, W, D, H);
-  }, [preset, cutaway, W, D, H]);
+    const base = getCamera(preset, W, D, H);
+    // Only the aerial framing is re-fitted: the corner/front/back presets stand
+    // the camera inside the room, where pulling back would push it through a
+    // wall rather than reveal more of the floor.
+    return preset === 'top'
+      ? fitFramingToAspect(base, fitScale, Math.max(W, D) * 4)
+      : base;
+  }, [preset, cutaway, W, D, H, fitScale]);
 
   // Keyboard shortcuts — desktop power-user navigation
   const selectedFurIdRef = useRef<string | null>(null);
@@ -3558,7 +3628,14 @@ export default function ThreeDPage() {
             <MebelPlanView />
           </div>
         )}
-        <div className="flex-1 min-h-0 relative">
+        {/* min-w-0 is load-bearing: R3F sets a pixel width/height ON the canvas
+            element, which becomes its intrinsic size. A flex item defaults to
+            min-width:auto, so once the canvas had been sized for the full-width
+            3D tab, this column refused to shrink below that width when the plan
+            editor claimed half the row — the canvas kept its old width, spilled
+            under the design panel, and the centred render ended up off to the
+            right. overflow-hidden keeps any future spill inside the slot. */}
+        <div ref={canvasBoxRef} className="flex-1 min-w-0 min-h-0 relative overflow-hidden">
 
           {/* Hint overlay — bottom-left of canvas */}
           <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
@@ -3644,7 +3721,13 @@ export default function ThreeDPage() {
         <Canvas
           shadows="soft"
           camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
-          style={{ width: "100%", height: "100%" }}
+          // Absolute, so the canvas is out of flow and its pixel width can
+          // never feed back into the layout that sizes it. In flow, R3F's
+          // width/height attributes act as the element's intrinsic size, and
+          // the flex column then refuses to shrink past the size the canvas
+          // already had — the viewport and the canvas disagree, and the
+          // centred render drifts out of the visible slot on every tab switch.
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
           gl={{
             antialias: glAttempt === 0,
             toneMapping: THREE.ACESFilmicToneMapping,
@@ -3661,7 +3744,11 @@ export default function ThreeDPage() {
           <DevSceneHandle />
           {/* Return the WebGL context slot immediately on tab switches */}
           <ReleaseGLOnUnmount />
-          <color attach="background" args={[sceneLightOn ? "#E8E4DC" : "#14171F"]} />
+          {/* Daylight shows the HDRI itself (<Environment background> below owns
+              scene.background); a flat colour here would simply paint over it.
+              At night there is no Environment, so the solid fill is still what
+              stands in for a sky. */}
+          {!sceneLightOn && <color attach="background" args={["#14171F"]} />}
           {/* Fog matches the background (night fog was beige on a dark scene)
               and relaxes in top view where the camera legitimately sits far */}
           <fog
@@ -3712,7 +3799,7 @@ export default function ThreeDPage() {
                   height={H}
                   highQuality={highQuality3d}
                 />
-                <Environment preset="apartment" environmentIntensity={0.35} />
+                <Environment files={DEFAULT_HDRI} environmentIntensity={0.35} background />
               </>
             )}
             {/* Scene light off: barely-visible ambient so the room stays navigable;

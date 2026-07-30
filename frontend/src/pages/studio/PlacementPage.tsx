@@ -9,6 +9,7 @@ import { resolveElementPositions } from '@/lib/wallPositions'
 import { RoomScene } from './ThreeDPage'
 import type { Room } from '@/lib/api'
 import * as THREE from 'three'
+import { DEFAULT_HDRI } from '@/lib/hdri'
 
 interface StudioContext { room: Room }
 type TabId = 'elektr' | 'chiroq' | 'olchamlar'
@@ -1408,7 +1409,7 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
         if (!cfg) return null
         return <WireLine3D key={el.id} el={el} panel={panel} W={W} D={D} wireH={wireChannelH} cw={cfg.cw} color={cfg.color}/>
       })}
-      <Environment preset="apartment" environmentIntensity={0.35}/>
+      <Environment files={DEFAULT_HDRI} environmentIntensity={0.35} background />
     </>
   )
 }
