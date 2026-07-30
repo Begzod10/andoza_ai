@@ -21,6 +21,9 @@ const MARGIN = 520     // viewBox margin for labels, mm
 const CORNER_MARGIN = 200
 // Minimum clear wall between two openings (user requirement: 20 cm)
 const EL_GAP = 200
+// Dragging snaps to this grid (mm) — raw pointer coords would otherwise give
+// arbitrary 1mm positions like 1293/1507.
+const DRAG_STEP = 5
 
 /**
  * Nearest collision-free position for an element of `width` on a wall.
@@ -128,6 +131,51 @@ function DimRuler({ wallId, len, p, w, W, Dp }: {
   )
 }
 
+/**
+ * Millimetre input that can be typed into freely.
+ *
+ * A plain controlled `value={n}` input is unusable here: the commit handlers
+ * clamp (width to >= 200mm, position to the collision-free range), so every
+ * intermediate keystroke of "1800" — "1", "18", "180" — snapped straight back
+ * to the clamped value, and clearing the field committed 0. While the field is
+ * focused we therefore keep the raw string and only commit values that pass
+ * `min`/`max`; anything else is held as a draft until the user finishes.
+ * On blur the draft is dropped so the field re-syncs with the real value.
+ */
+function MmInput({ value, onCommit, step = 50, min = 0, max }: {
+  value: number
+  onCommit: (v: number) => void
+  step?: number
+  min?: number
+  max?: number
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  return (
+    <input
+      type="number" step={step} min={min} max={max}
+      value={draft ?? String(value)}
+      onChange={(e) => {
+        const raw = e.target.value
+        setDraft(raw)
+        // Commit only once the typed number is inside the allowed range —
+        // partial entries like "1" or "" must not overwrite the element.
+        if (raw.trim() === '') return
+        const n = Number(raw)
+        if (!Number.isFinite(n)) return
+        if (n < min || (max !== undefined && n > max)) return
+        onCommit(n)
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() }
+      }}
+      className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+    />
+  )
+}
+
 export function MebelPlanView() {
   const geometry = useRoomStore((s) => s.geometry)
   const addElement = useRoomStore((s) => s.addElement)
@@ -206,7 +254,7 @@ export function MebelPlanView() {
     const def = DEFAULTS[tool]
     const u = wallU(wall, e.clientX, e.clientY)
     const pos = clampElementPosition(
-      u - def.width / 2,
+      Math.round((u - def.width / 2) / DRAG_STEP) * DRAG_STEP,
       def.width,
       wall.len,
       resolvedWallEls(wall.id, wall.len),
@@ -246,7 +294,11 @@ export function MebelPlanView() {
     const p = svgPointFromClient(e.clientX, e.clientY)
     const u = d.uAxis === 'x' ? p.x : p.y
     const others = resolvedWallEls(d.wallId, d.len).filter((el) => el.id !== d.id)
-    const pos = clampElementPosition(u - d.grabOffset, d.width, d.len, others)
+    // Snap before clamping: the clamp may still return an off-grid value when
+    // the element is pushed flush against a corner pier or a neighbour, and
+    // that limit must win over the grid.
+    const desired = Math.round((u - d.grabOffset) / DRAG_STEP) * DRAG_STEP
+    const pos = clampElementPosition(desired, d.width, d.len, others)
     if (pos === null) return // blocked — keep last valid position
     updateElement(d.wallId, d.id, { position: pos })
   }
@@ -465,30 +517,28 @@ export function MebelPlanView() {
             </span>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
               Eni
-              <input
-                type="number" step={50}
+              <MmInput
                 value={selEl.width}
-                onChange={(e) => setSelectedWidth(Number(e.target.value) || 0)}
-                className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                onCommit={setSelectedWidth}
+                min={200}
+                max={selWallLen - 2 * CORNER_MARGIN}
               />
             </label>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
               Bo'yi
-              <input
-                type="number" step={50}
+              <MmInput
                 value={selEl.height}
-                onChange={(e) => updateElement(selected.wallId, selected.id, { height: Number(e.target.value) || 0 })}
-                className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                onCommit={(v) => updateElement(selected.wallId, selected.id, { height: v })}
+                min={100}
               />
             </label>
             {selEl.type === 'deraza' && (
               <label className="flex items-center gap-1 text-[11px] text-gray-500">
                 Pol-dan
-                <input
-                  type="number" step={50}
+                <MmInput
                   value={selEl.sill_height}
-                  onChange={(e) => updateElement(selected.wallId, selected.id, { sill_height: Number(e.target.value) || 0 })}
-                  className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                  onCommit={(v) => updateElement(selected.wallId, selected.id, { sill_height: v })}
+                  min={0}
                 />
               </label>
             )}
@@ -497,20 +547,22 @@ export function MebelPlanView() {
                 {/* exact distances from the wall edges (mm) */}
                 <label className="flex items-center gap-1 text-[11px] text-gray-500">
                   Chapdan
-                  <input
-                    type="number" step={10}
+                  <MmInput
+                    step={10}
                     value={selResolved.position}
-                    onChange={(e) => setSelectedPos(Number(e.target.value) || 0)}
-                    className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                    onCommit={setSelectedPos}
+                    min={0}
+                    max={selWallLen}
                   />
                 </label>
                 <label className="flex items-center gap-1 text-[11px] text-gray-500">
                   O'ngdan
-                  <input
-                    type="number" step={10}
+                  <MmInput
+                    step={10}
                     value={selWallLen - selResolved.position - selResolved.width}
-                    onChange={(e) => setSelectedPos(selWallLen - selResolved.width - (Number(e.target.value) || 0))}
-                    className="w-16 border border-gray-300 rounded px-1 py-0.5 text-[11px] text-gray-800"
+                    onCommit={(v) => setSelectedPos(selWallLen - selResolved.width - v)}
+                    min={0}
+                    max={selWallLen}
                   />
                 </label>
                 {/* nudge buttons, 50mm per tap */}
