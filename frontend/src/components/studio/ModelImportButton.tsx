@@ -4,10 +4,19 @@ import { convertFilesToGlb, SUPPORTED_FORMATS } from '@/lib/modelConverter'
 import { saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { useRoomStore } from '@/store/roomStore'
 import { useGLTF } from '@react-three/drei'
+import type { FurnitureCategory } from '@/lib/furnitureCatalog'
 
 const IMPORT_EXTS = /\.(glb|gltf|obj|fbx|bin|mtl|png|jpe?g|webp|bmp|tga|ktx2)$/i
 
-export function ModelImportButton({ compact = false }: { compact?: boolean }) {
+export function ModelImportButton({
+  compact = false,
+  category = 'boshqa',
+}: {
+  compact?: boolean
+  /** Catalog chip the upload is filed under — the panel passes whichever
+   *  category tab is open, so the model lands where the user is looking. */
+  category?: FurnitureCategory
+}) {
   const fileRef = React.useRef<HTMLInputElement>(null)
   const folderRef = React.useRef<HTMLInputElement>(null)
   const [status, setStatus] = React.useState<'idle' | 'loading' | 'done' | 'error'>('idle')
@@ -26,7 +35,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
     setStatus('loading')
     setWarn(null)
     try {
-      const { buffer, info, mainFile, missingTextures } = await convertFilesToGlb(files)
+      const { buffer, info, mainFile, missingTextures, parts } = await convertFilesToGlb(files)
 
       if (missingTextures.length > 0) {
         // Name the exact files the model asked for but the pick didn't include
@@ -37,10 +46,19 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
           `Model quyidagi tekstura fayllarini so'raydi: ${names}. ` +
           `Ularni model bilan birga tanlang yoki papka orqali yuklang.`,
         )
-      } else if (!info.hasTextures) {
+      } else if (parts.textured === 0) {
         setWarn(
           `Teksturalar topilmadi (${info.materialCount} material, faqat rang). ` +
           `Model faylini teksturalari bilan BIRGA tanlang (Ctrl bosib bir nechta fayl).`,
+        )
+      } else if (parts.textured < parts.total) {
+        // Partial coverage is the norm for 3ds Max/Corona exports: the FBX
+        // carries no texture bindings, so parts are matched by filename and
+        // anything without a matching image stays bare. Say so, instead of
+        // implying the whole model came through textured.
+        setWarn(
+          `${parts.total} qismdan ${parts.textured} tasiga tekstura qo'yildi. ` +
+          `Qolganiga 🖼 tugmasi orqali rasm tanlang.`,
         )
       }
 
@@ -60,6 +78,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
         scale: info.scale,
         sizeM: info.sizeM,
         hasTextures: info.hasTextures,
+        category,
       })
 
       setStatus('done')
@@ -116,6 +135,9 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
         >
           📁 Papka orqali yuklash
         </button>
+        {warn && (
+          <p className="text-[9px] text-amber-600 leading-snug px-1 pb-1 text-center">{warn}</p>
+        )}
       </>
     )
   }
