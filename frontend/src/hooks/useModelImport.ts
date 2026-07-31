@@ -24,7 +24,7 @@ export function useModelImport() {
       setStatus('loading')
       setWarn(null)
       try {
-        const { buffer, info, mainFile, missingTextures } = await convertFilesToGlb(files)
+        const { buffer, info, mainFile, missingTextures, parts } = await convertFilesToGlb(files)
 
         if (missingTextures.length > 0) {
           // Name the exact files the model asked for but the pick didn't include
@@ -35,10 +35,19 @@ export function useModelImport() {
             `Model quyidagi tekstura fayllarini so'raydi: ${names}. ` +
             `Ularni model bilan birga tanlang yoki papka orqali yuklang.`,
           )
-        } else if (!info.hasTextures) {
+        } else if (parts.textured === 0) {
           setWarn(
             `Teksturalar topilmadi (${info.materialCount} material, faqat rang). ` +
             `Model faylini teksturalari bilan BIRGA tanlang (Ctrl bosib bir nechta fayl).`,
+          )
+        } else if (parts.textured < parts.total) {
+          // Partial coverage is the norm for 3ds Max/Corona exports: the FBX
+          // carries no texture bindings, so parts are matched by filename and
+          // anything without a matching image stays bare. Say so, instead of
+          // implying the whole model came through textured.
+          setWarn(
+            `${parts.total} qismdan ${parts.textured} tasiga tekstura qo'yildi. ` +
+            `Qolganiga 🖼 tugmasi orqali rasm tanlang.`,
           )
         }
 

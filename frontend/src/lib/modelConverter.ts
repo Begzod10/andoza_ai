@@ -22,8 +22,79 @@ function extOf(name: string): string {
   return name.split('.').pop()?.toLowerCase() ?? ''
 }
 
+/** Any material that can carry a diffuse map — the loaders emit several. */
+type MappableMaterial = THREE.Material & { map?: THREE.Texture | null }
+
+/** True when the material exposes a diffuse map slot AND has one bound. */
+function hasDiffuseMap(m: THREE.Material): boolean {
+  return !!(m as MappableMaterial).map
+}
+
+/**
+ * FBXLoader emits Lambert/Phong and OBJ-without-MTL emits Phong, but every
+ * texture helper here — and GLTFExporter — speaks MeshStandardMaterial.
+ *
+ * This matters twice over. Skipping the conversion used to mean (a) the
+ * auto-texturer silently ignored the whole model, and (b) GLTFExporter, which
+ * has no Phong/Lambert→PBR path, wrote a hardcoded `metallicFactor: 0.5`. Under
+ * a studio HDRI, a half-metallic surface mirrors the white softboxes and washes
+ * out to near-white even when a perfectly good texture is bound.
+ *
+ * Converting once, here, fixes both. Returns how many materials were replaced.
+ */
+function toStandardMaterials(root: THREE.Object3D): number {
+  const converted = new Map<THREE.Material, THREE.MeshStandardMaterial>()
+
+  const convert = (m: THREE.Material): THREE.Material => {
+    if (m instanceof THREE.MeshStandardMaterial) return m
+    const existing = converted.get(m)
+    if (existing) return existing
+    const src = m as THREE.MeshPhongMaterial & THREE.MeshLambertMaterial
+    const std = new THREE.MeshStandardMaterial({
+      name: m.name,
+      color: src.color?.clone() ?? new THREE.Color(0xffffff),
+      map: src.map ?? null,
+      normalMap: src.normalMap ?? null,
+      aoMap: src.aoMap ?? null,
+      alphaMap: src.alphaMap ?? null,
+      emissive: src.emissive?.clone() ?? new THREE.Color(0x000000),
+      emissiveMap: src.emissiveMap ?? null,
+      // Furniture is non-metal; matte-ish. Anything else re-creates the very
+      // blowout this conversion exists to prevent.
+      metalness: 0,
+      roughness: 0.8,
+      transparent: m.transparent,
+      opacity: m.opacity,
+      alphaTest: m.alphaTest,
+      side: m.side,
+      vertexColors: m.vertexColors,
+      flatShading: !!src.flatShading,
+    })
+    converted.set(m, std)
+    return std
+  }
+
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map(convert)
+    } else if (mesh.material) {
+      mesh.material = convert(mesh.material as THREE.Material)
+    }
+  })
+  return converted.size
+}
+
 function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
+  // An empty scene would sail through as a 0×0 m entry with no materials and
+  // nothing to render. Fail loudly instead — the import is not usable.
+  if (box.isEmpty()) {
+    throw new Error(
+      "Model bo'sh — hech qanday geometriya topilmadi. Faylni boshqa formatda (GLB) eksport qilib ko'ring.",
+    )
+  }
   const size = box.getSize(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
 
@@ -46,9 +117,7 @@ function extractSceneInfo(root: THREE.Object3D): ModelInfo {
     const mats = Array.isArray(child.material) ? child.material : [child.material]
     materialCount += mats.length
     for (const m of mats) {
-      if (m instanceof THREE.MeshStandardMaterial && m.map) hasTextures = true
-      if (m instanceof THREE.MeshBasicMaterial && m.map) hasTextures = true
-      if (m instanceof THREE.MeshPhongMaterial && m.map) hasTextures = true
+      if (hasDiffuseMap(m)) hasTextures = true
     }
   })
 
@@ -70,14 +139,21 @@ function extractSceneInfo(root: THREE.Object3D): ModelInfo {
  * triangles), essentially flat, and nearly as large as the whole scene.
  * Real furniture parts (mirrors, glass shelves) are far smaller relative to
  * the model or have real thickness/topology.
+ *
+ * A backdrop is only a backdrop relative to the thing standing in front of it,
+ * so the pass never removes every mesh: a rug, a doormat or a wall panel on
+ * its own matches every "flat sheet on the floor" signal while BEING the
+ * model, and stripping it left an empty scene (0 materials, 0×0 m).
  */
-function stripBackdropPlanes(root: THREE.Object3D): number {
+export function stripBackdropPlanes(root: THREE.Object3D): number {
   const rootBox = new THREE.Box3().setFromObject(root)
   const rootSize = rootBox.getSize(new THREE.Vector3())
   const rootMax = Math.max(rootSize.x, rootSize.y, rootSize.z) || 1
-  const doomed: THREE.Object3D[] = []
+  const kept: THREE.Mesh[] = []
+  const doomed: THREE.Mesh[] = []
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
+    kept.push(child)
     const box = new THREE.Box3().setFromObject(child)
     const s = box.getSize(new THREE.Vector3())
     const dims = [s.x, s.y, s.z].sort((a, b) => a - b)
@@ -99,6 +175,17 @@ function stripBackdropPlanes(root: THREE.Object3D): number {
 
     if (triCount <= 4 || (touchesBottom && coversFootprint)) doomed.push(child)
   })
+  if (!doomed.length) return 0
+
+  // A backdrop needs something standing on it. Measure what would survive:
+  // if the rest of the scene has no real height, nothing is being backdropped
+  // and these sheets ARE the model (a rug, a doormat, a rug split into pile
+  // and backing). Stripping then left an empty scene — 0 materials, 0×0 m.
+  const survivors = kept.filter((m) => !doomed.includes(m))
+  const standing = new THREE.Box3()
+  for (const m of survivors) standing.union(new THREE.Box3().setFromObject(m))
+  if (standing.isEmpty() || standing.getSize(new THREE.Vector3()).y < rootMax * 0.05) return 0
+
   for (const m of doomed) m.removeFromParent()
   return doomed.length
 }
@@ -108,7 +195,16 @@ const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
 // can't decode (.tx/.tif/.tga/.psd are common in 3ds Max/Corona exports).
 // Requests for these are texture-like even when no picked file can serve them.
 const TEXTURE_REQUEST_EXT = /\.(tx|tiff?|tga|psd|png|jpe?g|webp|bmp)$/i
-const DIFFUSE_HINTS = ['diffuse', 'albedo', 'basecolor', 'base_color', 'color', '_col', '_d']
+// Filename markers for a colour/albedo map. The short markers (`_col`, `_d`)
+// must be matched between delimiters — as bare substrings they hit almost any
+// filename ("_d" alone matched every name containing the letter d).
+const DIFFUSE_HINT_RE =
+  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])d($|[_-]))/i
+// Maps that are NOT colour. Binding one of these as the diffuse yields a valid,
+// decodable, near-white texture — the model then renders flat white while every
+// "has a texture?" check happily reports yes.
+const NON_COLOR_MAP =
+  /(normal|_nrm|_nor\b|bump|height|displace|disp|(^|[_-])ao($|[_-])|occlusion|rough|gloss|spec|metal|mask|opacity|alpha|emissi)/i
 
 /** Filename without its last extension. */
 function stemOf(name: string): string {
@@ -172,7 +268,11 @@ function autoAssignDiffuseMaps(
   files: File[],
   resources: Map<string, string>,
 ): Promise<number> {
-  const imgs = files.filter((f) => IMG_EXT.test(f.name))
+  const allImgs = files.filter((f) => IMG_EXT.test(f.name))
+  // Prefer colour maps; fall back to the unfiltered set only if excluding the
+  // non-colour ones would leave us with nothing to bind at all.
+  const colorImgs = allImgs.filter((f) => !NON_COLOR_MAP.test(f.name))
+  const imgs = colorImgs.length > 0 ? colorImgs : allImgs
   if (imgs.length === 0) return Promise.resolve(0)
   const loader = new THREE.TextureLoader()
   const texCache = new Map<string, Promise<THREE.Texture | null>>()
@@ -217,7 +317,7 @@ function autoAssignDiffuseMaps(
           })
         }
       }
-      if (!cand) cand = imgs.find((f) => DIFFUSE_HINTS.some((h) => normStem(f.name).includes(normStem(h))))
+      if (!cand) cand = imgs.find((f) => DIFFUSE_HINT_RE.test(stemOf(f.name)))
       if (!cand && imgs.length === 1) cand = imgs[0]
       if (!cand) continue
       ensureUVs(child.geometry as THREE.BufferGeometry)
@@ -254,7 +354,13 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
  */
 export async function convertFilesToGlb(
   files: File[],
-): Promise<{ buffer: ArrayBuffer; info: ModelInfo; mainFile: File; missingTextures: string[] }> {
+): Promise<{
+  buffer: ArrayBuffer
+  info: ModelInfo
+  mainFile: File
+  missingTextures: string[]
+  parts: { textured: number; total: number }
+}> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
     throw new Error("3D model fayli topilmadi (.glb, .gltf, .obj yoki .fbx tanlang)")
@@ -318,6 +424,24 @@ export async function convertFilesToGlb(
   const mainUrl = resources.get(mainFile.name.toLowerCase())!
   const ext = extOf(mainFile.name)
 
+  /** Textured-vs-total part counts, so the UI can say "2 of 8 textured"
+   *  instead of a blanket ✓ that hides the parts nothing matched. */
+  const countTextured = (root: THREE.Object3D) => {
+    let textured = 0
+    let total = 0
+    root.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (!mesh.isMesh) return
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      for (const m of mats) {
+        if (!m) continue
+        total++
+        if (hasDiffuseMap(m) && hasUsableUVs(mesh.geometry as THREE.BufferGeometry)) textured++
+      }
+    })
+    return { textured, total }
+  }
+
   try {
     if (ext === 'glb') {
       // GLB embeds its textures — keep original bytes unless we had to strip
@@ -330,7 +454,7 @@ export async function convertFilesToGlb(
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList() }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
     }
 
     if (ext === 'gltf') {
@@ -340,7 +464,7 @@ export async function convertFilesToGlb(
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList() }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
     }
 
     if (ext === 'obj') {
@@ -355,21 +479,23 @@ export async function convertFilesToGlb(
       }
       const scene = await loader.loadAsync(mainUrl)
       stripBackdropPlanes(scene)
+      toStandardMaterials(scene)
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList() }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
     }
 
     if (ext === 'fbx') {
       const scene = await new FBXLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(scene)
+      toStandardMaterials(scene)
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList() }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)
@@ -385,6 +511,9 @@ export interface GlbMaterialInfo {
   name: string
   hasMap: boolean
   hasUVs: boolean
+  /** A bound map only shows if its image decoded AND the part has usable UVs.
+   *  Reporting `hasMap` alone claimed "textured ✓" on parts rendering blank. */
+  textured: boolean
 }
 
 function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
@@ -429,11 +558,15 @@ export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterial
     const label = meshName && matName && meshName !== matName
       ? `${meshName} · ${matName}`
       : meshName || matName || `Qism ${i + 1}`
+    const hasMap = !!p.mat.map
+    const hasUVs = hasUsableUVs(p.mesh.geometry as THREE.BufferGeometry)
+    const decoded = (p.mat.map?.image?.width ?? 0) > 0
     return {
       index: i,
       name: label,
-      hasMap: !!p.mat.map,
-      hasUVs: hasUsableUVs(p.mesh.geometry as THREE.BufferGeometry),
+      hasMap,
+      hasUVs,
+      textured: hasMap && hasUVs && decoded,
     }
   })
 }
@@ -448,18 +581,22 @@ export async function listGlbMaterials(buffer: ArrayBuffer): Promise<GlbMaterial
 export function hasUsableUVs(geometry: THREE.BufferGeometry): boolean {
   const existing = geometry.getAttribute('uv')
   if (!existing) return false
-  // Degenerate UVs (all identical) are as useless as none — detect cheaply
-  let min = Infinity
-  let max = -Infinity
+  // Degenerate UVs are as useless as none. Track the axes SEPARATELY: a shared
+  // min/max lets geometry with a constant U (or constant V) pass as usable,
+  // which then samples a single texel strip and renders as one flat colour.
+  let uMin = Infinity
+  let uMax = -Infinity
+  let vMin = Infinity
+  let vMax = -Infinity
   for (let i = 0; i < existing.count; i++) {
     const u = existing.getX(i)
     const v = existing.getY(i)
-    if (u < min) min = u
-    if (v < min) min = v
-    if (u > max) max = u
-    if (v > max) max = v
+    if (u < uMin) uMin = u
+    if (u > uMax) uMax = u
+    if (v < vMin) vMin = v
+    if (v > vMax) vMax = v
   }
-  return max - min > 1e-5
+  return uMax - uMin > 1e-5 && vMax - vMin > 1e-5
 }
 
 function ensureUVs(geometry: THREE.BufferGeometry): boolean {
