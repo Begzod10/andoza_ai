@@ -46,7 +46,12 @@ describe('persistableDesignState', () => {
     expect(JSON.stringify(out).length).toBeLessThan(10_000)
   })
 
-  it('drops an oversized floor photo but keeps a small one', () => {
+  it('keeps a server-hosted floor image — the normal upload path', () => {
+    const url = 'http://localhost:8000/media/wallpapers/abc.jpg'
+    expect(persistableDesignState(stateWith({}, url)).floorTexture).toBe(url)
+  })
+
+  it('drops an oversized inline floor photo but keeps a small one', () => {
     const huge = 'data:image/png;base64,' + 'A'.repeat(200_000)
     expect(persistableDesignState(stateWith({}, huge)).floorTexture).toBeNull()
 

@@ -177,6 +177,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const [coveringMode, setCoveringMode] = React.useState<CoveringMode>("paint");
   const [floorMode, setFloorMode] = React.useState<FloorMode>("turi");
   const floorFileRef = React.useRef<HTMLInputElement>(null);
+  const [floorBusy, setFloorBusy] = React.useState(false);
+  const [floorError, setFloorError] = React.useState<string | null>(null);
 
   const targetWall: WallTarget = (selectedWall && (['A','B','C','D','FLOOR'] as string[]).includes(selectedWall))
     ? selectedWall as WallTarget
@@ -268,16 +270,47 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setDesignState({ floorTextureSettings: { ...current, ...patch } });
   }
 
-  function handleFloorTextureUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  /**
+   * Floor image upload.
+   *
+   * Goes to the shared media library and only the URL is kept, exactly like a
+   * wall image. It used to be read straight into a data URL and stored inline
+   * in the design state: a photo of any real size then either bloated every
+   * save or was dropped by the draft's inline-image cap, so the floor came
+   * back bare after a reload.
+   *
+   * If the upload cannot reach the server we still show the image from a data
+   * URL, because losing the preview helps nobody — but we say plainly that it
+   * will not survive a reload, instead of silently pretending it was saved.
+   */
+  async function handleFloorTextureUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const url = ev.target?.result as string;
-      if (url) setFloorTexture(url);
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFloorError('Faqat rasm fayllari (JPG, PNG, WEBP...)');
+      return;
+    }
+    setFloorBusy(true);
+    setFloorError(null);
+    try {
+      const uploaded = await uploadWallpaper(file);
+      setFloorTexture(uploaded.url);
+      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+    } catch (err) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        if (url) setFloorTexture(url);
+      };
+      reader.readAsDataURL(file);
+      setFloorError(
+        `Serverga saqlanmadi${err instanceof Error && err.message ? `: ${err.message}` : ''} — ` +
+        'rasm hozir ko\'rinadi, lekin sahifa yangilansa yo\'qoladi.',
+      );
+    } finally {
+      setFloorBusy(false);
+    }
   }
 
   function handleSetCoveringMode(mode: CoveringMode) {
@@ -597,17 +630,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 onChange={handleFloorTextureUpload}
               />
               <button
-                onClick={() => floorFileRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-brand/50 hover:text-brand transition-colors"
+                onClick={() => { setFloorError(null); floorFileRef.current?.click(); }}
+                disabled={floorBusy}
+                className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-brand/50 hover:text-brand transition-colors disabled:opacity-50"
               >
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <path d="M21 15l-5-5L5 21"/>
                 </svg>
-                <span className="text-sm font-medium">Rasm yuklash</span>
-                <span className="text-xs text-gray-400">JPG, PNG, WEBP</span>
+                <span className="text-sm font-medium">{floorBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}</span>
+                <span className="text-xs text-gray-400">JPG, PNG, WEBP · 15 MB gacha</span>
               </button>
+              {floorError && <p className="text-xs text-amber-600 leading-snug">{floorError}</p>}
               {designState.floorTexture && (() => {
                 const fs = designState.floorTextureSettings ?? DEFAULT_FLOOR_TEX_SETTINGS;
                 return (
