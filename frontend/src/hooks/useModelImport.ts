@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei'
 import { convertFilesToGlb } from '@/lib/modelConverter'
 import { saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { useRoomStore } from '@/store/roomStore'
+import type { FurnitureCategory } from '@/lib/furnitureCatalog'
 
 export type ImportStatus = 'idle' | 'loading' | 'done' | 'error'
 
@@ -20,7 +21,7 @@ export function useModelImport() {
 
   /** Returns the new entry id, or null when the import failed. */
   const importFiles = React.useCallback(
-    async (files: File[]): Promise<string | null> => {
+    async (files: File[], category?: FurnitureCategory): Promise<string | null> => {
       setStatus('loading')
       setWarn(null)
       try {
@@ -66,6 +67,7 @@ export function useModelImport() {
           scale: info.scale,
           sizeM: info.sizeM,
           hasTextures: info.hasTextures,
+          category,
         })
 
         setStatus('done')

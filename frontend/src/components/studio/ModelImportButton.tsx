@@ -2,8 +2,14 @@ import * as React from 'react'
 import { SUPPORTED_FORMATS } from '@/lib/modelConverter'
 import { useModelImport } from '@/hooks/useModelImport'
 import { useFileDrop, MODEL_FILE_RE } from '@/hooks/useFileDrop'
+import type { FurnitureCategory } from '@/lib/furnitureCatalog'
 
-export function ModelImportButton({ compact = false }: { compact?: boolean }) {
+export function ModelImportButton({ compact = false, category }: {
+  compact?: boolean
+  /** Catalog chip the upload is filed under — the panel passes whichever
+   *  category tab is open, so the model lands where the user is looking. */
+  category?: FurnitureCategory
+}) {
   const fileRef = React.useRef<HTMLInputElement>(null)
   const folderRef = React.useRef<HTMLInputElement>(null)
   const { importFiles, status, warn } = useModelImport()
@@ -13,11 +19,11 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
   // folder" done the only way a browser allows
   function onFolderPicked(list: FileList | null) {
     const fs = Array.from(list ?? []).filter((f) => MODEL_FILE_RE.test(f.name)).slice(0, 400)
-    if (fs.length) void importFiles(fs)
+    if (fs.length) void importFiles(fs, category)
   }
 
   const { isOver, dropProps } = useFileDrop({
-    onDrop: (files) => void importFiles(files),
+    onDrop: (files) => void importFiles(files, category),
     accept: (f) => MODEL_FILE_RE.test(f.name),
     disabled: status === 'loading',
   })
@@ -37,7 +43,7 @@ export function ModelImportButton({ compact = false }: { compact?: boolean }) {
         className="hidden"
         onChange={(e) => {
           const fs = Array.from(e.target.files ?? [])
-          if (fs.length) { void importFiles(fs); e.target.value = '' }
+          if (fs.length) { void importFiles(fs, category); e.target.value = '' }
         }}
       />
       <input

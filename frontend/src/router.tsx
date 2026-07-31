@@ -142,6 +142,11 @@ const routes: RouteObject[] = [
         element: withSuspense(<ThreeDPage />),
       },
       {
+        // Same editor, opened in the lighting phase (Chiroqlar tab)
+        path: "chiroqlar",
+        element: withSuspense(<ThreeDPage />),
+      },
+      {
         path: "elektr",
         element: withSuspense(<PlacementPage />),
       },

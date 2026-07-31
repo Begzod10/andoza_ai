@@ -2,15 +2,22 @@
  * 2D floor-plan editor for the Mebelirovka tab.
  *
  * Left palette: selectable door/window/balcony-door tools (elektr-sidebar
- * style). Clicking a wall in the plan places the selected element there;
- * existing elements can be dragged along their wall, selected, resized via
- * the inspector row, and deleted. All edits go straight to the room store,
- * so the 3D viewport next to this view updates live.
+ * style), then the list of furniture standing in the room. Clicking a wall in
+ * the plan places the selected element there; existing elements can be dragged
+ * along their wall, selected, resized via the inspector row, and deleted.
+ * Every model placed in the 3D scene is drawn here as its top-down silhouette
+ * and can be dragged, turned, resized or removed from the plan. All edits go
+ * straight to the room store, so the 3D viewport next to this view updates
+ * live — and vice versa.
  */
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useRoomStore } from '@/store/roomStore'
-import type { WallElement } from '@/store/roomStore'
+import type { PlacedFurniture, WallElement } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
+import { hullBounds, type Hull } from '@/lib/modelFootprint'
+import { DEFAULT_WINDOW_STYLE, mullionCount, resolveWindowStyle } from '@/lib/windowStyles'
+import { PlanFurnitureLayer, itemScale, resolveFurnitureEntry } from './PlanFurniture'
+import { WindowStylePicker } from './WindowStylePicker'
 
 type ElType = WallElement['type']
 
@@ -24,6 +31,10 @@ const EL_GAP = 200
 // Dragging snaps to this grid (mm) — raw pointer coords would otherwise give
 // arbitrary 1mm positions like 1293/1507.
 const DRAG_STEP = 5
+// Furniture drags on a coarser grid than wall openings, and keeps a small
+// clearance from the wall faces (same 50mm the 3D viewport uses).
+const FUR_STEP = 10
+const FUR_WALL_GAP = 50
 
 /**
  * Nearest collision-free position for an element of `width` on a wall.
@@ -181,11 +192,27 @@ export function MebelPlanView() {
   const addElement = useRoomStore((s) => s.addElement)
   const updateElement = useRoomStore((s) => s.updateElement)
   const removeElement = useRoomStore((s) => s.removeElement)
+  const furniture = useRoomStore((s) => s.furniture)
+  const userFurniture = useRoomStore((s) => s.userFurniture)
+  const moveFurniture = useRoomStore((s) => s.moveFurniture)
+  const resizeFurniture = useRoomStore((s) => s.resizeFurniture)
+  const removeFurniture = useRoomStore((s) => s.removeFurniture)
 
   const [tool, setTool] = useState<ElType | null>('eshik')
   const [selected, setSelected] = useState<{ wallId: string; id: string } | null>(null)
+  // Window type the next placed window gets — the picker doubles as the
+  // "which window do you want?" prompt before anything exists on the wall.
+  const [newWindowStyle, setNewWindowStyle] = useState(DEFAULT_WINDOW_STYLE)
+  const [selectedFur, setSelectedFur] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dragRef = useRef<{ wallId: string; id: string; grabOffset: number; uAxis: 'x' | 'y'; len: number; width: number } | null>(null)
+  // Silhouettes reported by the drawn symbols — the drag clamp uses the real
+  // outline, so a round chair is not held off the wall by its square box.
+  const hullsRef = useRef<Map<string, Hull>>(new Map())
+  const furDragRef = useRef<{ id: string; offX: number; offY: number } | null>(null)
+  const onHull = useCallback((id: string, hull: Hull) => {
+    hullsRef.current.set(id, hull)
+  }, [])
   // Right-mouse-button panning of the plan
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const panRef = useRef<{ sx: number; sy: number; ox: number; oy: number; scale: number } | null>(null)
@@ -230,7 +257,59 @@ export function MebelPlanView() {
     return wall.uAxis === 'x' ? p.x : p.y
   }
 
+  /** Placed item → its plan-space extents around the model origin, in mm. */
+  function furExtents(item: PlacedFurniture) {
+    const entry = resolveFurnitureEntry(item.furniture_id, userFurniture)
+    const hull = hullsRef.current.get(item.id)
+    if (entry && hull) {
+      const b = hullBounds(hull, item.rotation, itemScale(entry, item) * 1000)
+      return b
+    }
+    // Before the symbol has reported (or without a catalog entry): square box
+    const so = item.scaleOverride ?? 1
+    const hw = ((entry?.sizeM.w ?? 0.6) * so * 1000) / 2
+    const hd = ((entry?.sizeM.d ?? 0.6) * so * 1000) / 2
+    const c = Math.abs(Math.cos(item.rotation))
+    const s = Math.abs(Math.sin(item.rotation))
+    const rw = hw * c + hd * s
+    const rd = hw * s + hd * c
+    return { minX: -rw, maxX: rw, minZ: -rd, maxZ: rd }
+  }
+
+  /** Keep an item's whole footprint inside the room. */
+  function clampFurniture(item: PlacedFurniture, planX: number, planY: number) {
+    const b = furExtents(item)
+    const x = Math.min(
+      Math.max(planX, FUR_WALL_GAP - b.minX),
+      Math.max(FUR_WALL_GAP - b.minX, W - FUR_WALL_GAP - b.maxX),
+    )
+    const y = Math.min(
+      Math.max(planY, FUR_WALL_GAP - b.minZ),
+      Math.max(FUR_WALL_GAP - b.minZ, Dp - FUR_WALL_GAP - b.maxZ),
+    )
+    return { x, y }
+  }
+
+  function startFurnitureDrag(item: PlacedFurniture, e: React.PointerEvent) {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    setSelectedFur(item.id)
+    setSelected(null)
+    const p = svgPointFromClient(e.clientX, e.clientY)
+    furDragRef.current = {
+      id: item.id,
+      offX: p.x - (item.x + W / 2),
+      offY: p.y - (item.y + Dp / 2),
+    }
+    // Capture on the <svg> — it owns the move/up handlers that drive the drag
+    svgRef.current?.setPointerCapture?.(e.pointerId)
+  }
+
   function startPan(e: React.PointerEvent<SVGSVGElement>) {
+    // A left click that reached the background (the symbols stop propagation)
+    // means "nothing selected" — otherwise the inspector row would keep
+    // showing an item the user has visually moved on from.
+    if (e.button === 0) setSelectedFur(null)
     if (e.button !== 2) return
     e.preventDefault()
     const svg = svgRef.current
@@ -260,14 +339,24 @@ export function MebelPlanView() {
       resolvedWallEls(wall.id, wall.len),
     )
     if (pos === null) return // no collision-free spot on this wall
-    addElement(wall.id, { ...def, position: pos })
-    setSelected(null)
+    addElement(wall.id, {
+      ...def,
+      position: pos,
+      ...(tool === 'deraza' ? { styleId: newWindowStyle } : {}),
+    })
+    setSelectedFur(null)
+    // Select what was just placed: for a window that opens the type gallery
+    // right where the user is looking, so they can try the other shapes.
+    const placed = useRoomStore.getState().geometry.walls.find((w) => w.id === wall.id)?.elements
+    const added = placed?.[placed.length - 1]
+    setSelected(added ? { wallId: wall.id, id: added.id } : null)
   }
 
   function startDrag(wall: WallDef, el: WallElement, e: React.PointerEvent) {
     if (e.button !== 0) return
     e.stopPropagation()
     setSelected({ wallId: wall.id, id: el.id })
+    setSelectedFur(null)
     const u = wallU(wall, e.clientX, e.clientY)
     dragRef.current = {
       wallId: wall.id,
@@ -277,7 +366,8 @@ export function MebelPlanView() {
       len: wall.len,
       width: el.width,
     }
-    ;(e.currentTarget.ownerSVGElement ?? e.currentTarget).setPointerCapture?.(e.pointerId)
+    // Capture on the <svg> — it owns the move/up handlers that drive the drag
+    svgRef.current?.setPointerCapture?.(e.pointerId)
   }
 
   function handleMove(e: React.PointerEvent) {
@@ -287,6 +377,19 @@ export function MebelPlanView() {
         x: panState.ox - (e.clientX - panState.sx) * panState.scale,
         y: panState.oy - (e.clientY - panState.sy) * panState.scale,
       })
+      return
+    }
+    const fd = furDragRef.current
+    if (fd) {
+      const item = furniture.find((f) => f.id === fd.id)
+      if (!item) return
+      const p = svgPointFromClient(e.clientX, e.clientY)
+      const snapped = clampFurniture(
+        item,
+        Math.round((p.x - fd.offX) / FUR_STEP) * FUR_STEP,
+        Math.round((p.y - fd.offY) / FUR_STEP) * FUR_STEP,
+      )
+      moveFurniture(item.id, Math.round(snapped.x - W / 2), Math.round(snapped.y - Dp / 2), item.rotation)
       return
     }
     const d = dragRef.current
@@ -306,6 +409,26 @@ export function MebelPlanView() {
   function endDrag() {
     dragRef.current = null
     panRef.current = null
+    furDragRef.current = null
+  }
+
+  const selFur = selectedFur ? furniture.find((f) => f.id === selectedFur) ?? null : null
+  const selFurEntry = selFur ? resolveFurnitureEntry(selFur.furniture_id, userFurniture) : undefined
+
+  /** Turn the selected item; the new angle may push it out of the room, so re-clamp. */
+  function setFurnitureRotation(deg: number) {
+    if (!selFur) return
+    const rotation = (deg * Math.PI) / 180
+    const p = clampFurniture({ ...selFur, rotation }, selFur.x + W / 2, selFur.y + Dp / 2)
+    moveFurniture(selFur.id, Math.round(p.x - W / 2), Math.round(p.y - Dp / 2), rotation)
+  }
+
+  function setFurnitureScale(percent: number) {
+    if (!selFur) return
+    const scaleOverride = Math.max(0.1, Math.min(5, percent / 100))
+    resizeFurniture(selFur.id, scaleOverride)
+    const p = clampFurniture({ ...selFur, scaleOverride }, selFur.x + W / 2, selFur.y + Dp / 2)
+    moveFurniture(selFur.id, Math.round(p.x - W / 2), Math.round(p.y - Dp / 2), selFur.rotation)
   }
 
   const selEl = selected
@@ -388,6 +511,59 @@ export function MebelPlanView() {
           {tool ? "Devorga bosib joylashtiring. Elementni sudrab siljiting." : 'Element tanlang'}
           <br />O'ng tugmani bosib turib planni suring.
         </p>
+
+        {/* ── Window types ───────────────────────────────────────── */}
+        {selEl?.type === 'deraza' && selected ? (
+          <div className="mt-4">
+            <WindowStylePicker
+              title="Deraza turi"
+              value={resolveWindowStyle(selEl).id}
+              onPick={(styleId) => updateElement(selected.wallId, selected.id, { styleId })}
+              hint="Tanlangan deraza shu ko'rinishga o'zgaradi."
+            />
+          </div>
+        ) : tool === 'deraza' ? (
+          <div className="mt-4">
+            <WindowStylePicker
+              title="Deraza turi"
+              value={newWindowStyle}
+              onPick={setNewWindowStyle}
+              hint="Yangi deraza shu turda qo'yiladi."
+            />
+          </div>
+        ) : null}
+
+        {/* ── Furniture standing in the room ─────────────────────── */}
+        <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Mebel</p>
+        {furniture.length === 0 ? (
+          <p className="text-[10px] leading-4 text-gray-400">
+            3D oynada model qo'shing — plan ustida shakli chiziladi.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {furniture.map((f) => {
+              const entry = resolveFurnitureEntry(f.furniture_id, userFurniture)
+              const so = f.scaleOverride ?? 1
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => { setSelectedFur(selectedFur === f.id ? null : f.id); setSelected(null) }}
+                  className={`flex items-center gap-2 p-1.5 rounded-lg border text-left transition-colors ${
+                    selectedFur === f.id ? 'border-[#D85A30] bg-orange-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-[14px] leading-none shrink-0">{entry?.emoji ?? '📦'}</span>
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-gray-800 truncate">{entry?.name ?? 'Model'}</span>
+                    <span className="block text-[9px] text-gray-400 tabular-nums">
+                      {((entry?.sizeM.w ?? 0) * so).toFixed(2)}×{((entry?.sizeM.d ?? 0) * so).toFixed(2)} m
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Plan ────────────────────────────────────────────────── */}
@@ -450,6 +626,14 @@ export function MebelPlanView() {
                         <>
                           <line x1={p} y1={T * 0.35} x2={p + w} y2={T * 0.35} stroke={BLUE} strokeWidth={40} />
                           <line x1={p} y1={T * 0.65} x2={p + w} y2={T * 0.65} stroke={BLUE} strokeWidth={40} />
+                          {/* mullions of the chosen window type, as a plan reads them */}
+                          {(() => {
+                            const n = mullionCount(resolveWindowStyle(el))
+                            return Array.from({ length: n }, (_, k) => {
+                              const x = p + (w / (n + 1)) * (k + 1)
+                              return <line key={k} x1={x} y1={0} x2={x} y2={T} stroke={BLUE} strokeWidth={40} />
+                            })
+                          })()}
                         </>
                       )}
                       {el.type === 'balkon' && (
@@ -480,6 +664,17 @@ export function MebelPlanView() {
               </g>
             )
           })}
+
+          {/* furniture standing in the room, drawn as top-down silhouettes */}
+          <PlanFurnitureLayer
+            furniture={furniture}
+            userFurniture={userFurniture}
+            W={W}
+            Dp={Dp}
+            selectedId={selectedFur}
+            onHull={onHull}
+            onPointerDownItem={startFurnitureDrag}
+          />
 
           {/* dimension chain for the selected element */}
           {selected && selResolved && (
@@ -586,6 +781,61 @@ export function MebelPlanView() {
             )}
             <button
               onClick={() => { removeElement(selected.wallId, selected.id); setSelected(null) }}
+              className="ml-auto text-[11px] font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50"
+            >
+              O'chirish
+            </button>
+          </div>
+        )}
+
+        {/* ── Inspector for the selected furniture ───────────────── */}
+        {selFur && (
+          <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-gray-600 truncate max-w-[40%]">
+              {selFurEntry?.emoji ?? '📦'} {selFurEntry?.name ?? 'Model'}
+            </span>
+            <span className="text-[10px] text-gray-400 tabular-nums">
+              {((selFurEntry?.sizeM.w ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)}×
+              {((selFurEntry?.sizeM.d ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)} m
+            </span>
+            <label className="flex items-center gap-1 text-[11px] text-gray-500">
+              Burish°
+              <MmInput
+                step={15}
+                min={0}
+                max={360}
+                value={Math.round(((selFur.rotation * 180) / Math.PI + 360) % 360)}
+                onCommit={setFurnitureRotation}
+              />
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setFurnitureRotation(((selFur.rotation * 180) / Math.PI) - 15)}
+                title="15° chapga burish"
+                className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
+              >
+                ↺
+              </button>
+              <button
+                onClick={() => setFurnitureRotation(((selFur.rotation * 180) / Math.PI) + 15)}
+                title="15° o'ngga burish"
+                className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
+              >
+                ↻
+              </button>
+            </div>
+            <label className="flex items-center gap-1 text-[11px] text-gray-500">
+              O'lcham %
+              <MmInput
+                step={5}
+                min={10}
+                max={500}
+                value={Math.round((selFur.scaleOverride ?? 1) * 100)}
+                onCommit={setFurnitureScale}
+              />
+            </label>
+            <button
+              onClick={() => { removeFurniture(selFur.id); setSelectedFur(null) }}
               className="ml-auto text-[11px] font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50"
             >
               O'chirish
