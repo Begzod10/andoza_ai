@@ -7,6 +7,7 @@ import { useOutletContext } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
 import { RoomScene, SceneLighting, FurnitureModels, type StudioContext } from "./ThreeDPage";
 import { DEFAULT_HDRI } from "@/lib/hdri";
+import { roomExtents } from '@/lib/roomDims';
 
 // ─── Movement controller ──────────────────────────────────────────────────────
 
@@ -120,11 +121,8 @@ export default function WalkthroughPage() {
   const [locked, setLocked] = useState(false);
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
 
-  // Fallback to store geometry when the API room lacks width/length
-  const wallA = geometry.walls.find(w => w.id === 'A');
-  const wallB = geometry.walls.find(w => w.id === 'B');
-  const roomW = (room.width  > 0 ? room.width  : (wallB?.length ?? 3000) / 1000);
-  const roomD = (room.length > 0 ? room.length : (wallA?.length ?? 4000) / 1000);
+  // X follows wall A, Z follows wall B — the orientation every view shares
+  const { W: roomW, D: roomD } = roomExtents(geometry, { W: room.length, D: room.width });
   const roomH = room.ceiling_height ?? 2.7;
 
   const handleEnter = () => {

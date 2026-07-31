@@ -6,6 +6,7 @@ import { OrbitControls, Environment } from '@react-three/drei'
 import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
+import { roomExtents } from '@/lib/roomDims'
 import { RoomScene } from './ThreeDPage'
 import type { Room } from '@/lib/api'
 import * as THREE from 'three'
@@ -626,8 +627,8 @@ function FloorPlan({
   room, geometry, electricals, lights, tab, activeTool, wireConfigs,
   onPlaceElectrical, onMoveElectrical, onPlaceLight, onRemoveLight,
 }: FloorPlanProps) {
-  const W = room.width  > 0 ? room.width  : (geometry.walls.find(w => w.id === 'B')?.length ?? 3000) / 1000
-  const D = room.length > 0 ? room.length : (geometry.walls.find(w => w.id === 'A')?.length ?? 4000) / 1000
+  // X follows wall A, Z follows wall B — the orientation every view shares
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const svgW = W * SCALE + PAD * 2
   const svgH = D * SCALE + PAD * 2
   const rW = W * SCALE
@@ -1378,8 +1379,8 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
   electricals: PlacedElectrical[]
   wireConfigs: Record<string, WireConfig>
 }) {
-  const W = room.width  > 0 ? room.width  : (geometry.walls.find(w => w.id === 'B')?.length ?? 3000) / 1000
-  const D = room.length > 0 ? room.length : (geometry.walls.find(w => w.id === 'A')?.length ?? 4000) / 1000
+  // X follows wall A, Z follows wall B — the orientation every view shares
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7
   const panel = electricals.find(e => e.type === 'panel')
 
@@ -1421,8 +1422,8 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
   electricals: PlacedElectrical[]
   wireConfigs: Record<string, WireConfig>
 }) {
-  const W = room.width  > 0 ? room.width  : (geometry.walls.find(w => w.id === 'B')?.length ?? 3000) / 1000
-  const D = room.length > 0 ? room.length : (geometry.walls.find(w => w.id === 'A')?.length ?? 4000) / 1000
+  // X follows wall A, Z follows wall B — the orientation every view shares
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7
   const initPos: [number, number, number] = [-W * 0.3, H * 0.55, D * 0.35]
   const initTarget: [number, number, number] = [0, H * 0.4, 0]
@@ -1469,8 +1470,8 @@ export default function PlacementPage() {
 
   const panel = electricals.find(e => e.type === 'panel')
   // Fall back to geometry wall lengths (in mm→m) when room metadata is 0/missing
-  const W = (room.width  > 0 ? room.width  : (geometry.walls.find(w => w.id === 'B')?.length ?? 3000) / 1000)
-  const D = (room.length > 0 ? room.length : (geometry.walls.find(w => w.id === 'A')?.length ?? 4000) / 1000)
+  // X follows wall A, Z follows wall B — the orientation every view shares
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
 
   // Compute effective wire config for each non-panel device
   const wireConfigs = useMemo<Record<string, WireConfig>>(() => {

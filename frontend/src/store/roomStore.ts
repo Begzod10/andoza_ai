@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
+import type { FurnitureCategory } from '@/lib/furnitureCatalog'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 
@@ -11,6 +12,17 @@ export interface WallElement {
   height: number
   sill_height: number
   position: number
+  // ── Door leaf. All optional: openings saved before the 3D door existed
+  //    carry none, and fall back to a closed, left-hung, wooden leaf. ──
+  /** Hinge jamb, in the wall's own frame. */
+  hinge?: 'left' | 'right'
+  /** Swing in degrees into the room; 0 is shut. */
+  openAngle?: number
+  leafColor?: string
+  /** Window only: number of casement leaves. Defaults by width. */
+  sashes?: 1 | 2
+  /** Window only: type id from the windowStyles catalog (sash/transom layout). */
+  styleId?: string
 }
 
 export interface Wall {
@@ -41,6 +53,25 @@ export interface PlacedLight {
   id: string
   xMm: number  // from left wall
   zMm: number  // from back wall
+  /** Fixture kind from LIGHT_TYPES. Absent on lights saved before fixture
+   *  types existed — those are plain ceiling lights (DEFAULT_LIGHT_TYPE). */
+  type?: string
+  /** Wall a wall-mounted fixture is fixed to. */
+  wallId?: 'A' | 'B' | 'C' | 'D'
+  /** Per-fixture overrides of the catalog defaults. Absent = use the default,
+   *  so changing a catalog value still moves every light the user never
+   *  touched. */
+  dropM?: number
+  wallHM?: number
+  /** Aim of a directional fixture, radians about Y. */
+  rotation?: number
+  /** Tilt of an aimable beam off vertical, radians. */
+  tiltRad?: number
+  brightnessPct?: number
+  colorK?: number
+  beamDeg?: number
+  /** Individually switched off while the room lights are on. */
+  off?: boolean
 }
 
 export interface PlacedFurniture {
@@ -64,6 +95,9 @@ export interface UserFurnitureEntry {
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures: boolean
+  /** Which catalog chip the model is filed under. Optional: entries persisted
+   *  before categories existed have none, and are treated as 'boshqa'. */
+  category?: FurnitureCategory
 }
 
 export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
@@ -143,6 +177,8 @@ interface RoomPayload {
         height: number
         sill_height?: number | null
         position?: number | null
+        style_id?: string | null
+        sashes?: number | null
       }>
     }>
   } | null
@@ -189,12 +225,14 @@ interface RoomStore {
   moveElectrical(id: string, positionMm: number): void
   removeElectrical(id: string): void
   addLight(l: PlacedLight): void
+  updateLight(id: string, patch: Partial<Omit<PlacedLight, 'id'>>): void
   moveLight(id: string, xMm: number, zMm: number): void
   removeLight(id: string): void
   clearLights(): void
   addUserFurniture(entry: UserFurnitureEntry): void
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
+  setUserFurnitureCategory(id: string, category: FurnitureCategory): void
   loadRoom(room: RoomPayload): void
   loadDraftState(state: Record<string, unknown>): void
   setRoomId(id: string): void
@@ -223,6 +261,40 @@ const defaultGeometry = (): RoomGeometry => ({
 })
 
 // ─── Store ────────────────────────────────────────────────────────────────────
+
+/**
+ * Largest inline image kept in the persisted draft, in characters.
+ *
+ * A photo pasted in as a data URL routinely runs to several megabytes, and
+ * localStorage gives the whole origin about five. Writing one in throws
+ * QuotaExceededError, which fails the *entire* snapshot — so keeping a big
+ * texture would cost the user their furniture, lights and geometry too.
+ * Dropping it is the cheaper loss, and it still comes back from the backend
+ * once the room is saved.
+ *
+ * Generated finishes (a few KB of SVG) and server-hosted URLs are far below
+ * this, so the ordinary case always survives a reload.
+ */
+const MAX_INLINE_IMAGE = 64 * 1024
+
+function isOversizedInline(url?: string | null): boolean {
+  return !!url && url.startsWith('data:') && url.length > MAX_INLINE_IMAGE
+}
+
+/** Design state trimmed to what is safe to write to localStorage. */
+export function persistableDesignState(d: DesignState): DesignState {
+  const entries = Object.entries(d.wallCoverings).map(([wallId, covering]) => {
+    if (covering && covering.kind === 'texture' && isOversizedInline(covering.url)) {
+      return [wallId, DEFAULT_DESIGN_STATE.wallCoverings.ALL] as const
+    }
+    return [wallId, covering] as const
+  })
+  return {
+    ...d,
+    wallCoverings: Object.fromEntries(entries) as DesignState['wallCoverings'],
+    floorTexture: isOversizedInline(d.floorTexture) ? null : d.floorTexture,
+  }
+}
 
 export const DEFAULT_DESIGN_STATE: DesignState = {
   wallCoverings: { ALL: { kind: 'paint', color: '#D8D3C8' } },
@@ -258,8 +330,13 @@ export const useRoomStore = create<RoomStore>()(
   isDirty: false,
   wizardStep: 0,
   designState: DEFAULT_DESIGN_STATE,
-  // Auto-detect mobile: no fine pointer = touch device → default off
-  highQuality3d: typeof window !== 'undefined' && window.matchMedia('(pointer:fine)').matches,
+  // Auto-detect mobile: no fine pointer = touch device → default off.
+  // A window can exist without matchMedia (jsdom, older embedded webviews), so
+  // probe the method rather than assuming it comes with the window.
+  highQuality3d:
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer:fine)').matches,
   layoutPos: null,
 
   setDraftId(id) {
@@ -425,6 +502,12 @@ export const useRoomStore = create<RoomStore>()(
   addLight(l) {
     set((state) => ({ lights: [...state.lights, l], isDirty: true }))
   },
+  updateLight(id, patch) {
+    set((state) => ({
+      lights: state.lights.map((l) => l.id === id ? { ...l, ...patch } : l),
+      isDirty: true,
+    }))
+  },
   moveLight(id, xMm, zMm) {
     set((state) => ({
       lights: state.lights.map((l) => l.id === id ? { ...l, xMm, zMm } : l),
@@ -443,12 +526,30 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   removeUserFurniture(id) {
-    set((state) => ({ userFurniture: state.userFurniture.filter((f) => f.id !== id) }))
+    // Placed copies must go with the model. Left behind, they reference an
+    // entry that no longer exists and the scene can only guess what to draw.
+    set((state) => {
+      const placed = state.furniture.filter((f) => f.furniture_id === id)
+      if (placed.length === 0) {
+        return { userFurniture: state.userFurniture.filter((f) => f.id !== id) }
+      }
+      return {
+        userFurniture: state.userFurniture.filter((f) => f.id !== id),
+        furniture: state.furniture.filter((f) => f.furniture_id !== id),
+        isDirty: true,
+      }
+    })
   },
 
   setUserFurniturePath(id, path) {
     set((state) => ({
       userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, modelPath: path } : f),
+    }))
+  },
+
+  setUserFurnitureCategory(id, category) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, category } : f),
     }))
   },
 
@@ -472,6 +573,8 @@ export const useRoomStore = create<RoomStore>()(
                 height: Math.round(e.height * 1000),
                 sill_height: Math.round((e.sill_height ?? 0) * 1000),
                 position: Math.round((e.position ?? 0.5) * lengthMm),
+                ...(e.style_id ? { styleId: e.style_id } : {}),
+                ...(e.sashes === 1 || e.sashes === 2 ? { sashes: e.sashes as 1 | 2 } : {}),
               })),
             }
           }),
@@ -625,7 +728,11 @@ export const useRoomStore = create<RoomStore>()(
         highQuality3d: state.highQuality3d,
         // Persist metadata but clear modelPath (blob URLs don't survive refresh)
         userFurniture: state.userFurniture.map((f) => ({ ...f, modelPath: '' })),
-        // Don't persist: designState (loaded from backend per-room), roomId, surfaces, etc.
+        // Wall/floor finishes survive a reload even before the room has been
+        // saved to the backend. Oversized inline images are stripped first —
+        // see persistableDesignState.
+        designState: persistableDesignState(state.designState),
+        // Don't persist: roomId, surfaces, etc.
       }),
       migrate(persisted: unknown, version: number) {
         if (version < 2) {

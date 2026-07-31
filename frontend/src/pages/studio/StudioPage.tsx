@@ -13,6 +13,7 @@ function StudioNav({ roomId }: { roomId: string }) {
   const navItems = [
     { to: `/studio/${roomId}/ichkarida`, label: "3D" },
     { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
+    { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
     { to: `/studio/${roomId}/elektr`, label: "Elektr" },
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
@@ -83,6 +84,10 @@ export default function StudioPage() {
             height: e.height / 1000,
             sill_height: (e.sill_height ?? 0) / 1000,
             position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
+            // Window type — the API geometry is authoritative on reload, so
+            // without this the picked style would be lost on every refresh
+            style_id: e.styleId ?? null,
+            sashes: e.sashes ?? null,
           })),
         })),
       };

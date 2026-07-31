@@ -1,10 +1,14 @@
 import * as React from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { updateRoom, getMaterials, previewEstimate } from "@/lib/api";
-import type { Room, Material } from "@/lib/api";
+import {
+  updateRoom, getMaterials, previewEstimate,
+  listWallpapers, uploadWallpaper, deleteWallpaper,
+} from "@/lib/api";
+import type { Room, Material, Wallpaper } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
-import { useRoomStore, resolveWallColor, resolveWallPanel, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
+import { useRoomStore, resolveWallColor, resolveWallCovering, resolveWallPanel, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { WallCovering, WallPanelSettings, FloorType } from "@/store/roomStore";
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -12,13 +16,17 @@ import { computeOboyRolls } from "@/lib/oboySmeta";
 import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { LightPanel } from "@/components/studio/LightPanel";
+import type { LightTypeId } from "@/lib/lightCatalog";
+import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
+import type { PlasterFinish } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 import { applyTextureToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
-import { getModelFromDb, saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
+import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 
-type PhaseKey = 'suvoq' | 'shpaklovka' | 'boyoq' | 'pol' | 'montaj' | 'mebel'
+import type { PhaseKey } from "@/lib/phases";
 
 type WallTarget = "ALL" | "A" | "B" | "C" | "D" | "FLOOR";
 type CoveringMode = "paint" | "oboy" | "texture";
@@ -92,17 +100,25 @@ function PanelInput({
   );
 }
 
-export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
+export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedLightId, onLightChange, armedLightType, onArmLight, planMode }: {
   room: Room;
   phase: PhaseKey;
   selectedWall?: string | null;
   onWallChange?: (id: string | null) => void;
+  /** Light selected in the 3D viewport — keeps the panel and the scene in sync. */
+  selectedLightId?: string | null;
+  onLightChange?: (id: string | null) => void;
+  /** Fixture armed for click-to-place in the 2D lighting plan. */
+  armedLightType?: LightTypeId | null;
+  onArmLight?: (id: LightTypeId | null) => void;
+  /** A 2D plan is on screen, so the palette arms rather than auto-places. */
+  planMode?: boolean;
 }) {
   useRestoreUserModels()
 
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture, setUserFurniturePath } =
+          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -279,17 +295,174 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
     }
   }
 
+  // ─── Wallpaper library ──────────────────────────────────────────────────────
+  //
+  // Uploads go to the server, not into the design state. A data URL used to be
+  // stored inline, which meant the image was gone after a reload (and nobody
+  // else could use it). Now the covering only carries the library URL, so a
+  // saved room reloads with its wallpaper and every user sees the same shelf.
+
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+  const isAdmin = currentUser?.is_admin === true;
+  const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
+    queryKey: ["wallpapers"],
+    queryFn: listWallpapers,
+    staleTime: 60_000,
+  });
+  const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
+  const [wallpaperError, setWallpaperError] = React.useState<string | null>(null);
+
+  function applyWallpaper(url: string) {
+    applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 0.5, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
+  }
+
+  // One picker for every phase that uploads a wall image.
+  //
+  // The input is mounted at the panel root, not inside a section: it used to
+  // live inside the Bo'yoq section behind a mode check, so from Suvoq the ref
+  // was null and pressing the upload button did nothing at all, silently.
+  // `pickerIntent` records which button opened it, since a plaster photo and a
+  // wallpaper roll want different tiling.
   const textureFileRef = React.useRef<HTMLInputElement>(null);
-  function handleTextureUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const pickerIntent = React.useRef<'wallpaper' | 'plaster'>('wallpaper');
+
+  function openTexturePicker(intent: 'wallpaper' | 'plaster') {
+    pickerIntent.current = intent;
+    setWallpaperError(null);
+    textureFileRef.current?.click();
+  }
+
+  /** Wall-sized tiling for an uploaded plaster/concrete photo. */
+  function plasterUploadCovering(url: string): WallCovering {
+    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
+    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
+    // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
+    const { repeatX, repeatY } = plasterRepeat(
+      { ...PLASTER_FINISHES[0], tileM: 2.4 },
+      wallW,
+      wallH,
+    );
+    return { kind: 'texture', url, color: '#ffffff', repeatX, repeatY, offsetX: 0, offsetY: 0, rotation: 0 };
+  }
+
+  /**
+   * Upload drop-zone plus the shared image library.
+   *
+   * Rendered identically wherever a wall image can be chosen — the Bo'yoq
+   * "Rasm" tab and the Suvoq finishes — so the two phases don't drift into
+   * offering the same capability through different-looking controls. `onPick`
+   * decides how the chosen image is applied, which is the only real
+   * difference: a wallpaper roll and a plaster patch tile differently.
+   */
+  function renderTexturePicker(
+    intent: 'wallpaper' | 'plaster',
+    onPick: (url: string) => void,
+    libraryLabel: string,
+  ) {
+    const active = targetWall === "ALL"
+      ? designState.wallCoverings.ALL
+      : (designState.wallCoverings[targetWall] ?? designState.wallCoverings.ALL);
+    const activeUrl = active.kind === 'texture' ? active.url : null;
+    return (
+      <>
+        <button
+          onClick={() => openTexturePicker(intent)}
+          disabled={wallpaperBusy}
+          className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-brand/50 hover:text-brand transition-colors disabled:opacity-50"
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M21 15l-5-5L5 21"/>
+          </svg>
+          <span className="text-sm font-medium">
+            {wallpaperBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}
+          </span>
+          <span className="text-xs text-gray-400">JPG, PNG, WEBP · 15 MB gacha</span>
+        </button>
+        {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
+
+        {/* Shared library — uploaded once, stays for everyone */}
+        {wallpapers.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
+              <span className="text-[10px] text-gray-400">{wallpapers.length} ta</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {wallpapers.map((w) => (
+                <div key={w.id} className="relative">
+                  <button
+                    onClick={() => onPick(w.url)}
+                    title={w.name}
+                    className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                      activeUrl === w.url ? 'border-brand' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <img src={w.url} alt={w.name} loading="lazy" className="w-full h-full object-cover" />
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleWallpaperDelete(w)}
+                      title="Kutubxonadan o'chirish"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none text-gray-400 hover:text-red-500"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] leading-4 text-gray-400">
+              Yuklangan rasmlar hamma foydalanuvchilar uchun saqlanadi
+              {isAdmin ? '.' : "; ularni faqat administrator o'chira oladi."}
+            </p>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  async function handleTextureUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const url = ev.target?.result as string;
-      if (url) applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 0.5, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setWallpaperError('Faqat rasm fayllari (JPG, PNG, WEBP...)');
+      return;
+    }
+    const intent = pickerIntent.current;
+    setWallpaperBusy(true);
+    setWallpaperError(null);
+    try {
+      const wallpaper = await uploadWallpaper(file);
+      if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
+      else applyWallpaper(wallpaper.url);
+      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+    } catch (err) {
+      setWallpaperError(
+        err instanceof Error && err.message
+          ? `Rasmni yuklab bo'lmadi: ${err.message}`
+          : "Rasmni yuklab bo'lmadi. Qaytadan urinib ko'ring.",
+      );
+    } finally {
+      setWallpaperBusy(false);
+    }
+  }
+
+  async function handleWallpaperDelete(wallpaper: Wallpaper) {
+    // Shared and permanent: removing one takes it away from every user, and
+    // any room already painted with it loses the image.
+    if (!window.confirm(`"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`)) return;
+    setWallpaperError(null);
+    try {
+      await deleteWallpaper(wallpaper.id);
+      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+    } catch {
+      setWallpaperError("O'chirib bo'lmadi.");
+    }
   }
 
   function updateTextureProp(patch: Partial<{ repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }>) {
@@ -637,25 +810,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
       {coveringMode === "texture" && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-900">Devor rasmi</h3>
-          <input
-            ref={textureFileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleTextureUpload}
-          />
-          <button
-            onClick={() => textureFileRef.current?.click()}
-            className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-brand/50 hover:text-brand transition-colors"
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <path d="M21 15l-5-5L5 21"/>
-            </svg>
-            <span className="text-sm font-medium">Rasm yuklash</span>
-            <span className="text-xs text-gray-400">JPG, PNG, WEBP</span>
-          </button>
+          {renderTexturePicker('wallpaper', applyWallpaper, 'Oboy kutubxonasi')}
           {(() => {
             const c = targetWall === "ALL"
               ? designState.wallCoverings.ALL
@@ -905,6 +1060,115 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
     </>
   )
 
+  // ── Suvoq: bare concrete / plaster finishes ─────────────────────────────
+  //
+  // Applies through the normal wall-covering path, so the finish is part of
+  // the room's design state and is what the 3D viewport paints. The finishes
+  // are generated as SVG data URLs, which means the wall keeps its surface
+  // after a reload without depending on an uploaded file still being fetchable.
+
+  const currentCoveringUrl =
+    resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall).kind === 'texture'
+      ? (resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall) as { url: string }).url
+      : null;
+
+  function applyPlaster(finish: PlasterFinish) {
+    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
+    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    const { repeatX, repeatY } = plasterRepeat(finish, wallW, wallH);
+    applyWallCovering({
+      kind: 'texture',
+      url: plasterTextureUrl(finish),
+      color: '#ffffff',
+      repeatX,
+      repeatY,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+    });
+  }
+
+  const SuvoqSection = (
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq / Beton</h3>
+        <p className="text-[11px] text-gray-400 leading-snug">
+          Devor yuzasini tanlang. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.
+        </p>
+      </div>
+
+      {/* Which wall the finish lands on */}
+      <div>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+          Qaysi devorga
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {WALL_TARGETS.filter((w) => w.key !== 'FLOOR').map((w) => (
+            <button
+              key={w.key}
+              onClick={() => setTargetWall(w.key)}
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
+                targetWall === w.key
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* The finishes */}
+      <div>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+          Beton teksturasi
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          {PLASTER_FINISHES.map((f) => {
+            const url = plasterTextureUrl(f);
+            const active = currentCoveringUrl === url;
+            return (
+              <button
+                key={f.id}
+                onClick={() => applyPlaster(f)}
+                title={f.hint}
+                className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
+                  active ? 'border-brand ring-2 ring-brand/25' : 'border-gray-200 hover:border-brand/50'
+                }`}
+              >
+                <span
+                  className="block h-12 w-full"
+                  style={{ backgroundImage: `url("${url}")`, backgroundSize: '120px 120px' }}
+                />
+                <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-white">
+                  {f.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Own image — goes to the shared library so the URL keeps resolving */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900">Suvoq rasmi</h3>
+        {renderTexturePicker(
+          'plaster',
+          (url) => applyWallCovering(plasterUploadCovering(url)),
+          'Rasm kutubxonasi',
+        )}
+      </div>
+
+      <button
+        onClick={() => handleSetPaintColor('#D8D3C8')}
+        className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+      >
+        Teksturani olib tashlash
+      </button>
+    </section>
+  );
+
   const FloorSection = (
     <section>
       <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
@@ -940,7 +1204,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
   const filteredEntries = allCatalogEntries.filter((e) => {
     if (furnitureCat === 'barchasi') return true
     if (furnitureCat === 'mening') return e.isUser
-    if (e.isUser) return false
+    // Uploads made before categories existed have none — file them under Boshqa
+    if (e.isUser) return (e.category ?? 'boshqa') === furnitureCat
     return (e as FurnitureCatalogEntry).category === furnitureCat
   })
 
@@ -991,6 +1256,18 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
               <div className="px-2 py-1.5 flex-1">
                 <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">{entry.name}</p>
                 <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+                {entry.isUser && (
+                  <select
+                    value={entry.category ?? 'boshqa'}
+                    onChange={(e) => setUserFurnitureCategory(entry.id, e.target.value as FurnitureCategory)}
+                    className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+                    title="Kategoriyani o'zgartirish"
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Count badge */}
@@ -1020,7 +1297,12 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
                 )}
                 {entry.isUser && (
                   <button
-                    onClick={() => removeUserFurniture(entry.id)}
+                    onClick={() => {
+                      // Drop the stored GLB too — otherwise deleted models keep
+                      // occupying IndexedDB with nothing referencing them.
+                      if ('blobId' in entry) void deleteModelFromDb(entry.blobId)
+                      removeUserFurniture(entry.id)
+                    }}
                     className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
                     title="Modelni o'chirish"
                   >✕</button>
@@ -1032,7 +1314,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
 
         {/* Upload card */}
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
-          <ModelImportButton compact />
+          <ModelImportButton
+            compact
+            category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
+          />
         </div>
 
         {/* Hidden image input for manual texturing */}
@@ -1063,12 +1348,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
             <div className="max-h-72 overflow-y-auto space-y-1.5">
               {texEditor.mats.map((m) => (
                 <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${m.hasMap ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    m.textured ? 'bg-green-500' : m.hasMap ? 'bg-amber-400' : 'bg-gray-300'
+                  }`} />
                   <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
                   {!m.hasUVs && (
                     <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
                   )}
-                  <span className="text-[10px] text-gray-400 shrink-0">{m.hasMap ? 'tekstura ✓' : "yo'q"}</span>
+                  <span
+                    className={`text-[10px] shrink-0 ${m.hasMap && !m.textured ? 'text-amber-600' : 'text-gray-400'}`}
+                    title={m.hasMap && !m.textured ? "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)" : undefined}
+                  >
+                    {m.textured ? 'tekstura ✓' : m.hasMap ? "ko'rinmaydi" : "yo'q"}
+                  </span>
                   <button
                     onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
                     disabled={texBusy === texEditor.entryId}
@@ -1168,12 +1460,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange }: {
 
   return (
     <aside className="w-full lg:w-72 lg:shrink-0 bg-surface border-l border-gray-200 overflow-y-auto lg:h-full">
+      {/* Mounted at the root so every phase's upload button can reach it */}
+      <input
+        ref={textureFileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleTextureUpload}
+      />
       <div className="p-4 space-y-5">
 
         {phase === 'boyoq' && WallSection}
         {phase === 'pol'   && FloorSection}
         {phase === 'mebel' && MebelSection}
-        {(phase === 'suvoq' || phase === 'shpaklovka' || phase === 'montaj') && (
+        {phase === 'chiroq' && (
+          <LightPanel selectedId={selectedLightId} onSelect={onLightChange}
+            armedType={armedLightType} onArm={onArmLight} planMode={planMode} />
+        )}
+        {(phase === 'suvoq' || phase === 'shpaklovka') && SuvoqSection}
+        {phase === 'montaj' && (
           <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
             <span className="text-2xl">🏗️</span>
             <p className="text-sm text-gray-400">Bu bosqich uchun sozlamalar yo'q</p>

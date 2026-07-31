@@ -24,6 +24,7 @@ import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -41,6 +42,12 @@ import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcle
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 import { DEFAULT_HDRI } from "@/lib/hdri";
+import { roomExtents } from "@/lib/roomDims";
+import { LightFixture, fixturePose } from "@/components/studio/LightFixtures";
+import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
+import type { LightTypeId } from "@/lib/lightCatalog";
+import { lightType, kelvinToHex, lumensToIntensity } from "@/lib/lightCatalog";
+import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
 
 // Explicit (default-on since three r152, but pinned here so a future three
 // upgrade can't silently regress the color pipeline)
@@ -1074,65 +1081,6 @@ function DoorFrames({
   return <>{frames}</>;
 }
 
-function WindowPanes({
-  geometry,
-  wallWidth,
-  wallDepth,
-  hiddenWalls,
-}: {
-  geometry: RoomGeometry;
-  wallWidth: number;
-  wallDepth: number;
-  hiddenWalls?: ReadonlySet<string>;
-}) {
-  const panes: React.ReactElement[] = [];
-  const s = 1 / 1000;
-
-  const wallDefs = [
-    { id: "A", axis: "X" as const, cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X" as const, cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z" as const, cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z" as const, cx: -wallWidth / 2, cz: 0, length: wallDepth },
-  ];
-
-  for (const wd of wallDefs) {
-    if (hiddenWalls?.has(wd.id)) continue;
-    const wall = geometry.walls.find((w) => w.id === wd.id);
-    if (!wall) continue;
-
-    const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
-    for (const el of resolvedWallEls) {
-      if (el.type !== "deraza" && el.type !== "balkon") continue;
-
-      const elW = el.width * s;
-      const elH = el.height * s;
-      const elY = el.sill_height * s + elH / 2;
-      const offset = (el.position + el.width / 2 - wd.length * 500) * s;
-
-      const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
-      const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
-      const pW = wd.axis === "X" ? elW : 0.02;
-
-      panes.push(
-        <mesh key={`${wd.id}-${el.id ?? el.position}`} position={[px, elY, pz]}>
-          <planeGeometry args={[pW - 0.01, elH - 0.01]} />
-          <meshPhysicalMaterial
-            color="#B8D4EC"
-            transparent
-            opacity={0.18}
-            roughness={0.04}
-            metalness={0}
-            envMapIntensity={0.9}
-            clearcoat={0.6}
-            clearcoatRoughness={0.1}
-          />
-        </mesh>,
-      );
-    }
-  }
-  return <>{panes}</>;
-}
-
 // ─── Baseboard trim ────────────────────────────────────────────────────────────
 
 /** Returns (centerLocal, segLen) pairs in meters, skipping floor-level openings. */
@@ -1331,6 +1279,8 @@ function DraggableLightModels({
   toolMode,
   lightsOn,
   highQuality,
+  selectedId,
+  onSelect,
 }: {
   controlsRef: RefObject<OrbitControlsImpl | null>
   roomW: number
@@ -1339,6 +1289,8 @@ function DraggableLightModels({
   toolMode: ToolMode
   lightsOn: boolean
   highQuality: boolean
+  selectedId?: string | null
+  onSelect?: (id: string | null) => void
 }) {
   const lights = useRoomStore((s) => s.lights)
   const moveLight = useRoomStore((s) => s.moveLight)
@@ -1411,39 +1363,85 @@ function DraggableLightModels({
   if (lights.length === 0) return null
   return (
     <>
-      {/* Pooled real pointLights — evenly spread across user-placed fixtures */}
-      {lightsOn && pooledLights.map((l, k) => {
-        const px = l.xMm / 1000 - roomW / 2
-        const pz = l.zMm / 1000 - roomD / 2
+      {/* Pooled real emitters — every fixture glows, but only a few actually
+          light the room. Each carries its own colour temperature and beam, so
+          the pooling is invisible except in frame time. */}
+      {lightsOn && pooledLights.filter((l) => !l.off).map((l, k) => {
+        const t = lightType(l.type)
+        const pose = fixturePose(l, t, roomW, roomD, roomH)
+        const color = kelvinToHex(l.colorK ?? t.colorK)
+        const intensity = perIntensity * lumensToIntensity(t.lumens, l.brightnessPct ?? 100)
+        const beam = l.beamDeg ?? t.beamDeg
+
+        // A beam angle means a cone: aim it down, tilted by the fixture's own
+        // tilt so the pool of light lands where the body is pointing.
+        if (beam !== undefined) {
+          const tilt = l.tiltRad ?? 0
+          const yaw = l.rotation ?? 0
+          const reach = Math.max(1.5, pose.y)
+          return (
+            <spotLight
+              key={k}
+              position={[pose.x, pose.y - 0.05, pose.z]}
+              target-position={[
+                pose.x + Math.sin(tilt) * Math.sin(yaw) * reach,
+                Math.max(0, pose.y - reach),
+                pose.z + Math.sin(tilt) * Math.cos(yaw) * reach,
+              ]}
+              color={color}
+              intensity={intensity * 2.2}
+              angle={THREE.MathUtils.degToRad(beam) / 2}
+              penumbra={0.45}
+              distance={spread}
+              decay={2}
+            />
+          )
+        }
         return (
           <pointLight
             key={k}
-            position={[px, roomH - 0.06, pz]}
-            color="#D8EEFF"
-            intensity={perIntensity}
+            position={[pose.x, pose.y - 0.06, pose.z]}
+            color={color}
+            intensity={intensity}
             distance={spread}
             decay={2}
           />
         )
       })}
+
       {lights.map((l) => {
-        const x = l.xMm / 1000 - roomW / 2
-        const z = l.zMm / 1000 - roomD / 2
+        const t = lightType(l.type)
+        const pose = fixturePose(l, t, roomW, roomD, roomH)
         const isDragging = draggingId === l.id
+        const isSelected = selectedId === l.id
         return (
-          <group key={l.id}>
-            <CeilingLightDisk x={x} z={z} height={roomH} emit={lightsOn} />
-            {/* Invisible drag handle on ceiling */}
+          <group key={l.id} position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
+            <LightFixture light={l} on={lightsOn} />
+            {/* Invisible grab/select handle over the fixture */}
             <mesh
-              position={[x, roomH, z]}
-              rotation={[Math.PI / 2, 0, 0]}
-              onPointerDown={(e) => startDrag(l, e)}
-              onPointerEnter={() => { if (toolMode !== 'select') document.body.style.cursor = 'grab' }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onSelect?.(l.id)
+                if (toolMode !== 'select') startDrag(l, e)
+              }}
+              onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
               onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
             >
-              <circleGeometry args={[0.12, 16]} />
-              <meshBasicMaterial transparent opacity={0} />
+              <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
+            {isSelected && (
+              <lineSegments>
+                <edgesGeometry
+                  args={[new THREE.BoxGeometry(
+                    t.sizeM.w + 0.06,
+                    t.sizeM.h + 0.06,
+                    t.sizeM.d + 0.06,
+                  )]}
+                />
+                <lineBasicMaterial color="#2563EB" />
+              </lineSegments>
+            )}
           </group>
         )
       })}
@@ -2034,23 +2032,30 @@ function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
 
 function enhanceMaterial(m: THREE.Material): THREE.Material {
   if (!(m instanceof THREE.MeshStandardMaterial)) return m
-  if (m.map || m.normalMap || m.roughnessMap) {
-    // Clone so per-instance color overrides don't bleed to other models sharing the material
-    const c = m.clone()
-    c.name = m.name
-    return c
+  // Always clone, never rebuild — the clone also keeps per-instance color
+  // overrides from bleeding into other models sharing the material.
+  // Constructing a fresh material instead dropped vertexColors, aoMap /
+  // lightMap / emissiveMap, transparency and side; and since glTF
+  // baseColorFactor defaults to white, anything coloured by one of those
+  // routes came out as pure white plastic.
+  const c = m.clone()
+  c.name = m.name
+  if (!m.map && !m.normalMap && !m.roughnessMap) {
+    // Flat, map-less material: give it a plausible furniture response
+    c.roughness = 0.65
+    c.metalness = 0.05
+    c.envMapIntensity = 1.2
   }
-  return new THREE.MeshStandardMaterial({
-    name: m.name,
-    color: m.color.clone(),
-    roughness: 0.65,
-    metalness: 0.05,
-    envMapIntensity: 1.2,
-  })
+  return c
 }
 
+/** Most parts detailed in the import diagnostic — see the note in prepareMesh. */
+const REPORT_LIMIT = 40
+
 /** Set shadows on every mesh + enhance flat materials. Preserves single-vs-array structure. */
-function prepareMesh(obj: THREE.Object3D) {
+function prepareMesh(obj: THREE.Object3D, debugLabel?: string) {
+  const report: Record<string, unknown>[] = []
+  let parts = 0
   obj.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
     child.castShadow = true
@@ -2060,7 +2065,40 @@ function prepareMesh(obj: THREE.Object3D) {
     } else {
       child.material = enhanceMaterial(child.material as THREE.Material)
     }
+    if (!import.meta.env.DEV || !debugLabel) return
+    parts += 1
+    // Collect a sample only. An imported model can carry thousands of parts
+    // (3ds Max/Corona exports routinely do), and console.table on a list that
+    // long blocks the main thread for tens of seconds — the studio came up
+    // "unresponsive" purely from logging about the model it had just loaded.
+    if (report.length >= REPORT_LIMIT) return
+    const mats = Array.isArray(child.material) ? child.material : [child.material]
+    for (const m of mats) {
+      const s = m as THREE.MeshStandardMaterial
+      report.push({
+        mesh: child.name,
+        material: s.name,
+        map: !!s.map,
+        mapPx: s.map?.image ? `${s.map.image.width}x${s.map.image.height}` : '—',
+        uv: !!child.geometry.getAttribute('uv'),
+        color: s.color?.getHexString?.(),
+        metalness: s.metalness,
+        roughness: s.roughness,
+        vertexColors: s.vertexColors,
+      })
+    }
   })
+  if (report.length) {
+    // Why a model renders untextured is invisible from the outside: a bound map
+    // can still be blank, unwrapped, or drowned by a metallic response.
+    const omitted = parts - report.length
+    console.groupCollapsed(
+      `[furniture] ${debugLabel} — ${parts} part(s)` +
+      (omitted > 0 ? `, showing first ${report.length}` : ''),
+    )
+    console.table(report)
+    console.groupEnd()
+  }
 }
 
 /** Apply per-material color tints. Uses '*' as wildcard for all materials. */
@@ -2073,9 +2111,45 @@ function applyColorOverrides(obj: THREE.Object3D, overrides: Record<string, stri
       if (!(m instanceof THREE.MeshStandardMaterial)) return
       const named = overrides[m.name]
       if (named) m.color.set(named)
-      else if (wildcard) m.color.set(wildcard)
+      // A wildcard tint multiplies into the texture, so applying the default
+      // white to a mapped material is a no-op at best — and a way to wash a
+      // model out at worst. Named overrides stay explicit and still apply.
+      else if (wildcard && !m.map) m.color.set(wildcard)
     })
   })
+}
+
+/** Mounts the interactive 3D doors and windows. The wrapper is what lets the
+ *  cutaway hook run inside the Canvas while its controls live on the page. */
+function OpeningLayer({
+  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect,
+}: {
+  geometry: RoomGeometry;
+  W: number;
+  D: number;
+  cutaway: CutawayMode;
+  toolMode: ToolMode;
+  controlsRef: RefObject<OrbitControlsImpl | null>;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const hiddenWalls = useHiddenWalls(cutaway);
+  const shared = {
+    geometry,
+    wallWidth: W,
+    wallDepth: D,
+    hiddenWalls,
+    toolMode,
+    controlsRef,
+    selectedId,
+    onSelect,
+  };
+  return (
+    <>
+      <DoorLeaves {...shared} />
+      <WindowSashes {...shared} />
+    </>
+  );
 }
 
 // ─── Placed furniture renderer ────────────────────────────────────────────────
@@ -2086,9 +2160,10 @@ function FurnitureItem({ item }: { item: PlacedFurniture }) {
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
   const cloned = useMemo(() => {
     const c = scene.clone(true)
-    prepareMesh(c)
+    // Only user-imported models are worth reporting on — catalog GLBs are known good
+    prepareMesh(c, entry && 'blobId' in entry ? entry.id : undefined)
     return c
-  }, [scene]);
+  }, [scene, entry]);
 
   // Compute bottom offset ONCE per clone, before R3F touches the object's position.
   // Storing scale-independent value so it stays correct when scaleOverride changes.
@@ -2161,9 +2236,10 @@ function DraggableFurnitureItem({
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
   const cloned = useMemo(() => {
     const c = scene.clone(true)
-    prepareMesh(c)
+    // Only user-imported models are worth reporting on — catalog GLBs are known good
+    prepareMesh(c, entry && 'blobId' in entry ? entry.id : undefined)
     return c
-  }, [scene])
+  }, [scene, entry])
   const groupRef = useRef<THREE.Group>(null)
   const primitiveRef = useRef<THREE.Object3D>(null)
   const selRef = useRef<THREE.Group>(null)
@@ -2551,7 +2627,11 @@ function DraggableFurnitureModels({
 
   return (
     <>
-      {furniture.map((item) => (
+      {/* An item whose entry no longer resolves — its uploaded model was
+          deleted from the library — must render NOTHING. Drawing it anyway
+          made it fall through to the catalog fallback model below, leaving a
+          phantom table set standing where the deleted furniture had been. */}
+      {furniture.filter((item) => !!resolveEntry(item.furniture_id)).map((item) => (
         <Suspense key={item.id} fallback={null}>
           <DraggableFurnitureItem
             item={item}
@@ -2759,21 +2839,11 @@ export function RoomScene({
   const wallA = geometry.walls.find((w) => w.id === "A");
   const wallB = geometry.walls.find((w) => w.id === "B");
 
-  // W/D from room API when available, fall back to store geometry
-  const W_abcd = (room.width  > 0 ? room.width  : (wallB?.length ?? 3000) / 1000);
-  const D_abcd = (room.length > 0 ? room.length : (wallA?.length ?? 4000) / 1000);
-
-  // For N-wall rooms, estimate W/D from the bounding box of polygon vertices
-  const verts = geometry.vertices
-  const W_poly = verts && verts.length >= 2
-    ? (Math.max(...verts.map(([x]) => x)) - Math.min(...verts.map(([x]) => x))) / 1000
-    : 4.0
-  const D_poly = verts && verts.length >= 2
-    ? (Math.max(...verts.map(([, z]) => z)) - Math.min(...verts.map(([, z]) => z))) / 1000
-    : 3.0
-
-  const W = isLegacyAbcd ? W_abcd : W_poly
-  const D = isLegacyAbcd ? D_abcd : D_poly
+  // Extents come from the walls themselves: X is wall A, Z is wall B. Reading
+  // room.width as X (it is wall B's length) transposed the whole room against
+  // its own walls, so an 8×5 room rendered 5×8 — the 3D and the 2D plan then
+  // showed different rooms, and openings on wall A sat past its end.
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const H = (room.ceiling_height > 0 ? room.ceiling_height : 2.7);
   const T = WALL_T; // thin plane-like walls (shared constant)
   const wallC = geometry.walls.find((w) => w.id === "C");
@@ -2907,7 +2977,6 @@ export function RoomScene({
 
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
-          <WindowPanes geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
@@ -3106,16 +3175,13 @@ function CameraAnimator({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export type PhaseKey = 'suvoq' | 'shpaklovka' | 'boyoq' | 'pol' | 'montaj' | 'mebel'
+export type { PhaseKey } from "@/lib/phases"
 
-const RENO_STAGES: Array<{ key: PhaseKey; label: string }> = [
-  { key: 'suvoq',      label: "Suvoq"       },
-  { key: 'shpaklovka', label: "Shpaklovka"  },
-  { key: 'boyoq',      label: "Bo'yoq/Oboi" },
-  { key: 'pol',        label: "Pol"         },
-  { key: 'montaj',     label: "Montaj"      },
-  { key: 'mebel',      label: "Mebel"       },
-]
+/**
+ * Phases whose panel is a working surface the user is placing things from.
+ * Selecting a wall must not replace it.
+ */
+const PANEL_OWNING_PHASES = new Set<PhaseKey>(['chiroq'])
 
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
@@ -3152,11 +3218,8 @@ export default function ThreeDPage() {
     }
   }
 
-  // Fall back to geometry wall lengths when API room has width/length = 0
-  const geoWallB = geometry.walls.find((w) => w.id === "B");
-  const geoWallA = geometry.walls.find((w) => w.id === "A");
-  const W = room.width  > 0 ? room.width  : (geoWallB?.length ?? 3000) / 1000;
-  const D = room.length > 0 ? room.length : (geoWallA?.length ?? 4000) / 1000;
+  // Same orientation the scene uses: X is wall A, Z is wall B
+  const { W, D } = roomExtents(geometry, { W: room.length, D: room.width });
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7;
 
   // The add-room flow stashes the view it was started from (usually 'top'),
@@ -3183,19 +3246,42 @@ export default function ThreeDPage() {
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
+  const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
+  const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  // Fixture armed in the palette; the next click in the 2D plan places it.
+  const [armedLightType, setArmedLightType] = useState<LightTypeId | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
   const furniture = useRoomStore((s) => s.furniture);
   const moveFurniture = useRoomStore((s) => s.moveFurniture);
   const activeLayoutPos = useRoomStore((s) => s.layoutPos);
-  // The Mebelirovka tab opens the same editor pre-set to the furnishing phase
-  const isMebelTab = useLocation().pathname.endsWith('/mebel');
-  const [activePhase, setActivePhase] = useState<PhaseKey>(isMebelTab ? 'mebel' : 'boyoq');
+  // The Mebelirovka and Chiroqlar tabs open the same editor, pre-set to the
+  // furnishing / lighting phase
+  const pathname = useLocation().pathname;
+  const isMebelTab = pathname.endsWith('/mebel');
+  const isChiroqTab = pathname.endsWith('/chiroqlar');
+  const [activePhase, setActivePhase] = useState<PhaseKey>(
+    isMebelTab ? 'mebel' : isChiroqTab ? 'chiroq' : 'boyoq',
+  );
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+
+  /**
+   * Select a wall (or the floor) and, from a decorating phase, open the paint
+   * panel for it — that jump is the whole point of clicking a surface there.
+   *
+   * Phases that own the panel for a placement workflow keep it. Forcing
+   * 'boyoq' unconditionally meant one stray click on a wall replaced the
+   * lighting panel mid-task, and since nothing switched back, the fixtures the
+   * user was placing became unreachable.
+   */
+  function focusSurface(id: string) {
+    setSelectedWall(id);
+    if (!PANEL_OWNING_PHASES.has(activePhase)) setActivePhase('boyoq');
+  }
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -3628,6 +3714,17 @@ export default function ThreeDPage() {
             <MebelPlanView />
           </div>
         )}
+        {/* Chiroqlar: reflected ceiling plan beside the live 3D viewport */}
+        {isChiroqTab && (
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+            <ChiroqPlanView
+              armedType={armedLightType}
+              onPlaced={() => setArmedLightType(null)}
+              selectedId={selectedLightId}
+              onSelect={setSelectedLightId}
+            />
+          </div>
+        )}
         {/* min-w-0 is load-bearing: R3F sets a pixel width/height ON the canvas
             element, which becomes its intrinsic size. A flex item defaults to
             min-width:auto, so once the canvas had been sized for the full-width
@@ -3735,7 +3832,7 @@ export default function ThreeDPage() {
             outputColorSpace: THREE.SRGBColorSpace,
             powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
           }}
-          onPointerMissed={() => setSelectedFurId(null)}
+          onPointerMissed={() => { setSelectedFurId(null); setSelectedDoorId(null); setSelectedLightId(null); }}
           dpr={glAttempt === 0 ? dpr : 1}
         >
           {/* Drop resolution during interaction, restore at rest */}
@@ -3817,15 +3914,9 @@ export default function ThreeDPage() {
               lightsOn={lightsOn}
               cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
-              onWallClick={(id) => {
-                setSelectedWall(id);
-                setActivePhase('boyoq');
-              }}
+              onWallClick={(id) => focusSurface(id)}
               isFloorSelected={selectedWall === 'FLOOR'}
-              onFloorClick={() => {
-                setSelectedWall('FLOOR');
-                setActivePhase('boyoq');
-              }}
+              onFloorClick={() => focusSurface('FLOOR')}
             />
             <SwapButtons W={W} D={D} H={H} />
             {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}
@@ -3846,7 +3937,17 @@ export default function ThreeDPage() {
             )}
             <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
-            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} />
+            <OpeningLayer
+              geometry={geometry}
+              W={W}
+              D={D}
+              cutaway={topView ? 'off' : cutaway}
+              toolMode={toolMode}
+              controlsRef={controlsRef}
+              selectedId={selectedDoorId}
+              onSelect={setSelectedDoorId}
+            />
+            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={setSelectedLightId} />
 
             <RealismEffects enabled={useComposer} />
 
@@ -3927,7 +4028,9 @@ export default function ThreeDPage() {
         >
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
-        <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall} />
+        <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
+          selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
+          armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}

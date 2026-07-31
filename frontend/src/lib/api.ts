@@ -31,8 +31,10 @@ async function apiClient<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // A FormData body must set its own Content-Type: only the browser knows the
+  // multipart boundary, and forcing JSON here makes the upload unparseable.
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
   };
 
@@ -96,6 +98,8 @@ export interface AuthUser {
   phone: string | null;
   username: string | null;
   name: string | null;
+  /** Admins may delete shared library content (uploaded wallpapers). */
+  is_admin?: boolean;
   created_at: string;
 }
 
@@ -199,6 +203,10 @@ export interface WallElement {
   height: number;
   sill_height?: number;
   position?: number;
+  /** Window type id from the windowStyles catalog. */
+  style_id?: string | null;
+  /** Casement leaves, for windows saved without a style. */
+  sashes?: number | null;
 }
 
 export interface RoomWall {
@@ -680,4 +688,33 @@ export async function waitForMeshyTask(
   return apiClient<ConvertImageTo3DResponse>(`${MESHY_BASE_URL}/wait/${taskId}`, {
     method: "POST",
   });
+}
+
+// ---------- Wallpapers (shared oboy library) ----------
+
+export interface Wallpaper {
+  id: string;
+  name: string;
+  /** Absolute URL — loaded straight into a WebGL texture. */
+  url: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+/** Every wallpaper anyone has uploaded. The library is global and permanent. */
+export async function listWallpapers(): Promise<Wallpaper[]> {
+  return apiClient<Wallpaper[]>("/wallpapers");
+}
+
+/** Upload an image to the shared library. Re-uploading one returns the existing entry. */
+export async function uploadWallpaper(file: File): Promise<Wallpaper> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiClient<Wallpaper>("/wallpapers", { method: "POST", body: form });
+}
+
+/** Admins only — 403 otherwise. */
+export async function deleteWallpaper(id: string): Promise<void> {
+  await apiClient<void>(`/wallpapers/${id}`, { method: "DELETE" });
 }

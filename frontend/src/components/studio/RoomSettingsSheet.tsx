@@ -1,5 +1,7 @@
 import { useRoomStore } from "@/store/roomStore";
 import type { WallElement } from "@/store/roomStore";
+import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
+import { WindowElevation } from "@/features/studio/WindowElevation";
 
 const WALL_LABELS: Record<string, string> = {
   A: "Devor A (uzunlik)",
@@ -147,6 +149,29 @@ function ElementRow({
           </div>
         )}
       </div>
+
+      {/* Window type — the shapes this opening can take, scroll and tap */}
+      {isWindow && (
+        <div className="mt-2.5">
+          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Turi</span>
+          <div className="mt-1 flex gap-1.5 overflow-x-auto pb-1">
+            {WINDOW_STYLES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => updateElement(wallId, el.id, { styleId: s.id })}
+                title={s.label}
+                className={`shrink-0 w-11 h-12 p-1 rounded-lg border-2 transition-colors ${
+                  resolveWindowStyle(el).id === s.id
+                    ? 'border-blue-700 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <WindowElevation style={s} strokeWidth={0.9} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
