@@ -47,6 +47,8 @@ class UserOut(BaseModel):
     phone: str | None
     username: str | None
     name: str | None
+    # Admins may remove shared library content (uploaded wallpapers)
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

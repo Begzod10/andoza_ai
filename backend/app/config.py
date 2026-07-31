@@ -58,6 +58,29 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: str = ""
 
     # ------------------------------------------------------------------ #
+    # Local media storage
+    #
+    # Used whenever S3 credentials are absent, so a fresh checkout can accept
+    # uploads without any cloud setup. Files are served from MEDIA_URL_PREFIX.
+    # Keep MEDIA_ROOT on a mounted volume — it holds user uploads.
+    # ------------------------------------------------------------------ #
+    MEDIA_ROOT: str = "/app/media"
+    MEDIA_URL_PREFIX: str = "/media"
+
+    @property
+    def s3_configured(self) -> bool:
+        """True when object storage is usable; otherwise uploads go to disk.
+
+        Placeholder values from `.env.example` ("your-access-key") count as
+        unconfigured — uploading against them fails with a confusing 502.
+        """
+        key = self.S3_ACCESS_KEY.strip()
+        secret = self.S3_SECRET_KEY.strip()
+        if not key or not secret:
+            return False
+        return not key.startswith("your-") and not secret.startswith("your-")
+
+    # ------------------------------------------------------------------ #
     # Observability
     # ------------------------------------------------------------------ #
     SENTRY_DSN: Optional[str] = None

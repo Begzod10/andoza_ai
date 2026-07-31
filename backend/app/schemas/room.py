@@ -14,6 +14,12 @@ class WallElement(BaseModel):
     sill_height: float = Field(default=0.0, ge=0.0, le=2.5)
     # Relative position along the wall: 0.0 = start, 1.0 = end
     position: float = Field(default=0.5, ge=0.0, le=1.0)
+    # Window type picked in the studio (see frontend windowStyles catalog).
+    # Free-form on purpose: the catalog grows in the client, and an unknown id
+    # simply falls back to the default sash layout there.
+    style_id: str | None = Field(default=None, max_length=40)
+    # Casement leaves for a window without an explicit style.
+    sashes: int | None = Field(default=None, ge=1, le=2)
 
 
 class Wall(BaseModel):

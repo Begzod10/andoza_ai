@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import sentry_sdk
 import structlog
@@ -9,9 +10,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy
+from app.routers import (
+    auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
+    wallpapers,
+)
 
 
 def _configure_structlog() -> None:
@@ -66,6 +71,20 @@ def create_app() -> FastAPI:
     app.include_router(draft_rooms.router, prefix="/api/v1", tags=["draft-rooms"])
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
     app.include_router(meshy.router, tags=["meshy"])
+    app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
+
+    # ------------------------------------------------------------------
+    # Uploaded media (wallpapers, photos) when object storage is not set up.
+    # Mounted unconditionally so a library uploaded locally keeps serving
+    # even after S3 credentials are added later.
+    # ------------------------------------------------------------------
+    media_root = Path(settings.MEDIA_ROOT)
+    media_root.mkdir(parents=True, exist_ok=True)
+    app.mount(
+        settings.MEDIA_URL_PREFIX,
+        StaticFiles(directory=str(media_root)),
+        name="media",
+    )
 
     # ------------------------------------------------------------------
     # Startup

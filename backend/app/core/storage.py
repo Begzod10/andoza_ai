@@ -1,11 +1,45 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import boto3
 from botocore.client import Config
 
 from app.config import settings
 
 _s3_client = None
+
+
+# ---------------------------------------------------------------------------
+# Local disk fallback
+#
+# Without S3 credentials every upload would 502, so files are written under
+# MEDIA_ROOT and served by the app's /media mount instead. Same call sites,
+# same returned URL shape — only the destination differs.
+# ---------------------------------------------------------------------------
+
+
+def _media_path(key: str) -> Path:
+    """Resolve *key* under MEDIA_ROOT, refusing to escape it."""
+    root = Path(settings.MEDIA_ROOT).resolve()
+    path = (root / key).resolve()
+    if not str(path).startswith(str(root) + os.sep):
+        raise ValueError(f"Refusing to write outside MEDIA_ROOT: {key!r}")
+    return path
+
+
+def _local_upload(file_bytes: bytes, key: str) -> str:
+    path = _media_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(file_bytes)
+    return f"{settings.MEDIA_URL_PREFIX}/{key}"
+
+
+def _local_delete(key: str) -> None:
+    path = _media_path(key)
+    if path.exists():
+        path.unlink()
 
 
 def _get_s3():
@@ -24,7 +58,13 @@ def _get_s3():
 
 
 def upload_file(file_bytes: bytes, key: str, content_type: str = "application/octet-stream") -> str:
-    """Upload *file_bytes* to S3 under *key* and return the public URL."""
+    """Store *file_bytes* under *key* and return its URL.
+
+    Goes to S3 when it is configured, to MEDIA_ROOT otherwise (the returned
+    URL is then relative to the API host, e.g. ``/media/wallpapers/x.jpg``).
+    """
+    if not settings.s3_configured:
+        return _local_upload(file_bytes, key)
     s3 = _get_s3()
     s3.put_object(
         Bucket=settings.S3_BUCKET,
@@ -43,7 +83,10 @@ def upload_file(file_bytes: bytes, key: str, content_type: str = "application/oc
 
 
 def delete_file(key: str) -> None:
-    """Remove an object from S3 by *key*."""
+    """Remove a stored object by *key*, from wherever it was written."""
+    if not settings.s3_configured:
+        _local_delete(key)
+        return
     s3 = _get_s3()
     s3.delete_object(Bucket=settings.S3_BUCKET, Key=key)
 
