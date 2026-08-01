@@ -27,8 +27,7 @@ import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
-import { nanoid } from "nanoid";
-import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
+import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio/DoorLeaves";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -2183,7 +2182,9 @@ function OpeningLayer({
     wallWidth: W,
     wallDepth: D,
     hiddenWalls,
-    toolMode,
+    // Doors/windows have no 'part' concept (that's furniture sub-object
+    // editing) — fall back to 'select' so this stays a no-op for them.
+    toolMode: (toolMode === 'part' ? 'select' : toolMode) as DoorToolMode,
     controlsRef,
     selectedId,
     onSelect,

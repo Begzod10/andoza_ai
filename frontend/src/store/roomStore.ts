@@ -189,6 +189,7 @@ interface RoomPayload {
         sashes?: number | null
       }>
     }>
+    vertices?: [number, number][]
   } | null
 }
 
