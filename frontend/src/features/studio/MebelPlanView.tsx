@@ -352,7 +352,7 @@ export function MebelPlanView() {
     setSelected(added ? { wallId: wall.id, id: added.id } : null)
   }
 
-  function startDrag(wall: WallDef, el: WallElement, e: React.PointerEvent) {
+  function startDrag(wall: WallDef, el: WallElement, e: React.PointerEvent<SVGElement>) {
     if (e.button !== 0) return
     e.stopPropagation()
     setSelected({ wallId: wall.id, id: el.id })

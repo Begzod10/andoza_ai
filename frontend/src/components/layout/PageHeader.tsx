@@ -60,10 +60,10 @@ export function PageHeader({
         'sticky top-0 z-20',
         'flex items-center gap-2',
         'h-14 px-4',
-        'bg-white/90 dark:bg-neutral-900/90',
-        'backdrop-blur-md',
-        'border-b border-neutral-100 dark:border-neutral-800',
-        'shadow-sm',
+        'bg-white/95',
+        'backdrop-blur-sm',
+        'border-b border-neutral-200',
+        'shadow-subtle',
         className,
       ].join(' ')}
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -76,9 +76,9 @@ export function PageHeader({
           aria-label="Orqaga"
           className={[
             'flex-shrink-0 flex items-center justify-center',
-            '-ml-2 w-9 h-9 rounded-xl',
-            'text-neutral-600 dark:text-neutral-300',
-            'hover:bg-neutral-100 dark:hover:bg-neutral-800',
+            '-ml-2 w-9 h-9 rounded-lg',
+            'text-neutral-600',
+            'hover:bg-neutral-100',
             'transition-colors duration-150',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1',
             'active:scale-95',
@@ -95,7 +95,7 @@ export function PageHeader({
       <h1
         className={[
           'flex-1 text-base font-semibold',
-          'text-neutral-900 dark:text-white',
+          'text-neutral-900',
           'truncate',
           // Centre the title when both sides have equal-width controls
           showBack && rightSlot ? 'text-center' : showBack ? '' : '',

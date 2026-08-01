@@ -1,4 +1,4 @@
-# UyVision Branding Guidelines
+# AndozaAI Branding Guidelines
 
 **Last Updated:** 2026-07-24  
 **Version:** 1.0.0
@@ -7,7 +7,7 @@
 
 ## Brand Identity
 
-**Name:** UyVision  
+**Name:** AndozaAI  
 **Tagline:** AI-powered home renovation and room design platform for Uzbekistan  
 **Mission:** Empower homeowners and designers to visualize and plan room renovations with AI assistance
 
@@ -327,7 +327,7 @@ frontend/
 
 ## Brand Assets
 
-All brand assets are proprietary to UyVision. Use only within the UyVision project.
+All brand assets are proprietary to AndozaAI. Use only within the AndozaAI project.
 
 For external use, contact the design team.
 
@@ -347,10 +347,10 @@ For external use, contact the design team.
 
 ## Contact
 
-For branding questions or asset requests, contact the UyVision team.
+For branding questions or asset requests, contact the AndozaAI team.
 
 **Email:** rimefara22@gmail.com
 
 ---
 
-**UyVision © 2026 — All Rights Reserved**
+**AndozaAI © 2026 — All Rights Reserved**

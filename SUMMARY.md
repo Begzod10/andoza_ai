@@ -1,4 +1,4 @@
-# UyVision + UyTa'mir Mobile - Project Summary
+# AndozaAI + UyTa'mir Mobile - Project Summary
 
 **Date:** 2026-07-24  
 **Status:** 🚀 **Both Web & Mobile Projects Live**
@@ -7,7 +7,7 @@
 
 ## 📊 What's Been Done
 
-### **UyVision Web App (Existing)**
+### **AndozaAI Web App (Existing)**
 - ✅ Backend running on port 8000
 - ✅ Frontend running on port 5174
 - ✅ Test infrastructure: **44/44 tests passing** (35% coverage)
@@ -55,14 +55,14 @@
 
 ```
 /home/rimefara/projects/
-├── tamir_uy/                    # Web app (existing)
+├── andoza_ai/                    # Web app (existing)
 │   ├── backend/                 # FastAPI running
 │   ├── frontend/                # Next.js running
 │   ├── COVERAGE_REPORT.md       # Test coverage: 35%
 │   ├── TEST_COVERAGE_PLAN.md    # Path to 80%+ coverage
 │   └── DESIGN_INTEGRATION_PLAN.md # Design analysis
 │
-└── tamir_uy_mobile/             # Mobile app (new)
+└── andoza_ai_mobile/             # Mobile app (new)
     ├── src/
     │   ├── screens/             # 29 screen components
     │   ├── components/          # Reusable UI parts
@@ -77,7 +77,7 @@
 
 ## 🎯 Current Status
 
-### Web (UyVision)
+### Web (AndozaAI)
 | Component | Status | Coverage |
 |-----------|--------|----------|
 | Backend API | ✅ Running | - |
@@ -107,12 +107,12 @@
 ### **Web (Running Now)**
 ```bash
 # Terminal 1: Backend
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 source venv/bin/activate
 # Already running on port 8000
 
 # Terminal 2: Frontend  
-cd /home/rimefara/projects/tamir_uy/frontend
+cd /home/rimefara/projects/andoza_ai/frontend
 # Already running on port 5174
 
 # Visit:
@@ -123,7 +123,7 @@ cd /home/rimefara/projects/tamir_uy/frontend
 ### **Mobile (Ready to Build)**
 ```bash
 # Terminal 3: Mobile
-cd /home/rimefara/projects/tamir_uy_mobile
+cd /home/rimefara/projects/andoza_ai_mobile
 npm install
 npm run dev
 # Choose: iOS / Android / Web
@@ -226,7 +226,7 @@ Coverage by module:
 
 ## 🎯 Next Actions
 
-### **If focusing on Web (UyVision):**
+### **If focusing on Web (AndozaAI):**
 1. ✅ Run `pytest tests/ --cov=app --cov-report=html`
 2. Implement Phase 2 tests (routers)
 3. Achieve 80% coverage
@@ -285,7 +285,7 @@ GET    /rooms/{id}/estimate
 
 **Two distinct products, one shared backend:**
 
-1. **Web (UyVision):** Sophisticated design platform with AI + Meshy 3D
+1. **Web (AndozaAI):** Sophisticated design platform with AI + Meshy 3D
    - Fully functional
    - Test coverage 35% → aim for 80%+
    - Production-ready

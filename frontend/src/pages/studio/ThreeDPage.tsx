@@ -3,7 +3,6 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import {
   OrbitControls,
   ContactShadows,
-  SoftShadows,
   PerformanceMonitor,
   AdaptiveDpr,
   AdaptiveEvents,

@@ -1,4 +1,4 @@
-# UyVision Test Coverage Implementation Plan
+# AndozaAI Test Coverage Implementation Plan
 
 **Target:** 80%+ test coverage  
 **Timeline:** 2-3 weeks  

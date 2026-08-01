@@ -35,7 +35,7 @@ function PasswordInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+        className="w-full border border-neutral-200 rounded-lg px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
       />
       <button
         type="button"
@@ -246,11 +246,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5">
       {/* Logo */}
       <div className="mb-8 text-center">
-        <div className="text-5xl font-bold text-gray-900 mb-2">👋 Salom</div>
+        <div className="text-5xl font-bold text-neutral-900 mb-2">👋 Salom</div>
         <p className="text-lg text-muted">UyTa'mir-ga xush kelibsiz</p>
       </div>
 
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-md p-8">
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-card p-8">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
           <>
@@ -269,7 +269,7 @@ export default function LoginPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="w-11 h-12 text-center text-lg font-bold border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                  className="w-11 h-12 text-center text-lg font-bold border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
                 />
               ))}
             </div>
@@ -277,7 +277,7 @@ export default function LoginPage() {
             <button
               onClick={handleVerifyOTP}
               disabled={loading || otp.some((d) => !d)}
-              className="w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? uz.common.yuklanmoqda : uz.auth.otp_tasdiqlash}
             </button>
@@ -296,14 +296,14 @@ export default function LoginPage() {
               <>
                 <button
                   onClick={() => switchMode("otp-phone")}
-                  className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-6"
+                  className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
                 >
                   ← {uz.auth.orqaga}
                 </button>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Kirish</h2>
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Kirish</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Username</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
                     <input
                       type="text"
                       value={username}
@@ -312,11 +312,11 @@ export default function LoginPage() {
                       placeholder="username"
                       autoComplete="username"
                       autoFocus
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Parol</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
                     <PasswordInput
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -332,7 +332,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleLogin}
                   disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? uz.common.yuklanmoqda : "Kirish"}
                 </button>
@@ -356,14 +356,14 @@ export default function LoginPage() {
               <>
                 <button
                   onClick={() => switchMode("otp-phone")}
-                  className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-900 transition-colors mb-6"
+                  className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
                 >
                   ← {uz.auth.orqaga}
                 </button>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Ro'yxatdan o'tish</h2>
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Ro'yxatdan o'tish</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Ism (ixtiyoriy)</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Ism (ixtiyoriy)</label>
                     <input
                       type="text"
                       value={name}
@@ -371,22 +371,22 @@ export default function LoginPage() {
                       placeholder="Ismingiz"
                       autoComplete="name"
                       autoFocus
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Username</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="username"
                       autoComplete="username"
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Parol</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
                     <PasswordInput
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -395,7 +395,7 @@ export default function LoginPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Parolni tasdiqlang</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parolni tasdiqlang</label>
                     <PasswordInput
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
@@ -411,7 +411,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleRegister}
                   disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
                 </button>
@@ -433,13 +433,13 @@ export default function LoginPage() {
             {/* ── OTP phone step ── */}
             {mode === "otp-phone" && (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Telefon raqam</h2>
+                <h2 className="text-lg font-semibold text-neutral-900 mb-1">Telefon raqam</h2>
                 <p className="text-sm text-muted mb-6">Loginiga uchun telefon raqam talab qilinadi</p>
 
                 <div className="mb-6">
-                  <label className="block text-xs font-medium text-gray-600 mb-2">Telefon raqam</label>
-                  <div className="flex items-center border-2 border-blue-300 rounded-lg px-4 py-3 bg-blue-50 focus-within:ring-2 focus-within:ring-brand/40">
-                    <span className="text-gray-600 font-medium">+998</span>
+                  <label className="block text-xs font-medium text-neutral-600 mb-2">Telefon raqam</label>
+                  <div className="flex items-center border-2 border-brand rounded-lg px-4 py-3 bg-primary-tint focus-within:ring-2 focus-within:ring-brand/40">
+                    <span className="text-neutral-600 font-medium">+998</span>
                     <input
                       type="tel"
                       value={phone.replace(/\+998/, '')}
@@ -449,10 +449,10 @@ export default function LoginPage() {
                       autoFocus
                       autoComplete="tel"
                       disabled={loading}
-                      className="flex-1 ml-2 bg-transparent text-gray-900 font-medium text-base placeholder-gray-400 focus:outline-none"
+                      className="flex-1 ml-2 bg-transparent text-neutral-900 font-medium text-base placeholder-neutral-400 focus:outline-none"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Sms kod shu raqamga yuboriladi</p>
+                  <p className="text-xs text-neutral-500 mt-2">Sms kod shu raqamga yuboriladi</p>
                 </div>
 
                 {error && <p className="text-xs text-red-500 mb-4 text-center">{error}</p>}
@@ -461,27 +461,27 @@ export default function LoginPage() {
                   onClick={handleRequestOTP}
                   disabled={loading || !phone}
                   className={`w-full rounded-lg py-4 font-bold text-white transition-colors ${
-                    loading || !phone ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                    loading || !phone ? 'bg-neutral-300 cursor-not-allowed' : 'bg-brand hover:bg-brand/90'
                   }`}
                 >
                   {loading ? uz.common.yuklanmoqda : "OTP Yuborish"}
                 </button>
 
-                <div className="mt-8 bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-700">
+                <div className="mt-8 bg-primary-tint p-4 rounded-lg">
+                  <p className="text-sm text-neutral-700">
                     📱 Siz kiritgan raqamga 6 xonali kod yuboriladi. Agar SMS kelmaydigan bo'lsa, 2-3 minutdan keyin qayta urinib ko'ring.
                   </p>
                 </div>
 
                 {/* Option to use username/password */}
                 <div className="flex items-center gap-3 mt-8">
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="flex-1 h-px bg-neutral-200" />
                   <span className="text-xs text-muted">yoki</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="flex-1 h-px bg-neutral-200" />
                 </div>
                 <button
                   onClick={() => switchMode("login")}
-                  className="w-full mt-4 border border-gray-200 text-gray-700 rounded-lg py-3 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="w-full mt-4 border border-neutral-200 text-neutral-700 rounded-lg py-3 text-sm font-medium hover:bg-neutral-50 transition-colors"
                 >
                   🔐 Username bilan kirish
                 </button>
@@ -491,7 +491,7 @@ export default function LoginPage() {
         )}
       </div>
 
-      <p className="text-xs text-muted mt-6 text-center opacity-60">UyVision v1.0.0</p>
+      <p className="text-xs text-muted mt-6 text-center opacity-60">AndozaAI v1.0.0</p>
     </div>
   );
 }

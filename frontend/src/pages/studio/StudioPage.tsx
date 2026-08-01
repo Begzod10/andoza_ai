@@ -18,18 +18,18 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
   return (
-    <div className="flex justify-center px-4 py-2 bg-white border-b border-[#F0F1F4]">
-      <nav className="flex bg-[#F3F4F6] rounded-[14px] p-1 gap-1">
+    <div className="flex justify-center px-4 py-2 bg-white border-b border-neutral-100">
+      <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "px-4 py-1.5 rounded-xl text-[14px] font-semibold transition-all",
+                "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
                 isActive
                   ? "bg-white text-brand shadow-sm"
-                  : "text-muted hover:text-gray-700"
+                  : "text-neutral-500 hover:text-neutral-700"
               )
             }
           >
@@ -251,8 +251,8 @@ export default function StudioPage() {
   if (fetchStatus === "notfound" && !storeState.isDirty) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-paper gap-4">
-        <p className="text-gray-500 text-lg">Xona topilmadi</p>
-        <a href="/wizard" className="bg-brand text-white px-6 py-2 rounded-card font-semibold hover:bg-brand/90">
+        <p className="text-neutral-500 text-lg">Xona topilmadi</p>
+        <a href="/wizard" className="bg-brand text-white px-6 py-2 rounded-lg font-semibold hover:bg-brand/90 transition-colors">
           Yangi xona yaratish
         </a>
       </div>
@@ -260,14 +260,14 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#EEF1F7]">
+    <div className="flex flex-col min-h-screen bg-paper">
       {/* Header — design screen 08 */}
       <header className="bg-white">
         <div className="px-4 pt-3 pb-3 flex items-center gap-3">
           {/* Back button */}
           <NavLink
             to="/projects"
-            className="w-10 h-10 rounded-full bg-[#F3F4F6] flex items-center justify-center flex-shrink-0"
+            className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
               <path d="M11 4L6 9l5 5"/>
@@ -292,12 +292,12 @@ export default function StudioPage() {
               onClick={handleSave}
               disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
               className={[
-                "px-4 py-1.5 rounded-xl text-[13px] font-bold transition-colors",
+                "px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors",
                 saveStatus === 'saved'
                   ? "bg-success text-white"
                   : (isDirty || fetchStatus === 'notfound')
                     ? "bg-brand text-white"
-                    : "bg-brand-tint text-brand",
+                    : "bg-primary-tint text-brand",
               ].join(' ')}
             >
               {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
@@ -305,14 +305,14 @@ export default function StudioPage() {
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="w-10 h-10 rounded-full bg-[#F3F4F6] flex items-center justify-center hover:bg-[#E5E7EB] transition-colors"
+                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280">
                   <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/>
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-[160px]">
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px]">
                   <button
                     onClick={async () => {
                       if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lib bo\'lmaydi.')) {
@@ -325,7 +325,7 @@ export default function StudioPage() {
                       }
                       setMenuOpen(false)
                     }}
-                    className="w-full text-left px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
+                    className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
                   >
                     O'chirish
                   </button>
@@ -339,7 +339,7 @@ export default function StudioPage() {
 
       {/* Offline / auth hint banner */}
       {(fetchStatus === "auth" || fetchStatus === "offline") && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-700 flex items-center gap-2">
+        <div className="bg-warning-tint border-b border-warning/30 px-4 py-2 text-xs text-warning-dark flex items-center gap-2">
           <span>
             {fetchStatus === "auth"
               ? "Oflayn rejim — kirish qilsangiz, loyihangiz bulutga saqlanadi."

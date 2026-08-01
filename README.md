@@ -1,4 +1,4 @@
-# UyVision
+# AndozaAI
 
 AI-powered home renovation and room design platform for Uzbekistan.
 

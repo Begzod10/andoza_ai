@@ -1,4 +1,4 @@
-# UyVision Test Coverage Progress
+# AndozaAI Test Coverage Progress
 
 **Last Updated:** 2026-07-24  
 **Status:** 🟡 Phase 1 In Progress
@@ -58,7 +58,7 @@ Solution:
 
 **Option A: Python venv (recommended)**
 ```bash
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -233,7 +233,7 @@ frontend/src/__tests__/
 
 ```bash
 # 1. Create venv
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 python3 -m venv venv
 source venv/bin/activate
 

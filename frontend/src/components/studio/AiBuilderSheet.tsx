@@ -190,7 +190,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
         {log.length > 0 && (
           <div
             ref={logRef}
-            className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-[#F3F4F6] p-3 space-y-1 text-sm"
+            className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-neutral-100 p-3 space-y-1 text-sm"
           >
             {log.map((entry) => (
               <div

@@ -1,5 +1,5 @@
 """
-Pytest fixtures and configuration for UyVision backend tests.
+Pytest fixtures and configuration for AndozaAI backend tests.
 
 Establishes environment variables before any app module imports.
 Provides reusable mocks for external services (OpenAI, Redis, Meshy).

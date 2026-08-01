@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
+import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class WallElement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique opening identifier")
     type: Literal["eshik", "deraza", "balkon"]
     width: float = Field(ge=0.3, le=5.0)
     height: float = Field(ge=0.3, le=3.5)

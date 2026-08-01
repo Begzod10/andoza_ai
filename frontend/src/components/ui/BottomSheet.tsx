@@ -1,6 +1,7 @@
 import * as React from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,13 +104,13 @@ export function BottomSheet({
                 initial={{ y: '100%' }}
                 exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                className={[
+                className={cn(
                   'fixed bottom-0 left-0 right-0 z-50',
-                  'bg-white dark:bg-neutral-900',
-                  'rounded-t-2xl shadow-2xl',
+                  'bg-white',
+                  'rounded-t-3xl shadow-card',
                   'flex flex-col overflow-hidden',
                   'outline-none',
-                ].join(' ')}
+                )}
                 style={{
                   paddingBottom: 'env(safe-area-inset-bottom)',
                   touchAction: 'none',
@@ -117,18 +118,18 @@ export function BottomSheet({
               >
                 {/* Grab handle */}
                 <div
-                  className="flex-shrink-0 flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
+                  className="flex-shrink-0 flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing"
                   onPointerDown={(e) => dragControls.start(e)}
                   aria-hidden="true"
                 >
-                  <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                  <div className="w-12 h-1.5 rounded-full bg-neutral-300 transition-colors" />
                 </div>
 
                 {/* Hidden title for screen readers */}
                 <Dialog.Title className="sr-only">{title}</Dialog.Title>
 
                 {/* Scrollable content area */}
-                <div className="flex-1 overflow-y-auto overscroll-contain px-4">
+                <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-2">
                   {children}
                 </div>
               </motion.div>

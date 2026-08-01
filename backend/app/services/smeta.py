@@ -7,6 +7,21 @@ rounding errors.  The public surface is a single function:
 
 No database access, no I/O — call it from within a router after loading the
 required ORM objects.
+
+Delta mechanic
+---------------
+``compute_estimate`` accepts optional ``current_state`` / ``floor_state`` /
+``ceiling_state`` parameters (construction-progress stage, see
+``STAGE_ORDER`` below).  When omitted (``None``), the function behaves
+exactly as before — every wall-prep line (suvoq/grunt/shpatlyovka) is always
+included, which is the semantics used by the legacy single-shot smeta flow
+and by the existing test-suite.
+
+When a stage is supplied, prep lines whose stage is already behind the
+room's current progress are skipped — this is the core of the "delta"
+mechanic implemented in ``app.services.delta``.  The paint/wallpaper finish
+line itself is never skipped: choosing a finish is the whole point of the
+tool, independent of how far the room's substrate prep has progressed.
 """
 from __future__ import annotations
 
@@ -29,6 +44,10 @@ ROLL_AREA_M2: float = ROLL_WIDTH_M * ROLL_LENGTH_M  # 10.653 m² per roll
 PACK_M2: float = 2.13             # laminate pack coverage (from norm; overridable)
 PLINTH_PIECE_M: float = 2.5       # standard plinth strip length
 DOOR_WIDTH_DEFAULT_M: float = 0.9  # door width assumed when no geometry data
+
+PLASTER_RATE_KG_M2: float = 8.5      # kg of gypsum plaster per m² (~10mm layer)
+PLASTER_BAG_KG: int = 30
+PLASTER_BAG_PRICE_UZS: int = 65_000     # hardcoded Tashkent 2024 avg
 
 PRIMER_RATE_KG_M2: float = 0.15   # kg of primer per m²
 PRIMER_BAG_KG: int = 5
@@ -59,6 +78,30 @@ WASTE_FACTORS: dict[str, float] = {
     "gul": 1.15,
     "bolalar": 1.15,
 }
+
+# ---------------------------------------------------------------------------
+# Construction-progress stages (delta mechanic)
+# ---------------------------------------------------------------------------
+#
+# Mirrors app.models.room_state.VALID_ROOM_STATES:
+#   xom        – korobka / raw shell
+#   suvoq      – plastered
+#   shpaklovka – primed + puttied, ready to paint
+#   tayyor     – fully finished
+STAGE_ORDER: tuple[str, ...] = ("xom", "suvoq", "shpaklovka", "tayyor")
+STAGE_SUVOQ: str = "suvoq"
+STAGE_SHPAKLOVKA: str = "shpaklovka"
+
+
+def stage_index(state: str | None) -> int:
+    """Return the ordinal position of *state* in STAGE_ORDER.
+
+    Unknown or ``None`` values are treated as the earliest stage ("xom") —
+    the safe default that never over-skips required work.
+    """
+    if state in STAGE_ORDER:
+        return STAGE_ORDER.index(state)
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -177,38 +220,39 @@ def _store_name(material: "Material") -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Line-item computation functions
+# Wall-prep line-item computation functions (suvoq → shpaklovka stages)
 # ---------------------------------------------------------------------------
 
-def _paint_lines(
-    room: "Room",
-    material: "Material",
-    norm: "Norm",
-    norms_map: "dict[str, Norm]",
-) -> list[ComputedLine]:
-    """Boyoq + grunt (primer) + shpatlyovka (putty)."""
-    lines: list[ComputedLine] = []
+def _plaster_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+    """Suvoq (wet plaster) — required only when a room starts from 'xom'."""
     net_wall = _float(room.net_wall_area)
-    coverage = _float(norm.coverage_per_unit, 9.0)
-    coats = int(norm.coats) if norm.coats else 2
+    plaster_norm = norms_map.get("suvoq")
+    plaster_params = plaster_norm.params if plaster_norm and plaster_norm.params else {}
+    rate = float(plaster_params.get("rate_kg_m2", PLASTER_RATE_KG_M2))
+    bag_kg = int(plaster_params.get("bag_kg", PLASTER_BAG_KG))
+    price = int(plaster_params.get("bag_price_uzs", PLASTER_BAG_PRICE_UZS))
+    approximate = plaster_norm is None
+    warning = "Norma topilmadi, standart qiymat ishlatildi" if plaster_norm is None else None
 
-    # -- Paint --
-    liters = math.ceil(net_wall * coats / coverage)
-    lines.append(_make_line(
-        label=f"Bo'yoq: {material.name_uz}",
+    kg = net_wall * rate
+    bags = math.ceil(kg / bag_kg) if bag_kg > 0 else 0
+    return _make_line(
+        label=f"Suvoq (gips) {bag_kg} kg qop",
         formula=(
-            f"{net_wall:.1f} m² × {coats} qatlam "
-            f"÷ {coverage:.1f} m²/litr = {liters} litr"
+            f"{net_wall:.1f} m² × {rate} kg/m² = {kg:.1f} kg → {bags} qop"
         ),
-        qty=liters,
-        unit="litr",
-        price_uzs=material.price_uzs,
-        category="boyoq",
-        material_id=str(material.id),
-        store_name=_store_name(material),
-    ))
+        qty=bags,
+        unit="qop",
+        price_uzs=price,
+        category="suvoq",
+        is_approximate=approximate,
+        warning=warning,
+    )
 
-    # -- Primer (grunt) --
+
+def _grunt_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+    """Grunt (primer) — required until a room reaches 'shpaklovka'."""
+    net_wall = _float(room.net_wall_area)
     grunt_norm = norms_map.get("grunt")
     grunt_params = grunt_norm.params if grunt_norm and grunt_norm.params else {}
     primer_rate = float(grunt_params.get("rate_kg_m2", PRIMER_RATE_KG_M2))
@@ -219,7 +263,7 @@ def _paint_lines(
 
     kg_primer = math.ceil(net_wall * primer_rate)
     bags_primer = math.ceil(kg_primer / primer_bag_kg)
-    lines.append(_make_line(
+    return _make_line(
         label=f"Grunt (asosiy qatlam) {primer_bag_kg} kg qop",
         formula=(
             f"{net_wall:.1f} m² × {primer_rate} kg/m² "
@@ -231,9 +275,12 @@ def _paint_lines(
         category="grunt",
         is_approximate=grunt_approximate,
         warning=grunt_warning,
-    ))
+    )
 
-    # -- Putty (shpatlyovka) --
+
+def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+    """Shpatlyovka (putty) — required until a room reaches 'shpaklovka'."""
+    net_wall = _float(room.net_wall_area)
     putty_norm = norms_map.get("shpatlyovka")
     putty_params = putty_norm.params if putty_norm and putty_norm.params else {}
     putty_rate = float(putty_params.get("rate_kg_m2", PUTTY_RATE_KG_M2))
@@ -244,7 +291,7 @@ def _paint_lines(
 
     kg_putty = net_wall * putty_rate
     bags_putty = math.ceil(kg_putty / putty_bag_kg)
-    lines.append(_make_line(
+    return _make_line(
         label=f"Shpatlyovka {putty_bag_kg} kg qop",
         formula=(
             f"{net_wall:.1f} m² × {putty_rate} kg/m² "
@@ -256,9 +303,49 @@ def _paint_lines(
         category="shpatlyovka",
         is_approximate=putty_approximate,
         warning=putty_warning,
-    ))
+    )
 
-    return lines
+
+def _paint_only_line(room: "Room", material: "Material", norm: "Norm") -> ComputedLine:
+    """Bo'yoq (paint) finish coat only — always required regardless of stage."""
+    net_wall = _float(room.net_wall_area)
+    coverage = _float(norm.coverage_per_unit, 9.0)
+    coats = int(norm.coats) if norm.coats else 2
+
+    liters = math.ceil(net_wall * coats / coverage)
+    return _make_line(
+        label=f"Bo'yoq: {material.name_uz}",
+        formula=(
+            f"{net_wall:.1f} m² × {coats} qatlam "
+            f"÷ {coverage:.1f} m²/litr = {liters} litr"
+        ),
+        qty=liters,
+        unit="litr",
+        price_uzs=material.price_uzs,
+        category="boyoq",
+        material_id=str(material.id),
+        store_name=_store_name(material),
+    )
+
+
+def _paint_lines(
+    room: "Room",
+    material: "Material",
+    norm: "Norm",
+    norms_map: "dict[str, Norm]",
+) -> list[ComputedLine]:
+    """Boyoq + grunt (primer) + shpatlyovka (putty) — legacy, always all three.
+
+    Preserved byte-for-byte for backward compatibility with the single-shot
+    (non delta-aware) smeta flow and the existing test-suite. Internally
+    delegates to the same extracted helpers used by the delta-aware path, so
+    output is identical to before the refactor.
+    """
+    return [
+        _paint_only_line(room, material, norm),
+        _grunt_line(room, norms_map),
+        _putty_line(room, norms_map),
+    ]
 
 
 def _wallpaper_lines(
@@ -518,6 +605,9 @@ def compute_estimate(
     room: "Room",
     materials_map: dict[str, "Material"],
     norms_map: dict[str, "Norm"],
+    current_state: str | None = None,
+    floor_state: str | None = None,
+    ceiling_state: str | None = None,
 ) -> ComputedEstimate:
     """Compute a full smeta for *room*.
 
@@ -530,6 +620,17 @@ def compute_estimate(
         Should contain every material referenced by ``room.surfaces``.
     norms_map:
         Mapping of ``norm.material_key`` to Norm ORM objects.
+    current_state:
+        Optional construction-progress stage (see STAGE_ORDER). When
+        ``None`` (default), every wall-prep line is always included —
+        identical to the pre-delta-mechanic behaviour. When provided, prep
+        stages already completed (suvoq / grunt+shpatlyovka) are skipped —
+        this is the "delta" mechanic. See app.services.delta.compute_delta
+        for the full current-vs-finished comparison built on top of this.
+    floor_state / ceiling_state:
+        Optional per-surface overrides. When a surface's stage is already
+        "tayyor" (finished), its material line is skipped entirely — the
+        surface already exists and needs no further material spend.
 
     Returns
     -------
@@ -557,32 +658,57 @@ def compute_estimate(
         if k not in NON_WALL_SURFACE_KEYS and v
     }
 
-    # ------------------------------------------------------------------ #
-    # 1. Paint (boyoq) + primer + putty                                   #
-    # ------------------------------------------------------------------ #
-    if "boyoq" in wall_categories:
-        boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
-        boyoq_norm = norms_map.get("boyoq")
-        if boyoq_norm and _float(room.net_wall_area) > 0:
-            lines.extend(_paint_lines(room, boyoq_mat, boyoq_norm, norms_map))
-
-    # ------------------------------------------------------------------ #
-    # 2. Wallpaper (oboy) — per-wall from design state                   #
-    # ------------------------------------------------------------------ #
     wall_coverings_state: dict = (room.state or {}).get("wallCoverings", {})
     has_any_oboy = any(
         isinstance(c, dict) and c.get("kind") == "oboy"
         for c in wall_coverings_state.values()
     )
+    needs_wall_prep = bool(wall_categories) or has_any_oboy
+
+    # ------------------------------------------------------------------ #
+    # 0. Wall prep (suvoq → shpaklovka) — delta-gated, computed ONCE      #
+    #    regardless of whether the finish is paint or wallpaper, so       #
+    #    mixed-finish rooms never double-count prep material.             #
+    # ------------------------------------------------------------------ #
+    if needs_wall_prep and _float(room.net_wall_area) > 0:
+        if current_state is None:
+            # Legacy path: prep lines only ever attached via _paint_lines()
+            # below (paint branch); wallpaper-only rooms keep their
+            # pre-existing behaviour of no prep lines at all.
+            pass
+        else:
+            idx = stage_index(current_state)
+            if idx < stage_index(STAGE_SUVOQ):
+                lines.append(_plaster_line(room, norms_map))
+            if idx < stage_index(STAGE_SHPAKLOVKA):
+                lines.append(_grunt_line(room, norms_map))
+                lines.append(_putty_line(room, norms_map))
+
+    # ------------------------------------------------------------------ #
+    # 1. Paint (boyoq) finish                                             #
+    # ------------------------------------------------------------------ #
+    if "boyoq" in wall_categories:
+        boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
+        boyoq_norm = norms_map.get("boyoq")
+        if boyoq_norm and _float(room.net_wall_area) > 0:
+            if current_state is None:
+                lines.extend(_paint_lines(room, boyoq_mat, boyoq_norm, norms_map))
+            else:
+                lines.append(_paint_only_line(room, boyoq_mat, boyoq_norm))
+
+    # ------------------------------------------------------------------ #
+    # 2. Wallpaper (oboy) finish — per-wall from design state             #
+    # ------------------------------------------------------------------ #
     if has_any_oboy:
         oboy_norm = norms_map.get("oboy")
         lines.extend(_wallpaper_lines(room, wall_surfaces_map, materials_map, oboy_norm, norms_map))
 
     # ------------------------------------------------------------------ #
-    # 3. Floor covering                                                    #
+    # 3. Floor covering — skipped entirely when floor_state is finished   #
     # ------------------------------------------------------------------ #
+    floor_already_done = floor_state == "tayyor"
     floor_mat = materials_map.get(floor_mid) if floor_mid else None
-    if floor_mat is not None:
+    if floor_mat is not None and not floor_already_done:
         if floor_mat.category in ("laminat", "parket"):
             laminat_norm = norms_map.get("laminat") or norms_map.get("parket")
             if _float(room.floor_area) > 0:

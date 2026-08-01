@@ -3,7 +3,7 @@
 # Test runner script with coverage reporting
 set -e
 
-echo "🧪 UyVision Backend Test Suite"
+echo "🧪 AndozaAI Backend Test Suite"
 echo "=================================="
 echo ""
 

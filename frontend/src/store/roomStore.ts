@@ -107,6 +107,10 @@ export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
 /** Flat stand-in colour for plastered walls (2-D views, swatches, estimates). */
 export const PLASTER_BASE_COLOR = '#7C7E80'
 
+export type FloorState = 'xom_beton' | 'styajka' | 'qoplama_bor' | null
+
+export type CeilingState = 'xom' | 'suvoq' | 'tayyor' | null
+
 export type WallCovering =
   /** Raw plastered/concrete wall — how a room looks before any finishing. */
   | { kind: 'plaster' }
@@ -139,6 +143,8 @@ export interface DesignState {
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
+  floorState?: FloorState
+  ceilingState?: CeilingState
 }
 
 /** Resolve the effective WallCovering for a given wall (falls back to ALL). */
@@ -732,7 +738,7 @@ export const useRoomStore = create<RoomStore>()(
   },
 }),
     {
-      name: 'uyvision-room-draft',
+      name: 'andoza-ai-room-draft',
       version: 3,
       partialize: (state) => ({
         draftId: state.draftId,

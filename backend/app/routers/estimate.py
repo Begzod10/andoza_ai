@@ -1,20 +1,35 @@
-"""Estimate router — POST compute + GET PDF download.
+"""Estimate router — compute/preview/persist smeta + history + PDF download.
 
 Endpoints
 ---------
+POST /rooms/{room_id}/estimate/preview
+    Compute a live smeta preview without persisting.
+
 POST /rooms/{room_id}/estimate
     Compute a fresh smeta snapshot and persist it as an Estimate row.
 
+GET  /rooms/{room_id}/estimates?limit=&offset=
+    Paginated estimate history for a room (summary rows only).
+
+GET  /estimates/{estimate_id}
+    Full estimate response for a single persisted estimate.
+
 GET  /rooms/{room_id}/estimate.pdf
+GET  /rooms/{room_id}/estimate/pdf
     Re-run the latest estimate (or load the last persisted one) and
-    stream it as a ReportLab-generated PDF.
+    stream it as a ReportLab-generated PDF. Both path forms are supported —
+    ``estimate.pdf`` for direct-download/file-extension semantics and
+    ``estimate/pdf`` as a slash-only alias for clients/proxies that mangle
+    literal dots in path segments.
 
 Registration
 ------------
-Include this router in your ``app.api.v1`` module::
+Include both routers in your ``app.api.v1`` module::
 
     from app.routers.estimate import router as estimate_router
-    api_router.include_router(estimate_router, tags=["estimates"])
+    from app.routers.estimate import estimates_router
+    api_router.include_router(estimate_router, tags=["estimate"])
+    api_router.include_router(estimates_router, tags=["estimate"])
 """
 from __future__ import annotations
 
@@ -25,7 +40,7 @@ from datetime import date, datetime, timezone
 from itertools import groupby
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -39,7 +54,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
@@ -48,10 +63,20 @@ from app.models.estimate import Estimate
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room import Room
-from app.schemas.estimate import EstimateLine, EstimateResponse
+from app.schemas.estimate import (
+    EstimateLine,
+    EstimateResponse,
+    EstimateSummary,
+    PaginatedEstimates,
+)
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 
 router = APIRouter(prefix="/rooms/{room_id}")
+
+# Separate router — /estimates/{estimate_id} is NOT nested under /rooms/{room_id}.
+estimates_router = APIRouter(prefix="/estimates")
+
+_DEFAULT_CURRENCY = "UZS"
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +156,34 @@ def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
     ]
 
 
+def _jsonb_lines_to_schema(raw_lines: list[dict]) -> list[EstimateLine]:
+    """Convert JSONB-stored ComputedLine dicts back into EstimateLine rows."""
+    return [
+        EstimateLine(
+            label=ln.get("label", ""),
+            formula=ln.get("formula", ""),
+            quantity=ln.get("qty", 0),
+            unit=ln.get("unit", ""),
+            unit_price=ln.get("unit_price_uzs", 0),
+            total_uzs=ln.get("subtotal_uzs", 0),
+            is_approximate=ln.get("is_approximate", False),
+            store_id=None,
+            category=ln.get("category", ""),
+        )
+        for ln in raw_lines
+    ]
+
+
 def _lines_to_jsonb(lines: list[ComputedLine]) -> list[dict]:
     """Serialise ComputedLine list to plain dicts for JSONB storage."""
     return [dataclasses.asdict(ln) for ln in lines]
+
+
+def _has_electrical(raw_lines: list[dict]) -> bool:
+    return any(
+        ln.get("category") == "elektr" and not ln.get("is_approximate", False)
+        for ln in raw_lines
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +220,8 @@ async def preview_estimate(
         total_uzs=computed.total_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
+        currency=_DEFAULT_CURRENCY,
+        status="draft",
         created_at=datetime.now(timezone.utc),
         has_electrical=computed.has_electrical,
     )
@@ -201,6 +253,8 @@ async def create_estimate(
         room_id=room.id,
         lines=_lines_to_jsonb(computed.lines),
         total_uzs=computed.total_uzs,
+        currency=_DEFAULT_CURRENCY,
+        status="final",
     )
     db.add(estimate)
     await db.flush()
@@ -213,21 +267,59 @@ async def create_estimate(
         total_uzs=computed.total_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
+        currency=estimate.currency,
+        status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=computed.has_electrical,
     )
 
 
 # ---------------------------------------------------------------------------
-# GET /rooms/{room_id}/estimate.pdf
+# GET /rooms/{room_id}/estimates?limit=&offset=  (paginated history)
 # ---------------------------------------------------------------------------
 
 @router.get(
-    "/estimate.pdf",
-    response_class=StreamingResponse,
-    summary="Download the latest smeta as a ReportLab PDF",
+    "/estimates",
+    response_model=PaginatedEstimates,
+    summary="Paginated estimate history for a room, newest first",
 )
-async def get_estimate_pdf(
+async def list_estimates(
+    room_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedEstimates:
+    # Ownership check — 404s if the room doesn't exist or isn't owned by the user.
+    await _load_room_for_user(room_id, current_user.id, db)
+
+    count_result = await db.execute(
+        select(func.count()).select_from(Estimate).where(Estimate.room_id == room_id)
+    )
+    total = count_result.scalar_one()
+
+    result = await db.execute(
+        select(Estimate)
+        .where(Estimate.room_id == room_id)
+        .order_by(Estimate.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    estimates = result.scalars().all()
+
+    return PaginatedEstimates(
+        items=[EstimateSummary.model_validate(e) for e in estimates],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /rooms/{room_id}/estimate.pdf  +  GET /rooms/{room_id}/estimate/pdf
+# ---------------------------------------------------------------------------
+
+async def _generate_estimate_pdf(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
@@ -245,6 +337,77 @@ async def get_estimate_pdf(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/estimate.pdf",
+    response_class=StreamingResponse,
+    summary="Download the latest smeta as a ReportLab PDF",
+)
+async def get_estimate_pdf(
+    room_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> StreamingResponse:
+    return await _generate_estimate_pdf(room_id, current_user, db)
+
+
+@router.get(
+    "/estimate/pdf",
+    response_class=StreamingResponse,
+    summary="Download the latest smeta as a ReportLab PDF (slash-path alias)",
+)
+async def get_estimate_pdf_alias(
+    room_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> StreamingResponse:
+    return await _generate_estimate_pdf(room_id, current_user, db)
+
+
+# ---------------------------------------------------------------------------
+# GET /estimates/{estimate_id}  (full estimate response, not room-scoped)
+# ---------------------------------------------------------------------------
+
+@estimates_router.get(
+    "/{estimate_id}",
+    response_model=EstimateResponse,
+    summary="Get a single persisted estimate by id",
+)
+async def get_estimate(
+    estimate_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> EstimateResponse:
+    result = await db.execute(
+        select(Estimate)
+        .join(Room, Estimate.room_id == Room.id)
+        .join(Apartment, Room.apartment_id == Apartment.id)
+        .where(
+            Estimate.id == estimate_id,
+            Apartment.user_id == current_user.id,
+            Room.deleted == False,
+        )
+    )
+    estimate = result.scalar_one_or_none()
+    if estimate is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
+
+    raw_lines: list[dict] = estimate.lines or []
+    total_uzs = estimate.total_uzs
+
+    return EstimateResponse(
+        id=estimate.id,
+        room_id=estimate.room_id,
+        lines=_jsonb_lines_to_schema(raw_lines),
+        total_uzs=total_uzs,
+        total_min=int(total_uzs * 0.9),
+        total_max=int(total_uzs * 1.1),
+        currency=estimate.currency,
+        status=estimate.status,
+        created_at=estimate.created_at,
+        has_electrical=_has_electrical(raw_lines),
     )
 
 

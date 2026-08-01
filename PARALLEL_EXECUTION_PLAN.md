@@ -59,7 +59,7 @@ cd backend
 
 ```bash
 # Day 1: React Navigation setup
-cd ../tamir_uy_mobile
+cd ../andoza_ai_mobile
 npm install
 # Create: src/navigation/RootNavigator.tsx
 # - BottomTabNavigator (4 tabs + FAB)
@@ -362,16 +362,16 @@ test_estimate_calculation_accuracy
 ### **Setup (One Time)**
 ```bash
 # Terminal 1: Backend running
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 source venv/bin/activate
 # Already running on :8000
 
 # Terminal 2: Frontend running
-cd /home/rimefara/projects/tamir_uy/frontend
+cd /home/rimefara/projects/andoza_ai/frontend
 # Already running on :5174
 
 # Terminal 3: Mobile dev
-cd /home/rimefara/projects/tamir_uy_mobile
+cd /home/rimefara/projects/andoza_ai_mobile
 npm install
 npm run dev
 # Choose: iOS, Android, or Web
@@ -383,7 +383,7 @@ npm run dev
 ### **Daily Web Testing**
 ```bash
 # Terminal (dedicated to web tests)
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 watch -n 10 './run_tests.sh'
 # Auto-runs every 10 seconds
 ```
@@ -391,7 +391,7 @@ watch -n 10 './run_tests.sh'
 ### **Daily Mobile Dev**
 ```bash
 # Terminal (dedicated to mobile)
-cd /home/rimefara/projects/tamir_uy_mobile
+cd /home/rimefara/projects/andoza_ai_mobile
 npm run dev
 # Hot reload on file change
 ```

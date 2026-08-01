@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # SMS Gateway  (Eskiz or Playmobile)
     # ------------------------------------------------------------------ #
     SMS_PROVIDER: str = "eskiz"        # "eskiz" | "playmobile"
-    SMS_SENDER_ID: str = "UyVision"
+    SMS_SENDER_ID: str = "AndozaAI"
 
     # Eskiz credentials
     ESKIZ_EMAIL: str = ""
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # S3-compatible object storage
     # ------------------------------------------------------------------ #
-    S3_BUCKET: str = "uyvision-media"
+    S3_BUCKET: str = "andoza-ai-media"
     S3_REGION: str = "us-east-1"
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""

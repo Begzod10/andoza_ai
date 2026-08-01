@@ -22,7 +22,7 @@ function UstaCard({
   onContact: (usta: Usta) => void;
 }) {
   return (
-    <div className="bg-surface rounded-card shadow-sm p-4 flex flex-col gap-3 animate-pop-in">
+    <div className="bg-surface rounded-lg shadow-subtle p-4 flex flex-col gap-3 animate-pop-in">
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
@@ -40,7 +40,7 @@ function UstaCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-gray-900 truncate">{usta.name}</h3>
+            <h3 className="font-bold text-neutral-900 truncate">{usta.name}</h3>
             {usta.verified && (
               <span className="bg-success/10 text-success text-xs font-semibold px-2 py-0.5 rounded-chip">
                 {uz.ustalar.verified}
@@ -68,7 +68,7 @@ function UstaCard({
       {/* Action */}
       <button
         onClick={() => onContact(usta)}
-        className="w-full bg-brand text-white py-2 rounded-card text-sm font-semibold hover:bg-brand/90 transition-colors"
+        className="w-full bg-brand text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors"
       >
         {uz.ustalar.usta_chaqirish}
       </button>
@@ -97,7 +97,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-surface rounded-card shadow-xl w-full max-w-md p-6 animate-fade-slide">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-slide">
         {success ? (
           <div className="text-center py-6">
             <p className="text-4xl mb-4">✓</p>
@@ -106,19 +106,19 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
             </h3>
             <button
               onClick={onClose}
-              className="mt-4 bg-brand text-white px-6 py-2 rounded-card text-sm font-semibold"
+              className="mt-4 bg-brand text-white px-6 py-2 rounded-lg text-sm font-semibold"
             >
               {uz.common.yopish}
             </button>
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <h2 className="text-lg font-bold text-neutral-900 mb-4">
               {usta.name} {uz.ustalar.boglaning}
             </h2>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-neutral-700">
                   {uz.auth.telefon}
                 </span>
                 <input
@@ -126,18 +126,18 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder={uz.auth.telefon_placeholder}
-                  className="mt-1 block w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-neutral-700">
                   {uz.ustalar.izoh}
                 </span>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={3}
-                  className="mt-1 block w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
+                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
                   placeholder="Xona haqida ma'lumot..."
                 />
               </label>
@@ -148,14 +148,14 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
             <div className="mt-5 flex gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 border-2 border-gray-300 py-2 rounded-card text-sm font-medium hover:border-brand transition-colors"
+                className="flex-1 border-2 border-neutral-300 py-2 rounded-lg text-sm font-medium hover:border-brand transition-colors"
               >
                 {uz.common.bekor}
               </button>
               <button
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending || !phone}
-                className="flex-1 bg-brand text-white py-2 rounded-card text-sm font-semibold hover:bg-brand/90 disabled:opacity-60 transition-colors"
+                className="flex-1 bg-brand text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand/90 disabled:opacity-60 transition-colors"
               >
                 {mutation.isPending ? uz.common.yuklanmoqda : uz.ustalar.yuborish}
               </button>
@@ -186,9 +186,9 @@ export default function UstalarPage() {
   return (
     <div className="min-h-screen bg-paper">
       {/* Header */}
-      <header className="bg-surface shadow-sm">
+      <header className="bg-surface shadow-subtle">
         <div className="max-w-5xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900">{uz.ustalar.sarlavha}</h1>
+          <h1 className="text-xl font-bold text-neutral-900">{uz.ustalar.sarlavha}</h1>
         </div>
       </header>
 
@@ -203,7 +203,7 @@ export default function UstalarPage() {
                 "px-4 py-1.5 rounded-chip text-sm font-medium border-2 transition-colors",
                 sort === opt.key
                   ? "border-brand bg-brand/10 text-brand"
-                  : "border-gray-200 hover:border-brand/40"
+                  : "border-neutral-200 hover:border-brand/40"
               )}
             >
               {opt.label}
@@ -216,7 +216,7 @@ export default function UstalarPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-surface rounded-card shadow-sm p-4 animate-pulse h-48"
+                className="bg-surface rounded-lg shadow-subtle p-4 animate-pulse h-48"
               />
             ))}
           </div>
