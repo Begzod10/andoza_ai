@@ -669,8 +669,19 @@ export default function WizardPage() {
 
   async function handleSave() {
     if (roomId) return  // already saved (local or real)
-    // Assign a local ID immediately so navigation is never blocked
-    const localId = crypto.randomUUID()
+    // Assign a local ID immediately so navigation is never blocked.
+    // NOTE: crypto.randomUUID() only exists in a secure context (HTTPS or
+    // localhost). In a mobile WebView / phone the app is served over plain
+    // HTTP from a LAN IP, where it's undefined and throws — which used to leave
+    // roomId null and disable the results buttons. Fall back to a manual UUID.
+    const localId =
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0
+            const v = c === 'x' ? r : (r & 0x3) | 0x8
+            return v.toString(16)
+          })
     setRoomId(localId)
     setSaving(true)
     try {
