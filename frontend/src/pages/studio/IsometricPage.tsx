@@ -187,7 +187,7 @@ export default function IsometricPage() {
   const smeta = hasOboy ? computeOboyRolls(geometry, designState.wallCoverings, ceilingHeight) : null
 
   return (
-    <div className="flex flex-col lg:flex-row" style={{ height: 'calc(100vh - 108px)' }}>
+    <div className="flex flex-col lg:flex-row h-full">
       {/* SVG Preview */}
       <div className="flex-1 min-h-0 flex items-center justify-center bg-paper p-6 overflow-hidden">
         <svg

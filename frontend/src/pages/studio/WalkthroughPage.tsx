@@ -131,7 +131,7 @@ export default function WalkthroughPage() {
   };
 
   return (
-    <div className="relative" style={{ height: "calc(100vh - 108px)" }}>
+    <div className="relative h-full">
       {/* 3D scene */}
       <Canvas
         camera={{ fov: 75, near: 0.05, far: 60, position: [0, 1.65, 0] }}

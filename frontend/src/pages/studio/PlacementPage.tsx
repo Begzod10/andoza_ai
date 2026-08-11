@@ -735,7 +735,7 @@ function FloorPlan({
       ref={svgRef}
       viewBox={`0 0 ${svgW} ${svgH}`}
       className="w-full drop-shadow-md select-none"
-      style={{ cursor, maxHeight: 'calc(100vh - 180px)' }}
+      style={{ cursor, maxHeight: 'calc(100dvh - 180px)' }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { setHover(null); setHoverLight(null) }}
       onClick={handleClick}
@@ -1551,7 +1551,7 @@ export default function PlacementPage() {
   const hasDevices = electricals.some(e => e.type !== 'panel')
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 108px)' }}>
+    <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 bg-surface border-b border-gray-200 text-xs shrink-0">
         {([

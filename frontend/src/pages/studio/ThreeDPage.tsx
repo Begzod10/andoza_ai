@@ -3690,7 +3690,7 @@ export default function ThreeDPage() {
   const activeIdx = RENO_STAGES.findIndex(s => s.key === activePhase);
 
   return (
-    <div className="flex flex-col lg:flex-row" style={{ height: "calc(100vh - 108px)" }}>
+    <div className="flex flex-col lg:flex-row h-full">
 
       {/* ── Mobile: horizontal phase strip ──────────────────────── */}
       <div className="flex lg:hidden shrink-0 overflow-x-auto bg-surface border-b border-gray-200 select-none" style={{ scrollbarWidth: 'none' }}>

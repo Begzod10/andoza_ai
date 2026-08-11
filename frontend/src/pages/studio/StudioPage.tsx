@@ -18,15 +18,15 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
   return (
-    <div className="flex justify-center px-4 py-2 bg-white border-b border-neutral-100">
-      <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1">
+    <div className="flex justify-start sm:justify-center px-3 sm:px-4 py-2 bg-white border-b border-neutral-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 min-w-max">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
+                "px-3 sm:px-4 py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all",
                 isActive
                   ? "bg-white text-brand shadow-sm"
                   : "text-neutral-500 hover:text-neutral-700"
@@ -260,7 +260,7 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-paper">
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
       {/* Header — design screen 08 */}
       <header className="bg-white">
         <div className="px-4 pt-3 pb-3 flex items-center gap-3">
