@@ -1,0 +1,87 @@
+# Production stack for a single-host deploy (raw IP:port over HTTP).
+#   API:      http://<host>:8000
+#   Frontend: http://<host>:5173
+#
+# Differences from docker-compose.yml (dev):
+#   - code is baked into images (no source bind-mounts, no --reload)
+#   - frontend is built once and served static via nginx
+#   - postgres/redis stay internal (no published host ports)
+#
+# Deploy:  docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: uytamir
+      POSTGRES_USER: ${POSTGRES_USER:-uytamir}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uytamir} -d uytamir"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: celery -A celery_app worker -l info -Q default,media -c 4
+    working_dir: /app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: ./backend
+    command: celery -A celery_app beat -l info
+    working_dir: /app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://189.74.96.11:8000/api/v1}
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
