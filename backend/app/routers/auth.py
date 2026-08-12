@@ -251,10 +251,16 @@ async def refresh_tokens(
 
     logger.info("tokens_rotated", user_id=user_id)
 
-    _set_auth_cookie(response, create_access_token(user_id))
-    _set_refresh_cookie(response, create_refresh_token(user_id))
+    access_token = create_access_token(user_id)
+    refresh_token_new = create_refresh_token(user_id)
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, refresh_token_new)
 
-    return LoginResponse(user=UserOut.model_validate(user))
+    return LoginResponse(
+        user=UserOut.model_validate(user),
+        access_token=access_token,
+        refresh_token=refresh_token_new,
+    )
 
 
 @router.post(
@@ -300,10 +306,16 @@ async def register(
     logger.info("user_registered", user_id=str(user.id), username=body.username)
 
     subject = str(user.id)
-    _set_auth_cookie(response, create_access_token(subject))
-    _set_refresh_cookie(response, create_refresh_token(subject))
+    access_token = create_access_token(subject)
+    refresh_token = create_refresh_token(subject)
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, refresh_token)
 
-    return LoginResponse(user=UserOut.model_validate(user))
+    return LoginResponse(
+        user=UserOut.model_validate(user),
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 @router.post(
