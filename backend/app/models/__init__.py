@@ -22,6 +22,7 @@ from app.models.electrical import RoomElectrical, ElectricalDevice  # noqa: F401
 from app.models.decoration import RoomDecoration  # noqa: F401
 from app.models.room_finish import RoomFinish  # noqa: F401
 from app.models.room_furniture_placement import RoomFurniturePlacement  # noqa: F401
+from app.models.order import Order, OrderLine  # noqa: F401
 
 __all__ = [
     "User",
@@ -41,4 +42,6 @@ __all__ = [
     "RoomDecoration",
     "RoomFinish",
     "RoomFurniturePlacement",
+    "Order",
+    "OrderLine",
 ]
