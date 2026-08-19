@@ -38,6 +38,12 @@ class Usta(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[str] = mapped_column(UstaCategory, nullable=False, index=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    lat: Mapped[float | None] = mapped_column(
+        Numeric(9, 6), nullable=True, comment="Latitude for the Ustalar map"
+    )
+    lng: Mapped[float | None] = mapped_column(
+        Numeric(9, 6), nullable=True, comment="Longitude for the Ustalar map"
+    )
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     telegram: Mapped[str | None] = mapped_column(String(100), nullable=True)
     rating: Mapped[float] = mapped_column(
