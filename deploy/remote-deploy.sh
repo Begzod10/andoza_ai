@@ -18,6 +18,14 @@ git reset --hard origin/master
 echo "==> Building & starting containers"
 docker compose -f "$COMPOSE_FILE" up -d --build
 
+echo "==> Seeding catalog (idempotent) + clearing materials cache"
+# Give the api a moment to finish `alembic upgrade head` on boot before seeding.
+sleep 10
+docker compose -f "$COMPOSE_FILE" exec -T api python -m app.seed_catalog || echo "!! seed skipped/failed (non-fatal)"
+# The /materials response is cached 10 min; drop those keys so freshly seeded
+# rows appear immediately.
+docker compose -f "$COMPOSE_FILE" exec -T redis sh -c "redis-cli --scan --pattern 'materials:*' | xargs -r redis-cli DEL" || true
+
 echo "==> Pruning dangling images"
 docker image prune -f
 
