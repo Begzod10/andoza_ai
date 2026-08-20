@@ -13,10 +13,12 @@ from app.core.cache import cache_get, cache_set
 from app.database import get_db
 from app.models.furniture import Furniture
 from app.models.material import Material
+from app.models.material_offer import MaterialOffer
 from app.models.store import Store
 from app.models.usta import Usta
 from app.schemas.catalog import FurnitureOut, PaginatedFurniture, StoreOut
 from app.schemas.material import MaterialOut, PaginatedMaterials
+from app.schemas.material_offer import MaterialOfferOut
 from app.schemas.usta import UstaOut
 
 logger = structlog.get_logger(__name__)
@@ -74,6 +76,41 @@ async def list_materials(
     )
     await cache_set(cache_key, payload.model_dump(mode="json"), ttl=_CATALOG_CACHE_TTL)
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Material offers (multi-dealer pricing / dealer comparison)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/materials/{material_id}/offers",
+    response_model=list[MaterialOfferOut],
+    summary="Offers for a material across stores, cheapest first",
+)
+async def list_material_offers(
+    material_id: UUID,
+    db: DbSession,
+) -> list[MaterialOfferOut]:
+    result = await db.execute(
+        select(MaterialOffer, Store)
+        .join(Store, MaterialOffer.store_id == Store.id)
+        .where(MaterialOffer.material_id == material_id)
+        .order_by(MaterialOffer.price_uzs)
+    )
+    return [
+        MaterialOfferOut(
+            id=offer.id,
+            material_id=offer.material_id,
+            store_id=offer.store_id,
+            store_name=store.name,
+            store_district=store.district,
+            store_partner_tier=store.partner_tier,
+            price_uzs=offer.price_uzs,
+            in_stock=offer.in_stock,
+            delivery_days=offer.delivery_days,
+        )
+        for offer, store in result.all()
+    ]
 
 
 # ---------------------------------------------------------------------------

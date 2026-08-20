@@ -23,6 +23,7 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.models.material import Material, MaterialCategory, MaterialUnit
+from app.models.material_offer import MaterialOffer
 from app.models.store import Store
 from app.models.usta import Usta, UstaCategory
 
@@ -273,10 +274,23 @@ for _u in USTALAR:
     _u["avatar_url"] = f"https://i.pravatar.cc/300?u={_u['phone']}"
 
 
+# ---------------------------------------------------------------------------
+# Multi-dealer pricing. Every material is offered by all three seeded stores:
+#   * its OWN store sells at the base price (factor 1.0);
+#   * the two OTHER stores sell at deterministically-varied prices.
+# Prices/delivery/stock are derived purely from store index + material index
+# (no randomness), so re-running the seed is stable and idempotent.
+# ---------------------------------------------------------------------------
+STORE_ORDER = [s["name"] for s in STORES]
+# Per-store price factors applied when a store is NOT the material's own store.
+_OTHER_FACTORS = [0.92, 1.12, 1.22]
+
+
 async def seed() -> None:
     stores_inserted = stores_skipped = 0
     materials_inserted = materials_skipped = materials_backfilled = 0
     ustalar_inserted = ustalar_skipped = ustalar_backfilled = 0
+    offers_inserted = offers_skipped = 0
 
     async with AsyncSessionLocal() as session:
         # --- Stores -------------------------------------------------------
@@ -296,6 +310,9 @@ async def seed() -> None:
             stores_inserted += 1
 
         # --- Materials ----------------------------------------------------
+        # Track (material_id, base_price, own_store_id) so we can create the
+        # cross-store offers below.
+        material_targets: list[tuple[object, int, object]] = []
         for row in MATERIALS:
             store_id = store_ids[row["store"]]
             existing = await session.scalar(
@@ -310,17 +327,19 @@ async def seed() -> None:
                     existing.image_url = row["image_url"]
                     materials_backfilled += 1
                 materials_skipped += 1
+                material_targets.append((existing.id, existing.price_uzs, store_id))
                 continue
-            session.add(
-                Material(
-                    store_id=store_id,
-                    name_uz=row["name_uz"],
-                    category=row["category"],
-                    unit=row["unit"],
-                    price_uzs=row["price_uzs"],
-                    image_url=row["image_url"],
-                )
+            material = Material(
+                store_id=store_id,
+                name_uz=row["name_uz"],
+                category=row["category"],
+                unit=row["unit"],
+                price_uzs=row["price_uzs"],
+                image_url=row["image_url"],
             )
+            session.add(material)
+            await session.flush()  # populate material.id
+            material_targets.append((material.id, row["price_uzs"], store_id))
             materials_inserted += 1
 
         # --- Ustalar ------------------------------------------------------
@@ -341,6 +360,41 @@ async def seed() -> None:
             session.add(Usta(is_active=True, **row))
             ustalar_inserted += 1
 
+        # --- Material offers (multi-dealer pricing) -----------------------
+        # Each material gets one offer per seeded store: its own store at the
+        # base price, and the other two stores at varied prices/delivery.
+        store_id_list = [store_ids[name] for name in STORE_ORDER]
+        for mi, (material_id, base_price, own_store_id) in enumerate(material_targets):
+            for si, store_id in enumerate(store_id_list):
+                if store_id == own_store_id:
+                    factor = 1.0
+                else:
+                    factor = _OTHER_FACTORS[(si + mi) % len(_OTHER_FACTORS)]
+                price = int(round(base_price * factor))
+                delivery_days = (si + mi) % 4 + 1  # 1..4
+                # Own store is always in stock; others occasionally out.
+                in_stock = store_id == own_store_id or (si * 3 + mi) % 7 != 0
+
+                existing_offer = await session.scalar(
+                    select(MaterialOffer).where(
+                        MaterialOffer.material_id == material_id,
+                        MaterialOffer.store_id == store_id,
+                    )
+                )
+                if existing_offer is not None:
+                    offers_skipped += 1
+                    continue
+                session.add(
+                    MaterialOffer(
+                        material_id=material_id,
+                        store_id=store_id,
+                        price_uzs=price,
+                        in_stock=in_stock,
+                        delivery_days=delivery_days,
+                    )
+                )
+                offers_inserted += 1
+
         await session.commit()
 
     print("Seed complete.")
@@ -353,6 +407,7 @@ async def seed() -> None:
         f"  Ustalar   : inserted {ustalar_inserted}, skipped {ustalar_skipped}"
         f" (avatar_url backfilled {ustalar_backfilled})"
     )
+    print(f"  Offers    : inserted {offers_inserted}, skipped {offers_skipped}")
 
 
 if __name__ == "__main__":
