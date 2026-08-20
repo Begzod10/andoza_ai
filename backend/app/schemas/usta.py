@@ -15,6 +15,7 @@ class UstaOut(BaseModel):
     lng: float | None = None
     phone: str
     telegram: str | None
+    avatar_url: str | None = None
     rating: float
     jobs_count: int
     price_min: int | None

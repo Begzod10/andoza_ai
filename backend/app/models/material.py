@@ -66,6 +66,7 @@ class Material(Base):
     texture_key: Mapped[str | None] = mapped_column(
         String(200), nullable=True, comment="S3 object key for the texture image"
     )
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     pbr_roughness: Mapped[float] = mapped_column(
         Numeric(3, 2), nullable=False, default=0.5, comment="0.0 = mirror, 1.0 = matte"
     )

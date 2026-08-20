@@ -16,6 +16,8 @@ that already exist (store by name, material by (store_id, name_uz), usta by
 from __future__ import annotations
 
 import asyncio
+import re
+import unicodedata
 
 from sqlalchemy import select
 
@@ -47,6 +49,19 @@ def _unit(value: str) -> str:
 def _usta_cat(value: str) -> str:
     assert value in _USTA_CATEGORIES, f"bad usta category {value!r}"
     return value
+
+
+def _slugify(value: str) -> str:
+    """URL-safe ascii slug: lowercase, ascii, hyphen-separated.
+
+    e.g. "Vetonit shpaklovka" -> "vetonit-shpaklovka".
+    """
+    ascii_value = (
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+    return re.sub(r"[^a-z0-9]+", "-", ascii_value.lower()).strip("-")
 
 
 # ---------------------------------------------------------------------------
@@ -247,11 +262,21 @@ USTALAR = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# Deterministic image URLs. Materials use picsum keyed by a slug of name_uz;
+# ustalar use pravatar keyed by phone. Both load reliably over HTTPS.
+# ---------------------------------------------------------------------------
+for _m in MATERIALS:
+    _m["image_url"] = f"https://picsum.photos/seed/{_slugify(_m['name_uz'])}/600/400"
+
+for _u in USTALAR:
+    _u["avatar_url"] = f"https://i.pravatar.cc/300?u={_u['phone']}"
+
 
 async def seed() -> None:
     stores_inserted = stores_skipped = 0
-    materials_inserted = materials_skipped = 0
-    ustalar_inserted = ustalar_skipped = 0
+    materials_inserted = materials_skipped = materials_backfilled = 0
+    ustalar_inserted = ustalar_skipped = ustalar_backfilled = 0
 
     async with AsyncSessionLocal() as session:
         # --- Stores -------------------------------------------------------
@@ -280,6 +305,10 @@ async def seed() -> None:
                 )
             )
             if existing is not None:
+                # Backfill image_url on a previously-seeded row.
+                if existing.image_url is None:
+                    existing.image_url = row["image_url"]
+                    materials_backfilled += 1
                 materials_skipped += 1
                 continue
             session.add(
@@ -289,6 +318,7 @@ async def seed() -> None:
                     category=row["category"],
                     unit=row["unit"],
                     price_uzs=row["price_uzs"],
+                    image_url=row["image_url"],
                 )
             )
             materials_inserted += 1
@@ -302,6 +332,10 @@ async def seed() -> None:
                 )
             )
             if existing is not None:
+                # Backfill avatar_url on a previously-seeded row.
+                if existing.avatar_url is None:
+                    existing.avatar_url = row["avatar_url"]
+                    ustalar_backfilled += 1
                 ustalar_skipped += 1
                 continue
             session.add(Usta(is_active=True, **row))
@@ -311,8 +345,14 @@ async def seed() -> None:
 
     print("Seed complete.")
     print(f"  Stores    : inserted {stores_inserted}, skipped {stores_skipped}")
-    print(f"  Materials : inserted {materials_inserted}, skipped {materials_skipped}")
-    print(f"  Ustalar   : inserted {ustalar_inserted}, skipped {ustalar_skipped}")
+    print(
+        f"  Materials : inserted {materials_inserted}, skipped {materials_skipped}"
+        f" (image_url backfilled {materials_backfilled})"
+    )
+    print(
+        f"  Ustalar   : inserted {ustalar_inserted}, skipped {ustalar_skipped}"
+        f" (avatar_url backfilled {ustalar_backfilled})"
+    )
 
 
 if __name__ == "__main__":

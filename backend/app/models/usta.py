@@ -46,6 +46,7 @@ class Usta(Base):
     )
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     telegram: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     rating: Mapped[float] = mapped_column(
         Numeric(3, 2),
         nullable=False,
