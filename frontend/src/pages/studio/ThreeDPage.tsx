@@ -49,8 +49,15 @@ import { saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { nanoid } from "nanoid";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
-import { DEFAULT_HDRI } from "@/lib/hdri";
 import { roomExtents } from "@/lib/roomDims";
+import { toDiffuseOnly } from "@/lib/modelMaterials";
+import { fitShadowFrustum } from "@/lib/shadowFrustum";
+import { createSkyTexture, skyIntensity, skyFogColor } from "@/lib/skyEnvironment";
+import {
+  ceilingDesign, resolveCeilingSettings, buildCeilingParts, DEFAULT_CEILING_DESIGN,
+  type CeilingDesignId, type CeilingSettings, type CeilingPart,
+} from "@/lib/ceilingDesigns";
+import { sunPosition, dayOfYear, type SunState } from "@/lib/sunPosition";
 import { LightFixture, fixturePose } from "@/components/studio/LightFixtures";
 import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
 import type { LightTypeId } from "@/lib/lightCatalog";
@@ -112,6 +119,34 @@ function DoubleClickFocus({
     c.update();
   });
 
+  return null;
+}
+
+// Every frame, before anything else draws.
+//
+// postprocessing's EffectComposer turns the renderer's auto-clear OFF the
+// moment it attaches — permanently, by design, and it never puts it back.
+// Anything that then renders into its own target draws on top of whatever was
+// there last frame instead of a clean buffer. drei's ContactShadows is exactly
+// that: it re-renders the room into a shadow texture every frame, so with
+// auto-clear off each frame's silhouette is stacked on the previous ones and
+// furniture leaves its old shadow smeared across the floor after being moved.
+// The same stale-buffer problem hits the main view once the composer unmounts
+// (a PerformanceMonitor decline does that) and r3f goes back to drawing
+// directly.
+//
+// Restoring the flag is safe for the composer itself: @react-three/postprocessing
+// sets auto-clear explicitly around its own pass and restores it afterwards,
+// so it never reads the value we put back.
+//
+// Priority is negative so this runs ahead of every default-priority useFrame —
+// ContactShadows' included. r3f only treats priority > 0 as "takes over
+// rendering", so a negative one just orders the callback first.
+function KeepAutoClear() {
+  const gl = useThree((s) => s.gl);
+  useFrame(() => {
+    if (!gl.autoClear) gl.autoClear = true;
+  }, -1);
   return null;
 }
 
@@ -1311,6 +1346,127 @@ function CeilingLights({
   );
 }
 
+// ─── User-placed lights, shared by every view ─────────────────────────────────
+
+/**
+ * The real emitters for the user-placed set.
+ *
+ * Only a few fixtures actually light the room — `nLights` of them, spread
+ * evenly through the list — while every fixture still glows. Pooling keeps
+ * frame time flat as the count grows, and is invisible otherwise because each
+ * pooled light carries its own colour temperature, brightness and beam.
+ */
+function PooledLightEmitters({
+  lights, roomW, roomD, roomH, lightsOn, highQuality,
+}: {
+  lights: PlacedLight[]
+  roomW: number
+  roomD: number
+  roomH: number
+  lightsOn: boolean
+  highQuality: boolean
+}) {
+  if (!lightsOn || lights.length === 0) return null
+
+  const nLights = highQuality ? Math.min(4, lights.length) : Math.min(2, lights.length)
+  const perIntensity = 1.4 / Math.max(1, nLights)
+  const spread = Math.max(roomW, roomD) * 1.9
+  const pooled = nLights > 0
+    ? Array.from({ length: nLights }, (_, k) => lights[Math.min(Math.round(k * lights.length / nLights), lights.length - 1)])
+    : []
+
+  return (
+    <>
+      {pooled.filter((l) => !l.off).map((l, k) => {
+        const t = lightType(l.type)
+        const pose = fixturePose(l, t, roomW, roomD, roomH)
+        const color = kelvinToHex(l.colorK ?? t.colorK)
+        const intensity = perIntensity * lumensToIntensity(t.lumens, l.brightnessPct ?? 100)
+        const beam = l.beamDeg ?? t.beamDeg
+
+        // A beam angle means a cone: aim it down, tilted by the fixture's own
+        // tilt so the pool of light lands where the body is pointing.
+        if (beam !== undefined) {
+          const tilt = l.tiltRad ?? 0
+          const yaw = l.rotation ?? 0
+          const reach = Math.max(1.5, pose.y)
+          return (
+            <spotLight
+              key={k}
+              position={[pose.x, pose.y - 0.05, pose.z]}
+              target-position={[
+                pose.x + Math.sin(tilt) * Math.sin(yaw) * reach,
+                Math.max(0, pose.y - reach),
+                pose.z + Math.sin(tilt) * Math.cos(yaw) * reach,
+              ]}
+              color={color}
+              intensity={intensity * 2.2}
+              angle={THREE.MathUtils.degToRad(beam) / 2}
+              penumbra={0.45}
+              distance={spread}
+              decay={2}
+            />
+          )
+        }
+        return (
+          <pointLight
+            key={k}
+            position={[pose.x, pose.y - 0.06, pose.z]}
+            color={color}
+            intensity={intensity}
+            distance={spread}
+            decay={2}
+          />
+        )
+      })}
+    </>
+  )
+}
+
+/**
+ * User-placed lights, read-only.
+ *
+ * The editor gets DraggableLightModels; every other view — the walkthrough,
+ * the elektr 3D preview — renders this, so a fixture placed in Chiroqlar is
+ * lit and drawn the same way wherever the room is shown. Without it those
+ * views fall dark the moment the first fixture is placed, because CeilingLights
+ * stands down as soon as the user has placed any.
+ */
+export function PlacedLights({
+  roomW, roomD, roomH, lightsOn, highQuality,
+}: {
+  roomW: number
+  roomD: number
+  roomH: number
+  lightsOn: boolean
+  highQuality: boolean
+}) {
+  const lights = useRoomStore((s) => s.lights)
+  if (lights.length === 0) return null
+
+  return (
+    <>
+      <PooledLightEmitters
+        lights={lights}
+        roomW={roomW}
+        roomD={roomD}
+        roomH={roomH}
+        lightsOn={lightsOn}
+        highQuality={highQuality}
+      />
+      {lights.map((l) => {
+        const t = lightType(l.type)
+        const pose = fixturePose(l, t, roomW, roomD, roomH)
+        return (
+          <group key={l.id} position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
+            <LightFixture light={l} on={lightsOn} />
+          </group>
+        )
+      })}
+    </>
+  )
+}
+
 // ─── Draggable ceiling lights (user-placed from elektr menu) ──────────────────
 
 function DraggableLightModels({
@@ -1345,14 +1501,6 @@ function DraggableLightModels({
   const ceilingPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, -1, 0), roomH), [roomH])
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const hitPoint = useRef(new THREE.Vector3())
-
-  const nLights = highQuality ? Math.min(4, lights.length) : Math.min(2, lights.length);
-  const perIntensity = 1.4 / Math.max(1, nLights);
-  const spread = Math.max(roomW, roomD) * 1.9;
-  // Pick evenly-spaced lights from the user-placed set for real pointLights
-  const pooledLights = lights.length > 0 && nLights > 0
-    ? Array.from({ length: nLights }, (_, k) => lights[Math.min(Math.round(k * lights.length / nLights), lights.length - 1)])
-    : [];
 
   function startDrag(light: PlacedLight, e: ThreeEvent<PointerEvent>) {
     if (toolMode === 'select') return
@@ -1405,51 +1553,15 @@ function DraggableLightModels({
   if (lights.length === 0) return null
   return (
     <>
-      {/* Pooled real emitters — every fixture glows, but only a few actually
-          light the room. Each carries its own colour temperature and beam, so
-          the pooling is invisible except in frame time. */}
-      {lightsOn && pooledLights.filter((l) => !l.off).map((l, k) => {
-        const t = lightType(l.type)
-        const pose = fixturePose(l, t, roomW, roomD, roomH)
-        const color = kelvinToHex(l.colorK ?? t.colorK)
-        const intensity = perIntensity * lumensToIntensity(t.lumens, l.brightnessPct ?? 100)
-        const beam = l.beamDeg ?? t.beamDeg
-
-        // A beam angle means a cone: aim it down, tilted by the fixture's own
-        // tilt so the pool of light lands where the body is pointing.
-        if (beam !== undefined) {
-          const tilt = l.tiltRad ?? 0
-          const yaw = l.rotation ?? 0
-          const reach = Math.max(1.5, pose.y)
-          return (
-            <spotLight
-              key={k}
-              position={[pose.x, pose.y - 0.05, pose.z]}
-              target-position={[
-                pose.x + Math.sin(tilt) * Math.sin(yaw) * reach,
-                Math.max(0, pose.y - reach),
-                pose.z + Math.sin(tilt) * Math.cos(yaw) * reach,
-              ]}
-              color={color}
-              intensity={intensity * 2.2}
-              angle={THREE.MathUtils.degToRad(beam) / 2}
-              penumbra={0.45}
-              distance={spread}
-              decay={2}
-            />
-          )
-        }
-        return (
-          <pointLight
-            key={k}
-            position={[pose.x, pose.y - 0.06, pose.z]}
-            color={color}
-            intensity={intensity}
-            distance={spread}
-            decay={2}
-          />
-        )
-      })}
+      {/* Same emitters every other view gets — see PooledLightEmitters. */}
+      <PooledLightEmitters
+        lights={lights}
+        roomW={roomW}
+        roomD={roomD}
+        roomH={roomH}
+        lightsOn={lightsOn}
+        highQuality={highQuality}
+      />
 
       {lights.map((l) => {
         const t = lightType(l.type)
@@ -1723,50 +1835,205 @@ function CornerShadows({ width, depth, composerActive }: { width: number; depth:
   );
 }
 
+/** For meshes that must stay in the scene but out of every pick. */
+const noRaycast = () => {}
+
+/** Fractional hours as a wall clock — 13.25 → "13:15". */
+function formatClock(hour: number): string {
+  const h = Math.floor(hour)
+  const m = Math.round((hour - h) * 60)
+  return `${h}:${String(m).padStart(2, '0')}`
+}
+
+// ─── Ceiling designs ──────────────────────────────────────────────────────────
+
+/**
+ * The room's ceiling: the structural slab, plus whatever profile is built
+ * below it.
+ *
+ * The slab plane is always there and always casts — see the note at
+ * `ceilingHidden` in RoomScene for why hiding it is done at the material and
+ * not with `visible` or a layer. The profile hangs beneath it, so it is only
+ * worth building when the ceiling is being looked at; the slab blocks the sun
+ * either way, which is the one part that must not depend on the view.
+ */
+function Ceiling({
+  W, D, H, T, designId, settings, hidden, meshRef,
+}: {
+  W: number; D: number; H: number; T: number
+  designId: CeilingDesignId
+  settings?: Partial<CeilingSettings>
+  hidden: boolean
+  meshRef: React.MutableRefObject<THREE.Mesh | null>
+}) {
+  const design = ceilingDesign(designId)
+  const resolved = useMemo(() => resolveCeilingSettings(design, settings), [design, settings])
+  const parts = useMemo(
+    () => buildCeilingParts(design, resolved, W, D, H),
+    [design, resolved, W, D, H],
+  )
+
+  return (
+    <group>
+      <mesh ref={meshRef} position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <planeGeometry args={[W + 2 * T, D + 2 * T]} />
+        <meshStandardMaterial
+          color={resolved.color}
+          roughness={0.95}
+          side={THREE.FrontSide}
+          colorWrite={!hidden}
+          depthWrite={!hidden}
+        />
+      </mesh>
+      {!hidden && parts.length > 0 && (
+        <CeilingProfile parts={parts} color={resolved.color} stripK={resolved.stripK} />
+      )}
+    </group>
+  )
+}
+
+/**
+ * The dropped boxes and the hidden LED.
+ *
+ * Strips are drawn unlit and untone-mapped so they read as the source rather
+ * than as a pale surface that happens to be bright: a cove LED is the one thing
+ * in the room that should not respond to the room's own lighting.
+ */
+function CeilingProfile({
+  parts, color, stripK,
+}: {
+  parts: CeilingPart[]
+  color: string
+  stripK: number
+}) {
+  const stripColor = kelvinToHex(stripK)
+  return (
+    <group>
+      {parts.map((part, i) => (
+        <mesh
+          key={i}
+          position={part.position}
+          castShadow={part.kind === 'panel'}
+          receiveShadow={part.kind === 'panel'}
+          raycast={noRaycast}
+        >
+          <boxGeometry args={part.size} />
+          {part.kind === 'strip' ? (
+            <meshBasicMaterial color={stripColor} toneMapped={false} />
+          ) : (
+            <meshStandardMaterial color={color} roughness={0.92} metalness={0} />
+          )}
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+/**
+ * Installs the generated sky as both the view out of the window and the room's
+ * image-based lighting.
+ *
+ * Both, from one texture, on purpose: a sky that is dark in the window while
+ * still filling the room with midday bounce is the mismatch this whole thing
+ * exists to remove.
+ */
+export function BrandedSky({ sun }: { sun: SunState }) {
+  const scene = useThree((s) => s.scene)
+  const invalidate = useThree((s) => s.invalidate)
+  const texture = useMemo(() => createSkyTexture(sun), [sun])
+
+  useEffect(() => {
+    const prevBg = scene.background
+    const prevEnv = scene.environment
+    scene.background = texture
+    scene.environment = texture
+    scene.environmentIntensity = skyIntensity(sun)
+    invalidate()
+    return () => {
+      if (scene.background === texture) scene.background = prevBg
+      if (scene.environment === texture) scene.environment = prevEnv
+      texture.dispose()
+    }
+  }, [scene, texture, sun, invalidate])
+
+  return null
+}
+
 // ─── Lighting ─────────────────────────────────────────────────────────────────
 
+
 export function SceneLighting({
-  width, depth, height, highQuality,
+  width, depth, height, highQuality, sun,
 }: {
   width: number; depth: number; height: number; highQuality: boolean
+  /**
+   * Where the sun actually stands, from `sunPosition`. Omit it and the light
+   * falls back to the fixed studio key — which is what the elektr preview and
+   * the walkthrough still want, since neither offers a clock to set.
+   */
+  sun?: SunState
 }) {
-  const sunRef = useRef<THREE.DirectionalLight | null>(null)
+  // No layer juggling here on purpose. Enabling a layer on `shadow.camera`
+  // looks like it should let the shadow map see objects the view camera hides,
+  // and does nothing at all: three culls shadow casters against the *view*
+  // camera's layers (WebGLShadowMap's renderObject tests
+  // `object.layers.test(camera.layers)` with the camera it was handed, which is
+  // the one you are looking through). Hiding a caster is done at the material
+  // instead — see the ceiling in RoomScene.
 
-  // Enable layer 2 on the shadow camera so the ceiling mesh (moved to layer 2 in
-  // topView) still appears in the shadow map and blocks the sun from above.
-  useLayoutEffect(() => {
-    sunRef.current?.shadow.camera.layers.enable(2)
-  }, [])
-
-  // Frustum fitted tightly to the room so shadow texels aren't wasted
-  const hw = width / 2 + 1.2
-  const hd = depth / 2 + 1.2
   const mapSize = highQuality ? 2048 : 1024
+
+  // Far enough out that a low sun still clears the room instead of standing
+  // inside its own shadow frustum.
+  const dist = Math.max(width, depth, height) * 1.6 + 4
+  const position: [number, number, number] = sun
+    ? [sun.direction[0] * dist, sun.direction[1] * dist, sun.direction[2] * dist]
+    : [width * 0.3, height * 1.8, depth * 0.3]
+
+  // Fit the shadow frustum to the room as the sun actually sees it.
+  //
+  // These bounds are in the LIGHT's view space, not the world's, so a fixed box
+  // around the plan is only ever right for a sun straight overhead. As the sun
+  // drops, the room's silhouette from up there grows tall and slides sideways,
+  // and whatever falls outside the frustum samples as having no occluder at
+  // all — which is how a closed ceiling ended up with a hard-edged wedge of
+  // sunlight lying across the walls beneath it.
+  //
+  // Projecting the room's eight corners onto the light's own axes costs
+  // nothing and is right from every direction.
+  const shadowBox = fitShadowFrustum(position, width, height, depth)
+
+  // Sky bounce follows the sun down. Without this the room keeps a full midday
+  // fill under an orange dusk key, which reads as a colour bug rather than as
+  // evening. The floor of 0.18 is what keeps a night room navigable.
+  const daylight = sun
+    ? Math.max(0.18, Math.pow(Math.sin(Math.max(sun.altitude, 0) * (Math.PI / 180)), 0.6))
+    : 1
 
   return (
     <>
       {/* Warm low-angle directional "sun" for form-shading and realistic shadows */}
       <directionalLight
-        ref={sunRef}
-        color="#FFF3DE"
-        intensity={highQuality ? 1.3 : 1.0}
-        position={[width * 0.3, height * 1.8, depth * 0.3]}
-        castShadow
+        color={sun ? sun.color : "#FFF3DE"}
+        intensity={sun ? sun.intensity : highQuality ? 1.3 : 1.0}
+        position={position}
+        // A set sun contributes nothing, so its shadow map is pure cost.
+        castShadow={sun ? sun.isUp : true}
         shadow-mapSize={[mapSize, mapSize]}
-        shadow-camera-left={-hw}
-        shadow-camera-right={hw}
-        shadow-camera-top={hd}
-        shadow-camera-bottom={-hd}
-        shadow-camera-near={0.5}
-        shadow-camera-far={height * 3 + Math.max(width, depth)}
+        shadow-camera-left={-shadowBox.hw}
+        shadow-camera-right={shadowBox.hw}
+        shadow-camera-top={shadowBox.hh}
+        shadow-camera-bottom={-shadowBox.hh}
+        shadow-camera-near={shadowBox.near}
+        shadow-camera-far={shadowBox.far}
         shadow-bias={-0.0008}
         shadow-normalBias={0.02}
         shadow-radius={4}
       />
       {/* Cool sky-bounce fill light — much dimmer so shadows read clearly */}
-      <hemisphereLight color="#DCE8FF" groundColor="#CFC6B4" intensity={0.35} />
+      <hemisphereLight color="#DCE8FF" groundColor="#CFC6B4" intensity={0.35 * daylight} />
       {/* Ambient floor to prevent pitch-black occluded areas */}
-      <ambientLight color="#FFFFFF" intensity={0.18} />
+      <ambientLight color="#FFFFFF" intensity={0.18 * daylight} />
     </>
   );
 }
@@ -2072,29 +2339,11 @@ function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
   )
 }
 
-function enhanceMaterial(m: THREE.Material): THREE.Material {
-  if (!(m instanceof THREE.MeshStandardMaterial)) return m
-  // Always clone, never rebuild — the clone also keeps per-instance color
-  // overrides from bleeding into other models sharing the material.
-  // Constructing a fresh material instead dropped vertexColors, aoMap /
-  // lightMap / emissiveMap, transparency and side; and since glTF
-  // baseColorFactor defaults to white, anything coloured by one of those
-  // routes came out as pure white plastic.
-  const c = m.clone()
-  c.name = m.name
-  if (!m.map && !m.normalMap && !m.roughnessMap) {
-    // Flat, map-less material: give it a plausible furniture response
-    c.roughness = 0.65
-    c.metalness = 0.05
-    c.envMapIntensity = 1.2
-  }
-  return c
-}
-
 /** Most parts detailed in the import diagnostic — see the note in prepareMesh. */
 const REPORT_LIMIT = 40
 
-/** Set shadows on every mesh + enhance flat materials. Preserves single-vs-array structure. */
+/** Set shadows on every mesh + strip its materials down to colour.
+ *  Preserves single-vs-array structure. */
 function prepareMesh(obj: THREE.Object3D, debugLabel?: string) {
   const report: Record<string, unknown>[] = []
   let parts = 0
@@ -2103,9 +2352,9 @@ function prepareMesh(obj: THREE.Object3D, debugLabel?: string) {
     child.castShadow = true
     child.receiveShadow = true
     if (Array.isArray(child.material)) {
-      child.material = child.material.map(enhanceMaterial)
+      child.material = child.material.map(toDiffuseOnly)
     } else {
-      child.material = enhanceMaterial(child.material as THREE.Material)
+      child.material = toDiffuseOnly(child.material as THREE.Material)
     }
     if (!import.meta.env.DEV || !debugLabel) return
     parts += 1
@@ -2944,12 +3193,29 @@ function NWallRoomShell({
         />
       </mesh>
 
-      {/* Ceiling DISABLED TEMPORARILY to diagnose artifact */}
-      {false && (
-        <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, H, 0]} castShadow>
-          <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.DoubleSide} />
-        </mesh>
-      )}
+      {/* Ceiling, as a shadow caster only.
+          A scanned room is always drawn open-topped, so this never needs to be
+          seen — but without it the sun falls straight through the roof onto the
+          floor, which is what gave the ABCD rooms away. Writing neither colour
+          nor depth keeps it in the shadow map while drawing nothing, so it also
+          cannot bring back the bright sliver this mesh was switched off to
+          diagnose (that turned out to be a mis-rotated plane in the other room
+          shell, fixed there). */}
+      <mesh
+        geometry={polyGeo}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, H, 0]}
+        castShadow
+        raycast={noRaycast}
+      >
+        <meshStandardMaterial
+          color={CEILING_DEFAULT}
+          roughness={0.95}
+          side={THREE.DoubleSide}
+          colorWrite={false}
+          depthWrite={false}
+        />
+      </mesh>
 
       {/* One wall box per polygon edge */}
       {centred.map(([x1, z1], i) => {
@@ -3105,14 +3371,28 @@ export function RoomScene({
   const hiddenWalls = useHiddenWalls(cutaway)
   const cutawayOn = cutaway !== 'off'
 
-  // In topView the camera must see through the ceiling, but the ceiling box must still
-  // block the directional sun (shadow map). Move it to layer 2 so the main camera
-  // ignores it while the sun's shadow camera (which has layer 2 enabled) still sees it.
-  // The cutaway diorama is an open box, so the ceiling hides there too.
+  // Top view and the cutaway diorama both look into an open-topped box. That is
+  // a viewing convention, not a hole in the building: the room still has a roof,
+  // and the sun must still stop at it. Let it through and daylight lands
+  // straight on the floor with hard shadows of the walls across it — the
+  // giveaway that the "room" is a doll's house.
+  //
+  // So the ceiling is hidden the only way a shadow caster can be. `visible =
+  // false` drops it out of the shadow map (WebGLShadowMap returns early on it),
+  // and so does parking it on a layer the camera ignores — casters are culled
+  // against the *view* camera's layers, never the shadow camera's, which is why
+  // the layer trick this replaces quietly stopped blocking anything. Writing
+  // neither colour nor depth leaves it fully present in the pass and draws
+  // nothing.
+  const ceilingHidden = topView || cutawayOn
+
+  // Invisible must also mean unclickable — otherwise the hidden ceiling
+  // swallows every pick in top view, which is where the plan is edited.
   useLayoutEffect(() => {
-    if (!ceilingRef.current) return
-    ceilingRef.current.layers.set(topView || cutawayOn ? 2 : 0)
-  }, [topView, cutawayOn])
+    const mesh = ceilingRef.current
+    if (!mesh) return
+    mesh.raycast = ceilingHidden ? noRaycast : THREE.Mesh.prototype.raycast
+  }, [ceilingHidden])
 
   return (
     <group>
@@ -3136,10 +3416,13 @@ export function RoomScene({
               the wall silhouette at grazing angles). Rotating +90° about X lays the plane
               flat in the XZ plane at y = H with its normal pointing down (-Y), i.e. facing
               into the room so FrontSide correctly renders the interior-facing side. */}
-          <mesh ref={ceilingRef} position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <planeGeometry args={[W + 2 * T, D + 2 * T]} />
-            <meshStandardMaterial color={CEILING_DEFAULT} roughness={0.95} side={THREE.FrontSide} />
-          </mesh>
+          <Ceiling
+            W={W} D={D} H={H} T={T}
+            designId={designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN}
+            settings={designState.ceiling?.settings}
+            hidden={ceilingHidden}
+            meshRef={ceilingRef}
+          />
 
           {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
@@ -3448,6 +3731,19 @@ export default function ThreeDPage() {
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [lightsOn, setLightsOn] = useState(true);
   const [sceneLightOn, setSceneLightOn] = useState(true);
+  // Shared with the walkthrough — see the note on `sunHour` in the store.
+  const sunHour = useRoomStore((st) => st.sunHour);
+  const setSunHour = useRoomStore((st) => st.setSunHour);
+  const today = useMemo(() => dayOfYear(new Date()), []);
+  // Site defaults to Tashkent (sunPosition's DEFAULT_SITE), and the room sits
+  // in the app's own frame — wall A's outward face is north, the same north
+  // AddRoomButtons uses. Between them the arc is fully determined, so there is
+  // nothing here for the user to set.
+  const sun = useMemo(() => sunPosition({
+    hour: sunHour,
+    dayOfYear: today,
+    peakIntensity: highQuality3d ? 1.3 : 1.0,
+  }), [sunHour, today, highQuality3d]);
   const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [showHelp, setShowHelp] = useState(false);
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
@@ -3930,6 +4226,28 @@ export default function ThreeDPage() {
               </svg>
               <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
             </button>
+            {/* Sun clock. Only meaningful while the sun is the light source, so
+                it rides with the day/night toggle. */}
+            {sceneLightOn && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
+                title="Quyosh vaqti — Toshkent bo'yicha"
+              >
+                <span className="text-[11px] font-semibold text-amber-800 tabular-nums w-9 text-right">
+                  {formatClock(sunHour)}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={23.75}
+                  step={0.25}
+                  value={sunHour}
+                  onChange={(e) => setSunHour(parseFloat(e.target.value))}
+                  aria-label="Quyosh vaqti"
+                  className="w-14 sm:w-24 accent-amber-500 cursor-pointer"
+                />
+              </div>
+            )}
             <button
               onClick={() => setLightsOn(v => !v)}
               title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
@@ -4121,19 +4439,20 @@ export default function ThreeDPage() {
           {/* Drop resolution during interaction, restore at rest */}
           <AdaptiveDpr />
           <AdaptiveEvents />
+          <KeepAutoClear />
           <DevSceneHandle />
           {/* Return the WebGL context slot immediately on tab switches */}
           <ReleaseGLOnUnmount />
-          {/* Daylight shows the HDRI itself (<Environment background> below owns
+          {/* Daylight shows the generated sky (BrandedSky below owns
               scene.background); a flat colour here would simply paint over it.
-              At night there is no Environment, so the solid fill is still what
-              stands in for a sky. */}
+              With the scene light switched off there is no sky, so the solid
+              fill is still what stands in for one. */}
           {!sceneLightOn && <color attach="background" args={["#14171F"]} />}
           {/* Fog matches the background (night fog was beige on a dark scene)
               and relaxes in top view where the camera legitimately sits far */}
           <fog
             attach="fog"
-            args={[sceneLightOn ? "#E8E4DC" : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+            args={[sceneLightOn ? skyFogColor(sun) : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
           />
 
           {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
@@ -4178,8 +4497,9 @@ export default function ThreeDPage() {
                   depth={D}
                   height={H}
                   highQuality={highQuality3d}
+                  sun={sun}
                 />
-                <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background/>
+                <BrandedSky sun={sun} />
               </>
             )}
             {/* Scene light off: barely-visible ambient so the room stays navigable;

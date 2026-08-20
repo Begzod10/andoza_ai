@@ -1,14 +1,14 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { PointerLockControls } from "@react-three/drei";
-import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
-import { useRef, useState, useEffect, Suspense } from "react";
+import { useRef, useState, useEffect, useMemo, Suspense } from "react";
 import * as THREE from "three";
 import type { PointerLockControls as PointerLockControlsImpl } from "three-stdlib";
 import { useOutletContext } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
-import { RoomScene, SceneLighting, FurnitureModels, type StudioContext } from "./ThreeDPage";
-import { DEFAULT_HDRI } from "@/lib/hdri";
+import { RoomScene, SceneLighting, FurnitureModels, PlacedLights, BrandedSky, type StudioContext } from "./ThreeDPage";
+import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
 import { roomExtents } from '@/lib/roomDims';
+import { sunPosition, dayOfYear } from '@/lib/sunPosition';
 
 // ─── Movement controller ──────────────────────────────────────────────────────
 
@@ -118,7 +118,14 @@ function EnterOverlay({ onEnter }: { onEnter: () => void }) {
 
 export default function WalkthroughPage() {
   const { room } = useOutletContext<StudioContext>();
-  const { geometry, designState } = useRoomStore();
+  const { geometry, designState, sunHour } = useRoomStore();
+
+  // The same hour the studio is set to, so walking into the room does not walk
+  // into a different time of day.
+  const sun = useMemo(
+    () => sunPosition({ hour: sunHour, dayOfYear: dayOfYear(new Date()), peakIntensity: 1.3 }),
+    [sunHour],
+  );
   const [locked, setLocked] = useState(false);
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
 
@@ -140,10 +147,10 @@ export default function WalkthroughPage() {
         style={{ width: "100%", height: "100%" }}
       >
         <Suspense fallback={null}>
-          <SceneLighting width={roomW} depth={roomD} height={roomH} highQuality={true} />
-          {/* background: the HDRI is what shows through the windows — a solid
-              scene colour here would paint over it */}
-          <SafeEnvironment files={DEFAULT_HDRI} intensity={0.3} background/>
+          <SceneLighting width={roomW} depth={roomD} height={roomH} highQuality={true} sun={sun} />
+          {/* The generated sky is what shows through the windows, and it owns
+              scene.background — a solid colour here would paint over it. */}
+          <BrandedSky sun={sun} />
 
           <RoomScene
             room={room}
@@ -154,6 +161,23 @@ export default function WalkthroughPage() {
             composerActive={false}
             highQuality={true}
             lightsOn={true}
+          />
+
+          {/* Door leaves and window sashes. RoomScene cuts the holes; the
+              frames, mullions and glass hang here — so without them a room
+              walks through with bare gaps where its joinery should be. */}
+          <DoorLeaves geometry={geometry} wallWidth={roomW} wallDepth={roomD} interactive={false} />
+          <WindowSashes geometry={geometry} wallWidth={roomW} wallDepth={roomD} interactive={false} />
+
+          {/* The fixtures placed in Chiroqlar. RoomScene's auto-grid stands
+              down once the user has placed any, so without this the room walks
+              through unlit. */}
+          <PlacedLights
+            roomW={roomW}
+            roomD={roomD}
+            roomH={roomH}
+            lightsOn={true}
+            highQuality={true}
           />
 
           <Suspense fallback={null}>
