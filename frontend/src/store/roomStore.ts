@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
 import type { FurnitureCategory } from '@/lib/furnitureCatalog'
+import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
+import { hourOfDay } from '@/lib/sunPosition'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 
@@ -132,6 +134,9 @@ export interface DesignState {
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
+  /** The ceiling profile and the numbers behind it. Optional: rooms designed
+   *  before the picker existed read as the undropped slab they were drawn as. */
+  ceiling?: { design: CeilingDesignId; settings?: Partial<CeilingSettings> }
 }
 
 /** Resolve the effective WallCovering for a given wall (falls back to ALL). */
@@ -193,6 +198,15 @@ interface RoomStore {
   apartmentId: string | null
   name: string
   ceilingHeight: number
+  /**
+   * Time of day the sun is shown at, as fractional hours. Lives here rather
+   * than in a page so the studio, the walkthrough and anything else looking at
+   * the same room agree about what time it is — a walkthrough lit at noon
+   * inside a room designed at dusk is worse than either on its own.
+   *
+   * Deliberately not persisted: it opens at the real current time.
+   */
+  sunHour: number
   geometry: RoomGeometry
   surfaces: AppliedSurfaces
   furniture: PlacedFurniture[]
@@ -209,6 +223,7 @@ interface RoomStore {
   // Actions
   setDraftId(id: string | null): void
   setCeilingHeight(h: number): void
+  setSunHour(hour: number): void
   setWallLength(wallId: string, length: number): void
   addElement(wallId: string, element: Omit<WallElement, 'id'>): void
   removeElement(wallId: string, elementId: string): void
@@ -299,6 +314,7 @@ export function persistableDesignState(d: DesignState): DesignState {
 export const DEFAULT_DESIGN_STATE: DesignState = {
   wallCoverings: { ALL: { kind: 'paint', color: '#D8D3C8' } },
   floorType: 'parquet',
+  ceiling: { design: DEFAULT_CEILING_DESIGN },
   wallPanels: {
     ALL: {
       enabled: false,
@@ -321,6 +337,7 @@ export const useRoomStore = create<RoomStore>()(
   apartmentId: null,
   name: 'Xona',
   ceilingHeight: 2700,
+  sunHour: hourOfDay(new Date()),
   geometry: defaultGeometry(),
   surfaces: {},
   furniture: [],
@@ -341,6 +358,10 @@ export const useRoomStore = create<RoomStore>()(
 
   setDraftId(id) {
     set({ draftId: id })
+  },
+
+  setSunHour(hour) {
+    set({ sunHour: hour })
   },
 
   setCeilingHeight(h) {

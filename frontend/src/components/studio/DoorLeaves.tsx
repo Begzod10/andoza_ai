@@ -113,20 +113,25 @@ export function OpeningLeaves({
   wallWidth,
   wallDepth,
   hiddenWalls,
-  toolMode,
+  toolMode = "select",
   controlsRef,
-  selectedId,
+  selectedId = null,
   onSelect,
+  interactive = true,
 }: {
   kind: OpeningKind;
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
-  toolMode: DoorToolMode;
-  controlsRef: React.RefObject<OrbitControlsImpl | null>;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  toolMode?: DoorToolMode;
+  controlsRef?: React.RefObject<OrbitControlsImpl | null>;
+  selectedId?: string | null;
+  onSelect?: (id: string | null) => void;
+  /** False mounts the leaves as scenery: same geometry, no picking, no editor.
+   *  This is what the walkthrough and the elektr preview want — they show the
+   *  openings, they do not edit them. */
+  interactive?: boolean;
 }) {
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
@@ -167,13 +172,14 @@ export function OpeningLeaves({
   }
 
   function beginDrag(wf: WallFrame, el: WallElement, e: ThreeEvent<PointerEvent>) {
+    if (!interactive) return;
     if (toolMode === "select") {
       e.stopPropagation();
-      onSelect(el.id);
+      onSelect?.(el.id);
       return;
     }
     e.stopPropagation();
-    onSelect(el.id);
+    onSelect?.(el.id);
     const c = openingCentre(wf, el);
     dragRef.current = {
       wallId: wf.id,
@@ -190,7 +196,7 @@ export function OpeningLeaves({
       mmPerPx: mmPerPixel(new THREE.Vector3(c.x, el.height * S / 2, c.z)),
     };
     setDragging(true);
-    if (controlsRef.current) controlsRef.current.enabled = false;
+    if (controlsRef?.current) controlsRef.current.enabled = false;
     document.body.style.cursor = toolMode === "move" ? "grabbing" : "ns-resize";
   }
 
@@ -238,7 +244,7 @@ export function OpeningLeaves({
     const onUp = () => {
       dragRef.current = null;
       setDragging(false);
-      if (controlsRef.current) controlsRef.current.enabled = true;
+      if (controlsRef?.current) controlsRef.current.enabled = true;
       document.body.style.cursor = "";
     };
 
@@ -256,12 +262,14 @@ export function OpeningLeaves({
         const common = {
           wf,
           el,
-          selected: selectedId === el.id,
+          // Scenery is never "selected" — that is what pulls up the editor panel
+          selected: interactive && selectedId === el.id,
           toolMode,
+          interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
-            onSelect(null);
+            onSelect?.(null);
             removeElement(wf.id, el.id);
           },
         };
@@ -278,6 +286,7 @@ function DoorLeaf({
   el,
   selected,
   toolMode,
+  interactive = true,
   onPointerDown,
   onPatch,
   onDelete,
@@ -286,6 +295,7 @@ function DoorLeaf({
   el: WallElement;
   selected: boolean;
   toolMode: DoorToolMode;
+  interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
   onPatch: (patch: Partial<WallElement>) => void;
   onDelete: () => void;
@@ -307,7 +317,9 @@ function DoorLeaf({
   const swing = THREE.MathUtils.degToRad(angleDeg) * -dir;
 
   const woodColor = el.leafColor ?? "#8B5E34";
-  const cursor = toolMode === "select" ? "pointer"
+  // Scenery gets no hover affordance — nothing happens if you click it.
+  const cursor = !interactive ? ""
+    : toolMode === "select" ? "pointer"
     : toolMode === "move" ? "grab"
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";
@@ -521,6 +533,7 @@ function WindowSash({
   el,
   selected,
   toolMode,
+  interactive = true,
   onPointerDown,
   onPatch,
   onDelete,
@@ -529,6 +542,7 @@ function WindowSash({
   el: WallElement;
   selected: boolean;
   toolMode: DoorToolMode;
+  interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
   onPatch: (patch: Partial<WallElement>) => void;
   onDelete: () => void;
@@ -548,7 +562,9 @@ function WindowSash({
   const innerW = Math.max(0.08, w - GAP * 2);
   const innerH = Math.max(0.08, h - GAP * 2);
 
-  const cursor = toolMode === "select" ? "pointer"
+  // Scenery gets no hover affordance — nothing happens if you click it.
+  const cursor = !interactive ? ""
+    : toolMode === "select" ? "pointer"
     : toolMode === "move" ? "grab"
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";

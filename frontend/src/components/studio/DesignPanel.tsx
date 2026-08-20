@@ -27,8 +27,14 @@ import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl 
 import { useGLTF } from "@react-three/drei";
 
 import type { PhaseKey } from "@/lib/phases";
+import {
+  CEILING_DESIGNS, CEILING_SETTING_RANGE, DEFAULT_CEILING_DESIGN,
+  ceilingDesign, resolveCeilingSettings,
+  type CeilingDesignId, type CeilingSettings, type CeilingSettingKey,
+} from "@/lib/ceilingDesigns";
+import { lightType } from "@/lib/lightCatalog";
 
-type WallTarget = "ALL" | "A" | "B" | "C" | "D" | "FLOOR";
+type WallTarget = "ALL" | "A" | "B" | "C" | "D" | "FLOOR" | "CEILING";
 type CoveringMode = "paint" | "oboy" | "texture";
 type FloorMode = "turi" | "rasm";
 
@@ -51,6 +57,7 @@ const WALL_TARGETS: { key: WallTarget; label: string }[] = [
   { key: "C",     label: "Devor C" },
   { key: "D",     label: "Devor D" },
   { key: "FLOOR", label: "Pol" },
+  { key: "CEILING", label: "Shift" },
 ];
 
 function PanelInput({
@@ -180,7 +187,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const [floorBusy, setFloorBusy] = React.useState(false);
   const [floorError, setFloorError] = React.useState<string | null>(null);
 
-  const targetWall: WallTarget = (selectedWall && (['A','B','C','D','FLOOR'] as string[]).includes(selectedWall))
+  const targetWall: WallTarget = (selectedWall && (['A','B','C','D','FLOOR','CEILING'] as string[]).includes(selectedWall))
     ? selectedWall as WallTarget
     : 'ALL';
   const setTargetWall = (w: WallTarget) => onWallChange?.(w === 'ALL' ? null : w);
@@ -226,7 +233,11 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       mutation.mutate({
-        design_state: { wallCoverings: ds.wallCoverings, floorType: ds.floorType },
+        design_state: {
+          wallCoverings: ds.wallCoverings,
+          floorType: ds.floorType,
+          ceiling: ds.ceiling,
+        },
       });
     }, 600);
   }
@@ -254,6 +265,24 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     if (patch.baseColor) setBaseColor(newBase);
     if (patch.accentColor) setAccentColor(newAccent);
     applyWallCovering({ kind: "oboy", patternId: newPattern, baseColor: newBase, accentColor: newAccent });
+  }
+
+  const ceilingCfg = designState.ceiling ?? { design: DEFAULT_CEILING_DESIGN };
+  const activeCeiling = ceilingDesign(ceilingCfg.design);
+  const ceilingSettings = resolveCeilingSettings(activeCeiling, ceilingCfg.settings);
+
+  function handleSetCeilingDesign(id: CeilingDesignId) {
+    // Settings are kept across a switch: a border width chosen for one profile
+    // is still the border width the room wants under the next one.
+    const next = { design: id, settings: ceilingCfg.settings };
+    setDesignState({ ceiling: next });
+    syncToApi({ ...designState, ceiling: next });
+  }
+
+  function handleCeilingSetting(patch: Partial<CeilingSettings>) {
+    const next = { ...ceilingCfg, settings: { ...ceilingCfg.settings, ...patch } };
+    setDesignState({ ceiling: next });
+    syncToApi({ ...designState, ceiling: next });
   }
 
   function handleSetFloorType(type: string) {
@@ -577,6 +606,112 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           ))}
         </div>
       </section>
+
+      {/* Ceiling design when "Shift" is selected */}
+      {targetWall === 'CEILING' && (
+        <>
+          <section>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Shift turi</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Shift shakli xonaning balandligi va yorug'ligini belgilaydi.
+            </p>
+            <div className="space-y-2">
+              {CEILING_DESIGNS.map((cd) => {
+                const active = ceilingCfg.design === cd.id;
+                return (
+                  <button
+                    key={cd.id}
+                    onClick={() => handleSetCeilingDesign(cd.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-card border-2 transition-colors ${
+                      active ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+                    }`}
+                  >
+                    <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
+                      {cd.label}
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{cd.hint}</span>
+                    {/* The fixtures that belong with this profile — the pairing
+                        is half of what makes each one look like itself. */}
+                    <span className="flex flex-wrap gap-1 mt-1.5">
+                      {cd.lighting.map((id) => (
+                        <span
+                          key={id}
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
+                        >
+                          {lightType(id).emoji} {lightType(id).name}
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Only the settings this profile responds to. The rest are inert
+              for it, and a slider that does nothing is worse than no slider. */}
+          {activeCeiling.uses.some((k) => k !== 'color') && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900">Sozlamalar</h3>
+
+              {activeCeiling.uses.includes('strip') && (
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <span className="text-xs text-gray-600 font-medium">Yashirin LED lenta</span>
+                  <input
+                    type="checkbox"
+                    checked={ceilingSettings.strip}
+                    onChange={(e) => handleCeilingSetting({ strip: e.target.checked })}
+                    className="accent-brand w-4 h-4"
+                  />
+                </label>
+              )}
+
+              {(Object.keys(CEILING_SETTING_RANGE) as (keyof typeof CEILING_SETTING_RANGE)[])
+                .filter((key) => activeCeiling.uses.includes(key as CeilingSettingKey))
+                .filter((key) => key !== 'stripK' || ceilingSettings.strip)
+                .map((key) => {
+                  const range = CEILING_SETTING_RANGE[key];
+                  return (
+                    <div key={key}>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs text-gray-600 font-medium">{range.label}</label>
+                        <span className="text-xs text-gray-400 tabular-nums">
+                          {ceilingSettings[key]} {range.unit}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={range.min}
+                        max={range.max}
+                        step={range.step}
+                        value={ceilingSettings[key]}
+                        onChange={(e) => handleCeilingSetting({ [key]: Number(e.target.value) })}
+                        className="w-full accent-brand cursor-pointer"
+                      />
+                    </div>
+                  );
+                })}
+
+              <div>
+                <label className="text-xs text-gray-600 font-medium block mb-1.5">Shift rangi</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {["#FFFFFF", "#F4F1EA", "#EDE9E0", "#E3E6E8", "#D8D3C8"].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => handleCeilingSetting({ color: c })}
+                      style={{ background: c }}
+                      aria-label={c}
+                      className={`w-7 h-7 rounded-full border-2 transition-colors ${
+                        ceilingSettings.color === c ? "border-brand" : "border-gray-200"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </>
+      )}
 
       {/* Floor controls when "Pol" is selected */}
       {targetWall === 'FLOOR' && (

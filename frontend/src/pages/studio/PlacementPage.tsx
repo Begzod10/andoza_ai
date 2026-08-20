@@ -7,7 +7,10 @@ import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
 import { roomExtents } from '@/lib/roomDims'
-import { RoomScene } from './ThreeDPage'
+import { resolveWindowStyle, mullionCount } from '@/lib/windowStyles'
+import { lightType, kelvinToHex } from '@/lib/lightCatalog'
+import { RoomScene, PlacedLights, FurnitureModels, SceneLighting } from './ThreeDPage'
+import { DoorLeaves, WindowSashes } from '@/components/studio/DoorLeaves'
 import type { Room } from '@/lib/api'
 import * as THREE from 'three'
 import { DEFAULT_HDRI } from '@/lib/hdri'
@@ -357,109 +360,142 @@ interface OpeningProps {
   D: number   // room depth in metres
 }
 
+/**
+ * Every wall gets a local frame so one set of symbols serves all four.
+ *
+ *   u — distance along the wall from its start, in px
+ *   v — distance in from the wall centreline, in px; +v is into the room
+ *
+ * Drawing each opening in (u, v) and mapping at the end is what lets the door
+ * swing, the hinge side and the mullion spacing come out identical on a side
+ * wall and a back wall. Doing it per-orientation is how the two used to drift.
+ */
+type WallFrame = { id: string; wallLenMm: number; toSvg: (u: number, v: number) => [number, number] }
+
+/** Straight run of a polyline in wall-local coordinates. */
+function svgPath(frame: WallFrame, pts: Array<[number, number]>): string {
+  return pts
+    .map(([u, v], i) => {
+      const [x, y] = frame.toSvg(u, v)
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
+/**
+ * The door's swept quarter-circle, as a polyline.
+ *
+ * A polyline rather than an SVG arc: the sweep flag of an `A` command depends
+ * on the handedness of the frame it lands in, and walls B and D mirror it.
+ * Sampling the arc sidesteps the flag entirely, and at this scale — dashed,
+ * a few dozen px across — the segments are indistinguishable from a curve.
+ */
+function doorArcPts(hingeU: number, dirU: 1 | -1, radius: number, segments = 14): Array<[number, number]> {
+  return Array.from({ length: segments + 1 }, (_, i) => {
+    const th = (Math.PI / 2) * (i / segments)
+    return [hingeU + dirU * radius * Math.cos(th), radius * Math.sin(th)] as [number, number]
+  })
+}
+
 function WallOpenings({ W, D }: OpeningProps) {
   const geometry = useRoomStore((s) => s.geometry)
   const rW = W * SCALE
   const rD = D * SCALE
   const hs = WALL_STROKE / 2   // half stroke — extends this far each side from wall centre
 
-  const wallDefs: Array<{ id: string; axis: 'H' | 'V'; wallLenMm: number; svgBase: number; roomSide: 1 | -1 }> = [
-    { id: 'A', axis: 'H', wallLenMm: W * 1000, svgBase: PAD,        roomSide:  1 },  // top, room below (+y)
-    { id: 'C', axis: 'H', wallLenMm: W * 1000, svgBase: PAD + rD,   roomSide: -1 },  // bottom, room above (-y)
-    { id: 'D', axis: 'V', wallLenMm: D * 1000, svgBase: PAD,        roomSide:  1 },  // left, room right (+x)
-    { id: 'B', axis: 'V', wallLenMm: D * 1000, svgBase: PAD + rW,   roomSide: -1 },  // right, room left (-x)
+  const frames: WallFrame[] = [
+    // top, room below (+y)
+    { id: 'A', wallLenMm: W * 1000, toSvg: (u, v) => [PAD + u, PAD + v] },
+    // bottom, room above (-y)
+    { id: 'C', wallLenMm: W * 1000, toSvg: (u, v) => [PAD + u, PAD + rD - v] },
+    // left, room right (+x)
+    { id: 'D', wallLenMm: D * 1000, toSvg: (u, v) => [PAD + v, PAD + u] },
+    // right, room left (-x)
+    { id: 'B', wallLenMm: D * 1000, toSvg: (u, v) => [PAD + rW - v, PAD + u] },
   ]
 
   const els: React.ReactElement[] = []
 
-  for (const wd of wallDefs) {
-    const wall = geometry.walls.find(w => w.id === wd.id)
+  for (const frame of frames) {
+    const wall = geometry.walls.find(w => w.id === frame.id)
     if (!wall) continue
 
-    const resolved = resolveElementPositions(wall.elements, wd.wallLenMm)
+    const resolved = resolveElementPositions(wall.elements, frame.wallLenMm)
     const s = SCALE / 1000   // px per mm
 
     for (const el of resolved) {
-      const p1 = el.position * s          // start px along wall
-      const ew = el.width * s             // element width in px
+      const u1 = el.position * s      // start px along wall
+      const ew = el.width * s         // element width in px
+      const u2 = u1 + ew
+      const key = `${frame.id}-${el.id}`
 
-      if (wd.axis === 'H') {
-        const x1 = PAD + p1
-        const x2 = x1 + ew
-        const wy = wd.svgBase
+      // White gap punched through the wall stroke — every opening has one
+      const gap = (
+        <path
+          d={`${svgPath(frame, [[u1, -hs], [u2, -hs], [u2, hs], [u1, hs]])} Z`}
+          fill="#F9F7F4" stroke="none"
+        />
+      )
 
-        if (el.type === 'eshik') {
-          // Door: white gap + hinge line + quarter-circle arc
-          const arcR = ew
-          const swingY = wy + arcR * wd.roomSide
-          els.push(
-            <g key={`${wd.id}-${el.id}`}>
-              {/* White gap over wall stroke */}
-              <rect x={x1} y={wy - hs} width={ew} height={WALL_STROKE}
-                fill="#F9F7F4" stroke="none"/>
-              {/* Hinge vertical line */}
-              <line x1={x1} y1={wy - hs} x2={x1} y2={wy + hs * wd.roomSide * 3}
-                stroke="#3A3020" strokeWidth="1.5"/>
-              {/* Door leaf (shows at 90° open) */}
-              <line x1={x1} y1={wy} x2={x1} y2={swingY}
-                stroke="#3A3020" strokeWidth="1.2"/>
-              {/* Arc */}
-              <path
-                d={`M ${x1} ${swingY} A ${arcR} ${arcR} 0 0 ${wd.roomSide > 0 ? 1 : 0} ${x2} ${wy}`}
-                fill="none" stroke="#3A3020" strokeWidth="1" strokeDasharray="3 2"/>
-            </g>
-          )
-        } else {
-          // Window / balcony: white gap + glazing lines
-          els.push(
-            <g key={`${wd.id}-${el.id}`}>
-              <rect x={x1} y={wy - hs} width={ew} height={WALL_STROKE}
-                fill="#F9F7F4" stroke="none"/>
-              {/* Outer frame lines */}
-              <line x1={x1} y1={wy - hs} x2={x1} y2={wy + hs} stroke="#3A3020" strokeWidth="1.5"/>
-              <line x1={x2} y1={wy - hs} x2={x2} y2={wy + hs} stroke="#3A3020" strokeWidth="1.5"/>
-              {/* Glazing — three thin parallel lines */}
-              <line x1={x1} y1={wy - 2.5} x2={x2} y2={wy - 2.5} stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-              <line x1={x1} y1={wy}       x2={x2} y2={wy}       stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-              <line x1={x1} y1={wy + 2.5} x2={x2} y2={wy + 2.5} stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-            </g>
-          )
-        }
+      if (el.type === 'eshik') {
+        // Hinge jamb and swing come from the element itself, so the plan shows
+        // the door the 3D view shows — not a fixed left-hung 90° stand-in.
+        const hingeLeft = (el.hinge ?? 'left') === 'left'
+        const hingeU = hingeLeft ? u1 : u2
+        const dirU: 1 | -1 = hingeLeft ? 1 : -1
+        const openRad = ((el.openAngle ?? 0) * Math.PI) / 180
+        const leafTip: [number, number] = [
+          hingeU + dirU * ew * Math.cos(openRad),
+          ew * Math.sin(openRad),
+        ]
+
+        els.push(
+          <g key={key}>
+            {gap}
+            {/* Hinge jamb — a stub across the wall marking the pivot */}
+            <path d={svgPath(frame, [[hingeU, -hs], [hingeU, hs * 3]])}
+              stroke="#3A3020" strokeWidth="1.5" fill="none"/>
+            {/* The leaf, at its actual open angle */}
+            <path d={svgPath(frame, [[hingeU, 0], leafTip])}
+              stroke="#3A3020" strokeWidth="1.2" fill="none"/>
+            {/* The swept quarter — the clearance the door needs */}
+            <path d={svgPath(frame, doorArcPts(hingeU, dirU, ew))}
+              fill="none" stroke="#3A3020" strokeWidth="1" strokeDasharray="3 2"/>
+          </g>
+        )
+      } else if (el.type === 'balkon') {
+        // A balcony door reads as one glazed leaf plus its frame post — the
+        // same symbol the Mebelirovka plan uses.
+        els.push(
+          <g key={key}>
+            {gap}
+            <path d={svgPath(frame, [[u1, -hs], [u1, hs]])} stroke="#3A3020" strokeWidth="1.5" fill="none"/>
+            <path d={svgPath(frame, [[u2, -hs], [u2, hs]])} stroke="#3A3020" strokeWidth="1.5" fill="none"/>
+            <path d={svgPath(frame, [[u1, 0], [u2, 0]])} stroke="#5090C0" strokeWidth="1.2" opacity="0.8" fill="none"/>
+            <path d={svgPath(frame, [[u1 + ew * 0.55, -hs], [u1 + ew * 0.55, hs]])}
+              stroke="#5090C0" strokeWidth="1.2" opacity="0.8" fill="none"/>
+          </g>
+        )
       } else {
-        // Vertical wall (D or B)
-        const y1 = PAD + p1
-        const y2 = y1 + ew
-        const wx = wd.svgBase
-
-        if (el.type === 'eshik') {
-          const arcR = ew
-          const swingX = wx + arcR * wd.roomSide
-          els.push(
-            <g key={`${wd.id}-${el.id}`}>
-              <rect x={wx - hs} y={y1} width={WALL_STROKE} height={ew}
-                fill="#F9F7F4" stroke="none"/>
-              <line x1={wx - hs * wd.roomSide * 3} y1={y1} x2={wx + hs * wd.roomSide * 3} y2={y1}
-                stroke="#3A3020" strokeWidth="1.5"/>
-              <line x1={wx} y1={y1} x2={swingX} y2={y1}
-                stroke="#3A3020" strokeWidth="1.2"/>
-              <path
-                d={`M ${swingX} ${y1} A ${arcR} ${arcR} 0 0 ${wd.roomSide > 0 ? 0 : 1} ${wx} ${y2}`}
-                fill="none" stroke="#3A3020" strokeWidth="1" strokeDasharray="3 2"/>
-            </g>
-          )
-        } else {
-          els.push(
-            <g key={`${wd.id}-${el.id}`}>
-              <rect x={wx - hs} y={y1} width={WALL_STROKE} height={ew}
-                fill="#F9F7F4" stroke="none"/>
-              <line x1={wx - hs} y1={y1} x2={wx + hs} y2={y1} stroke="#3A3020" strokeWidth="1.5"/>
-              <line x1={wx - hs} y1={y2} x2={wx + hs} y2={y2} stroke="#3A3020" strokeWidth="1.5"/>
-              <line x1={wx - 2.5} y1={y1} x2={wx - 2.5} y2={y2} stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-              <line x1={wx}       y1={y1} x2={wx}       y2={y2} stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-              <line x1={wx + 2.5} y1={y1} x2={wx + 2.5} y2={y2} stroke="#5090C0" strokeWidth="1.2" opacity="0.8"/>
-            </g>
-          )
-        }
+        // Window: two glazing lines plus the mullions of its chosen style, so a
+        // triple-casement no longer draws the same as a single fixed pane.
+        const mullions = mullionCount(resolveWindowStyle(el))
+        els.push(
+          <g key={key}>
+            {gap}
+            <path d={svgPath(frame, [[u1, -hs], [u1, hs]])} stroke="#3A3020" strokeWidth="1.5" fill="none"/>
+            <path d={svgPath(frame, [[u2, -hs], [u2, hs]])} stroke="#3A3020" strokeWidth="1.5" fill="none"/>
+            <path d={svgPath(frame, [[u1, -2.5], [u2, -2.5]])} stroke="#5090C0" strokeWidth="1.2" opacity="0.8" fill="none"/>
+            <path d={svgPath(frame, [[u1, 2.5], [u2, 2.5]])} stroke="#5090C0" strokeWidth="1.2" opacity="0.8" fill="none"/>
+            {Array.from({ length: mullions }, (_, k) => {
+              const mu = u1 + (ew / (mullions + 1)) * (k + 1)
+              return (
+                <path key={k} d={svgPath(frame, [[mu, -hs], [mu, hs]])}
+                  stroke="#5090C0" strokeWidth="1.2" opacity="0.8" fill="none"/>
+              )
+            })}
+          </g>
+        )
       }
     }
   }
@@ -811,13 +847,32 @@ function FloorPlan({
       {tab === 'chiroq' && lights.map(light => {
         const lx = PAD + light.xMm / 1000 * SCALE
         const ly = PAD + light.zMm / 1000 * SCALE
+        // Type, colour temperature and size come from the fixture itself, the
+        // way the Chiroqlar plan draws it. A generic dot here made a warm
+        // pendant and a cool downlight look like the same thing.
+        const t = lightType(light.type)
+        const hex = kelvinToHex(light.colorK ?? t.colorK)
+        const dim = light.off
+        const r = Math.max(7, (Math.max(t.sizeM.w, t.sizeM.d) * SCALE) / 2)
+        const isLinear = t.id === 'led_linear' || t.id === 'track' || t.id === 'led_track' || t.id === 'bath'
         return (
           <g key={light.id} style={{ cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); onRemoveLight(light.id) }}>
-            <circle cx={lx} cy={ly} r={lightR} fill="url(#lightGlow)"/>
-            <circle cx={lx} cy={ly} r="7" fill="#E8F2FF" stroke="#7BB8F0" strokeWidth="1.5" filter="url(#glow)"/>
-            <line x1={lx - 4} y1={ly} x2={lx + 4} y2={ly} stroke="#7BB8F0" strokeWidth="1.2"/>
-            <line x1={lx} y1={ly - 4} x2={lx} y2={ly + 4} stroke="#7BB8F0" strokeWidth="1.2"/>
+            {/* spill — roughly how far this fixture throws */}
+            <circle cx={lx} cy={ly} r={r * 3.2} fill={hex} opacity={dim ? 0.04 : 0.13}/>
+            <circle cx={lx} cy={ly} r={r} fill={dim ? '#D1D5DB' : hex}
+              stroke="#3A3020" strokeWidth="1.2"/>
+            {/* linear fixtures read as a bar, not a dot */}
+            {isLinear && (
+              <rect
+                x={lx - (t.sizeM.w * SCALE) / 2} y={ly - 3}
+                width={t.sizeM.w * SCALE} height={6}
+                fill={dim ? '#D1D5DB' : hex} stroke="#3A3020" strokeWidth="1"
+                transform={`rotate(${((light.rotation ?? 0) * 180) / Math.PI} ${lx} ${ly})`}
+              />
+            )}
+            <text x={lx} y={ly + 3} fontSize="9" textAnchor="middle"
+              style={{ pointerEvents: 'none' }}>{t.emoji}</text>
           </g>
         )
       })}
@@ -1392,6 +1447,10 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
 
   return (
     <>
+      {/* The same key/fill/sun rig the other 3D views use. Without it this
+          preview had only the environment map to go on, which is why its
+          ceiling read black while the very same room looked lit elsewhere. */}
+      <SceneLighting width={W} depth={D} height={H} highQuality={false} />
       <RoomScene
         room={room}
         geometry={geometry}
@@ -1401,6 +1460,21 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
         composerActive={false}
         highQuality={false}
         lightsOn={true}
+      />
+      {/* The room as the other tabs show it — the joinery, the furniture placed
+          in Mebelirovka and the fixtures placed in Chiroqlar. A socket only
+          makes sense next to the thing it feeds, so all of it has to be here. */}
+      <DoorLeaves geometry={geometry} wallWidth={W} wallDepth={D} interactive={false} />
+      <WindowSashes geometry={geometry} wallWidth={W} wallDepth={D} interactive={false} />
+      <Suspense fallback={null}>
+        <FurnitureModels />
+      </Suspense>
+      <PlacedLights
+        roomW={W}
+        roomD={D}
+        roomH={H}
+        lightsOn={true}
+        highQuality={false}
       />
       {electricals.map(el => (
         <StaticElectrical3D key={el.id} el={el} W={W} D={D}/>
