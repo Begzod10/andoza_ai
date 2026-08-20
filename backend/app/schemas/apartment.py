@@ -20,9 +20,17 @@ class ApartmentOut(BaseModel):
     name: str
     address: str | None
     developer: str | None
+    renovation_stage: int = 1
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ApartmentUpdate(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    developer: str | None = None
+    renovation_stage: int | None = Field(default=None, ge=1, le=8)
 
 
 class ApartmentWithRooms(ApartmentOut):

@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.apartment import Apartment
 from app.models.room import Room
-from app.schemas.apartment import ApartmentCreate, ApartmentOut, ApartmentWithRooms
+from app.schemas.apartment import ApartmentCreate, ApartmentOut, ApartmentUpdate, ApartmentWithRooms
 
 logger = structlog.get_logger(__name__)
 
@@ -74,6 +74,29 @@ async def get_apartment(apartment_id: UUID, db: DbSession, current_user: Current
     # Filter out deleted rooms unless include_deleted is True
     if not include_deleted and apartment.rooms:
         apartment.rooms = [r for r in apartment.rooms if not r.deleted]
+    return ApartmentWithRooms.model_validate(apartment)
+
+
+@router.patch(
+    "/{apartment_id}",
+    response_model=ApartmentWithRooms,
+    summary="Update apartment fields",
+)
+async def update_apartment(apartment_id: UUID, body: ApartmentUpdate, db: DbSession, current_user: CurrentUser) -> ApartmentWithRooms:
+    result = await db.execute(
+        select(Apartment)
+        .where(Apartment.id == apartment_id, Apartment.user_id == current_user.id)
+        .options(selectinload(Apartment.rooms))
+    )
+    apartment = result.scalar_one_or_none()
+    if apartment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Apartment not found")
+    updates = body.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in updates.items():
+        setattr(apartment, field, value)
+    await db.flush()
+    logger.info("apartment_updated", apartment_id=str(apartment_id), fields=list(updates.keys()))
+    apartment.rooms = [r for r in apartment.rooms if not r.deleted]
     return ApartmentWithRooms.model_validate(apartment)
 
 
