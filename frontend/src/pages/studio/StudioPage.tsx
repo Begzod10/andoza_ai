@@ -90,6 +90,13 @@ export default function StudioPage() {
             sashes: e.sashes ?? null,
           })),
         })),
+        // Polygon (N-wall) rooms carry their outline in `vertices` (mm in the
+        // store). Without re-emitting it here the save drops the polygon and
+        // the backend rebuilds a rectangle / rejects the room (422). Same
+        // mm→m convention as the walls above. Omitted for plain 4-wall rooms.
+        ...(s.geometry.vertices
+          ? { vertices: s.geometry.vertices.map(([x, z]) => [x / 1000, z / 1000]) }
+          : {}),
       };
 
       // Try to update existing DB room first
