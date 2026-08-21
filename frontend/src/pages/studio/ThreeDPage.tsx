@@ -3672,12 +3672,16 @@ export type { PhaseKey } from "@/lib/phases"
  */
 const PANEL_OWNING_PHASES = new Set<PhaseKey>(['chiroq'])
 
-// Touch device = no fine pointer. Same probe idiom as roomStore (a window can
-// exist without matchMedia in jsdom / older embedded webviews).
+// Touch/mobile studio. The studio is embedded in a mobile WebView, which can
+// (wrongly) report a fine pointer — so `(pointer:fine)` is unreliable here.
+// Detect real touch capability, plus the same narrow-viewport breakpoint the
+// mobile layout uses (lg = 1024px), so the hint matches the responsive chrome.
 const isTouch =
-  typeof window === 'undefined' ||
-  typeof window.matchMedia !== 'function' ||
-  !window.matchMedia('(pointer:fine)').matches
+  typeof window !== 'undefined' &&
+  (('ontouchstart' in window) ||
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+    (typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 1023px)').matches))
 
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
