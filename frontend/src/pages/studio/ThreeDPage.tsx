@@ -17,7 +17,6 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
-import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
@@ -3673,6 +3672,13 @@ export type { PhaseKey } from "@/lib/phases"
  */
 const PANEL_OWNING_PHASES = new Set<PhaseKey>(['chiroq'])
 
+// Touch device = no fine pointer. Same probe idiom as roomStore (a window can
+// exist without matchMedia in jsdom / older embedded webviews).
+const isTouch =
+  typeof window === 'undefined' ||
+  typeof window.matchMedia !== 'function' ||
+  !window.matchMedia('(pointer:fine)').matches
+
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
   const { geometry, designState, highQuality3d, resetRoom, placeFurniture } = useRoomStore();
@@ -3996,7 +4002,7 @@ export default function ThreeDPage() {
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 lg:py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
                 status === 'current' ? 'border-brand text-brand' :
                 status === 'done'    ? 'border-transparent text-success' :
                                        'border-transparent text-gray-400'
@@ -4052,7 +4058,7 @@ export default function ThreeDPage() {
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* Toolbar */}
-        <div className="flex items-center gap-1.5 px-2 lg:px-4 py-1.5 lg:py-2 bg-surface border-b border-gray-200 shrink-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 shrink-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <span className="text-xs font-medium text-gray-500 mr-0.5 shrink-0 hidden sm:block">Ko'rinish:</span>
           {(["back", "top"] as ViewPreset[]).map((v) => (
             <button
@@ -4072,7 +4078,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('select')}
                 title="Tanlash"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -4084,7 +4090,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('move')}
                 title="Siljitish"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -4096,7 +4102,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('rotate')}
                 title="Aylantirish"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -4109,7 +4115,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('scale')}
                 title="O'lcham"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -4121,7 +4127,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('part')}
                 title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -4167,7 +4173,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowHelp(v => !v)}
               title="Boshqaruv bo'yicha yordam"
-              className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+              className="flex items-center justify-center w-7 h-7 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
             >
               ?
             </button>
@@ -4175,7 +4181,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setPresetVersion(n => n + 1)}
               title="Markazlash — kamerani xona markaziga qaytarish"
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+              className="flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="12" r="3" />
@@ -4194,7 +4200,7 @@ export default function ThreeDPage() {
                 : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
                 : "Ichki ko'rinishga qaytish"
               }
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 topView
                   ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
                   : cutaway !== 'off'
@@ -4214,7 +4220,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setSceneLightOn(v => !v)}
               title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 sceneLightOn
                   ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
                   : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
@@ -4251,7 +4257,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setLightsOn(v => !v)}
               title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 lightsOn
                   ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
                   : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
@@ -4267,7 +4273,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowAiSheet(true)}
               title="AI bilan qurish"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shrink-0"
+              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shrink-0"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
@@ -4278,7 +4284,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowPanel(v => !v)}
               title="Dizayn paneli"
-              className="lg:hidden flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-brand text-white shrink-0"
+              className="lg:hidden flex items-center justify-center gap-1 px-2 py-2 min-h-[44px] min-w-[44px] rounded-full text-xs font-medium bg-brand text-white shrink-0"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
@@ -4293,13 +4299,13 @@ export default function ThreeDPage() {
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
         {isMebelTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+          <div className="h-[38%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
             <MebelPlanView />
           </div>
         )}
         {/* Chiroqlar: reflected ceiling plan beside the live 3D viewport */}
         {isChiroqTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+          <div className="h-[38%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
             <ChiroqPlanView
               armedType={armedLightType}
               onPlaced={() => setArmedLightType(null)}
@@ -4337,7 +4343,9 @@ export default function ThreeDPage() {
 
           {/* Hint overlay — bottom-left of canvas */}
           <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
-            Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus
+            {isTouch
+              ? "Bir barmoq: aylantirish · Ikki barmoq: surish/masshtab · 2× bosish: fokus"
+              : "Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus"}
           </p>
 
           {/* Navigation help card */}
@@ -4574,7 +4582,7 @@ export default function ThreeDPage() {
               maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : -0.45}
+              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : isTouch ? 0.45 : -0.45}
               zoomSpeed={0.8}
             />
 

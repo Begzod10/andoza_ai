@@ -18,7 +18,7 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
   return (
-    <div className="flex justify-start sm:justify-center px-3 sm:px-4 py-2 bg-white border-b border-neutral-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex justify-start sm:justify-center px-3 sm:px-4 py-1 lg:py-2 bg-white border-b border-neutral-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 min-w-max">
         {navItems.map((item) => (
           <NavLink
@@ -26,7 +26,7 @@ function StudioNav({ roomId }: { roomId: string }) {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "px-3 sm:px-4 py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all",
+                "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all",
                 isActive
                   ? "bg-white text-brand shadow-sm"
                   : "text-neutral-500 hover:text-neutral-700"
@@ -95,7 +95,7 @@ export default function StudioPage() {
         // the backend rebuilds a rectangle / rejects the room (422). Same
         // mm→m convention as the walls above. Omitted for plain 4-wall rooms.
         ...(s.geometry.vertices
-          ? { vertices: s.geometry.vertices.map(([x, z]) => [x / 1000, z / 1000]) }
+          ? { vertices: s.geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number]) }
           : {}),
       };
 
@@ -270,7 +270,7 @@ export default function StudioPage() {
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
       {/* Header — design screen 08 */}
       <header className="bg-white">
-        <div className="px-4 pt-3 pb-3 flex items-center gap-3">
+        <div className="px-4 pt-2 pb-2 lg:pt-3 lg:pb-3 flex items-center gap-3">
           {/* Back button */}
           <NavLink
             to="/projects"
