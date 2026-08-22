@@ -87,7 +87,7 @@ export function SmetaAskDrawer({
                   key={s}
                   onClick={() => handleAsk(s)}
                   disabled={loading}
-                  className="w-full text-left text-sm bg-[#F3F4F6] hover:bg-[#EAECF0] rounded-xl px-3 py-2 transition-colors disabled:opacity-50"
+                  className="w-full text-left text-sm rounded-2xl px-3 py-2 disabled:opacity-50 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                 >
                   {s}
                 </button>
@@ -139,7 +139,7 @@ export function SmetaAskDrawer({
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           >
             {uz.ai.yuborish}
           </button>

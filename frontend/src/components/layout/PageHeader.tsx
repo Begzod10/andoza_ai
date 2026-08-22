@@ -77,8 +77,8 @@ export function PageHeader({
           className={[
             'flex-shrink-0 flex items-center justify-center',
             '-ml-2 w-9 h-9 rounded-xl',
-            'text-neutral-600 dark:text-neutral-300',
-            'hover:bg-neutral-100 dark:hover:bg-neutral-800',
+            'text-neutral-600',
+            'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed',
             'transition-colors duration-150',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1',
             'active:scale-95',

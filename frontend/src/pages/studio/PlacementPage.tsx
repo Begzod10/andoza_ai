@@ -1031,8 +1031,8 @@ function ElektrSidebar({
                   panelPlaced
                     ? 'border-green-200 bg-green-50 opacity-70 cursor-not-allowed'
                     : activeTool === 'panel'
-                      ? 'border-[#1B3784] bg-blue-50 cursor-pointer'
-                      : 'border-dashed border-gray-300 hover:border-[#1B3784] hover:bg-blue-50 cursor-pointer'
+                      ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95] cursor-pointer'
+                      : 'border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-soft cursor-pointer'
                 }`}
               >
                 <div className="shrink-0 flex items-center justify-center" style={{ minWidth: 48 }}>
@@ -1064,7 +1064,7 @@ function ElektrSidebar({
             className={`w-full flex items-center gap-3 p-2 rounded-lg border-2 text-left transition-all ${
               activeTool === type
                 ? 'border-[#1B3784] bg-blue-50'
-                : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
+                : 'hover:bg-soft hover:shadow-soft-raised-sm'
             }`}
           >
             <div className="shrink-0 flex items-center justify-center" style={{ minWidth: 48 }}>
@@ -1173,7 +1173,7 @@ function ChiroqSidebar({
           {lights.length > 0 && (
             <button
               onClick={onClearLights}
-              className="text-xs text-red-400 hover:text-red-600 transition-colors"
+              className="text-xs text-red-400 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >Hammasini o'chir</button>
           )}
         </div>
@@ -1223,7 +1223,7 @@ function OlchamlarSidebar({ electricals, wireLengths }: {
           <button key={t} onClick={() => setInner(t)}
             className={`px-2.5 py-1 text-[11px] rounded-t font-medium border-b-2 transition-colors ${
               inner === t
-                ? 'border-brand text-brand bg-white'
+                ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             {label}
@@ -1636,7 +1636,7 @@ export default function PlacementPage() {
             key={t}
             onClick={() => handleTabChange(t)}
             className={`px-3 py-1 rounded-full font-medium transition-colors ${
-              tab === t ? 'bg-brand text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              tab === t ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised'
             }`}
           >
             {label}
@@ -1646,7 +1646,7 @@ export default function PlacementPage() {
           <div className="flex items-center gap-1.5 ml-2">
             <button
               onClick={handleRandomize}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 font-medium text-purple-700 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               title="Simlarni tasodifiy ranglash va yo'nalish o'zgartirish"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1658,7 +1658,7 @@ export default function PlacementPage() {
             {Object.keys(wireColors).length > 0 && (
               <button
                 onClick={resetWires}
-                className="px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                className="px-2 py-1 font-medium text-gray-500 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
                 title="Standart rangga qaytarish"
               >Tiklash</button>
             )}

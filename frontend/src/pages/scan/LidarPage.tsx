@@ -166,7 +166,7 @@ export default function LidarPage() {
 
       <button
         onClick={startScan}
-        className="z-10 px-10 py-4 rounded-full text-[16px] font-bold text-white shadow-lg"
+        className="z-10 px-10 py-4 text-[16px] font-bold text-white rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         style={{ background: '#D85A30' }}
       >
         Skanerlashni boshlash

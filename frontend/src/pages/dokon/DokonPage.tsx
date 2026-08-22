@@ -201,7 +201,7 @@ export default function DokonPage() {
         <div className="lg:max-w-6xl lg:mx-auto">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-[24px] font-extrabold text-gray-900">Do'kon</h1>
-            <button className="relative w-11 h-11 rounded-[14px] bg-[#F3F4F6] flex items-center justify-center">
+            <button className="relative w-11 h-11 flex items-center justify-center rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#111827" strokeWidth="1.75">
                 <path d="M3 3h2l1.68 8.39a1 1 0 001 .81h5.64a1 1 0 00.98-.8L16 7H4.12" />
                 <circle cx="7.5" cy="18.5" r="1.5" /><circle cx="14.5" cy="18.5" r="1.5" />
@@ -227,7 +227,7 @@ export default function DokonPage() {
               placeholder="Material qidirish..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#F3F4F6] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-brand/30 transition"
+              className="w-full pl-9 pr-4 py-2.5 bg-soft rounded-full text-[14px] outline-none shadow-soft-pressed transition focus:shadow-soft-pressed-deep"
             />
           </div>
 
@@ -242,7 +242,7 @@ export default function DokonPage() {
                 onClick={() => setActiveCategory(cat.id)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-chip text-[13px] font-semibold transition-colors ${
                   activeCategory === cat.id
-                    ? "bg-brand text-white"
+                    ? "bg-soft-ink text-white shadow-soft-ink"
                     : "bg-white text-gray-700 border border-[#EAECEF]"
                 }`}
               >

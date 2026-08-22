@@ -105,7 +105,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           <h2 className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center"
+            className="w-9 h-9 flex items-center justify-center rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             aria-label="Yopish"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round">
@@ -121,7 +121,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               key={s.key}
               onClick={() => setSection(s.key)}
               className={`px-4 py-1.5 rounded-full text-[14px] font-semibold transition-colors ${
-                section === s.key ? "bg-brand text-white" : "bg-gray-100 text-gray-600"
+                section === s.key ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft text-gray-600 shadow-soft-raised-sm"
               }`}
             >
               {s.label}
@@ -145,7 +145,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                   >
                     <div
                       className={`w-14 h-14 rounded-2xl border-[3px] transition-all active:scale-95 ${
-                        selectedSwatch === sw.label ? "border-brand shadow-btn" : "border-gray-200"
+                        selectedSwatch === sw.label ? "bg-soft-ink text-white shadow-soft-ink" : "border-gray-200"
                       }`}
                       style={{
                         background:
@@ -161,7 +161,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               {selectedSwatch && (
                 <button
                   onClick={applyWallpaper}
-                  className="mt-5 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
+                  className="mt-5 w-full py-3 font-bold text-[16px] rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
                 >
                   Qo'llash
                 </button>
@@ -186,7 +186,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                       addLight({ id: `light_${item.id}_${Date.now()}`, xMm: 2000, zMm: 1500 });
                       onClose();
                     }}
-                    className="mt-2 w-full py-1.5 bg-brand text-white rounded-xl text-[13px] font-semibold active:scale-95 transition-transform"
+                    className="mt-2 w-full py-2 rounded-full text-[13px] font-semibold transition-transform bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100"
                   >
                     Qo'shish
                   </button>
@@ -204,7 +204,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                     key={tab}
                     onClick={() => setRoomTab(tab)}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
-                      roomTab === tab ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                      roomTab === tab ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft text-muted shadow-soft-raised-sm"
                     }`}
                   >
                     {tab}
@@ -217,7 +217,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                     key={item.id}
                     className="flex items-center gap-3 p-3 bg-[#F7F8FA] rounded-[16px]"
                   >
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-soft rounded-2xl shadow-soft-raised-sm flex items-center justify-center flex-shrink-0">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="2" y="7" width="20" height="14" rx="2"/>
                         <path d="M16 7V5a2 2 0 00-8 0v2"/>
@@ -234,7 +234,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, x: 0, y: 0, rotation: 0 });
                         onClose();
                       }}
-                      className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
+                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xl transition-transform bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
                     >
                       +
                     </button>

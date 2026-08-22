@@ -114,8 +114,8 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
               title={t.hint}
               className={`flex flex-col items-start text-left p-2 rounded-xl border-2 transition-colors ${
                 armedType === t.id
-                  ? 'border-brand bg-brand/10 ring-2 ring-brand/25'
-                  : 'border-gray-200 bg-white hover:border-brand/50 hover:bg-brand/[0.03]'
+                  ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
+                  : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
               }`}
             >
               <span className="text-lg leading-none">{t.emoji}</span>
@@ -161,8 +161,8 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                   onClick={() => select(isActive ? null : l.id)}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-colors ${
                     isActive
-                      ? 'border-brand bg-brand/5'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      ? 'bg-soft-ink text-white shadow-soft-ink'
+                      : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
                   }`}
                 >
                   <span className="text-sm leading-none">{t.emoji}</span>
@@ -208,7 +208,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
   const beamDeg = light.beamDeg ?? t.beamDeg
 
   return (
-    <div className="rounded-xl border-2 border-brand/30 bg-brand/[0.03] p-2.5 space-y-3">
+    <div className="rounded-2xl bg-soft shadow-soft-pressed p-2.5 space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-base leading-none">{t.emoji}</span>
         <span className="flex-1 text-[12px] font-bold text-gray-900">{t.name}</span>
@@ -216,7 +216,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
           onClick={() => onPatch({ off: !light.off })}
           className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${
             light.off
-              ? 'bg-gray-200 text-gray-500'
+              ? 'bg-soft-deep text-gray-500 shadow-soft-pressed'
               : 'bg-amber-100 text-amber-700'
           }`}
         >
@@ -248,7 +248,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
               onClick={() => onPatch({ colorK: p.k })}
               title={`${p.label} · ${p.k}K`}
               className={`flex-1 h-6 rounded-md border-2 transition-all ${
-                colorK === p.k ? 'border-brand scale-105' : 'border-black/10 hover:border-black/25'
+                colorK === p.k ? 'bg-soft-ink text-white shadow-soft-ink scale-[1.03]' : 'border-black/10 hover:border-black/25'
               }`}
               style={{ background: kelvinToHex(p.k) }}
             />
@@ -313,7 +313,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
                 onClick={() => onPatch({ wallId: w })}
                 className={`flex-1 py-1 rounded-md text-[10px] font-bold border-2 transition-colors ${
                   (light.wallId ?? 'A') === w
-                    ? 'border-brand bg-white text-brand'
+                    ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                 }`}
               >
@@ -352,7 +352,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       <button
         onClick={onDelete}
-        className="w-full py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-semibold hover:bg-red-100 transition-colors"
+        className="w-full py-1.5 text-[11px] font-semibold rounded-full bg-gradient-to-br from-[#F2645A] to-[#D93A3A] text-white shadow-[0_10px_22px_-8px_rgba(217,58,58,.55)] active:scale-[0.97] disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
       >
         Chiroqni o'chirish
       </button>
@@ -380,7 +380,7 @@ function Slider({ label, value, display, min, max, step, onChange, onReset }: {
             <button
               onClick={onReset}
               title="Standart qiymatga qaytarish"
-              className="text-[9px] font-semibold text-gray-400 hover:text-brand"
+              className="text-[9px] font-semibold text-gray-400 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               Tiklash
             </button>

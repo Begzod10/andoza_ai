@@ -129,7 +129,7 @@ export default function Photo360Page() {
       {/* Shutter */}
       <button
         onClick={handleCapture}
-        className="mb-14 flex items-center gap-3 px-6 py-3 bg-white rounded-[18px] shadow-lg active:scale-95 transition-transform"
+        className="mb-14 flex items-center gap-3 px-6 py-3 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         aria-label="Suratga olish"
       >
         <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: "#F97316" }}/>

@@ -323,11 +323,11 @@ function DetailPanel({
         </div>
         {route && (
           <>
-            <div className="bg-blue-50 rounded p-1.5">
+            <div className="bg-soft shadow-soft-pressed rounded-lg p-1.5">
               <p className="text-gray-400">Kabel</p>
               <p className="font-semibold text-blue-700">{route.totalLengthM.toFixed(1)} m</p>
             </div>
-            <div className="bg-blue-50 rounded p-1.5">
+            <div className="bg-soft shadow-soft-pressed rounded-lg p-1.5">
               <p className="text-gray-400">Shtroblash</p>
               <p className="font-semibold text-blue-700">{route.shtroblashM.toFixed(1)} m</p>
             </div>
@@ -470,7 +470,7 @@ export default function PlacementAdvisor({
         </div>
 
         {/* Detail sidebar */}
-        <div className="w-64 flex-shrink-0 border-l border-gray-100 bg-white overflow-y-auto">
+        <div className="w-64 flex-shrink-0 bg-soft overflow-y-auto">
           {/* Legend */}
           <div className="px-3 py-2 border-b border-gray-100">
             <p className="text-xs font-semibold text-gray-700 mb-1.5">Variantlar</p>
@@ -488,11 +488,11 @@ export default function PlacementAdvisor({
                 </div>
               ))}
               <div className="flex items-center gap-2">
-                <div className="w-6 h-0 border-t-2 border-dashed border-blue-500 flex-shrink-0" />
+                <div className="w-6 h-0 border-t-2 border-dashed border-gray-400 flex-shrink-0" />
                 <span className="text-xs text-gray-600">Sim trassasi</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-4 bg-blue-700 rounded-sm flex-shrink-0" />
+                <div className="w-3 h-4 bg-soft-ink rounded-sm flex-shrink-0" />
                 <span className="text-xs text-gray-600">Щ щиток</span>
               </div>
             </div>
@@ -516,8 +516,8 @@ export default function PlacementAdvisor({
                           className={[
                             "w-full text-left text-xs px-2 py-1 rounded transition-colors",
                             selectedId === id
-                              ? "bg-brand/10 text-brand font-semibold"
-                              : "hover:bg-gray-50 text-gray-700",
+                              ? "bg-soft-ink text-white shadow-soft-ink active:scale-[0.95] font-semibold"
+                              : "text-gray-700 hover:bg-soft hover:shadow-soft-raised-sm",
                           ].join(" ")}
                         >
                           #{p.rank} {p.wallId} devor — {p.score.toFixed(0)} ball

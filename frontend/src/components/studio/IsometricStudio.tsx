@@ -117,7 +117,7 @@ function MaterialGrid({
             className={cn(
               "flex flex-col items-center gap-1.5 p-2 rounded-card border-2 transition-all",
               isSelected
-                ? "border-brand bg-brand/5 shadow-sm"
+                ? "bg-soft-ink text-white shadow-soft-ink"
                 : "border-gray-200 hover:border-brand/40",
             )}
           >
@@ -197,7 +197,7 @@ function MaterialSheet({
               className={cn(
                 "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
                 activeTab === t.key
-                  ? "border-brand text-brand"
+                  ? "bg-soft-ink text-white shadow-soft-ink"
                   : "border-transparent text-muted hover:text-gray-900",
               )}
             >
@@ -255,7 +255,7 @@ function CostChip({
         </span>
         <button
           onClick={onDismiss}
-          className="text-white/60 hover:text-white ml-1"
+          className="text-white/60 ml-1 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           aria-label="Yopish"
         >
           ✕

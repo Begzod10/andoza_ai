@@ -104,7 +104,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
           {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}m
         </button>
-        <button onClick={onRemove} aria-label="O'chirish" className="text-neutral-400 hover:text-red-500 transition-colors text-xs leading-none">✕</button>
+        <button onClick={onRemove} aria-label="O'chirish" className="text-neutral-400 text-xs leading-none rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">✕</button>
       </div>
 
       {/* Position controls */}
@@ -198,7 +198,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
             className={cn(
               'flex-1 rounded-xl border-2 py-2 text-sm font-medium transition-all',
               selected.type === p.type
-                ? 'border-brand bg-brand/10 text-brand'
+                ? 'bg-soft-ink text-white shadow-soft-ink'
                 : 'border-neutral-200 text-neutral-600 hover:border-brand/40',
             )}
           >
@@ -231,7 +231,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
 
       <button
         onClick={handleAdd}
-        className="w-full bg-brand text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
+        className="w-full py-2.5 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
       >
         Qo'shish
       </button>
@@ -281,7 +281,7 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
             className={cn(
               'rounded-chip px-4 py-2 text-sm font-semibold border-2 transition-all',
               Math.round(v * 1000) === ceilingHeight
-                ? 'border-brand bg-brand text-white'
+                ? 'bg-soft-ink text-white shadow-soft-ink'
                 : 'border-neutral-200 text-neutral-700 hover:border-brand/50',
             )}
           >
@@ -540,20 +540,20 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
         <button
           onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
-          className="w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
+          className="w-full rounded-full py-3 text-sm font-semibold bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100"
         >
           Smeta ko'rish
         </button>
         <button
           onClick={() => roomId && navigate(`/studio/${roomId}`)}
           disabled={!roomId}
-          className="w-full border-2 border-brand text-brand rounded-xl py-3 text-sm font-semibold hover:bg-brand/5 transition-colors disabled:opacity-50"
+          className="w-full rounded-full py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
         >
           Bezashni boshlash
         </button>
         <button
           onClick={onNewRoom}
-          className="w-full text-sm text-neutral-500 hover:text-neutral-800 transition-colors py-2"
+          className="w-full text-sm text-neutral-500 py-2 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         >
           + Yangi xona qo'shish
         </button>
@@ -785,13 +785,13 @@ export default function WizardPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleRestart}
-                className="flex-1 border-2 border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:border-red-300 hover:text-red-600 transition-colors"
+                className="flex-1 text-gray-700 py-2.5 text-sm font-medium rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 Yangi boshlash
               </button>
               <button
                 onClick={handleResume}
-                className="flex-1 bg-brand text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-brand/90 transition-colors"
+                className="flex-1 py-2.5 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 Davom etish
               </button>
@@ -873,7 +873,7 @@ export default function WizardPage() {
             {step > 0 && (
               <button
                 onClick={goBack}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-2"
+                className="text-sm font-medium text-neutral-600 px-2 py-2 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 Ortga
               </button>
@@ -881,7 +881,7 @@ export default function WizardPage() {
             <button
               onClick={goNext}
               disabled={saving}
-              className="flex-1 bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               {saving ? 'Saqlanmoqda...' : 'Keyingi'}
             </button>

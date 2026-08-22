@@ -6,7 +6,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 
 function IconHome({ filled }: { filled?: boolean }) {
   return filled ? (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="#1E40AF" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
     </svg>
   ) : (
@@ -19,7 +19,7 @@ function IconHome({ filled }: { filled?: boolean }) {
 
 function IconShop({ filled }: { filled?: boolean }) {
   return filled ? (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
       <line x1="3" y1="6" x2="21" y2="6"/>
       <path d="M16 10a4 4 0 01-8 0"/>
@@ -41,7 +41,7 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
   const options = [
     {
       icon: (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#1E40AF" strokeWidth="1.75" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
           <rect x="4" y="4" width="20" height="20" rx="4"/>
           <path d="M9 14h10M14 9v10"/>
           <circle cx="14" cy="14" r="3" strokeDasharray="2 2"/>
@@ -98,7 +98,7 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
             <button
               key={opt.title}
               onClick={opt.action}
-              className="flex items-center gap-4 p-4 bg-[#F7F8FA] border border-[#EDEFF3] rounded-[20px] text-left hover:bg-gray-100 transition-colors active:scale-[0.98]"
+              className="flex items-center gap-4 p-4 text-left focus-visible:outline-none rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -169,16 +169,16 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-semibold transition-colors ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] font-semibold transition-[box-shadow,background-color,color] duration-200 ease-out ${
                 isActive
-                  ? 'bg-brand-tint text-brand'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-soft-ink text-white shadow-soft-ink'
+                  : 'text-gray-600 hover:bg-soft hover:text-gray-900 hover:shadow-soft-raised-sm'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <span className={isActive ? 'text-brand' : 'text-gray-400'}>
+                <span className={isActive ? 'text-white' : 'text-gray-400'}>
                   {icon(isActive)}
                 </span>
                 {label}
@@ -192,8 +192,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
       <div className="p-4">
         <button
           onClick={onNew}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand text-white text-[14px] font-bold hover:bg-brand-light transition-colors"
-          style={{ boxShadow: '0 14px 28px -10px rgba(30,64,175,.4)' }}
+          className="w-full flex items-center justify-center gap-2 h-12 from-[#6C87F2] to-[#3B63DE] text-white text-[14px] font-bold focus-visible:outline-none rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 2v12M2 8h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -222,14 +221,22 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/projects"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand' : 'text-subtle'
+              isActive ? 'text-gray-900' : 'text-subtle'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              <IconHome filled={isActive} />
-              <span className={`text-[11px] ${isActive ? 'font-bold text-brand' : 'font-semibold text-subtle'}`}>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
+                  isActive
+                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    : 'bg-soft text-subtle shadow-soft-raised-sm'
+                }`}
+              >
+                <IconHome filled={isActive} />
+              </span>
+              <span className={`text-[11px] ${isActive ? 'font-bold text-gray-900' : 'font-semibold text-subtle'}`}>
                 Uy
               </span>
             </>
@@ -241,11 +248,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           <button
             onClick={onFab}
             aria-label="Yangi loyiha qo'shish"
-            className="w-16 h-16 rounded-full flex items-center justify-center border-4 border-white"
-            style={{
-              background: 'linear-gradient(160deg,#2952D6,#1E40AF)',
-              boxShadow: '0 14px 26px -6px rgba(30,64,175,.6)',
-            }}
+            className="w-16 h-16 flex items-center justify-center text-white focus-visible:outline-none rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           >
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -257,14 +260,22 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/dokon"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand' : 'text-subtle'
+              isActive ? 'text-gray-900' : 'text-subtle'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              <IconShop filled={isActive} />
-              <span className={`text-[11px] ${isActive ? 'font-bold text-brand' : 'font-semibold text-subtle'}`}>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
+                  isActive
+                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    : 'bg-soft text-subtle shadow-soft-raised-sm'
+                }`}
+              >
+                <IconShop filled={isActive} />
+              </span>
+              <span className={`text-[11px] ${isActive ? 'font-bold text-gray-900' : 'font-semibold text-subtle'}`}>
                 Do'kon
               </span>
             </>

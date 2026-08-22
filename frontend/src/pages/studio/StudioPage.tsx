@@ -18,18 +18,27 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
   ];
   return (
-    <div className="flex justify-center px-4 py-2 bg-white border-b border-[#F0F1F4]">
-      <nav className="flex bg-[#F3F4F6] rounded-[14px] p-1 gap-1">
+    // The track and the selected tab are both moulded out of the same surface,
+    // which is what makes the group read as one physical control rather than
+    // five buttons sitting near each other. The selected tab keeps the brand
+    // blue it already had — the shape carries the state, the colour names it.
+    // Five tabs are wider than a 390 px phone, so the row scrolls rather than
+    // pushing the whole page sideways — a horizontally scrolling document
+    // breaks every fixed overlay on the screen, not just this bar.
+    <div className="flex justify-start sm:justify-center overflow-x-auto px-4 py-2.5 bg-soft [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav className="flex shrink-0 gap-1 rounded-full bg-soft p-1.5 shadow-soft-raised">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "px-4 py-1.5 rounded-xl text-[14px] font-semibold transition-all",
+                "rounded-full px-3 sm:px-4 py-1.5 text-[14px] font-semibold",
+                "transition-[box-shadow,transform,color] duration-200 ease-out",
+                "focus-visible:outline-none focus-visible:shadow-soft-focus",
                 isActive
-                  ? "bg-white text-brand shadow-sm"
-                  : "text-muted hover:text-gray-700"
+                  ? "bg-soft text-brand shadow-soft-raised-sm"
+                  : "text-muted hover:text-gray-700 active:shadow-soft-pressed"
               )
             }
           >
@@ -275,7 +284,7 @@ export default function StudioPage() {
           </NavLink>
           {/* Title + dims */}
           <button
-            className="flex-1 min-w-0 text-center"
+            className="flex-1 min-w-0 text-center rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             onClick={() => setSettingsOpen(true)}
           >
             <p className="text-[16px] sm:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
@@ -296,8 +305,8 @@ export default function StudioPage() {
                 saveStatus === 'saved'
                   ? "bg-success text-white"
                   : (isDirty || fetchStatus === 'notfound')
-                    ? "bg-brand text-white"
-                    : "bg-brand-tint text-brand",
+                    ? "bg-soft-ink text-white shadow-soft-ink"
+                    : "bg-soft-ink text-white shadow-soft-ink",
               ].join(' ')}
             >
               {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
@@ -305,7 +314,7 @@ export default function StudioPage() {
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="w-10 h-10 rounded-full bg-[#F3F4F6] flex items-center justify-center hover:bg-[#E5E7EB] transition-colors"
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280">
                   <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/>

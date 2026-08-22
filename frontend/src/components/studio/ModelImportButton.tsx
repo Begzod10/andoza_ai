@@ -180,7 +180,7 @@ export function ModelImportButton({
       <button
         onClick={() => folderRef.current?.click()}
         disabled={status === 'loading'}
-        className="w-full text-xs py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:border-brand/50 hover:text-brand transition-colors"
+        className="w-full text-xs py-1.5 rounded-full text-gray-500 hover:text-gray-800 transition-[box-shadow,color] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
         title="Model papkasini tanlang — teksturalar ichidagi papkalardan ham yuklanadi"
       >
         📁 Papka orqali yuklash (teksturalar bilan)

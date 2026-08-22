@@ -37,21 +37,20 @@ type ChipProps = SelectableChipProps | ClosableChipProps | StaticChipProps
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+// Moulded out of the surface when off, solid ink when on. A chip is a small
+// target, so the selected state has to survive being glanced at rather than
+// read — a tint would not, at this size.
 const base =
-  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ' +
-  'transition-all duration-150 select-none cursor-pointer ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1'
+  'inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full text-[13px] font-semibold ' +
+  'select-none cursor-pointer leading-none ' +
+  'transition-[box-shadow,transform,background-color,color] duration-200 ease-out ' +
+  'focus-visible:outline-none focus-visible:shadow-soft-focus'
 
-const unselected =
-  'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 ' +
-  'hover:bg-neutral-200 dark:hover:bg-neutral-700'
+const unselected = 'bg-soft text-gray-600 shadow-soft-raised-sm hover:text-gray-900 hover:shadow-soft-raised active:shadow-soft-pressed'
 
-const selected =
-  'bg-brand text-white shadow-sm shadow-brand/25 ' +
-  'hover:bg-brand-dark'
+const selected = 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.96]'
 
-const disabledStyle =
-  'opacity-50 pointer-events-none'
+const disabledStyle = 'opacity-50 pointer-events-none shadow-soft-pressed'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -112,8 +111,8 @@ export function Chip(props: ChipProps) {
           className={[
             'flex-shrink-0 ml-0.5 -mr-0.5 rounded-full p-0.5',
             isSelected
-              ? 'hover:bg-white/20'
-              : 'hover:bg-neutral-300 dark:hover:bg-neutral-600',
+              ? 'hover:bg-white/25'
+              : 'hover:bg-soft-deep',
             'transition-colors focus-visible:outline-none',
           ].join(' ')}
           onClick={handleCloseClick}

@@ -130,7 +130,7 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
         <button
           onClick={handleConvert}
           disabled={state !== 'idle' || !imageUrl.trim()}
-          className="flex-1 bg-brand text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         >
           {state === 'processing' ? 'Ishlanmoqda...' : '3D yaratish'}
         </button>
@@ -138,7 +138,7 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
         {state !== 'idle' && (
           <button
             onClick={handleReset}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-sm font-semibold text-gray-700 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           >
             Tozalash
           </button>

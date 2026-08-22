@@ -39,7 +39,7 @@ export default function ProfilePage() {
           {loggedIn && (
             <button
               onClick={handleLogout}
-              className="text-white/70 text-sm hover:text-white transition-colors"
+              className="text-white/70 text-sm rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               {uz.auth.chiqish}
             </button>
@@ -99,7 +99,7 @@ export default function ProfilePage() {
           </p>
           <button
             onClick={() => navigate("/login")}
-            className="w-full bg-brand text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
+            className="w-full h-11 text-sm inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100"
           >
             Kirish
           </button>

@@ -68,7 +68,7 @@ function UstaCard({
       {/* Action */}
       <button
         onClick={() => onContact(usta)}
-        className="w-full bg-brand text-white py-2 rounded-card text-sm font-semibold hover:bg-brand/90 transition-colors"
+        className="w-full h-10 text-sm inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100"
       >
         {uz.ustalar.usta_chaqirish}
       </button>
@@ -106,7 +106,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
             </h3>
             <button
               onClick={onClose}
-              className="mt-4 bg-brand text-white px-6 py-2 rounded-card text-sm font-semibold"
+              className="mt-4 h-10 px-6 text-sm inline-flex items-center justify-center gap-2 font-bold focus-visible:outline-none from-[#6C87F2] to-[#3B63DE] text-white disabled:hover:translate-y-0 disabled:active:scale-100 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               {uz.common.yopish}
             </button>
@@ -148,14 +148,14 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
             <div className="mt-5 flex gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 border-2 border-gray-300 py-2 rounded-card text-sm font-medium hover:border-brand transition-colors"
+                className="flex-1 py-2 text-sm font-medium rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 {uz.common.bekor}
               </button>
               <button
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending || !phone}
-                className="flex-1 bg-brand text-white py-2 rounded-card text-sm font-semibold hover:bg-brand/90 disabled:opacity-60 transition-colors"
+                className="flex-1 h-10 text-sm inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100"
               >
                 {mutation.isPending ? uz.common.yuklanmoqda : uz.ustalar.yuborish}
               </button>
@@ -202,7 +202,7 @@ export default function UstalarPage() {
               className={cn(
                 "px-4 py-1.5 rounded-chip text-sm font-medium border-2 transition-colors",
                 sort === opt.key
-                  ? "border-brand bg-brand/10 text-brand"
+                  ? "bg-soft-ink text-white shadow-soft-ink"
                   : "border-gray-200 hover:border-brand/40"
               )}
             >

@@ -283,7 +283,7 @@ export default function LoginPage() {
             <button
               onClick={handleVerifyOTP}
               disabled={loading || otp.some((d) => !d)}
-              className="w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full rounded-full py-3 text-sm font-semibold disabled:cursor-not-allowed bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100"
             >
               {loading ? uz.common.yuklanmoqda : uz.auth.otp_tasdiqlash}
             </button>
@@ -302,7 +302,7 @@ export default function LoginPage() {
               <button
                 onClick={() => switchMode("login")}
                 className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  mode === "login" ? "bg-white text-gray-900 shadow-sm" : "text-muted hover:text-gray-700"
+                  mode === "login" ? "bg-soft text-gray-900 shadow-soft-raised-sm" : "text-muted hover:text-gray-700"
                 }`}
               >
                 Kirish
@@ -310,7 +310,7 @@ export default function LoginPage() {
               <button
                 onClick={() => switchMode("register")}
                 className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  mode === "register" ? "bg-white text-gray-900 shadow-sm" : "text-muted hover:text-gray-700"
+                  mode === "register" ? "bg-soft text-gray-900 shadow-soft-raised-sm" : "text-muted hover:text-gray-700"
                 }`}
               >
                 Ro'yxatdan o'tish
@@ -351,7 +351,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleLogin}
                   disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-4 w-full py-3 text-sm font-semibold disabled:cursor-not-allowed rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
                 >
                   {loading ? uz.common.yuklanmoqda : "Kirish"}
                 </button>
@@ -364,7 +364,7 @@ export default function LoginPage() {
                 </div>
                 <button
                   onClick={() => switchMode("otp-phone")}
-                  className="w-full border border-gray-200 text-gray-700 rounded-xl py-3 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="w-full rounded-full py-3 text-sm font-medium bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                 >
                   📱 SMS kod bilan kirish
                 </button>
@@ -424,7 +424,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleRegister}
                   disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-4 w-full py-3 text-sm font-semibold disabled:cursor-not-allowed rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
                 >
                   {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
                 </button>
@@ -457,7 +457,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleRequestOTP}
                   disabled={loading}
-                  className="mt-4 w-full bg-brand text-white rounded-xl py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-4 w-full py-3 text-sm font-semibold disabled:cursor-not-allowed rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
                 >
                   {loading ? uz.common.yuklanmoqda : uz.auth.otp_yuborish}
                 </button>

@@ -723,7 +723,7 @@ function TimeOfDayControl({
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-chip transition-colors",
             value === t
-              ? "bg-white text-gray-900"
+              ? "bg-soft text-gray-900 shadow-soft-raised-sm"
               : "text-white/80 hover:text-white",
           )}
         >
@@ -976,8 +976,8 @@ export default function ThreeDStudio({ room }: ThreeDStudioProps) {
           className={cn(
             "absolute bottom-4 right-4 z-20 px-3 py-1.5 text-xs font-medium rounded-chip transition-colors",
             highQuality3d
-              ? "bg-amber-400 text-gray-900"
-              : "bg-gray-900/70 text-white/70 hover:text-white",
+              ? "bg-soft-ink text-white shadow-soft-ink"
+              : "bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised hover:text-gray-900",
           )}
           title={highQuality3d ? "Yuqori sifat yoqilgan (N8AO + SMAA)" : "Oddiy sifat (tezkor)"}
         >

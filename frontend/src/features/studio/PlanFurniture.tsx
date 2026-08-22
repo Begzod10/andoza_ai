@@ -13,6 +13,7 @@ import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { FURNITURE_CATALOG, type FurnitureCatalogEntry } from '@/lib/furnitureCatalog'
+import { planTheme } from './planTheme'
 import type { PlacedFurniture, UserFurnitureEntry } from '@/store/roomStore'
 import { rectHull, type Hull } from '@/lib/modelFootprint'
 import { topViewOutline, topViewPoints, type Poly, type TopView } from '@/lib/modelTopView'
@@ -29,9 +30,14 @@ export function resolveFurnitureEntry(
   )
 }
 
-const OUTLINE = '#3F3A33'
-const DETAIL = '#7A7264'
-const SELECT = '#D85A30'
+// Weights and colours come from the shared plan theme; see planTheme.ts for
+// why they are millimetres rather than pixels.
+const { palette: PC, weights: PW } = planTheme
+const OUTLINE = PC.furnitureStroke
+const DETAIL = PC.furnitureDetail
+const FILL = PC.furnitureFill
+const FILL_SELECTED = PC.selectionFill
+const SELECT = PC.selection
 
 /** Item scale in metres per model unit (catalog unit scale × user resize). */
 export function itemScale(entry: AnyFurnitureEntry, item: PlacedFurniture): number {
@@ -89,19 +95,20 @@ function PlanSymbol({
         <path
           d={outline}
           fillRule="evenodd"
-          fill={selected ? '#FBE3D6' : '#FFFFFF'}
-          fillOpacity={selected ? 0.95 : 0.86}
+          fill={selected ? FILL_SELECTED : FILL}
           stroke={selected ? SELECT : OUTLINE}
-          strokeWidth={selected ? 40 : 24}
+          strokeWidth={selected ? PW.selection : PW.furniture}
           strokeLinejoin="round"
+          strokeLinecap="round"
         />
         {details && (
           <path
             d={details}
             fill="none"
             stroke={selected ? SELECT : DETAIL}
-            strokeWidth={selected ? 22 : 15}
+            strokeWidth={selected ? PW.furnitureDetail * 1.5 : PW.furnitureDetail}
             strokeLinejoin="round"
+            strokeLinecap="round"
             pointerEvents="none"
           />
         )}

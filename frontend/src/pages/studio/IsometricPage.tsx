@@ -270,7 +270,7 @@ export default function IsometricPage() {
                 onClick={() => setTargetWall(key)}
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                   targetWall === key
-                    ? 'bg-brand text-white border-brand font-semibold'
+                    ? 'bg-soft-ink text-white shadow-soft-ink font-semibold'
                     : 'border-gray-300 text-gray-600 hover:border-brand/50'
                 }`}
               >
@@ -289,7 +289,7 @@ export default function IsometricPage() {
                 onClick={() => handleSetCoveringMode(mode)}
                 className={`flex-1 py-1.5 text-sm rounded-md font-medium transition-colors ${
                   coveringMode === mode
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-soft text-gray-900 shadow-soft-raised-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -381,7 +381,7 @@ export default function IsometricPage() {
                 onClick={() => handleSetFloorType(ft.key)}
                 className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
                   floorType === ft.key
-                    ? 'border-brand bg-brand/10 text-brand font-semibold'
+                    ? 'bg-soft-ink text-white shadow-soft-ink font-semibold'
                     : 'border-gray-200 hover:border-brand/40 text-gray-700'
                 }`}
               >

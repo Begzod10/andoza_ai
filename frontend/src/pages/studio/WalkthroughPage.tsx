@@ -106,7 +106,7 @@ function EnterOverlay({ onEnter }: { onEnter: () => void }) {
           <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Shift</kbd><span className="opacity-80">yugurish</span></div>
           <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Esc</kbd><span className="opacity-80">chiqish</span></div>
         </div>
-        <button className="w-full bg-white/90 text-gray-900 font-semibold py-2.5 rounded-xl hover:bg-white transition-colors text-sm">
+        <button className="w-full text-gray-900 font-semibold py-2.5 text-sm rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">
           Bosing yoki bu yerga bosing
         </button>
       </div>

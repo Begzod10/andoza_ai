@@ -43,8 +43,8 @@ function MaterialItem({
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2.5 rounded-card border-2 transition-all text-left",
         isSelected
-          ? "border-brand bg-brand/5 shadow-sm"
-          : "border-transparent hover:border-gray-200 hover:bg-gray-50",
+          ? "bg-soft-ink text-white shadow-soft-ink"
+          : "hover:bg-soft hover:shadow-soft-raised-sm",
       )}
     >
       {/* Color swatch */}
@@ -169,7 +169,7 @@ function PanelContent({
         </div>
         <button
           onClick={onClose}
-          className="text-muted hover:text-gray-900 transition-colors text-lg"
+          className="text-muted text-lg rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           aria-label={uz.common.yopish}
         >
           ✕
@@ -185,7 +185,7 @@ function PanelContent({
             className={cn(
               "flex-shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
               activeTab === tab.key
-                ? "border-brand text-brand"
+                ? "bg-soft-ink text-white shadow-soft-ink"
                 : "border-transparent text-muted hover:text-gray-900",
             )}
           >
@@ -228,7 +228,7 @@ function PanelContent({
         <button
           onClick={onApply}
           disabled={!pendingMaterial}
-          className="w-full bg-brand text-white py-2.5 rounded-card text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-40"
+          className="w-full py-2.5 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
         >
           {uz.studio.qollash}
         </button>

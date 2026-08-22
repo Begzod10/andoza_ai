@@ -97,7 +97,7 @@ function PanelInput({
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         className={`w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none transition-colors ${
-          isInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-brand'
+          isInvalid ? 'border-red-400 bg-red-50' : 'bg-soft shadow-soft-pressed focus:shadow-soft-pressed-deep'
         }`}
       />
       {draft !== null && !isNaN(draftVal) && draftVal < minMm && (
@@ -460,7 +460,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     onClick={() => onPick(w.url)}
                     title={w.name}
                     className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeUrl === w.url ? 'border-brand' : 'border-gray-200 hover:border-gray-300'
+                      activeUrl === w.url ? 'bg-soft-ink text-white shadow-soft-ink' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <img src={w.url} alt={w.name} loading="lazy" className="w-full h-full object-cover" />
@@ -469,7 +469,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     <button
                       onClick={() => handleWallpaperDelete(w)}
                       title="Kutubxonadan o'chirish"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none text-gray-400 hover:text-red-500"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-soft shadow-soft-raised-sm text-[10px] leading-none text-gray-400 hover:text-[#C0362F] transition-[box-shadow,color] duration-200"
                     >
                       ✕
                     </button>
@@ -597,8 +597,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={() => setTargetWall(key)}
               className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                 targetWall === key
-                  ? "bg-brand text-white border-brand font-semibold"
-                  : "border-gray-300 text-gray-600 hover:border-brand/50"
+                  ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                  : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-600"
               }`}
             >
               {label}
@@ -623,7 +623,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     key={cd.id}
                     onClick={() => handleSetCeilingDesign(cd.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-card border-2 transition-colors ${
-                      active ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+                      active ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                     }`}
                   >
                     <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
@@ -636,7 +636,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                       {cd.lighting.map((id) => (
                         <span
                           key={id}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
+                          className="text-[10px] px-2 py-0.5 rounded-full bg-soft text-gray-600 shadow-soft-raised-sm"
                         >
                           {lightType(id).emoji} {lightType(id).name}
                         </span>
@@ -702,7 +702,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                       style={{ background: c }}
                       aria-label={c}
                       className={`w-7 h-7 rounded-full border-2 transition-colors ${
-                        ceilingSettings.color === c ? "border-brand" : "border-gray-200"
+                        ceilingSettings.color === c ? "bg-soft-ink text-white shadow-soft-ink" : "border-gray-200"
                       }`}
                     />
                   ))}
@@ -718,13 +718,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         <>
           {/* Turi / Rasm tabs */}
           <section>
-            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+            <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
               {(['turi', 'rasm'] as FloorMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setFloorMode(mode)}
                   className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                    floorMode === mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    floorMode === mode ? 'bg-soft text-gray-900 shadow-soft-raised-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {mode === 'turi' ? 'Turi' : 'Rasm'}
@@ -743,8 +743,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     onClick={() => handleSetFloorType(ft.key)}
                     className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
                       floorType === ft.key
-                        ? "border-brand bg-brand/10 text-brand font-semibold"
-                        : "border-gray-200 hover:border-brand/40 text-gray-700"
+                        ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                        : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
                     }`}
                   >
                     {ft.label}
@@ -867,14 +867,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls */}
       {targetWall !== 'FLOOR' && (<>
       <section>
-        <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+        <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
           {(["paint", "oboy", "texture"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => handleSetCoveringMode(mode)}
               className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
                 coveringMode === mode
-                  ? "bg-white text-gray-900 shadow-sm"
+                  ? "bg-soft text-gray-900 shadow-soft-raised-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -1111,7 +1111,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <button
             onClick={() => handlePanelChange({ enabled: !panelSettings.enabled })}
             className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-              panelSettings.enabled ? 'bg-brand' : 'bg-gray-200'
+              panelSettings.enabled ? 'bg-soft-ink shadow-soft-ink' : 'bg-soft-deep shadow-soft-pressed'
             }`}
             aria-checked={panelSettings.enabled}
             role="switch"
@@ -1165,14 +1165,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             {/* Orientation */}
             <div>
               <label className="text-xs text-gray-500 block mb-1">Joylashuv</label>
-              <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+              <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
                 {([0, 90] as const).map((angle) => (
                   <button
                     key={angle}
                     onClick={() => handlePanelChange({ rotation: angle })}
                     className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
                       panelSettings.rotation === angle
-                        ? 'bg-white text-gray-900 shadow-sm'
+                        ? 'bg-soft text-gray-900 shadow-soft-raised-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
@@ -1279,8 +1279,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={() => setTargetWall(w.key)}
               className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
                 targetWall === w.key
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  ? 'bg-soft-ink text-white shadow-soft-ink'
+                  : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised'
               }`}
             >
               {w.label}
@@ -1304,14 +1304,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 onClick={() => applyPlaster(f)}
                 title={f.hint}
                 className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
-                  active ? 'border-brand ring-2 ring-brand/25' : 'border-gray-200 hover:border-brand/50'
+                  active ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
                 }`}
               >
                 <span
                   className="block h-12 w-full"
                   style={{ backgroundImage: `url("${url}")`, backgroundSize: '120px 120px' }}
                 />
-                <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-white">
+                <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-soft">
                   {f.name}
                 </span>
               </button>
@@ -1349,8 +1349,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => handleSetFloorType(ft.key)}
             className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
               floorType === ft.key
-                ? "border-brand bg-brand/10 text-brand font-semibold"
-                : "border-gray-200 hover:border-brand/40 text-gray-700"
+                ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
             }`}
           >
             {ft.label}
@@ -1391,8 +1391,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => setFurnitureCat(c.key)}
             className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap ${
               furnitureCat === c.key
-                ? 'bg-brand text-white border-brand'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-brand/50 hover:text-brand'
+                ? 'bg-soft-ink text-white shadow-soft-ink'
+                : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised hover:text-gray-900'
             }`}
           >
             {c.label}
@@ -1409,7 +1409,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             <div
               key={entry.id}
               className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
-                ${count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
+                ${count > 0 ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'}`}
             >
               {/* Thumbnail */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
@@ -1430,7 +1430,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                   <select
                     value={entry.category ?? 'boshqa'}
                     onChange={(e) => setUserFurnitureCategory(entry.id, e.target.value as FurnitureCategory)}
-                    className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+                    className="mt-1 w-full text-[10px] text-gray-500 rounded-lg px-1.5 py-0.5 bg-soft shadow-soft-pressed focus:shadow-soft-pressed-deep focus:outline-none"
                     title="Kategoriyani o'zgartirish"
                   >
                     {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
@@ -1442,7 +1442,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
               {/* Count badge */}
               {count > 0 && (
-                <span className="absolute top-1 left-1 bg-brand text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                <span className="absolute top-1 left-1 bg-soft-ink text-white text-[10px] font-bold px-2 py-0.5 rounded-full leading-none shadow-soft-ink">
                   {count}×
                 </span>
               )}
@@ -1452,7 +1452,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 <button
                   onClick={() => ready && placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
                   disabled={!ready}
-                  className="flex-1 py-1.5 text-brand text-sm font-bold hover:bg-brand/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 py-1.5 text-gray-800 text-sm font-bold hover:bg-soft hover:shadow-soft-raised-sm disabled:opacity-40 disabled:cursor-not-allowed transition-[box-shadow,background-color]"
                   title="Qo'shish"
                 >
                   + Qo'shish
@@ -1483,7 +1483,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         })}
 
         {/* Upload card */}
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-soft shadow-soft-pressed transition-[box-shadow] duration-200 hover:shadow-soft-pressed-deep h-full min-h-[130px]">
           <ModelImportButton
             compact
             category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
@@ -1507,7 +1507,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       {/* Material channel editor — one image per channel */}
       {texEditor && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setTexEditor(null)}>
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm bg-soft rounded-[22px] shadow-soft-raised-lg p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm font-bold text-gray-900 truncate">{texEditor.name}</p>
               <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
@@ -1519,7 +1519,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               {texEditor.mats.map((m) => (
                 <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${
-                    m.textured ? 'bg-green-500' : m.hasMap ? 'bg-amber-400' : 'bg-gray-300'
+                    m.textured ? 'bg-green-500' : m.hasMap ? 'bg-amber-400' : 'bg-soft-deep shadow-soft-pressed'
                   }`} />
                   <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
                   {!m.hasUVs && (
@@ -1534,7 +1534,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                   <button
                     onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
                     disabled={texBusy === texEditor.entryId}
-                    className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
+                    className="shrink-0 text-[11px] font-semibold text-gray-700 rounded-full px-2.5 py-1 disabled:opacity-40 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                   >
                     {texBusy === texEditor.entryId ? '⏳' : 'Rasm'}
                   </button>
@@ -1544,7 +1544,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             <button
               onClick={() => { texTargetRef.current = { entryId: texEditor.entryId }; texInputRef.current?.click(); }}
               disabled={texBusy === texEditor.entryId}
-              className="mt-3 w-full text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-xl py-2 hover:border-brand/40 hover:text-brand disabled:opacity-40"
+              className="mt-3 w-full text-[12px] font-semibold text-gray-600 rounded-full py-2 hover:text-gray-900 disabled:opacity-40 transition-[box-shadow,color] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
             >
               Barcha bo'sh kanallarga bitta rasm
             </button>

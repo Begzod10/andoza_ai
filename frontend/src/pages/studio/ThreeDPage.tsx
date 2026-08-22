@@ -37,6 +37,7 @@ import {
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
+import { ToolCluster } from "@/features/studio/ToolCluster";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import * as THREE from "three";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
@@ -3737,17 +3738,17 @@ export default function ThreeDPage() {
     <div className="flex flex-col lg:flex-row" style={{ height: "calc(100vh - 108px)" }}>
 
       {/* ── Mobile: horizontal phase strip ──────────────────────── */}
-      <div className="flex lg:hidden shrink-0 overflow-x-auto bg-surface border-b border-gray-200 select-none" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex lg:hidden shrink-0 gap-2 overflow-x-auto bg-soft px-2.5 py-2.5 select-none" style={{ scrollbarWidth: 'none' }}>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
           return (
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                status === 'current' ? 'border-brand text-brand' :
-                status === 'done'    ? 'border-transparent text-success' :
-                                       'border-transparent text-gray-400'
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-semibold whitespace-nowrap transition-[box-shadow,transform,background-color,color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus ${
+                status === 'current' ? 'bg-soft-ink text-white shadow-soft-ink' :
+                status === 'done'    ? 'bg-soft text-gray-700 shadow-soft-raised-sm active:shadow-soft-pressed' :
+                                       'bg-soft text-gray-400 shadow-soft-pressed'
               }`}
             >
               {status === 'done' && (
@@ -3755,7 +3756,7 @@ export default function ThreeDPage() {
                   <path d="M1.5 5.5l3 3 5-5"/>
                 </svg>
               )}
-              {status === 'current' && <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />}
+              {status === 'current' && <span className="w-1.5 h-1.5 rounded-full bg-white/90 animate-pulse inline-block" />}
               {stage.label}
             </button>
           );
@@ -3763,33 +3764,39 @@ export default function ThreeDPage() {
       </div>
 
       {/* ── Desktop: left phase stepper sidebar ─────────────────── */}
-      <nav className="hidden lg:flex w-36 shrink-0 bg-surface border-r border-gray-200 flex-col pt-3 select-none">
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
+      <nav className="hidden lg:flex w-40 shrink-0 bg-soft flex-col gap-2 px-2.5 pt-3 select-none">
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-0.5">Bosqichlar</p>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
           return (
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
-              className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[18px] text-[12px] font-semibold text-left transition-[box-shadow,transform,background-color,color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus ${
                 status === 'current'
-                  ? 'bg-brand text-white'
+                  ? 'bg-soft-ink text-white shadow-soft-ink'
                   : status === 'done'
-                  ? 'text-success hover:bg-gray-50'
-                  : 'text-gray-400 hover:bg-gray-50'
+                  ? 'bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised hover:-translate-y-[1px] active:shadow-soft-pressed active:translate-y-0'
+                  : 'bg-soft text-gray-400 shadow-soft-pressed hover:text-gray-600'
               }`}
             >
-              {status === 'done' && (
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <path d="M1.5 5.5l3 3 5-5"/>
-                </svg>
-              )}
-              {status === 'current' && (
-                <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block shrink-0" />
-              )}
-              {status === 'pending' && (
-                <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />
-              )}
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-[box-shadow,background-color] duration-200 ${
+                  status === 'current'
+                    ? 'bg-white/18 text-white'
+                    : status === 'done'
+                    ? 'bg-soft text-success shadow-soft-raised-sm'
+                    : 'bg-soft-deep text-gray-400 shadow-soft-pressed'
+                }`}
+              >
+                {status === 'done' ? (
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 5.5l3 3 5-5"/>
+                  </svg>
+                ) : (
+                  <span className={`h-1.5 w-1.5 rounded-full bg-current ${status === 'current' ? 'animate-pulse' : ''}`} />
+                )}
+              </span>
               <span className="leading-tight">{stage.label}</span>
             </button>
           );
@@ -3809,65 +3816,43 @@ export default function ThreeDPage() {
               className={`shrink-0 px-2.5 py-1 rounded-full text-xs transition-colors ${
                 preset === v
                   ? "bg-brand text-white font-medium"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  : "bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised"
               }`}
             >
               {VIEW_LABELS[v]}
             </button>
           ))}
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
-              <button
-                onClick={() => setToolMode('select')}
-                title="Tanlash"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
-                </svg>
-                <span className="hidden sm:inline">Tanlash</span>
-              </button>
-              <button
-                onClick={() => setToolMode('move')}
-                title="Siljitish"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
-                </svg>
-                <span className="hidden sm:inline">Siljitish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('rotate')}
-                title="Aylantirish"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-                <span className="hidden sm:inline">Aylantirish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('scale')}
-                title="O'lcham"
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
-                </svg>
-                <span className="hidden sm:inline">O'lcham</span>
-              </button>
-            </div>
-            {toolMode === 'rotate' && selectedFurId && (() => {
+            {/* Four tools, collapsed to the one in use — press and hold it to
+                bring the other three out. See ToolCluster for why a hold. */}
+            <ToolCluster<ToolMode>
+              value={toolMode}
+              onChange={setToolMode}
+              items={[
+                { mode: 'select' as const, title: 'Tanlash', icon: (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
+                  </svg>
+                ) },
+                { mode: 'move' as const, title: 'Siljitish', icon: (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
+                  </svg>
+                ) },
+                { mode: 'rotate' as const, title: 'Aylantirish', icon: (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                  </svg>
+                ) },
+                { mode: 'scale' as const, title: "O'lcham", icon: (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
+                  </svg>
+                ) },
+              ]}
+            />
+                        {toolMode === 'rotate' && selectedFurId && (() => {
               const item = furniture.find(f => f.id === selectedFurId)
               if (!item) return null
               const currentDeg = Math.round(item.rotation * (180 / Math.PI))
@@ -3893,7 +3878,7 @@ export default function ThreeDPage() {
                     title="Burchakni darajada kiriting va Enter bosing"
                   />
                   <span className="text-gray-400 text-xs">°</span>
-                  <button type="submit" className="text-xs px-1.5 py-0.5 bg-brand text-white rounded font-medium">✓</button>
+                  <button type="submit" className="text-xs px-1.5 py-0.5 font-medium rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">✓</button>
                 </form>
               )
             })()}
@@ -3901,7 +3886,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowHelp(v => !v)}
               title="Boshqaruv bo'yicha yordam"
-              className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+              className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 text-gray-500 transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
             >
               ?
             </button>
@@ -3909,7 +3894,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setPresetVersion(n => n + 1)}
               title="Markazlash — kamerani xona markaziga qaytarish"
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 text-gray-500 transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="12" r="3" />
@@ -3930,7 +3915,7 @@ export default function ThreeDPage() {
               }
               className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 topView
-                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                  ? 'bg-soft-deep shadow-soft-pressed text-gray-400 cursor-not-allowed'
                   : cutaway !== 'off'
                   ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
                   : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
@@ -3945,20 +3930,44 @@ export default function ThreeDPage() {
               </span>
             </button>
             {/* Scene light (sun + environment) toggle */}
+            {/* A real switch rather than a button that changes colour. Day and
+                night are two settled states, not an action, and a switch says
+                which one you are in without having to read the label — which
+                matters here because the label is hidden on a narrow toolbar.
+                The icon changes with it, so the state survives the label being
+                dropped at small widths. */}
             <button
+              role="switch"
+              aria-checked={sceneLightOn}
+              aria-label={sceneLightOn ? 'Kunduz — sahna yorug\'ligi yoniq' : "Tun — sahna yorug'ligi o'chiq"}
               onClick={() => setSceneLightOn(v => !v)}
               title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                sceneLightOn
-                  ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
-                  : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
-              }`}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-soft px-2 py-1 text-xs font-semibold text-gray-700 shadow-soft-raised-sm transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-soft-raised active:translate-y-0 active:shadow-soft-pressed focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-              </svg>
+              {sceneLightOn ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E9A23B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6C7A96" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+                </svg>
+              )}
               <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
+              {/* The track is grooved into the surface and the knob is raised
+                  out of it, so the two shadows carry the state rather than fill. */}
+              <span
+                className={`relative h-[18px] w-[32px] shrink-0 rounded-full transition-colors duration-250 ${
+                  sceneLightOn ? 'bg-[#2E9E8F]' : 'bg-soft-deep'
+                } shadow-soft-pressed`}
+              >
+                <span
+                  className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-soft-raised shadow-soft-raised-sm transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    sceneLightOn ? 'translate-x-[16px]' : 'translate-x-[2px]'
+                  }`}
+                />
+              </span>
             </button>
             {/* Sun clock. Only meaningful while the sun is the light source, so
                 it rides with the day/night toggle. */}
@@ -4012,7 +4021,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowPanel(v => !v)}
               title="Dizayn paneli"
-              className="lg:hidden flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-brand text-white shrink-0"
+              className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
@@ -4027,13 +4036,13 @@ export default function ThreeDPage() {
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
         {isMebelTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
-            <MebelPlanView />
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#3A3D42]">
+            <MebelPlanView roomName={room.name} />
           </div>
         )}
         {/* Chiroqlar: reflected ceiling plan beside the live 3D viewport */}
         {isChiroqTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#3A3D42]">
             <ChiroqPlanView
               armedType={armedLightType}
               onPlaced={() => setArmedLightType(null)}

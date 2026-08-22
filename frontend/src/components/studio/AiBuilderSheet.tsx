@@ -165,7 +165,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
             onClick={() => setTab("builder")}
             className={`px-4 py-2 text-sm font-semibold transition-colors ${
               tab === "builder"
-                ? "text-brand border-b-2 border-brand"
+                ? "text-gray-900 border-b-2 border-soft-ink"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
@@ -175,7 +175,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
             onClick={() => setTab("image3d")}
             className={`px-4 py-2 text-sm font-semibold transition-colors ${
               tab === "image3d"
-                ? "text-brand border-b-2 border-brand"
+                ? "text-gray-900 border-b-2 border-soft-ink"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
@@ -227,13 +227,13 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
             <div className="flex gap-2">
               <button
                 onClick={handleApply}
-                className="flex-1 bg-green-600 text-white text-sm font-semibold py-2 rounded-xl hover:bg-green-700 transition-colors"
+                className="flex-1 text-white text-sm font-semibold py-2 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 {uz.ai.qollash}
               </button>
               <button
                 onClick={handleDiscard}
-                className="flex-1 bg-white border border-gray-300 text-gray-700 text-sm font-semibold py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 text-gray-700 text-sm font-semibold py-2 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 {uz.ai.bekor}
               </button>
@@ -250,12 +250,12 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
               placeholder={uz.ai.builder_placeholder}
               disabled={running}
               rows={3}
-              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-60"
+              className="w-full rounded-2xl bg-soft shadow-soft-pressed px-3 py-2 text-sm resize-none focus:outline-none focus:shadow-soft-pressed-deep disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={running || !prompt.trim()}
-              className="w-full bg-brand text-white text-sm font-semibold py-3 rounded-xl hover:bg-brand/90 transition-colors disabled:opacity-50"
+              className="w-full text-sm font-semibold py-3 rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               {running ? uz.ai.fikrlanmoqda : uz.ai.yuborish}
             </button>

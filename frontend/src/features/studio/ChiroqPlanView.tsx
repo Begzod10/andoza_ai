@@ -19,12 +19,17 @@ import { resolveElementPositions } from '@/lib/wallPositions'
 import { PlanFurnitureLayer } from './PlanFurniture'
 import type { Hull } from '@/lib/modelFootprint'
 import { lightType, kelvinToHex, type LightType, type LightTypeId } from '@/lib/lightCatalog'
+import { planTheme } from './planTheme'
 
 const T = 250        // wall thickness in plan, mm
 const MARGIN = 520   // viewBox margin, mm
-const WALL_DARK = '#2B2622'
-const FLOOR_FILL = '#F0EDE5'
-const BLUE = '#2563EB'
+// Same sheet as the furniture plan — see planTheme.ts. Fixtures keep their own
+// warm colour: a lamp's colour temperature is data the drawing is *about*, not
+// presentation, so it is the one thing the theme does not override.
+const { palette: C, weights: LW, type: TY } = planTheme
+const WALL_DARK = C.wallExterior
+const FLOOR_FILL = C.floors[0]
+const BLUE = C.selection
 /** Click/drag placement snaps to this grid, in mm. */
 const SNAP = 50
 /** How close to a wall a click has to land to count as "on that wall". */
@@ -156,7 +161,7 @@ export function ChiroqPlanView({
   return (
     <div className="h-full flex flex-col">
       {/* ── Status strip: what a click will do right now ─────────── */}
-      <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-white/70">
+      <div className="shrink-0 px-3 py-2 bg-soft">
         {armedType ? (
           <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
             <span>{lightType(armedType).emoji}</span>
@@ -170,6 +175,15 @@ export function ChiroqPlanView({
         )}
       </div>
 
+        {/* Same dark sheet as the furniture plan; the vignette is CSS so it
+            frames the viewport rather than panning with the drawing. */}
+        <div
+          className="relative flex-1 min-h-0 flex flex-col"
+          style={{
+            backgroundColor: C.canvas,
+            backgroundImage: `radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(0,0,0,0.55) 100%)`,
+          }}
+        >
       <svg
         ref={svgRef}
         viewBox={vb}
@@ -186,11 +200,11 @@ export function ChiroqPlanView({
         {/* metre grid — the reference for "exactly here" */}
         {Array.from({ length: Math.max(0, Math.floor(W / 1000)) }, (_, i) => (
           <line key={`gx${i}`} x1={(i + 1) * 1000} y1={0} x2={(i + 1) * 1000} y2={D}
-                stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+                stroke={C.grid} strokeWidth={LW.grid} strokeDasharray="60 60" />
         ))}
         {Array.from({ length: Math.max(0, Math.floor(D / 1000)) }, (_, i) => (
           <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000}
-                stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+                stroke={C.grid} strokeWidth={LW.grid} strokeDasharray="60 60" />
         ))}
 
         {/* walls */}
@@ -243,14 +257,15 @@ export function ChiroqPlanView({
         )}
 
         {/* room dimensions */}
-        <text x={W / 2} y={-T - 150} fontSize={210} fill="#6B7280" textAnchor="middle">
+        <text x={W / 2} y={-T - 150} fontSize={TY.dimensionSize} fill={C.dimension} textAnchor="middle">
           {(W / 1000).toFixed(1)} m
         </text>
-        <text x={-T - 150} y={D / 2} fontSize={210} fill="#6B7280" textAnchor="middle"
+        <text x={-T - 150} y={D / 2} fontSize={TY.dimensionSize} fill={C.dimension} textAnchor="middle"
               transform={`rotate(-90 ${-T - 150} ${D / 2})`}>
           {(D / 1000).toFixed(1)} m
         </text>
       </svg>
+        </div>
 
       {/* ── Exact coordinates for the selected fixture ───────────── */}
       {selected && (
@@ -281,7 +296,7 @@ function LightGlyph({ light, selected, onPointerDown }: {
     <g style={{ cursor: 'grab' }} onPointerDown={onPointerDown}>
       {/* spill — a rough sense of how far the fixture throws */}
       <circle cx={light.xMm} cy={light.zMm} r={r * 3.2} fill={hex} opacity={dim ? 0.04 : 0.13} />
-      <circle cx={light.xMm} cy={light.zMm} r={r} fill={dim ? '#D1D5DB' : hex} stroke={WALL_DARK} strokeWidth={14} />
+      <circle cx={light.xMm} cy={light.zMm} r={r} fill={dim ? C.furnitureDetail : hex} stroke={WALL_DARK} strokeWidth={14} />
       {/* linear fixtures read as a bar, not a dot */}
       {(t.id === 'led_linear' || t.id === 'track' || t.id === 'led_track' || t.id === 'bath') && (
         <rect
@@ -289,7 +304,7 @@ function LightGlyph({ light, selected, onPointerDown }: {
           y={light.zMm - 45}
           width={t.sizeM.w * 1000}
           height={90}
-          fill={dim ? '#D1D5DB' : hex}
+          fill={dim ? C.furnitureDetail : hex}
           stroke={WALL_DARK}
           strokeWidth={12}
           transform={`rotate(${((light.rotation ?? 0) * 180) / Math.PI} ${light.xMm} ${light.zMm})`}
@@ -332,7 +347,7 @@ function OpeningMarks({ geometry, W, D }: {
               y={y - (horiz ? T / 2 : el.width / 2)}
               width={horiz ? el.width : T}
               height={horiz ? T : el.width}
-              fill={isWindow ? '#BFD9F2' : '#E7D9C4'}
+              fill={isWindow ? C.windowStroke : C.doorStroke}
             />
           )
         })
@@ -351,7 +366,7 @@ function CoordinateBar({ light, W, D, onMove, onPatch }: {
 }) {
   const t = lightType(light.type)
   return (
-    <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex flex-wrap items-center gap-2">
+    <div className="shrink-0 bg-soft px-3 py-2 flex flex-wrap items-center gap-2">
       <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
         <span>{t.emoji}</span>{t.name}
       </span>
@@ -366,7 +381,7 @@ function CoordinateBar({ light, W, D, onMove, onPatch }: {
       <button
         onClick={() => onPatch({ off: !light.off })}
         className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-          light.off ? 'bg-gray-200 text-gray-500' : 'bg-amber-100 text-amber-700'
+          light.off ? 'bg-soft-deep text-gray-500 shadow-soft-pressed' : 'bg-amber-100 text-amber-700'
         }`}
       >
         {light.off ? "O'chiq" : 'Yoqilgan'}
@@ -404,7 +419,7 @@ function NumField({ label, value, min, max, onCommit }: {
         onFocus={(e) => { setDraft(String(Math.round(value))); e.currentTarget.select() }}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-        className="w-16 px-1.5 py-1 text-[11px] border border-gray-200 rounded-md focus:border-brand focus:outline-none"
+        className="w-16 px-2 py-1 text-[11px] rounded-lg bg-soft shadow-soft-pressed focus:shadow-soft-pressed-deep focus:outline-none"
       />
       <span className="text-[9px] text-gray-400">mm</span>
     </label>

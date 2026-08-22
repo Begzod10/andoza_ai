@@ -80,7 +80,7 @@ export default function SmetaPage() {
             <button
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
-              className="bg-brand text-white px-8 py-3 rounded-card font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60"
+              className="h-12 px-8 inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100"
             >
               {mutation.isPending ? uz.common.yuklanmoqda : uz.smeta.hisoblash}
             </button>
@@ -191,7 +191,7 @@ export default function SmetaPage() {
               <button
                 onClick={handlePDF}
                 disabled={pdfLoading}
-                className="flex items-center gap-2 bg-blueprint text-white px-5 py-2.5 rounded-card text-sm font-semibold hover:bg-blueprint/90 transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 text-white px-5 py-2.5 text-sm font-semibold rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
               >
                 {pdfLoading ? uz.common.yuklanmoqda : uz.smeta.pdf_yuklab}
               </button>

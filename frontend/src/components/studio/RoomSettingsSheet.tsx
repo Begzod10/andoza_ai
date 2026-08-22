@@ -30,7 +30,7 @@ function MiniStepper({
     <div className="flex items-center gap-1">
       <button
         onClick={() => onChange(Math.max(min, value - step))}
-        className="w-6 h-6 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
+        className="w-6 h-6 rounded-full text-gray-600 text-base font-bold flex items-center justify-center leading-none bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
       >
         −
       </button>
@@ -39,7 +39,7 @@ function MiniStepper({
       </span>
       <button
         onClick={() => onChange(Math.min(max, value + step))}
-        className="w-6 h-6 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
+        className="w-6 h-6 rounded-full text-gray-600 text-base font-bold flex items-center justify-center leading-none bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
       >
         +
       </button>
@@ -73,7 +73,7 @@ function DimStepper({
       <div className="flex items-center gap-2">
         <button
           onClick={() => onChange(Math.max(min, value - step))}
-          className="w-8 h-8 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+          className="w-8 h-8 rounded-full text-gray-700 text-lg font-bold flex items-center justify-center bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
         >
           −
         </button>
@@ -82,7 +82,7 @@ function DimStepper({
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}
-          className="w-8 h-8 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+          className="w-8 h-8 rounded-full text-gray-700 text-lg font-bold flex items-center justify-center bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
         >
           +
         </button>
@@ -114,7 +114,7 @@ function ElementRow({
         </div>
         <button
           onClick={() => removeElement(wallId, el.id)}
-          className="text-[12px] font-semibold text-red-500 px-3 py-1 rounded-xl bg-red-50"
+          className="text-[12px] font-semibold px-3 py-1 rounded-full text-[#C0362F] bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
         >
           O'chirish
         </button>
@@ -162,8 +162,8 @@ function ElementRow({
                 title={s.label}
                 className={`shrink-0 w-11 h-12 p-1 rounded-lg border-2 transition-colors ${
                   resolveWindowStyle(el).id === s.id
-                    ? 'border-blue-700 bg-blue-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
                 }`}
               >
                 <WindowElevation style={s} strokeWidth={0.9} />
@@ -220,7 +220,7 @@ export default function RoomSettingsSheet({
             <h2 className="text-[18px] font-extrabold text-gray-900">Xona sozlamalari</h2>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-[#F3F4F6] flex items-center justify-center text-gray-500 text-[13px] font-bold"
+              className="w-8 h-8 flex items-center justify-center text-gray-500 text-[13px] font-bold rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
             >
               ✕
             </button>
@@ -270,13 +270,13 @@ export default function RoomSettingsSheet({
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => addElement(wall.id, DEFAULT_WINDOW)}
-                    className="flex-1 py-2 rounded-xl text-[13px] font-bold text-brand bg-brand-tint"
+                    className="flex-1 py-2 rounded-full text-[13px] font-bold bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
                   >
                     + Deraza
                   </button>
                   <button
                     onClick={() => addElement(wall.id, DEFAULT_DOOR)}
-                    className="flex-1 py-2 rounded-xl text-[13px] font-bold text-gray-700 bg-[#EDEEF1]"
+                    className="flex-1 py-2 rounded-full text-[13px] font-bold bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                   >
                     + Eshik
                   </button>

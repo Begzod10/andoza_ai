@@ -75,8 +75,8 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
             onClick={() => setActiveStage(i)}
             className={`transition-all ${
               i === activeStage
-                ? "w-6 h-2 rounded-full bg-brand"
-                : "w-2 h-2 rounded-full bg-gray-300"
+                ? "w-6 h-2 rounded-full bg-soft-ink shadow-soft-ink"
+                : "w-2 h-2 rounded-full bg-soft-deep shadow-soft-pressed"
             }`}
           />
         ))}
@@ -98,7 +98,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
               ? navigate(`/studio/${firstRoom.id}/ichkarida`)
               : navigate("/wizard")
           }
-          className="w-11 h-11 rounded-full bg-brand flex items-center justify-center flex-shrink-0"
+          className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-soft-ink text-white shadow-soft-ink active:scale-[0.94] disabled:opacity-60 disabled:active:scale-100"
           style={{ boxShadow: "0 14px 28px -10px rgba(30,64,175,.55)" }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -118,7 +118,7 @@ function ProjectCard({ apt }: { apt: Apartment }) {
 
   return (
     <div className="flex items-center gap-3 bg-white border border-[#EEF0F4] rounded-[18px] p-3">
-      <div className="w-14 h-14 rounded-xl bg-[#EEF1F7] flex-shrink-0 flex items-center justify-center">
+      <div className="w-14 h-14 rounded-2xl bg-soft shadow-soft-pressed flex-shrink-0 flex items-center justify-center">
         <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
           <polygon points="18,4 32,12 32,30 18,30 4,30 4,12" fill="#C9CFDD"/>
           <polygon points="18,4 32,12 18,12" fill="#D8DEE9"/>
@@ -139,7 +139,7 @@ function ProjectCard({ apt }: { apt: Apartment }) {
             ? navigate(`/studio/${firstRoom.id}/ichkarida`)
             : navigate("/wizard")
         }
-        className="px-3 py-1.5 rounded-xl text-[13px] font-bold text-brand flex-shrink-0"
+        className="h-9 px-4 text-[13px] flex-shrink-0 inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-soft text-gray-700 shadow-soft-raised hover:shadow-soft-raised-lg hover:-translate-y-[1px] active:shadow-soft-pressed active:translate-y-0 disabled:opacity-60"
         style={{ background: "#EEF2FF" }}
       >
         Ochish
@@ -232,8 +232,8 @@ export default function ProjectsPage() {
                 onClick={() => setShowDeleted(!showDeleted)}
                 className={`text-[13px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                   showDeleted
-                    ? "bg-red-100 text-red-600"
-                    : "text-brand hover:bg-blue-50"
+                    ? "bg-soft text-[#C0362F] shadow-soft-raised-sm"
+                    : "text-gray-800 hover:bg-soft hover:shadow-soft-raised-sm"
                 }`}
               >
                 {showDeleted ? "🗑️ O'chirilganlar" : "Barchasi"}
