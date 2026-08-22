@@ -85,7 +85,7 @@ export function SegmentedControl<T extends string>({
               item,
               block && 'flex-1',
               selected
-                ? 'bg-soft-ink text-white shadow-soft-ink'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                 : 'bg-transparent text-gray-500 hover:text-gray-800',
             )}
           >

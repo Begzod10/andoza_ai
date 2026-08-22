@@ -162,7 +162,7 @@ function ElementRow({
                 title={s.label}
                 className={`shrink-0 w-11 h-12 p-1 rounded-lg border-2 transition-colors ${
                   resolveWindowStyle(el).id === s.id
-                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                     : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
                 }`}
               >
@@ -270,7 +270,7 @@ export default function RoomSettingsSheet({
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => addElement(wall.id, DEFAULT_WINDOW)}
-                    className="flex-1 py-2 rounded-full text-[13px] font-bold bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
+                    className="flex-1 py-2 rounded-full text-[13px] font-bold bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]"
                   >
                     + Deraza
                   </button>

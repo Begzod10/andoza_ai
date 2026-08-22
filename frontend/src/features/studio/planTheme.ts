@@ -86,8 +86,25 @@ export interface PlanType {
   wallLetterSize: number
 }
 
+/**
+ * Where the light comes from, and what it casts.
+ *
+ * One direction for the whole drawing. Shadows falling different ways is the
+ * single fastest way to make a plan look assembled rather than lit.
+ */
+export interface PlanLight {
+  /** Offset of a cast shadow, in millimetres of plan. */
+  dx: number
+  dy: number
+  wallBlur: number
+  wallColor: string
+  furnitureBlur: number
+  furnitureColor: string
+}
+
 export interface PlanTheme {
   palette: PlanPalette
+  light: PlanLight
   weights: PlanWeights
   type: PlanType
   /** Spacing of the corridor hatch, mm. */
@@ -153,14 +170,53 @@ const blueprint: PlanPalette = {
   hatch: 'rgba(150,231,232,0.16)',
 }
 
-export const PLAN_PALETTES = { charcoal, blueprint } as const
+/**
+ * A lit model, seen from above.
+ *
+ * The other two palettes are drawings; this one is a photograph of a physical
+ * model — light ground, near-black walls, and everything casting a shadow to
+ * the same side. The shadows are what make it read as an object rather than a
+ * diagram, which is why `drop` below is part of the palette and not an effect
+ * bolted on afterwards.
+ */
+const daylight: PlanPalette = {
+  canvas: '#D9DADD',
+  floors: ['#EFEFF0', '#EAEAEC', '#E4E4E7'],
+  wallExterior: '#141416',
+  wallInterior: '#212124',
+  wallCore: '#2E2E32',
+  wallShadow: 'rgba(20,20,22,0.18)',
+  wallHighlight: 'rgba(255,255,255,0.16)',
+  footprintShadow: 'rgba(20,20,22,0.4)',
+  doorStroke: 'rgba(30,30,34,0.55)',
+  windowStroke: 'rgba(30,30,34,0.7)',
+  furnitureStroke: 'rgba(40,40,44,0.55)',
+  furnitureDetail: 'rgba(40,40,44,0.3)',
+  furnitureFill: '#FBFBFC',
+  selection: '#3E6FA8',
+  selectionFill: 'rgba(62,111,168,0.14)',
+  label: 'rgba(28,28,32,0.72)',
+  dimension: 'rgba(28,28,32,0.5)',
+  grid: 'rgba(28,28,32,0.07)',
+  hatch: 'rgba(28,28,32,0.12)',
+}
+
+export const PLAN_PALETTES = { charcoal, blueprint, daylight } as const
 export type PlanPaletteName = keyof typeof PLAN_PALETTES
 
 /** Switch this one line to change every plan in the app. */
-const PALETTE: PlanPaletteName = 'charcoal'
+const PALETTE: PlanPaletteName = 'daylight'
+
+/** Light from the upper left, so everything casts down and to the right. */
+const LIGHT: Record<PlanPaletteName, PlanLight> = {
+  charcoal: { dx: 60, dy: 90, wallBlur: 70, wallColor: 'rgba(0,0,0,0.55)', furnitureBlur: 45, furnitureColor: 'rgba(0,0,0,0.4)' },
+  blueprint: { dx: 60, dy: 90, wallBlur: 70, wallColor: 'rgba(0,0,0,0.5)', furnitureBlur: 45, furnitureColor: 'rgba(0,0,0,0.35)' },
+  daylight: { dx: 85, dy: 120, wallBlur: 95, wallColor: 'rgba(24,24,28,0.42)', furnitureBlur: 55, furnitureColor: 'rgba(24,24,28,0.22)' },
+}
 
 export const darkArchitecturalPlanTheme: PlanTheme = {
   palette: PLAN_PALETTES[PALETTE],
+  light: LIGHT[PALETTE],
   weights: {
     wallExterior: 36,
     wallInterior: 26,

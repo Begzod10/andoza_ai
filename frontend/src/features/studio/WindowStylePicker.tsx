@@ -27,7 +27,7 @@ export function WindowStylePicker({
             onClick={() => onPick(s.id)}
             title={s.label}
             className={`p-1.5 rounded-xl border-2 transition-colors ${
-              value === s.id ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
+              value === s.id ? 'bg-soft-active text-soft-active-ink shadow-soft-lift' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
             }`}
           >
             <span className="block h-11">

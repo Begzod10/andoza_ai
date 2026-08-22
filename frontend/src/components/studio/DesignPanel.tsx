@@ -459,8 +459,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                   <button
                     onClick={() => onPick(w.url)}
                     title={w.name}
-                    className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeUrl === w.url ? 'bg-soft-ink text-white shadow-soft-ink' : 'border-gray-200 hover:border-gray-300'
+                    className={`block w-full aspect-square rounded-lg overflow-hidden transition-[box-shadow] duration-200 ${
+                      activeUrl === w.url ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised'
                     }`}
                   >
                     <img src={w.url} alt={w.name} loading="lazy" className="w-full h-full object-cover" />
@@ -597,7 +597,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={() => setTargetWall(key)}
               className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                 targetWall === key
-                  ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                  ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
                   : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-600"
               }`}
             >
@@ -623,7 +623,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     key={cd.id}
                     onClick={() => handleSetCeilingDesign(cd.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-card border-2 transition-colors ${
-                      active ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
+                      active ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
                     }`}
                   >
                     <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
@@ -701,8 +701,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                       onClick={() => handleCeilingSetting({ color: c })}
                       style={{ background: c }}
                       aria-label={c}
-                      className={`w-7 h-7 rounded-full border-2 transition-colors ${
-                        ceilingSettings.color === c ? "bg-soft-ink text-white shadow-soft-ink" : "border-gray-200"
+                      className={`w-7 h-7 rounded-full transition-[box-shadow] duration-200 ${
+                        ceilingSettings.color === c ? "ring-2 ring-soft-active shadow-soft-lift" : "shadow-soft-raised-sm hover:shadow-soft-raised"
                       }`}
                     />
                   ))}
@@ -743,7 +743,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     onClick={() => handleSetFloorType(ft.key)}
                     className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
                       floorType === ft.key
-                        ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                        ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
                         : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
                     }`}
                   >
@@ -1111,7 +1111,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <button
             onClick={() => handlePanelChange({ enabled: !panelSettings.enabled })}
             className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-              panelSettings.enabled ? 'bg-soft-ink shadow-soft-ink' : 'bg-soft-deep shadow-soft-pressed'
+              panelSettings.enabled ? 'bg-soft-active shadow-soft-lift' : 'bg-soft-deep shadow-soft-pressed'
             }`}
             aria-checked={panelSettings.enabled}
             role="switch"
@@ -1279,7 +1279,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={() => setTargetWall(w.key)}
               className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
                 targetWall === w.key
-                  ? 'bg-soft-ink text-white shadow-soft-ink'
+                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                   : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised'
               }`}
             >
@@ -1304,7 +1304,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 onClick={() => applyPlaster(f)}
                 title={f.hint}
                 className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
-                  active ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
+                  active ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
                 }`}
               >
                 <span
@@ -1349,7 +1349,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => handleSetFloorType(ft.key)}
             className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
               floorType === ft.key
-                ? "bg-soft-ink text-white shadow-soft-ink font-semibold"
+                ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
                 : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
             }`}
           >
@@ -1391,7 +1391,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => setFurnitureCat(c.key)}
             className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap ${
               furnitureCat === c.key
-                ? 'bg-soft-ink text-white shadow-soft-ink'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                 : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised hover:text-gray-900'
             }`}
           >
@@ -1409,7 +1409,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             <div
               key={entry.id}
               className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
-                ${count > 0 ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'}`}
+                ${count > 0 ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'}`}
             >
               {/* Thumbnail */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
@@ -1442,7 +1442,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
               {/* Count badge */}
               {count > 0 && (
-                <span className="absolute top-1 left-1 bg-soft-ink text-white text-[10px] font-bold px-2 py-0.5 rounded-full leading-none shadow-soft-ink">
+                <span className="absolute top-1 left-1 bg-soft-active text-soft-active-ink text-[10px] font-bold px-2 py-0.5 rounded-full leading-none shadow-soft-lift">
                   {count}×
                 </span>
               )}

@@ -49,7 +49,7 @@ const SIZES: Record<ButtonSize, { shell: string; badge: string; icon: number }> 
 /** Idle look per variant. */
 const REST: Record<ButtonVariant, string> = {
   soft: 'bg-soft text-gray-800 shadow-soft-raised',
-  primary: 'bg-soft-ink text-white shadow-soft-ink',
+  primary: 'bg-soft-active text-soft-active-ink shadow-soft-lift',
   accent:
     'bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent',
   ghost: 'bg-transparent text-gray-600 shadow-none',

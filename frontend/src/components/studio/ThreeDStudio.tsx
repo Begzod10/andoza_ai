@@ -976,7 +976,7 @@ export default function ThreeDStudio({ room }: ThreeDStudioProps) {
           className={cn(
             "absolute bottom-4 right-4 z-20 px-3 py-1.5 text-xs font-medium rounded-chip transition-colors",
             highQuality3d
-              ? "bg-soft-ink text-white shadow-soft-ink"
+              ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
               : "bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised hover:text-gray-900",
           )}
           title={highQuality3d ? "Yuqori sifat yoqilgan (N8AO + SMAA)" : "Oddiy sifat (tezkor)"}

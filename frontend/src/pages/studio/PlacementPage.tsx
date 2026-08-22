@@ -1031,7 +1031,7 @@ function ElektrSidebar({
                   panelPlaced
                     ? 'border-green-200 bg-green-50 opacity-70 cursor-not-allowed'
                     : activeTool === 'panel'
-                      ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95] cursor-pointer'
+                      ? 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95] cursor-pointer'
                       : 'border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-soft cursor-pointer'
                 }`}
               >
@@ -1223,7 +1223,7 @@ function OlchamlarSidebar({ electricals, wireLengths }: {
           <button key={t} onClick={() => setInner(t)}
             className={`px-2.5 py-1 text-[11px] rounded-t font-medium border-b-2 transition-colors ${
               inner === t
-                ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             {label}
@@ -1636,7 +1636,7 @@ export default function PlacementPage() {
             key={t}
             onClick={() => handleTabChange(t)}
             className={`px-3 py-1 rounded-full font-medium transition-colors ${
-              tab === t ? 'bg-soft-ink text-white shadow-soft-ink' : 'bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised'
+              tab === t ? 'bg-soft-active text-soft-active-ink shadow-soft-lift' : 'bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised'
             }`}
           >
             {label}

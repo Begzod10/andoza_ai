@@ -40,7 +40,7 @@ const SIZES: Record<IconButtonSize, string> = {
 
 const REST: Record<IconButtonVariant, string> = {
   soft: 'bg-soft text-gray-700 shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed',
-  ink: 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.94]',
+  ink: 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.94]',
   ghost: 'bg-transparent text-gray-500 hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed',
 }
 

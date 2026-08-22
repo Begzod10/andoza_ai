@@ -81,7 +81,7 @@ const TOOL_META: Array<{ type: ElType; label: string; hint: string }> = [
 
 // Every colour, weight and type size comes from the shared plan theme so the
 // furniture plan and the lighting plan cannot drift apart again.
-const { palette: C, weights: LW, type: TY } = planTheme
+const { palette: C, weights: LW, type: TY, light: LIGHT } = planTheme
 const SELECT = C.selection
 /** Sidebar glyphs sit on the light UI surface, not on the dark plan sheet. */
 const ICON = '#4A5160'
@@ -496,12 +496,12 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
               <span
                 className={`min-w-0 flex-1 rounded-full px-2.5 py-1 transition-[box-shadow,background-color,color] duration-200 ${
                   tool === t.type
-                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                     : 'bg-soft text-gray-800 shadow-soft-raised-sm'
                 }`}
               >
                 <span className="block truncate text-[11.5px] font-semibold leading-tight">{t.label}</span>
-                <span className={`block truncate text-[9.5px] leading-tight ${tool === t.type ? 'text-white/60' : 'text-gray-400'}`}>{t.hint}</span>
+                <span className={`block truncate text-[9.5px] leading-tight ${tool === t.type ? 'text-soft-active-ink/70' : 'text-gray-400'}`}>{t.hint}</span>
               </span>
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-soft shadow-soft-raised-sm">
                 {t.type === 'eshik' && (
@@ -573,12 +573,12 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
                   <span
                     className={`min-w-0 flex-1 rounded-full px-2.5 py-1 transition-[box-shadow,background-color,color] duration-200 ${
                       selectedFur === f.id
-                        ? 'bg-soft-ink text-white shadow-soft-ink'
+                        ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                         : 'bg-soft text-gray-800 shadow-soft-raised-sm'
                     }`}
                   >
                     <span className="block truncate text-[11px] font-semibold leading-tight">{entry?.name ?? 'Model'}</span>
-                    <span className={`block truncate text-[9px] leading-tight tabular-nums ${selectedFur === f.id ? 'text-white/60' : 'text-gray-400'}`}>
+                    <span className={`block truncate text-[9px] leading-tight tabular-nums ${selectedFur === f.id ? 'text-soft-active-ink/70' : 'text-gray-400'}`}>
                       {((entry?.sizeM.w ?? 0) * so).toFixed(2)}×{((entry?.sizeM.d ?? 0) * so).toFixed(2)} m
                     </span>
                   </span>
@@ -600,7 +600,7 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
         className="relative flex-1 min-w-0 flex flex-col"
         style={{
           backgroundColor: C.canvas,
-          backgroundImage: `radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(0,0,0,0.55) 100%)`,
+          backgroundImage: `radial-gradient(120% 90% at 50% 40%, rgba(255,255,255,0.35) 0%, transparent 55%), radial-gradient(120% 95% at 50% 50%, transparent 45%, rgba(0,0,0,0.22) 100%)`,
         }}
       >
         <svg
@@ -621,6 +621,12 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
           <defs>
             <filter id="plan-footprint-shadow" x="-25%" y="-25%" width="150%" height="150%">
               <feDropShadow dx="0" dy={T * 0.55} stdDeviation={T * 0.7} floodColor={C.footprintShadow} floodOpacity="1" />
+            </filter>
+            <filter id="plan-wall-drop" x="-30%" y="-30%" width="180%" height="180%">
+              <feDropShadow dx={LIGHT.dx} dy={LIGHT.dy} stdDeviation={LIGHT.wallBlur} floodColor={LIGHT.wallColor} floodOpacity="1" />
+            </filter>
+            <filter id="plan-furniture-drop" x="-40%" y="-40%" width="200%" height="200%">
+              <feDropShadow dx={LIGHT.dx * 0.5} dy={LIGHT.dy * 0.5} stdDeviation={LIGHT.furnitureBlur} floodColor={LIGHT.furnitureColor} floodOpacity="1" />
             </filter>
             <filter id="plan-wall-ao" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation={T * 0.22} />
@@ -658,11 +664,15 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
           />
 
           {/* walls: all four bars run the FULL outer span and overlap at the
-              corners, so the frame always reads as one welded outline */}
-          <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={C.wallExterior} />
-          <rect x={-T} y={Dp} width={W + 2 * T} height={T} fill={C.wallExterior} />
-          <rect x={-T} y={-T} width={T} height={Dp + 2 * T} fill={C.wallExterior} />
-          <rect x={W} y={-T} width={T} height={Dp + 2 * T} fill={C.wallExterior} />
+              corners, so the frame always reads as one welded outline.
+              Grouped under one filter so the frame throws a single shadow —
+              filtering each bar separately would shade them onto each other. */}
+          <g filter="url(#plan-wall-drop)">
+            <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={C.wallExterior} />
+            <rect x={-T} y={Dp} width={W + 2 * T} height={T} fill={C.wallExterior} />
+            <rect x={-T} y={-T} width={T} height={Dp + 2 * T} fill={C.wallExterior} />
+            <rect x={W} y={-T} width={T} height={Dp + 2 * T} fill={C.wallExterior} />
+          </g>
 
           {/* A tonal seam down the middle of the band, reading as the wall's
               core, and a lit outer edge. Both are drawn as one inset frame
@@ -768,7 +778,9 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
             </text>
           )}
 
-          {/* furniture standing in the room, drawn as top-down silhouettes */}
+          {/* furniture standing in the room, drawn as top-down silhouettes.
+              A shorter throw than the walls, because it is a shorter object. */}
+          <g filter="url(#plan-furniture-drop)">
           <PlanFurnitureLayer
             furniture={furniture}
             userFurniture={userFurniture}
@@ -778,6 +790,7 @@ export function MebelPlanView({ roomName, floorHatch = false }: MebelPlanViewPro
             onHull={onHull}
             onPointerDownItem={startFurnitureDrag}
           />
+          </g>
 
           {/* dimension chain for the selected element */}
           {selected && selResolved && (

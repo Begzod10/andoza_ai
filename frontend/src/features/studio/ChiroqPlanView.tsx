@@ -181,7 +181,7 @@ export function ChiroqPlanView({
           className="relative flex-1 min-h-0 flex flex-col"
           style={{
             backgroundColor: C.canvas,
-            backgroundImage: `radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(0,0,0,0.55) 100%)`,
+            backgroundImage: `radial-gradient(120% 90% at 50% 40%, rgba(255,255,255,0.35) 0%, transparent 55%), radial-gradient(120% 95% at 50% 50%, transparent 45%, rgba(0,0,0,0.22) 100%)`,
           }}
         >
       <svg

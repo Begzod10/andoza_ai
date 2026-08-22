@@ -43,7 +43,7 @@ function MaterialItem({
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2.5 rounded-card border-2 transition-all text-left",
         isSelected
-          ? "bg-soft-ink text-white shadow-soft-ink"
+          ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
           : "hover:bg-soft hover:shadow-soft-raised-sm",
       )}
     >
@@ -185,7 +185,7 @@ function PanelContent({
             className={cn(
               "flex-shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
               activeTab === tab.key
-                ? "bg-soft-ink text-white shadow-soft-ink"
+                ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
                 : "border-transparent text-muted hover:text-gray-900",
             )}
           >

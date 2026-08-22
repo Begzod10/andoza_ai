@@ -75,7 +75,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
             onClick={() => setActiveStage(i)}
             className={`transition-all ${
               i === activeStage
-                ? "w-6 h-2 rounded-full bg-soft-ink shadow-soft-ink"
+                ? "w-6 h-2 rounded-full bg-soft-active shadow-soft-lift"
                 : "w-2 h-2 rounded-full bg-soft-deep shadow-soft-pressed"
             }`}
           />
@@ -98,7 +98,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
               ? navigate(`/studio/${firstRoom.id}/ichkarida`)
               : navigate("/wizard")
           }
-          className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-soft-ink text-white shadow-soft-ink active:scale-[0.94] disabled:opacity-60 disabled:active:scale-100"
+          className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.94] disabled:opacity-60 disabled:active:scale-100"
           style={{ boxShadow: "0 14px 28px -10px rgba(30,64,175,.55)" }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">

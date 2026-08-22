@@ -492,7 +492,7 @@ export default function PlacementAdvisor({
                 <span className="text-xs text-gray-600">Sim trassasi</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-4 bg-soft-ink rounded-sm flex-shrink-0" />
+                <div className="w-3 h-4 bg-soft-active rounded-sm flex-shrink-0" />
                 <span className="text-xs text-gray-600">Щ щиток</span>
               </div>
             </div>
@@ -516,7 +516,7 @@ export default function PlacementAdvisor({
                           className={[
                             "w-full text-left text-xs px-2 py-1 rounded transition-colors",
                             selectedId === id
-                              ? "bg-soft-ink text-white shadow-soft-ink active:scale-[0.95] font-semibold"
+                              ? "bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95] font-semibold"
                               : "text-gray-700 hover:bg-soft hover:shadow-soft-raised-sm",
                           ].join(" ")}
                         >

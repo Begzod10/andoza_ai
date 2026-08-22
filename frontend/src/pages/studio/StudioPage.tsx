@@ -305,8 +305,8 @@ export default function StudioPage() {
                 saveStatus === 'saved'
                   ? "bg-success text-white"
                   : (isDirty || fetchStatus === 'notfound')
-                    ? "bg-soft-ink text-white shadow-soft-ink"
-                    : "bg-soft-ink text-white shadow-soft-ink",
+                    ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
+                    : "bg-soft-active text-soft-active-ink shadow-soft-lift",
               ].join(' ')}
             >
               {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}

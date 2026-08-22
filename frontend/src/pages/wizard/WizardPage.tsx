@@ -198,7 +198,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
             className={cn(
               'flex-1 rounded-xl border-2 py-2 text-sm font-medium transition-all',
               selected.type === p.type
-                ? 'bg-soft-ink text-white shadow-soft-ink'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                 : 'border-neutral-200 text-neutral-600 hover:border-brand/40',
             )}
           >
@@ -281,7 +281,7 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
             className={cn(
               'rounded-chip px-4 py-2 text-sm font-semibold border-2 transition-all',
               Math.round(v * 1000) === ceilingHeight
-                ? 'bg-soft-ink text-white shadow-soft-ink'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                 : 'border-neutral-200 text-neutral-700 hover:border-brand/50',
             )}
           >

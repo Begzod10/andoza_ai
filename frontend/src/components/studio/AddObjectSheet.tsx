@@ -121,7 +121,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               key={s.key}
               onClick={() => setSection(s.key)}
               className={`px-4 py-1.5 rounded-full text-[14px] font-semibold transition-colors ${
-                section === s.key ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft text-gray-600 shadow-soft-raised-sm"
+                section === s.key ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft text-gray-600 shadow-soft-raised-sm"
               }`}
             >
               {s.label}
@@ -145,7 +145,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                   >
                     <div
                       className={`w-14 h-14 rounded-2xl border-[3px] transition-all active:scale-95 ${
-                        selectedSwatch === sw.label ? "bg-soft-ink text-white shadow-soft-ink" : "border-gray-200"
+                        selectedSwatch === sw.label ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "border-gray-200"
                       }`}
                       style={{
                         background:
@@ -204,7 +204,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                     key={tab}
                     onClick={() => setRoomTab(tab)}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
-                      roomTab === tab ? "bg-soft-ink text-white shadow-soft-ink" : "bg-soft text-muted shadow-soft-raised-sm"
+                      roomTab === tab ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft text-muted shadow-soft-raised-sm"
                     }`}
                   >
                     {tab}
@@ -234,7 +234,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, x: 0, y: 0, rotation: 0 });
                         onClose();
                       }}
-                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xl transition-transform bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
+                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xl transition-transform bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]"
                     >
                       +
                     </button>

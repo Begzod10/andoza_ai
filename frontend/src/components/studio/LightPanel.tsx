@@ -114,7 +114,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
               title={t.hint}
               className={`flex flex-col items-start text-left p-2 rounded-xl border-2 transition-colors ${
                 armedType === t.id
-                  ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
+                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]'
                   : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
               }`}
             >
@@ -161,7 +161,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                   onClick={() => select(isActive ? null : l.id)}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-colors ${
                     isActive
-                      ? 'bg-soft-ink text-white shadow-soft-ink'
+                      ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                       : 'bg-soft shadow-soft-raised-sm hover:shadow-soft-raised'
                   }`}
                 >
@@ -248,7 +248,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
               onClick={() => onPatch({ colorK: p.k })}
               title={`${p.label} · ${p.k}K`}
               className={`flex-1 h-6 rounded-md border-2 transition-all ${
-                colorK === p.k ? 'bg-soft-ink text-white shadow-soft-ink scale-[1.03]' : 'border-black/10 hover:border-black/25'
+                colorK === p.k ? 'bg-soft-active text-soft-active-ink shadow-soft-lift scale-[1.03]' : 'border-black/10 hover:border-black/25'
               }`}
               style={{ background: kelvinToHex(p.k) }}
             />
@@ -313,7 +313,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
                 onClick={() => onPatch({ wallId: w })}
                 className={`flex-1 py-1 rounded-md text-[10px] font-bold border-2 transition-colors ${
                   (light.wallId ?? 'A') === w
-                    ? 'bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]'
+                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]'
                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                 }`}
               >

@@ -165,7 +165,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
             onClick={() => setTab("builder")}
             className={`px-4 py-2 text-sm font-semibold transition-colors ${
               tab === "builder"
-                ? "text-gray-900 border-b-2 border-soft-ink"
+                ? "text-gray-900 border-b-2 border-soft-active"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
@@ -175,7 +175,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId }: AiBuilderSheetPro
             onClick={() => setTab("image3d")}
             className={`px-4 py-2 text-sm font-semibold transition-colors ${
               tab === "image3d"
-                ? "text-gray-900 border-b-2 border-soft-ink"
+                ? "text-gray-900 border-b-2 border-soft-active"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >

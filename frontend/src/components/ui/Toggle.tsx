@@ -43,7 +43,7 @@ export function Toggle({
         'transition-[box-shadow,background-color] duration-250 ease-out',
         'focus-visible:outline-none focus-visible:shadow-soft-focus',
         'disabled:cursor-not-allowed disabled:opacity-55',
-        checked ? 'bg-soft-ink shadow-soft-ink' : 'bg-soft-deep shadow-soft-pressed',
+        checked ? 'bg-soft-active shadow-soft-lift' : 'bg-soft-deep shadow-soft-pressed',
         className,
       )}
     >

@@ -242,7 +242,7 @@ export default function DokonPage() {
                 onClick={() => setActiveCategory(cat.id)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-chip text-[13px] font-semibold transition-colors ${
                   activeCategory === cat.id
-                    ? "bg-soft-ink text-white shadow-soft-ink"
+                    ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
                     : "bg-white text-gray-700 border border-[#EAECEF]"
                 }`}
               >

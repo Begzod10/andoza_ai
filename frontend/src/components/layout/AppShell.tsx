@@ -171,14 +171,14 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] font-semibold transition-[box-shadow,background-color,color] duration-200 ease-out ${
                 isActive
-                  ? 'bg-soft-ink text-white shadow-soft-ink'
+                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                   : 'text-gray-600 hover:bg-soft hover:text-gray-900 hover:shadow-soft-raised-sm'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <span className={isActive ? 'text-white' : 'text-gray-400'}>
+                <span className={isActive ? 'text-soft-active-ink' : 'text-gray-400'}>
                   {icon(isActive)}
                 </span>
                 {label}
@@ -230,7 +230,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
               <span
                 className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
                   isActive
-                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                     : 'bg-soft text-subtle shadow-soft-raised-sm'
                 }`}
               >
@@ -269,7 +269,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
               <span
                 className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
                   isActive
-                    ? 'bg-soft-ink text-white shadow-soft-ink'
+                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                     : 'bg-soft text-subtle shadow-soft-raised-sm'
                 }`}
               >

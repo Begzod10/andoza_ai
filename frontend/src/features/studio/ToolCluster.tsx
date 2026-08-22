@@ -146,7 +146,7 @@ export function ToolCluster<T extends string>({
                 ? 'scale-100 px-2.5 py-1.5 opacity-100'
                 : 'pointer-events-none scale-90 px-0 py-1.5 opacity-0',
               isActive
-                ? 'bg-soft-ink text-white shadow-soft-ink'
+                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                 : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:-translate-y-[1px] hover:text-gray-800 hover:shadow-soft-raised active:translate-y-0 active:shadow-soft-pressed',
             ].join(' ')}
           >

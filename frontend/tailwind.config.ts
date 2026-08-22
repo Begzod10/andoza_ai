@@ -27,8 +27,12 @@ const config: Config = {
           DEFAULT: "#EDEFF3",
           deep: "#E4E7ED",
           raised: "#F2F4F7",
-          ink: "#171A20",
-          "ink-soft": "#252932",
+          // The selected/active fill. Bright enough that text on it has to be
+          // dark — white would land at about 1.3:1, which is unreadable.
+          active: "#05F2F5",
+          "active-deep": "#04C9CC",
+          // Text and glyphs that sit on `active`.
+          "active-ink": "#08272B",
         },
       },
       fontFamily: {
@@ -65,7 +69,16 @@ const config: Config = {
           "inset -4px -4px 9px rgba(255,255,255,.75), inset 6px 6px 12px rgba(163,177,198,.58)",
         // Filled controls sit *on* the surface rather than being moulded from
         // it, so they cast rather than catch the light.
-        "soft-ink": "0 10px 20px -8px rgba(23,26,35,.55), -2px -2px 6px rgba(255,255,255,.45)",
+        // A neutral cast shadow, not a coloured glow. Tinting the blur to the
+        // fill makes the control look lit from inside rather than raised off
+        // the page, and it stops reading as the same material as everything
+        // around it.
+        // Named `soft-lift` rather than `soft-active`: a colour token of that
+        // name already exists, and `shadow-soft-active` then resolves to the
+        // shadow-*colour* utility instead of this definition — which tinted
+        // every raised control cyan.
+        "soft-lift":
+          "0 7px 16px -7px rgba(163,177,198,.7), 3px 3px 9px rgba(163,177,198,.4), -3px -3px 8px rgba(255,255,255,.85)",
         "soft-accent": "0 10px 22px -8px rgba(59,99,222,.55), -2px -2px 6px rgba(255,255,255,.4)",
         "soft-teal": "0 10px 22px -8px rgba(30,158,140,.5), 0 0 22px rgba(43,182,163,.35)",
         "soft-focus": "0 0 0 3px rgba(255,255,255,.9), 0 0 0 5px rgba(91,124,240,.55)",

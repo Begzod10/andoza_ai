@@ -3746,7 +3746,7 @@ export default function ThreeDPage() {
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-semibold whitespace-nowrap transition-[box-shadow,transform,background-color,color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus ${
-                status === 'current' ? 'bg-soft-ink text-white shadow-soft-ink' :
+                status === 'current' ? 'bg-soft-active text-soft-active-ink shadow-soft-lift' :
                 status === 'done'    ? 'bg-soft text-gray-700 shadow-soft-raised-sm active:shadow-soft-pressed' :
                                        'bg-soft text-gray-400 shadow-soft-pressed'
               }`}
@@ -3774,7 +3774,7 @@ export default function ThreeDPage() {
               onClick={() => setActivePhase(stage.key)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[18px] text-[12px] font-semibold text-left transition-[box-shadow,transform,background-color,color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus ${
                 status === 'current'
-                  ? 'bg-soft-ink text-white shadow-soft-ink'
+                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
                   : status === 'done'
                   ? 'bg-soft text-gray-700 shadow-soft-raised-sm hover:shadow-soft-raised hover:-translate-y-[1px] active:shadow-soft-pressed active:translate-y-0'
                   : 'bg-soft text-gray-400 shadow-soft-pressed hover:text-gray-600'
@@ -3783,7 +3783,7 @@ export default function ThreeDPage() {
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-[box-shadow,background-color] duration-200 ${
                   status === 'current'
-                    ? 'bg-white/18 text-white'
+                    ? 'bg-black/10 text-soft-active-ink'
                     : status === 'done'
                     ? 'bg-soft text-success shadow-soft-raised-sm'
                     : 'bg-soft-deep text-gray-400 shadow-soft-pressed'
@@ -4021,7 +4021,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowPanel(v => !v)}
               title="Dizayn paneli"
-              className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 bg-soft-ink text-white shadow-soft-ink active:scale-[0.95]"
+              className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
@@ -4036,13 +4036,13 @@ export default function ThreeDPage() {
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
         {isMebelTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#3A3D42]">
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#C6C7CA]">
             <MebelPlanView roomName={room.name} />
           </div>
         )}
         {/* Chiroqlar: reflected ceiling plan beside the live 3D viewport */}
         {isChiroqTab && (
-          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#3A3D42]">
+          <div className="h-[45%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 bg-[#C6C7CA]">
             <ChiroqPlanView
               armedType={armedLightType}
               onPlaced={() => setArmedLightType(null)}

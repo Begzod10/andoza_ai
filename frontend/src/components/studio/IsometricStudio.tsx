@@ -117,7 +117,7 @@ function MaterialGrid({
             className={cn(
               "flex flex-col items-center gap-1.5 p-2 rounded-card border-2 transition-all",
               isSelected
-                ? "bg-soft-ink text-white shadow-soft-ink"
+                ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
                 : "border-gray-200 hover:border-brand/40",
             )}
           >
@@ -197,7 +197,7 @@ function MaterialSheet({
               className={cn(
                 "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
                 activeTab === t.key
-                  ? "bg-soft-ink text-white shadow-soft-ink"
+                  ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
                   : "border-transparent text-muted hover:text-gray-900",
               )}
             >

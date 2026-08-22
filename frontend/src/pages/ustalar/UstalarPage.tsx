@@ -202,7 +202,7 @@ export default function UstalarPage() {
               className={cn(
                 "px-4 py-1.5 rounded-chip text-sm font-medium border-2 transition-colors",
                 sort === opt.key
-                  ? "bg-soft-ink text-white shadow-soft-ink"
+                  ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
                   : "border-gray-200 hover:border-brand/40"
               )}
             >
