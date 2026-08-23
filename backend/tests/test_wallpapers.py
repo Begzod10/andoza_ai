@@ -155,6 +155,98 @@ class TestUpload:
         db.add.assert_not_called()  # and no duplicate row
 
 
+class TestKind:
+    """`kind` is what keeps the Suvoq shelf from filling up with oboy patterns."""
+
+    def test_defaults_to_oboy(self, client):
+        db = _db()
+        _as(_user(), db)
+        with patch(
+            "app.routers.wallpapers.upload_file", return_value="/media/wallpapers/a.png"
+        ):
+            response = client.post(
+                "/api/v1/wallpapers",
+                files={"file": ("oboy.png", io.BytesIO(PNG), "image/png")},
+            )
+        assert response.json()["kind"] == "oboy"
+
+    def test_upload_records_the_kind(self, client):
+        db = _db()
+        _as(_user(), db)
+        with patch(
+            "app.routers.wallpapers.upload_file", return_value="/media/wallpapers/a.png"
+        ):
+            response = client.post(
+                "/api/v1/wallpapers",
+                files={"file": ("beton.png", io.BytesIO(PNG), "image/png")},
+                data={"kind": "suvoq"},
+            )
+        assert response.status_code == 201
+        assert response.json()["kind"] == "suvoq"
+        assert db.add.call_args.args[0].kind == "suvoq"
+
+    def test_unknown_kind_is_refused(self, client):
+        db = _db()
+        _as(_user(), db)
+        response = client.post(
+            "/api/v1/wallpapers",
+            files={"file": ("x.png", io.BytesIO(PNG), "image/png")},
+            data={"kind": "pol"},
+        )
+        assert response.status_code == 422
+        db.add.assert_not_called()
+
+    def test_reupload_moves_an_image_to_the_new_kind(self, client):
+        """Otherwise the upload reports success and the image never appears in
+        the shelf the user just put it in."""
+        existing = Wallpaper(
+            id=uuid.uuid4(),
+            name="beton.png",
+            kind="oboy",
+            storage_key="wallpapers/existing.png",
+            content_type="image/png",
+            size_bytes=len(PNG),
+            sha256="whatever",
+        )
+        existing.created_at = datetime.now(timezone.utc)
+        db = _db(_Result(one=existing))
+        _as(_user(), db)
+
+        response = client.post(
+            "/api/v1/wallpapers",
+            files={"file": ("beton.png", io.BytesIO(PNG), "image/png")},
+            data={"kind": "suvoq"},
+        )
+
+        assert response.json()["kind"] == "suvoq"
+        assert existing.kind == "suvoq"
+
+    def test_list_filters_by_kind(self, client):
+        suvoq = Wallpaper(
+            id=uuid.uuid4(),
+            name="beton.png",
+            kind="suvoq",
+            storage_key="wallpapers/beton.png",
+            content_type="image/png",
+            size_bytes=10,
+            sha256="h",
+        )
+        suvoq.created_at = datetime.now(timezone.utc)
+        db = _db(_Result(many=[suvoq]))
+        _as(_user(), db)
+
+        response = client.get("/api/v1/wallpapers?kind=suvoq")
+
+        assert response.status_code == 200
+        assert [w["kind"] for w in response.json()] == ["suvoq"]
+        # The filter belongs in the query, not in a post-hoc list comprehension
+        assert "kind" in str(db.execute.call_args.args[0])
+
+    def test_list_rejects_an_unknown_kind(self, client):
+        _as(_user(), _db())
+        assert client.get("/api/v1/wallpapers?kind=pol").status_code == 422
+
+
 class TestDelete:
     def test_non_admin_is_refused(self, client):
         db = _db()

@@ -5,10 +5,10 @@ import {
   updateRoom, getMaterials, previewEstimate,
   listWallpapers, uploadWallpaper, deleteWallpaper,
 } from "@/lib/api";
-import type { Room, Material, Wallpaper } from "@/lib/api";
+import type { Room, Material, Wallpaper, WallpaperKind } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
-import { useRoomStore, resolveWallColor, resolveWallCovering, resolveWallPanel, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
+import { useRoomStore, resolveWallColor, resolveWallPanel } from "@/store/roomStore";
 import type { WallCovering, WallPanelSettings, FloorType } from "@/store/roomStore";
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -18,8 +18,6 @@ import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCa
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
-import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
-import type { PlasterFinish } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 import { applyTextureToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
@@ -49,6 +47,12 @@ const FLOOR_TYPES = [
   { key: "laminate", label: "Laminat" },
   { key: "concrete", label: "Beton"   },
 ];
+
+/**
+ * Which panel opened the image picker. It decides both how the chosen image is
+ * tiled and which shelf an upload is filed under.
+ */
+type TextureIntent = 'wallpaper' | 'plaster' | 'putty';
 
 const WALL_TARGETS: { key: WallTarget; label: string }[] = [
   { key: "ALL",   label: "Hamma devorlar" },
@@ -123,7 +127,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 }) {
   useRestoreUserModels()
 
-  const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
+  const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
           userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory } =
     useRoomStore();
@@ -242,13 +246,28 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }, 600);
   }
 
+  /**
+   * Build the coverings map the way the store does, so what we PUT to the API
+   * is what the store is holding. Setting ALL drops the per-wall overrides —
+   * without that the payload kept them, they came back on the next load, and
+   * an "apply to every wall" silently un-applied itself on the walls that had
+   * been touched individually.
+   */
+  function nextCoverings(wallId: WallTarget, covering: WallCovering) {
+    return wallId === 'ALL'
+      ? { ALL: covering }
+      : { ...designState.wallCoverings, [wallId]: covering };
+  }
+
   function applyWallCovering(covering: WallCovering) {
     setWallCovering(targetWall, covering);
-    const updated = {
-      wallCoverings: { ...designState.wallCoverings, [targetWall]: covering },
-      floorType,
-    };
-    syncToApi({ ...designState, ...updated });
+    syncToApi({ ...designState, wallCoverings: nextCoverings(targetWall, covering), floorType });
+  }
+
+  /** Suvoq applies to the walls as a set — it has no per-wall picker. */
+  function applyToAllWalls(covering: WallCovering) {
+    setWallCovering('ALL', covering);
+    syncToApi({ ...designState, wallCoverings: nextCoverings('ALL', covering), floorType });
   }
 
   function handleSetPaintColor(color: string) {
@@ -369,7 +388,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const isAdmin = currentUser?.is_admin === true;
   const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
     queryKey: ["wallpapers"],
-    queryFn: listWallpapers,
+    queryFn: () => listWallpapers(),
+    staleTime: 60_000,
+  });
+  // Suvoq keeps its own shelf: a concrete photo and a floral oboy are not
+  // interchangeable, and mixing them made the Suvoq list unusable.
+  const { data: suvoqTextures = [] } = useQuery<Wallpaper[]>({
+    queryKey: ["wallpapers", "suvoq"],
+    queryFn: () => listWallpapers("suvoq"),
+    staleTime: 60_000,
+  });
+  const { data: shpaklovkaTextures = [] } = useQuery<Wallpaper[]>({
+    queryKey: ["wallpapers", "shpaklovka"],
+    queryFn: () => listWallpapers("shpaklovka"),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
@@ -387,41 +418,63 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   // `pickerIntent` records which button opened it, since a plaster photo and a
   // wallpaper roll want different tiling.
   const textureFileRef = React.useRef<HTMLInputElement>(null);
-  const pickerIntent = React.useRef<'wallpaper' | 'plaster'>('wallpaper');
+  const pickerIntent = React.useRef<TextureIntent>('wallpaper');
+  // The two surface phases upload the same way and differ only in which shelf
+  // the image lands on, so the intent is the shelf.
+  const INTENT_KIND: Record<TextureIntent, WallpaperKind> = {
+    wallpaper: 'oboy', plaster: 'suvoq', putty: 'shpaklovka',
+  };
 
-  function openTexturePicker(intent: 'wallpaper' | 'plaster') {
+  function openTexturePicker(intent: TextureIntent) {
     pickerIntent.current = intent;
     setWallpaperError(null);
     textureFileRef.current?.click();
   }
 
-  /** Wall-sized tiling for an uploaded plaster/concrete photo. */
-  function plasterUploadCovering(url: string): WallCovering {
-    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
-    // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
-    // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
-    const { repeatX, repeatY } = plasterRepeat(
-      { ...PLASTER_FINISHES[0], tileM: 2.4 },
-      wallW,
-      wallH,
-    );
-    return { kind: 'texture', url, color: '#ffffff', repeatX, repeatY, offsetX: 0, offsetY: 0, rotation: 0 };
+  /** Physical size of one tile of an uploaded wall-surface photo, in metres. */
+  const SURFACE_TILE_M = 2.4;
+
+  /**
+   * Planar UVW map for an uploaded wall-surface photo — plaster or filler, the
+   * tiling is the same either way.
+   *
+   * `repeatX` is read downstream as *tiles per metre* and `repeatY` as a
+   * vertical stretch on top of the image's own aspect ratio. This used to pass
+   * tiles-per-wall instead — on a 4.1 m wall a 2.4 m patch came out at 1.7
+   * tiles/m, so roughly seven tiles across, four times too dense and stretched
+   * vertically on top of that. One over the tile size is the whole conversion.
+   */
+  function surfaceCovering(url: string): WallCovering {
+    return {
+      kind: 'texture',
+      url,
+      color: '#ffffff',
+      repeatX: 1 / SURFACE_TILE_M,
+      repeatY: 1,   // 1 = keep the image's aspect, so tiles stay square
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+    };
   }
 
   /**
-   * Upload drop-zone plus the shared image library.
+   * Upload drop-zone, optionally followed by the shared image library.
    *
    * Rendered identically wherever a wall image can be chosen — the Bo'yoq
-   * "Rasm" tab and the Suvoq finishes — so the two phases don't drift into
+   * "Rasm" tab and the Suvoq surfaces — so the two phases don't drift into
    * offering the same capability through different-looking controls. `onPick`
    * decides how the chosen image is applied, which is the only real
    * difference: a wallpaper roll and a plaster patch tile differently.
+   *
+   * A null `libraryLabel` drops the library grid and leaves just the upload.
+   * `library` is the shelf to show under it — Suvoq passes its own so the
+   * surfaces uploaded there come back, without the oboy patterns.
    */
   function renderTexturePicker(
-    intent: 'wallpaper' | 'plaster',
+    intent: TextureIntent,
     onPick: (url: string) => void,
-    libraryLabel: string,
+    libraryLabel: string | null,
+    library: Wallpaper[] = wallpapers,
   ) {
     const active = targetWall === "ALL"
       ? designState.wallCoverings.ALL
@@ -447,14 +500,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
 
         {/* Shared library — uploaded once, stays for everyone */}
-        {wallpapers.length > 0 && (
+        {libraryLabel !== null && library.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
-              <span className="text-[10px] text-gray-400">{wallpapers.length} ta</span>
+              <span className="text-[10px] text-gray-400">{library.length} ta</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {wallpapers.map((w) => (
+              {library.map((w) => (
                 <div key={w.id} className="relative">
                   <button
                     onClick={() => onPick(w.url)}
@@ -499,9 +552,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperBusy(true);
     setWallpaperError(null);
     try {
-      const wallpaper = await uploadWallpaper(file);
-      if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
-      else applyWallpaper(wallpaper.url);
+      const wallpaper = await uploadWallpaper(file, INTENT_KIND[intent]);
+      if (intent === 'wallpaper') applyWallpaper(wallpaper.url);
+      else applyToAllWalls(surfaceCovering(wallpaper.url));
+      // Both shelves: the unfiltered oboy list contains every image too.
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     } catch (err) {
       setWallpaperError(
@@ -1230,114 +1284,111 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     </>
   )
 
-  // ── Suvoq: bare concrete / plaster finishes ─────────────────────────────
+  // ── Wall surfaces: Suvoq (plaster/concrete) and Shpaklovka (filler) ─────
   //
-  // Applies through the normal wall-covering path, so the finish is part of
-  // the room's design state and is what the 3D viewport paints. The finishes
-  // are generated as SVG data URLs, which means the wall keeps its surface
-  // after a reload without depending on an uploaded file still being fetchable.
+  // One uploaded image, planar-mapped onto all four walls. There is no
+  // per-wall picker and no floor or ceiling target: a surface is what the walls
+  // are made of, so it is a property of the set, not of one face. Applying to
+  // ALL is also what makes the finish survive a reload — a per-wall override
+  // left behind by another phase would otherwise win over it.
+  //
+  // Suvoq and Shpaklovka are the same panel over different shelves. They are
+  // built from one function rather than copied, because two hand-maintained
+  // copies of a panel drift: that is how the tool group ended up with one
+  // button styled unlike its three neighbours.
 
-  const currentCoveringUrl =
-    resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall).kind === 'texture'
-      ? (resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall) as { url: string }).url
-      : null;
+  // What the walls are wearing right now, so a shelf can mark it.
+  const allCovering = designState.wallCoverings.ALL;
+  const activeWallTextureUrl = allCovering.kind === 'texture' ? allCovering.url : null;
 
-  function applyPlaster(finish: PlasterFinish) {
-    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
-    const { repeatX, repeatY } = plasterRepeat(finish, wallW, wallH);
-    applyWallCovering({
-      kind: 'texture',
-      url: plasterTextureUrl(finish),
-      color: '#ffffff',
-      repeatX,
-      repeatY,
-      offsetX: 0,
-      offsetY: 0,
-      rotation: 0,
-    });
+  function surfaceSection({ intent, title, blurb, uploadTitle, library }: {
+    intent: Extract<TextureIntent, 'plaster' | 'putty'>
+    title: string
+    blurb: string
+    uploadTitle: string
+    library: Wallpaper[]
+  }) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
+          <p className="text-[11px] text-gray-400 leading-snug">{blurb}</p>
+        </div>
+
+        {/* Own image — goes to the shared library so the URL keeps resolving,
+            and so it is still there the next time this panel is opened. */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900">{uploadTitle}</h3>
+          {renderTexturePicker(intent, (url) => applyToAllWalls(surfaceCovering(url)), null)}
+        </div>
+
+        <button
+          onClick={() => applyToAllWalls({ kind: 'paint', color: '#D8D3C8' })}
+          className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Teksturani olib tashlash
+        </button>
+
+        {/* Everything uploaded here before, ready to re-apply */}
+        {library.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                Saqlangan teksturalar
+              </p>
+              <span className="text-[10px] text-gray-400">{library.length} ta</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {library.map((t) => (
+                <div key={t.id} className="relative">
+                  <button
+                    onClick={() => applyToAllWalls(surfaceCovering(t.url))}
+                    title={t.name}
+                    className={`block w-full aspect-square rounded-lg overflow-hidden transition-[box-shadow] duration-200 ${
+                      activeWallTextureUrl === t.url
+                        ? 'ring-2 ring-soft-active shadow-soft-lift'
+                        : 'shadow-soft-raised-sm hover:shadow-soft-raised'
+                    }`}
+                  >
+                    <img src={t.url} alt={t.name} loading="lazy" className="w-full h-full object-cover" />
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleWallpaperDelete(t)}
+                      title="Kutubxonadan o'chirish"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-soft shadow-soft-raised-sm text-[10px] leading-none text-gray-400 hover:text-[#C0362F] transition-[box-shadow,color] duration-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] leading-4 text-gray-400">
+              Yuklangan rasmlar hamma foydalanuvchilar uchun saqlanadi
+              {isAdmin ? '.' : "; ularni faqat administrator o'chira oladi."}
+            </p>
+          </div>
+        )}
+      </section>
+    );
   }
 
-  const SuvoqSection = (
-    <section className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq / Beton</h3>
-        <p className="text-[11px] text-gray-400 leading-snug">
-          Devor yuzasini tanlang. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.
-        </p>
-      </div>
+  const SuvoqSection = surfaceSection({
+    intent: 'plaster',
+    title: 'Suvoq / Beton',
+    blurb: "Rasm yuklang — u hamma devorlarga qo'llanadi. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.",
+    uploadTitle: 'Suvoq rasmi',
+    library: suvoqTextures,
+  });
 
-      {/* Which wall the finish lands on */}
-      <div>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
-          Qaysi devorga
-        </span>
-        <div className="flex flex-wrap gap-1">
-          {WALL_TARGETS.filter((w) => w.key !== 'FLOOR').map((w) => (
-            <button
-              key={w.key}
-              onClick={() => setTargetWall(w.key)}
-              className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
-                targetWall === w.key
-                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
-                  : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised'
-              }`}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* The finishes */}
-      <div>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
-          Beton teksturasi
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          {PLASTER_FINISHES.map((f) => {
-            const url = plasterTextureUrl(f);
-            const active = currentCoveringUrl === url;
-            return (
-              <button
-                key={f.id}
-                onClick={() => applyPlaster(f)}
-                title={f.hint}
-                className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
-                  active ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'
-                }`}
-              >
-                <span
-                  className="block h-12 w-full"
-                  style={{ backgroundImage: `url("${url}")`, backgroundSize: '120px 120px' }}
-                />
-                <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-soft">
-                  {f.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Own image — goes to the shared library so the URL keeps resolving */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900">Suvoq rasmi</h3>
-        {renderTexturePicker(
-          'plaster',
-          (url) => applyWallCovering(plasterUploadCovering(url)),
-          'Rasm kutubxonasi',
-        )}
-      </div>
-
-      <button
-        onClick={() => handleSetPaintColor('#D8D3C8')}
-        className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
-      >
-        Teksturani olib tashlash
-      </button>
-    </section>
-  );
+  const ShpaklovkaSection = surfaceSection({
+    intent: 'putty',
+    title: 'Shpaklovka',
+    blurb: "Shpaklovka rasmini yuklang — u hamma devorlarga qo'llanadi. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.",
+    uploadTitle: 'Shpaklovka rasmi',
+    library: shpaklovkaTextures,
+  });
 
   const FloorSection = (
     <section>
@@ -1647,7 +1698,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <LightPanel selectedId={selectedLightId} onSelect={onLightChange}
             armedType={armedLightType} onArm={onArmLight} planMode={planMode} />
         )}
-        {(phase === 'suvoq' || phase === 'shpaklovka') && SuvoqSection}
+        {phase === 'suvoq' && SuvoqSection}
+        {phase === 'shpaklovka' && ShpaklovkaSection}
         {phase === 'montaj' && (
           <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
             <span className="text-2xl">🏗️</span>
@@ -1661,19 +1713,6 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {mutation.isError && (
           <p className="text-xs text-amber-600">Oflayn rejimda — o'zgarishlar saqlandi</p>
         )}
-
-        {/* Reset button */}
-        <button
-          onClick={() => {
-            if (confirm('Barcha dizayn o\'zgarishlari bekor qilinadi. Davom etasizmi?')) {
-              resetDesignState()
-              mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } })
-            }
-          }}
-          className="w-full mt-8 px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
-        >
-          🔄 Dizaynni Bekor Qilish
-        </button>
       </div>
     </aside>
   );

@@ -4,7 +4,7 @@ import hashlib
 import uuid as uuid_module
 
 import structlog
-from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
@@ -42,6 +42,14 @@ _EXT_BY_TYPE = {
 }
 _MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
 
+# Which panel an image belongs to: 'oboy' is a wallpaper pattern, 'suvoq' a
+# bare wall surface (concrete, plaster), 'shpaklovka' a filled-and-sanded one.
+# The last two are separate phases of the same wall and a photo of one is no
+# use as the other, so they get separate shelves rather than one merged list.
+# Anything else is rejected rather than stored, so the column stays a closed
+# set the client can filter on.
+_KINDS = {"oboy", "suvoq", "shpaklovka"}
+
 
 def _absolute(request: Request, url: str) -> str:
     """Local storage returns a host-relative path; make it absolute."""
@@ -53,14 +61,33 @@ def _absolute(request: Request, url: str) -> str:
 @router.get(
     "",
     response_model=list[WallpaperOut],
-    summary="List every uploaded wallpaper (shared by all users)",
+    summary="List uploaded wallpapers (shared by all users)",
 )
-async def list_wallpapers(request: Request, db: DbSession) -> list[WallpaperOut]:
-    result = await db.execute(select(Wallpaper).order_by(Wallpaper.created_at.desc()))
+async def list_wallpapers(
+    request: Request,
+    db: DbSession,
+    kind: str | None = Query(
+        None,
+        description="Only images uploaded for this panel ('oboy' or 'suvoq'). Omit for all.",
+    ),
+) -> list[WallpaperOut]:
+    """Omitting `kind` returns the whole library, which is what the oboy picker
+    wants — it can use any image. Suvoq asks for its own kind so a user gets
+    back the surfaces they uploaded rather than every pattern on the server."""
+    if kind is not None and kind not in _KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"kind must be one of: {', '.join(sorted(_KINDS))}",
+        )
+    stmt = select(Wallpaper).order_by(Wallpaper.created_at.desc())
+    if kind is not None:
+        stmt = stmt.where(Wallpaper.kind == kind)
+    result = await db.execute(stmt)
     return [
         WallpaperOut(
             id=w.id,
             name=w.name,
+            kind=w.kind,
             url=_absolute(request, _public_url(w.storage_key)),
             content_type=w.content_type,
             size_bytes=w.size_bytes,
@@ -88,12 +115,18 @@ async def upload_wallpaper(
     file: UploadFile,
     current_user: CurrentUser,
     db: DbSession,
+    kind: str = Form("oboy", description="'oboy' (pattern) or 'suvoq' (wall surface)"),
 ) -> WallpaperOut:
-    """Store an image so every user can apply it as an oboy.
+    """Store an image so every user can apply it to a wall.
 
     Uploads are permanent: the entry stays until an admin deletes it, which is
     what lets a saved room reload with its wallpaper intact.
     """
+    if kind not in _KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"kind must be one of: {', '.join(sorted(_KINDS))}",
+        )
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -117,9 +150,16 @@ async def upload_wallpaper(
     existing = await db.execute(select(Wallpaper).where(Wallpaper.sha256 == digest))
     found = existing.scalar_one_or_none()
     if found is not None:
+        # Re-uploading a known image from a different panel moves it there.
+        # Without this the upload appears to succeed and the image never shows
+        # up in the library the user just uploaded it to.
+        if found.kind != kind:
+            found.kind = kind
+            await db.flush()
         return WallpaperOut(
             id=found.id,
             name=found.name,
+            kind=found.kind,
             url=_absolute(request, _public_url(found.storage_key)),
             content_type=found.content_type,
             size_bytes=found.size_bytes,
@@ -139,6 +179,7 @@ async def upload_wallpaper(
 
     wallpaper = Wallpaper(
         name=(file.filename or "Oboy")[:120],
+        kind=kind,
         # S3 hands back an absolute URL; local storage a key under MEDIA_ROOT
         storage_key=stored_url if stored_url.startswith("http") else key,
         content_type=file.content_type or "image/jpeg",
@@ -150,10 +191,13 @@ async def upload_wallpaper(
     await db.flush()
     await db.refresh(wallpaper)
 
-    logger.info("wallpaper_uploaded", id=str(wallpaper.id), user_id=str(current_user.id))
+    logger.info(
+        "wallpaper_uploaded", id=str(wallpaper.id), kind=kind, user_id=str(current_user.id)
+    )
     return WallpaperOut(
         id=wallpaper.id,
         name=wallpaper.name,
+        kind=wallpaper.kind,
         url=_absolute(request, _public_url(wallpaper.storage_key)),
         content_type=wallpaper.content_type,
         size_bytes=wallpaper.size_bytes,

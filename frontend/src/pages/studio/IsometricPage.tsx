@@ -37,11 +37,52 @@ const WALL_TARGETS: { key: WallTarget; label: string }[] = [
   { key: 'D', label: 'Devor D' },
 ]
 
+/**
+ * Aspect ratio (w / h) of each image URL, resolved as the browser decodes it.
+ *
+ * The 3D viewport gets this from the loaded THREE.Texture; the SVG has no
+ * equivalent, so the image is measured here. Until it resolves the tile is
+ * assumed square, which is a one-frame approximation rather than a wrong
+ * drawing — it settles as soon as the image is in cache.
+ */
+function useImageAspects(urls: string[]): Record<string, number> {
+  const [aspects, setAspects] = React.useState<Record<string, number>>({})
+  const key = urls.join('|')
+  React.useEffect(() => {
+    let cancelled = false
+    for (const url of key ? key.split('|') : []) {
+      const img = new Image()
+      img.onload = () => {
+        if (cancelled || !img.naturalHeight) return
+        setAspects((prev) =>
+          prev[url] ? prev : { ...prev, [url]: img.naturalWidth / img.naturalHeight },
+        )
+      }
+      img.src = url
+    }
+    return () => { cancelled = true }
+  }, [key])
+  return aspects
+}
+
 export default function IsometricPage() {
   const { room } = useOutletContext<StudioContext>();
   const { designState, setDesignState, setWallCovering, geometry, ceilingHeight } = useRoomStore();
 
   const floorType = designState.floorType;
+
+  // Every image covering currently on a wall, so their proportions are known
+  // before the pattern tiles are sized.
+  const texAspects = useImageAspects(
+    React.useMemo(() => {
+      const urls = new Set<string>()
+      for (const wallId of ['A', 'B', 'C', 'D'] as const) {
+        const c = resolveWallCovering(designState.wallCoverings, wallId)
+        if (c.kind === 'texture') urls.add(c.url)
+      }
+      return [...urls]
+    }, [designState.wallCoverings]),
+  );
 
   // ── Local UI state ──────────────────────────────────────────────────────────
   const [coveringMode, setCoveringMode] = React.useState<CoveringMode>('paint')
@@ -159,13 +200,22 @@ export default function IsometricPage() {
     return `#${sh(r)}${sh(g)}${sh(b)}`
   }
 
-  // Resolve covering for each wall face in the SVG
+  /*
+   * Wall faces.
+   *
+   * `paint` is a flat fill. `oboy` and `texture` are both SVG patterns, and
+   * this used to name a pattern for either one while only ever *defining* the
+   * oboy ones — so an uploaded texture resolved to `url(#oboy-svg-A)` with no
+   * such element, and the wall rendered as nothing at all. That is why a
+   * finish applied in the panel showed up in 3D but not here.
+   */
   function svgWallFill(wallId: 'A' | 'B' | 'C' | 'D', shadeFactor: number): { fill: string; patternUid: string | null } {
     const covering = resolveWallCovering(designState.wallCoverings, wallId)
     if (covering.kind === 'paint') {
       return { fill: shadeWall(covering.color, shadeFactor), patternUid: null }
     }
-    return { fill: `url(#oboy-svg-${wallId})`, patternUid: `oboy-svg-${wallId}` }
+    const uid = covering.kind === 'oboy' ? `oboy-svg-${wallId}` : `tex-svg-${wallId}`
+    return { fill: `url(#${uid})`, patternUid: uid }
   }
 
   const faceD = svgWallFill('D', 0.88)
@@ -181,6 +231,72 @@ export default function IsometricPage() {
       svgPatternDefs.push(getOboySvgPattern(c.patternId as OboyPatternId, c.baseColor, c.accentColor, `oboy-svg-${wallId}`))
     }
   }
+
+  /*
+   * Planar UVW map for an image covering, expressed as an SVG pattern.
+   *
+   * The 3D viewport reads `repeatX` as tiles per metre along the wall and
+   * `repeatY` as a vertical stretch applied on top of the image's own aspect
+   * ratio. Reproducing that here is what keeps the two views showing the same
+   * material at the same physical size rather than two unrelated tilings.
+   *
+   * The isometric projection maps one metre along a wall to exactly UNIT user
+   * units (|(0.866, 0.5)| = 1), so the tile can be built at its true size and
+   * `patternTransform` only has to rotate it onto the face — no scaling, which
+   * keeps the image sampled at full resolution.
+   */
+  function texPattern(
+    wallId: 'A' | 'B' | 'C' | 'D',
+    covering: WallCovering,
+    origin: { x: number; y: number },
+    along: { x: number; y: number },
+  ) {
+    if (covering.kind !== 'texture') return null
+    const aspect = texAspects[covering.url] ?? 1
+    const tileW = (1 / covering.repeatX) * UNIT
+    const tileH = (1 / (covering.repeatX * aspect * covering.repeatY)) * UNIT
+    // Unit vector pointing along the wall in screen space
+    const len = Math.hypot(along.x, along.y) || 1
+    const ax = along.x / len
+    const ay = along.y / len
+    // Pattern +x runs along the wall, pattern +y runs up the screen. Offsets
+    // are in tiles, matching three.js `Texture.offset`.
+    const transform =
+      `translate(${origin.x.toFixed(2)} ${origin.y.toFixed(2)}) ` +
+      `matrix(${ax.toFixed(5)} ${ay.toFixed(5)} 0 -1 0 0) ` +
+      `translate(${(-covering.offsetX * tileW).toFixed(2)} ${(-covering.offsetY * tileH).toFixed(2)})`
+    return (
+      <pattern
+        key={wallId}
+        id={`tex-svg-${wallId}`}
+        patternUnits="userSpaceOnUse"
+        width={tileW}
+        height={tileH}
+        patternTransform={transform}
+      >
+        <image
+          href={covering.url}
+          width={tileW}
+          height={tileH}
+          preserveAspectRatio="none"
+          transform={
+            covering.rotation
+              ? `rotate(${(covering.rotation * 180) / Math.PI} ${tileW / 2} ${tileH / 2})`
+              : undefined
+          }
+        />
+      </pattern>
+    )
+  }
+
+  // Bottom-start corner and along-wall direction of each drawn face, so the
+  // pattern lands on the wall the same way the polygon does.
+  const texPatterns = [
+    texPattern('D', resolveWallCovering(designState.wallCoverings, 'D'), ptA, { x: ptB.x - ptA.x, y: ptB.y - ptA.y }),
+    texPattern('A', resolveWallCovering(designState.wallCoverings, 'A'), ptA, { x: ptD.x - ptA.x, y: ptD.y - ptA.y }),
+    texPattern('B', resolveWallCovering(designState.wallCoverings, 'B'), ptB, { x: ptC.x - ptB.x, y: ptC.y - ptB.y }),
+    texPattern('C', resolveWallCovering(designState.wallCoverings, 'C'), ptD, { x: ptC.x - ptD.x, y: ptC.y - ptD.y }),
+  ].filter(Boolean)
 
   const ceilColor = '#F0EDE6'
   const hasOboy = Object.values(designState.wallCoverings).some(c => c?.kind === 'oboy')
@@ -208,6 +324,7 @@ export default function IsometricPage() {
             {svgPatternDefs.map((def, i) => (
               <g key={i} dangerouslySetInnerHTML={{ __html: def }} />
             ))}
+            {texPatterns}
           </defs>
 
           {/* Floor */}

@@ -33,9 +33,10 @@ import { getRooms, deleteRoom } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  WallFade, WallTopRim, CornerPosts, FloorSlab,
+  WallFade,
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
+import { ShadowShell } from "@/features/studio/shadowShell";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ToolCluster } from "@/features/studio/ToolCluster";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
@@ -203,11 +204,39 @@ const FLOOR_COLORS: Record<string, string> = {
 // ─── Shared wall-texture loader ───────────────────────────────────────────────
 // All Wall instances that share the same URL reuse one THREE.Texture to avoid
 // loading the same (potentially large) data-URL 4 times simultaneously.
+//
+// Every waiter must hear about a failure, not just the one that happened to
+// start the load — see the error branch below.
 
 interface TexEntry { tex: THREE.Texture; aspect: number }
+/** One waiter: both callbacks, so a failure reaches the right caller. */
+interface TexWaiter { onLoaded: (e: TexEntry) => void; onError: () => void }
 const _texCache    = new Map<string, TexEntry>();
 const _texPending  = new Set<string>();
-const _texWaiters  = new Map<string, Array<(e: TexEntry) => void>>();
+const _texWaiters  = new Map<string, TexWaiter[]>();
+
+/**
+ * The URL to actually fetch a wall texture from.
+ *
+ * WebGL will not sample a cross-origin image unless it was fetched with CORS,
+ * so THREE.TextureLoader asks for one (`crossOrigin = 'anonymous'`). The design
+ * panel shows the very same URLs as ordinary <img> thumbnails, which send no
+ * Origin header — and the browser then hands the texture loader that cached,
+ * CORS-less copy, which fails the check. The image is fine and the server's
+ * headers are fine; only the cached copy is unusable.
+ *
+ * Marking the request as the texture one gives it a cache entry of its own, so
+ * the two consumers stop colliding. Static, not a timestamp, so the texture is
+ * still cached normally — and different from anything already poisoned, which
+ * is what fixes it for people who have been using the app all along.
+ *
+ * Data URLs carry their own bytes and are same-origin by definition; appending
+ * to one would corrupt it.
+ */
+function textureFetchUrl(url: string): string {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'for=tex';
+}
 
 function requestSharedTexture(
   url: string,
@@ -217,13 +246,14 @@ function requestSharedTexture(
   const cached = _texCache.get(url);
   if (cached) { onLoaded(cached); return () => {}; }
 
+  const waiter: TexWaiter = { onLoaded, onError };
   if (!_texWaiters.has(url)) _texWaiters.set(url, []);
-  _texWaiters.get(url)!.push(onLoaded);
+  _texWaiters.get(url)!.push(waiter);
 
   if (!_texPending.has(url)) {
     _texPending.add(url);
     new THREE.TextureLoader().load(
-      url,
+      textureFetchUrl(url),
       (t) => {
         t.colorSpace = THREE.SRGBColorSpace;
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -233,14 +263,21 @@ function requestSharedTexture(
         const entry: TexEntry = { tex: t, aspect };
         _texCache.set(url, entry);
         _texPending.delete(url);
-        for (const cb of _texWaiters.get(url) ?? []) cb(entry);
+        for (const w of _texWaiters.get(url) ?? []) w.onLoaded(entry);
         _texWaiters.delete(url);
       },
       undefined,
       (err) => {
-        console.warn('[WallTexture] load failed:', err);
+        // This used to iterate the waiters and then call the *closure's* own
+        // `onError` once per iteration — so the wall that happened to start the
+        // load was told N times and every other wall was never told at all.
+        // Their `imageTexture` stayed on the previous image, which is how a
+        // failed load showed up as "the new texture was not applied": three
+        // walls kept the old one and the fourth went blank, while the panel and
+        // the store both correctly held the new selection.
+        console.warn('[WallTexture] load failed:', url, err);
         _texPending.delete(url);
-        for (const _ of _texWaiters.get(url) ?? []) onError();
+        for (const w of _texWaiters.get(url) ?? []) w.onError();
         _texWaiters.delete(url);
       },
     );
@@ -249,7 +286,7 @@ function requestSharedTexture(
   return () => {
     const list = _texWaiters.get(url);
     if (list) {
-      const idx = list.indexOf(onLoaded);
+      const idx = list.findIndex((w) => w.onLoaded === onLoaded);
       if (idx >= 0) list.splice(idx, 1);
     }
   };
@@ -272,7 +309,8 @@ function WoodFloor({
   useEffect(() => {
     if (!floorTexture) { setCustomTex(null); return; }
     let disposed = false;
-    new THREE.TextureLoader().load(floorTexture, (tex) => {
+    // Same cache collision as the walls — see textureFetchUrl.
+    new THREE.TextureLoader().load(textureFetchUrl(floorTexture), (tex) => {
       if (disposed) { tex.dispose(); return; }
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
@@ -1984,8 +2022,12 @@ export function SceneLighting({
         shadow-camera-bottom={-shadowBox.hh}
         shadow-camera-near={shadowBox.near}
         shadow-camera-far={shadowBox.far}
-        shadow-bias={-0.0008}
-        shadow-normalBias={0.02}
+        // Small on purpose. The 2 cm normalBias these used to be was sized to
+        // hide acne on zero-thickness walls, and pushed samples clean through
+        // them at corners — the leak itself. The shell is 12 cm thick, so a
+        // 1 cm offset lands well inside it and there is nothing to hide.
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.01}
         shadow-radius={4}
       />
       {/* Cool sky-bounce fill light — much dimmer so shadows read clearly */}
@@ -3046,7 +3088,7 @@ function NWallRoomShell({
             rotation={[0, ry, 0]}
             castShadow
             receiveShadow
-            onClick={() => onWallClick?.(wallId)}
+            onClick={onWallClick ? () => onWallClick(wallId) : undefined}
           >
             <boxGeometry args={[length, H, T]} />
             <meshStandardMaterial
@@ -3158,6 +3200,22 @@ export function RoomScene({
   const elementsDOuter = resolveElementPositions(wallD?.elements ?? [], D * 1000)
     .map(el => ({ ...el, position: el.position + T_MM }));
 
+  // Same openings, for the solid shell that does the sun-blocking.
+  const elementsAResolved = resolveElementPositions(wallA?.elements ?? [], W * 1000);
+  const elementsCResolved = resolveElementPositions(wallC?.elements ?? [], W * 1000);
+
+  /*
+   * A wall is only clickable where something is listening.
+   *
+   * These used to pass `() => onWallClick?.('A')` — an arrow that is always
+   * defined, so r3f registered every wall as an interaction target even in
+   * views that pass no handler at all. The click then did nothing while still
+   * being consumed, and the walls were raycast on every pointer move for it.
+   * The Elektr preview is exactly that case: it renders the room to look at,
+   * not to select. `WoodFloor` has always guarded its handler this way.
+   */
+  const bindWallClick = (id: string) => (onWallClick ? () => onWallClick(id) : undefined)
+
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
   // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
@@ -3222,41 +3280,42 @@ export function RoomScene({
           <WallFade hidden={hiddenWalls.has('A')}>
             <Wall wallId="A" length={W} height={H} thickness={T} covering={coveringA}
               elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
-              isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
+              isSelected={selectedWall === 'A'} onClick={bindWallClick('A')}
               panelSettings={panelsA} />
-
-            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
           <WallFade hidden={hiddenWalls.has('B')}>
             <Wall wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
               elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
-              isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
+              isSelected={selectedWall === 'B'} onClick={bindWallClick('B')}
               panelSettings={panelsB} />
-
-            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
           </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
           <WallFade hidden={hiddenWalls.has('C')}>
             <Wall wallId="C" length={W} height={H} thickness={T} covering={coveringC}
               elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
-              isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
+              isSelected={selectedWall === 'C'} onClick={bindWallClick('C')}
               panelSettings={panelsC} />
-
-            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
           </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
           <WallFade hidden={hiddenWalls.has('D')}>
             <Wall wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
               elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
-              isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
+              isSelected={selectedWall === 'D'} onClick={bindWallClick('D')}
               panelSettings={panelsD} />
-
-            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
+
+          {/* The sun's occluder. Outside the fades on purpose — see shadowShell.tsx. */}
+          <ShadowShell
+            W={W} D={D} H={H}
+            elementsA={elementsAResolved}
+            elementsB={elementsBOuter}
+            elementsC={elementsCResolved}
+            elementsD={elementsDOuter}
+          />
 
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
@@ -3264,11 +3323,6 @@ export function RoomScene({
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
 
-          {/* Diorama frame: floating slab + corner posts outlining the box */}
-          {cutawayOn && <>
-            <FloorSlab W={W} D={D} T={T} />
-            <CornerPosts W={W} D={D} T={T} H={H} />
-          </>}
         </>
       ) : (
         /* N-wall polygon room — only available when geometry.vertices is set */
@@ -3466,6 +3520,18 @@ export type { PhaseKey } from "@/lib/phases"
  */
 const PANEL_OWNING_PHASES = new Set<PhaseKey>(['chiroq'])
 
+/**
+ * Phases where clicking a wall or the floor means something.
+ *
+ * In the decorating phases a surface click targets that surface for paint,
+ * paper or flooring — that jump is the whole point. In Mebelirovka it meant
+ * nothing of the kind: the user is placing furniture, and a click that grazed
+ * a wall yanked the whole studio into the Bo'yoq phase mid-task. Outside this
+ * set the walls and floor get no click handlers at all, so they are plain
+ * geometry, exactly as in the Elektr preview.
+ */
+const SURFACE_PICK_PHASES = new Set<PhaseKey>(['suvoq', 'shpaklovka', 'boyoq', 'pol', 'montaj'])
+
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
   const { geometry, designState, highQuality3d, resetRoom } = useRoomStore();
@@ -3523,6 +3589,9 @@ export default function ThreeDPage() {
   const useComposer = highQuality3d && declineCount < 2;
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [lightsOn, setLightsOn] = useState(true);
+  // Day/night for the scene's own light (sun + environment). Starts on
+  // daylight. The toolbar switch was removed, so the only way to reach
+  // night now is the `n` shortcut below — same key back.
   const [sceneLightOn, setSceneLightOn] = useState(true);
   // Shared with the walkthrough — see the note on `sunHour` in the store.
   const sunHour = useRoomStore((st) => st.sunHour);
@@ -3578,6 +3647,12 @@ export default function ThreeDPage() {
     setSelectedWall(id);
     if (!PANEL_OWNING_PHASES.has(activePhase)) setActivePhase('boyoq');
   }
+  // A surface selection is a decorating concern. Entering a placement phase
+  // drops it — otherwise the wall kept its highlight into Mebelirovka, and
+  // with no click handlers there, nothing could ever clear it.
+  useEffect(() => {
+    if (!SURFACE_PICK_PHASES.has(activePhase)) setSelectedWall(null);
+  }, [activePhase]);
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -3929,48 +4004,7 @@ export default function ThreeDPage() {
                 {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
               </span>
             </button>
-            {/* Scene light (sun + environment) toggle */}
-            {/* A real switch rather than a button that changes colour. Day and
-                night are two settled states, not an action, and a switch says
-                which one you are in without having to read the label — which
-                matters here because the label is hidden on a narrow toolbar.
-                The icon changes with it, so the state survives the label being
-                dropped at small widths. */}
-            <button
-              role="switch"
-              aria-checked={sceneLightOn}
-              aria-label={sceneLightOn ? 'Kunduz — sahna yorug\'ligi yoniq' : "Tun — sahna yorug'ligi o'chiq"}
-              onClick={() => setSceneLightOn(v => !v)}
-              title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-soft px-2 py-1 text-xs font-semibold text-gray-700 shadow-soft-raised-sm transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-soft-raised active:translate-y-0 active:shadow-soft-pressed focus-visible:outline-none focus-visible:shadow-soft-focus"
-            >
-              {sceneLightOn ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E9A23B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                </svg>
-              ) : (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6C7A96" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-                </svg>
-              )}
-              <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
-              {/* The track is grooved into the surface and the knob is raised
-                  out of it, so the two shadows carry the state rather than fill. */}
-              <span
-                className={`relative h-[18px] w-[32px] shrink-0 rounded-full transition-colors duration-250 ${
-                  sceneLightOn ? 'bg-[#2E9E8F]' : 'bg-soft-deep'
-                } shadow-soft-pressed`}
-              >
-                <span
-                  className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-soft-raised shadow-soft-raised-sm transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                    sceneLightOn ? 'translate-x-[16px]' : 'translate-x-[2px]'
-                  }`}
-                />
-              </span>
-            </button>
-            {/* Sun clock. Only meaningful while the sun is the light source, so
-                it rides with the day/night toggle. */}
+            {/* Sun clock — drives the sun's position while daylight is on. */}
             {sceneLightOn && (
               <div
                 className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
@@ -4242,9 +4276,9 @@ export default function ThreeDPage() {
               lightsOn={lightsOn}
               cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
-              onWallClick={(id) => focusSurface(id)}
+              onWallClick={SURFACE_PICK_PHASES.has(activePhase) ? (id) => focusSurface(id) : undefined}
               isFloorSelected={selectedWall === 'FLOOR'}
-              onFloorClick={() => focusSurface('FLOOR')}
+              onFloorClick={SURFACE_PICK_PHASES.has(activePhase) ? () => focusSurface('FLOOR') : undefined}
             />
             <SwapButtons W={W} D={D} H={H} />
             {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}

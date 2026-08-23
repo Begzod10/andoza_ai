@@ -692,9 +692,17 @@ export async function waitForMeshyTask(
 
 // ---------- Wallpapers (shared oboy library) ----------
 
+/**
+ * Which panel an image was uploaded from: a pattern, a bare wall surface, or a
+ * filled-and-sanded one. Suvoq and shpaklovka are different phases of the same
+ * wall, so a photo of one is no use as the other.
+ */
+export type WallpaperKind = "oboy" | "suvoq" | "shpaklovka";
+
 export interface Wallpaper {
   id: string;
   name: string;
+  kind: WallpaperKind;
   /** Absolute URL — loaded straight into a WebGL texture. */
   url: string;
   content_type: string;
@@ -702,15 +710,21 @@ export interface Wallpaper {
   created_at: string;
 }
 
-/** Every wallpaper anyone has uploaded. The library is global and permanent. */
-export async function listWallpapers(): Promise<Wallpaper[]> {
-  return apiClient<Wallpaper[]>("/wallpapers");
+/**
+ * Wallpapers anyone has uploaded. The library is global and permanent.
+ *
+ * Passing `kind` narrows it to the images uploaded from that panel; omitting it
+ * returns everything, which is what the oboy picker wants.
+ */
+export async function listWallpapers(kind?: WallpaperKind): Promise<Wallpaper[]> {
+  return apiClient<Wallpaper[]>(kind ? `/wallpapers?kind=${kind}` : "/wallpapers");
 }
 
 /** Upload an image to the shared library. Re-uploading one returns the existing entry. */
-export async function uploadWallpaper(file: File): Promise<Wallpaper> {
+export async function uploadWallpaper(file: File, kind: WallpaperKind = "oboy"): Promise<Wallpaper> {
   const form = new FormData();
   form.append("file", file);
+  form.append("kind", kind);
   return apiClient<Wallpaper>("/wallpapers", { method: "POST", body: form });
 }
 

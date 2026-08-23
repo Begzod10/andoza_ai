@@ -11,6 +11,8 @@ class WallpaperOut(BaseModel):
 
     id: UUID
     name: str
+    # 'oboy' | 'suvoq' | 'shpaklovka' — which panel it was uploaded from.
+    kind: str
     # Absolute URL — the client loads it straight into a WebGL texture, so it
     # cannot be relative to the frontend origin.
     url: str

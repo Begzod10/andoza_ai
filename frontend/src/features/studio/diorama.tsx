@@ -1,10 +1,13 @@
 /**
- * Cutaway diorama building blocks for the 3D studio.
+ * Cutaway building blocks for the 3D studio.
  *
- * The room is presented as an open box: solid wall bodies with a dark walnut
- * "picture frame" trim along the exposed edges, sitting on a floor slab.
  * Walls facing the camera hide (auto mode) or are fixed-hidden (diorama mode)
  * so the interior reads like an architectural cutaway model.
+ *
+ * The room used to be framed like a museum model — a near-black walnut trim
+ * capping every wall top, four posts down the outer corners and a dark slab
+ * under the floor. It drew hard black bars across the picture, so the frame is
+ * gone and the walls simply end where they end.
  *
  * All geometry is procedural from room dimensions and merged into single
  * meshes per part — no per-segment meshes.
@@ -17,10 +20,6 @@ import { mergeBufferGeometries } from 'three-stdlib'
 export type CutawayMode = 'off' | 'auto' | 'diorama'
 
 // ─── Style constants (Phase 3 palette will re-export these) ──────────────────
-export const TRIM_COLOR = '#2B2622'      // near-black walnut
-export const TRIM_ROUGHNESS = 0.55
-export const TRIM_SIZE = 0.05            // 5 cm profile
-export const SLAB_HEIGHT = 0.12          // 12 cm floor slab
 export const SHELL_PLASTER = '#D8CDBE'   // outer shell / cut faces
 
 // Fixed pair removed in diorama presentation mode (camera lives in +X/+Z quadrant)
@@ -87,70 +86,98 @@ function setsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 
 // ─── Fade wrapper ─────────────────────────────────────────────────────────────
 
-interface FadeState {
-  mats: THREE.Material[]
+interface FadeOriginal {
+  transparent: boolean
   opacity: number
+  depthWrite: boolean
+  colorWrite: boolean
 }
 
 /**
- * Smoothly fades its children in/out (~200ms) by mutating material opacity in
- * useFrame — no React re-renders during the ramp. Assumes materials are unique
- * per mesh (true for the studio's JSX-created materials).
+ * Smoothly fades its children in/out (~200ms) by mutating material state in
+ * useFrame — no React re-renders during the ramp.
+ *
+ * A fully-hidden wall is hidden at the *material*, never with `visible = false`.
+ * Three skips invisible objects when it renders the shadow map, so a wall
+ * hidden that way stops casting — and the cutaway, which exists to open one
+ * side of the room to the camera, was also opening it to the sun. The result
+ * was daylight pouring in through walls that were still standing, pooling in
+ * the corners and along the ceiling join. Writing neither colour nor depth
+ * removes the wall from the picture and leaves it in the shadow map, which is
+ * what the cutaway actually means.
  */
 export function WallFade({ hidden, children }: { hidden: boolean; children: React.ReactNode }) {
   const group = useRef<THREE.Group>(null)
-  const fade = useRef<FadeState>({ mats: [], opacity: 1 })
+  const opacity = useRef(1)
+  // Set while anything has been touched, so the fully-shown steady state costs
+  // nothing at all — which is every wall whenever the cutaway is off.
+  const touched = useRef(false)
 
   useFrame((_, dt) => {
     const g = group.current
     if (!g) return
-    const f = fade.current
     const target = hidden ? 0 : 1
-    if (Math.abs(f.opacity - target) < 0.001) {
-      if (target === 1 && f.mats.length) restore(f)
-      g.visible = target !== 0
+
+    if (opacity.current !== target) {
+      const step = dt / 0.2   // ~200 ms ramp
+      opacity.current = target === 0
+        ? Math.max(0, opacity.current - step)
+        : Math.min(1, opacity.current + step)
+      touched.current = true
+    } else if (opacity.current === 1 && !touched.current) {
       return
     }
-    // (Re)collect materials at the start of a ramp — children may have changed
-    if (f.mats.length === 0) {
-      g.traverse((o) => {
-        const mesh = o as THREE.Mesh
-        if (!mesh.isMesh) return
-        const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        for (const m of list) {
-          if (m.userData.__fadeOrig === undefined) {
-            m.userData.__fadeOrig = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite }
-          }
-          f.mats.push(m)
-        }
-      })
-    }
-    g.visible = true
-    // ~200ms linear ramp
-    const step = dt / 0.2
-    f.opacity = target === 0 ? Math.max(0, f.opacity - step) : Math.min(1, f.opacity + step)
-    for (const m of f.mats) {
-      m.transparent = true
-      m.depthWrite = f.opacity > 0.5
-      m.opacity = f.opacity * ((m.userData.__fadeOrig?.opacity as number) ?? 1)
-    }
-    if (f.opacity === 0) g.visible = false
+
+    // Re-walked every frame while hidden or ramping rather than cached: a wall
+    // can have its covering or its openings changed while it is hidden, and a
+    // material created after the ramp started would otherwise never be told.
+    applyFade(g, opacity.current)
+    if (opacity.current === 1) touched.current = false
   })
 
   return <group ref={group}>{children}</group>
 }
 
-function restore(f: FadeState) {
-  for (const m of f.mats) {
-    const orig = m.userData.__fadeOrig as { transparent: boolean; opacity: number; depthWrite: boolean } | undefined
-    if (orig) {
-      m.transparent = orig.transparent
-      m.opacity = orig.opacity
-      m.depthWrite = orig.depthWrite
+function applyFade(g: THREE.Group, opacity: number) {
+  g.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of list) {
+      if (m.userData.__fadeOrig === undefined) {
+        m.userData.__fadeOrig = {
+          transparent: m.transparent,
+          opacity: m.opacity,
+          depthWrite: m.depthWrite,
+          colorWrite: m.colorWrite,
+        } satisfies FadeOriginal
+      }
+      const orig = m.userData.__fadeOrig as FadeOriginal
+      if (opacity === 1) {
+        m.transparent = orig.transparent
+        m.opacity = orig.opacity
+        m.depthWrite = orig.depthWrite
+        m.colorWrite = orig.colorWrite
+      } else if (opacity === 0) {
+        // Gone from the picture, still standing in the shadow map.
+        m.transparent = orig.transparent
+        m.opacity = orig.opacity
+        m.colorWrite = false
+        m.depthWrite = false
+      } else {
+        m.transparent = true
+        m.colorWrite = true
+        m.depthWrite = opacity > 0.5
+        m.opacity = opacity * orig.opacity
+      }
     }
-  }
-  f.mats = []
+    // A wall you cannot see is a wall you cannot click through to what is
+    // behind it. `visible = false` used to take care of this for free.
+    mesh.raycast = opacity === 0 ? noRaycast : THREE.Mesh.prototype.raycast
+  })
 }
+
+const noRaycast = () => {}
 
 // ─── Solid wall body ──────────────────────────────────────────────────────────
 
@@ -221,62 +248,6 @@ export function WallBody({ length, height, thickness, axis, cx, cz, elements }: 
   return (
     <mesh geometry={geo} castShadow receiveShadow>
       <meshStandardMaterial color={SHELL_PLASTER} roughness={0.9} metalness={0} />
-    </mesh>
-  )
-}
-
-// ─── Trim pieces ──────────────────────────────────────────────────────────────
-
-function trimMaterial() {
-  return <meshStandardMaterial color={TRIM_COLOR} roughness={TRIM_ROUGHNESS} metalness={0} />
-}
-
-/** Dark cap running along the top of one wall (overhangs the profile slightly). */
-export function WallTopRim({ length, thickness, axis, cx, cz, height }: {
-  length: number; thickness: number; axis: 'X' | 'Z'; cx: number; cz: number; height: number
-}) {
-  const tr = TRIM_SIZE
-  const w = axis === 'X' ? length + 2 * tr : thickness + 2 * tr
-  const d = axis === 'X' ? thickness + 2 * tr : length + 2 * tr
-  return (
-    <mesh position={[cx, height + tr / 2, cz]} castShadow>
-      <boxGeometry args={[w, tr, d]} />
-      {trimMaterial()}
-    </mesh>
-  )
-}
-
-/** Four vertical posts on the outer corners — the frame silhouette. */
-export function CornerPosts({ W, D, T, H }: { W: number; D: number; T: number; H: number }) {
-  const geo = useMemo(() => {
-    const s = TRIM_SIZE * 2
-    const boxes: THREE.BufferGeometry[] = []
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const b = new THREE.BoxGeometry(s, H + TRIM_SIZE, s)
-        b.translate(sx * (W / 2 + T - s / 2), (H + TRIM_SIZE) / 2, sz * (D / 2 + T - s / 2))
-        boxes.push(b)
-      }
-    }
-    const merged = mergeBufferGeometries(boxes)
-    for (const b of boxes) b.dispose()
-    return merged
-  }, [W, D, T, H])
-
-  if (!geo) return null
-  return (
-    <mesh geometry={geo} castShadow>
-      {trimMaterial()}
-    </mesh>
-  )
-}
-
-/** Dark slab under the floor so the room reads as a floating box. */
-export function FloorSlab({ W, D, T }: { W: number; D: number; T: number }) {
-  return (
-    <mesh position={[0, -SLAB_HEIGHT / 2, 0]} receiveShadow castShadow>
-      <boxGeometry args={[W + 2 * T, SLAB_HEIGHT, D + 2 * T]} />
-      {trimMaterial()}
     </mesh>
   )
 }

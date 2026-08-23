@@ -27,6 +27,13 @@ class Wallpaper(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    # What the image is for: 'oboy' (a pattern), 'suvoq' (a bare wall surface)
+    # or 'shpaklovka' (a filled one). They are picked from different panels and
+    # should not be offered to each other, so the library is filtered on this
+    # rather than merged.
+    kind: Mapped[str] = mapped_column(
+        String(16), server_default="oboy", default="oboy", index=True, nullable=False
+    )
     # Storage key (S3 object key, or path under MEDIA_ROOT for local storage)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(60), nullable=False)

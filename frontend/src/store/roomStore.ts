@@ -311,6 +311,43 @@ export function persistableDesignState(d: DesignState): DesignState {
   }
 }
 
+/*
+ * Repair texture UV numbers that came from an older writer.
+ *
+ * Downstream, `repeatX` is tiles per metre and `repeatY` a vertical stretch on
+ * top of the image's aspect. An earlier Suvoq path wrote tiles-per-wall into
+ * `repeatX`, and derived `repeatY` from a ceiling height it treated as metres
+ * while the store keeps millimetres — so a 3 m room stored repeatY = 1500 and
+ * the wall rendered as hairlines in both the 3D and the isometric view.
+ *
+ * A person cannot pick anything near these bounds through the UI, so a value
+ * outside them is that bug rather than a choice, and resetting it is what makes
+ * an already-saved room render again instead of staying broken forever.
+ */
+const UV_MIN = 0.02
+const UV_MAX = 60
+const DEFAULT_TILE_M = 2.4
+
+function repairCovering(covering: WallCovering): WallCovering {
+  if (covering.kind !== 'texture') return covering
+  const sane = (v: number) => Number.isFinite(v) && v >= UV_MIN && v <= UV_MAX
+  if (sane(covering.repeatX) && sane(covering.repeatY)) return covering
+  return { ...covering, repeatX: 1 / DEFAULT_TILE_M, repeatY: 1 }
+}
+
+/** Every wall's covering, with out-of-range UV numbers repaired. */
+export function repairDesignState(d: DesignState): DesignState {
+  return {
+    ...d,
+    wallCoverings: Object.fromEntries(
+      Object.entries(d.wallCoverings).map(([wallId, covering]) => [
+        wallId,
+        covering ? repairCovering(covering) : covering,
+      ]),
+    ) as DesignState['wallCoverings'],
+  }
+}
+
 export const DEFAULT_DESIGN_STATE: DesignState = {
   wallCoverings: { ALL: { kind: 'paint', color: '#D8D3C8' } },
   floorType: 'parquet',
@@ -638,7 +675,7 @@ export const useRoomStore = create<RoomStore>()(
       ceilingHeight: s.ceilingHeight ?? 2700,
       geometry: cleanGeometry,
       wizardStep: s.wizardStep ?? 0,
-      designState: s.designState ?? DEFAULT_DESIGN_STATE,
+      designState: s.designState ? repairDesignState(s.designState) : DEFAULT_DESIGN_STATE,
       name: s.name ?? 'Xona',
       roomId: s.roomId ?? null,
       furniture: s.furniture ?? [],
