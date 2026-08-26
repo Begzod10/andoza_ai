@@ -1867,8 +1867,25 @@ function DraggableElectricalItem({
   )
 }
 
-/** Live gap labels around an electrical device while it is dragged — distance to
- *  each wall corner plus floor and ceiling, mirroring the window/door labels. */
+/** A dimension line drawn as a real THREE.Line (mounted via <primitive> to
+ *  avoid the JSX <line> / SVG-line typing clash), matching the window/door
+ *  guide lines. */
+function DimLine({ a, b, color = '#1A2340' }: {
+  a: [number, number, number]; b: [number, number, number]; color?: string
+}) {
+  const obj = useMemo(() => {
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(a[0], a[1], a[2]),
+      new THREE.Vector3(b[0], b[1], b[2]),
+    ])
+    return new THREE.Line(g, new THREE.LineBasicMaterial({ color }))
+  }, [a, b, color])
+  return <primitive object={obj} />
+}
+
+/** Live dimension lines + labels around an electrical device while it is
+ *  dragged — distance to each wall corner plus floor and ceiling, drawn with
+ *  the same leader lines as the window/door dimensions. */
 function ElectricalDimLabels({ el, posMm, heightMm, W, D, H }: {
   el: PlacedElectrical
   posMm: number; heightMm: number
@@ -1876,41 +1893,43 @@ function ElectricalDimLabels({ el, posMm, heightMm, W, D, H }: {
 }) {
   const dim = ELECTRICAL_DIMS[el.type] ?? { w: 0.08, h: 0.08 }
   const isH = el.wallId === 'A' || el.wallId === 'C'
-  const wallLenMm = isH ? W * 1000 : D * 1000
-  const halfWmm = (dim.w * 1000) / 2
-  const leftEdge = posMm - halfWmm
-  const rightEdge = posMm + halfWmm
-  const centerHm = heightMm / 1000 + dim.h / 2
-  const topM = heightMm / 1000 + dim.h
+  const wallLenM = isH ? W : D
+  const halfWm = dim.w / 2
+  const cxM = posMm / 1000                 // along-wall centre (m)
+  const cyM = heightMm / 1000 + dim.h / 2  // vertical centre (m)
+  const leftEdge = cxM - halfWm
+  const rightEdge = cxM + halfWm
+  const botY = heightMm / 1000
+  const topY = heightMm / 1000 + dim.h
 
-  const pt = (alongMm: number, yM: number): [number, number, number] => {
-    const a = alongMm / 1000
-    const push = 0.05
+  const pt = (alongM: number, yM: number, push = 0.03): [number, number, number] => {
     switch (el.wallId) {
-      case 'A': return [a - W / 2, yM, -(D / 2) + push]
-      case 'C': return [a - W / 2, yM, D / 2 - push]
-      case 'D': return [-(W / 2) + push, yM, a - D / 2]
-      case 'B': return [W / 2 - push, yM, a - D / 2]
+      case 'A': return [alongM - W / 2, yM, -(D / 2) + push]
+      case 'C': return [alongM - W / 2, yM, D / 2 - push]
+      case 'D': return [-(W / 2) + push, yM, alongM - D / 2]
+      case 'B': return [W / 2 - push, yM, alongM - D / 2]
       default: return [0, yM, 0]
     }
   }
-  const fmt = (mm: number) => `${Math.max(0, mm / 1000).toFixed(2)} m`
 
-  const labels: Array<{ p: [number, number, number]; mm: number }> = [
-    { p: pt(leftEdge / 2, centerHm), mm: leftEdge },
-    { p: pt((rightEdge + wallLenMm) / 2, centerHm), mm: wallLenMm - rightEdge },
-    { p: pt(posMm, heightMm / 1000 / 2), mm: heightMm },
-    { p: pt(posMm, (topM + H) / 2), mm: H * 1000 - topM * 1000 },
+  const items: Array<{ a: [number, number, number]; b: [number, number, number]; mid: [number, number, number]; val: number }> = [
+    { a: pt(0, cyM), b: pt(leftEdge, cyM), mid: pt(leftEdge / 2, cyM, 0.05), val: leftEdge },
+    { a: pt(rightEdge, cyM), b: pt(wallLenM, cyM), mid: pt((rightEdge + wallLenM) / 2, cyM, 0.05), val: wallLenM - rightEdge },
+    { a: pt(cxM, 0), b: pt(cxM, botY), mid: pt(cxM, botY / 2, 0.05), val: botY },
+    { a: pt(cxM, topY), b: pt(cxM, H), mid: pt(cxM, (topY + H) / 2, 0.05), val: H - topY },
   ]
 
   return (
     <>
-      {labels.map((l, i) => (
-        <Html key={i} position={l.p} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-          <div style={{ background: '#111827', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-            {fmt(l.mm)}
-          </div>
-        </Html>
+      {items.map((it, i) => (
+        <group key={i}>
+          <DimLine a={it.a} b={it.b} />
+          <Html position={it.mid} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
+            <div style={{ background: '#1A2340', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+              {Math.max(0, it.val).toFixed(2)} m
+            </div>
+          </Html>
+        </group>
       ))}
     </>
   )
