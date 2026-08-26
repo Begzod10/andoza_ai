@@ -1475,7 +1475,6 @@ function DraggableLightModels({
   roomW,
   roomD,
   roomH,
-  toolMode,
   lightsOn,
   highQuality,
   selectedId,
@@ -1485,7 +1484,6 @@ function DraggableLightModels({
   roomW: number
   roomD: number
   roomH: number
-  toolMode: ToolMode
   lightsOn: boolean
   highQuality: boolean
   selectedId?: string | null
@@ -1504,7 +1502,6 @@ function DraggableLightModels({
   const hitPoint = useRef(new THREE.Vector3())
 
   function startDrag(light: PlacedLight, e: ThreeEvent<PointerEvent>) {
-    if (toolMode === 'select') return
     e.stopPropagation()
     dragPosRef.current.set(light.xMm, light.zMm)
     draggingIdRef.current = light.id
@@ -1577,9 +1574,12 @@ function DraggableLightModels({
               onPointerDown={(e) => {
                 e.stopPropagation()
                 onSelect?.(l.id)
-                if (toolMode !== 'select') startDrag(l, e)
+                // Direct-drag in any tool mode: a plain click leaves the light
+                // where it is (dragPos starts at its current spot), a drag moves
+                // it along the ceiling. No need to switch to the Siljitish tool.
+                startDrag(l, e)
               }}
-              onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
+              onPointerEnter={() => { document.body.style.cursor = 'grab' }}
               onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
             >
               <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
@@ -4796,7 +4796,7 @@ export default function ThreeDPage() {
               selectedId={selectedDoorId}
               onSelect={setSelectedDoorId}
             />
-            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={setSelectedLightId} />
+            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={setSelectedLightId} />
 
             <RealismEffects enabled={useComposer} />
 
