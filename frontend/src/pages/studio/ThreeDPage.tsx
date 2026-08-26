@@ -3902,10 +3902,10 @@ export default function ThreeDPage() {
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
 
-  // ── Surface radial menu (long-press "aylana" on a wall/ceiling/floor) ──
-  // The top phase-stepper is hidden (see SHOW_PHASE_STEPPER); design actions
-  // are reached by pressing-and-holding a surface, which opens a ring of
-  // context icons at the press point.
+  // ── Surface radial menu (tap/press "aylana" on a wall/ceiling/floor) ──
+  // A fast path alongside the phase-stepper rail (SHOW_PHASE_STEPPER), not a
+  // replacement for it: tapping a surface opens a ring of context icons at
+  // the press point for quick edits without leaving the current phase.
   const [radial, setRadial] = useState<
     { surface: RadialSurface; wallId?: string; x: number; y: number; point?: { x: number; y: number; z: number } } | null
   >(null);
