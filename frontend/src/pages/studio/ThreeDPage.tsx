@@ -4400,10 +4400,20 @@ export default function ThreeDPage() {
           position: 'absolute',
           top: '50%',
           left: leftOpen ? 144 : 0,
-          transform: 'translate(-50%, -50%)',
+          // Open: straddle the rail's edge (plenty of room at x=144). Closed:
+          // the rail is flush against the true page edge (x=0), so the usual
+          // -50% centering would push half the button past x=0 — clipped by
+          // the viewport with no way to see or click it back open. Anchor
+          // flush instead, extending inward, so it's always fully visible.
+          transform: leftOpen ? 'translate(-50%, -50%)' : 'translate(0, -50%)',
           width: 22,
           height: 40,
-          zIndex: 5,
+          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
+          // a different part of the tree, so a low z-index here didn't
+          // reliably out-rank it — confirmed via elementFromPoint returning
+          // the canvas, not this button). Same z-tier as the mobile panel
+          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
+          zIndex: 60,
           transition: 'left 0.2s ease',
         }}
       >
@@ -5057,13 +5067,25 @@ export default function ThreeDPage() {
         />
       )}
 
+      {/* Outer wrapper: stable positioning context for the toggle button,
+          rendered on every breakpoint (unlike the left rail's wrapper, this
+          can't be `hidden` below lg — the mobile bottom-sheet panel lives in
+          the same subtree). The toggle button is a SIBLING of the collapse
+          wrapper below, not a child of it: nesting it inside was the actual
+          bug — that wrapper's own `overflow:hidden` (needed so the panel
+          clips instead of reflowing while collapsing) clipped the button
+          along with it once width hit 0, even though position:absolute
+          normally escapes a parent's normal flow. overflow:hidden clips
+          ALL descendants that visually extend past its box, absolutely
+          positioned or not. */}
+      <div className="relative shrink-0">
       {/* Desktop-only collapse wrapper. Harmless on mobile: the panel below
           stays `fixed` there (escapes normal flow, ignores an ancestor's
           width/overflow entirely), so this only actually clips/resizes
           anything once `lg:static` below turns the panel into a normal-flow
           box that respects it. */}
       <div
-        className="lg:relative lg:shrink-0"
+        className="lg:shrink-0"
         style={{ width: rightOpen ? 288 : 0, overflow: rightOpen ? 'auto' : 'hidden', transition: 'width 0.2s ease' }}
       >
       {/* Panel — desktop: static sidebar | mobile: slide-up sheet */}
@@ -5087,8 +5109,11 @@ export default function ThreeDPage() {
           selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
           armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
       </div>
+      </div>
       {/* Docked to the panel's left edge (mirrors the left rail's toggle,
-          chevron pointing the opposite way). */}
+          chevron pointing the opposite way). Sibling of the collapse
+          wrapper above, not nested in it — see the comment on the outer
+          wrapper for why. */}
       <button
         onClick={() => setRightOpen(v => !v)}
         title={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
@@ -5098,10 +5123,19 @@ export default function ThreeDPage() {
           position: 'absolute',
           top: '50%',
           right: rightOpen ? 288 : 0,
-          transform: 'translate(50%, -50%)',
+          // Same fix as the left rail's toggle: closed means flush against
+          // the true page edge, where +50% centering would push half the
+          // button past the viewport — visible only as a sliver, unclickable
+          // in practice. Anchor flush and extend inward instead when closed.
+          transform: rightOpen ? 'translate(50%, -50%)' : 'translate(0, -50%)',
           width: 22,
           height: 40,
-          zIndex: 5,
+          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
+          // a different part of the tree, so a low z-index here didn't
+          // reliably out-rank it — confirmed via elementFromPoint returning
+          // the canvas, not this button). Same z-tier as the mobile panel
+          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
+          zIndex: 60,
           transition: 'right 0.2s ease',
         }}
       >
