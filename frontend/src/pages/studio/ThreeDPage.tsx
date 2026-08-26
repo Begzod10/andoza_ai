@@ -3901,6 +3901,12 @@ export default function ThreeDPage() {
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  // Desktop-only edge-collapse toggles for the phase-stepper rail and design
+  // panel — separate from showPanel above, which drives the mobile bottom
+  // sheet. Both default open; tablet/mobile keep their own drawer pattern
+  // untouched (the toggle buttons themselves are hidden below lg).
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
 
   // ── Surface radial menu (tap/press "aylana" on a wall/ceiling/floor) ──
   // A fast path alongside the phase-stepper rail (SHOW_PHASE_STEPPER), not a
@@ -4341,9 +4347,13 @@ export default function ThreeDPage() {
       </div>
       )}
 
-      {/* ── Desktop: left phase stepper sidebar (hidden — replaced by surface radial menu) ── */}
+      {/* ── Desktop: left phase stepper sidebar, collapsible ── */}
       {SHOW_PHASE_STEPPER && (
-      <nav className="hidden lg:flex w-36 shrink-0 bg-surface border-r border-gray-200 flex-col pt-3 select-none">
+      <div className="relative hidden lg:block shrink-0">
+      <nav
+        className="hidden lg:flex bg-surface border-r border-gray-200 flex-col pt-3 select-none overflow-hidden"
+        style={{ width: leftOpen ? 144 : 0, transition: 'width 0.2s ease' }}
+      >
         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
@@ -4378,6 +4388,33 @@ export default function ThreeDPage() {
           );
         })}
       </nav>
+      {/* Docked to the rail's visible edge — left offset tracks leftOpen so
+          it always sits flush against wherever the rail's edge currently is,
+          mid-transition included. */}
+      <button
+        onClick={() => setLeftOpen(v => !v)}
+        title={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
+        aria-label={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
+        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: leftOpen ? 144 : 0,
+          transform: 'translate(-50%, -50%)',
+          width: 22,
+          height: 40,
+          zIndex: 5,
+          transition: 'left 0.2s ease',
+        }}
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: leftOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }}
+        >
+          <path d="M6.5 1L2.5 5l4 4" />
+        </svg>
+      </button>
+      </div>
       )}
 
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
@@ -5020,6 +5057,15 @@ export default function ThreeDPage() {
         />
       )}
 
+      {/* Desktop-only collapse wrapper. Harmless on mobile: the panel below
+          stays `fixed` there (escapes normal flow, ignores an ancestor's
+          width/overflow entirely), so this only actually clips/resizes
+          anything once `lg:static` below turns the panel into a normal-flow
+          box that respects it. */}
+      <div
+        className="lg:relative lg:shrink-0"
+        style={{ width: rightOpen ? 288 : 0, overflow: rightOpen ? 'auto' : 'hidden', transition: 'width 0.2s ease' }}
+      >
       {/* Panel — desktop: static sidebar | mobile: slide-up sheet */}
       <div
         className={[
@@ -5040,6 +5086,32 @@ export default function ThreeDPage() {
         <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
           selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
           armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
+      </div>
+      {/* Docked to the panel's left edge (mirrors the left rail's toggle,
+          chevron pointing the opposite way). */}
+      <button
+        onClick={() => setRightOpen(v => !v)}
+        title={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
+        aria-label={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
+        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: rightOpen ? 288 : 0,
+          transform: 'translate(50%, -50%)',
+          width: 22,
+          height: 40,
+          zIndex: 5,
+          transition: 'right 0.2s ease',
+        }}
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: rightOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
+        >
+          <path d="M6.5 1L2.5 5l4 4" />
+        </svg>
+      </button>
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
