@@ -20,6 +20,8 @@ import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
+import SurfaceRadialMenu, { RadialIcons, type RadialSurface, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
+import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
@@ -3322,6 +3324,7 @@ export function RoomScene({
   onWallClick,
   isFloorSelected,
   onFloorClick,
+  holdBind,
   plasterWalls = false,
 }: {
   room: Room;
@@ -3337,6 +3340,9 @@ export function RoomScene({
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
   onFloorClick?: () => void;
+  /** Long-press handler bundles per surface — spread onto wrapping groups so a
+   *  press-and-hold on a wall/ceiling/floor opens the radial context menu. */
+  holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
   /** Suvoq bosqichi ko'rinishi: barcha devorlar photo-real plaster bilan */
   plasterWalls?: boolean;
 }) {
@@ -3438,14 +3444,16 @@ export function RoomScene({
     <group>
       {isLegacyAbcd ? (
         <>
-          <WoodFloor
-            width={W} depth={D} floorType={designState.floorType}
-            floorTexture={designState.floorTexture}
-            floorTextureSettings={designState.floorTextureSettings}
-            floorConfigured={designState.floorConfigured}
-            isSelected={isFloorSelected}
-            onClick={onFloorClick}
-          />
+          <group {...(holdBind?.('floor') ?? {})}>
+            <WoodFloor
+              width={W} depth={D} floorType={designState.floorType}
+              floorTexture={designState.floorTexture}
+              floorTextureSettings={designState.floorTextureSettings}
+              floorConfigured={designState.floorConfigured}
+              isSelected={isFloorSelected}
+              onClick={onFloorClick}
+            />
+          </group>
 
           {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera.
               PlaneGeometry is built in the XY plane with its normal on +Z (see three.js
@@ -3457,51 +3465,61 @@ export function RoomScene({
               the wall silhouette at grazing angles). Rotating +90° about X lays the plane
               flat in the XZ plane at y = H with its normal pointing down (-Y), i.e. facing
               into the room so FrontSide correctly renders the interior-facing side. */}
-          <Ceiling
-            W={W} D={D} H={H} T={T}
-            designId={designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN}
-            settings={designState.ceiling?.settings}
-            hidden={ceilingHidden}
-            meshRef={ceilingRef}
-          />
+          <group {...(holdBind?.('ceiling') ?? {})}>
+            <Ceiling
+              W={W} D={D} H={H} T={T}
+              designId={designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN}
+              settings={designState.ceiling?.settings}
+              hidden={ceilingHidden}
+              meshRef={ceilingRef}
+            />
+          </group>
 
           {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
           <WallFade hidden={hiddenWalls.has('A')}>
-            <Wall plaster={plasterWalls} wallId="A" length={W} height={H} thickness={T} covering={coveringA}
-              elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
-              isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
-              panelSettings={panelsA} />
+            <group {...(holdBind?.('wall', 'A') ?? {})}>
+              <Wall plaster={plasterWalls} wallId="A" length={W} height={H} thickness={T} covering={coveringA}
+                elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
+                isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
+                panelSettings={panelsA} />
+            </group>
 
             {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
           <WallFade hidden={hiddenWalls.has('B')}>
-            <Wall plaster={plasterWalls} wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
-              elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
-              isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
-              panelSettings={panelsB} />
+            <group {...(holdBind?.('wall', 'B') ?? {})}>
+              <Wall plaster={plasterWalls} wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
+                elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
+                isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
+                panelSettings={panelsB} />
+            </group>
 
             {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
           </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
           <WallFade hidden={hiddenWalls.has('C')}>
-            <Wall plaster={plasterWalls} wallId="C" length={W} height={H} thickness={T} covering={coveringC}
-              elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
-              isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
-              panelSettings={panelsC} />
+            <group {...(holdBind?.('wall', 'C') ?? {})}>
+              <Wall plaster={plasterWalls} wallId="C" length={W} height={H} thickness={T} covering={coveringC}
+                elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
+                isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
+                panelSettings={panelsC} />
+            </group>
 
             {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
           </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
           <WallFade hidden={hiddenWalls.has('D')}>
-            <Wall plaster={plasterWalls} wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
-              elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
-              isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
-              panelSettings={panelsD} />
+            <group {...(holdBind?.('wall', 'D') ?? {})}>
+              <Wall plaster={plasterWalls} wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
+                elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
+                isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
+                panelSettings={panelsD} />
+            </group>
 
             {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
@@ -3727,7 +3745,7 @@ const isTouch =
 
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
-  const { geometry, designState, highQuality3d, resetRoom, placeFurniture } = useRoomStore();
+  const { geometry, designState, highQuality3d, resetRoom, placeFurniture, addElement, updateElement, removeElement } = useRoomStore();
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
 
@@ -3832,18 +3850,48 @@ export default function ThreeDPage() {
   const activeLayoutPos = useRoomStore((s) => s.layoutPos);
   // The Mebelirovka and Chiroqlar tabs open the same editor, pre-set to the
   // furnishing / lighting phase
-  const pathname = useLocation().pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
   const isMebelTab = pathname.endsWith('/mebel');
   const isChiroqTab = pathname.endsWith('/chiroqlar');
-  const [activePhase, setActivePhase] = useState<PhaseKey>(
-    isMebelTab ? 'mebel' : isChiroqTab ? 'chiroq' : 'boyoq',
-  );
+  // Optional starting phase from the URL (?phase=…). The mobile wall-condition
+  // step sets it so the studio opens on the first renovation stage that still
+  // needs doing (an already-plastered wall skips Suvoq, a puttied wall skips
+  // Suvoq + Shpaklovka). Earlier stages then render as done via the existing
+  // positional check-mark logic. Falls back to the historical 'boyoq' default.
+  const phaseParam = new URLSearchParams(location.search).get('phase')
+  const initialPhase: PhaseKey = isMebelTab
+    ? 'mebel'
+    : isChiroqTab
+      ? 'chiroq'
+      : RENO_STAGES.some((s) => s.key === phaseParam)
+        ? (phaseParam as PhaseKey)
+        : 'boyoq'
+  const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+
+  // ── Surface radial menu (long-press "aylana" on a wall/ceiling/floor) ──
+  // The top phase-stepper is hidden (see SHOW_PHASE_STEPPER); design actions
+  // are reached by pressing-and-holding a surface, which opens a ring of
+  // context icons at the press point.
+  const [radial, setRadial] = useState<
+    { surface: RadialSurface; wallId?: string; x: number; y: number; point?: { x: number; y: number; z: number } } | null
+  >(null);
+  // World-space hit point of the press, captured from the raycast so a created
+  // window/door lands exactly where the wall was touched.
+  const holdPoint = useRef<{ x: number; y: number; z: number } | null>(null);
+  // Currently-selected window/door (for the move/edit/delete toolbar).
+  const [selOpening, setSelOpening] = useState<OpeningSel | null>(null);
+  const holdTimer = useRef<number | null>(null);
+  const holdStart = useRef<{ x: number; y: number } | null>(null);
+  // True from the moment a long-press fires until the next surface click, so
+  // the click that ends the hold doesn't ALSO run the tap-select behaviour.
+  const heldRef = useRef(false);
 
   // ── Drop a model file straight into the room ────────────────────────
   // Imported like a picked file, then placed immediately and the Mebel phase
@@ -3879,6 +3927,11 @@ export default function ThreeDPage() {
    * user was placing became unreachable.
    */
   function focusSurface(id: string) {
+    // A long-press that opened the radial menu also ends in a click — swallow
+    // that one click so it doesn't jump the phase out from under the menu.
+    if (heldRef.current) { heldRef.current = false; return; }
+    // Tapping the bare wall dismisses any selected window/door.
+    setSelOpening(null);
     // Suvoq bosqichida devorlar tahrirlashga ochiq emas — kamera
     // boshqaruvi paytidagi tasodifiy klik fazani almashtirmasin.
     if (activePhase === 'suvoq') return;
@@ -3888,6 +3941,155 @@ export default function ThreeDPage() {
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+
+  // ── Long-press detection on 3D surfaces ─────────────────────────────
+  // R3F pointer events bubble from the surface meshes up to the wrapping
+  // <group>s that spread these handlers. A ~460ms hold that doesn't drift
+  // opens the radial menu at the press point; any real drag (camera orbit)
+  // cancels it first.
+  const HOLD_MS = 460;
+  const HOLD_MOVE_TOL = 12; // px of finger travel that still counts as a hold
+  function clearHold() {
+    if (holdTimer.current != null) { window.clearTimeout(holdTimer.current); holdTimer.current = null; }
+    holdStart.current = null;
+  }
+  function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }) {
+    const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
+    const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
+    // The R3F event's world intersection point — where on the wall it was hit.
+    holdPoint.current = e.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : null;
+    holdStart.current = { x: cx, y: cy };
+    clearHoldTimerOnly();
+    holdTimer.current = window.setTimeout(() => {
+      heldRef.current = true;
+      // Freeze the camera so menu taps don't orbit the room, and drop any
+      // active selection highlight noise.
+      if (controlsRef.current) controlsRef.current.enabled = false;
+      setRadial({ surface, wallId, x: cx, y: cy, point: holdPoint.current ?? undefined });
+    }, HOLD_MS);
+  }
+  function clearHoldTimerOnly() {
+    if (holdTimer.current != null) { window.clearTimeout(holdTimer.current); holdTimer.current = null; }
+  }
+  function moveHold(e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number }) {
+    if (!holdStart.current) return;
+    const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
+    const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
+    if (Math.hypot(cx - holdStart.current.x, cy - holdStart.current.y) > HOLD_MOVE_TOL) clearHold();
+  }
+  function closeRadial() {
+    setRadial(null);
+    if (controlsRef.current) controlsRef.current.enabled = true;
+    // Safety net: if the trailing click never arrived, don't leave the guard
+    // armed or the next genuine tap would be swallowed.
+    heldRef.current = false;
+  }
+  /** Pointer handlers to spread onto a surface's wrapping <group>. */
+  function holdBind(surface: RadialSurface, wallId?: string) {
+    return {
+      onPointerDown: (e: any) => startHold(surface, wallId, e),
+      onPointerMove: (e: any) => moveHold(e),
+      onPointerUp: () => clearHold(),
+      onPointerLeave: () => clearHold(),
+      onPointerCancel: () => clearHold(),
+    };
+  }
+
+  /**
+   * The four rectangular walls in the room's own frame. Each wall runs along
+   * one world axis; its "left edge" (where local `position` = 0) is at
+   * `centerAlong − length/2` on that axis. This is the single source of truth
+   * for converting a world raycast hit into a wall-local (u = along, v = up)
+   * coordinate — so a created opening is pinned to the clicked wall and can
+   * never be computed against another wall.
+   */
+  function wallGeom(wallId: string): { axis: 'X' | 'Z'; length: number; leftAlong: number } | null {
+    switch (wallId) {
+      case 'A': return { axis: 'X', length: W, leftAlong: -W / 2 };
+      case 'C': return { axis: 'X', length: W, leftAlong: -W / 2 };
+      case 'B': return { axis: 'Z', length: D, leftAlong: -D / 2 };
+      case 'D': return { axis: 'Z', length: D, leftAlong: -D / 2 };
+      default: return null;
+    }
+  }
+
+  /**
+   * Create a window ('deraza') or door ('eshik') ON the given wall, centred on
+   * the world hit `point`, in the wall's LOCAL coordinate system:
+   *   position    = mm from the wall's left edge to the opening's left edge
+   *   sill_height = mm from the floor to the opening's bottom (doors: always 0)
+   * Both are clamped so the opening stays fully within the wall. Because we key
+   * `addElement(wallId, …)` and store only wall-local numbers, the opening is
+   * bound to this wall and cannot jump to another.
+   */
+  function createOpening(wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') {
+    const g = wallGeom(wallId);
+    if (!g || !point) return;
+    const isDoor = type === 'eshik';
+    const widthMm = 900;
+    const heightMm = isDoor ? 2100 : 1200;
+    const wallLenMm = g.length * 1000;
+    const wallHMm = H * 1000;
+
+    // Along-wall hit → left-edge offset, centred on the click.
+    const along = g.axis === 'X' ? point.x : point.z;      // metres, world
+    const uMm = (along - g.leftAlong) * 1000;              // mm from left edge
+    const position = Math.max(0, Math.min(wallLenMm - widthMm, uMm - widthMm / 2));
+
+    // Vertical: doors sit on the floor; windows centre on the hit height.
+    let sill_height = 0;
+    if (!isDoor) {
+      const vMm = point.y * 1000;
+      sill_height = Math.max(0, Math.min(wallHMm - heightMm, vMm - heightMm / 2));
+    }
+
+    addElement(wallId, { type, width: widthMm, height: heightMm, sill_height, position });
+    setSelectedWall(wallId);
+  }
+
+  /** The context actions offered for each surface. Each opens the matching
+   *  existing panel/sheet — the exact wiring is easy to retarget later. */
+  function buildRadialItems(r: { surface: RadialSurface; wallId?: string; point?: { x: number; y: number; z: number } }): RadialItem[] {
+    if (r.surface === 'wall') {
+      return [
+        {
+          key: 'paint', label: 'Rang', icon: RadialIcons.paint,
+          onSelect: () => { setSelectedWall(r.wallId ?? 'ALL'); setActivePhase('boyoq'); setShowPanel(true); },
+        },
+        {
+          key: 'window', label: 'Oyna', icon: RadialIcons.window,
+          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
+        },
+        {
+          key: 'door', label: 'Eshik', icon: RadialIcons.door,
+          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
+        },
+      ];
+    }
+    if (r.surface === 'ceiling') {
+      return [
+        {
+          key: 'light', label: 'Chiroq', icon: RadialIcons.light,
+          onSelect: () => { setActivePhase('chiroq'); setShowPanel(true); },
+        },
+        {
+          key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,
+          onSelect: () => { setSelectedWall('CEILING'); setActivePhase('boyoq'); setShowPanel(true); },
+        },
+      ];
+    }
+    // floor
+    return [
+      {
+        key: 'object', label: 'Narsa', icon: RadialIcons.add,
+        onSelect: () => setShowAddSheet(true),
+      },
+      {
+        key: 'floor', label: 'Pol turi', icon: RadialIcons.floor,
+        onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('pol'); setShowPanel(true); },
+      },
+    ];
+  }
 
   // Live aspect ratio of the 3D canvas. The Mebelirovka tab hands the viewport
   // only half the width, so the framing has to be recomputed per tab instead of
@@ -4057,10 +4259,16 @@ export default function ThreeDPage() {
 
   const activeIdx = RENO_STAGES.findIndex(s => s.key === activePhase);
 
+  // The renovation phase stepper is superseded by the per-surface radial menu
+  // (long-press a wall/ceiling/floor). Flip to true to bring the top stepper
+  // back. The view/camera toolbar below it is kept.
+  const SHOW_PHASE_STEPPER = false;
+
   return (
     <div className="flex flex-col lg:flex-row h-full">
 
-      {/* ── Mobile: horizontal phase strip ──────────────────────── */}
+      {/* ── Mobile: horizontal phase strip (hidden — replaced by surface radial menu) ── */}
+      {SHOW_PHASE_STEPPER && (
       <div className="flex lg:hidden shrink-0 overflow-x-auto bg-surface border-b border-gray-200 select-none" style={{ scrollbarWidth: 'none' }}>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
@@ -4085,8 +4293,10 @@ export default function ThreeDPage() {
           );
         })}
       </div>
+      )}
 
-      {/* ── Desktop: left phase stepper sidebar ─────────────────── */}
+      {/* ── Desktop: left phase stepper sidebar (hidden — replaced by surface radial menu) ── */}
+      {SHOW_PHASE_STEPPER && (
       <nav className="hidden lg:flex w-36 shrink-0 bg-surface border-r border-gray-200 flex-col pt-3 select-none">
         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
         {RENO_STAGES.map((stage, i) => {
@@ -4119,6 +4329,7 @@ export default function ThreeDPage() {
           );
         })}
       </nav>
+      )}
 
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -4619,6 +4830,20 @@ export default function ThreeDPage() {
               onWallClick={(id) => focusSurface(id)}
               isFloorSelected={selectedWall === 'FLOOR'}
               onFloorClick={() => focusSurface('FLOOR')}
+              holdBind={holdBind}
+            />
+            {/* Interactive window/door editing layer (select → toolbar → drag
+                with live meter labels + Canva-style snap guides). */}
+            <WallOpenings
+              geometry={geometry}
+              W={W}
+              D={D}
+              H={H}
+              selected={selOpening}
+              onSelect={setSelOpening}
+              updateElement={updateElement}
+              removeElement={removeElement}
+              onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
             />
             <SwapButtons W={W} D={D} H={H} />
             {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}
@@ -4738,6 +4963,17 @@ export default function ThreeDPage() {
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
       <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
       <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
+
+      {/* Surface long-press radial menu ("aylana") */}
+      {radial && (
+        <SurfaceRadialMenu
+          x={radial.x}
+          y={radial.y}
+          surface={radial.surface}
+          items={buildRadialItems(radial)}
+          onClose={closeRadial}
+        />
+      )}
     </div>
   );
 }
