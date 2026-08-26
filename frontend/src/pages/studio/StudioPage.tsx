@@ -16,6 +16,11 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
     { to: `/studio/${roomId}/elektr`, label: "Elektr" },
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
+    // /smeta/:roomId is a top-level route, not nested under /studio/:roomId —
+    // clicking this leaves the studio layout entirely (SmetaPage has its own
+    // header with a back link to here), unlike the other tabs above which
+    // stay within this same StudioPage shell.
+    { to: `/smeta/${roomId}`, label: "Hisoblagich" },
   ];
   return (
     // Lives inline in the header row now (not its own row) — overflow-x-auto
