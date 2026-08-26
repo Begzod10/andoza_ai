@@ -49,6 +49,8 @@ export interface PlacedElectrical {
   wallId: string
   positionMm: number
   heightMm: number
+  /** Faceplate colour. Absent on devices placed before colours existed. */
+  color?: string
 }
 
 export interface PlacedLight {

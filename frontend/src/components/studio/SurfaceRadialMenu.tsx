@@ -200,4 +200,11 @@ export const RadialIcons = {
       <path d="M12 8v8M8 12h8" />
     </svg>
   ),
+  socket: (
+    <svg {...ico}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <circle cx="9.5" cy="12" r="1.2" />
+      <circle cx="14.5" cy="12" r="1.2" />
+    </svg>
+  ),
 }

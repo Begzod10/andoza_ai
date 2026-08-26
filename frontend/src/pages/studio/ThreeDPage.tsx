@@ -23,7 +23,10 @@ import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import SurfaceRadialMenu, { RadialIcons, type RadialSurface, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
 import { WallOpenings } from "@/components/studio/WallOpenings";
 import { OpeningCreateSheet, OpeningEditPanel, type OpeningCreateValues } from "@/components/studio/OpeningPanels";
+import { ElektrPanel } from "@/components/studio/ElektrPanel";
 import { resolveWindowStyle } from "@/lib/windowStyles";
+import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/PlacementPage";
+import type { ElectricalType } from "@/store/roomStore";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
@@ -1807,7 +1810,7 @@ function DraggableElectricalItem({
           onPointerEnter={() => { document.body.style.cursor = 'grab' }}
           onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
           <boxGeometry args={[dim.w, dim.h, depth]} />
-          <meshStandardMaterial color="#E8E4DC" roughness={0.6} metalness={0.1}
+          <meshStandardMaterial color={el.color ?? "#E8E4DC"} roughness={0.6} metalness={0.1}
             emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.08 : 0}/>
         </mesh>
         <mesh position={[0, 0, depth / 2 + 0.002]}>
@@ -1837,7 +1840,7 @@ function DraggableElectricalItem({
         onPointerEnter={() => { document.body.style.cursor = 'grab' }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
         <boxGeometry args={[dim.w, dim.h, depth]} />
-        <meshStandardMaterial color="#F5F5F0" roughness={0.5} metalness={0.05}
+        <meshStandardMaterial color={el.color ?? "#F5F5F0"} roughness={0.5} metalness={0.05}
           emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.1 : 0}/>
       </mesh>
       {isSwitch ? (
@@ -3834,6 +3837,9 @@ const isTouch =
 export default function ThreeDPage() {
   const { room, onSave } = useOutletContext<StudioContext>();
   const { geometry, designState, highQuality3d, resetRoom, placeFurniture, addElement, updateElement, removeElement } = useRoomStore();
+  const electricals = useRoomStore((s) => s.electricals);
+  const addElectrical = useRoomStore((s) => s.addElectrical);
+  const removeElectrical = useRoomStore((s) => s.removeElectrical);
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
 
@@ -3958,6 +3964,10 @@ export default function ThreeDPage() {
   // A wall opening being created: the size/type sheet is up but the opening is
   // not cut into the wall until the user confirms.
   const [pendingOpening, setPendingOpening] = useState<{ wallId: string; point: { x: number; y: number; z: number }; type: 'deraza' | 'eshik' } | null>(null);
+  // Electrical placement from a wall's radial "Elektr": the target wall + click
+  // point, and the currently-chosen faceplate colour.
+  const [elektrTarget, setElektrTarget] = useState<{ wallId: string; point: { x: number; y: number; z: number } } | null>(null);
+  const [elektrColor, setElektrColor] = useState<string>('#F5F5F0');
   const holdTimer = useRef<number | null>(null);
 
   // The selected opening resolved to its wall + element. Recomputes as the store
@@ -4166,6 +4176,23 @@ export default function ThreeDPage() {
     setSelectedWall(wallId);
   }
 
+  /**
+   * Drop an electrical device onto the wall a radial "Elektr" was opened on.
+   * Position uses the same along-wall convention as the 3D drag (mm from the
+   * wall's start corner), height comes from the device catalog, and the device
+   * is draggable along the wall straight afterwards.
+   */
+  function placeElectrical(type: ElectricalType) {
+    if (!elektrTarget) return;
+    const { wallId, point } = elektrTarget;
+    const isH = wallId === 'A' || wallId === 'C';
+    const wallLenMm = isH ? W * 1000 : D * 1000;
+    let positionMm = isH ? (point.x + W / 2) * 1000 : (point.z + D / 2) * 1000;
+    positionMm = Math.max(100, Math.min(wallLenMm - 100, positionMm));
+    const heightMm = ELECTRICAL_CATALOG.find((c) => c.type === type)?.height ?? 900;
+    addElectrical({ id: nanoid(), type, wallId, positionMm, heightMm, color: elektrColor });
+  }
+
   /** The context actions offered for each surface. Each opens the matching
    *  existing panel/sheet — the exact wiring is easy to retarget later. */
   function buildRadialItems(r: { surface: RadialSurface; wallId?: string; point?: { x: number; y: number; z: number } }): RadialItem[] {
@@ -4182,6 +4209,10 @@ export default function ThreeDPage() {
         {
           key: 'door', label: 'Eshik', icon: RadialIcons.door,
           onSelect: () => { if (r.wallId && r.point) setPendingOpening({ wallId: r.wallId, point: r.point, type: 'eshik' }); },
+        },
+        {
+          key: 'elektr', label: 'Elektr', icon: RadialIcons.socket,
+          onSelect: () => { if (r.wallId && r.point) { setElektrTarget({ wallId: r.wallId, point: r.point }); setShowPanel(true); } },
         },
       ];
     }
@@ -4888,6 +4919,19 @@ export default function ThreeDPage() {
               onMode={setOpenMode}
               onPatch={(patch) => updateElement(selectedOpening.wallId, selectedOpening.el.id, patch)}
               onDelete={() => { removeElement(selectedOpening.wallId, selectedOpening.el.id); setSelectedDoorId(null); }}
+            />
+          </div>
+        )}
+        {/* ── Electrical placement (opened from a wall's radial "Elektr") ── */}
+        {elektrTarget && (
+          <div className="p-4 pb-0">
+            <ElektrPanel
+              color={elektrColor}
+              onColor={setElektrColor}
+              onPick={placeElectrical}
+              placed={electricals}
+              onRemove={removeElectrical}
+              onClose={() => setElektrTarget(null)}
             />
           </div>
         )}

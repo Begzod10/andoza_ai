@@ -29,9 +29,9 @@ const PAD   = 48        // padding around room
 
 // ─── Device catalog ───────────────────────────────────────────────────────────
 
-interface CatalogEntry { type: ElectricalType; label: string; height: number; oneTime?: boolean }
+export interface CatalogEntry { type: ElectricalType; label: string; height: number; oneTime?: boolean }
 
-const CATALOG: CatalogEntry[] = [
+export const CATALOG: CatalogEntry[] = [
   { type: 'panel',        label: 'Elektr qutisi',        height: 1500, oneTime: true },
   { type: 'switch1',      label: 'Bitta kalit',          height: 900 },
   { type: 'switch2',      label: 'Ikkita kalit',         height: 900 },
@@ -42,7 +42,7 @@ const CATALOG: CatalogEntry[] = [
 
 // ─── Sidebar SVG icons (navy blue, 44px tall) ─────────────────────────────────
 
-function ElectricalIcon({ type }: { type: ElectricalType }) {
+export function ElectricalIcon({ type }: { type: ElectricalType }) {
   const C = NAVY
   switch (type) {
     case 'panel':
