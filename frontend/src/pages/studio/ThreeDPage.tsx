@@ -21,7 +21,9 @@ import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
 import SurfaceRadialMenu, { RadialIcons, type RadialSurface, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
-import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
+import { WallOpenings } from "@/components/studio/WallOpenings";
+import { OpeningCreateSheet, OpeningEditPanel, type OpeningCreateValues } from "@/components/studio/OpeningPanels";
+import { resolveWindowStyle } from "@/lib/windowStyles";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
@@ -3951,9 +3953,33 @@ export default function ThreeDPage() {
   // World-space hit point of the press, captured from the raycast so a created
   // window/door lands exactly where the wall was touched.
   const holdPoint = useRef<{ x: number; y: number; z: number } | null>(null);
-  // Currently-selected window/door (for the move/edit/delete toolbar).
-  const [selOpening, setSelOpening] = useState<OpeningSel | null>(null);
+  // Drag-move gate for the selected opening — its toggle now lives in the drawer.
+  const [openMode, setOpenMode] = useState<'idle' | 'move'>('idle');
+  // A wall opening being created: the size/type sheet is up but the opening is
+  // not cut into the wall until the user confirms.
+  const [pendingOpening, setPendingOpening] = useState<{ wallId: string; point: { x: number; y: number; z: number }; type: 'deraza' | 'eshik' } | null>(null);
   const holdTimer = useRef<number | null>(null);
+
+  // The selected opening resolved to its wall + element. Recomputes as the store
+  // changes, so the drawer editor always reflects live edits.
+  const selectedOpening = useMemo(() => {
+    if (!selectedDoorId) return null;
+    for (const w of geometry.walls) {
+      const el = w.elements.find((e) => e.id === selectedDoorId);
+      if (el && (el.type === 'deraza' || el.type === 'eshik' || el.type === 'balkon')) {
+        return { wallId: w.id, el };
+      }
+    }
+    return null;
+  }, [selectedDoorId, geometry]);
+
+  // Selecting an opening pops the drawer so its editor is reachable; clearing the
+  // selection drops move-mode so a later drag has to be re-armed on purpose.
+  useEffect(() => {
+    if (selectedDoorId) setShowPanel(true);
+    else setOpenMode('idle');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDoorId]);
   const holdStart = useRef<{ x: number; y: number } | null>(null);
   // True from the moment a long-press fires until the next surface click, so
   // the click that ends the hold doesn't ALSO run the tap-select behaviour.
@@ -3996,7 +4022,7 @@ export default function ThreeDPage() {
     // Highlight the surface + drop any selected window/door. The design
     // actions themselves now live in the radial menu (openSurfaceMenu), which
     // opens on the same click — so we no longer force the paint panel here.
-    setSelOpening(null);
+    setSelectedDoorId(null);
     setSelectedWall(id);
   }
 
@@ -4102,12 +4128,17 @@ export default function ThreeDPage() {
    * `addElement(wallId, …)` and store only wall-local numbers, the opening is
    * bound to this wall and cannot jump to another.
    */
-  function createOpening(wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') {
+  function createOpening(
+    wallId: string,
+    point: { x: number; y: number; z: number } | undefined,
+    type: 'deraza' | 'eshik',
+    opts?: OpeningCreateValues,
+  ) {
     const g = wallGeom(wallId);
     if (!g || !point) return;
     const isDoor = type === 'eshik';
-    const widthMm = 900;
-    const heightMm = isDoor ? 2100 : 1200;
+    const widthMm = opts?.width ?? 900;
+    const heightMm = opts?.height ?? (isDoor ? 2100 : 1200);
     const wallLenMm = g.length * 1000;
     const wallHMm = H * 1000;
 
@@ -4116,14 +4147,22 @@ export default function ThreeDPage() {
     const uMm = (along - g.leftAlong) * 1000;              // mm from left edge
     const position = Math.max(0, Math.min(wallLenMm - widthMm, uMm - widthMm / 2));
 
-    // Vertical: doors sit on the floor; windows centre on the hit height.
+    // Vertical: doors sit on the floor; windows use the chosen sill, else centre
+    // on the click height.
     let sill_height = 0;
     if (!isDoor) {
-      const vMm = point.y * 1000;
-      sill_height = Math.max(0, Math.min(wallHMm - heightMm, vMm - heightMm / 2));
+      if (opts?.sill_height != null) {
+        sill_height = Math.max(0, Math.min(wallHMm - heightMm, opts.sill_height));
+      } else {
+        const vMm = point.y * 1000;
+        sill_height = Math.max(0, Math.min(wallHMm - heightMm, vMm - heightMm / 2));
+      }
     }
 
-    addElement(wallId, { type, width: widthMm, height: heightMm, sill_height, position });
+    const extra = isDoor
+      ? { hinge: opts?.hinge ?? 'left' as const }
+      : (opts?.styleId ? { styleId: opts.styleId } : {});
+    addElement(wallId, { type, width: widthMm, height: heightMm, sill_height, position, ...extra });
     setSelectedWall(wallId);
   }
 
@@ -4138,11 +4177,11 @@ export default function ThreeDPage() {
         },
         {
           key: 'window', label: 'Oyna', icon: RadialIcons.window,
-          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
+          onSelect: () => { if (r.wallId && r.point) setPendingOpening({ wallId: r.wallId, point: r.point, type: 'deraza' }); },
         },
         {
           key: 'door', label: 'Eshik', icon: RadialIcons.door,
-          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
+          onSelect: () => { if (r.wallId && r.point) setPendingOpening({ wallId: r.wallId, point: r.point, type: 'eshik' }); },
         },
       ];
     }
@@ -4690,10 +4729,10 @@ export default function ThreeDPage() {
               W={W}
               D={D}
               H={H}
-              selected={selOpening}
-              onSelect={setSelOpening}
+              selected={selectedOpening ? { wallId: selectedOpening.wallId, elId: selectedOpening.el.id } : null}
+              onSelect={(sel) => setSelectedDoorId(sel?.elId ?? null)}
               updateElement={updateElement}
-              removeElement={removeElement}
+              mode={openMode}
               onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
             />
             <SwapButtons W={W} D={D} H={H} />
@@ -4827,6 +4866,31 @@ export default function ThreeDPage() {
         </div>
         {/* Scroll body */}
         <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* ── Selected opening editor (only while a window/door is picked) ── */}
+        {selectedOpening && (
+          <div className="p-4 pb-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {selectedOpening.el.type === 'eshik' ? 'Eshik' : 'Oyna'}
+              </h3>
+              <button
+                onClick={() => setSelectedDoorId(null)}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Yopish
+              </button>
+            </div>
+            <OpeningEditPanel
+              el={selectedOpening.el}
+              kind={selectedOpening.el.type === 'eshik' ? 'eshik' : 'deraza'}
+              styleId={selectedOpening.el.type === 'eshik' ? '' : resolveWindowStyle(selectedOpening.el).id}
+              mode={openMode}
+              onMode={setOpenMode}
+              onPatch={(patch) => updateElement(selectedOpening.wallId, selectedOpening.el.id, patch)}
+              onDelete={() => { removeElement(selectedOpening.wallId, selectedOpening.el.id); setSelectedDoorId(null); }}
+            />
+          </div>
+        )}
         {/* ── Asboblar va ko'rinish (viewportdan ko'chirilgan) ── */}
         <div className="p-4 pb-0 space-y-2">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Asboblar va ko'rinish</h3>
@@ -5048,6 +5112,18 @@ export default function ThreeDPage() {
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
       <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
       <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
+
+      {/* Bottom sheet: pick size + type before the opening is cut into the wall */}
+      {pendingOpening && (
+        <OpeningCreateSheet
+          kind={pendingOpening.type}
+          onCancel={() => setPendingOpening(null)}
+          onConfirm={(vals: OpeningCreateValues) => {
+            createOpening(pendingOpening.wallId, pendingOpening.point, pendingOpening.type, vals);
+            setPendingOpening(null);
+          }}
+        />
+      )}
 
       {/* Surface long-press radial menu ("aylana") */}
       {radial && (

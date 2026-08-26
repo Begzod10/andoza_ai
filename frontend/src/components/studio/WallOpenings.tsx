@@ -56,7 +56,7 @@ function toWorld(wd: WallDef, alongM: number, yM: number, push = 0): [number, nu
 const s = 1 / 1000
 
 export function WallOpenings({
-  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting,
+  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, onInteracting, mode,
 }: {
   geometry: RoomGeometry
   W: number; D: number; H: number
@@ -64,11 +64,11 @@ export function WallOpenings({
   selected: OpeningSel | null
   onSelect: (sel: OpeningSel | null) => void
   updateElement: (wallId: string, elId: string, patch: Partial<Omit<WallElement, 'id'>>) => void
-  removeElement: (wallId: string, elId: string) => void
   onInteracting: (active: boolean) => void
+  /** Drag-move gate, lifted to the page so the toggle lives in the side drawer. */
+  mode: 'idle' | 'move'
 }) {
   const defs = useMemo(() => buildWallDefs(W, D), [W, D])
-  const [mode, setMode] = useState<'idle' | 'move' | 'resize'>('idle')
   const dragging = useRef(false)
   const [dragActive, setDragActive] = useState(false) // reactive twin of `dragging` for label rendering
   const [guides, setGuides] = useState<Array<{ kind: 'h' | 'v'; wallId: string; at: number }>>([])
@@ -209,35 +209,6 @@ export function WallOpenings({
                 </lineSegments>
               )}
 
-              {/* Floating toolbar */}
-              {isSel && (
-                <Html position={toWorld(wd, centerAlongM, (el.sill_height + el.height) * s + 0.12, 0.04)} center zIndexRange={[220, 0]}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 6, padding: 6, background: 'white', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => setMode((m) => (m === 'move' ? 'idle' : 'move'))}
-                        style={btn(mode === 'move')}>Surish</button>
-                      <button onClick={() => setMode((m) => (m === 'resize' ? 'idle' : 'resize'))}
-                        style={btn(mode === 'resize')}>O'zgartirish</button>
-                      <button onClick={() => { removeElement(w.id, el.id); onSelect(null); setMode('idle'); }}
-                        style={{ ...btn(false), color: '#E5484D' }}>O'chirish</button>
-                    </div>
-
-                    {/* Resize steppers (En = width, Bo'y = height). Door height
-                        grows upward only — its bottom stays on the floor. */}
-                    {mode === 'resize' && (
-                      <div style={{ display: 'flex', gap: 10, padding: 6, background: 'white', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#5A6785' }}>En</span>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { width: clampWidth(el, wd.length, -100) })}>−</button>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { width: clampWidth(el, wd.length, +100) })}>＋</button>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#5A6785' }}>Bo'y</span>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { height: clampHeight(el, H, -100) })}>−</button>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { height: clampHeight(el, H, +100) })}>＋</button>
-                      </div>
-                    )}
-                  </div>
-                </Html>
-              )}
-
               {/* Live dimension labels while dragging this object */}
               {isSel && mode === 'move' && dragActive && (
                 <DimensionLabels wd={wd} el={el} W={W} D={D} H={H} isDoor={isDoor} />
@@ -266,31 +237,6 @@ export function WallOpenings({
       })}
     </>
   )
-}
-
-function btn(active: boolean): React.CSSProperties {
-  return {
-    border: 'none', borderRadius: 7, padding: '6px 10px', fontSize: 12, fontWeight: 600,
-    cursor: 'pointer', background: active ? '#2E5BFF' : '#F1F3F8', color: active ? 'white' : '#1A2340',
-  }
-}
-
-const stepBtn: React.CSSProperties = {
-  border: 'none', borderRadius: 6, width: 26, height: 26, fontSize: 15, fontWeight: 700,
-  cursor: 'pointer', background: '#F1F3F8', color: '#1A2340', lineHeight: 1,
-}
-
-/** New width (mm) after a ±delta, min 40 cm and never past the wall's right edge. */
-function clampWidth(el: WallElement, wallLenM: number, deltaMm: number): number {
-  const maxW = wallLenM * 1000 - el.position
-  return Math.max(400, Math.min(maxW, el.width + deltaMm))
-}
-
-/** New height (mm) after a ±delta, min 40 cm and never past the ceiling. Doors
- *  keep sill_height = 0, so they grow upward from the floor. */
-function clampHeight(el: WallElement, ceilM: number, deltaMm: number): number {
-  const maxH = ceilM * 1000 - el.sill_height
-  return Math.max(400, Math.min(maxH, el.height + deltaMm))
 }
 
 function GuideLine({ a, b, color = '#FF2E9A' }: { a: [number, number, number]; b: [number, number, number]; color?: string }) {

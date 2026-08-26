@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -33,12 +32,14 @@ const LIMITS = {
 const LEAF_COLORS = ["#C9A227", "#8B5E34", "#E8E2D8", "#5A5A5A", "#2F4858"];
 const SASH_COLORS = ["#E8E2D8", "#FFFFFF", "#8B5E34", "#5A5A5A", "#2F4858"];
 
+// Rendered inside the right drawer now (no longer a floating billboard), so it
+// fills the drawer width and drops the heavy pop-over shadow for a flat border.
 const PANEL_STYLE: React.CSSProperties = {
   pointerEvents: "all",
-  width: 208,
-  background: "rgba(255,255,255,0.97)",
+  width: "100%",
+  background: "#fff",
   borderRadius: 12,
-  boxShadow: "0 6px 24px rgba(0,0,0,0.22)",
+  border: "1px solid #E5E7EB",
   padding: "10px 11px",
   fontSize: 11,
   color: "#374151",
@@ -135,7 +136,6 @@ export function OpeningLeaves({
 }) {
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
-  const removeElement = useRoomStore((s) => s.removeElement);
   const { camera, gl, size } = useThree();
 
   const dragRef = useRef<DragState | null>(null);
@@ -267,11 +267,6 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
-          onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
-          onDelete: () => {
-            onSelect?.(null);
-            removeElement(wf.id, el.id);
-          },
         };
         return kind === "door"
           ? <DoorLeaf key={`${wf.id}-${el.id}`} {...common} />
@@ -288,8 +283,6 @@ function DoorLeaf({
   toolMode,
   interactive = true,
   onPointerDown,
-  onPatch,
-  onDelete,
 }: {
   wf: WallFrame;
   el: WallElement;
@@ -297,8 +290,6 @@ function DoorLeaf({
   toolMode: DoorToolMode;
   interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
-  onPatch: (patch: Partial<WallElement>) => void;
-  onDelete: () => void;
 }) {
   const c = openingCentre(wf, el);
   const w = el.width * S;
@@ -378,16 +369,6 @@ function DoorLeaf({
         </group>
       </group>
 
-      {selected && (
-        <Html
-          position={[0, sill + h + 0.18, 0.02]}
-          center
-          zIndexRange={[120, 0]}
-          style={{ pointerEvents: "none" }}
-        >
-          <DoorEditor el={el} onPatch={onPatch} onDelete={onDelete} />
-        </Html>
-      )}
     </group>
   );
 }
@@ -535,8 +516,6 @@ function WindowSash({
   toolMode,
   interactive = true,
   onPointerDown,
-  onPatch,
-  onDelete,
 }: {
   wf: WallFrame;
   el: WallElement;
@@ -544,8 +523,6 @@ function WindowSash({
   toolMode: DoorToolMode;
   interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
-  onPatch: (patch: Partial<WallElement>) => void;
-  onDelete: () => void;
 }) {
   const c = openingCentre(wf, el);
   const w = el.width * S;
@@ -630,16 +607,11 @@ function WindowSash({
         </lineSegments>
       )}
 
-      {selected && (
-        <Html position={[0, sill + h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>
-          <WindowEditor el={el} styleId={style.id} onPatch={onPatch} onDelete={onDelete} />
-        </Html>
-      )}
     </group>
   );
 }
 
-function WindowEditor({
+export function WindowEditor({
   el,
   styleId,
   onPatch,
@@ -721,7 +693,7 @@ function WindowEditor({
   );
 }
 
-function DoorEditor({
+export function DoorEditor({
   el,
   onPatch,
   onDelete,
