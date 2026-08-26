@@ -1766,12 +1766,13 @@ function getWallPlane(wallId: 'A' | 'B' | 'C' | 'D', W: number, D: number): THRE
 }
 
 function DraggableElectricalItem({
-  el, W, D, isDragging, dragPosMmRef, onPointerDown,
+  el, W, D, isDragging, dragPosMmRef, dragHeightMmRef, onPointerDown,
 }: {
   el: PlacedElectrical
   W: number; D: number
   isDragging: boolean
   dragPosMmRef: React.MutableRefObject<number>
+  dragHeightMmRef: React.MutableRefObject<number>
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void
 }) {
   const groupRef = useRef<THREE.Group>(null)
@@ -1800,6 +1801,8 @@ function DraggableElectricalItem({
     const pos = dragPosMmRef.current / 1000
     if (isH) groupRef.current.position.x = pos - W / 2
     else     groupRef.current.position.z = pos - D / 2
+    // Vertical follow — devices now drag up/down on the wall too.
+    groupRef.current.position.y = dragHeightMmRef.current / 1000 + dim.h / 2
   })
 
   if (isPanel) {
@@ -1864,17 +1867,70 @@ function DraggableElectricalItem({
   )
 }
 
+/** Live gap labels around an electrical device while it is dragged — distance to
+ *  each wall corner plus floor and ceiling, mirroring the window/door labels. */
+function ElectricalDimLabels({ el, posMm, heightMm, W, D, H }: {
+  el: PlacedElectrical
+  posMm: number; heightMm: number
+  W: number; D: number; H: number
+}) {
+  const dim = ELECTRICAL_DIMS[el.type] ?? { w: 0.08, h: 0.08 }
+  const isH = el.wallId === 'A' || el.wallId === 'C'
+  const wallLenMm = isH ? W * 1000 : D * 1000
+  const halfWmm = (dim.w * 1000) / 2
+  const leftEdge = posMm - halfWmm
+  const rightEdge = posMm + halfWmm
+  const centerHm = heightMm / 1000 + dim.h / 2
+  const topM = heightMm / 1000 + dim.h
+
+  const pt = (alongMm: number, yM: number): [number, number, number] => {
+    const a = alongMm / 1000
+    const push = 0.05
+    switch (el.wallId) {
+      case 'A': return [a - W / 2, yM, -(D / 2) + push]
+      case 'C': return [a - W / 2, yM, D / 2 - push]
+      case 'D': return [-(W / 2) + push, yM, a - D / 2]
+      case 'B': return [W / 2 - push, yM, a - D / 2]
+      default: return [0, yM, 0]
+    }
+  }
+  const fmt = (mm: number) => `${Math.max(0, mm / 1000).toFixed(2)} m`
+
+  const labels: Array<{ p: [number, number, number]; mm: number }> = [
+    { p: pt(leftEdge / 2, centerHm), mm: leftEdge },
+    { p: pt((rightEdge + wallLenMm) / 2, centerHm), mm: wallLenMm - rightEdge },
+    { p: pt(posMm, heightMm / 1000 / 2), mm: heightMm },
+    { p: pt(posMm, (topM + H) / 2), mm: H * 1000 - topM * 1000 },
+  ]
+
+  return (
+    <>
+      {labels.map((l, i) => (
+        <Html key={i} position={l.p} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
+          <div style={{ background: '#111827', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+            {fmt(l.mm)}
+          </div>
+        </Html>
+      ))}
+    </>
+  )
+}
+
 function DraggableElectricalModels({
-  controlsRef, W, D,
+  controlsRef, W, D, H,
 }: {
   controlsRef: React.RefObject<OrbitControlsImpl | null>
-  W: number; D: number
+  W: number; D: number; H: number
 }) {
   const electricals = useRoomStore(s => s.electricals)
   const moveElectrical = useRoomStore(s => s.moveElectrical)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const draggingIdRef = useRef<string | null>(null)
   const dragPosMmRef = useRef(0)
+  const dragHeightMmRef = useRef(0)
+  // Reactive twin of the drag refs, only so the dimension labels can re-render
+  // live while the mesh itself follows smoothly through useFrame.
+  const [dragLive, setDragLive] = useState<{ posMm: number; heightMm: number } | null>(null)
   const electricalsRef = useRef(electricals)
   electricalsRef.current = electricals
 
@@ -1885,6 +1941,8 @@ function DraggableElectricalModels({
   function startDrag(el: PlacedElectrical, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
     dragPosMmRef.current = el.positionMm
+    dragHeightMmRef.current = el.heightMm
+    setDragLive({ posMm: el.positionMm, heightMm: el.heightMm })
     draggingIdRef.current = el.id
     setDraggingId(el.id)
     if (controlsRef.current) controlsRef.current.enabled = false
@@ -1894,9 +1952,10 @@ function DraggableElectricalModels({
   function commitDrag() {
     const id = draggingIdRef.current
     if (!id) return
-    moveElectrical(id, Math.round(dragPosMmRef.current))
+    moveElectrical(id, Math.round(dragPosMmRef.current), Math.round(dragHeightMmRef.current))
     draggingIdRef.current = null
     setDraggingId(null)
+    setDragLive(null)
     if (controlsRef.current) controlsRef.current.enabled = true
     document.body.style.cursor = ''
   }
@@ -1909,6 +1968,7 @@ function DraggableElectricalModels({
     const wallPlane = getWallPlane(el.wallId as 'A' | 'B' | 'C' | 'D', W, D)
     const isH = el.wallId === 'A' || el.wallId === 'C'
     const wallLenMm = isH ? W * 1000 : D * 1000
+    const dimHmm = (ELECTRICAL_DIMS[el.type]?.h ?? 0.08) * 1000
     const canvas = gl.domElement
 
     const handleMove = (e: PointerEvent) => {
@@ -1924,6 +1984,11 @@ function DraggableElectricalModels({
         : (hitPoint.current.z + D / 2) * 1000
       posMm = Math.max(100, Math.min(wallLenMm - 100, posMm))
       dragPosMmRef.current = posMm
+      // Vertical: centre the device on the cursor, clamp between floor and ceiling.
+      let heightMm = hitPoint.current.y * 1000 - dimHmm / 2
+      heightMm = Math.max(0, Math.min(H * 1000 - dimHmm, heightMm))
+      dragHeightMmRef.current = heightMm
+      setDragLive({ posMm, heightMm })
     }
 
     canvas.addEventListener('pointermove', handleMove)
@@ -1933,19 +1998,24 @@ function DraggableElectricalModels({
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId, W, D])
+  }, [draggingId, W, D, H])
 
   if (electricals.length === 0) return null
   return (
     <>
       {electricals.map(el => (
-        <DraggableElectricalItem
-          key={el.id}
-          el={el} W={W} D={D}
-          isDragging={draggingId === el.id}
-          dragPosMmRef={dragPosMmRef}
-          onPointerDown={(e) => startDrag(el, e)}
-        />
+        <group key={el.id}>
+          <DraggableElectricalItem
+            el={el} W={W} D={D}
+            isDragging={draggingId === el.id}
+            dragPosMmRef={dragPosMmRef}
+            dragHeightMmRef={dragHeightMmRef}
+            onPointerDown={(e) => startDrag(el, e)}
+          />
+          {draggingId === el.id && dragLive && (
+            <ElectricalDimLabels el={el} posMm={dragLive.posMm} heightMm={dragLive.heightMm} W={W} D={D} H={H} />
+          )}
+        </group>
       ))}
     </>
   )
@@ -4784,7 +4854,7 @@ export default function ThreeDPage() {
               />
             )}
             <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} selectedPart={selectedPart} onSelectPart={setSelectedPart} />
-            <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
+            <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} H={H} />
             <OpeningLayer
               geometry={geometry}
               W={W}

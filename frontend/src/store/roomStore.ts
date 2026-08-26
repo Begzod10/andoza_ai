@@ -255,7 +255,7 @@ interface RoomStore {
   setFurnitureColors(id: string, overrides: Record<string, string>): void
   hideFurniturePart(id: string, partKey: string): void
   addElectrical(e: PlacedElectrical): void
-  moveElectrical(id: string, positionMm: number): void
+  moveElectrical(id: string, positionMm: number, heightMm?: number): void
   removeElectrical(id: string): void
   addLight(l: PlacedLight): void
   updateLight(id: string, patch: Partial<Omit<PlacedLight, 'id'>>): void
@@ -542,9 +542,10 @@ export const useRoomStore = create<RoomStore>()(
   addElectrical(e) {
     set((state) => ({ electricals: [...state.electricals, e], isDirty: true }))
   },
-  moveElectrical(id, positionMm) {
+  moveElectrical(id, positionMm, heightMm) {
     set((state) => ({
-      electricals: state.electricals.map(e => e.id === id ? { ...e, positionMm } : e),
+      electricals: state.electricals.map(e =>
+        e.id === id ? { ...e, positionMm, ...(heightMm != null ? { heightMm } : {}) } : e),
       isDirty: true,
     }))
   },
