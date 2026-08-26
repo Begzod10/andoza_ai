@@ -4075,7 +4075,7 @@ export default function ThreeDPage() {
   // Selecting an opening pops the drawer so its editor is reachable; clearing the
   // selection drops move-mode so a later drag has to be re-armed on purpose.
   useEffect(() => {
-    if (selectedDoorId) setShowPanel(true);
+    if (selectedDoorId) { setShowPanel(true); setElektrTarget(null); }
     else setOpenMode('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDoorId]);
@@ -4169,6 +4169,9 @@ export default function ThreeDPage() {
       // Freeze the camera so menu taps don't orbit the room, and drop any
       // active selection highlight noise.
       if (controlsRef.current) controlsRef.current.enabled = false;
+      // A fresh press starts a fresh action: drop any lingering electrical
+      // session so its panel doesn't ride along into the next choice.
+      setElektrTarget(null);
       setRadial({ surface, wallId, x: cx, y: cy, point: holdPoint.current ?? undefined });
     }, HOLD_MS);
   }
@@ -4592,7 +4595,7 @@ export default function ThreeDPage() {
           {/* Open the tools + design drawer. Every view/edit control now
               lives inside it, so the viewport stays clean. */}
           <button
-            onClick={() => setShowPanel(v => !v)}
+            onClick={() => { setElektrTarget(null); setShowPanel(v => !v); }}
             title="Asboblar va dizayn"
             className={`ml-auto flex items-center justify-center gap-1.5 px-3 py-2 lg:py-1.5 min-h-[44px] lg:min-h-0 rounded-full text-xs font-medium transition-colors shrink-0 border ${
               showPanel ? 'bg-brand text-white border-brand' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
