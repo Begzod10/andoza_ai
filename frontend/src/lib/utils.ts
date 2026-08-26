@@ -28,6 +28,18 @@ export function formatUZS(soum: number): string {
 }
 
 /**
+ * Format a so'm amount as USD, converted at *usdRate* so'm-per-1-USD (from
+ * EstimateResponse.usd_rate — the live CBU rate the backend priced against).
+ * Example: formatUSDFromUZS(124000000, 12750) -> "$9 725"
+ */
+export function formatUSDFromUZS(soum: number, usdRate: number): string {
+  if (!usdRate) return "$0";
+  const usd = Math.round(soum / usdRate);
+  const formatted = usd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `$${formatted}`;
+}
+
+/**
  * Format area in square metres.
  * Example: 12.4 -> "12.4 m²"
  */

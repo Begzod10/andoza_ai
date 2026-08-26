@@ -88,6 +88,13 @@ export interface PlacedFurniture {
   colorOverrides?: Record<string, string>
   /** Deleted/detached sub-object keys ("indexPath:name" from modelParts.ts) — pruned from the scene graph on load. */
   hiddenParts?: string[]
+  /** Display name snapshot — set for user-uploaded models (see placeFurniture)
+   *  so the backend smeta line reads "Jihoz: <name>" instead of a raw id. */
+  name?: string
+  /** Per-item price snapshot, so'm. Set for user-uploaded models at placement
+   *  time (see placeFurniture) — there is no shared catalog slug to price a
+   *  one-off upload by, so the price travels with the placed instance itself. */
+  unitPriceUzs?: number
 }
 
 export interface UserFurnitureEntry {
@@ -96,12 +103,21 @@ export interface UserFurnitureEntry {
   emoji: string
   blobId: string
   modelPath: string  // blob URL — restored from IndexedDB on startup
+  /** JPEG data URL preview rendered from the model itself at import time
+   *  (see modelConverter.renderThumbnail). Absent for entries imported
+   *  before this existed, or when the render failed — falls back to emoji. */
+  thumbnailUrl?: string
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures: boolean
   /** Which catalog chip the model is filed under. Optional: entries persisted
    *  before categories existed have none, and are treated as 'boshqa'. */
   category?: FurnitureCategory
+  /** Estimated price, so'm — editable by the user, defaulted by category at
+   *  import time (see estimateFurniturePriceUzs). Carried onto each placed
+   *  instance as PlacedFurniture.unitPriceUzs so the smeta/hisoblagich page
+   *  can price a room's own uploaded furniture, not just the built-in catalog. */
+  priceUzs?: number
 }
 
 export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
@@ -270,6 +286,7 @@ interface RoomStore {
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
   setUserFurnitureCategory(id: string, category: FurnitureCategory): void
+  setUserFurniturePrice(id: string, priceUzs: number): void
   loadRoom(room: RoomPayload): void
   loadDraftState(state: Record<string, unknown>): void
   setRoomId(id: string): void
@@ -493,10 +510,24 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   placeFurniture(item) {
-    set((state) => ({
-      isDirty: true,
-      furniture: [...state.furniture, item],
-    }))
+    set((state) => {
+      // A user-uploaded model has no shared catalog slug to price by later —
+      // snapshot its name/price onto the placed instance now, at the one
+      // point every placement path (drag-in, AI builder, add-object sheet)
+      // funnels through, so callers don't each need to know about pricing.
+      const userEntry = state.userFurniture.find((f) => f.id === item.furniture_id)
+      const enriched = userEntry
+        ? {
+            ...item,
+            name: item.name ?? userEntry.name,
+            unitPriceUzs: item.unitPriceUzs ?? userEntry.priceUzs,
+          }
+        : item
+      return {
+        isDirty: true,
+        furniture: [...state.furniture, enriched],
+      }
+    })
   },
 
   moveFurniture(id, x, y, rotation) {
@@ -607,6 +638,12 @@ export const useRoomStore = create<RoomStore>()(
   setUserFurnitureCategory(id, category) {
     set((state) => ({
       userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, category } : f),
+    }))
+  },
+
+  setUserFurniturePrice(id, priceUzs) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, priceUzs } : f),
     }))
   },
 

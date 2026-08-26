@@ -562,11 +562,16 @@ def _furniture_lines(room: "Room") -> list[ComputedLine]:
     """One line per distinct placed furniture item (qty = how many placed).
 
     Reads room.state['furniture'] — the array PlacedFurniture entries the
-    studio saves, each carrying a furniture_id slug. Unknown slugs (a
-    catalog item not yet priced here, or a user's own uploaded model) use
-    FURNITURE_FALLBACK_PRICE_UZS and are flagged approximate rather than
-    silently omitted — an "equipment" total that quietly excludes some of
-    the room's own furniture would be misleading, not just incomplete.
+    studio saves, each carrying a furniture_id slug. Pricing, in order of
+    preference:
+      1. A per-item ``unitPriceUzs`` snapshot on the placed entry itself —
+         set at import time for a user's own uploaded model, since there is
+         no shared slug to look up a price by (each upload mints its own id).
+      2. FURNITURE_CATALOG_PRICES_UZS, for built-in catalog slugs.
+      3. FURNITURE_FALLBACK_PRICE_UZS, flagged approximate rather than
+         silently omitted — an "equipment" total that quietly excludes some
+         of the room's own furniture would be misleading, not just
+         incomplete.
     """
     state: dict = room.state or {}
     placed: list = state.get("furniture") or []
@@ -574,20 +579,31 @@ def _furniture_lines(room: "Room") -> list[ComputedLine]:
         return []
 
     counts: dict[str, int] = {}
+    names: dict[str, str] = {}
+    snapshot_prices: dict[str, int] = {}
     for item in placed:
-        fid = item.get("furniture_id") if isinstance(item, dict) else None
+        if not isinstance(item, dict):
+            continue
+        fid = item.get("furniture_id")
         if not fid:
             continue
         counts[fid] = counts.get(fid, 0) + 1
+        name = item.get("name")
+        if name and fid not in names:
+            names[fid] = str(name)
+        snap = item.get("unitPriceUzs")
+        if isinstance(snap, (int, float)) and snap > 0 and fid not in snapshot_prices:
+            snapshot_prices[fid] = int(snap)
 
     lines: list[ComputedLine] = []
     for furniture_id, qty in sorted(counts.items()):
-        price = FURNITURE_CATALOG_PRICES_UZS.get(furniture_id)
+        price = snapshot_prices.get(furniture_id) or FURNITURE_CATALOG_PRICES_UZS.get(furniture_id)
         is_approximate = price is None
         if price is None:
             price = FURNITURE_FALLBACK_PRICE_UZS
+        label = names.get(furniture_id) or furniture_id
         lines.append(_make_line(
-            label=f"Jihoz: {furniture_id}",
+            label=f"Jihoz: {label}",
             formula=f"{qty} dona × {price:,} so'm".replace(",", " "),
             qty=qty,
             unit="dona",

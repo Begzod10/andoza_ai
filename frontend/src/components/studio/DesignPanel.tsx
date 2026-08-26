@@ -183,6 +183,10 @@ interface ModelCardEntry {
   modelPath?: string;
   hasTextures?: boolean;
   category?: FurnitureCategory;
+  /** Estimated price, so'm — user models only; feeds the hisoblagich line for this item. */
+  priceUzs?: number;
+  /** Rendered preview of the model itself — user models only; falls back to emoji when absent. */
+  thumbnailUrl?: string;
 }
 
 /**
@@ -190,7 +194,7 @@ interface ModelCardEntry {
  * image dropped here skins every untextured part at once (the quick path),
  * while the 🖼 editor gives per-part control.
  */
-function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize }: {
+function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize, onSetPrice }: {
   entry: ModelCardEntry;
   count: number;
   busy: boolean;
@@ -199,6 +203,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
   onRemove(): void;
   onFiles(files: File[]): void;
   onRecategorize?(category: FurnitureCategory): void;
+  onSetPrice?(priceUzs: number): void;
 }) {
   const ready = !entry.isUser || !!entry.modelPath;
   const canTexture = entry.isUser && !!entry.modelPath;
@@ -216,9 +221,13 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         ${isOver ? 'border-brand border-dashed bg-brand/5'
                  : count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
     >
-      {/* Thumbnail */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
-        {isOver ? '🖼' : entry.emoji}
+      {/* Thumbnail — a real render of the model when available, else the emoji */}
+      <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none overflow-hidden">
+        {!isOver && entry.thumbnailUrl ? (
+          <img src={entry.thumbnailUrl} alt={entry.name} className="w-full h-full object-cover" />
+        ) : (
+          isOver ? '🖼' : entry.emoji
+        )}
         {entry.isUser && !entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
         )}
@@ -244,6 +253,20 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
+        )}
+        {entry.isUser && onSetPrice && (
+          <label className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={entry.priceUzs ?? 0}
+              onChange={(e) => onSetPrice(Math.max(0, Number(e.target.value) || 0))}
+              className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+              title="Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi"
+            />
+            <span className="shrink-0">so'm</span>
+          </label>
         )}
       </div>
 
@@ -302,7 +325,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory } =
+          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePrice } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -1657,6 +1680,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 modelPath: 'modelPath' in entry ? entry.modelPath : undefined,
                 hasTextures: 'hasTextures' in entry ? entry.hasTextures : undefined,
                 category: 'category' in entry ? entry.category : undefined,
+                priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
+                thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
               }}
               count={count}
               busy={texBusy === entry.id}
@@ -1670,6 +1695,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               }}
               onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
               onRecategorize={entry.isUser ? (category) => setUserFurnitureCategory(entry.id, category) : undefined}
+              onSetPrice={entry.isUser ? (priceUzs) => setUserFurniturePrice(entry.id, priceUzs) : undefined}
             />
           );
         })}

@@ -343,6 +343,68 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   })
 }
 
+const THUMBNAIL_SIZE = 256
+
+/**
+ * Render a 3/4-angle preview of *root* to a JPEG data URL, for the catalog
+ * card thumbnail — so an uploaded model shows an actual picture of itself
+ * instead of a generic box icon. Best-effort: any WebGL failure (or an
+ * environment with no GPU context) returns null rather than failing the
+ * import — a missing thumbnail just falls back to the emoji placeholder.
+ *
+ * Must run AFTER materials/textures are finalized (toStandardMaterials,
+ * autoAssignDiffuseMaps) and BEFORE toGlbBuffer, while *root* still has no
+ * parent — it's reparented into a throwaway scene for the render and put
+ * back exactly as found, so the export right after this sees an unchanged
+ * scene graph.
+ */
+function renderThumbnail(root: THREE.Object3D): string | null {
+  let renderer: THREE.WebGLRenderer | null = null
+  try {
+    const box = new THREE.Box3().setFromObject(root)
+    if (box.isEmpty()) return null
+    const center = box.getCenter(new THREE.Vector3())
+    const sphere = box.getBoundingSphere(new THREE.Sphere())
+    const radius = sphere.radius || 1
+
+    const canvas = document.createElement('canvas')
+    canvas.width = THUMBNAIL_SIZE
+    canvas.height = THUMBNAIL_SIZE
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+    renderer.setSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+    renderer.setPixelRatio(1)
+
+    const originalParent = root.parent
+    const stage = new THREE.Scene()
+    stage.add(root)
+    stage.add(new THREE.AmbientLight(0xffffff, 1.1))
+    const key = new THREE.DirectionalLight(0xffffff, 1.6)
+    key.position.set(1, 1.4, 1.6)
+    stage.add(key)
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6)
+    fill.position.set(-1.4, 0.6, -1)
+    stage.add(fill)
+
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, radius * 20)
+    const dist = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.35
+    camera.position.set(center.x + dist * 0.6, center.y + dist * 0.45, center.z + dist * 0.6)
+    camera.lookAt(center)
+
+    renderer.setClearColor(0xf3f4f6, 1)
+    renderer.render(stage, camera)
+    const url = canvas.toDataURL('image/jpeg', 0.72)
+
+    if (originalParent) originalParent.add(root)
+    else stage.remove(root)
+
+    return url
+  } catch {
+    return null
+  } finally {
+    renderer?.dispose()
+  }
+}
+
 /**
  * Convert a model plus its companion files (external textures, .bin buffers,
  * .mtl material libraries) into a single self-contained GLB.
@@ -360,6 +422,7 @@ export async function convertFilesToGlb(
   mainFile: File
   missingTextures: string[]
   parts: { textured: number; total: number }
+  thumbnailUrl: string | null
 }> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
@@ -454,7 +517,8 @@ export async function convertFilesToGlb(
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      const thumbnailUrl = renderThumbnail(gltf.scene)
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'gltf') {
@@ -463,8 +527,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      const thumbnailUrl = renderThumbnail(gltf.scene)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'obj') {
@@ -483,8 +548,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     if (ext === 'fbx') {
@@ -494,8 +560,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)

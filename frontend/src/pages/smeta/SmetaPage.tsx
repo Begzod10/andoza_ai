@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, getEstimatePDF, getRoom } from "@/lib/api";
-import { formatUZS } from "@/lib/utils";
+import { formatUZS, formatUSDFromUZS } from "@/lib/utils";
 import { uz } from "@/locale/uz";
 import type { EstimateResponse } from "@/lib/api";
 import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
@@ -22,6 +22,15 @@ export default function SmetaPage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [highlightedLines, setHighlightedLines] = useState<Set<string>>(new Set());
+  const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
+
+  // Format a so'm amount in whichever currency the user picked — every price
+  // in this page routes through this so the toggle stays in sync everywhere.
+  function fmt(soum: number): string {
+    return currency === "USD" && estimate
+      ? formatUSDFromUZS(soum, estimate.usd_rate)
+      : formatUZS(soum);
+  }
 
   const { data: room } = useQuery({
     queryKey: ["room", roomId],
@@ -93,18 +102,40 @@ export default function SmetaPage() {
         {/* Estimate display */}
         {estimate && (
           <div className="space-y-6">
+            {/* Currency toggle */}
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-xs text-muted">
+                1$ = {formatUZS(estimate.usd_rate)}
+              </span>
+              <div className="inline-flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
+                {(["UZS", "USD"] as const).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCurrency(c)}
+                    className={`px-3 py-1.5 transition-colors ${
+                      currency === c
+                        ? "bg-brand text-white"
+                        : "bg-surface text-muted hover:text-neutral-900"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div className="bg-surface rounded-lg p-4 shadow-subtle">
                 <p className="text-xs text-muted mb-1">Minimal narx</p>
                 <p className="text-lg font-bold text-neutral-900">
-                  {formatUZS(estimate.total_min)}
+                  {fmt(estimate.total_min)}
                 </p>
               </div>
               <div className="bg-surface rounded-lg p-4 shadow-subtle">
                 <p className="text-xs text-muted mb-1">Maksimal narx</p>
                 <p className="text-lg font-bold text-neutral-900">
-                  {formatUZS(estimate.total_max)}
+                  {fmt(estimate.total_max)}
                 </p>
               </div>
               <div className="bg-surface rounded-lg p-4 shadow-subtle col-span-2 sm:col-span-1">
@@ -119,7 +150,7 @@ export default function SmetaPage() {
             <div className="bg-brand/10 border-2 border-brand rounded-lg p-5 flex items-center justify-between">
               <p className="text-lg font-semibold text-brand">{uz.smeta.jami}</p>
               <p className="text-2xl font-extrabold text-brand">
-                {formatUZS(estimate.total_uzs)}
+                {fmt(estimate.total_uzs)}
               </p>
             </div>
 
@@ -174,10 +205,10 @@ export default function SmetaPage() {
                         </td>
                         <td className="px-4 py-3 text-muted">{line.unit}</td>
                         <td className="px-4 py-3 text-right text-neutral-700">
-                          {formatUZS(line.unit_price)}
+                          {fmt(line.unit_price)}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-neutral-900">
-                          {formatUZS(line.total_uzs)}
+                          {fmt(line.total_uzs)}
                         </td>
                       </tr>
                     ))}

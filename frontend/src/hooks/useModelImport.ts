@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei'
 import { convertFilesToGlb } from '@/lib/modelConverter'
 import { saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { useRoomStore } from '@/store/roomStore'
-import type { FurnitureCategory } from '@/lib/furnitureCatalog'
+import { estimateFurniturePriceUzs, type FurnitureCategory } from '@/lib/furnitureCatalog'
 
 export type ImportStatus = 'idle' | 'loading' | 'done' | 'error'
 
@@ -25,7 +25,7 @@ export function useModelImport() {
       setStatus('loading')
       setWarn(null)
       try {
-        const { buffer, info, mainFile, missingTextures, parts } = await convertFilesToGlb(files)
+        const { buffer, info, mainFile, missingTextures, parts, thumbnailUrl } = await convertFilesToGlb(files)
 
         if (missingTextures.length > 0) {
           // Name the exact files the model asked for but the pick didn't include
@@ -64,10 +64,15 @@ export function useModelImport() {
           emoji: '📦',
           blobId: id,
           modelPath,
+          thumbnailUrl: thumbnailUrl ?? undefined,
           scale: info.scale,
           sizeM: info.sizeM,
           hasTextures: info.hasTextures,
           category,
+          // Category-based starting estimate — editable afterwards from the
+          // panel (see setUserFurniturePrice), since a fresh import has no
+          // real price of its own.
+          priceUzs: estimateFurniturePriceUzs(category),
         })
 
         setStatus('done')

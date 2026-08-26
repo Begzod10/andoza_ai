@@ -467,6 +467,9 @@ export interface EstimateResponse {
   total_max: number;
   created_at: string;
   has_electrical: boolean;
+  /** so'm-per-1-USD this estimate was converted at (live CBU rate, cached ~1h). */
+  usd_rate: number;
+  total_usd: number;
 }
 
 // ---------- Estimate ----------
