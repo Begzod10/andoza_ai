@@ -4140,6 +4140,9 @@ export default function ThreeDPage() {
     const y = e?.nativeEvent?.clientY ?? e?.clientY ?? 0;
     const point = e?.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : (holdPoint.current ?? undefined);
     if (controlsRef.current) controlsRef.current.enabled = false;
+    // A fresh press starts a fresh action: drop any lingering electrical session
+    // so its panel doesn't ride along into the next choice.
+    setElektrTarget(null);
     setRadial({ surface, wallId, x, y, point });
   }
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
