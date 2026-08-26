@@ -4197,7 +4197,10 @@ export default function ThreeDPage() {
   /** Pointer handlers to spread onto a surface's wrapping <group>. */
   function holdBind(surface: RadialSurface, wallId?: string) {
     return {
-      onClick: (e: any) => openSurfaceMenu(surface, wallId, e),
+      // The radial ("aylana") menu opens on a deliberate double-click / double-tap
+      // so a single click just selects the surface and never pops the menu by
+      // accident. Long-press stays as a touch-friendly alternative.
+      onDoubleClick: (e: any) => openSurfaceMenu(surface, wallId, e),
       onPointerDown: (e: any) => startHold(surface, wallId, e),
       onPointerMove: (e: any) => moveHold(e),
       onPointerUp: () => clearHold(),
