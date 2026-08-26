@@ -2167,16 +2167,17 @@ const ADD_ROOM_BTN_STYLE: React.CSSProperties = {
 
 export type RoomSide = 'north' | 'south' | 'east' | 'west';
 
-function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean }) {
+function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean; occupiedSides?: Set<RoomSide> }) {
   const btnY = H * 0.5;
   const gap = 1.5;
 
-  const sides: { key: RoomSide; pos: [number, number, number] }[] = [
+  const allSides: { key: RoomSide; pos: [number, number, number] }[] = [
     { key: 'north', pos: [0,             btnY, -(D / 2 + gap)] },
     { key: 'south', pos: [0,             btnY,  D / 2 + gap]   },
     { key: 'east',  pos: [ W / 2 + gap,  btnY, 0]              },
     { key: 'west',  pos: [-(W / 2 + gap), btnY, 0]             },
   ];
+  const sides = allSides.filter(({ key }) => !occupiedSides?.has(key));
 
   return (
     <>
@@ -2281,6 +2282,38 @@ function computeAbsolutePositions(
     abs.set(r.id, { x: slot - originOffset, z: 0 });
   }
   return abs;
+}
+
+/**
+ * Which cardinal sides of the active room already have a sibling on them —
+ * so AddRoomButtons can skip that side's "+" instead of stacking it right
+ * on top of a room that's already there.
+ */
+function computeOccupiedSides(
+  rooms: Room[],
+  activeId: string,
+  activeW: number,
+  activeD: number,
+  activePos: { x: number; z: number } | null,
+): Set<RoomSide> {
+  if (rooms.length < 2) return new Set();
+  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+  const occupied = new Set<RoomSide>();
+  for (const r of rooms) {
+    if (r.id === activeId) continue;
+    const p = abs.get(r.id) ?? { x: 0, z: 0 };
+    const dx = p.x - anchor.x;
+    const dz = p.z - anchor.z;
+    // Whichever axis has the larger offset is the side this room sits on —
+    // matches how persistLayoutPos only ever offsets along one axis per side.
+    if (Math.abs(dz) >= Math.abs(dx)) {
+      occupied.add(dz < 0 ? 'north' : 'south');
+    } else {
+      occupied.add(dx < 0 ? 'west' : 'east');
+    }
+  }
+  return occupied;
 }
 
 function SiblingRooms({
@@ -4259,10 +4292,12 @@ export default function ThreeDPage() {
 
   const activeIdx = RENO_STAGES.findIndex(s => s.key === activePhase);
 
-  // The renovation phase stepper is superseded by the per-surface radial menu
-  // (long-press a wall/ceiling/floor). Flip to true to bring the top stepper
-  // back. The view/camera toolbar below it is kept.
-  const SHOW_PHASE_STEPPER = false;
+  // Kept visible: the studio's responsive layout (collapsible edge rail,
+  // bottom-sheet panel on tablet/mobile) is built around this stepper being
+  // the primary phase-navigation surface. The new long-press radial menu on
+  // walls/ceiling/floor is an additional, faster path for surface edits —
+  // not a replacement for the stepper.
+  const SHOW_PHASE_STEPPER = true;
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
@@ -4276,6 +4311,9 @@ export default function ThreeDPage() {
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
+              title={stage.label}
+              aria-label={stage.label}
+              aria-current={status === 'current' ? 'step' : undefined}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 lg:py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
                 status === 'current' ? 'border-brand text-brand' :
                 status === 'done'    ? 'border-transparent text-success' :
@@ -4305,6 +4343,9 @@ export default function ThreeDPage() {
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
+              title={stage.label}
+              aria-label={stage.label}
+              aria-current={status === 'current' ? 'step' : undefined}
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
                 status === 'current'
                   ? 'bg-brand text-white'
@@ -4334,8 +4375,19 @@ export default function ThreeDPage() {
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Toolbar */}
+        {/* Toolbar — current phase, then view preset, transform tools, view
+            controls, lighting, AI, each cluster separated by a divider. This
+            is the studio's only toolbar row now that the header absorbed the
+            old separate tab-nav row (see StudioPage.tsx). */}
         <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 shrink-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {activeIdx >= 0 && (
+            <>
+              <span className="text-xs font-semibold text-gray-700 shrink-0 whitespace-nowrap">
+                Bosqich: {RENO_STAGES[activeIdx].label}
+              </span>
+              <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
+            </>
+          )}
           <span className="text-xs font-medium text-gray-500 mr-0.5 shrink-0 hidden sm:block">Ko'rinish:</span>
           {(["back", "top"] as ViewPreset[]).map((v) => (
             <button
@@ -4569,9 +4621,12 @@ export default function ThreeDPage() {
               </svg>
               <span className="hidden sm:inline">AI</span>
             </button>
-            {/* Mobile: design panel toggle */}
+            {/* Mobile: design panel toggle. Closes the help card too — two
+                overlays open at once is never useful, even though the
+                z-index stack (backdrop z-40 over help card z-30) already
+                keeps them from visually colliding. */}
             <button
-              onClick={() => setShowPanel(v => !v)}
+              onClick={() => { setShowPanel(v => !v); setShowHelp(false); }}
               title="Dizayn paneli"
               className="lg:hidden flex items-center justify-center gap-1 px-2 py-2 min-h-[44px] min-w-[44px] rounded-full text-xs font-medium bg-brand text-white shrink-0"
             >
@@ -4846,7 +4901,12 @@ export default function ThreeDPage() {
               onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
             />
             <SwapButtons W={W} D={D} H={H} />
-            {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}
+            {topView && (
+              <AddRoomButtons
+                W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom}
+                occupiedSides={aptRooms ? computeOccupiedSides(aptRooms, room.id, W, D, activeLayoutPos) : undefined}
+              />
+            )}
             {topView && aptRooms && (
               <SiblingRooms
                 rooms={aptRooms}

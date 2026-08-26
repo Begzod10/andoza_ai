@@ -1089,7 +1089,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls */}
       {targetWall !== 'FLOOR' && (<>
-      <section>
+      <section className="pt-5 border-t border-gray-100">
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           {(["paint", "oboy", "texture"] as const).map((mode) => (
             <button
@@ -1109,7 +1109,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Paint colors */}
       {coveringMode === "paint" && (
-        <section>
+        <section className="pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
           <div className="flex flex-wrap gap-2">
             {WALL_COLORS.map((color) => (
@@ -1133,7 +1133,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Wallpaper patterns */}
       {coveringMode === "oboy" && (
-        <section className="space-y-4">
+        <section className="space-y-4 pt-5 border-t border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
             <div className="grid grid-cols-3 gap-2">
@@ -1202,7 +1202,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Texture upload */}
       {coveringMode === "texture" && (
-        <section className="space-y-3">
+        <section className="space-y-3 pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Devor rasmi</h3>
           {renderTexturePicker('wallpaper', applyWallpaper, 'Oboy kutubxonasi')}
           {(() => {
@@ -1811,7 +1811,12 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   )
 
   return (
-    <aside className="w-full lg:w-72 lg:shrink-0 bg-surface border-l border-gray-200 overflow-y-auto lg:h-full">
+    // lg:self-start + lg:max-h-full (not lg:h-full): the panel hugs its own
+    // content height instead of stretching to match the canvas column's full
+    // height, which used to leave a large empty gap below the color swatches
+    // whenever the active phase's content was short. Still scrolls (overflow
+    // -y-auto + max-h-full) if content ever grows past the viewport.
+    <aside className="w-full lg:w-72 lg:shrink-0 lg:self-start bg-surface border-l border-gray-200 overflow-y-auto lg:max-h-full">
       {/* Mounted at the root so every phase's upload button can reach it */}
       <input
         ref={textureFileRef}
