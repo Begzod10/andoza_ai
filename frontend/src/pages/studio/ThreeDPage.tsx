@@ -4386,8 +4386,18 @@ export default function ThreeDPage() {
         {/* Toolbar — current phase, then view preset, transform tools, view
             controls, lighting, AI, each cluster separated by a divider. This
             is the studio's only toolbar row now that the header absorbed the
-            old separate tab-nav row (see StudioPage.tsx). */}
-        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 shrink-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            old separate tab-nav row (see StudioPage.tsx).
+
+            Wrapped in `relative` for the right-edge fade hint below: with
+            this many clusters the row overflows on narrower screens, and
+            scrollbar-width:none (previously set here) suppressed the native
+            scrollbar in Chromium too — not just Firefox — leaving zero
+            visual cue that content like the AI button was one scroll away
+            rather than actually missing. Now shows the app's thin global
+            scrollbar (styles/global.css) AND a fade gradient, so it reads as
+            "scroll for more" instead of "cut off". */}
+        <div className="relative shrink-0">
+        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 overflow-x-auto">
           {activeIdx >= 0 && (
             <>
               <span className="text-xs font-semibold text-gray-700 shrink-0 whitespace-nowrap">
@@ -4645,6 +4655,10 @@ export default function ThreeDPage() {
               <span className="hidden sm:inline">Dizayn</span>
             </button>
           </div>
+        </div>
+        {/* Right-edge fade — pointer-events-none so it never blocks clicks on
+            whatever's actually scrolled underneath it. */}
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent" />
         </div>
 
         {/* Canvas area */}
