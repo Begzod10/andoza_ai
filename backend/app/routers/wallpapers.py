@@ -8,8 +8,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, sta
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
-from app.config import settings
-from app.core.storage import delete_file, upload_file
+from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.models.wallpaper import Wallpaper
 from app.schemas.wallpaper import WallpaperOut
 
@@ -43,13 +42,6 @@ _EXT_BY_TYPE = {
 _MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
 
 
-def _absolute(request: Request, url: str) -> str:
-    """Local storage returns a host-relative path; make it absolute."""
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
-    return f"{str(request.base_url).rstrip('/')}{url}"
-
-
 @router.get(
     "",
     response_model=list[WallpaperOut],
@@ -61,20 +53,13 @@ async def list_wallpapers(request: Request, db: DbSession) -> list[WallpaperOut]
         WallpaperOut(
             id=w.id,
             name=w.name,
-            url=_absolute(request, _public_url(w.storage_key)),
+            url=absolute_media_url(request, w.storage_key),
             content_type=w.content_type,
             size_bytes=w.size_bytes,
             created_at=w.created_at,
         )
         for w in result.scalars().all()
     ]
-
-
-def _public_url(storage_key: str) -> str:
-    """URL for a stored key — S3 objects are already absolute."""
-    if storage_key.startswith("http://") or storage_key.startswith("https://"):
-        return storage_key
-    return f"{settings.MEDIA_URL_PREFIX}/{storage_key}"
 
 
 @router.post(
@@ -120,7 +105,7 @@ async def upload_wallpaper(
         return WallpaperOut(
             id=found.id,
             name=found.name,
-            url=_absolute(request, _public_url(found.storage_key)),
+            url=absolute_media_url(request, found.storage_key),
             content_type=found.content_type,
             size_bytes=found.size_bytes,
             created_at=found.created_at,
@@ -154,7 +139,7 @@ async def upload_wallpaper(
     return WallpaperOut(
         id=wallpaper.id,
         name=wallpaper.name,
-        url=_absolute(request, _public_url(wallpaper.storage_key)),
+        url=absolute_media_url(request, wallpaper.storage_key),
         content_type=wallpaper.content_type,
         size_bytes=wallpaper.size_bytes,
         created_at=wallpaper.created_at,

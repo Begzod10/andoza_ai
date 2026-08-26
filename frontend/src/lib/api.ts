@@ -171,6 +171,7 @@ export interface ApartmentRoom {
   id: string;
   name: string;
   floor_area: number | null;
+  thumbnail_url?: string | null;
 }
 
 export interface CreateApartmentData {
@@ -247,6 +248,8 @@ export interface Room {
   perimeter?: number | null;
   openings_count?: number | null;
   updated_at?: string | null;
+  /** Captured 3D-viewport snapshot, shown as the project-card image. Null until first captured. */
+  thumbnail_url?: string | null;
 }
 
 export interface CreateRoomData {
@@ -294,6 +297,13 @@ export async function updateRoom(
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+/** Upload a captured 3D-viewport snapshot (JPEG blob) as the room's project-card thumbnail. */
+export async function uploadRoomThumbnail(roomId: string, blob: Blob): Promise<Room> {
+  const form = new FormData();
+  form.append("file", blob, "thumbnail.jpg");
+  return apiClient<Room>(`/rooms/${roomId}/thumbnail`, { method: "POST", body: form });
 }
 
 export async function deleteRoom(roomId: string): Promise<void> {

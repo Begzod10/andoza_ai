@@ -88,5 +88,8 @@ class RoomOut(BaseModel):
     perimeter: float | None
     openings_count: int
     updated_at: datetime
+    # Resolved to an absolute URL by the router (not read straight off the
+    # ORM's thumbnail_key, which is a bare storage key for local dev).
+    thumbnail_url: str | None = None
 
     model_config = {"from_attributes": True}

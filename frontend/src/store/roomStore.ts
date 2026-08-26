@@ -142,6 +142,12 @@ export interface FloorTextureSettings {
 export interface DesignState {
   wallCoverings: { ALL: WallCovering } & Partial<Record<string, WallCovering>>
   floorType: FloorType
+  /** Set once the user actually visits Pol and picks something (handleSetFloorType).
+   *  Until then floorType just holds the schema default ('parquet'), and the
+   *  3D view renders a neutral placeholder instead of a full plank texture no
+   *  one chose — see loadDraftState for how legacy rooms without this key
+   *  are treated as already-configured so they don't lose their floor. */
+  floorConfigured?: boolean
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
@@ -332,6 +338,7 @@ export const DEFAULT_DESIGN_STATE: DesignState = {
   // flat before any finishing work, and the baseline every phase builds on.
   wallCoverings: { ALL: { kind: 'plaster' } },
   floorType: 'parquet',
+  floorConfigured: false,
   ceiling: { design: DEFAULT_CEILING_DESIGN },
   wallPanels: {
     ALL: {
@@ -667,7 +674,11 @@ export const useRoomStore = create<RoomStore>()(
       ceilingHeight: s.ceilingHeight ?? 2700,
       geometry: cleanGeometry,
       wizardStep: s.wizardStep ?? 0,
-      designState: s.designState ?? DEFAULT_DESIGN_STATE,
+      // Rooms saved before floorConfigured existed have a real, user-visible
+      // floor already — default the backfill to true so they don't suddenly
+      // go neutral. A genuinely new room has no designState at all yet, so it
+      // falls through to DEFAULT_DESIGN_STATE's explicit floorConfigured: false.
+      designState: s.designState ? { floorConfigured: true, ...s.designState } : DEFAULT_DESIGN_STATE,
       name: s.name ?? 'Xona',
       roomId: s.roomId ?? null,
       furniture: s.furniture ?? [],

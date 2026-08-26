@@ -5,6 +5,7 @@ from pathlib import Path
 
 import boto3
 from botocore.client import Config
+from starlette.requests import Request
 
 from app.config import settings
 
@@ -89,6 +90,29 @@ def delete_file(key: str) -> None:
         return
     s3 = _get_s3()
     s3.delete_object(Bucket=settings.S3_BUCKET, Key=key)
+
+
+def public_url(storage_key: str) -> str:
+    """URL for a stored key — S3 objects are already absolute, local keys are
+    relative to MEDIA_URL_PREFIX."""
+    if storage_key.startswith("http://") or storage_key.startswith("https://"):
+        return storage_key
+    return f"{settings.MEDIA_URL_PREFIX}/{storage_key}"
+
+
+def absolute_media_url(request: Request, storage_key: str | None) -> str | None:
+    """Resolve a stored key to an absolute URL the client can fetch directly.
+
+    Shared by every router that serves an uploaded/captured image (wallpapers,
+    room thumbnails, ...) so the host-relative-vs-absolute distinction between
+    local disk and S3 storage is handled in exactly one place.
+    """
+    if not storage_key:
+        return None
+    url = public_url(storage_key)
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    return f"{str(request.base_url).rstrip('/')}{url}"
 
 
 def get_presigned_url(key: str, expires: int = 3600) -> str:

@@ -31,7 +31,7 @@ import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
-import { getRooms, deleteRoom } from "@/lib/api";
+import { getRooms, deleteRoom, uploadRoomThumbnail } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -168,10 +168,15 @@ function RealismEffects({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
   return (
     <EffectComposer multisampling={0}>
+      {/* intensity was 1.1 — measured (canvas.getImageData, not eyeballed)
+          as the actual dominant factor keeping walls dark at low light,
+          independent of and fighting every scene-light change above. 0.35
+          keeps AO as a subtle corner/crease depth cue without crushing
+          whole flat walls toward black at night. */}
       <N8AO
         halfRes
         aoRadius={0.35}
-        intensity={1.1}
+        intensity={0.35}
         distanceFalloff={0.5}
         quality="performance"
         depthAwareUpsampling
@@ -262,12 +267,20 @@ function requestSharedTexture(
   };
 }
 
+// Bare-screed placeholder shown until the user actually visits Pol and picks
+// something — a plank/tile pattern no one chose read as a rendering bug
+// (z-fighting/UV artifact), not as "here's your default floor".
+const UNCONFIGURED_FLOOR_COLOR = "#DCD7CC";
+
 function WoodFloor({
-  width, depth, floorType, floorTexture, floorTextureSettings, isSelected, onClick,
+  width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
   floorTexture?: string | null;
   floorTextureSettings?: { repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number } | null;
+  /** False for a room that hasn't visited Pol yet — renders a flat neutral
+   *  screed instead of defaulting to a full parquet/tile pattern no one chose. */
+  floorConfigured?: boolean;
   isSelected?: boolean;
   onClick?: () => void;
 }) {
@@ -425,7 +438,11 @@ function WoodFloor({
     <group onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
-        <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
+        {floorConfigured ? (
+          <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
+        ) : (
+          <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />
+        )}
       </mesh>
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
@@ -2004,9 +2021,11 @@ export function SceneLighting({
 
   // Sky bounce follows the sun down. Without this the room keeps a full midday
   // fill under an orange dusk key, which reads as a colour bug rather than as
-  // evening. The floor of 0.18 is what keeps a night room navigable.
+  // evening. The floor keeps a night/late-hour room legible while editing —
+  // raised from 0.18 after users reported walls reading as unreadably dark
+  // at hours like 23:20 while actively painting in Bo'yoq/Oboi.
   const daylight = sun
-    ? Math.max(0.18, Math.pow(Math.sin(Math.max(sun.altitude, 0) * (Math.PI / 180)), 0.6))
+    ? Math.max(0.55, Math.pow(Math.sin(Math.max(sun.altitude, 0) * (Math.PI / 180)), 0.6))
     : 1
 
   return (
@@ -2029,10 +2048,23 @@ export function SceneLighting({
         shadow-normalBias={0.02}
         shadow-radius={4}
       />
-      {/* Cool sky-bounce fill light — much dimmer so shadows read clearly */}
+      {/* Cool sky-bounce fill light — scaled by daylight for time-of-day mood,
+          on top of the flat floor below (so evening still looks like evening,
+          it just never goes unreadable) */}
       <hemisphereLight color="#DCE8FF" groundColor="#CFC6B4" intensity={0.35 * daylight} />
-      {/* Ambient floor to prevent pitch-black occluded areas */}
-      <ambientLight color="#FFFFFF" intensity={0.18 * daylight} />
+      {/* Flat visibility floor, deliberately NOT scaled by daylight/sun angle:
+          a wall facing away from the single directional "sun" used to fall
+          back on 0.18*daylight alone and could read as near-black, which
+          looked like a broken material rather than "just unlit". Selection
+          is communicated by the emissive highlight on the wall itself (see
+          isSelected below), not by dimming everything that isn't selected —
+          so this can stay generous without fighting that signal.
+          ACES tone mapping compresses shadows/midtones hard enough that
+          0.42, then 0.62, both measured (via canvas.getImageData, not just
+          eyeballing a screenshot) as barely different — RGB ~54/255 on the
+          unlit plaster wall at 23:xx, well below "clearly legible". 1.0 is
+          the value that actually moved that reading into a readable range. */}
+      <ambientLight color="#FFFFFF" intensity={1.0} />
     </>
   );
 }
@@ -2199,9 +2231,15 @@ const SIBLING_DELETE_STYLE: React.CSSProperties = {
 
 function roomFootprint(r: Room, activeId: string, activeW: number, activeD: number): { w: number; d: number } {
   if (r.id === activeId) return { w: activeW, d: activeD };
-  const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
+  // Must match roomExtents()'s convention (lib/roomDims.ts): wall A → W,
+  // wall B → D. This used to be swapped, which desynced from the aw/ad the
+  // "+ add room" flow sends via roomExtents() in handleAddRoom below —
+  // adjacent rooms in the same apartment could compute a gap that was
+  // actually a geometric overlap (this exact apartment: -3.65 vs two 4.0m-
+  // deep rooms, a 0.35m intrusion — the two-rooms-overlap render bug).
   const wallA = r.geometry?.walls?.find((w) => w.id === 'A');
-  return { w: wallB?.length ?? 3, d: wallA?.length ?? 4 };
+  const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
+  return { w: wallA?.length ?? 4, d: wallB?.length ?? 3 };
 }
 
 function roomLayoutPos(r: Room | undefined): { x: number; z: number } | undefined {
@@ -2221,7 +2259,10 @@ function computeAbsolutePositions(
   activeW: number,
   activeD: number,
 ): Map<string, { x: number; z: number }> {
-  const GAP = 1.2;
+  // Matches persistLayoutPos's GAP in WizardPage.tsx — rooms should read as
+  // adjacent (touching walls), not detached with a dead strip of floor
+  // between them.
+  const GAP = 0.02;
   const abs = new Map<string, { x: number; z: number }>();
   let cursor = 0;
   let originOffset: number | null = null;
@@ -3187,7 +3228,7 @@ function NWallRoomShell({
       {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
       <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial
-          color={FLOOR_COLORS[designState.floorType] ?? '#C9AB7E'}
+          color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
           roughness={0.8}
         />
       </mesh>
@@ -3401,6 +3442,7 @@ export function RoomScene({
             width={W} depth={D} floorType={designState.floorType}
             floorTexture={designState.floorTexture}
             floorTextureSettings={designState.floorTextureSettings}
+            floorConfigured={designState.floorConfigured}
             isSelected={isFloorSelected}
             onClick={onFloorClick}
           />
@@ -3758,6 +3800,26 @@ export default function ThreeDPage() {
   const [showHelp, setShowHelp] = useState(false);
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
+  // Project-card thumbnail: grabbed from the live canvas when the user
+  // leaves this room's 3D view, so the pixels shown are what they last saw.
+  const glCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const roomIdRef = useRef(room.id);
+  roomIdRef.current = room.id;
+  // Fires on unmount — i.e. whenever the user leaves this room's 3D view,
+  // regardless of how (back button, sidebar nav, tab switch away from the
+  // studio). Fire-and-forget: a failed capture should never surface as a
+  // user-facing error mid-navigation, and the next capture just replaces it.
+  useEffect(() => {
+    return () => {
+      const canvas = glCanvasRef.current;
+      if (!canvas) return;
+      const capturedRoomId = roomIdRef.current;
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        uploadRoomThumbnail(capturedRoomId, blob).catch(() => {});
+      }, 'image/jpeg', 0.8);
+    };
+  }, []);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
@@ -4077,7 +4139,7 @@ export default function ThreeDPage() {
               {VIEW_LABELS[v]}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
               <button
                 onClick={() => setToolMode('select')}
@@ -4220,14 +4282,17 @@ export default function ThreeDPage() {
                 {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
               </span>
             </button>
+            {/* ── Lighting cluster: day/night, sun clock, room lights ── */}
+            <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-1.5 py-0.5">
             {/* Scene light (sun + environment) toggle */}
             <button
               onClick={() => setSceneLightOn(v => !v)}
               title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
               className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 sceneLightOn
-                  ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
-                  : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
+                  ? 'bg-brand text-white border-brand hover:bg-brand/90'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
               }`}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4239,6 +4304,8 @@ export default function ThreeDPage() {
             {/* Sun clock. Only meaningful while the sun is the light source, so
                 it rides with the day/night toggle. */}
             {sceneLightOn && (
+              <>
+              <span className="text-xs font-medium text-gray-500 shrink-0 hidden sm:block">Vaqt:</span>
               <div
                 className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
                 title="Quyosh vaqti — Toshkent bo'yicha"
@@ -4257,13 +4324,14 @@ export default function ThreeDPage() {
                   className="w-14 sm:w-24 accent-amber-500 cursor-pointer"
                 />
               </div>
+              </>
             )}
             <button
               onClick={() => setLightsOn(v => !v)}
               title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
               className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 lightsOn
-                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
+                  ? 'bg-brand text-white border-brand hover:bg-brand/90'
                   : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
               }`}
             >
@@ -4273,11 +4341,17 @@ export default function ThreeDPage() {
               </svg>
               <span className="hidden sm:inline">{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
             </button>
-            {/* AI builder button */}
+            </div>
+            <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
+            {/* AI builder button — stays visually distinct from the Kunduz/
+                Yoqilgan brand-blue toggles (it's a one-shot special action,
+                not a peer toggle), but now via the app's own warning/orange
+                accent token (same family as the "Buyum qo'shish" CTA) rather
+                than an unrelated purple with no other usage on the page. */}
             <button
               onClick={() => setShowAiSheet(true)}
               title="AI bilan qurish"
-              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shrink-0"
+              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-warning text-white hover:bg-warning-dark transition-colors shrink-0"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
@@ -4345,8 +4419,9 @@ export default function ThreeDPage() {
             </p>
           )}
 
-          {/* Hint overlay — bottom-left of canvas */}
-          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
+          {/* Hint overlay — bottom-left of canvas. Backed by a dark pill so it
+              stays legible regardless of scene brightness (day sky vs night). */}
+          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-white/90 bg-black/45 backdrop-blur-sm px-2.5 py-1 rounded-full pointer-events-none select-none">
             {isTouch
               ? "Bir barmoq: aylantirish · Ikki barmoq: surish/masshtab · 2× bosish: fokus"
               : "Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus"}
@@ -4444,7 +4519,12 @@ export default function ThreeDPage() {
             toneMappingExposure: 1.15,
             outputColorSpace: THREE.SRGBColorSpace,
             powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
+            // Without this, the drawing buffer can already be cleared by the
+            // time the unmount-triggered toBlob() capture below runs, which
+            // would silently produce a blank thumbnail instead of an error.
+            preserveDrawingBuffer: true,
           }}
+          onCreated={({ gl }) => { glCanvasRef.current = gl.domElement; }}
           onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); }}
           dpr={glAttempt === 0 ? dpr : 1}
         >
@@ -4514,9 +4594,15 @@ export default function ThreeDPage() {
                 <BrandedSky sun={sun} />
               </>
             )}
-            {/* Scene light off: barely-visible ambient so the room stays navigable;
-                the room's own lamps (lightsOn) become the dominant light source */}
-            {!sceneLightOn && <ambientLight intensity={0.08} color="#8090B0" />}
+            {/* Scene light off: soft ambient + hemisphere fill keep the floor,
+                walls and door frame readable even before any room lamp is on;
+                the room's own lamps (lightsOn) still read as the dominant source */}
+            {!sceneLightOn && (
+              <>
+                <ambientLight intensity={0.22} color="#8090B0" />
+                <hemisphereLight args={["#4a5570", "#0c0e14", 0.35]} />
+              </>
+            )}
 
             <RoomScene
               room={room}

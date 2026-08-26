@@ -45,6 +45,20 @@ const WALL_COLORS = [
   "#C4D4E8", "#E8C4C4", "#C4C4E8", "#E8E8C4", "#D85A30",
 ];
 
+// Uzbek names for the swatches below — without these, screen readers and
+// colorblind users have no way to tell the buttons apart.
+const WALL_COLOR_NAMES: Record<string, string> = {
+  "#FFFFFF": "Oq",
+  "#F5F0E8": "Krem",
+  "#E8D5C4": "Bej",
+  "#D4E8D4": "Pista yashil",
+  "#C4D4E8": "Moviy",
+  "#E8C4C4": "Pushti",
+  "#C4C4E8": "Siren",
+  "#E8E8C4": "Och sariq",
+  "#D85A30": "Terrakota",
+};
+
 const FLOOR_TYPES = [
   { key: "parquet",  label: "Parket"  },
   { key: "tile",     label: "Kafel"   },
@@ -428,6 +442,28 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }, 600);
   }
 
+  // Reset button: click-to-arm, click-to-confirm — see the render below.
+  const [resetArmed, setResetArmed] = React.useState(false);
+  const resetArmTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current) }, []);
+  function armReset() {
+    setResetArmed(true);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    // Auto-disarm — a confirm row primed from a tap ten minutes ago and then
+    // rediscovered is more dangerous than no confirm step at all.
+    resetArmTimerRef.current = setTimeout(() => setResetArmed(false), 5000);
+  }
+  function cancelReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+  }
+  function confirmReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    resetDesignState();
+    mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } });
+  }
+
   function applyWallCovering(covering: WallCovering) {
     setWallCovering(targetWall, covering);
     const updated = {
@@ -473,9 +509,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   function handleSetFloorType(type: string) {
     const ft = type as FloorType;
-    setDesignState({ floorType: ft });
+    setDesignState({ floorType: ft, floorConfigured: true });
     setFloorTexture(null);
-    syncToApi({ ...designState, floorType: ft, floorTexture: null });
+    syncToApi({ ...designState, floorType: ft, floorConfigured: true, floorTexture: null });
   }
 
   const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
@@ -508,6 +544,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }
     setFloorBusy(true);
     setFloorError(null);
+    setDesignState({ floorConfigured: true });
     try {
       const uploaded = await uploadWallpaper(file);
       setFloorTexture(uploaded.url);
@@ -1079,7 +1116,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               <button
                 key={color}
                 onClick={() => handleSetPaintColor(color)}
-                title={color}
+                title={WALL_COLOR_NAMES[color] ?? color}
+                aria-label={WALL_COLOR_NAMES[color] ?? color}
                 className="w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
                 style={{
                   backgroundColor: color,
@@ -1806,18 +1844,42 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <p className="text-xs text-amber-600">Oflayn rejimda — o'zgarishlar saqlandi</p>
         )}
 
-        {/* Reset button */}
-        <button
-          onClick={() => {
-            if (confirm('Barcha dizayn o\'zgarishlari bekor qilinadi. Davom etasizmi?')) {
-              resetDesignState()
-              mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } })
-            }
-          }}
-          className="w-full mt-8 px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
-        >
-          🔄 Dizaynni Bekor Qilish
-        </button>
+        {/* Reset button — separated with its own divider from whatever setting
+            sits above (color swatches, panels, etc.) so it never reads as part
+            of that selection. Destructive, so a single tap can't fire it: the
+            first click only arms an inline confirm row (auto-disarms after a
+            few seconds so a stray tap doesn't leave it primed indefinitely);
+            the action only runs on the explicit second tap. */}
+        <div className="mt-8 pt-4 border-t border-gray-200">
+          {!resetArmed ? (
+            <button
+              onClick={armReset}
+              className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
+            >
+              🔄 Dizaynni Bekor Qilish
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-700">
+                Ishonchingiz komilmi? Barcha dizayn o'zgarishlari o'chiriladi.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={cancelReset}
+                  className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={confirmReset}
+                  className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Ha, o'chirish
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

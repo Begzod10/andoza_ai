@@ -23,16 +23,24 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       <div className="rounded-2xl bg-neutral-100 h-48 flex items-center justify-center mb-4 overflow-hidden relative">
         {apartment ? (
           <>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
-                <polygon points="80,10 150,50 150,110 80,110 10,110 10,50" fill="#C9CFDD" stroke="#A0AAC0" strokeWidth="1.5"/>
-                <polygon points="80,10 150,50 80,50" fill="#D8DEE9" stroke="#A0AAC0" strokeWidth="1.5"/>
-                <polygon points="80,10 10,50 80,50" fill="#BFC8D9" stroke="#A0AAC0" strokeWidth="1.5"/>
-                <rect x="65" y="80" width="30" height="30" fill="#A0B4D6" rx="2"/>
-                <rect x="30" y="65" width="22" height="18" fill="#B8C8E8" rx="2"/>
-                <rect x="108" y="65" width="22" height="18" fill="#B8C8E8" rx="2"/>
-              </svg>
-            </div>
+            {firstRoom?.thumbnail_url ? (
+              <img
+                src={firstRoom.thumbnail_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+                  <polygon points="80,10 150,50 150,110 80,110 10,110 10,50" fill="#C9CFDD" stroke="#A0AAC0" strokeWidth="1.5"/>
+                  <polygon points="80,10 150,50 80,50" fill="#D8DEE9" stroke="#A0AAC0" strokeWidth="1.5"/>
+                  <polygon points="80,10 10,50 80,50" fill="#BFC8D9" stroke="#A0AAC0" strokeWidth="1.5"/>
+                  <rect x="65" y="80" width="30" height="30" fill="#A0B4D6" rx="2"/>
+                  <rect x="30" y="65" width="22" height="18" fill="#B8C8E8" rx="2"/>
+                  <rect x="108" y="65" width="22" height="18" fill="#B8C8E8" rx="2"/>
+                </svg>
+              </div>
+            )}
             <div className="absolute bottom-0 left-0 right-0 rounded-b-2xl px-3 py-2.5 flex items-center justify-between bg-neutral-900/70 backdrop-blur-sm">
               <div>
                 <p className="text-white text-base font-bold leading-tight">{apartment.name}</p>
@@ -109,13 +117,17 @@ function ProjectCard({ apt }: { apt: Apartment }) {
 
   return (
     <div className="flex items-center gap-3 bg-white border border-neutral-200 rounded-xl p-3 shadow-sm">
-      <div className="w-14 h-14 rounded-xl bg-neutral-100 flex-shrink-0 flex items-center justify-center">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-          <polygon points="18,4 32,12 32,30 18,30 4,30 4,12" fill="#C9CFDD"/>
-          <polygon points="18,4 32,12 18,12" fill="#D8DEE9"/>
-          <polygon points="18,4 4,12 18,12" fill="#BFC8D9"/>
-          <rect x="14" y="20" width="8" height="10" fill="#A0B4D6" rx="1"/>
-        </svg>
+      <div className="w-14 h-14 rounded-xl bg-neutral-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+        {firstRoom?.thumbnail_url ? (
+          <img src={firstRoom.thumbnail_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <polygon points="18,4 32,12 32,30 18,30 4,30 4,12" fill="#C9CFDD"/>
+            <polygon points="18,4 32,12 18,12" fill="#D8DEE9"/>
+            <polygon points="18,4 4,12 18,12" fill="#BFC8D9"/>
+            <rect x="14" y="20" width="8" height="10" fill="#A0B4D6" rx="1"/>
+          </svg>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-bold text-gray-900 truncate">{apt.name}</p>
