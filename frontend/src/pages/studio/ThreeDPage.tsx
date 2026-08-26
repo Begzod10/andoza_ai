@@ -501,7 +501,6 @@ function WallSegment({
   baseTexture,
   imageTexture,
   texAspect,
-  isSelected,
   plaster = false,
 }: {
   seg: Seg;
@@ -510,7 +509,6 @@ function WallSegment({
   imageTexture: THREE.Texture | null;
   /** texW / texH of the uploaded image (1 for unknown / square) */
   texAspect: number;
-  isSelected: boolean;
   /** Suvoq bosqichi: render the photo-real plaster PBR material instead of the covering */
   plaster?: boolean;
 }) {
@@ -596,18 +594,13 @@ function WallSegment({
           // casts neutral-grey plaster brown. Keep IBL low so raw concrete
           // reads as concrete, and let the analytic lights carry the shaping.
           envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"}
-          emissiveIntensity={isSelected ? 0.15 : 0}
         />
       ) : covering.kind === 'paint' ? (
-        <meshStandardMaterial color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
+        <meshStandardMaterial color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3} />
       ) : covering.kind === 'texture' ? (
-        <meshStandardMaterial map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+        <meshStandardMaterial map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3} />
       ) : (
-        <meshStandardMaterial map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+        <meshStandardMaterial map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2} />
       )}
     </mesh>
   );
@@ -940,6 +933,19 @@ function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isS
     return segs;
   }, [resolvedElements, length, height, thickness, axis, cx, cz]);
 
+  // Selection is shown as a wireframe frame around the whole wall face (like
+  // the blue box on a selected light) rather than tinting the wall red — the
+  // colour of the wall stays true while it is being edited.
+  const selectionFrame = useMemo(() => {
+    if (!isSelected) return null
+    const faceDir = axis === 'X' ? (cz <= 0 ? 1 : -1) : (cx >= 0 ? -1 : 1)
+    const eps = 0.02
+    const px = axis === 'X' ? cx : cx + faceDir * (thickness / 2 + eps)
+    const pz = axis === 'X' ? cz + faceDir * (thickness / 2 + eps) : cz
+    const ry = axis === 'X' ? (faceDir > 0 ? 0 : Math.PI) : (faceDir > 0 ? Math.PI / 2 : -Math.PI / 2)
+    return { px, pz, ry, geo: new THREE.EdgesGeometry(new THREE.PlaneGeometry(length, height)) }
+  }, [isSelected, axis, cx, cz, thickness, length, height])
+
   return (
     <group onClick={onClick}>
       {segments.map((seg, i) => (
@@ -950,10 +956,18 @@ function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isS
           baseTexture={oboyTexture}
           imageTexture={imageTexture}
           texAspect={texAspect}
-          isSelected={isSelected}
           plaster={plaster}
         />
       ))}
+      {selectionFrame && (
+        <lineSegments
+          geometry={selectionFrame.geo}
+          position={[selectionFrame.px, height / 2, selectionFrame.pz]}
+          rotation={[0, selectionFrame.ry, 0]}
+        >
+          <lineBasicMaterial color="#2563EB" />
+        </lineSegments>
+      )}
       {panelSettings?.enabled && (
         <WallPanelGrid
           wallLengthM={length}
@@ -1425,6 +1439,78 @@ function PooledLightEmitters({
 }
 
 /**
+ * A single real emitter that glides with a fixture while it is being dragged.
+ *
+ * The pooled emitters read the store, which is only written on drop, so on its
+ * own the illumination would stay put and jump at the end. This follows the
+ * live drag position every frame (same maths as the pool) so the pool of light
+ * travels under the fixture as you move it. It exists only during the drag.
+ */
+function DragEmitter({
+  light, roomW, roomD, roomH, highQuality, lightsCount, dragPosRef,
+}: {
+  light: PlacedLight
+  roomW: number
+  roomD: number
+  roomH: number
+  highQuality: boolean
+  lightsCount: number
+  dragPosRef: React.MutableRefObject<THREE.Vector2>
+}) {
+  const t = lightType(light.type)
+  const color = kelvinToHex(light.colorK ?? t.colorK)
+  const beam = light.beamDeg ?? t.beamDeg
+  const spread = Math.max(roomW, roomD) * 1.9
+  const nLights = highQuality ? Math.min(4, lightsCount) : Math.min(2, lightsCount)
+  const intensity = (1.4 / Math.max(1, nLights)) * lumensToIntensity(t.lumens, light.brightnessPct ?? 100)
+  const lightRef = useRef<THREE.SpotLight | THREE.PointLight>(null)
+
+  useFrame(() => {
+    const l = lightRef.current
+    if (!l) return
+    const pose = fixturePose(
+      { ...light, xMm: dragPosRef.current.x, zMm: dragPosRef.current.y },
+      t, roomW, roomD, roomH,
+    )
+    l.position.set(pose.x, pose.y - (beam !== undefined ? 0.05 : 0.06), pose.z)
+    if (beam !== undefined && 'target' in l) {
+      const tilt = light.tiltRad ?? 0
+      const yaw = light.rotation ?? 0
+      const reach = Math.max(1.5, pose.y)
+      l.target.position.set(
+        pose.x + Math.sin(tilt) * Math.sin(yaw) * reach,
+        Math.max(0, pose.y - reach),
+        pose.z + Math.sin(tilt) * Math.cos(yaw) * reach,
+      )
+      l.target.updateMatrixWorld()
+    }
+  })
+
+  if (beam !== undefined) {
+    return (
+      <spotLight
+        ref={lightRef as React.Ref<THREE.SpotLight>}
+        color={color}
+        intensity={intensity * 2.2}
+        angle={THREE.MathUtils.degToRad(beam) / 2}
+        penumbra={0.45}
+        distance={spread}
+        decay={2}
+      />
+    )
+  }
+  return (
+    <pointLight
+      ref={lightRef as React.Ref<THREE.PointLight>}
+      color={color}
+      intensity={intensity}
+      distance={spread}
+      decay={2}
+    />
+  )
+}
+
+/**
  * User-placed lights, read-only.
  *
  * The editor gets DraggableLightModels; every other view — the walkthrough,
@@ -1500,6 +1586,7 @@ function DraggableLightModels({
   const ceilingPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, -1, 0), roomH), [roomH])
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const hitPoint = useRef(new THREE.Vector3())
+  const groupRefs = useRef(new Map<string, THREE.Group>())
 
   function startDrag(light: PlacedLight, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
@@ -1548,12 +1635,36 @@ function DraggableLightModels({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draggingId, roomW, roomD, roomH])
 
+  // Glide the fixture along with the pointer every frame while dragging. The
+  // store is only written on drop (commitDrag), so without this the fixture
+  // would sit at its old spot and jump to the new one only after release.
+  useFrame(() => {
+    const id = draggingIdRef.current
+    if (!id) return
+    const g = groupRefs.current.get(id)
+    const l = lightsRef.current.find((x) => x.id === id)
+    if (!g || !l) return
+    const pose = fixturePose(
+      { ...l, xMm: dragPosRef.current.x, zMm: dragPosRef.current.y },
+      lightType(l.type),
+      roomW,
+      roomD,
+      roomH,
+    )
+    g.position.set(pose.x, pose.y, pose.z)
+  })
+
   if (lights.length === 0) return null
+  const draggedLight = draggingId ? lights.find((l) => l.id === draggingId) ?? null : null
+  // While dragging, the dragged light is lit by DragEmitter (which follows the
+  // pointer). Keeping it in the pool too would leave a second, stationary light
+  // burning at its old store position until drop, so drop it from the pool.
+  const pooledLights = draggedLight ? lights.filter((l) => l.id !== draggedLight.id) : lights
   return (
     <>
       {/* Same emitters every other view gets — see PooledLightEmitters. */}
       <PooledLightEmitters
-        lights={lights}
+        lights={pooledLights}
         roomW={roomW}
         roomD={roomD}
         roomH={roomH}
@@ -1561,13 +1672,35 @@ function DraggableLightModels({
         highQuality={highQuality}
       />
 
+      {/* While a fixture is being dragged, a dedicated emitter follows it so the
+          illumination travels with the body instead of jumping only on drop. */}
+      {lightsOn && draggedLight && !draggedLight.off && (
+        <DragEmitter
+          light={draggedLight}
+          roomW={roomW}
+          roomD={roomD}
+          roomH={roomH}
+          highQuality={highQuality}
+          lightsCount={lights.length}
+          dragPosRef={dragPosRef}
+        />
+      )}
+
       {lights.map((l) => {
         const t = lightType(l.type)
         const pose = fixturePose(l, t, roomW, roomD, roomH)
         const isDragging = draggingId === l.id
         const isSelected = selectedId === l.id
         return (
-          <group key={l.id} position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
+          <group
+            key={l.id}
+            ref={(g) => {
+              if (g) groupRefs.current.set(l.id, g)
+              else groupRefs.current.delete(l.id)
+            }}
+            position={[pose.x, pose.y, pose.z]}
+            rotation={[0, pose.rot, 0]}
+          >
             <LightFixture light={l} on={lightsOn} />
             {/* Invisible grab/select handle over the fixture */}
             <mesh
@@ -3254,12 +3387,13 @@ function NWallRoomShell({
             onClick={() => onWallClick?.(wallId)}
           >
             <boxGeometry args={[length, H, T]} />
-            <meshStandardMaterial
-              color={isSelected ? '#D85A30' : baseColor}
-              roughness={0.85}
-              emissive={isSelected ? '#D85A30' : '#000000'}
-              emissiveIntensity={isSelected ? 0.12 : 0}
-            />
+            <meshStandardMaterial color={baseColor} roughness={0.85} />
+            {isSelected && (
+              <lineSegments>
+                <edgesGeometry args={[new THREE.BoxGeometry(length + 0.03, H + 0.03, T + 0.03)]} />
+                <lineBasicMaterial color="#2563EB" />
+              </lineSegments>
+            )}
           </mesh>
         )
       })}
@@ -4296,226 +4430,21 @@ export default function ThreeDPage() {
               {VIEW_LABELS[v]}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
-              <button
-                onClick={() => setToolMode('select')}
-                title="Tanlash"
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
-                </svg>
-                <span className="hidden sm:inline">Tanlash</span>
-              </button>
-              <button
-                onClick={() => setToolMode('move')}
-                title="Siljitish"
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
-                </svg>
-                <span className="hidden sm:inline">Siljitish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('rotate')}
-                title="Aylantirish"
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-                <span className="hidden sm:inline">Aylantirish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('scale')}
-                title="O'lcham"
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
-                </svg>
-                <span className="hidden sm:inline">O'lcham</span>
-              </button>
-              <button
-                onClick={() => setToolMode('part')}
-                title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
-                  <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
-                  <path d="M16 3.5l-8 4.5"/>
-                </svg>
-                <span className="hidden sm:inline">Qismlar</span>
-              </button>
-            </div>
-            {toolMode === 'rotate' && selectedFurId && (() => {
-              const item = furniture.find(f => f.id === selectedFurId)
-              if (!item) return null
-              const currentDeg = Math.round(item.rotation * (180 / Math.PI))
-              return (
-                <form
-                  className="flex items-center gap-1"
-                  onSubmit={e => {
-                    e.preventDefault()
-                    const deg = parseFloat(angleInputDeg)
-                    if (!isNaN(deg)) {
-                      moveFurniture(item.id, item.x, item.y, deg * (Math.PI / 180))
-                      setAngleInputDeg('')
-                    }
-                  }}
-                >
-                  <input
-                    key={selectedFurId + currentDeg}
-                    type="number"
-                    defaultValue={currentDeg}
-                    onChange={e => setAngleInputDeg(e.target.value)}
-                    placeholder={`${currentDeg}°`}
-                    className="w-14 text-xs border border-gray-300 rounded px-1 py-0.5 text-center focus:outline-none focus:border-brand"
-                    title="Burchakni darajada kiriting va Enter bosing"
-                  />
-                  <span className="text-gray-400 text-xs">°</span>
-                  <button type="submit" className="text-xs px-1.5 py-0.5 bg-brand text-white rounded font-medium">✓</button>
-                </form>
-              )
-            })()}
-            {/* Navigation help */}
-            <button
-              onClick={() => setShowHelp(v => !v)}
-              title="Boshqaruv bo'yicha yordam"
-              className="flex items-center justify-center w-7 h-7 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-            >
-              ?
-            </button>
-            {/* Recenter: snap the orbit pivot back to the room centre */}
-            <button
-              onClick={() => setPresetVersion(n => n + 1)}
-              title="Markazlash — kamerani xona markaziga qaytarish"
-              className="flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-              </svg>
-              <span className="hidden sm:inline">Markaz</span>
-            </button>
-            {/* Cutaway mode: interior → auto cutaway → fixed diorama.
-                Disabled in top view where the shell is already open. */}
-            <button
-              onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
-              disabled={topView}
-              title={
-                topView ? "Yuqoridan ko'rinishda kesma shart emas"
-                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
-                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
-                : "Ichki ko'rinishga qaytish"
-              }
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                topView
-                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                  : cutaway !== 'off'
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
-                <path d="M3 8l9 5 9-5M12 13v9" />
-              </svg>
-              <span className="hidden sm:inline">
-                {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
-              </span>
-            </button>
-            {/* Scene light (sun + environment) toggle */}
-            <button
-              onClick={() => setSceneLightOn(v => !v)}
-              title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                sceneLightOn
-                  ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
-                  : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-              </svg>
-              <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
-            </button>
-            {/* Sun clock. Only meaningful while the sun is the light source, so
-                it rides with the day/night toggle. */}
-            {sceneLightOn && (
-              <div
-                className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
-                title="Quyosh vaqti — Toshkent bo'yicha"
-              >
-                <span className="text-[11px] font-semibold text-amber-800 tabular-nums w-9 text-right">
-                  {formatClock(sunHour)}
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={23.75}
-                  step={0.25}
-                  value={sunHour}
-                  onChange={(e) => setSunHour(parseFloat(e.target.value))}
-                  aria-label="Quyosh vaqti"
-                  className="w-14 sm:w-24 accent-amber-500 cursor-pointer"
-                />
-              </div>
-            )}
-            <button
-              onClick={() => setLightsOn(v => !v)}
-              title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                lightsOn
-                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
-                  : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 8.7 19 7c0-3.3-2.7-6-6-6S7 3.7 7 7c0 1.7 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/>
-                <path d="M9 18h6M10 22h4"/>
-              </svg>
-              <span className="hidden sm:inline">{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
-            </button>
-            {/* AI builder button */}
-            <button
-              onClick={() => setShowAiSheet(true)}
-              title="AI bilan qurish"
-              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shrink-0"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
-              </svg>
-              <span className="hidden sm:inline">AI</span>
-            </button>
-            {/* Mobile: design panel toggle */}
-            <button
-              onClick={() => setShowPanel(v => !v)}
-              title="Dizayn paneli"
-              className="lg:hidden flex items-center justify-center gap-1 px-2 py-2 min-h-[44px] min-w-[44px] rounded-full text-xs font-medium bg-brand text-white shrink-0"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
-                <path d="M13.5 9v3.5M19 14.5V11l-5.5-2M6 14.5V11l5.5-2"/>
-              </svg>
-              <span className="hidden sm:inline">Dizayn</span>
-            </button>
-          </div>
+          {/* Open the tools + design drawer. Every view/edit control now
+              lives inside it, so the viewport stays clean. */}
+          <button
+            onClick={() => setShowPanel(v => !v)}
+            title="Asboblar va dizayn"
+            className={`ml-auto flex items-center justify-center gap-1.5 px-3 py-2 lg:py-1.5 min-h-[44px] lg:min-h-0 rounded-full text-xs font-medium transition-colors shrink-0 border ${
+              showPanel ? 'bg-brand text-white border-brand' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span>Sozlamalar</span>
+          </button>
         </div>
 
         {/* Canvas area */}
@@ -4850,7 +4779,12 @@ export default function ThreeDPage() {
         </div>
       </div>
 
-      {/* ── Right: contextual design panel ───────────────────────── */}
+      {/* ── Right: contextual design panel (on-demand drawer) ─────────
+          No longer pinned open: the 3D viewport runs full-width, and the
+          panel slides in only when a surface's radial menu or the "Dizayn"
+          toggle asks for it. On mobile it rises from the bottom; on desktop
+          it slides in from the right without a backdrop, so the room keeps
+          updating live while colours/finishes are being picked. */}
 
       {/* Mobile backdrop */}
       {showPanel && (
@@ -4860,26 +4794,255 @@ export default function ThreeDPage() {
         />
       )}
 
-      {/* Panel — desktop: static sidebar | mobile: slide-up sheet */}
+      {/* Panel — mobile: slide-up sheet | desktop: slide-in right drawer */}
       <div
         className={[
-          /* mobile base */
-          'fixed bottom-0 left-0 right-0 z-50 max-h-[72vh] rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden',
+          'fixed z-50 bg-surface shadow-2xl transition-transform duration-300 ease-in-out flex flex-col',
+          /* mobile base: bottom sheet */
+          'bottom-0 left-0 right-0 max-h-[72vh] rounded-t-2xl overflow-hidden',
           showPanel ? 'translate-y-0' : 'translate-y-full',
-          /* desktop override */
-          'lg:static lg:translate-y-0 lg:max-h-none lg:h-full lg:rounded-none lg:shadow-none lg:z-auto lg:overflow-auto',
+          /* desktop: right-edge drawer (cancel the y-translate, drive x) */
+          'lg:top-0 lg:bottom-0 lg:left-auto lg:right-0 lg:h-full lg:w-72 lg:max-h-none lg:rounded-none lg:border-l lg:border-gray-200 lg:translate-y-0',
+          showPanel ? 'lg:translate-x-0' : 'lg:translate-x-full',
         ].join(' ')}
       >
         {/* Mobile drag handle */}
         <div
-          className="lg:hidden flex justify-center pt-2 pb-0.5 bg-surface rounded-t-2xl cursor-pointer"
+          className="lg:hidden shrink-0 flex justify-center pt-2 pb-0.5 bg-surface rounded-t-2xl cursor-pointer"
           onClick={() => setShowPanel(false)}
         >
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
+        {/* Desktop header with close */}
+        <div className="hidden lg:flex shrink-0 items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-surface">
+          <span className="text-sm font-semibold text-gray-800">Asboblar va dizayn</span>
+          <button
+            onClick={() => setShowPanel(false)}
+            aria-label="Yopish"
+            title="Yopish"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        {/* Scroll body */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* ── Asboblar va ko'rinish (viewportdan ko'chirilgan) ── */}
+        <div className="p-4 pb-0 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Asboblar va ko'rinish</h3>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center bg-gray-100 rounded-full p-1 gap-0.5">
+              <button
+                onClick={() => setToolMode('select')}
+                title="Tanlash"
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
+                </svg>
+                <span className="hidden sm:inline">Tanlash</span>
+              </button>
+              <button
+                onClick={() => setToolMode('move')}
+                title="Siljitish"
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
+                </svg>
+                <span className="hidden sm:inline">Siljitish</span>
+              </button>
+              <button
+                onClick={() => setToolMode('rotate')}
+                title="Aylantirish"
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+                <span className="hidden sm:inline">Aylantirish</span>
+              </button>
+              <button
+                onClick={() => setToolMode('scale')}
+                title="O'lcham"
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
+                </svg>
+                <span className="hidden sm:inline">O'lcham</span>
+              </button>
+              <button
+                onClick={() => setToolMode('part')}
+                title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
+                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
+                  toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
+                  <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
+                  <path d="M16 3.5l-8 4.5"/>
+                </svg>
+                <span className="hidden sm:inline">Qismlar</span>
+              </button>
+            </div>
+            {toolMode === 'rotate' && selectedFurId && (() => {
+              const item = furniture.find(f => f.id === selectedFurId)
+              if (!item) return null
+              const currentDeg = Math.round(item.rotation * (180 / Math.PI))
+              return (
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={e => {
+                    e.preventDefault()
+                    const deg = parseFloat(angleInputDeg)
+                    if (!isNaN(deg)) {
+                      moveFurniture(item.id, item.x, item.y, deg * (Math.PI / 180))
+                      setAngleInputDeg('')
+                    }
+                  }}
+                >
+                  <input
+                    key={selectedFurId + currentDeg}
+                    type="number"
+                    defaultValue={currentDeg}
+                    onChange={e => setAngleInputDeg(e.target.value)}
+                    placeholder={`${currentDeg}°`}
+                    className="w-14 text-xs border border-gray-300 rounded px-1 py-0.5 text-center focus:outline-none focus:border-brand"
+                    title="Burchakni darajada kiriting va Enter bosing"
+                  />
+                  <span className="text-gray-400 text-xs">°</span>
+                  <button type="submit" className="text-xs px-1.5 py-0.5 bg-brand text-white rounded font-medium">✓</button>
+                </form>
+              )
+            })()}
+            {/* Navigation help */}
+            <button
+              onClick={() => setShowHelp(v => !v)}
+              title="Boshqaruv bo'yicha yordam"
+              className="flex items-center justify-center w-7 h-7 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            >
+              ?
+            </button>
+            {/* Recenter: snap the orbit pivot back to the room centre */}
+            <button
+              onClick={() => setPresetVersion(n => n + 1)}
+              title="Markazlash — kamerani xona markaziga qaytarish"
+              className="flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+              </svg>
+              <span className="hidden sm:inline">Markaz</span>
+            </button>
+            {/* Cutaway mode: interior → auto cutaway → fixed diorama.
+                Disabled in top view where the shell is already open. */}
+            <button
+              onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
+              disabled={topView}
+              title={
+                topView ? "Yuqoridan ko'rinishda kesma shart emas"
+                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                : "Ichki ko'rinishga qaytish"
+              }
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                topView
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                  : cutaway !== 'off'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+                <path d="M3 8l9 5 9-5M12 13v9" />
+              </svg>
+              <span className="hidden sm:inline">
+                {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
+              </span>
+            </button>
+            {/* Scene light (sun + environment) toggle */}
+            <button
+              onClick={() => setSceneLightOn(v => !v)}
+              title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                sceneLightOn
+                  ? 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200'
+                  : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+              <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
+            </button>
+            {/* Sun clock. Only meaningful while the sun is the light source, so
+                it rides with the day/night toggle. */}
+            {sceneLightOn && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
+                title="Quyosh vaqti — Toshkent bo'yicha"
+              >
+                <span className="text-[11px] font-semibold text-amber-800 tabular-nums w-9 text-right">
+                  {formatClock(sunHour)}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={23.75}
+                  step={0.25}
+                  value={sunHour}
+                  onChange={(e) => setSunHour(parseFloat(e.target.value))}
+                  aria-label="Quyosh vaqti"
+                  className="w-14 sm:w-24 accent-amber-500 cursor-pointer"
+                />
+              </div>
+            )}
+            <button
+              onClick={() => setLightsOn(v => !v)}
+              title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                lightsOn
+                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
+                  : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 8.7 19 7c0-3.3-2.7-6-6-6S7 3.7 7 7c0 1.7 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/>
+                <path d="M9 18h6M10 22h4"/>
+              </svg>
+              <span className="hidden sm:inline">{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
+            </button>
+            {/* AI builder button */}
+            <button
+              onClick={() => setShowAiSheet(true)}
+              title="AI bilan qurish"
+              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shrink-0"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+              </svg>
+              <span className="hidden sm:inline">AI</span>
+            </button>
+          </div>
+        </div>
         <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
           selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
           armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
+        </div>
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}

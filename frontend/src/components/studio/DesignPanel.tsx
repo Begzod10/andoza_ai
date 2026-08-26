@@ -1773,7 +1773,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   )
 
   return (
-    <aside className="w-full lg:w-72 lg:shrink-0 bg-surface border-l border-gray-200 overflow-y-auto lg:h-full">
+    <aside className="w-full bg-surface">
       {/* Mounted at the root so every phase's upload button can reach it */}
       <input
         ref={textureFileRef}
