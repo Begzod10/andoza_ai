@@ -3684,12 +3684,6 @@ function CameraAnimator({
 
 export type { PhaseKey } from "@/lib/phases"
 
-/**
- * Phases whose panel is a working surface the user is placing things from.
- * Selecting a wall must not replace it.
- */
-const PANEL_OWNING_PHASES = new Set<PhaseKey>(['chiroq'])
-
 // Touch/mobile studio. The studio is embedded in a mobile WebView, which can
 // (wrongly) report a fine pointer — so `(pointer:fine)` is unreliable here.
 // Detect real touch capability, plus the same narrow-viewport breakpoint the
@@ -3865,16 +3859,29 @@ export default function ThreeDPage() {
    * user was placing became unreachable.
    */
   function focusSurface(id: string) {
-    // A long-press that opened the radial menu also ends in a click — swallow
-    // that one click so it doesn't jump the phase out from under the menu.
-    if (heldRef.current) { heldRef.current = false; return; }
-    // Tapping the bare wall dismisses any selected window/door.
+    // Highlight the surface + drop any selected window/door. The design
+    // actions themselves now live in the radial menu (openSurfaceMenu), which
+    // opens on the same click — so we no longer force the paint panel here.
     setSelOpening(null);
-    // Suvoq bosqichida devorlar tahrirlashga ochiq emas — kamera
-    // boshqaruvi paytidagi tasodifiy klik fazani almashtirmasin.
-    if (activePhase === 'suvoq') return;
     setSelectedWall(id);
-    if (!PANEL_OWNING_PHASES.has(activePhase)) setActivePhase('boyoq');
+  }
+
+  /**
+   * Open the surface radial ("aylana") menu at the tap/click point. This is the
+   * PRIMARY trigger now (works with a single mouse click on desktop and a tap
+   * on touch); the long-press path below still works as an alternative. The
+   * click carries the R3F world hit (`e.point`) so a created window/door lands
+   * exactly where the surface was tapped.
+   */
+  function openSurfaceMenu(surface: RadialSurface, wallId: string | undefined, e: any) {
+    // If a long-press already opened the menu, its trailing click must not
+    // reopen/replace it.
+    if (heldRef.current) { heldRef.current = false; return; }
+    const x = e?.nativeEvent?.clientX ?? e?.clientX ?? 0;
+    const y = e?.nativeEvent?.clientY ?? e?.clientY ?? 0;
+    const point = e?.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : (holdPoint.current ?? undefined);
+    if (controlsRef.current) controlsRef.current.enabled = false;
+    setRadial({ surface, wallId, x, y, point });
   }
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
@@ -3925,6 +3932,7 @@ export default function ThreeDPage() {
   /** Pointer handlers to spread onto a surface's wrapping <group>. */
   function holdBind(surface: RadialSurface, wallId?: string) {
     return {
+      onClick: (e: any) => openSurfaceMenu(surface, wallId, e),
       onPointerDown: (e: any) => startHold(surface, wallId, e),
       onPointerMove: (e: any) => moveHold(e),
       onPointerUp: () => clearHold(),
