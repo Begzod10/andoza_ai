@@ -748,7 +748,7 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   setDesignState(patch) {
-    set((state) => ({ designState: { ...state.designState, ...patch } }))
+    set((state) => ({ designState: { ...state.designState, ...patch }, isDirty: true }))
   },
 
   setFloorTexture(url) {
@@ -764,6 +764,7 @@ export const useRoomStore = create<RoomStore>()(
           ? { ALL: covering }
           : { ...state.designState.wallCoverings, [wallId]: covering },
       },
+      isDirty: true,
     }))
   },
 
@@ -775,6 +776,7 @@ export const useRoomStore = create<RoomStore>()(
           ? { ALL: settings }
           : { ...state.designState.wallPanels, [wallId]: settings },
       },
+      isDirty: true,
     }))
   },
 
