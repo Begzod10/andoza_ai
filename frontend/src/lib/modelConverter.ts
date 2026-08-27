@@ -86,6 +86,55 @@ function toStandardMaterials(root: THREE.Object3D): number {
   return converted.size
 }
 
+/** Every texture slot MeshStandardMaterial (and glTF-sourced materials)
+ *  carries — used by stripUnloadedTextures to catch broken bindings. */
+const TEXTURE_SLOTS = [
+  'map', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap',
+  'metalnessMap', 'alphaMap', 'aoMap', 'emissiveMap', 'envMap',
+  'lightMap', 'specularMap', 'gradientMap',
+] as const
+
+type TexturedMaterial = THREE.Material &
+  Partial<Record<(typeof TEXTURE_SLOTS)[number], THREE.Texture | null>>
+
+/**
+ * Some FBX/OBJ material channels — an external texture the manager's
+ * onError already flagged as missing, or an exotic map type (e.g.
+ * ShininessExponent, VectorDisplacementColor) the loader partially wires up
+ * before giving up on — leave a THREE.Texture bound to a material slot with
+ * no decoded `.image`. GLTFExporter throws outright on such a texture ("No
+ * valid image data found"), which used to abort the whole import over one
+ * bad slot in an otherwise-good model.
+ *
+ * Strip any texture missing image data before export. A material minus a
+ * broken map still renders (flat color); a failed export renders nothing.
+ * Returns how many texture slots were cleared.
+ */
+function stripUnloadedTextures(root: THREE.Object3D): number {
+  let cleared = 0
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const raw of mats) {
+      if (!raw) continue
+      const m = raw as TexturedMaterial
+      let touched = false
+      for (const slot of TEXTURE_SLOTS) {
+        const tex = m[slot]
+        if (tex && !tex.image) {
+          tex.dispose()
+          m[slot] = null
+          cleared++
+          touched = true
+        }
+      }
+      if (touched) m.needsUpdate = true
+    }
+  })
+  return cleared
+}
+
 function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
   // An empty scene would sail through as a 0×0 m entry with no materials and
@@ -516,7 +565,11 @@ export async function convertFilesToGlb(
       const stripped = stripBackdropPlanes(gltf.scene)
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
-      const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
+      const texturesCleared = stripUnloadedTextures(gltf.scene)
+      const buffer =
+        stripped + assigned + uvFixed + texturesCleared > 0
+          ? await toGlbBuffer(gltf.scene)
+          : origBuffer
       const thumbnailUrl = renderThumbnail(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
@@ -527,6 +580,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      stripUnloadedTextures(gltf.scene)
       const thumbnailUrl = renderThumbnail(gltf.scene)
       const buffer = await toGlbBuffer(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
@@ -548,6 +602,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
       const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
@@ -560,6 +615,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
       const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
