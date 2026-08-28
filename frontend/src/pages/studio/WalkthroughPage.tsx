@@ -5,7 +5,9 @@ import * as THREE from "three";
 import type { PointerLockControls as PointerLockControlsImpl } from "three-stdlib";
 import { useOutletContext } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
-import { RoomScene, SceneLighting, FurnitureModels, PlacedLights, BrandedSky, type StudioContext } from "./ThreeDPage";
+import { RoomScene, SceneLighting, FurnitureModels, PlacedLights, type StudioContext } from "./ThreeDPage";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+import { DEFAULT_HDRI } from "@/lib/hdri";
 import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
 import { roomExtents } from '@/lib/roomDims';
 import { sunPosition, dayOfYear } from '@/lib/sunPosition';
@@ -148,9 +150,9 @@ export default function WalkthroughPage() {
       >
         <Suspense fallback={null}>
           <SceneLighting width={roomW} depth={roomD} height={roomH} highQuality={true} sun={sun} />
-          {/* The generated sky is what shows through the windows, and it owns
-              scene.background — a solid colour here would paint over it. */}
-          <BrandedSky sun={sun} />
+          {/* The Kloofendal sky photo is what shows through the windows, and it
+              owns scene.background — a solid colour here would paint over it. */}
+          <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background />
 
           <RoomScene
             room={room}

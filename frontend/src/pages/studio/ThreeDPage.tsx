@@ -41,6 +41,8 @@ import {
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
 import { ShadowShell } from "@/features/studio/shadowShell";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+import { DEFAULT_HDRI } from "@/lib/hdri";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import {
@@ -4981,7 +4983,11 @@ export default function ThreeDPage() {
                   highQuality={highQuality3d}
                   sun={sun}
                 />
-                <BrandedSky sun={sun} />
+                {/* Real sky photo (Kloofendal, Poly Haven) — the product default
+                    for every room. It owns scene.background and doubles as
+                    image-based fill light; the sun clock keeps driving the
+                    directional light and shadows above it. */}
+                <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background />
               </>
             )}
             {/* Scene light off: soft ambient + hemisphere fill keep the floor,
