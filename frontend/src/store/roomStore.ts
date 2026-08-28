@@ -86,6 +86,15 @@ export interface PlacedFurniture {
   scaleOverride?: number
   /** Per-material color tints (material name → hex). '*' = wildcard for all materials. */
   colorOverrides?: Record<string, string>
+  /** Deleted/detached sub-object keys ("indexPath:name" from modelParts.ts) — pruned from the scene graph on load. */
+  hiddenParts?: string[]
+  /** Display name snapshot — set for user-uploaded models (see placeFurniture)
+   *  so the backend smeta line reads "Jihoz: <name>" instead of a raw id. */
+  name?: string
+  /** Per-item price snapshot, so'm. Set for user-uploaded models at placement
+   *  time (see placeFurniture) — there is no shared catalog slug to price a
+   *  one-off upload by, so the price travels with the placed instance itself. */
+  unitPriceUzs?: number
 }
 
 export interface UserFurnitureEntry {
@@ -94,17 +103,35 @@ export interface UserFurnitureEntry {
   emoji: string
   blobId: string
   modelPath: string  // blob URL — restored from IndexedDB on startup
+  /** JPEG data URL preview rendered from the model itself at import time
+   *  (see modelConverter.renderThumbnail). Absent for entries imported
+   *  before this existed, or when the render failed — falls back to emoji. */
+  thumbnailUrl?: string
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures: boolean
   /** Which catalog chip the model is filed under. Optional: entries persisted
    *  before categories existed have none, and are treated as 'boshqa'. */
   category?: FurnitureCategory
+  /** Estimated price, so'm — editable by the user, defaulted by category at
+   *  import time (see estimateFurniturePriceUzs). Carried onto each placed
+   *  instance as PlacedFurniture.unitPriceUzs so the smeta/hisoblagich page
+   *  can price a room's own uploaded furniture, not just the built-in catalog. */
+  priceUzs?: number
 }
 
 export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
 
+/** Flat stand-in colour for plastered walls (2-D views, swatches, estimates). */
+export const PLASTER_BASE_COLOR = '#7C7E80'
+
+export type FloorState = 'xom_beton' | 'styajka' | 'qoplama_bor' | null
+
+export type CeilingState = 'xom' | 'suvoq' | 'tayyor' | null
+
 export type WallCovering =
+  /** Raw plastered/concrete wall — how a room looks before any finishing. */
+  | { kind: 'plaster' }
   | { kind: 'paint'; color: string }
   | { kind: 'oboy'; patternId: string; baseColor: string; accentColor: string }
   | { kind: 'texture'; url: string; color: string; repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }
@@ -131,9 +158,17 @@ export interface FloorTextureSettings {
 export interface DesignState {
   wallCoverings: { ALL: WallCovering } & Partial<Record<string, WallCovering>>
   floorType: FloorType
+  /** Set once the user actually visits Pol and picks something (handleSetFloorType).
+   *  Until then floorType just holds the schema default ('parquet'), and the
+   *  3D view renders a neutral placeholder instead of a full plank texture no
+   *  one chose — see loadDraftState for how legacy rooms without this key
+   *  are treated as already-configured so they don't lose their floor. */
+  floorConfigured?: boolean
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
+  floorState?: FloorState
+  ceilingState?: CeilingState
   /** The ceiling profile and the numbers behind it. Optional: rooms designed
    *  before the picker existed read as the undropped slab they were drawn as. */
   ceiling?: { design: CeilingDesignId; settings?: Partial<CeilingSettings> }
@@ -162,6 +197,7 @@ export function resolveWallColor(
   wallId?: string,
 ): string {
   const c = resolveWallCovering(coverings, wallId)
+  if (c.kind === 'plaster') return PLASTER_BASE_COLOR
   return c.kind === 'paint' ? c.color : c.kind === 'texture' ? c.color : c.baseColor
 }
 
@@ -186,6 +222,7 @@ interface RoomPayload {
         sashes?: number | null
       }>
     }>
+    vertices?: [number, number][]
   } | null
 }
 
@@ -236,6 +273,7 @@ interface RoomStore {
   resizeFurniture(id: string, scaleOverride: number): void
   removeFurniture(id: string): void
   setFurnitureColors(id: string, overrides: Record<string, string>): void
+  hideFurniturePart(id: string, partKey: string): void
   addElectrical(e: PlacedElectrical): void
   moveElectrical(id: string, positionMm: number): void
   removeElectrical(id: string): void
@@ -248,6 +286,7 @@ interface RoomStore {
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
   setUserFurnitureCategory(id: string, category: FurnitureCategory): void
+  setUserFurniturePrice(id: string, priceUzs: number): void
   loadRoom(room: RoomPayload): void
   loadDraftState(state: Record<string, unknown>): void
   setRoomId(id: string): void
@@ -349,8 +388,11 @@ export function repairDesignState(d: DesignState): DesignState {
 }
 
 export const DEFAULT_DESIGN_STATE: DesignState = {
-  wallCoverings: { ALL: { kind: 'paint', color: '#D8D3C8' } },
+  // A brand-new room starts as bare plastered concrete — the real state of a
+  // flat before any finishing work, and the baseline every phase builds on.
+  wallCoverings: { ALL: { kind: 'plaster' } },
   floorType: 'parquet',
+  floorConfigured: false,
   ceiling: { design: DEFAULT_CEILING_DESIGN },
   wallPanels: {
     ALL: {
@@ -505,10 +547,24 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   placeFurniture(item) {
-    set((state) => ({
-      isDirty: true,
-      furniture: [...state.furniture, item],
-    }))
+    set((state) => {
+      // A user-uploaded model has no shared catalog slug to price by later —
+      // snapshot its name/price onto the placed instance now, at the one
+      // point every placement path (drag-in, AI builder, add-object sheet)
+      // funnels through, so callers don't each need to know about pricing.
+      const userEntry = state.userFurniture.find((f) => f.id === item.furniture_id)
+      const enriched = userEntry
+        ? {
+            ...item,
+            name: item.name ?? userEntry.name,
+            unitPriceUzs: item.unitPriceUzs ?? userEntry.priceUzs,
+          }
+        : item
+      return {
+        isDirty: true,
+        furniture: [...state.furniture, enriched],
+      }
+    })
   },
 
   moveFurniture(id, x, y, rotation) {
@@ -541,6 +597,17 @@ export const useRoomStore = create<RoomStore>()(
       isDirty: true,
       furniture: state.furniture.map((f) =>
         f.id === id ? { ...f, colorOverrides: overrides } : f,
+      ),
+    }))
+  },
+
+  hideFurniturePart(id, partKey) {
+    set((state) => ({
+      isDirty: true,
+      furniture: state.furniture.map((f) =>
+        f.id === id && !(f.hiddenParts ?? []).includes(partKey)
+          ? { ...f, hiddenParts: [...(f.hiddenParts ?? []), partKey] }
+          : f,
       ),
     }))
   },
@@ -611,6 +678,12 @@ export const useRoomStore = create<RoomStore>()(
     }))
   },
 
+  setUserFurniturePrice(id, priceUzs) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, priceUzs } : f),
+    }))
+  },
+
   loadRoom(room) {
     // API geometry is in metres with 0–1 position fractions; the store uses mm.
     // Sets only identity + authoritative geometry — design state, furniture and
@@ -675,7 +748,13 @@ export const useRoomStore = create<RoomStore>()(
       ceilingHeight: s.ceilingHeight ?? 2700,
       geometry: cleanGeometry,
       wizardStep: s.wizardStep ?? 0,
-      designState: s.designState ? repairDesignState(s.designState) : DEFAULT_DESIGN_STATE,
+      // Rooms saved before floorConfigured existed have a real, user-visible
+      // floor already — default the backfill to true so they don't suddenly
+      // go neutral. A genuinely new room has no designState at all yet, so it
+      // falls through to DEFAULT_DESIGN_STATE's explicit floorConfigured: false.
+      designState: s.designState
+        ? repairDesignState({ floorConfigured: true, ...s.designState })
+        : DEFAULT_DESIGN_STATE,
       name: s.name ?? 'Xona',
       roomId: s.roomId ?? null,
       furniture: s.furniture ?? [],
@@ -767,7 +846,7 @@ export const useRoomStore = create<RoomStore>()(
   },
 }),
     {
-      name: 'uyvision-room-draft',
+      name: 'andoza-ai-room-draft',
       version: 3,
       partialize: (state) => ({
         draftId: state.draftId,

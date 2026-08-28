@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as RadixToast from '@radix-ui/react-toast'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,13 +31,13 @@ export function useToast(): ToastContextValue {
 
 const variantStyles: Record<ToastVariant, string> = {
   default:
-    'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
+    'bg-white border border-neutral-200 shadow-card',
   success:
-    'bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800',
+    'bg-green-50 border border-green-200 shadow-card',
   warning:
-    'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800',
+    'bg-orange-50 border border-orange-200 shadow-card',
   error:
-    'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800',
+    'bg-red-50 border border-red-200 shadow-card',
 }
 
 const variantIconMap: Record<ToastVariant, string> = {
@@ -47,17 +48,17 @@ const variantIconMap: Record<ToastVariant, string> = {
 }
 
 const variantIconColor: Record<ToastVariant, string> = {
-  default: 'text-neutral-500',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  error: 'text-red-600 dark:text-red-400',
+  default: 'text-neutral-600',
+  success: 'text-green-600',
+  warning: 'text-orange-600',
+  error: 'text-red-600',
 }
 
 const variantTitleColor: Record<ToastVariant, string> = {
-  default: 'text-neutral-900 dark:text-white',
-  success: 'text-emerald-900 dark:text-emerald-100',
-  warning: 'text-amber-900 dark:text-amber-100',
-  error: 'text-red-900 dark:text-red-100',
+  default: 'text-neutral-900',
+  success: 'text-green-900',
+  warning: 'text-orange-900',
+  error: 'text-red-900',
 }
 
 // ─── Single Toast ─────────────────────────────────────────────────────────────
@@ -66,6 +67,9 @@ interface ToastItemProps extends ToastData {
   onClose(id: string): void
 }
 
+/**
+ * Single toast notification item.
+ */
 function ToastItem({ id, variant = 'default', title, description, onClose }: ToastItemProps) {
   return (
     <RadixToast.Root
@@ -73,20 +77,17 @@ function ToastItem({ id, variant = 'default', title, description, onClose }: Toa
       onOpenChange={(open) => {
         if (!open) onClose(id)
       }}
-      className={[
-        'relative flex items-start gap-3 p-4 rounded-xl shadow-lg',
+      className={cn(
+        'relative flex items-start gap-3 p-4 rounded-lg',
         'data-[state=open]:animate-slide-in-from-right',
         'data-[state=closed]:animate-fade-out',
         variantStyles[variant],
-      ].join(' ')}
-      style={{ minWidth: 260, maxWidth: 360 }}
+      )}
+      style={{ minWidth: 280, maxWidth: 380 }}
     >
       {/* Icon */}
       <span
-        className={[
-          'flex-shrink-0 w-5 h-5 mt-0.5 text-sm font-bold flex items-center justify-center',
-          variantIconColor[variant],
-        ].join(' ')}
+        className={cn('flex-shrink-0 w-5 h-5 mt-0.5 text-sm font-bold flex items-center justify-center', variantIconColor[variant])}
         aria-hidden="true"
       >
         {variantIconMap[variant]}
@@ -95,15 +96,17 @@ function ToastItem({ id, variant = 'default', title, description, onClose }: Toa
       {/* Content */}
       <div className="flex-1 min-w-0">
         <RadixToast.Title
-          className={[
-            'text-sm font-semibold leading-snug',
-            variantTitleColor[variant],
-          ].join(' ')}
+          className={cn('text-sm font-semibold leading-snug', variantTitleColor[variant])}
         >
           {title}
         </RadixToast.Title>
         {description && (
-          <RadixToast.Description className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400 leading-snug">
+          <RadixToast.Description className={cn(
+            'mt-1 text-xs leading-snug',
+            variant === 'default'
+              ? 'text-neutral-600'
+              : 'text-neutral-700',
+          )}>
             {description}
           </RadixToast.Description>
         )}
@@ -111,11 +114,27 @@ function ToastItem({ id, variant = 'default', title, description, onClose }: Toa
 
       {/* Close button */}
       <RadixToast.Close
-        className="flex-shrink-0 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+        className={cn(
+          'flex-shrink-0 rounded p-1 transition-colors',
+          'text-neutral-400 hover:text-neutral-600',
+          'hover:bg-neutral-200',
+        )}
         aria-label="Yopish"
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M1 1l12 12M13 1L1 13"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
         </svg>
       </RadixToast.Close>
     </RadixToast.Root>

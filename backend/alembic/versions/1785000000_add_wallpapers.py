@@ -4,7 +4,7 @@ Wallpapers uploaded in the studio are global and permanent: any user can pick
 one, and only an admin can remove it.
 
 Revision ID: wallpapers
-Revises: add_deleted
+Revises: 1785000002
 Create Date: 2026-07-31 12:00:00.000000
 
 """
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'wallpapers'
-down_revision = 'add_deleted'
+down_revision = '1785000002'
 branch_labels = None
 depends_on = None
 

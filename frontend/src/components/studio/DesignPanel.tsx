@@ -8,7 +8,7 @@ import {
 import type { Room, Material, Wallpaper, WallpaperKind } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
-import { useRoomStore, resolveWallColor, resolveWallPanel } from "@/store/roomStore";
+import { useRoomStore, resolveWallColor, resolveWallCovering, resolveWallPanel, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { WallCovering, WallPanelSettings, FloorType } from "@/store/roomStore";
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -18,9 +18,13 @@ import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCa
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
+import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
+import type { PlasterFinish } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-import { applyTextureToGlb, listGlbMaterials } from "@/lib/modelConverter";
+import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
+import { useFileDrop, isImageFile, MODEL_FILE_RE } from "@/hooks/useFileDrop";
+import { useModelImport } from "@/hooks/useModelImport";
 import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 
@@ -41,18 +45,26 @@ const WALL_COLORS = [
   "#C4D4E8", "#E8C4C4", "#C4C4E8", "#E8E8C4", "#D85A30",
 ];
 
+// Uzbek names for the swatches below — without these, screen readers and
+// colorblind users have no way to tell the buttons apart.
+const WALL_COLOR_NAMES: Record<string, string> = {
+  "#FFFFFF": "Oq",
+  "#F5F0E8": "Krem",
+  "#E8D5C4": "Bej",
+  "#D4E8D4": "Pista yashil",
+  "#C4D4E8": "Moviy",
+  "#E8C4C4": "Pushti",
+  "#C4C4E8": "Siren",
+  "#E8E8C4": "Och sariq",
+  "#D85A30": "Terrakota",
+};
+
 const FLOOR_TYPES = [
   { key: "parquet",  label: "Parket"  },
   { key: "tile",     label: "Kafel"   },
   { key: "laminate", label: "Laminat" },
   { key: "concrete", label: "Beton"   },
 ];
-
-/**
- * Which panel opened the image picker. It decides both how the chosen image is
- * tiled and which shelf an upload is filed under.
- */
-type TextureIntent = 'wallpaper' | 'plaster' | 'putty';
 
 const WALL_TARGETS: { key: WallTarget; label: string }[] = [
   { key: "ALL",   label: "Hamma devorlar" },
@@ -101,12 +113,196 @@ function PanelInput({
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         className={`w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none transition-colors ${
-          isInvalid ? 'border-red-400 bg-red-50' : 'bg-soft shadow-soft-pressed focus:shadow-soft-pressed-deep'
+          isInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-brand'
         }`}
       />
       {draft !== null && !isNaN(draftVal) && draftVal < minMm && (
         <p className="text-[10px] text-red-500 mt-0.5">Min: {minMm} mm</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * One row of the material editor. Accepts image drops so a texture can be
+ * dragged straight onto the part it belongs to; dropping several images at
+ * once binds a full PBR set (diffuse + normal + roughness + AO).
+ */
+function PartRow({ mat, busy, onFiles, onPick }: {
+  mat: GlbMaterialInfo;
+  busy: boolean;
+  onFiles(files: File[]): void;
+  onPick(): void;
+}) {
+  const { isOver, dropProps } = useFileDrop({
+    onDrop: onFiles,
+    accept: isImageFile,
+    dragKind: 'image',
+    disabled: busy,
+  });
+
+  return (
+    <div
+      {...dropProps}
+      className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition-colors ${
+        isOver ? 'border-brand bg-brand/10 border-dashed' : 'border-gray-200'
+      }`}
+    >
+      <span className={`w-2 h-2 rounded-full shrink-0 ${
+        mat.textured ? 'bg-green-500' : mat.hasMap ? 'bg-amber-400' : 'bg-gray-300'
+      }`} />
+      <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={mat.name}>
+        {isOver ? 'Rasmni qo\'yib yuboring' : mat.name}
+      </span>
+      {!mat.hasUVs && (
+        <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
+      )}
+      <span
+        className={`text-[10px] shrink-0 ${mat.hasMap && !mat.textured ? 'text-amber-600' : 'text-gray-400'}`}
+        title={mat.hasMap && !mat.textured ? "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)" : undefined}
+      >
+        {mat.textured ? 'tekstura ✓' : mat.hasMap ? "ko'rinmaydi" : "yo'q"}
+      </span>
+      <button
+        onClick={onPick}
+        disabled={busy}
+        className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
+      >
+        {busy ? '⏳' : 'Rasm'}
+      </button>
+    </div>
+  );
+}
+
+interface ModelCardEntry {
+  id: string;
+  name: string;
+  emoji: string;
+  sizeM: { w: number; d: number };
+  isUser: boolean;
+  modelPath?: string;
+  hasTextures?: boolean;
+  category?: FurnitureCategory;
+  /** Estimated price, so'm — user models only; feeds the hisoblagich line for this item. */
+  priceUzs?: number;
+  /** Rendered preview of the model itself — user models only; falls back to emoji when absent. */
+  thumbnailUrl?: string;
+}
+
+/**
+ * Catalog / user-model tile. User models double as image drop targets: an
+ * image dropped here skins every untextured part at once (the quick path),
+ * while the 🖼 editor gives per-part control.
+ */
+function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize, onSetPrice }: {
+  entry: ModelCardEntry;
+  count: number;
+  busy: boolean;
+  onPlace(): void;
+  onOpenTexEditor(): void;
+  onRemove(): void;
+  onFiles(files: File[]): void;
+  onRecategorize?(category: FurnitureCategory): void;
+  onSetPrice?(priceUzs: number): void;
+}) {
+  const ready = !entry.isUser || !!entry.modelPath;
+  const canTexture = entry.isUser && !!entry.modelPath;
+  const { isOver, dropProps } = useFileDrop({
+    onDrop: onFiles,
+    accept: isImageFile,
+    dragKind: 'image',
+    disabled: !canTexture || busy,
+  });
+
+  return (
+    <div
+      {...(canTexture ? dropProps : {})}
+      className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
+        ${isOver ? 'border-brand border-dashed bg-brand/5'
+                 : count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
+    >
+      {/* Thumbnail — a real render of the model when available, else the emoji */}
+      <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none overflow-hidden">
+        {!isOver && entry.thumbnailUrl ? (
+          <img src={entry.thumbnailUrl} alt={entry.name} className="w-full h-full object-cover" />
+        ) : (
+          isOver ? '🖼' : entry.emoji
+        )}
+        {entry.isUser && !entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
+        )}
+        {entry.isUser && !entry.hasTextures && entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="px-2 py-1.5 flex-1">
+        <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">
+          {isOver ? "Tekstura qo'yish" : entry.name}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+        {entry.isUser && onRecategorize && (
+          <select
+            value={entry.category ?? 'boshqa'}
+            onChange={(e) => onRecategorize(e.target.value as FurnitureCategory)}
+            className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+            title="Kategoriyani o'zgartirish"
+          >
+            {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        )}
+        {entry.isUser && onSetPrice && (
+          <label className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={entry.priceUzs ?? 0}
+              onChange={(e) => onSetPrice(Math.max(0, Number(e.target.value) || 0))}
+              className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+              title="Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi"
+            />
+            <span className="shrink-0">so'm</span>
+          </label>
+        )}
+      </div>
+
+      {/* Count badge */}
+      {count > 0 && (
+        <span className="absolute top-1 left-1 bg-brand text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          {count}×
+        </span>
+      )}
+
+      {/* Actions row */}
+      <div className="flex border-t border-gray-100">
+        <button
+          onClick={() => ready && onPlace()}
+          disabled={!ready}
+          className="flex-1 py-1.5 text-brand text-sm font-bold hover:bg-brand/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          title="Qo'shish"
+        >
+          + Qo'shish
+        </button>
+        {canTexture && (
+          <button
+            onClick={onOpenTexEditor}
+            disabled={busy}
+            className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
+            title="Teksturalarni boshqarish (kanallar bo'yicha) — yoki rasmni shu kartaga sudrab tashlang"
+          >{busy ? '⏳' : '🖼'}</button>
+        )}
+        {entry.isUser && (
+          <button
+            onClick={onRemove}
+            className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
+            title="Modelni o'chirish"
+          >✕</button>
+        )}
+      </div>
     </div>
   );
 }
@@ -127,12 +323,31 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 }) {
   useRestoreUserModels()
 
-  const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, geometry, ceilingHeight,
+  const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory } =
+          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePrice } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
+
+  // ── Drag & drop of model files anywhere on the Mebel panel ──────────
+  const { importFiles: importModelFiles, status: modelImportStatus, warn: modelImportWarn } = useModelImport();
+  const [dropHint, setDropHint] = React.useState<string | null>(null);
+  const { isOver: modelDropOver, dropProps: modelDropProps } = useFileDrop({
+    accept: (f) => MODEL_FILE_RE.test(f.name),
+    disabled: modelImportStatus === 'loading',
+    onDrop: (files) => {
+      // A lone image dropped on the panel background is ambiguous — it only
+      // means something on a model card or a part row.
+      if (!files.some((f) => /\.(glb|gltf|obj|fbx)$/i.test(f.name))) {
+        setDropHint("Rasmni model kartasi ustiga yoki 🖼 muharridagi qism ustiga tashlang");
+        setTimeout(() => setDropHint(null), 4000);
+        return;
+      }
+      setDropHint(null);
+      void importModelFiles(files, furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat);
+    },
+  });
 
   // ── Manual texturing of imported models (per material channel) ──────
   const texInputRef = React.useRef<HTMLInputElement>(null);
@@ -156,17 +371,19 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }
   }
 
-  async function handleTextureFile(file: File) {
-    const target = texTargetRef.current;
-    texTargetRef.current = null;
-    if (!target) return;
+  /**
+   * Bind one or more images to a model part. Several files at once = a full
+   * PBR material (diffuse + normal + roughness + AO), each routed to its
+   * channel by filename; a single file is just the diffuse case.
+   */
+  async function applyMaterialFiles(target: { entryId: string; index?: number }, files: File[]) {
     const entry = userFurniture.find((e) => e.id === target.entryId);
-    if (!entry) return;
+    if (!entry || files.length === 0) return;
     setTexBusy(target.entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
       if (!buf) throw new Error('Model fayli topilmadi');
-      const newBuf = await applyTextureToGlb(buf, file, target.index);
+      const newBuf = await applyMaterialToGlb(buf, files, target.index);
       await saveModelToDb(entry.blobId, newBuf);
       const newUrl = arrayBufferToBlobUrl(newBuf);
       useGLTF.preload(newUrl);
@@ -213,7 +430,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       targetWall === "ALL"
         ? designState.wallCoverings.ALL
         : (designState.wallCoverings[targetWall] ?? designState.wallCoverings.ALL);
-    if (c.kind === "paint") {
+    if (c.kind === "paint" || c.kind === "plaster") {
+      // Bare plaster is the pre-finish state — offer the paint tab, which is
+      // the first thing a user does to it.
       setCoveringMode("paint");
     } else if (c.kind === "texture") {
       setCoveringMode("texture");
@@ -246,28 +465,35 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }, 600);
   }
 
-  /**
-   * Build the coverings map the way the store does, so what we PUT to the API
-   * is what the store is holding. Setting ALL drops the per-wall overrides —
-   * without that the payload kept them, they came back on the next load, and
-   * an "apply to every wall" silently un-applied itself on the walls that had
-   * been touched individually.
-   */
-  function nextCoverings(wallId: WallTarget, covering: WallCovering) {
-    return wallId === 'ALL'
-      ? { ALL: covering }
-      : { ...designState.wallCoverings, [wallId]: covering };
+  // Reset button: click-to-arm, click-to-confirm — see the render below.
+  const [resetArmed, setResetArmed] = React.useState(false);
+  const resetArmTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current) }, []);
+  function armReset() {
+    setResetArmed(true);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    // Auto-disarm — a confirm row primed from a tap ten minutes ago and then
+    // rediscovered is more dangerous than no confirm step at all.
+    resetArmTimerRef.current = setTimeout(() => setResetArmed(false), 5000);
+  }
+  function cancelReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+  }
+  function confirmReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    resetDesignState();
+    mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } });
   }
 
   function applyWallCovering(covering: WallCovering) {
     setWallCovering(targetWall, covering);
-    syncToApi({ ...designState, wallCoverings: nextCoverings(targetWall, covering), floorType });
-  }
-
-  /** Suvoq applies to the walls as a set — it has no per-wall picker. */
-  function applyToAllWalls(covering: WallCovering) {
-    setWallCovering('ALL', covering);
-    syncToApi({ ...designState, wallCoverings: nextCoverings('ALL', covering), floorType });
+    const updated = {
+      wallCoverings: { ...designState.wallCoverings, [targetWall]: covering },
+      floorType,
+    };
+    syncToApi({ ...designState, ...updated });
   }
 
   function handleSetPaintColor(color: string) {
@@ -306,9 +532,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   function handleSetFloorType(type: string) {
     const ft = type as FloorType;
-    setDesignState({ floorType: ft });
+    setDesignState({ floorType: ft, floorConfigured: true });
     setFloorTexture(null);
-    syncToApi({ ...designState, floorType: ft, floorTexture: null });
+    syncToApi({ ...designState, floorType: ft, floorConfigured: true, floorTexture: null });
   }
 
   const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
@@ -341,6 +567,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }
     setFloorBusy(true);
     setFloorError(null);
+    setDesignState({ floorConfigured: true });
     try {
       const uploaded = await uploadWallpaper(file);
       setFloorTexture(uploaded.url);
@@ -391,16 +618,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     queryFn: () => listWallpapers(),
     staleTime: 60_000,
   });
-  // Suvoq keeps its own shelf: a concrete photo and a floral oboy are not
-  // interchangeable, and mixing them made the Suvoq list unusable.
-  const { data: suvoqTextures = [] } = useQuery<Wallpaper[]>({
-    queryKey: ["wallpapers", "suvoq"],
-    queryFn: () => listWallpapers("suvoq"),
-    staleTime: 60_000,
-  });
-  const { data: shpaklovkaTextures = [] } = useQuery<Wallpaper[]>({
-    queryKey: ["wallpapers", "shpaklovka"],
-    queryFn: () => listWallpapers("shpaklovka"),
+  // Surface photos are shelved per phase (suvoq vs shpaklovka): a bare-concrete
+  // shot is no use as a filled-and-sanded one, so each panel gets back only the
+  // images uploaded from it, instead of every pattern on the server.
+  const surfaceKind: WallpaperKind = phase === 'shpaklovka' ? 'shpaklovka' : 'suvoq';
+  const { data: surfaceTextures = [] } = useQuery<Wallpaper[]>({
+    queryKey: ["wallpapers", surfaceKind],
+    queryFn: () => listWallpapers(surfaceKind),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
@@ -418,62 +642,41 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   // `pickerIntent` records which button opened it, since a plaster photo and a
   // wallpaper roll want different tiling.
   const textureFileRef = React.useRef<HTMLInputElement>(null);
-  const pickerIntent = React.useRef<TextureIntent>('wallpaper');
-  // The two surface phases upload the same way and differ only in which shelf
-  // the image lands on, so the intent is the shelf.
-  const INTENT_KIND: Record<TextureIntent, WallpaperKind> = {
-    wallpaper: 'oboy', plaster: 'suvoq', putty: 'shpaklovka',
-  };
+  const pickerIntent = React.useRef<'wallpaper' | 'plaster'>('wallpaper');
 
-  function openTexturePicker(intent: TextureIntent) {
+  function openTexturePicker(intent: 'wallpaper' | 'plaster') {
     pickerIntent.current = intent;
     setWallpaperError(null);
     textureFileRef.current?.click();
   }
 
-  /** Physical size of one tile of an uploaded wall-surface photo, in metres. */
-  const SURFACE_TILE_M = 2.4;
-
-  /**
-   * Planar UVW map for an uploaded wall-surface photo — plaster or filler, the
-   * tiling is the same either way.
-   *
-   * `repeatX` is read downstream as *tiles per metre* and `repeatY` as a
-   * vertical stretch on top of the image's own aspect ratio. This used to pass
-   * tiles-per-wall instead — on a 4.1 m wall a 2.4 m patch came out at 1.7
-   * tiles/m, so roughly seven tiles across, four times too dense and stretched
-   * vertically on top of that. One over the tile size is the whole conversion.
-   */
-  function surfaceCovering(url: string): WallCovering {
-    return {
-      kind: 'texture',
-      url,
-      color: '#ffffff',
-      repeatX: 1 / SURFACE_TILE_M,
-      repeatY: 1,   // 1 = keep the image's aspect, so tiles stay square
-      offsetX: 0,
-      offsetY: 0,
-      rotation: 0,
-    };
+  /** Wall-sized tiling for an uploaded plaster/concrete photo. */
+  function plasterUploadCovering(url: string): WallCovering {
+    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
+    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
+    // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
+    const { repeatX, repeatY } = plasterRepeat(
+      { ...PLASTER_FINISHES[0], tileM: 2.4 },
+      wallW,
+      wallH,
+    );
+    return { kind: 'texture', url, color: '#ffffff', repeatX, repeatY, offsetX: 0, offsetY: 0, rotation: 0 };
   }
 
   /**
-   * Upload drop-zone, optionally followed by the shared image library.
+   * Upload drop-zone plus the shared image library.
    *
    * Rendered identically wherever a wall image can be chosen — the Bo'yoq
-   * "Rasm" tab and the Suvoq surfaces — so the two phases don't drift into
+   * "Rasm" tab and the Suvoq finishes — so the two phases don't drift into
    * offering the same capability through different-looking controls. `onPick`
    * decides how the chosen image is applied, which is the only real
    * difference: a wallpaper roll and a plaster patch tile differently.
-   *
-   * A null `libraryLabel` drops the library grid and leaves just the upload.
-   * `library` is the shelf to show under it — Suvoq passes its own so the
-   * surfaces uploaded there come back, without the oboy patterns.
    */
   function renderTexturePicker(
-    intent: TextureIntent,
+    intent: 'wallpaper' | 'plaster',
     onPick: (url: string) => void,
-    libraryLabel: string | null,
+    libraryLabel: string,
     library: Wallpaper[] = wallpapers,
   ) {
     const active = targetWall === "ALL"
@@ -500,7 +703,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
 
         {/* Shared library — uploaded once, stays for everyone */}
-        {libraryLabel !== null && library.length > 0 && (
+        {library.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
@@ -512,8 +715,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                   <button
                     onClick={() => onPick(w.url)}
                     title={w.name}
-                    className={`block w-full aspect-square rounded-lg overflow-hidden transition-[box-shadow] duration-200 ${
-                      activeUrl === w.url ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised'
+                    className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                      activeUrl === w.url ? 'border-brand' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <img src={w.url} alt={w.name} loading="lazy" className="w-full h-full object-cover" />
@@ -522,7 +725,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     <button
                       onClick={() => handleWallpaperDelete(w)}
                       title="Kutubxonadan o'chirish"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-soft shadow-soft-raised-sm text-[10px] leading-none text-gray-400 hover:text-[#C0362F] transition-[box-shadow,color] duration-200"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none text-gray-400 hover:text-red-500"
                     >
                       ✕
                     </button>
@@ -552,10 +755,12 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperBusy(true);
     setWallpaperError(null);
     try {
-      const wallpaper = await uploadWallpaper(file, INTENT_KIND[intent]);
-      if (intent === 'wallpaper') applyWallpaper(wallpaper.url);
-      else applyToAllWalls(surfaceCovering(wallpaper.url));
-      // Both shelves: the unfiltered oboy list contains every image too.
+      // A plaster photo is filed under the current surface phase's shelf so it
+      // comes back in that panel after a reload; wallpapers go to the shared
+      // oboy library as before.
+      const wallpaper = await uploadWallpaper(file, intent === 'plaster' ? surfaceKind : 'oboy');
+      if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
+      else applyWallpaper(wallpaper.url);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     } catch (err) {
       setWallpaperError(
@@ -651,8 +856,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={() => setTargetWall(key)}
               className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                 targetWall === key
-                  ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
-                  : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-600"
+                  ? "bg-brand text-white border-brand font-semibold"
+                  : "border-gray-300 text-gray-600 hover:border-brand/50"
               }`}
             >
               {label}
@@ -677,7 +882,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     key={cd.id}
                     onClick={() => handleSetCeilingDesign(cd.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-card border-2 transition-colors ${
-                      active ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
+                      active ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
                     }`}
                   >
                     <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
@@ -690,7 +895,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                       {cd.lighting.map((id) => (
                         <span
                           key={id}
-                          className="text-[10px] px-2 py-0.5 rounded-full bg-soft text-gray-600 shadow-soft-raised-sm"
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
                         >
                           {lightType(id).emoji} {lightType(id).name}
                         </span>
@@ -755,8 +960,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                       onClick={() => handleCeilingSetting({ color: c })}
                       style={{ background: c }}
                       aria-label={c}
-                      className={`w-7 h-7 rounded-full transition-[box-shadow] duration-200 ${
-                        ceilingSettings.color === c ? "ring-2 ring-soft-active shadow-soft-lift" : "shadow-soft-raised-sm hover:shadow-soft-raised"
+                      className={`w-7 h-7 rounded-full border-2 transition-colors ${
+                        ceilingSettings.color === c ? "border-brand" : "border-gray-200"
                       }`}
                     />
                   ))}
@@ -772,13 +977,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         <>
           {/* Turi / Rasm tabs */}
           <section>
-            <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
+            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
               {(['turi', 'rasm'] as FloorMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setFloorMode(mode)}
                   className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                    floorMode === mode ? 'bg-soft text-gray-900 shadow-soft-raised-sm' : 'text-gray-500 hover:text-gray-700'
+                    floorMode === mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {mode === 'turi' ? 'Turi' : 'Rasm'}
@@ -797,8 +1002,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     onClick={() => handleSetFloorType(ft.key)}
                     className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
                       floorType === ft.key
-                        ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
-                        : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
+                        ? "border-brand bg-brand/10 text-brand font-semibold"
+                        : "border-gray-200 hover:border-brand/40 text-gray-700"
                     }`}
                   >
                     {ft.label}
@@ -920,15 +1125,15 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls */}
       {targetWall !== 'FLOOR' && (<>
-      <section>
-        <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
+      <section className="pt-5 border-t border-gray-100">
+        <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           {(["paint", "oboy", "texture"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => handleSetCoveringMode(mode)}
               className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
                 coveringMode === mode
-                  ? "bg-soft text-gray-900 shadow-soft-raised-sm"
+                  ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -940,14 +1145,15 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Paint colors */}
       {coveringMode === "paint" && (
-        <section>
+        <section className="pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
           <div className="flex flex-wrap gap-2">
             {WALL_COLORS.map((color) => (
               <button
                 key={color}
                 onClick={() => handleSetPaintColor(color)}
-                title={color}
+                title={WALL_COLOR_NAMES[color] ?? color}
+                aria-label={WALL_COLOR_NAMES[color] ?? color}
                 className="w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
                 style={{
                   backgroundColor: color,
@@ -963,7 +1169,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Wallpaper patterns */}
       {coveringMode === "oboy" && (
-        <section className="space-y-4">
+        <section className="space-y-4 pt-5 border-t border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
             <div className="grid grid-cols-3 gap-2">
@@ -1032,7 +1238,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Texture upload */}
       {coveringMode === "texture" && (
-        <section className="space-y-3">
+        <section className="space-y-3 pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Devor rasmi</h3>
           {renderTexturePicker('wallpaper', applyWallpaper, 'Oboy kutubxonasi')}
           {(() => {
@@ -1165,7 +1371,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <button
             onClick={() => handlePanelChange({ enabled: !panelSettings.enabled })}
             className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-              panelSettings.enabled ? 'bg-soft-active shadow-soft-lift' : 'bg-soft-deep shadow-soft-pressed'
+              panelSettings.enabled ? 'bg-brand' : 'bg-gray-200'
             }`}
             aria-checked={panelSettings.enabled}
             role="switch"
@@ -1219,14 +1425,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             {/* Orientation */}
             <div>
               <label className="text-xs text-gray-500 block mb-1">Joylashuv</label>
-              <div className="flex gap-1 p-1 bg-soft rounded-full shadow-soft-raised">
+              <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
                 {([0, 90] as const).map((angle) => (
                   <button
                     key={angle}
                     onClick={() => handlePanelChange({ rotation: angle })}
                     className={`flex-1 py-1.5 text-xs rounded-md font-medium transition-colors ${
                       panelSettings.rotation === angle
-                        ? 'bg-soft text-gray-900 shadow-soft-raised-sm'
+                        ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
@@ -1284,111 +1490,115 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     </>
   )
 
-  // ── Wall surfaces: Suvoq (plaster/concrete) and Shpaklovka (filler) ─────
+  // ── Suvoq: bare concrete / plaster finishes ─────────────────────────────
   //
-  // One uploaded image, planar-mapped onto all four walls. There is no
-  // per-wall picker and no floor or ceiling target: a surface is what the walls
-  // are made of, so it is a property of the set, not of one face. Applying to
-  // ALL is also what makes the finish survive a reload — a per-wall override
-  // left behind by another phase would otherwise win over it.
-  //
-  // Suvoq and Shpaklovka are the same panel over different shelves. They are
-  // built from one function rather than copied, because two hand-maintained
-  // copies of a panel drift: that is how the tool group ended up with one
-  // button styled unlike its three neighbours.
+  // Applies through the normal wall-covering path, so the finish is part of
+  // the room's design state and is what the 3D viewport paints. The finishes
+  // are generated as SVG data URLs, which means the wall keeps its surface
+  // after a reload without depending on an uploaded file still being fetchable.
 
-  // What the walls are wearing right now, so a shelf can mark it.
-  const allCovering = designState.wallCoverings.ALL;
-  const activeWallTextureUrl = allCovering.kind === 'texture' ? allCovering.url : null;
+  const currentCoveringUrl =
+    resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall).kind === 'texture'
+      ? (resolveWallCovering(designState.wallCoverings, targetWall === 'ALL' ? undefined : targetWall) as { url: string }).url
+      : null;
 
-  function surfaceSection({ intent, title, blurb, uploadTitle, library }: {
-    intent: Extract<TextureIntent, 'plaster' | 'putty'>
-    title: string
-    blurb: string
-    uploadTitle: string
-    library: Wallpaper[]
-  }) {
-    return (
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
-          <p className="text-[11px] text-gray-400 leading-snug">{blurb}</p>
-        </div>
-
-        {/* Own image — goes to the shared library so the URL keeps resolving,
-            and so it is still there the next time this panel is opened. */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-900">{uploadTitle}</h3>
-          {renderTexturePicker(intent, (url) => applyToAllWalls(surfaceCovering(url)), null)}
-        </div>
-
-        <button
-          onClick={() => applyToAllWalls({ kind: 'paint', color: '#D8D3C8' })}
-          className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
-        >
-          Teksturani olib tashlash
-        </button>
-
-        {/* Everything uploaded here before, ready to re-apply */}
-        {library.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                Saqlangan teksturalar
-              </p>
-              <span className="text-[10px] text-gray-400">{library.length} ta</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {library.map((t) => (
-                <div key={t.id} className="relative">
-                  <button
-                    onClick={() => applyToAllWalls(surfaceCovering(t.url))}
-                    title={t.name}
-                    className={`block w-full aspect-square rounded-lg overflow-hidden transition-[box-shadow] duration-200 ${
-                      activeWallTextureUrl === t.url
-                        ? 'ring-2 ring-soft-active shadow-soft-lift'
-                        : 'shadow-soft-raised-sm hover:shadow-soft-raised'
-                    }`}
-                  >
-                    <img src={t.url} alt={t.name} loading="lazy" className="w-full h-full object-cover" />
-                  </button>
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleWallpaperDelete(t)}
-                      title="Kutubxonadan o'chirish"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-soft shadow-soft-raised-sm text-[10px] leading-none text-gray-400 hover:text-[#C0362F] transition-[box-shadow,color] duration-200"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] leading-4 text-gray-400">
-              Yuklangan rasmlar hamma foydalanuvchilar uchun saqlanadi
-              {isAdmin ? '.' : "; ularni faqat administrator o'chira oladi."}
-            </p>
-          </div>
-        )}
-      </section>
-    );
+  function applyPlaster(finish: PlasterFinish) {
+    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
+    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    const { repeatX, repeatY } = plasterRepeat(finish, wallW, wallH);
+    applyWallCovering({
+      kind: 'texture',
+      url: plasterTextureUrl(finish),
+      color: '#ffffff',
+      repeatX,
+      repeatY,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+    });
   }
 
-  const SuvoqSection = surfaceSection({
-    intent: 'plaster',
-    title: 'Suvoq / Beton',
-    blurb: "Rasm yuklang — u hamma devorlarga qo'llanadi. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.",
-    uploadTitle: 'Suvoq rasmi',
-    library: suvoqTextures,
-  });
+  const SuvoqSection = (
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq / Beton</h3>
+        <p className="text-[11px] text-gray-400 leading-snug">
+          Devor yuzasini tanlang. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.
+        </p>
+      </div>
 
-  const ShpaklovkaSection = surfaceSection({
-    intent: 'putty',
-    title: 'Shpaklovka',
-    blurb: "Shpaklovka rasmini yuklang — u hamma devorlarga qo'llanadi. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.",
-    uploadTitle: 'Shpaklovka rasmi',
-    library: shpaklovkaTextures,
-  });
+      {/* Which wall the finish lands on */}
+      <div>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+          Qaysi devorga
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {WALL_TARGETS.filter((w) => w.key !== 'FLOOR').map((w) => (
+            <button
+              key={w.key}
+              onClick={() => setTargetWall(w.key)}
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
+                targetWall === w.key
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* The finishes */}
+      <div>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+          Beton teksturasi
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          {PLASTER_FINISHES.map((f) => {
+            const url = plasterTextureUrl(f);
+            const active = currentCoveringUrl === url;
+            return (
+              <button
+                key={f.id}
+                onClick={() => applyPlaster(f)}
+                title={f.hint}
+                className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
+                  active ? 'border-brand ring-2 ring-brand/25' : 'border-gray-200 hover:border-brand/50'
+                }`}
+              >
+                <span
+                  className="block h-12 w-full"
+                  style={{ backgroundImage: `url("${url}")`, backgroundSize: '120px 120px' }}
+                />
+                <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-white">
+                  {f.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Own image — goes to the shared library so the URL keeps resolving */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900">Suvoq rasmi</h3>
+        {renderTexturePicker(
+          'plaster',
+          (url) => applyWallCovering(plasterUploadCovering(url)),
+          'Rasm kutubxonasi',
+          surfaceTextures,
+        )}
+      </div>
+
+      <button
+        onClick={() => handleSetPaintColor('#D8D3C8')}
+        className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+      >
+        Teksturani olib tashlash
+      </button>
+    </section>
+  );
 
   const FloorSection = (
     <section>
@@ -1400,8 +1610,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => handleSetFloorType(ft.key)}
             className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
               floorType === ft.key
-                ? "bg-soft-active text-soft-active-ink shadow-soft-lift font-semibold"
-                : "bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed text-gray-700"
+                ? "border-brand bg-brand/10 text-brand font-semibold"
+                : "border-gray-200 hover:border-brand/40 text-gray-700"
             }`}
           >
             {ft.label}
@@ -1431,8 +1641,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   })
 
   const MebelSection = (
-    <section>
+    <section
+      {...modelDropProps}
+      className={`relative rounded-xl transition-colors ${modelDropOver ? 'ring-2 ring-brand ring-offset-2' : ''}`}
+    >
       <h3 className="text-sm font-semibold text-gray-900 mb-2">3D Modellar</h3>
+
+      {modelDropOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/85 border-2 border-dashed border-brand">
+          <p className="text-sm font-semibold text-brand text-center px-4">
+            ⬇ Model faylini qo'yib yuboring<br />
+            <span className="text-[11px] font-normal text-gray-500">GLB · GLTF · OBJ · FBX (+ teksturalari)</span>
+          </p>
+        </div>
+      )}
+      {modelImportStatus === 'loading' && (
+        <p className="text-[11px] text-brand mb-2 animate-pulse">Model yuklanmoqda...</p>
+      )}
+      {dropHint && <p className="text-[11px] text-amber-600 mb-2">{dropHint}</p>}
+      {modelImportWarn && <p className="text-[11px] text-amber-600 mb-2 leading-snug">{modelImportWarn}</p>}
 
       {/* Category chips */}
       <div className="flex gap-1.5 flex-wrap mb-3">
@@ -1442,8 +1669,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onClick={() => setFurnitureCat(c.key)}
             className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap ${
               furnitureCat === c.key
-                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
-                : 'bg-soft text-gray-600 shadow-soft-raised-sm hover:shadow-soft-raised hover:text-gray-900'
+                ? 'bg-brand text-white border-brand'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-brand/50 hover:text-brand'
             }`}
           >
             {c.label}
@@ -1455,86 +1682,40 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       <div className="grid grid-cols-2 gap-2 mb-3">
         {filteredEntries.map((entry) => {
           const count = furniture.filter((f) => f.furniture_id === entry.id).length;
-          const ready = !entry.isUser || !!entry.modelPath;
           return (
-            <div
+            <ModelCard
               key={entry.id}
-              className={`relative flex flex-col rounded-xl border-2 overflow-hidden transition-all
-                ${count > 0 ? 'ring-2 ring-soft-active shadow-soft-lift' : 'shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed'}`}
-            >
-              {/* Thumbnail */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
-                {entry.emoji}
-                {entry.isUser && !entry.modelPath && (
-                  <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
-                )}
-                {entry.isUser && !('hasTextures' in entry && entry.hasTextures) && entry.modelPath && (
-                  <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="px-2 py-1.5 flex-1">
-                <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">{entry.name}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
-                {entry.isUser && (
-                  <select
-                    value={entry.category ?? 'boshqa'}
-                    onChange={(e) => setUserFurnitureCategory(entry.id, e.target.value as FurnitureCategory)}
-                    className="mt-1 w-full text-[10px] text-gray-500 rounded-lg px-1.5 py-0.5 bg-soft shadow-soft-pressed focus:shadow-soft-pressed-deep focus:outline-none"
-                    title="Kategoriyani o'zgartirish"
-                  >
-                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Count badge */}
-              {count > 0 && (
-                <span className="absolute top-1 left-1 bg-soft-active text-soft-active-ink text-[10px] font-bold px-2 py-0.5 rounded-full leading-none shadow-soft-lift">
-                  {count}×
-                </span>
-              )}
-
-              {/* Actions row */}
-              <div className="flex border-t border-gray-100">
-                <button
-                  onClick={() => ready && placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
-                  disabled={!ready}
-                  className="flex-1 py-1.5 text-gray-800 text-sm font-bold hover:bg-soft hover:shadow-soft-raised-sm disabled:opacity-40 disabled:cursor-not-allowed transition-[box-shadow,background-color]"
-                  title="Qo'shish"
-                >
-                  + Qo'shish
-                </button>
-                {entry.isUser && entry.modelPath && (
-                  <button
-                    onClick={() => openTexEditor(entry.id)}
-                    disabled={texBusy === entry.id}
-                    className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
-                    title="Teksturalarni boshqarish (kanallar bo'yicha)"
-                  >{texBusy === entry.id ? '⏳' : '🖼'}</button>
-                )}
-                {entry.isUser && (
-                  <button
-                    onClick={() => {
-                      // Drop the stored GLB too — otherwise deleted models keep
-                      // occupying IndexedDB with nothing referencing them.
-                      if ('blobId' in entry) void deleteModelFromDb(entry.blobId)
-                      removeUserFurniture(entry.id)
-                    }}
-                    className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
-                    title="Modelni o'chirish"
-                  >✕</button>
-                )}
-              </div>
-            </div>
+              entry={{
+                id: entry.id,
+                name: entry.name,
+                emoji: entry.emoji,
+                sizeM: entry.sizeM,
+                isUser: entry.isUser,
+                modelPath: 'modelPath' in entry ? entry.modelPath : undefined,
+                hasTextures: 'hasTextures' in entry ? entry.hasTextures : undefined,
+                category: 'category' in entry ? entry.category : undefined,
+                priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
+                thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
+              }}
+              count={count}
+              busy={texBusy === entry.id}
+              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
+              onOpenTexEditor={() => openTexEditor(entry.id)}
+              onRemove={() => {
+                // Drop the stored GLB too — otherwise deleted models keep
+                // occupying IndexedDB with nothing referencing them.
+                if ('blobId' in entry) void deleteModelFromDb(entry.blobId)
+                removeUserFurniture(entry.id)
+              }}
+              onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
+              onRecategorize={entry.isUser ? (category) => setUserFurnitureCategory(entry.id, category) : undefined}
+              onSetPrice={entry.isUser ? (priceUzs) => setUserFurniturePrice(entry.id, priceUzs) : undefined}
+            />
           );
         })}
 
         {/* Upload card */}
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-soft shadow-soft-pressed transition-[box-shadow] duration-200 hover:shadow-soft-pressed-deep h-full min-h-[130px]">
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
           <ModelImportButton
             compact
             category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
@@ -1546,10 +1727,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           ref={texInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleTextureFile(f);
+            const fs = Array.from(e.target.files ?? []);
+            const target = texTargetRef.current;
+            texTargetRef.current = null;
+            if (fs.length && target) void applyMaterialFiles(target, fs);
             e.target.value = '';
           }}
         />
@@ -1558,44 +1742,31 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       {/* Material channel editor — one image per channel */}
       {texEditor && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setTexEditor(null)}>
-          <div className="w-full max-w-sm bg-soft rounded-[22px] shadow-soft-raised-lg p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm font-bold text-gray-900 truncate">{texEditor.name}</p>
               <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
             </div>
             <p className="text-[11px] text-gray-400 mb-3">
-              {texEditor.mats.length} ta qism. Har biriga alohida rasm qo'yish mumkin — umumiy materiallar avtomatik ajratiladi.
+              {texEditor.mats.length} ta qism. Rasmni to'g'ridan-to'g'ri qism ustiga sudrab tashlang —
+              bir nechta rasm birga tashlansa, nomiga qarab kanallarga taqsimlanadi
+              (rang · normal · rough · AO).
             </p>
             <div className="max-h-72 overflow-y-auto space-y-1.5">
               {texEditor.mats.map((m) => (
-                <div key={m.index} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${
-                    m.textured ? 'bg-green-500' : m.hasMap ? 'bg-amber-400' : 'bg-soft-deep shadow-soft-pressed'
-                  }`} />
-                  <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={m.name}>{m.name}</span>
-                  {!m.hasUVs && (
-                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
-                  )}
-                  <span
-                    className={`text-[10px] shrink-0 ${m.hasMap && !m.textured ? 'text-amber-600' : 'text-gray-400'}`}
-                    title={m.hasMap && !m.textured ? "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)" : undefined}
-                  >
-                    {m.textured ? 'tekstura ✓' : m.hasMap ? "ko'rinmaydi" : "yo'q"}
-                  </span>
-                  <button
-                    onClick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
-                    disabled={texBusy === texEditor.entryId}
-                    className="shrink-0 text-[11px] font-semibold text-gray-700 rounded-full px-2.5 py-1 disabled:opacity-40 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
-                  >
-                    {texBusy === texEditor.entryId ? '⏳' : 'Rasm'}
-                  </button>
-                </div>
+                <PartRow
+                  key={m.index}
+                  mat={m}
+                  busy={texBusy === texEditor.entryId}
+                  onFiles={(files) => void applyMaterialFiles({ entryId: texEditor.entryId, index: m.index }, files)}
+                  onPick={() => { texTargetRef.current = { entryId: texEditor.entryId, index: m.index }; texInputRef.current?.click(); }}
+                />
               ))}
             </div>
             <button
               onClick={() => { texTargetRef.current = { entryId: texEditor.entryId }; texInputRef.current?.click(); }}
               disabled={texBusy === texEditor.entryId}
-              className="mt-3 w-full text-[12px] font-semibold text-gray-600 rounded-full py-2 hover:text-gray-900 disabled:opacity-40 transition-[box-shadow,color] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
+              className="mt-3 w-full text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-xl py-2 hover:border-brand/40 hover:text-brand disabled:opacity-40"
             >
               Barcha bo'sh kanallarga bitta rasm
             </button>
@@ -1680,7 +1851,12 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   )
 
   return (
-    <aside className="w-full lg:w-72 lg:shrink-0 bg-surface border-l border-gray-200 overflow-y-auto lg:h-full">
+    // lg:self-start + lg:max-h-full (not lg:h-full): the panel hugs its own
+    // content height instead of stretching to match the canvas column's full
+    // height, which used to leave a large empty gap below the color swatches
+    // whenever the active phase's content was short. Still scrolls (overflow
+    // -y-auto + max-h-full) if content ever grows past the viewport.
+    <aside className="w-full lg:w-72 lg:shrink-0 lg:self-start bg-surface border-l border-gray-200 overflow-y-auto lg:max-h-full">
       {/* Mounted at the root so every phase's upload button can reach it */}
       <input
         ref={textureFileRef}
@@ -1698,8 +1874,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <LightPanel selectedId={selectedLightId} onSelect={onLightChange}
             armedType={armedLightType} onArm={onArmLight} planMode={planMode} />
         )}
-        {phase === 'suvoq' && SuvoqSection}
-        {phase === 'shpaklovka' && ShpaklovkaSection}
+        {(phase === 'suvoq' || phase === 'shpaklovka') && SuvoqSection}
         {phase === 'montaj' && (
           <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
             <span className="text-2xl">🏗️</span>
@@ -1713,6 +1888,43 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {mutation.isError && (
           <p className="text-xs text-amber-600">Oflayn rejimda — o'zgarishlar saqlandi</p>
         )}
+
+        {/* Reset button — separated with its own divider from whatever setting
+            sits above (color swatches, panels, etc.) so it never reads as part
+            of that selection. Destructive, so a single tap can't fire it: the
+            first click only arms an inline confirm row (auto-disarms after a
+            few seconds so a stray tap doesn't leave it primed indefinitely);
+            the action only runs on the explicit second tap. */}
+        <div className="mt-8 pt-4 border-t border-gray-200">
+          {!resetArmed ? (
+            <button
+              onClick={armReset}
+              className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
+            >
+              🔄 Dizaynni Bekor Qilish
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-700">
+                Ishonchingiz komilmi? Barcha dizayn o'zgarishlari o'chiriladi.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={cancelReset}
+                  className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={confirmReset}
+                  className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Ha, o'chirish
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

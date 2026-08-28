@@ -1,7 +1,6 @@
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-
 
 interface SkeletonBaseProps {
   className?: string
@@ -35,12 +34,23 @@ type SkeletonProps =
 // ─── Pulse base class ─────────────────────────────────────────────────────────
 
 const pulseBase =
-  'animate-pulse rounded bg-neutral-200 dark:bg-neutral-700'
+  'animate-pulse rounded bg-gradient-to-r from-neutral-200 to-neutral-100'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * Skeleton component for displaying placeholder content while loading.
+ * Supports text, card, and circle variants.
+ *
+ * @example
+ * ```tsx
+ * <Skeleton variant="text" lines={3} />
+ * <Skeleton variant="card" height={200} />
+ * <Skeleton variant="circle" size={48} />
+ * ```
+ */
 export function Skeleton(props: SkeletonProps) {
-  const { className = '' } = props
+  const { className } = props
 
   if (props.variant === 'text') {
     const lines = props.lines ?? 3
@@ -48,12 +58,12 @@ export function Skeleton(props: SkeletonProps) {
       <div
         role="status"
         aria-label="Yuklanmoqda"
-        className={`flex flex-col gap-2 ${className}`}
+        className={cn('flex flex-col gap-2.5', className)}
       >
         {Array.from({ length: lines }).map((_, i) => (
           <div
             key={i}
-            className={[pulseBase, 'h-4 rounded-md'].join(' ')}
+            className={cn(pulseBase, 'h-4 rounded')}
             style={{ width: i === lines - 1 ? '60%' : '100%' }}
           />
         ))}
@@ -68,7 +78,7 @@ export function Skeleton(props: SkeletonProps) {
       <div
         role="status"
         aria-label="Yuklanmoqda"
-        className={[pulseBase, 'rounded-2xl w-full', className].join(' ')}
+        className={cn(pulseBase, 'rounded-lg w-full', className)}
         style={{
           height: typeof height === 'number' ? `${height}px` : height,
         }}
@@ -84,7 +94,7 @@ export function Skeleton(props: SkeletonProps) {
     <div
       role="status"
       aria-label="Yuklanmoqda"
-      className={[pulseBase, '!rounded-full flex-shrink-0', className].join(' ')}
+      className={cn(pulseBase, 'rounded-full flex-shrink-0', className)}
       style={{ width: size, height: size }}
     >
       <span className="sr-only">Yuklanmoqda...</span>

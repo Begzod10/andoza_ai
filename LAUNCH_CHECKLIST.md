@@ -9,8 +9,8 @@
 ## 📍 Project Locations
 
 ```
-Web:    /home/rimefara/projects/tamir_uy
-Mobile: /home/rimefara/projects/tamir_uy_mobile
+Web:    /home/rimefara/projects/andoza_ai
+Mobile: /home/rimefara/projects/andoza_ai_mobile
 ```
 
 ---
@@ -32,7 +32,7 @@ Mobile: /home/rimefara/projects/tamir_uy_mobile
 
 ```bash
 # Terminal 1: Test runner
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 source venv/bin/activate
 
 # Run existing tests
@@ -53,7 +53,7 @@ pytest tests/test_auth_router.py -v
 
 ```bash
 # Terminal 2: Mobile dev
-cd /home/rimefara/projects/tamir_uy_mobile
+cd /home/rimefara/projects/andoza_ai_mobile
 npm install
 npm run dev
 # Select: iOS / Android / Web
@@ -99,21 +99,21 @@ Keep these **open all week:**
 
 ```bash
 # Terminal 1: Backend (port 8000)
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 source venv/bin/activate
 # (already running)
 
 # Terminal 2: Frontend (port 5174)
-cd /home/rimefara/projects/tamir_uy/frontend
+cd /home/rimefara/projects/andoza_ai/frontend
 # (already running)
 
 # Terminal 3: Test Watcher
-cd /home/rimefara/projects/tamir_uy/backend
+cd /home/rimefara/projects/andoza_ai/backend
 watch -n 10 './run_tests.sh'
 # Auto-runs every 10 seconds - keeps coverage visible
 
 # Terminal 4: Mobile Dev
-cd /home/rimefara/projects/tamir_uy_mobile
+cd /home/rimefara/projects/andoza_ai_mobile
 npm run dev
 # Hot reload on file changes
 
@@ -176,20 +176,20 @@ TRACK 2 (Mobile):
 
 1. **Terminal 1:** Check test baseline
    ```bash
-   cd /home/rimefara/projects/tamir_uy/backend
+   cd /home/rimefara/projects/andoza_ai/backend
    ./run_tests.sh
    # Verify: 44 tests passing, 35% coverage
    ```
 
 2. **Terminal 4:** Start mobile dev
    ```bash
-   cd /home/rimefara/projects/tamir_uy_mobile
+   cd /home/rimefara/projects/andoza_ai_mobile
    npm install
    npm run dev
    # Select iOS simulator (or Android)
    ```
 
-3. **Read:** `/home/rimefara/projects/tamir_uy/EXECUTION_CHECKLIST.md`
+3. **Read:** `/home/rimefara/projects/andoza_ai/EXECUTION_CHECKLIST.md`
    ```
    This has your detailed Week 1 tasks
    ```
@@ -223,7 +223,7 @@ TRACK 2 (Mobile):
 **Web:** 24 more tests → 55% coverage
 **Mobile:** Measurement workflow (A6-A9)
 
-See `/home/rimefara/projects/tamir_uy/PARALLEL_EXECUTION_PLAN.md` for weeks 2-5
+See `/home/rimefara/projects/andoza_ai/PARALLEL_EXECUTION_PLAN.md` for weeks 2-5
 
 ---
 

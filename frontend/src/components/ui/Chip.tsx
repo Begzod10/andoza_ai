@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,25 +38,52 @@ type ChipProps = SelectableChipProps | ClosableChipProps | StaticChipProps
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-// Moulded out of the surface when off, solid ink when on. A chip is a small
-// target, so the selected state has to survive being glanced at rather than
-// read — a tint would not, at this size.
 const base =
-  'inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full text-[13px] font-semibold ' +
-  'select-none cursor-pointer leading-none ' +
-  'transition-[box-shadow,transform,background-color,color] duration-200 ease-out ' +
-  'focus-visible:outline-none focus-visible:shadow-soft-focus'
+  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ' +
+  'transition-all duration-150 select-none cursor-pointer ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-brand'
 
-const unselected = 'bg-soft text-gray-600 shadow-soft-raised-sm hover:text-gray-900 hover:shadow-soft-raised active:shadow-soft-pressed'
+const unselected =
+  'bg-neutral-100 text-neutral-700 ' +
+  'hover:bg-neutral-200 ' +
+  'border border-neutral-200'
 
-const selected = 'bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.96]'
+const selected =
+  'bg-brand text-white ' +
+  'shadow-md shadow-brand/25 ' +
+  'hover:bg-blue-900 ' +
+  'border border-brand'
 
-const disabledStyle = 'opacity-50 pointer-events-none shadow-soft-pressed'
+const disabledStyle =
+  'opacity-50 pointer-events-none cursor-not-allowed'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * Chip component with multiple modes: selectable, closable, or static.
+ *
+ * @example
+ * ```tsx
+ * // Selectable chip
+ * <Chip
+ *   label="Option"
+ *   selected={isSelected}
+ *   onChange={(selected) => setSelected(selected)}
+ * />
+ * ```
+ *
+ * @example
+ * ```tsx
+ * // Closable chip
+ * <Chip
+ *   mode="closable"
+ *   label="Tag"
+ *   onClose={() => removeTag()}
+ * />
+ * ```
+ */
 export function Chip(props: ChipProps) {
-  const { label, icon, disabled = false, className = '' } = props
+  const { label, icon, disabled = false, className } = props
 
   const isSelected =
     props.mode !== 'closable' && props.mode !== 'static'
@@ -98,7 +126,7 @@ export function Chip(props: ChipProps) {
           handleClick()
         }
       }}
-      className={[base, colorClass, disabled ? disabledStyle : '', className].join(' ')}
+      className={cn(base, colorClass, disabled && disabledStyle, className)}
     >
       {icon && (
         <span className="flex-shrink-0 text-[1em] leading-none">{icon}</span>
@@ -108,13 +136,13 @@ export function Chip(props: ChipProps) {
         <button
           type="button"
           aria-label={`${label}ni o'chirish`}
-          className={[
+          className={cn(
             'flex-shrink-0 ml-0.5 -mr-0.5 rounded-full p-0.5',
             isSelected
-              ? 'hover:bg-white/25'
-              : 'hover:bg-soft-deep',
+              ? 'hover:bg-white/20'
+              : 'hover:bg-neutral-300',
             'transition-colors focus-visible:outline-none',
-          ].join(' ')}
+          )}
           onClick={handleCloseClick}
           tabIndex={-1}
         >

@@ -1,4 +1,4 @@
-# UyVision Test Coverage Report
+# AndozaAI Test Coverage Report
 
 **Date:** 2026-07-24  
 **Status:** ✅ **44/44 tests PASSING**

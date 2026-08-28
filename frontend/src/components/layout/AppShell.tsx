@@ -41,13 +41,13 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
   const options = [
     {
       icon: (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="rgb(30, 58, 138)" strokeWidth="1.75" aria-hidden="true">
           <rect x="4" y="4" width="20" height="20" rx="4"/>
           <path d="M9 14h10M14 9v10"/>
           <circle cx="14" cy="14" r="3" strokeDasharray="2 2"/>
         </svg>
       ),
-      bg: "#EEF2FF",
+      bg: "rgb(238, 242, 255)",
       title: "LiDAR skaner",
       desc: "Xonani LiDAR yordamida skanerlang va avtomatik 3D model oling",
       action: () => { onClose(); navigate("/scan/lidar") },
@@ -55,24 +55,24 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
     {
       icon: (
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" strokeWidth="1.75" aria-hidden="true">
-          <circle cx="14" cy="14" r="10" stroke="#F97316"/>
-          <path d="M14 9v5l3 1.5" stroke="#F97316" strokeLinecap="round"/>
-          <text x="8" y="20" fontSize="6" fill="#F97316" fontWeight="700" fontFamily="sans-serif">360°</text>
+          <circle cx="14" cy="14" r="10" stroke="rgb(249, 115, 22)"/>
+          <path d="M14 9v5l3 1.5" stroke="rgb(249, 115, 22)" strokeLinecap="round"/>
+          <text x="8" y="20" fontSize="6" fill="rgb(249, 115, 22)" fontWeight="700" fontFamily="sans-serif">360°</text>
         </svg>
       ),
-      bg: "#FFF1E7",
+      bg: "rgb(255, 241, 231)",
       title: "360° Foto skan",
       desc: "Xonani 360° rasmga oling — ilova nuqtalarni o'zi belgilaydi",
       action: () => { onClose(); navigate("/scan/360") },
     },
     {
       icon: (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#159C5B" strokeWidth="1.75" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="rgb(16, 185, 129)" strokeWidth="1.75" aria-hidden="true">
           <rect x="5" y="5" width="18" height="18" rx="2"/>
           <path d="M5 11h18M11 5v18"/>
         </svg>
       ),
-      bg: "#EAF7F0",
+      bg: "rgb(234, 247, 240)",
       title: "Razmer / Plan yuklash",
       desc: "O'lchamlarni kiriting yoki floorplan rasmini yuklang",
       action: () => { onClose(); navigate("/wizard") },
@@ -82,23 +82,23 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-[rgba(17,24,39,.5)] backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-sheet pb-8 animate-slide-up">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-sheet pb-8 animate-slide-up shadow-card">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-11 h-1.5 rounded-full bg-gray-300" />
+          <div className="w-11 h-1.5 rounded-full bg-neutral-300" />
         </div>
         <div className="px-5 pb-2">
-          <h2 className="text-[21px] font-extrabold text-gray-900">Yangi loyiha</h2>
-          <p className="text-sm text-muted mt-0.5">Xonani qanday qo'shmoqchisiz?</p>
+          <h2 className="text-xl font-bold text-neutral-900">Yangi loyiha</h2>
+          <p className="text-sm text-neutral-600 mt-0.5">Xonani qanday qo'shmoqchisiz?</p>
         </div>
         <div className="px-5 pt-3 flex flex-col gap-3">
           {options.map((opt) => (
             <button
               key={opt.title}
               onClick={opt.action}
-              className="flex items-center gap-4 p-4 text-left focus-visible:outline-none rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+              className="flex items-center gap-4 p-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-left hover:bg-neutral-100 transition-colors active:scale-[0.98]"
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -107,10 +107,10 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
                 {opt.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-gray-900">{opt.title}</p>
-                <p className="text-[13px] text-muted mt-0.5 leading-snug">{opt.desc}</p>
+                <p className="text-base font-bold text-neutral-900">{opt.title}</p>
+                <p className="text-sm text-neutral-600 mt-0.5 leading-snug">{opt.desc}</p>
               </div>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" strokeWidth="1.5" className="flex-shrink-0">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgb(156, 163, 175)" strokeWidth="1.5" className="flex-shrink-0">
                 <path d="M7.5 5l5 5-5 5"/>
               </svg>
             </button>
@@ -153,12 +153,12 @@ const SIDEBAR_NAV: Array<{ to: string; label: string; icon: (active: boolean) =>
 
 function DesktopSidebar({ onNew }: { onNew: () => void }) {
   return (
-    <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-[#F0F1F4] z-30">
+    <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-neutral-200 z-30">
       {/* Logo */}
       <div className="px-5 pt-8 pb-6">
         <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="UyVision" className="w-9 h-9 flex-shrink-0" />
-          <span className="text-[17px] font-extrabold text-gray-900">UyVision</span>
+          <img src="/icon.svg" alt="AndozaAI" className="w-9 h-9 flex-shrink-0" />
+          <span className="text-lg font-bold text-neutral-900">AndozaAI</span>
         </div>
       </div>
 
@@ -169,16 +169,16 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[14px] font-semibold transition-[box-shadow,background-color,color] duration-200 ease-out ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 isActive
-                  ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
-                  : 'text-gray-600 hover:bg-soft hover:text-gray-900 hover:shadow-soft-raised-sm'
+                  ? 'bg-blue-50 text-blue-900'
+                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <span className={isActive ? 'text-soft-active-ink' : 'text-gray-400'}>
+                <span className={isActive ? 'text-brand' : 'text-neutral-400'}>
                   {icon(isActive)}
                 </span>
                 {label}
@@ -192,7 +192,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
       <div className="p-4">
         <button
           onClick={onNew}
-          className="w-full flex items-center justify-center gap-2 h-12 from-[#6C87F2] to-[#3B63DE] text-white text-[14px] font-bold focus-visible:outline-none rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-brand text-white text-sm font-bold hover:bg-blue-900 transition-colors shadow-btn"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 2v12M2 8h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -210,9 +210,8 @@ function BottomNav({ onFab }: { onFab: () => void }) {
   return (
     <nav
       aria-label="Asosiy navigatsiya"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white h-[94px] border-t border-[#F0F1F4]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white h-[94px] border-t border-neutral-200 shadow-nav"
       style={{
-        boxShadow: '0 -10px 26px rgba(17,24,39,.06)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -221,22 +220,14 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/projects"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-gray-900' : 'text-subtle'
+              isActive ? 'text-brand' : 'text-neutral-500'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              <span
-                className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
-                  isActive
-                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
-                    : 'bg-soft text-subtle shadow-soft-raised-sm'
-                }`}
-              >
-                <IconHome filled={isActive} />
-              </span>
-              <span className={`text-[11px] ${isActive ? 'font-bold text-gray-900' : 'font-semibold text-subtle'}`}>
+              <IconHome filled={isActive} />
+              <span className={`text-xs ${isActive ? 'font-bold text-brand' : 'font-semibold text-neutral-500'}`}>
                 Uy
               </span>
             </>
@@ -248,7 +239,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           <button
             onClick={onFab}
             aria-label="Yangi loyiha qo'shish"
-            className="w-16 h-16 flex items-center justify-center text-white focus-visible:outline-none rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+            className="w-16 h-16 rounded-full flex items-center justify-center border-4 border-white bg-gradient-to-br from-blue-600 to-brand shadow-fab"
           >
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -260,22 +251,14 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/dokon"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-gray-900' : 'text-subtle'
+              isActive ? 'text-brand' : 'text-neutral-500'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              <span
-                className={`flex h-10 w-10 items-center justify-center rounded-full transition-[box-shadow,background-color,color] duration-200 ease-out ${
-                  isActive
-                    ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
-                    : 'bg-soft text-subtle shadow-soft-raised-sm'
-                }`}
-              >
-                <IconShop filled={isActive} />
-              </span>
-              <span className={`text-[11px] ${isActive ? 'font-bold text-gray-900' : 'font-semibold text-subtle'}`}>
+              <IconShop filled={isActive} />
+              <span className={`text-xs ${isActive ? 'font-bold text-brand' : 'font-semibold text-neutral-500'}`}>
                 Do'kon
               </span>
             </>

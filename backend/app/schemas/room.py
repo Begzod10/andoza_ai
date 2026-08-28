@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
+import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class WallElement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique opening identifier")
     type: Literal["eshik", "deraza", "balkon"]
     width: float = Field(ge=0.3, le=5.0)
     height: float = Field(ge=0.3, le=3.5)
@@ -86,5 +88,8 @@ class RoomOut(BaseModel):
     perimeter: float | None
     openings_count: int
     updated_at: datetime
+    # Resolved to an absolute URL by the router (not read straight off the
+    # ORM's thumbnail_key, which is a bare storage key for local dev).
+    thumbnail_url: str | None = None
 
     model_config = {"from_attributes": True}

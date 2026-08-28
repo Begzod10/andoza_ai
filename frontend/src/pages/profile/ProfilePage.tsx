@@ -39,7 +39,7 @@ export default function ProfilePage() {
           {loggedIn && (
             <button
               onClick={handleLogout}
-              className="text-white/70 text-sm rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+              className="text-white/70 text-sm hover:text-white transition-colors"
             >
               {uz.auth.chiqish}
             </button>
@@ -56,14 +56,14 @@ export default function ProfilePage() {
               {loggedIn ? "Foydalanuvchi" : "Mehmon"}
             </p>
             <p className="text-white/60 text-sm mt-0.5">
-              {loggedIn ? "UyVision foydalanuvchisi" : "Kirish qilinmagan"}
+              {loggedIn ? "AndozaAI foydalanuvchisi" : "Kirish qilinmagan"}
             </p>
           </div>
         </div>
       </div>
 
       {/* Stats bar */}
-      <div className="mx-4 -mt-8 bg-surface rounded-card shadow-md grid grid-cols-3 divide-x divide-gray-100">
+      <div className="mx-4 -mt-8 bg-surface rounded-lg shadow-card grid grid-cols-3 divide-x divide-neutral-100">
         {STATS.map((s) => (
           <div key={s.label} className="py-4 text-center">
             <p className="text-lg font-bold text-brand">{s.value}</p>
@@ -73,7 +73,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Menu */}
-      <div className="mx-4 mt-5 bg-surface rounded-card shadow-sm overflow-hidden">
+      <div className="mx-4 mt-5 bg-surface rounded-lg shadow-subtle overflow-hidden">
         {MENU_ITEMS.map((item, i) => (
           <button
             key={item.to}
@@ -81,11 +81,11 @@ export default function ProfilePage() {
             className={[
               "w-full flex items-center gap-4 px-5 py-4",
               "hover:bg-paper transition-colors text-left",
-              i < MENU_ITEMS.length - 1 ? "border-b border-gray-100" : "",
+              i < MENU_ITEMS.length - 1 ? "border-b border-neutral-100" : "",
             ].join(" ")}
           >
             <span className="text-xl w-7 text-center">{item.icon}</span>
-            <span className="flex-1 text-sm font-medium text-gray-900">{item.label}</span>
+            <span className="flex-1 text-sm font-medium text-neutral-900">{item.label}</span>
             <span className="text-muted text-sm">→</span>
           </button>
         ))}
@@ -93,13 +93,13 @@ export default function ProfilePage() {
 
       {/* Login CTA if not logged in */}
       {!loggedIn && (
-        <div className="mx-4 mt-4 bg-brand/5 border border-brand/20 rounded-card p-4">
+        <div className="mx-4 mt-4 bg-primary-tint border border-primary-light/20 rounded-lg p-4">
           <p className="text-sm text-muted mb-3">
             Loyihalaringizni saqlash uchun telefon raqamingizni kiriting.
           </p>
           <button
             onClick={() => navigate("/login")}
-            className="w-full h-11 text-sm inline-flex items-center justify-center gap-2 font-bold transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100"
+            className="w-full bg-brand text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
           >
             Kirish
           </button>
@@ -108,7 +108,7 @@ export default function ProfilePage() {
 
       {/* App version */}
       <p className="text-center text-xs text-muted mt-8 opacity-50">
-        UyVision v1.0.0
+        AndozaAI v1.0.0
       </p>
     </div>
   );

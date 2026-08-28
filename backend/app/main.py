@@ -15,7 +15,8 @@ from starlette.staticfiles import StaticFiles
 from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
-    wallpapers,
+    wallpapers, electrical, decoration, finishes, furniture_placements, room_state,
+    orders, currency,
 )
 
 
@@ -68,10 +69,18 @@ def create_app() -> FastAPI:
     app.include_router(leads.router, prefix="/api/v1", tags=["leads"])
     app.include_router(media.router, prefix="/api/v1", tags=["media"])
     app.include_router(estimate.router, prefix="/api/v1", tags=["estimate"])
+    app.include_router(estimate.estimates_router, prefix="/api/v1", tags=["estimate"])
     app.include_router(draft_rooms.router, prefix="/api/v1", tags=["draft-rooms"])
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
     app.include_router(meshy.router, tags=["meshy"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
+    app.include_router(electrical.router, prefix="/api/v1", tags=["electrical"])
+    app.include_router(decoration.router, prefix="/api/v1", tags=["decoration"])
+    app.include_router(finishes.router, prefix="/api/v1", tags=["finishes"])
+    app.include_router(furniture_placements.router, prefix="/api/v1", tags=["furniture"])
+    app.include_router(room_state.router, prefix="/api/v1", tags=["room-state"])
+    app.include_router(orders.router, prefix="/api/v1", tags=["orders"])
+    app.include_router(currency.router, prefix="/api/v1", tags=["currency"])
 
     # ------------------------------------------------------------------
     # Uploaded media (wallpapers, photos) when object storage is not set up.

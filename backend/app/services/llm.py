@@ -104,7 +104,13 @@ def get_client() -> AsyncOpenAI:
         from httpx import Timeout
         # Set longer timeout for AI calls (default 60s → 120s)
         timeout = Timeout(120.0)
-        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=timeout)
+        _client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            # Empty → SDK default (api.openai.com). Set to use any
+            # OpenAI-compatible provider (e.g. Gemini's compat endpoint).
+            base_url=settings.OPENAI_BASE_URL or None,
+            timeout=timeout,
+        )
     return _client
 
 

@@ -104,7 +104,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
           {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}m
         </button>
-        <button onClick={onRemove} aria-label="O'chirish" className="text-neutral-400 text-xs leading-none rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">✕</button>
+        <button onClick={onRemove} aria-label="O'chirish" className="text-neutral-400 hover:text-red-500 transition-colors text-xs leading-none">✕</button>
       </div>
 
       {/* Position controls */}
@@ -196,9 +196,9 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
             key={p.type}
             onClick={() => selectPreset(p)}
             className={cn(
-              'flex-1 rounded-xl border-2 py-2 text-sm font-medium transition-all',
+              'flex-1 rounded-lg border-2 py-2 text-sm font-medium transition-all',
               selected.type === p.type
-                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
+                ? 'border-brand bg-primary/10 text-brand'
                 : 'border-neutral-200 text-neutral-600 hover:border-brand/40',
             )}
           >
@@ -223,7 +223,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
               max={max}
               step={0.05}
               onChange={(e) => set(parseFloat(e.target.value) || min)}
-              className="mt-1 w-full rounded-xl border border-neutral-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </label>
         ))}
@@ -231,7 +231,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
 
       <button
         onClick={handleAdd}
-        className="w-full py-2.5 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+        className="w-full bg-brand text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
       >
         Qo'shish
       </button>
@@ -279,9 +279,9 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
             key={v}
             onClick={() => handlePreset(v)}
             className={cn(
-              'rounded-chip px-4 py-2 text-sm font-semibold border-2 transition-all',
+              'rounded-lg px-4 py-2 text-sm font-semibold border-2 transition-all',
               Math.round(v * 1000) === ceilingHeight
-                ? 'bg-soft-active text-soft-active-ink shadow-soft-lift'
+                ? 'border-brand bg-brand text-white'
                 : 'border-neutral-200 text-neutral-700 hover:border-brand/50',
             )}
           >
@@ -300,7 +300,7 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
           max={4.0}
           step={0.01}
           onChange={(e) => handleInput(e.target.value)}
-          className="mt-1 block w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
         {(parseFloat(inputVal) < 2.0 || parseFloat(inputVal) > 4.0) && !isNaN(parseFloat(inputVal)) && (
           <p className="mt-1 text-xs text-red-500">2.0 dan 4.0 m oralig'ida bo'lishi kerak</p>
@@ -386,7 +386,7 @@ function WallStep({
               step={0.1}
               disabled={isC && copyA}
               onChange={(e) => handleInput(e.target.value)}
-              className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+              className="w-16 rounded-md border border-neutral-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
             />
             <span className="text-sm text-muted">m</span>
           </div>
@@ -432,7 +432,7 @@ function WallStep({
             <button
               type="button"
               onClick={() => onSwapElements(wall.id)}
-              className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:border-brand hover:text-brand transition-colors"
+              className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:border-brand hover:text-brand transition-colors"
             >
               ⇄ Eshik va derazani almashtirish
             </button>
@@ -540,20 +540,20 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
         <button
           onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
-          className="w-full rounded-full py-3 text-sm font-semibold bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100"
+          className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
           Smeta ko'rish
         </button>
         <button
           onClick={() => roomId && navigate(`/studio/${roomId}`)}
           disabled={!roomId}
-          className="w-full rounded-full py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
+          className="w-full border-2 border-brand text-brand rounded-lg py-3 text-sm font-semibold hover:bg-brand/5 transition-colors disabled:opacity-50"
         >
           Bezashni boshlash
         </button>
         <button
           onClick={onNewRoom}
-          className="w-full text-sm text-neutral-500 py-2 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+          className="w-full text-sm text-neutral-500 hover:text-neutral-800 transition-colors py-2"
         >
           + Yangi xona qo'shish
         </button>
@@ -669,8 +669,19 @@ export default function WizardPage() {
 
   async function handleSave() {
     if (roomId) return  // already saved (local or real)
-    // Assign a local ID immediately so navigation is never blocked
-    const localId = crypto.randomUUID()
+    // Assign a local ID immediately so navigation is never blocked.
+    // NOTE: crypto.randomUUID() only exists in a secure context (HTTPS or
+    // localhost). In a mobile WebView / phone the app is served over plain
+    // HTTP from a LAN IP, where it's undefined and throws — which used to leave
+    // roomId null and disable the results buttons. Fall back to a manual UUID.
+    const localId =
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0
+            const v = c === 'x' ? r : (r & 0x3) | 0x8
+            return v.toString(16)
+          })
     setRoomId(localId)
     setSaving(true)
     try {
@@ -718,9 +729,18 @@ export default function WizardPage() {
     const az = parseFloat(searchParams.get('az') ?? '0')
     const aw = parseFloat(searchParams.get('aw') ?? '0')
     const ad = parseFloat(searchParams.get('ad') ?? '0')
-    const newW = (s.geometry.walls.find((w) => w.id === 'B')?.length ?? 3000) / 1000
-    const newD = (s.geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000
-    const GAP = 0.15
+    // Must match roomExtents()'s convention (lib/roomDims.ts) — same as
+    // aw/ad above, which ThreeDPage's handleAddRoom computed via that exact
+    // function. This used to be swapped (wall B → newW, wall A → newD),
+    // desyncing from aw/ad and shrinking the gap into an outright overlap
+    // between adjacent rooms in the same apartment.
+    const newW = (s.geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000
+    const newD = (s.geometry.walls.find((w) => w.id === 'B')?.length ?? 3000) / 1000
+    // Rooms are adjacent, not detached — each has its own real wall thickness,
+    // so a near-zero gap still reads as two touching walls, not interpenetrating
+    // geometry. A visible dead strip of empty floor between rooms (the old
+    // 0.15m) read as a rendering bug, not a real architectural boundary.
+    const GAP = 0.02
     const pos =
       side === 'east'  ? { x: ax + aw / 2 + GAP + newW / 2, z: az } :
       side === 'west'  ? { x: ax - aw / 2 - GAP - newW / 2, z: az } :
@@ -773,8 +793,8 @@ export default function WizardPage() {
 
       {/* Draft resume banner */}
       {resumePrompt && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5 animate-fade-slide">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-5 animate-fade-slide">
             <div className="text-2xl mb-3">🏗️</div>
             <h2 className="text-base font-bold text-gray-900 mb-1">
               Saqlangan loyiha bor
@@ -785,13 +805,13 @@ export default function WizardPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleRestart}
-                className="flex-1 text-gray-700 py-2.5 text-sm font-medium rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+                className="flex-1 border-2 border-neutral-300 text-neutral-700 py-2.5 rounded-lg text-sm font-medium hover:border-red-300 hover:text-red-600 transition-colors"
               >
                 Yangi boshlash
               </button>
               <button
                 onClick={handleResume}
-                className="flex-1 py-2.5 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+                className="flex-1 bg-brand text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors"
               >
                 Davom etish
               </button>
@@ -873,7 +893,7 @@ export default function WizardPage() {
             {step > 0 && (
               <button
                 onClick={goBack}
-                className="text-sm font-medium text-neutral-600 px-2 py-2 rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-2"
               >
                 Ortga
               </button>
@@ -881,7 +901,7 @@ export default function WizardPage() {
             <button
               onClick={goNext}
               disabled={saving}
-              className="flex-1 py-3 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+              className="flex-1 bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60"
             >
               {saving ? 'Saqlanmoqda...' : 'Keyingi'}
             </button>

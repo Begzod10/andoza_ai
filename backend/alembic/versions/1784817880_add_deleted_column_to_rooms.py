@@ -17,7 +17,10 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('rooms', sa.Column('deleted', sa.Boolean(), server_default=sa.false(), nullable=False))
+    # Skip if the column already exists (e.g. schema bootstrapped from models).
+    columns = {c['name'] for c in sa.inspect(op.get_bind()).get_columns('rooms')}
+    if 'deleted' not in columns:
+        op.add_column('rooms', sa.Column('deleted', sa.Boolean(), server_default=sa.false(), nullable=False))
     op.create_index('ix_rooms_deleted', 'rooms', ['deleted'], if_not_exists=True)
 
 

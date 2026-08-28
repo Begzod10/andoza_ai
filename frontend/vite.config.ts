@@ -63,6 +63,28 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy Three.js / React-Three ecosystem into dedicated
+        // vendor chunks. These are only pulled in by the lazy-loaded studio
+        // pages, so they stay out of the initial bundle and are cached/shared
+        // across every 3D page (ThreeDPage, Placement, Walkthrough, Isometric).
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (/[\\/]node_modules[\\/](three|three-stdlib)[\\/]/.test(id)) {
+            return "three-vendor";
+          }
+          if (
+            id.includes("@react-three") ||
+            /[\\/]node_modules[\\/](postprocessing|maath)[\\/]/.test(id)
+          ) {
+            return "react-three-vendor";
+          }
+        },
+      },
+    },
+  },
   server: {
     // Inotify events don't cross the Windows→Docker bind mount, so Vite's
     // module cache goes stale without polling (edits silently never served).

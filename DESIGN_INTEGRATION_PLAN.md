@@ -8,7 +8,7 @@
 
 ## Critical Finding: Product Mismatch
 
-| Aspect | Current UyVision | New UyTamir Design |
+| Aspect | Current AndozaAI | New UyTamir Design |
 |--------|------------------|-------------------|
 | **Platform** | Web (Next.js) | Mobile (native/React Native?) |
 | **Nav Pattern** | Apartment → Room → Studio | 4-tab (Uy/Do'kon/Ustalar/Profil) + FAB |
@@ -23,7 +23,7 @@
 
 ## ⚠️ **What Breaking This Would Cost**
 
-### If you replace current UyVision with new design:
+### If you replace current AndozaAI with new design:
 
 **LOST:**
 - ❌ AI room designer (app/services/ai_builder.py)
@@ -75,7 +75,7 @@
 
 ### Navigation Paradigm (Critical Difference)
 
-**Current UyVision:**
+**Current AndozaAI:**
 ```
 User → Apartments (list) → Select Apartment → Rooms (list) → Select Room → Studio
          └─ Apartment Management          └─ Room List    └─ 3D Editor
@@ -234,7 +234,7 @@ class ElectricalPlan:
 
 ### **Option 1: Parallel Development (RECOMMENDED)**
 ```
-Current UyVision continues as-is
+Current AndozaAI continues as-is
 New UyTamir design implemented in new branch/feature flag
 Both coexist until design is stable
 Gradual migration of users
@@ -276,7 +276,7 @@ Phase 5: Remove old apartment model
 
 ### **Option 3: Rewrite from Design (RISKY)**
 ```
-Freeze current UyVision
+Freeze current AndozaAI
 Implement new design from scratch using final.dc.html as spec
 Complete redesign of all screens, models, navigation
 ```
@@ -361,7 +361,7 @@ git commit -m "docs: add UyTamir design specification and integration plan"
 
 ## ✅ **Summary**
 
-**Current UyVision is SAFE if:**
+**Current AndozaAI is SAFE if:**
 1. New design code lives in separate models/routers
 2. Frontend components are in new `/uytamir/` directory
 3. Feature flag controls which UI shows

@@ -343,6 +343,68 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   })
 }
 
+const THUMBNAIL_SIZE = 256
+
+/**
+ * Render a 3/4-angle preview of *root* to a JPEG data URL, for the catalog
+ * card thumbnail — so an uploaded model shows an actual picture of itself
+ * instead of a generic box icon. Best-effort: any WebGL failure (or an
+ * environment with no GPU context) returns null rather than failing the
+ * import — a missing thumbnail just falls back to the emoji placeholder.
+ *
+ * Must run AFTER materials/textures are finalized (toStandardMaterials,
+ * autoAssignDiffuseMaps) and BEFORE toGlbBuffer, while *root* still has no
+ * parent — it's reparented into a throwaway scene for the render and put
+ * back exactly as found, so the export right after this sees an unchanged
+ * scene graph.
+ */
+function renderThumbnail(root: THREE.Object3D): string | null {
+  let renderer: THREE.WebGLRenderer | null = null
+  try {
+    const box = new THREE.Box3().setFromObject(root)
+    if (box.isEmpty()) return null
+    const center = box.getCenter(new THREE.Vector3())
+    const sphere = box.getBoundingSphere(new THREE.Sphere())
+    const radius = sphere.radius || 1
+
+    const canvas = document.createElement('canvas')
+    canvas.width = THUMBNAIL_SIZE
+    canvas.height = THUMBNAIL_SIZE
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+    renderer.setSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+    renderer.setPixelRatio(1)
+
+    const originalParent = root.parent
+    const stage = new THREE.Scene()
+    stage.add(root)
+    stage.add(new THREE.AmbientLight(0xffffff, 1.1))
+    const key = new THREE.DirectionalLight(0xffffff, 1.6)
+    key.position.set(1, 1.4, 1.6)
+    stage.add(key)
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6)
+    fill.position.set(-1.4, 0.6, -1)
+    stage.add(fill)
+
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, radius * 20)
+    const dist = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.35
+    camera.position.set(center.x + dist * 0.6, center.y + dist * 0.45, center.z + dist * 0.6)
+    camera.lookAt(center)
+
+    renderer.setClearColor(0xf3f4f6, 1)
+    renderer.render(stage, camera)
+    const url = canvas.toDataURL('image/jpeg', 0.72)
+
+    if (originalParent) originalParent.add(root)
+    else stage.remove(root)
+
+    return url
+  } catch {
+    return null
+  } finally {
+    renderer?.dispose()
+  }
+}
+
 /**
  * Convert a model plus its companion files (external textures, .bin buffers,
  * .mtl material libraries) into a single self-contained GLB.
@@ -360,6 +422,7 @@ export async function convertFilesToGlb(
   mainFile: File
   missingTextures: string[]
   parts: { textured: number; total: number }
+  thumbnailUrl: string | null
 }> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
@@ -454,7 +517,8 @@ export async function convertFilesToGlb(
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
       const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      const thumbnailUrl = renderThumbnail(gltf.scene)
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'gltf') {
@@ -463,8 +527,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      const thumbnailUrl = renderThumbnail(gltf.scene)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'obj') {
@@ -483,8 +548,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     if (ext === 'fbx') {
@@ -494,8 +560,9 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)
@@ -646,18 +713,119 @@ function ensureSceneUVs(root: THREE.Object3D): number {
   return fixed
 }
 
-function assignPartTexture(p: PartRef, tex: THREE.Texture) {
+/** PBR channels a dropped image can be bound to. */
+export type MapChannel = 'map' | 'normalMap' | 'roughnessMap' | 'aoMap' | 'metalnessMap'
+
+/**
+ * Guess a PBR channel from a texture filename. Asset packs are wildly
+ * inconsistent, so match the widest common spellings and fall back to the
+ * diffuse channel — an unrecognised name is far more likely to be the colour
+ * map (albedo/basecolor/diffuse/"wood.jpg") than anything else.
+ */
+export function guessMapChannel(fileName: string): MapChannel {
+  const n = fileName.toLowerCase()
+  if (/normal|_nor[_.-]|nor_gl|_nrm|_norm/.test(n)) return 'normalMap'
+  if (/rough|_rgh|glossiness/.test(n)) return 'roughnessMap'
+  if (/occlusion|ambientocclusion|[_-]ao[_.-]|[_-]ao$/.test(n)) return 'aoMap'
+  if (/metal|_mtl[_.-]/.test(n)) return 'metalnessMap'
+  return 'map'
+}
+
+/** Colour maps are sRGB; every data map must stay linear or lighting breaks. */
+function channelColorSpace(ch: MapChannel): string {
+  return ch === 'map' ? THREE.SRGBColorSpace : THREE.NoColorSpace
+}
+
+/**
+ * Bind one or more channels to a single part. The material is cloned first so
+ * parts sharing a material (common in asset packs) stay independent.
+ */
+function assignPartMaps(p: PartRef, maps: Partial<Record<MapChannel, THREE.Texture>>) {
   ensureUVs(p.mesh.geometry as THREE.BufferGeometry)
-  // Clone the material so a shared material doesn't texture OTHER parts too
   const cloned = p.mat.clone()
-  cloned.map = tex
-  cloned.color.set('#ffffff') // don't tint the texture with the old flat colour
+
+  if (maps.map) {
+    cloned.map = maps.map
+    cloned.color.set('#ffffff') // don't tint the texture with the old flat colour
+  }
+  if (maps.normalMap) cloned.normalMap = maps.normalMap
+  if (maps.aoMap) {
+    // three r152+ reads aoMap from uv channel 1; these meshes only have uv0.
+    maps.aoMap.channel = 0
+    cloned.aoMap = maps.aoMap
+  }
+  // Roughness/metalness only exist on the standard (PBR) material.
+  if (cloned instanceof THREE.MeshStandardMaterial) {
+    if (maps.roughnessMap) {
+      cloned.roughnessMap = maps.roughnessMap
+      cloned.roughness = 1 // the map modulates this scalar — 1 = use it as-is
+    }
+    if (maps.metalnessMap) {
+      cloned.metalnessMap = maps.metalnessMap
+      cloned.metalness = 1
+    }
+  }
+
   cloned.needsUpdate = true
   if (Array.isArray(p.mesh.material)) {
     p.mesh.material[p.slot] = cloned
   } else {
     p.mesh.material = cloned
   }
+}
+
+function loadTexture(file: File, channel: MapChannel): Promise<THREE.Texture> {
+  const url = URL.createObjectURL(file)
+  return new Promise<THREE.Texture>((resolve, reject) => {
+    new THREE.TextureLoader().load(url, resolve, undefined, reject)
+  })
+    .then((tex) => {
+      tex.colorSpace = channelColorSpace(channel) as THREE.ColorSpace
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+      tex.flipY = false
+      return tex
+    })
+    .finally(() => URL.revokeObjectURL(url))
+}
+
+/**
+ * Skin a stored GLB with a whole material — one image per PBR channel,
+ * classified by filename (diffuse / normal / roughness / AO / metalness).
+ * Dropping a single image is just the one-file case of this.
+ *
+ * - targetIndex given: bind ONLY that part.
+ * - targetIndex omitted: bind every unmapped part, or all of them when the
+ *   model is already fully mapped (so the action always has an effect).
+ */
+export async function applyMaterialToGlb(
+  buffer: ArrayBuffer,
+  imageFiles: File[],
+  targetIndex?: number,
+): Promise<ArrayBuffer> {
+  if (imageFiles.length === 0) throw new Error('Rasm tanlanmadi')
+  const gltf = await parseGlb(buffer)
+  const parts = collectParts(gltf.scene)
+
+  const targets =
+    targetIndex !== undefined
+      ? (parts[targetIndex] ? [parts[targetIndex]] : [])
+      : (parts.filter((p) => !p.mat.map).length > 0 ? parts.filter((p) => !p.mat.map) : parts)
+  if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
+
+  // Last file wins per channel — dropping two diffuse images is a user slip,
+  // not a reason to fail.
+  const maps: Partial<Record<MapChannel, THREE.Texture>> = {}
+  for (const file of imageFiles) {
+    const channel = guessMapChannel(file.name)
+    maps[channel] = await loadTexture(file, channel)
+  }
+
+  for (const p of targets) {
+    // Each part needs its own texture instances — sharing one Texture object
+    // across materials is fine in three, but cloning keeps per-part edits safe.
+    assignPartMaps(p, maps)
+  }
+  return await toGlbBuffer(gltf.scene)
 }
 
 /**
@@ -673,30 +841,9 @@ export async function applyTextureToGlb(
   imageFile: File,
   targetIndex?: number,
 ): Promise<ArrayBuffer> {
-  const gltf = await parseGlb(buffer)
-  const parts = collectParts(gltf.scene)
-  const url = URL.createObjectURL(imageFile)
-  try {
-    const tex = await new Promise<THREE.Texture>((resolve, reject) => {
-      new THREE.TextureLoader().load(url, resolve, undefined, reject)
-    })
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-    tex.flipY = false
-
-    let targets: PartRef[]
-    if (targetIndex !== undefined) {
-      targets = parts[targetIndex] ? [parts[targetIndex]] : []
-    } else {
-      const unmapped = parts.filter((p) => !p.mat.map)
-      targets = unmapped.length > 0 ? unmapped : parts
-    }
-    if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
-    for (const p of targets) assignPartTexture(p, tex)
-    return await toGlbBuffer(gltf.scene)
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+  // Single-image case of applyMaterialToGlb — the image is classified by name,
+  // so a file called *_normal.png still lands on the right channel.
+  return applyMaterialToGlb(buffer, [imageFile], targetIndex)
 }
 
 /** Single-file convenience wrapper (kept for compatibility). */

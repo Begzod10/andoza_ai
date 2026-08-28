@@ -3,11 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+VALID_ESTIMATE_STATUSES = ("draft", "final", "sent", "accepted")
+_STATUS_LIST_SQL = "'{}'".format("','".join(VALID_ESTIMATE_STATUSES))
 
 
 class Estimate(Base):
@@ -59,10 +62,27 @@ class Estimate(Base):
         default=0,
         comment="Sum of all line subtotals in UZS",
     )
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        nullable=False,
+        server_default="UZS",
+        comment="ISO-4217-ish currency code for total_uzs (currently UZS only)",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="final",
+        comment="Lifecycle status: draft | final | sent | accepted",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(f"status IN ({_STATUS_LIST_SQL})", name="ck_estimates_status"),
+        Index("ix_estimates_room_id_created_at", "room_id", "created_at"),
     )
 
     # Relationships
@@ -75,5 +95,5 @@ class Estimate(Base):
     def __repr__(self) -> str:
         return (
             f"<Estimate id={self.id} room_id={self.room_id} "
-            f"total_uzs={self.total_uzs}>"
+            f"total_uzs={self.total_uzs} status={self.status!r}>"
         )

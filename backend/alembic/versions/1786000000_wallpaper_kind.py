@@ -9,7 +9,7 @@ Existing rows predate the split and are all oboy uploads, which is what the
 server default records.
 
 Revision ID: wp_kind
-Revises: wallpapers
+Revises: 1785000008
 Create Date: 2026-08-23 18:00:00.000000
 
 """
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'wp_kind'
-down_revision = 'wallpapers'
+down_revision = '1785000008'
 branch_labels = None
 depends_on = None
 

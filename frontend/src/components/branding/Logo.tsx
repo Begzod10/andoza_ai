@@ -17,7 +17,7 @@ export function Logo({
   theme = 'light',
   width,
   height,
-  alt = 'UyVision',
+  alt = 'AndozaAI',
   className = '',
 }: LogoProps): React.ReactNode {
   const getSrc = (): string => {

@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # SMS Gateway  (Eskiz or Playmobile)
     # ------------------------------------------------------------------ #
     SMS_PROVIDER: str = "eskiz"        # "eskiz" | "playmobile"
-    SMS_SENDER_ID: str = "UyVision"
+    SMS_SENDER_ID: str = "AndozaAI"
 
     # Eskiz credentials
     ESKIZ_EMAIL: str = ""
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # S3-compatible object storage
     # ------------------------------------------------------------------ #
-    S3_BUCKET: str = "uyvision-media"
+    S3_BUCKET: str = "andoza-ai-media"
     S3_REGION: str = "us-east-1"
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""
@@ -95,8 +95,13 @@ class Settings(BaseSettings):
     # AI features
     # ------------------------------------------------------------------ #
     AI_FEATURES_ENABLED: bool = False
-    # OpenAI — see app/services/llm.py
+    # OpenAI-compatible LLM provider — see app/services/llm.py.
+    # Leave OPENAI_BASE_URL empty for api.openai.com; point it at another
+    # OpenAI-compatible endpoint to switch providers, e.g. Google Gemini:
+    #   OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+    #   OPENAI_API_KEY=<Gemini key>  AI_MODEL_*=gemini-2.5-flash
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
     AI_MODEL_BUILDER: str = "gpt-4-turbo"
     AI_MODEL_EXPLAINER: str = "gpt-4-mini"
 
@@ -108,7 +113,7 @@ class Settings(BaseSettings):
     # Application
     # ------------------------------------------------------------------ #
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,http://localhost:8082"
 
     @property
     def CORS_ORIGINS(self) -> List[str]:

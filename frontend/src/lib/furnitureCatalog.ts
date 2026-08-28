@@ -24,6 +24,26 @@ export const CATEGORY_LABELS: Record<FurnitureCategory, string> = {
   boshqa: 'Boshqa',
 }
 
+/**
+ * Rough starting price (so'm) by category for a freshly-imported user model —
+ * a placeholder the user edits in the panel, not a real market quote. Used
+ * so an uploaded model gets a category-appropriate default instead of one
+ * flat number for every kind of furniture.
+ */
+const DEFAULT_PRICE_BY_CATEGORY_UZS: Record<FurnitureCategory, number> = {
+  divan:   6_000_000,
+  stol:    3_500_000,
+  stul:    1_200_000,
+  karavot: 5_000_000,
+  shkaf:   4_000_000,
+  lampa:     900_000,
+  boshqa:  1_500_000,
+}
+
+export function estimateFurniturePriceUzs(category?: FurnitureCategory): number {
+  return DEFAULT_PRICE_BY_CATEGORY_UZS[category ?? 'boshqa']
+}
+
 export interface FurnitureCatalogEntry {
   id: string
   name: string

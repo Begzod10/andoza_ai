@@ -11,8 +11,11 @@ class UstaOut(BaseModel):
     name: str
     category: str
     district: str | None
+    lat: float | None = None
+    lng: float | None = None
     phone: str
     telegram: str | None
+    avatar_url: str | None = None
     rating: float
     jobs_count: int
     price_min: int | None

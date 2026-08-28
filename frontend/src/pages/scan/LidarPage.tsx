@@ -73,7 +73,7 @@ export default function LidarPage() {
 
       // Load into store WITHOUT saving to the API yet — the user edits and
       // confirms in the wizard, and the wizard's "Save" button writes to the backend.
-      loadRoom({ geometry, ceiling_height: ceilingMm / 1000 })
+      loadRoom({ geometry, ceiling_h: ceilingMm / 1000 })
 
       navigate('/wizard')
     } catch (err: unknown) {

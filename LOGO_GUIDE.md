@@ -1,8 +1,8 @@
-# UyVision Logo Guide
+# AndozaAI Logo Guide
 
 ## Overview
 
-The UyVision logo suite combines a stylized house (representing "Uy" = home in Uzbek) with design/vision rays to symbolize AI-powered room design and renovation planning.
+The AndozaAI logo suite combines a stylized house (representing "Uy" = home in Uzbek) with design/vision rays to symbolize AI-powered room design and renovation planning.
 
 **Brand Color:** `#1E40AF` (Blue)
 
@@ -21,13 +21,13 @@ The UyVision logo suite combines a stylized house (representing "Uy" = home in U
 #### 2. **logo.svg** (Horizontal Logo)
 - **Size:** 240×80px (aspect ratio 3:1)
 - **Usage:** Headers, navigation bars, hero sections
-- **Design:** House icon + "UyVision" text horizontally aligned (blue)
+- **Design:** House icon + "AndozaAI" text horizontally aligned (blue)
 - **Location:** `/frontend/public/logo.svg`
 
 #### 3. **logo-vertical.svg** (Vertical Logo)
 - **Size:** 80×120px (aspect ratio 2:3)
 - **Usage:** Sidebars, mobile layouts, stacked sections
-- **Design:** House icon + "UyVision" text stacked vertically (blue)
+- **Design:** House icon + "AndozaAI" text stacked vertically (blue)
 - **Location:** `/frontend/public/logo-vertical.svg`
 
 #### 4. **icon.svg** (Icon Only)
@@ -47,13 +47,13 @@ The UyVision logo suite combines a stylized house (representing "Uy" = home in U
 #### 6. **logo-dark.svg** (Dark Theme Horizontal Logo)
 - **Size:** 240×80px (aspect ratio 3:1)
 - **Usage:** Headers on dark backgrounds
-- **Design:** House icon + "UyVision" text horizontally aligned (white)
+- **Design:** House icon + "AndozaAI" text horizontally aligned (white)
 - **Location:** `/frontend/public/logo-dark.svg`
 
 #### 7. **logo-vertical-dark.svg** (Dark Theme Vertical Logo)
 - **Size:** 80×120px (aspect ratio 2:3)
 - **Usage:** Sidebars on dark backgrounds
-- **Design:** House icon + "UyVision" text stacked vertically (white)
+- **Design:** House icon + "AndozaAI" text stacked vertically (white)
 - **Location:** `/frontend/public/logo-vertical-dark.svg`
 
 #### 8. **icon-dark.svg** (Dark Theme Icon Only)
@@ -151,7 +151,7 @@ interface LogoProps {
   theme?: 'light' | 'dark'                         // Default: 'light'
   width?: number | string                          // Default: based on variant
   height?: number | string                         // Default: based on variant
-  alt?: string                                     // Default: 'UyVision'
+  alt?: string                                     // Default: 'AndozaAI'
   className?: string                               // Optional CSS classes
 }
 ```
@@ -162,23 +162,23 @@ interface LogoProps {
 import { Image } from 'react-dom'
 
 function LogoHorizontal() {
-  return <img src="/logo.svg" alt="UyVision" width={240} height={80} />
+  return <img src="/logo.svg" alt="AndozaAI" width={240} height={80} />
 }
 
 function LogoIcon() {
-  return <img src="/icon.svg" alt="UyVision" width={48} height={48} />
+  return <img src="/icon.svg" alt="AndozaAI" width={48} height={48} />
 }
 
 // Dark theme variants
 function LogoDark() {
-  return <img src="/logo-dark.svg" alt="UyVision" width={240} height={80} />
+  return <img src="/logo-dark.svg" alt="AndozaAI" width={240} height={80} />
 }
 ```
 
 ### HTML
 ```html
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<img src="/logo.svg" alt="UyVision" />
+<img src="/logo.svg" alt="AndozaAI" />
 
 <!-- Dark mode -->
 <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
@@ -224,7 +224,7 @@ For dark backgrounds, use white logos (stroke-only):
 
 ## License
 
-All UyVision logos are proprietary assets. Use only within the UyVision project.
+All AndozaAI logos are proprietary assets. Use only within the AndozaAI project.
 
 **Created:** 2026-07-24  
-**Brand:** UyVision - AI-powered home renovation and design platform
+**Brand:** AndozaAI - AI-powered home renovation and design platform

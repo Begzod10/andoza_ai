@@ -7,7 +7,7 @@
 
 ## Overview
 
-UyVision now integrates **Meshy AI** for converting 2D room/furniture images into 3D models. Users can:
+AndozaAI now integrates **Meshy AI** for converting 2D room/furniture images into 3D models. Users can:
 
 1. Upload a room or furniture image (URL)
 2. AI converts to high-quality 3D model
@@ -370,7 +370,7 @@ Potential improvements:
 - [Meshy API Docs](https://docs.meshy.ai/)
 - [Meshy Dashboard](https://dashboard.meshy.ai/)
 
-### UyVision Support
+### AndozaAI Support
 - Email: rimefara22@gmail.com
 - Issues: GitHub repository
 

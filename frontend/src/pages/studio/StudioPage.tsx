@@ -16,37 +16,33 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
     { to: `/studio/${roomId}/elektr`, label: "Elektr" },
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
+    // /smeta/:roomId is a top-level route, not nested under /studio/:roomId —
+    // clicking this leaves the studio layout entirely (SmetaPage has its own
+    // header with a back link to here), unlike the other tabs above which
+    // stay within this same StudioPage shell.
+    { to: `/smeta/${roomId}`, label: "Hisoblagich" },
   ];
   return (
-    // The track and the selected tab are both moulded out of the same surface,
-    // which is what makes the group read as one physical control rather than
-    // five buttons sitting near each other. The selected tab keeps the brand
-    // blue it already had — the shape carries the state, the colour names it.
-    // Five tabs are wider than a 390 px phone, so the row scrolls rather than
-    // pushing the whole page sideways — a horizontally scrolling document
-    // breaks every fixed overlay on the screen, not just this bar.
-    <div className="flex justify-start sm:justify-center overflow-x-auto px-4 py-2.5 bg-soft [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <nav className="flex shrink-0 gap-1 rounded-full bg-soft p-1.5 shadow-soft-raised">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "rounded-full px-3 sm:px-4 py-1.5 text-[14px] font-semibold",
-                "transition-[box-shadow,transform,color] duration-200 ease-out",
-                "focus-visible:outline-none focus-visible:shadow-soft-focus",
-                isActive
-                  ? "bg-soft text-brand shadow-soft-raised-sm"
-                  : "text-muted hover:text-gray-700 active:shadow-soft-pressed"
-              )
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    // Lives inline in the header row now (not its own row) — overflow-x-auto
+    // keeps it usable on mobile where 5 tabs don't fit without scrolling.
+    <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all shrink-0",
+              isActive
+                ? "bg-white text-brand shadow-sm"
+                : "text-neutral-500 hover:text-neutral-700"
+            )
+          }
+        >
+          {item.label}
+        </NavLink>
+      ))}
+    </nav>
   );
 }
 
@@ -99,6 +95,13 @@ export default function StudioPage() {
             sashes: e.sashes ?? null,
           })),
         })),
+        // Polygon (N-wall) rooms carry their outline in `vertices` (mm in the
+        // store). Without re-emitting it here the save drops the polygon and
+        // the backend rebuilds a rectangle / rejects the room (422). Same
+        // mm→m convention as the walls above. Omitted for plain 4-wall rooms.
+        ...(s.geometry.vertices
+          ? { vertices: s.geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number]) }
+          : {}),
       };
 
       // Try to update existing DB room first
@@ -260,8 +263,8 @@ export default function StudioPage() {
   if (fetchStatus === "notfound" && !storeState.isDirty) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-paper gap-4">
-        <p className="text-gray-500 text-lg">Xona topilmadi</p>
-        <a href="/wizard" className="bg-brand text-white px-6 py-2 rounded-card font-semibold hover:bg-brand/90">
+        <p className="text-neutral-500 text-lg">Xona topilmadi</p>
+        <a href="/wizard" className="bg-brand text-white px-6 py-2 rounded-lg font-semibold hover:bg-brand/90 transition-colors">
           Yangi xona yaratish
         </a>
       </div>
@@ -269,59 +272,78 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#EEF1F7]">
-      {/* Header — design screen 08 */}
-      <header className="bg-white">
-        <div className="px-4 pt-3 pb-3 flex items-center gap-3">
-          {/* Back button */}
-          <NavLink
-            to="/projects"
-            className="w-10 h-10 rounded-full bg-[#F3F4F6] flex items-center justify-center flex-shrink-0"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
-              <path d="M11 4L6 9l5 5"/>
-            </svg>
-          </NavLink>
-          {/* Title + dims */}
-          <button
-            className="flex-1 min-w-0 text-center rounded-full bg-transparent hover:bg-soft hover:shadow-soft-raised-sm active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <p className="text-[16px] sm:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
-            <p className="text-[11px] text-muted flex items-center justify-center gap-1">
-              {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
+      {/* Header — was two rows (title bar, then a separate tab-nav row);
+          merged into one grid row so the canvas gets a full row of vertical
+          space back. Three columns: [back+title] auto-width and left-aligned,
+          [tabs] takes the remaining space and centers within it, [save+menu]
+          auto-width on the right. */}
+      <header className="bg-white border-b border-neutral-100">
+        <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          {/* Back button + title, left-aligned */}
+          <div className="flex items-center gap-2 min-w-0">
+            <NavLink
+              to="/projects"
+              className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
+                <path d="M11 4L6 9l5 5"/>
               </svg>
-            </p>
-          </button>
+            </NavLink>
+            <button
+              className="min-w-0 text-left hidden sm:block"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <p className="text-[16px] lg:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
+              <p className="text-[11px] text-muted flex items-center gap-1">
+                {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
+                </svg>
+              </p>
+            </button>
+          </div>
+
+          {/* Tabs — centered in the row's remaining space */}
+          <div className="flex justify-center min-w-0">
+            <StudioNav roomId={room.id} />
+          </div>
+
           {/* Save + kebab */}
           <div className="flex items-center gap-2 flex-shrink-0 relative">
             <button
               onClick={handleSave}
               disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
+              title="Saqlash"
               className={[
-                "px-4 py-1.5 rounded-xl text-[13px] font-bold transition-colors",
+                "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
+                "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
                 saveStatus === 'saved'
                   ? "bg-success text-white"
                   : (isDirty || fetchStatus === 'notfound')
-                    ? "bg-soft-active text-soft-active-ink shadow-soft-lift"
-                    : "bg-soft-active text-soft-active-ink shadow-soft-lift",
+                    ? "bg-brand text-white"
+                    : "bg-primary-tint text-brand",
               ].join(' ')}
             >
-              {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
+              <span className="hidden sm:inline">
+                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
+              </span>
+              <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7.17a1.5 1.5 0 0 1 1.06.44l1.83 1.83c.28.28.44.66.44 1.06V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-9Z"/>
+                <path d="M4.5 2v3h5.5V2M4.5 14v-4h7v4"/>
+              </svg>
             </button>
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-[box-shadow] duration-200 bg-soft shadow-soft-raised-sm hover:shadow-soft-raised active:shadow-soft-pressed"
+                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280">
                   <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/>
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-[160px]">
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px]">
                   <button
                     onClick={async () => {
                       if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lib bo\'lmaydi.')) {
@@ -334,7 +356,7 @@ export default function StudioPage() {
                       }
                       setMenuOpen(false)
                     }}
-                    className="w-full text-left px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
+                    className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
                   >
                     O'chirish
                   </button>
@@ -343,12 +365,11 @@ export default function StudioPage() {
             </div>
           </div>
         </div>
-        <StudioNav roomId={room.id} />
       </header>
 
       {/* Offline / auth hint banner */}
       {(fetchStatus === "auth" || fetchStatus === "offline") && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-700 flex items-center gap-2">
+        <div className="bg-warning-tint border-b border-warning/30 px-4 py-2 text-xs text-warning-dark flex items-center gap-2">
           <span>
             {fetchStatus === "auth"
               ? "Oflayn rejim — kirish qilsangiz, loyihangiz bulutga saqlanadi."

@@ -15,6 +15,7 @@ class MaterialOut(BaseModel):
     color_hex: str | None
     texture_key: str | None
     pbr_roughness: float
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 
