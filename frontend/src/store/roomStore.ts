@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
-import type { FurnitureCategory } from '@/lib/furnitureCatalog'
+import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
+import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
 import { hourOfDay } from '@/lib/sunPosition'
 
@@ -113,6 +114,9 @@ export interface UserFurnitureEntry {
   /** Which catalog chip the model is filed under. Optional: entries persisted
    *  before categories existed have none, and are treated as 'boshqa'. */
   category?: FurnitureCategory
+  /** Where the model sits once placed. Optional: entries persisted before
+   *  this existed have none, and are treated as 'pol' (floor-standing). */
+  placement?: FurniturePlacement
   /** Estimated price, so'm — editable by the user, defaulted by category at
    *  import time (see estimateFurniturePriceUzs). Carried onto each placed
    *  instance as PlacedFurniture.unitPriceUzs so the smeta/hisoblagich page
@@ -250,6 +254,11 @@ interface RoomStore {
   electricals: PlacedElectrical[]
   lights: PlacedLight[]
   userFurniture: UserFurnitureEntry[]
+  /** Do'kon-managed 3D models from the admin catalog (GET /furniture) — fetched
+   *  by the studio page and stored here (not persisted) so every placement
+   *  path can price/label a placed shop model the same way it already does
+   *  for a user's own uploaded model, via placeFurniture's enrichment below. */
+  catalogFurniture: CatalogFurniture[]
   isDirty: boolean
   wizardStep: number
   designState: DesignState
@@ -286,7 +295,9 @@ interface RoomStore {
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
   setUserFurnitureCategory(id: string, category: FurnitureCategory): void
+  setUserFurniturePlacement(id: string, placement: FurniturePlacement): void
   setUserFurniturePrice(id: string, priceUzs: number): void
+  setCatalogFurniture(items: CatalogFurniture[]): void
   loadRoom(room: RoomPayload): void
   loadDraftState(state: Record<string, unknown>): void
   setRoomId(id: string): void
@@ -386,6 +397,7 @@ export const useRoomStore = create<RoomStore>()(
   electricals: [],
   lights: [],
   userFurniture: [],
+  catalogFurniture: [],
   isDirty: false,
   wizardStep: 0,
   designState: DEFAULT_DESIGN_STATE,
@@ -515,12 +527,19 @@ export const useRoomStore = create<RoomStore>()(
       // snapshot its name/price onto the placed instance now, at the one
       // point every placement path (drag-in, AI builder, add-object sheet)
       // funnels through, so callers don't each need to know about pricing.
+      // A do'kon (shop) catalog model DOES have a shared id, but the backend
+      // smeta engine has no DB access to that catalog either — it only reads
+      // the room's own saved state — so the same per-instance snapshot is the
+      // only way its real price/name reach the estimate.
       const userEntry = state.userFurniture.find((f) => f.id === item.furniture_id)
-      const enriched = userEntry
+      const catalogEntry = state.catalogFurniture.find((f) => f.id === item.furniture_id)
+      const priceSource = userEntry?.priceUzs ?? catalogEntry?.price_uzs ?? undefined
+      const nameSource = userEntry?.name ?? catalogEntry?.name_uz
+      const enriched = (userEntry || catalogEntry)
         ? {
             ...item,
-            name: item.name ?? userEntry.name,
-            unitPriceUzs: item.unitPriceUzs ?? userEntry.priceUzs,
+            name: item.name ?? nameSource,
+            unitPriceUzs: item.unitPriceUzs ?? priceSource,
           }
         : item
       return {
@@ -641,10 +660,20 @@ export const useRoomStore = create<RoomStore>()(
     }))
   },
 
+  setUserFurniturePlacement(id, placement) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, placement } : f),
+    }))
+  },
+
   setUserFurniturePrice(id, priceUzs) {
     set((state) => ({
       userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, priceUzs } : f),
     }))
+  },
+
+  setCatalogFurniture(items) {
+    set({ catalogFurniture: items })
   },
 
   loadRoom(room) {

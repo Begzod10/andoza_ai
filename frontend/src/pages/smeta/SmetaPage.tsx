@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, getEstimatePDF, getRoom } from "@/lib/api";
@@ -43,6 +43,17 @@ export default function SmetaPage() {
     onSuccess: (data) => setEstimate(data),
   });
 
+  // Calculate the moment the page opens — no reason to make the user hit
+  // "Hisoblash" themselves first. Guarded per-room so it fires exactly once
+  // per visit (StrictMode's double-invoke included) rather than double-POSTing.
+  const autoFiredForRoomRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!roomId || autoFiredForRoomRef.current === roomId) return;
+    autoFiredForRoomRef.current = roomId;
+    mutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
   async function handlePDF() {
     if (!roomId) return;
     setPdfLoading(true);
@@ -82,17 +93,23 @@ export default function SmetaPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        {/* Calculate button */}
+        {/* Auto-calculates on open (see the effect above) — this only shows
+            while that first request is in flight, or as a retry on error. */}
         {!estimate && (
           <div className="text-center py-12">
-            <p className="text-muted mb-6">{uz.empty.smeta_yoq}</p>
-            <button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-              className="bg-brand text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60"
-            >
-              {mutation.isPending ? uz.common.yuklanmoqda : uz.smeta.hisoblash}
-            </button>
+            {mutation.isPending ? (
+              <p className="text-muted animate-pulse">{uz.common.yuklanmoqda}</p>
+            ) : (
+              <>
+                <p className="text-muted mb-6">{uz.empty.smeta_yoq}</p>
+                <button
+                  onClick={() => mutation.mutate()}
+                  className="bg-brand text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand/90 transition-colors"
+                >
+                  {uz.smeta.hisoblash}
+                </button>
+              </>
+            )}
             {mutation.isError && (
               <p className="mt-4 text-red-600 text-sm">{uz.errors.smeta_xato}</p>
             )}

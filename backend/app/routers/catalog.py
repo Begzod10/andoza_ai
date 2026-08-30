@@ -5,18 +5,21 @@ from typing import Annotated
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.cache import cache_get, cache_set
+from app.core.storage import absolute_media_url
+from app.core.uz_regions import UZ_REGIONS
 from app.database import get_db
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.material_offer import MaterialOffer
 from app.models.store import Store
 from app.models.usta import Usta
-from app.schemas.catalog import FurnitureOut, PaginatedFurniture, StoreOut
+from app.schemas.catalog import FurnitureOut, PaginatedFurniture, RegionOut, StoreOut
 from app.schemas.material import MaterialOut, PaginatedMaterials
 from app.schemas.material_offer import MaterialOfferOut
 from app.schemas.usta import UstaOut
@@ -117,12 +120,30 @@ async def list_material_offers(
 # Furniture
 # ---------------------------------------------------------------------------
 
+def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
+    return FurnitureOut(
+        id=f.id,
+        store_id=f.store_id,
+        store_name=f.store.name if f.store else None,
+        category=f.category,
+        room_type=f.room_type,
+        placement=f.placement,
+        name_uz=f.name_uz,
+        price_uzs=f.price_uzs,
+        glb_url=absolute_media_url(request, f.glb_key),
+        thumbnail_url=absolute_media_url(request, f.thumbnail_key),
+        footprint_w=f.footprint_w,
+        footprint_d=f.footprint_d,
+    )
+
+
 @router.get(
     "/furniture",
     response_model=PaginatedFurniture,
     summary="Paginated furniture items",
 )
 async def list_furniture(
+    request: Request,
     db: DbSession,
     category: str | None = Query(default=None),
     room_type: str | None = Query(
@@ -133,12 +154,19 @@ async def list_furniture(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
+    # glb_url/thumbnail_url are resolved per-request (they embed the request's
+    # host), so the cache stores the already-resolved payload — safe as long
+    # as storage is served from a stable base URL for the TTL window.
     cache_key = f"furniture:{category}:{room_type}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedFurniture.model_validate(cached)
 
-    query = select(Furniture).where(Furniture.is_active.is_(True))
+    query = (
+        select(Furniture)
+        .options(selectinload(Furniture.store))
+        .where(Furniture.is_active.is_(True))
+    )
     count_query = select(func.count()).select_from(Furniture).where(Furniture.is_active.is_(True))
 
     if category:
@@ -157,7 +185,7 @@ async def list_furniture(
     items = result.scalars().all()
 
     payload = PaginatedFurniture(
-        items=[FurnitureOut.model_validate(f) for f in items],
+        items=[_furniture_out(request, f) for f in items],
         total=total,
         page=page,
         per_page=per_page,
@@ -227,3 +255,19 @@ async def list_ustalar(
         ttl=_CATALOG_CACHE_TTL,
     )
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Regions (viloyat/tuman reference data — no DB table, static list)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/regions",
+    response_model=list[RegionOut],
+    summary="O'zbekiston viloyatlari va ularning tumanlari",
+)
+async def list_regions() -> list[RegionOut]:
+    return [
+        RegionOut(name=name, code=code, districts=list(districts))
+        for name, (code, districts) in UZ_REGIONS.items()
+    ]

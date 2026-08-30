@@ -239,6 +239,20 @@ class TestUploadFurnitureModel:
         response = self._post(client, room_type="garaj")
         assert response.status_code == 422
 
+    def test_rejects_unknown_placement(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        response = self._post(client, placement="osmonda")
+        assert response.status_code == 422
+
+    def test_defaults_placement_to_pol(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client)
+        assert response.status_code == 201
+        assert response.json()["placement"] == "pol"
+
     def test_rejects_empty_file(self, client):
         db = _db()
         _as(_user(is_admin=True), db)
@@ -293,6 +307,7 @@ class TestUpdateFurniture:
             id=uuid.uuid4(),
             store_id=None,
             category="divan",
+            placement="pol",
             name_uz="Divan",
             glb_key="furniture/a.glb",
         )

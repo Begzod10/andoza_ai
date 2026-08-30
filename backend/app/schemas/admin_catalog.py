@@ -12,6 +12,11 @@ FURNITURE_CATEGORIES = {"divan", "stol", "stul", "karavot", "shkaf", "lampa", "b
 # A model with room_type=None is usable in every room ("barchasi").
 ROOM_TYPES = {"mehmonxona", "oshxona", "yotoqxona", "hammom", "balkon"}
 
+# Where the model sits inside a room, once placed: floor-standing,
+# wall-mounted, or ceiling-hung. Matches the pol/devor/shift vocabulary
+# frontend/src/locale/uz.ts already uses for wall/floor/ceiling design.
+PLACEMENTS = {"pol", "devor", "shift"}
+
 PARTNER_TIERS = {"standard", "gold", "platinum"}
 
 
@@ -58,6 +63,7 @@ class FurnitureUpdate(BaseModel):
     name_uz: str | None = Field(default=None, min_length=1, max_length=200)
     category: str | None = None
     room_type: str | None = None
+    placement: str | None = None
     store_id: UUID | None = None
     price_uzs: int | None = Field(default=None, ge=0)
     footprint_w: float | None = Field(default=None, gt=0)
@@ -71,6 +77,7 @@ class FurnitureAdminOut(BaseModel):
     store_name: str | None
     category: str
     room_type: str | None
+    placement: str
     name_uz: str
     price_uzs: int | None
     glb_url: str | None

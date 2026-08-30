@@ -194,6 +194,7 @@ export function MebelPlanView() {
   const removeElement = useRoomStore((s) => s.removeElement)
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   const moveFurniture = useRoomStore((s) => s.moveFurniture)
   const resizeFurniture = useRoomStore((s) => s.resizeFurniture)
   const removeFurniture = useRoomStore((s) => s.removeFurniture)
@@ -259,7 +260,7 @@ export function MebelPlanView() {
 
   /** Placed item → its plan-space extents around the model origin, in mm. */
   function furExtents(item: PlacedFurniture) {
-    const entry = resolveFurnitureEntry(item.furniture_id, userFurniture)
+    const entry = resolveFurnitureEntry(item.furniture_id, userFurniture, catalogFurniture)
     const hull = hullsRef.current.get(item.id)
     if (entry && hull) {
       const b = hullBounds(hull, item.rotation, itemScale(entry, item) * 1000)
@@ -413,7 +414,7 @@ export function MebelPlanView() {
   }
 
   const selFur = selectedFur ? furniture.find((f) => f.id === selectedFur) ?? null : null
-  const selFurEntry = selFur ? resolveFurnitureEntry(selFur.furniture_id, userFurniture) : undefined
+  const selFurEntry = selFur ? resolveFurnitureEntry(selFur.furniture_id, userFurniture, catalogFurniture) : undefined
 
   /** Turn the selected item; the new angle may push it out of the room, so re-clamp. */
   function setFurnitureRotation(deg: number) {
@@ -542,7 +543,7 @@ export function MebelPlanView() {
         ) : (
           <div className="flex flex-col gap-1">
             {furniture.map((f) => {
-              const entry = resolveFurnitureEntry(f.furniture_id, userFurniture)
+              const entry = resolveFurnitureEntry(f.furniture_id, userFurniture, catalogFurniture)
               const so = f.scaleOverride ?? 1
               return (
                 <button
@@ -669,6 +670,7 @@ export function MebelPlanView() {
           <PlanFurnitureLayer
             furniture={furniture}
             userFurniture={userFurniture}
+            catalogFurniture={catalogFurniture}
             W={W}
             Dp={Dp}
             selectedId={selectedFur}

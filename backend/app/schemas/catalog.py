@@ -8,15 +8,18 @@ from pydantic import BaseModel
 class FurnitureOut(BaseModel):
     id: UUID
     store_id: UUID | None
+    store_name: str | None
     category: str
     room_type: str | None
+    placement: str
     name_uz: str
     price_uzs: int | None
-    glb_key: str | None
+    # Resolved absolute URLs — the client loads glb_url straight into the
+    # studio's 3D scene, so it can't be a bare storage key.
+    glb_url: str | None
+    thumbnail_url: str | None
     footprint_w: float | None
     footprint_d: float | None
-
-    model_config = {"from_attributes": True}
 
 
 class PaginatedFurniture(BaseModel):
@@ -36,3 +39,9 @@ class StoreOut(BaseModel):
     partner_tier: str
 
     model_config = {"from_attributes": True}
+
+
+class RegionOut(BaseModel):
+    name: str
+    code: str
+    districts: list[str]

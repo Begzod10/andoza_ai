@@ -13,8 +13,8 @@ import type { WallCovering, WallPanelSettings, FloorType } from "@/store/roomSto
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
-import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
-import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
+import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
+import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
@@ -183,10 +183,19 @@ interface ModelCardEntry {
   modelPath?: string;
   hasTextures?: boolean;
   category?: FurnitureCategory;
-  /** Estimated price, so'm — user models only; feeds the hisoblagich line for this item. */
+  placement?: FurniturePlacement;
+  /** Estimated price, so'm — user models and shop models; feeds the hisoblagich line for this item. */
   priceUzs?: number;
   /** Rendered preview of the model itself — user models only; falls back to emoji when absent. */
   thumbnailUrl?: string;
+  /** True for a do'kon (shop) catalog model — editing happens in the admin
+   *  panel, not here, so these cards get no recategorize/price affordances.
+   *  Unlike a user upload, a shop model can also simply have no GLB yet
+   *  (admin created the listing before uploading the file). */
+  isShop?: boolean;
+  /** Shop name badge — only set (and only meaningful) when isShop is true;
+   *  null for a shop model an admin hasn't assigned to any store. */
+  storeName?: string | null;
 }
 
 /**
@@ -194,7 +203,7 @@ interface ModelCardEntry {
  * image dropped here skins every untextured part at once (the quick path),
  * while the 🖼 editor gives per-part control.
  */
-function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize, onSetPrice }: {
+function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize, onSetPlacement, onSetPrice }: {
   entry: ModelCardEntry;
   count: number;
   busy: boolean;
@@ -203,9 +212,10 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
   onRemove(): void;
   onFiles(files: File[]): void;
   onRecategorize?(category: FurnitureCategory): void;
+  onSetPlacement?(placement: FurniturePlacement): void;
   onSetPrice?(priceUzs: number): void;
 }) {
-  const ready = !entry.isUser || !!entry.modelPath;
+  const ready = (!entry.isUser && !entry.isShop) || !!entry.modelPath;
   const canTexture = entry.isUser && !!entry.modelPath;
   const { isOver, dropProps } = useFileDrop({
     onDrop: onFiles,
@@ -231,6 +241,9 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         {entry.isUser && !entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
         )}
+        {entry.isShop && !entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">3D model yo'q</span>
+        )}
         {entry.isUser && !entry.hasTextures && entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
         )}
@@ -242,6 +255,12 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
           {isOver ? "Tekstura qo'yish" : entry.name}
         </p>
         <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+        {entry.isShop && (
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate" title={entry.storeName ?? undefined}>
+            🏪 {entry.storeName ?? "Do'konsiz"}
+            {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
+          </p>
+        )}
         {entry.isUser && onRecategorize && (
           <select
             value={entry.category ?? 'boshqa'}
@@ -250,6 +269,18 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
             title="Kategoriyani o'zgartirish"
           >
             {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        )}
+        {entry.isUser && onSetPlacement && (
+          <select
+            value={entry.placement ?? 'pol'}
+            onChange={(e) => onSetPlacement(e.target.value as FurniturePlacement)}
+            className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+            title="Xonada joylashuvi"
+          >
+            {Object.entries(PLACEMENT_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
@@ -325,7 +356,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePrice } =
+          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePlacement, setUserFurniturePrice,
+          catalogFurniture } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -615,7 +647,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const isAdmin = currentUser?.is_admin === true;
   const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
     queryKey: ["wallpapers"],
-    queryFn: listWallpapers,
+    queryFn: () => listWallpapers(),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
@@ -1607,9 +1639,27 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     </section>
   )
 
+  // The picker only offers real inventory: do'kon (admin-added) models and
+  // your own uploads. The old hardcoded demo catalog (FURNITURE_CATALOG) is
+  // no longer offered here — it isn't real shop data — but stays resolvable
+  // elsewhere in this file so a room that already placed one doesn't break.
   const allCatalogEntries = [
-    ...FURNITURE_CATALOG.map(e => ({ ...e, isUser: false as const })),
-    ...userFurniture.map(e => ({ ...e, isUser: true as const })),
+    ...userFurniture.map(e => ({ ...e, isUser: true as const, isShop: false as const })),
+    // Do'kon-managed 3D models (admin catalog) — footprint-derived w×d, no
+    // recategorize/price editing here (that lives in the admin panel).
+    ...catalogFurniture.map(f => ({
+      id: f.id,
+      name: f.name_uz,
+      emoji: '🏪',
+      sizeM: { w: (f.footprint_w ?? 0) / 100, d: (f.footprint_d ?? 0) / 100 },
+      isUser: false as const,
+      isShop: true as const,
+      modelPath: f.glb_url ?? undefined,
+      thumbnailUrl: f.thumbnail_url ?? undefined,
+      category: f.category as FurnitureCategory,
+      priceUzs: f.price_uzs ?? undefined,
+      storeName: f.store_name,
+    })),
   ]
 
   const catChips: Array<{ key: FurnitureCategory | 'barchasi' | 'mening'; label: string }> = [
@@ -1622,7 +1672,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     if (furnitureCat === 'barchasi') return true
     if (furnitureCat === 'mening') return e.isUser
     // Uploads made before categories existed have none — file them under Boshqa
-    if (e.isUser) return (e.category ?? 'boshqa') === furnitureCat
+    if (e.isUser || e.isShop) return (e.category ?? 'boshqa') === furnitureCat
     return (e as FurnitureCatalogEntry).category === furnitureCat
   })
 
@@ -1677,11 +1727,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 emoji: entry.emoji,
                 sizeM: entry.sizeM,
                 isUser: entry.isUser,
+                isShop: entry.isShop,
                 modelPath: 'modelPath' in entry ? entry.modelPath : undefined,
                 hasTextures: 'hasTextures' in entry ? entry.hasTextures : undefined,
                 category: 'category' in entry ? entry.category : undefined,
                 priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
                 thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
+                storeName: 'storeName' in entry ? entry.storeName : undefined,
               }}
               count={count}
               busy={texBusy === entry.id}
@@ -1695,6 +1747,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               }}
               onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
               onRecategorize={entry.isUser ? (category) => setUserFurnitureCategory(entry.id, category) : undefined}
+              onSetPlacement={entry.isUser ? (placement) => setUserFurniturePlacement(entry.id, placement) : undefined}
               onSetPrice={entry.isUser ? (priceUzs) => setUserFurniturePrice(entry.id, priceUzs) : undefined}
             />
           );
@@ -1768,18 +1821,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           {furniture.map((f) => {
             const staticEntry = FURNITURE_CATALOG.find((c) => c.id === f.furniture_id) as FurnitureCatalogEntry | undefined;
             const userEntry = userFurniture.find((c) => c.id === f.furniture_id);
+            const shopEntry = catalogFurniture.find((c) => c.id === f.furniture_id);
             const entry = staticEntry ?? userEntry;
             const slots = staticEntry?.materialSlots ?? null;
             const isEditing = colorEditorId === f.id;
             const hasOverrides = f.colorOverrides && Object.keys(f.colorOverrides).length > 0;
             const so = f.scaleOverride ?? 1;
-            const actualW = ((entry?.sizeM.w ?? 0) * so).toFixed(2);
-            const actualD = ((entry?.sizeM.d ?? 0) * so).toFixed(2);
+            // A shop model's sizeM isn't known here (its real scale is only
+            // detected once its GLB loads in the 3D view) — show its
+            // admin-set footprint instead of a misleading 0×0.
+            const shopSizeM = shopEntry
+              ? { w: (shopEntry.footprint_w ?? 0) / 100, d: (shopEntry.footprint_d ?? 0) / 100 }
+              : null;
+            const actualW = ((entry?.sizeM.w ?? shopSizeM?.w ?? 0) * so).toFixed(2);
+            const actualD = ((entry?.sizeM.d ?? shopSizeM?.d ?? 0) * so).toFixed(2);
             return (
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
-                  <span>{entry?.emoji ?? '📦'}</span>
-                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? 'Model'}</span>
+                  <span>{entry?.emoji ?? (shopEntry ? '🏪' : '📦')}</span>
+                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? 'Model'}</span>
                   <span className="text-[10px] text-gray-400 tabular-nums shrink-0">{actualW}×{actualD} m</span>
                   <button
                     onClick={() => setColorEditorId(isEditing ? null : f.id)}

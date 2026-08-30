@@ -14,6 +14,7 @@ from app.models.store import Store
 from app.schemas.admin_catalog import (
     FURNITURE_CATEGORIES,
     PARTNER_TIERS,
+    PLACEMENTS,
     ROOM_TYPES,
     FurnitureAdminOut,
     FurnitureUpdate,
@@ -39,6 +40,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         store_name=store_name,
         category=f.category,
         room_type=f.room_type,
+        placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
         glb_url=absolute_media_url(request, f.glb_key),
@@ -134,21 +136,21 @@ async def update_store(
 async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSession):
     result = await db.execute(
         select(Store)
-        .options(selectinload(Store.furniture_items))
+        .options(selectinload(Store.furniture_items), selectinload(Store.wallpapers))
         .where(Store.id == store_id)
     )
     store = result.scalar_one_or_none()
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Do'kon topilmadi")
 
-    # The DB cascade removes the furniture rows; collect their file keys first
-    # so the now-orphaned GLBs/thumbnails don't linger in storage forever.
+    # The DB cascade removes the furniture/wallpaper rows; collect their file
+    # keys first so the now-orphaned files don't linger in storage forever.
     stray_keys = [
         key
         for item in store.furniture_items
         for key in (item.glb_key, item.thumbnail_key)
         if key
-    ]
+    ] + [w.storage_key for w in store.wallpapers if w.storage_key]
 
     await db.delete(store)
     await db.flush()
@@ -180,6 +182,7 @@ async def upload_furniture_model(
     name_uz: str = Form(...),
     category: str = Form(...),
     room_type: str | None = Form(default=None),
+    placement: str = Form(default="pol"),
     store_id: uuid_module.UUID | None = Form(default=None),
     price_uzs: int | None = Form(default=None),
     footprint_w: float | None = Form(default=None),
@@ -198,6 +201,11 @@ async def upload_furniture_model(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri (yoki bo'sh) bo'lishi kerak",
+        )
+    if placement not in PLACEMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak",
         )
     if price_uzs is not None and price_uzs < 0:
         raise HTTPException(
@@ -272,6 +280,7 @@ async def upload_furniture_model(
         store_id=store.id if store else None,
         category=category,
         room_type=room_type,
+        placement=placement,
         name_uz=name_uz,
         price_uzs=price_uzs,
         glb_key=glb_key,
@@ -340,6 +349,11 @@ async def update_furniture(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri bo'lishi kerak",
+        )
+    if payload.placement is not None and payload.placement not in PLACEMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak",
         )
 
     result = await db.execute(

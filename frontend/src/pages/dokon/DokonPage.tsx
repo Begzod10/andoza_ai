@@ -56,7 +56,10 @@ export default function DokonPage() {
   // Admin-only catalog management (create shops, upload 3D models) — a
   // separate surface from the customer-facing marketplace screens below.
   const isAdmin = useAuthStore((s) => s.user)?.is_admin === true;
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  // Admins land straight in the management panel — the marketplace screens
+  // below are an unbuilt "coming soon" stub, not something an admin came
+  // here to look at. "Do'konga qaytish" still lets them peek at it.
+  const [showAdminPanel, setShowAdminPanel] = useState(isAdmin);
 
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");

@@ -15,7 +15,7 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
-import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
+import { useRoomStore, resolveWallCovering, resolveWallColor, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
@@ -32,8 +32,9 @@ import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/sto
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
-import { getRooms, deleteRoom, uploadRoomThumbnail } from "@/lib/api";
+import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
+import { extractSceneInfo } from "@/lib/modelConverter";
+import { getRooms, deleteRoom, uploadRoomThumbnail, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -2253,8 +2254,14 @@ function roomLayoutPos(r: Room | undefined): { x: number; z: number } | undefine
 /**
  * Absolute apartment position for every room, in ONE shared frame:
  * rooms with a stored layoutPos use it verbatim; legacy rooms (no position)
- * form a row along X with the first of them at the origin — the same origin
- * the "+ add room" flow assumes for unpositioned anchors.
+ * form a row along X, starting past every stored room's footprint — the same
+ * origin the "+ add room" flow assumes for unpositioned anchors ONLY when
+ * nothing else already claims it.
+ *
+ * A legacy row that always started back at x=0 used to land exactly on top
+ * of a sibling that already has a real stored position there (the "two rooms
+ * merged into one" bug) — any apartment with one positioned room and one
+ * unpositioned room reproduced it, not just a specific stale pair.
  */
 function computeAbsolutePositions(
   rooms: Room[],
@@ -2267,19 +2274,35 @@ function computeAbsolutePositions(
   // between them.
   const GAP = 0.02;
   const abs = new Map<string, { x: number; z: number }>();
-  let cursor = 0;
-  let originOffset: number | null = null;
+
+  // Pass 1: place every room that already has a real position, and note how
+  // far right their footprints reach so the legacy row can start beyond them.
+  let storedMaxX = -Infinity;
   for (const r of rooms) {
     const stored = roomLayoutPos(r);
-    if (stored) {
-      abs.set(r.id, stored);
-      continue;
-    }
+    if (!stored) continue;
+    abs.set(r.id, stored);
+    const { w } = roomFootprint(r, activeId, activeW, activeD);
+    storedMaxX = Math.max(storedMaxX, stored.x + w / 2);
+  }
+
+  // Pass 2: lay out every remaining (unpositioned) room in a row. With no
+  // stored rooms at all, the row starts at 0 (a lone unpositioned room reads
+  // as the origin, same as before); otherwise it starts clear of them.
+  let cursor = storedMaxX === -Infinity ? 0 : storedMaxX + GAP;
+  let originOffset: number | null = null;
+  for (const r of rooms) {
+    if (abs.has(r.id)) continue;
     const { w } = roomFootprint(r, activeId, activeW, activeD);
     const slot = cursor + w / 2;
     cursor += w + GAP;
-    if (originOffset === null) originOffset = slot; // first legacy room = origin
-    abs.set(r.id, { x: slot - originOffset, z: 0 });
+    if (storedMaxX === -Infinity) {
+      // No anchor to measure from — keep the first legacy room at the origin.
+      if (originOffset === null) originOffset = slot;
+      abs.set(r.id, { x: slot - originOffset, z: 0 });
+    } else {
+      abs.set(r.id, { x: slot, z: 0 });
+    }
   }
   return abs;
 }
@@ -2315,6 +2338,18 @@ function computeOccupiedSides(
   }
   return occupied;
 }
+
+// Flat approximation of each floor finish — the real per-type PBR textures
+// (WoodFloor) are only built for the active room; a sibling preview gets a
+// representative colour instead of loading a second full material pipeline.
+const SIBLING_FLOOR_COLOR_BY_TYPE: Record<string, string> = {
+  parquet: '#C9A06B',
+  tile: '#E8E8E8',
+  laminate: '#B98D5D',
+  concrete: '#9B9B9B',
+}
+const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
+const SIBLING_WALL_COLOR_DEFAULT = '#C9C2B4'
 
 function SiblingRooms({
   rooms,
@@ -2358,6 +2393,19 @@ function SiblingRooms({
           { p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
           { p: [w / 2, h / 2, 0], s: [0.08, h, d] },
         ];
+        // Real design state, when the sibling has been saved with one —
+        // shows this room's actual wall colour/floor finish instead of a
+        // fixed placeholder tint. Furniture placements referencing a custom
+        // (user-uploaded) model still won't resolve here — those blobs live
+        // only in the browser that imported them — but built-in catalog
+        // furniture (FURNITURE_CATALOG) renders for real, same as FurnitureItem
+        // does for the active room.
+        const design = sib.state?.designState as DesignState | undefined
+        const wallColor = design ? resolveWallColor(design.wallCoverings) : SIBLING_WALL_COLOR_DEFAULT
+        const floorColor = design?.floorType
+          ? SIBLING_FLOOR_COLOR_BY_TYPE[design.floorType] ?? SIBLING_FLOOR_COLOR_DEFAULT
+          : SIBLING_FLOOR_COLOR_DEFAULT
+        const placedFurniture = (sib.state?.furniture as PlacedFurniture[] | undefined) ?? []
         return (
           <group key={sib.id} position={[x, 0, z]}>
             <mesh
@@ -2367,13 +2415,16 @@ function SiblingRooms({
               onPointerOut={() => { document.body.style.cursor = 'auto'; }}
             >
               <boxGeometry args={[w, 0.04, d]} />
-              <meshStandardMaterial color="#D9C9A8" transparent opacity={0.85} />
+              <meshStandardMaterial color={floorColor} />
             </mesh>
             {walls.map((seg, i) => (
               <mesh key={i} position={seg.p}>
                 <boxGeometry args={seg.s} />
-                <meshStandardMaterial color="#C9C2B4" transparent opacity={0.65} />
+                <meshStandardMaterial color={wallColor} />
               </mesh>
+            ))}
+            {placedFurniture.map((item) => (
+              <FurnitureItem key={item.id} item={item} />
             ))}
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2404,13 +2455,20 @@ type AnyFurnitureEntry = {
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures?: boolean
+  /** Do'kon catalog models arrive with no known native unit — scale/sizeM
+   *  above are placeholders. The real values are auto-detected from the
+   *  loaded GLB's own geometry (extractSceneInfo) the first time it renders,
+   *  same as a freshly-imported user model. */
+  autoScale?: boolean
 }
 
 function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   return (
     FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-    userFurniture.find((f) => f.id === furnitureId)
+    userFurniture.find((f) => f.id === furnitureId) ??
+    catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
   )
 }
 
@@ -2541,13 +2599,20 @@ function FurnitureItem({ item }: { item: PlacedFurniture }) {
     return isFinite(box.min.y) ? -box.min.y : 0
   }, [cloned]);
 
+  // A do'kon catalog model has no authored scale — detect it from the loaded
+  // GLB's own geometry, same heuristic a fresh user import goes through.
+  const autoScale = useMemo(() => {
+    if (!entry?.autoScale) return null
+    try { return extractSceneInfo(cloned).scale } catch { return 1 }
+  }, [entry, cloned])
+
   useLayoutEffect(() => {
     if (!item.colorOverrides || Object.keys(item.colorOverrides).length === 0) return
     applyColorOverrides(cloned, item.colorOverrides)
   }, [cloned, item.colorOverrides])
 
   if (!entry || !modelPath) return null;
-  const s = entry.scale * (item.scaleOverride ?? 1);
+  const s = (autoScale ?? entry.scale) * (item.scaleOverride ?? 1);
   return (
     <primitive
       object={cloned}
@@ -2726,12 +2791,19 @@ function DraggableFurnitureItem({
     }
   }, [cloned])
 
+  // A do'kon catalog model has no authored scale — detect it from the loaded
+  // GLB's own geometry, same heuristic a fresh user import goes through.
+  const effScale = useMemo(() => {
+    if (!entry?.autoScale) return entry?.scale ?? 1
+    try { return extractSceneInfo(cloned).scale } catch { return 1 }
+  }, [entry, cloned])
+
   // Report actual footprint to parent for collision detection
   useEffect(() => {
     if (!entry) return
-    const s = entry.scale * (item.scaleOverride ?? 1)
+    const s = effScale * (item.scaleOverride ?? 1)
     onFootprint(item.id, geomHW * s, geomHD * s)
-  }, [item.id, geomHW, geomHD, entry, item.scaleOverride, onFootprint])
+  }, [item.id, geomHW, geomHD, entry, effScale, item.scaleOverride, onFootprint])
 
   useLayoutEffect(() => {
     if (!item.colorOverrides || Object.keys(item.colorOverrides).length === 0) return
@@ -2752,7 +2824,7 @@ function DraggableFurnitureItem({
       // keep the selection cage glued to the model during live rotation
       if (selRef.current) selRef.current.rotation.y = dragRotRef.current
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
-      const liveScale = entry.scale * (dragScaleRef.current ?? 1)
+      const liveScale = effScale * (dragScaleRef.current ?? 1)
       primitiveRef.current.scale.setScalar(liveScale)
       // cage is sized for the committed scale — hide it while live-scaling
       if (selRef.current) selRef.current.visible = false
@@ -2764,21 +2836,23 @@ function DraggableFurnitureItem({
   const so0 = item.scaleOverride ?? 1
   const cageGeo = useMemo(() => {
     if (!entry) return null
-    const sc = entry.scale * so0
+    const sc = effScale * so0
     const w = geomHW * sc * 2 + 0.06
     const d = geomHD * sc * 2 + 0.06
     // Height from the real geometry — catalog sizeM.h can disagree with it
     const h = geomHH * sc * 2 + 0.06
     return new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d))
-  }, [entry, so0, geomHW, geomHD, geomHH])
+  }, [entry, so0, effScale, geomHW, geomHD, geomHH])
   useEffect(() => () => { cageGeo?.dispose() }, [cageGeo])
 
   if (!entry || !modelPath) return null
 
   const so = item.scaleOverride ?? 1
-  const s = entry.scale * so
+  const s = effScale * so
   const yOff = yOffUnit * s
-  const modelH = (entry.sizeM.h ?? 1) * so
+  // A do'kon catalog model's sizeM.h is an unset placeholder (0) — the real
+  // geometry height (geomHH, doubled) times scale is the only true source.
+  const modelH = entry.autoScale ? geomHH * 2 * s : (entry.sizeM.h ?? 1) * so
   const buttonH = modelH + 0.18
   const btnActive = isDragging
   const fw = geomHW * s * 2   // actual footprint width
@@ -2974,6 +3048,7 @@ function DraggableFurnitureModels({
 }) {
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   const moveFurniture = useRoomStore((s) => s.moveFurniture)
   const resizeFurniture = useRoomStore((s) => s.resizeFurniture)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -3001,7 +3076,8 @@ function DraggableFurnitureModels({
   function resolveEntry(furnitureId: string): AnyFurnitureEntry | undefined {
     return (
       FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-      (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId)
+      (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId) ??
+      catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
     )
   }
 
@@ -3775,6 +3851,21 @@ export default function ThreeDPage() {
   const { geometry, designState, highQuality3d, resetRoom, placeFurniture, addElement, updateElement, removeElement } = useRoomStore();
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
+
+  // Do'kon-managed 3D models (admin catalog) — fetched once per studio
+  // session and mirrored into the room store so the "3D Modellar" panel and
+  // every placement path can resolve/price them the same way as built-in and
+  // user-uploaded models. Large per_page: shop catalogs are small in
+  // practice and the whole studio wants the full list, not one page of it.
+  const setCatalogFurniture = useRoomStore((s) => s.setCatalogFurniture);
+  const { data: catalogFurniturePage } = useQuery({
+    queryKey: ['catalog-furniture'],
+    queryFn: () => listCatalogFurniture({ per_page: 100 }),
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (catalogFurniturePage) setCatalogFurniture(catalogFurniturePage.items);
+  }, [catalogFurniturePage, setCatalogFurniture]);
 
   async function handleAddRoom(side: RoomSide) {
     if (addingRoom) return;

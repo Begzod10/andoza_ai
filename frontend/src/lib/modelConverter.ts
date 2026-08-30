@@ -135,7 +135,13 @@ function stripUnloadedTextures(root: THREE.Object3D): number {
   return cleared
 }
 
-function extractSceneInfo(root: THREE.Object3D): ModelInfo {
+/**
+ * Auto-detect a model's real-world scale purely from its own geometry —
+ * no target size needed. Used both right after import (modelConverter's own
+ * pipeline) and for shop-catalog models loaded straight from a URL in the
+ * studio, which arrive with no pre-computed scale at all.
+ */
+export function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
   // An empty scene would sail through as a 0×0 m entry with no materials and
   // nothing to render. Fail loudly instead — the import is not usable.
@@ -244,11 +250,15 @@ const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
 // can't decode (.tx/.tif/.tga/.psd are common in 3ds Max/Corona exports).
 // Requests for these are texture-like even when no picked file can serve them.
 const TEXTURE_REQUEST_EXT = /\.(tx|tiff?|tga|psd|png|jpe?g|webp|bmp)$/i
-// Filename markers for a colour/albedo map. The short markers (`_col`, `_d`)
-// must be matched between delimiters — as bare substrings they hit almost any
-// filename ("_d" alone matched every name containing the letter d).
+// Filename markers for a colour/albedo map. The short markers (`_col`, `_dif`,
+// `_d`) must be matched between delimiters — as bare substrings they hit
+// almost any filename ("_d" alone matched every name containing the letter
+// d). `dif` (e.g. "dif_wood.jpg", a common 3ds Max/Corona export convention)
+// used to fall through every branch here — it isn't "diffuse" in full, and
+// isn't the bare "d" token — leaving the material with no map at all and
+// whatever flat placeholder color the exporter baked in.
 const DIFFUSE_HINT_RE =
-  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])d($|[_-]))/i
+  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])dif($|[_-])|(^|[_-])d($|[_-]))/i
 // Maps that are NOT colour. Binding one of these as the diffuse yields a valid,
 // decodable, near-white texture — the model then renders flat white while every
 // "has a texture?" check happily reports yes.
@@ -352,7 +362,13 @@ function autoAssignDiffuseMaps(
     const mats = Array.isArray(child.material) ? child.material : [child.material]
     for (const m of mats) {
       if (!(m instanceof THREE.MeshStandardMaterial) && !(m instanceof THREE.MeshPhongMaterial)) continue
-      if (m.map) continue
+      // A map that's merely BOUND isn't necessarily usable: some FBX/Corona
+      // material graphs wire a diffuse slot through an internal node (seen in
+      // the wild as e.g. "Texmap_Level", a color-correction wrapper) that
+      // FBXLoader can't trace to an actual bitmap — it creates a Texture with
+      // no `.image` that will never load. Skipping only on a genuinely loaded
+      // map lets filename matching still rescue those.
+      if (m.map && m.map.image) continue
       const mName = normStem(m.name || child.name || '')
       // Same fuzzy cascade as texture-request resolution: normalized-stem
       // equality first, then containment in either direction.
