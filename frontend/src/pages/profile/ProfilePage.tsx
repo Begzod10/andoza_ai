@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { uz } from "@/locale/uz";
 import { logoutApi } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
 
 const MENU_ITEMS = [
@@ -26,6 +27,10 @@ export default function ProfilePage() {
     } catch {
       // ignore errors — navigate to login regardless
     }
+    // Clears the persisted user/is_admin from authStore too — logoutApi()
+    // only drops the server-side cookie, so without this the sidebar's
+    // admin-only "Boshqaruv paneli" link stayed visible after logging out.
+    useAuthStore.getState().logout();
     setLoggedIn(false);
     navigate("/login");
   }
