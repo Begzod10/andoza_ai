@@ -900,28 +900,3 @@ export async function applyMaterialToGlb(
   return await toGlbBuffer(gltf.scene)
 }
 
-/**
- * Manually skin a stored GLB with an image.
- * - targetIndex given: bind ONLY that part (material cloned first, so parts
- *   sharing a material are textured independently).
- * - targetIndex omitted: bind every unmapped part, or all of them when the
- *   model is already fully mapped (so the action always has an effect).
- * Re-exports a self-contained GLB.
- */
-export async function applyTextureToGlb(
-  buffer: ArrayBuffer,
-  imageFile: File,
-  targetIndex?: number,
-): Promise<ArrayBuffer> {
-  // Single-image case of applyMaterialToGlb — the image is classified by name,
-  // so a file called *_normal.png still lands on the right channel.
-  return applyMaterialToGlb(buffer, [imageFile], targetIndex)
-}
-
-/** Single-file convenience wrapper (kept for compatibility). */
-export async function convertToGlb(
-  file: File,
-): Promise<{ buffer: ArrayBuffer; info: ModelInfo }> {
-  const { buffer, info } = await convertFilesToGlb([file])
-  return { buffer, info }
-}

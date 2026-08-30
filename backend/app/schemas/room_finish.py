@@ -38,12 +38,3 @@ class FinishListOut(BaseModel):
 
     items: list[FinishOut] = []
     count: int = 0
-
-
-class RoomFinishesOut(BaseModel):
-    """Complete finish state for a room (compatibility response)."""
-
-    finishes: list[FinishOut] = []
-    count: int = 0
-
-    model_config = {"from_attributes": True}

@@ -515,7 +515,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
             prefix + _fmt_num(ln.subtotal_uzs),
         ]
 
-    def _table_style(nrows: int) -> TableStyle:
+    def _table_style() -> TableStyle:
         return TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), _BRAND_BLUE),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -553,7 +553,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
                 ])
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-        tbl.setStyle(_table_style(len(table_data)))
+        tbl.setStyle(_table_style())
         story.append(tbl)
         story.append(Spacer(1, 0.3 * cm))
 

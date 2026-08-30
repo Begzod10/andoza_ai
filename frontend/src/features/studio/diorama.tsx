@@ -21,7 +21,6 @@ export const TRIM_COLOR = '#2B2622'      // near-black walnut
 export const TRIM_ROUGHNESS = 0.55
 export const TRIM_SIZE = 0.05            // 5 cm profile
 export const SLAB_HEIGHT = 0.12          // 12 cm floor slab
-export const SHELL_PLASTER = '#D8CDBE'   // outer shell / cut faces
 
 // Fixed pair removed in diorama presentation mode (camera lives in +X/+Z quadrant)
 const DIORAMA_HIDDEN: ReadonlySet<string> = new Set(['B', 'C'])
@@ -33,8 +32,6 @@ const WALL_NORMALS: Record<string, [number, number]> = {
   B: [1, 0],  // +X
   D: [-1, 0], // -X
 }
-
-type ResolvedElMm = { position: number; width: number; height: number; sill_height: number }
 
 // ─── Hidden-wall tracking ─────────────────────────────────────────────────────
 
@@ -176,79 +173,6 @@ function restore(f: FadeState) {
     }
   }
   f.mats = []
-}
-
-// ─── Solid wall body ──────────────────────────────────────────────────────────
-
-interface WallBodyProps {
-  length: number      // metres
-  height: number
-  thickness: number
-  axis: 'X' | 'Z'
-  cx: number
-  cz: number
-  elements: ResolvedElMm[]  // resolved positions in mm (same input as <Wall>)
-}
-
-/**
- * The structural wall volume: merged boxes around door/window openings so the
- * cut faces read as real 10–25cm wall sections from outside. Sits 2mm behind
- * the interior covering planes to avoid z-fighting.
- */
-export function WallBody({ length, height, thickness, axis, cx, cz, elements }: WallBodyProps) {
-  const geo = useMemo(() => {
-    const s = 1 / 1000
-    const t = thickness - 0.004
-    // Shift the body 2mm away from the room interior
-    const outDir = axis === 'X' ? (cz <= 0 ? -1 : 1) : (cx >= 0 ? 1 : -1)
-    const boxes: THREE.BufferGeometry[] = []
-
-    const push = (offAlong: number, cy: number, w: number, h: number) => {
-      const b = new THREE.BoxGeometry(
-        axis === 'X' ? w : t,
-        h,
-        axis === 'X' ? t : w,
-      )
-      const px = axis === 'X' ? cx + offAlong : cx + outDir * 0.002
-      const pz = axis === 'X' ? cz + outDir * 0.002 : cz + offAlong
-      b.translate(px, cy, pz)
-      boxes.push(b)
-    }
-
-    const sorted = [...elements].sort((a, b) => a.position - b.position)
-    let cursor = 0
-    const totalMm = length * 1000
-    for (const el of sorted) {
-      const elLeft = el.position
-      const elRight = el.position + el.width
-      const elTop = el.sill_height + el.height
-      if (elLeft > cursor) {
-        push(((cursor + elLeft) / 2 - totalMm / 2) * s, height / 2, (elLeft - cursor) * s, height)
-      }
-      const elTopM = elTop * s
-      if (elTopM < height) {
-        push(((elLeft + elRight) / 2 - totalMm / 2) * s, elTopM + (height - elTopM) / 2, el.width * s, height - elTopM)
-      }
-      if (el.sill_height > 0) {
-        push(((elLeft + elRight) / 2 - totalMm / 2) * s, (el.sill_height * s) / 2, el.width * s, el.sill_height * s)
-      }
-      cursor = elRight
-    }
-    if (cursor < totalMm) {
-      push(((cursor + totalMm) / 2 - totalMm / 2) * s, height / 2, (totalMm - cursor) * s, height)
-    }
-    if (boxes.length === 0) return null
-    const merged = mergeBufferGeometries(boxes)
-    for (const b of boxes) b.dispose()
-    return merged
-  }, [length, height, thickness, axis, cx, cz, elements])
-
-  if (!geo) return null
-  return (
-    <mesh geometry={geo} castShadow receiveShadow>
-      <meshStandardMaterial color={SHELL_PLASTER} roughness={0.9} metalness={0} />
-    </mesh>
-  )
 }
 
 // ─── Trim pieces ──────────────────────────────────────────────────────────────

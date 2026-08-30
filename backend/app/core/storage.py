@@ -113,14 +113,3 @@ def absolute_media_url(request: Request, storage_key: str | None) -> str | None:
     if url.startswith("http://") or url.startswith("https://"):
         return url
     return f"{str(request.base_url).rstrip('/')}{url}"
-
-
-def get_presigned_url(key: str, expires: int = 3600) -> str:
-    """Return a pre-signed download URL for *key* valid for *expires* seconds."""
-    s3 = _get_s3()
-    url: str = s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": settings.S3_BUCKET, "Key": key},
-        ExpiresIn=expires,
-    )
-    return url
