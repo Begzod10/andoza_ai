@@ -14,7 +14,6 @@ from app.models.apartment import Apartment
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
-from app.services.room_geometry import shoelace as _shoelace
 
 logger = structlog.get_logger(__name__)
 

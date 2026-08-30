@@ -147,5 +147,3 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
     </div>
   )
 }
-
-export default Image3DConverter
