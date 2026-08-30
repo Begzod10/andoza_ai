@@ -32,6 +32,12 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://uytamir:uytamir@localhost:5432/uytamir_test
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: test-secret-key-for-ci-only-32chars!!
+      # Default (/app/media) only exists inside the production container;
+      # the CI runner has no /app at all and can't create one at the
+      # filesystem root, which failed every test file that imports app.main
+      # (create_app() does media_root.mkdir() at import time) with
+      # "PermissionError: [Errno 13] Permission denied: '/app'".
+      MEDIA_ROOT: ${{ github.workspace }}/backend/media
       ENVIRONMENT: development
       SMS_PROVIDER: eskiz
       AI_FEATURES_ENABLED: false
