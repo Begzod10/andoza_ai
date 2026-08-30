@@ -6,12 +6,36 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.models.material import Material
 from app.models.order import Order, OrderLine
-from app.schemas.order import OrderCreate, OrderOut
+from app.schemas.order import OrderCreate, OrderLineCreate, OrderOut
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+async def _resolve_line_prices(
+    db: DbSession, lines: list[OrderLineCreate]
+) -> dict:
+    """Look up the authoritative price for every line that references a
+    catalog material, keyed by material_id. Client-submitted unit_price_uzs
+    is never trusted for these lines — it is only used as-is for genuine
+    free-text lines that carry no material_id."""
+    material_ids = {line.material_id for line in lines if line.material_id is not None}
+    if not material_ids:
+        return {}
+
+    result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
+    price_by_material_id = {m.id: m.price_uzs for m in result.scalars().all()}
+
+    missing_ids = material_ids - price_by_material_id.keys()
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Noto'g'ri material ID.",
+        )
+    return price_by_material_id
 
 
 @router.post(
@@ -25,8 +49,15 @@ async def create_order(
     current_user: CurrentUser,
     db: DbSession,
 ) -> OrderOut:
+    price_by_material_id = await _resolve_line_prices(db, body.lines)
+
+    def _authoritative_price(line: OrderLineCreate) -> int:
+        if line.material_id is not None:
+            return price_by_material_id[line.material_id]
+        return line.unit_price_uzs
+
     total_uzs = round(
-        sum(line.unit_price_uzs * line.quantity for line in body.lines)
+        sum(_authoritative_price(line) * line.quantity for line in body.lines)
     )
 
     order = Order(
@@ -39,7 +70,7 @@ async def create_order(
                 material_id=line.material_id,
                 product_name=line.product_name,
                 unit=line.unit,
-                unit_price_uzs=line.unit_price_uzs,
+                unit_price_uzs=_authoritative_price(line),
                 quantity=line.quantity,
             )
             for line in body.lines

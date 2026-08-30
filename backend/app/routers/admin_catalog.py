@@ -157,7 +157,7 @@ async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSessi
 
     for key in stray_keys:
         try:
-            delete_file(key)
+            await delete_file(key)
         except Exception as exc:  # the rows are gone; a stray file isn't worth a 500
             logger.warning("store_delete_file_failed", key=key, error=str(exc))
 
@@ -251,7 +251,7 @@ async def upload_furniture_model(
             ext = _EXT_BY_THUMBNAIL_TYPE.get(thumbnail.content_type or "", "jpg")
             thumb_key = f"furniture/{uuid_module.uuid4()}_thumb.{ext}"
             try:
-                stored = upload_file(thumb_bytes, thumb_key, content_type=thumbnail.content_type or "image/jpeg")
+                stored = await upload_file(thumb_bytes, thumb_key, content_type=thumbnail.content_type or "image/jpeg")
             except Exception as exc:
                 logger.error("furniture_thumbnail_upload_failed", key=thumb_key, error=str(exc))
                 raise HTTPException(
@@ -262,12 +262,12 @@ async def upload_furniture_model(
 
     glb_key = f"furniture/{uuid_module.uuid4()}.glb"
     try:
-        stored_glb = upload_file(glb_bytes, glb_key, content_type="model/gltf-binary")
+        stored_glb = await upload_file(glb_bytes, glb_key, content_type="model/gltf-binary")
     except Exception as exc:
         logger.error("furniture_glb_upload_failed", key=glb_key, error=str(exc))
         if thumbnail_key:
             try:
-                delete_file(thumbnail_key)
+                await delete_file(thumbnail_key)
             except Exception:  # best-effort cleanup of the half-finished upload
                 pass
         raise HTTPException(
@@ -403,7 +403,7 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
         if not key:
             continue
         try:
-            delete_file(key)
+            await delete_file(key)
         except Exception as exc:  # the row is gone; a stray file is not worth a 500
             logger.warning("furniture_file_delete_failed", key=key, error=str(exc))
 

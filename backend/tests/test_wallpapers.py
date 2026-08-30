@@ -98,12 +98,22 @@ class TestUpload:
         assert response.status_code == 400
 
     def test_rejects_oversized_file(self, client):
+        # The real limit is 15 MB (_MAX_FILE_SIZE_BYTES in app.routers.wallpapers);
+        # the size check happens after `await file.read()`, so exercising it for
+        # real would mean building and multipart-encoding a real ~15 MB payload
+        # on every test run. Under `pytest --cov` that one file alone dominated
+        # the whole suite's runtime (coverage.py's line tracing multiplies the
+        # cost of whatever byte-level loop the multipart parser runs). Patching
+        # the limit down lets a tiny payload exercise the exact same
+        # `len(file_bytes) > _MAX_FILE_SIZE_BYTES` comparison and 413 response
+        # without touching the production constant itself.
         _as(_user(), _db())
-        huge = io.BytesIO(b"0" * (16 * 1024 * 1024))
-        response = client.post(
-            "/api/v1/wallpapers",
-            files={"file": ("big.png", huge, "image/png")},
-        )
+        with patch("app.routers.wallpapers._MAX_FILE_SIZE_BYTES", 1024):
+            oversized = io.BytesIO(b"0" * 2048)
+            response = client.post(
+                "/api/v1/wallpapers",
+                files={"file": ("big.png", oversized, "image/png")},
+            )
         assert response.status_code == 413
 
     def test_stores_image_and_returns_absolute_url(self, client):

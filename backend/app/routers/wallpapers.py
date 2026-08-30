@@ -195,7 +195,7 @@ async def upload_wallpaper(
     ext = _EXT_BY_TYPE.get(file.content_type or "", "jpg")
     key = f"wallpapers/{uuid_module.uuid4()}.{ext}"
     try:
-        stored_url = upload_file(file_bytes, key, content_type=file.content_type or "image/jpeg")
+        stored_url = await upload_file(file_bytes, key, content_type=file.content_type or "image/jpeg")
     except Exception as exc:
         logger.error("wallpaper_upload_failed", key=key, error=str(exc))
         raise HTTPException(
@@ -302,6 +302,6 @@ async def delete_wallpaper(
     await db.delete(wallpaper)
     await db.flush()
     try:
-        delete_file(key)
+        await delete_file(key)
     except Exception as exc:  # the row is gone; a stray file is not worth a 500
         logger.warning("wallpaper_file_delete_failed", key=key, error=str(exc))

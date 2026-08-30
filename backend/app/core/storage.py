@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+from functools import partial
 from pathlib import Path
 
+import anyio.to_thread
 import boto3
 from botocore.client import Config
 from starlette.requests import Request
@@ -58,22 +60,29 @@ def _get_s3():
     return _s3_client
 
 
-def upload_file(file_bytes: bytes, key: str, content_type: str = "application/octet-stream") -> str:
+async def upload_file(file_bytes: bytes, key: str, content_type: str = "application/octet-stream") -> str:
     """Store *file_bytes* under *key* and return its URL.
 
     Goes to S3 when it is configured, to MEDIA_ROOT otherwise (the returned
     URL is then relative to the API host, e.g. ``/media/wallpapers/x.jpg``).
+
+    The actual blocking call (a synchronous disk write or a synchronous
+    boto3 network round-trip) is offloaded to a worker thread via
+    ``anyio.to_thread.run_sync`` so it never blocks the event loop that
+    every other request on this process shares.
     """
     if not settings.s3_configured:
-        return _local_upload(file_bytes, key)
+        return await anyio.to_thread.run_sync(_local_upload, file_bytes, key)
     s3 = _get_s3()
-    s3.put_object(
+    put_object = partial(
+        s3.put_object,
         Bucket=settings.S3_BUCKET,
         Key=key,
         Body=file_bytes,
         ContentType=content_type,
         ACL="public-read",
     )
+    await anyio.to_thread.run_sync(put_object)
     if settings.S3_ENDPOINT_URL:
         public_url = f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET}/{key}"
     else:
@@ -83,13 +92,18 @@ def upload_file(file_bytes: bytes, key: str, content_type: str = "application/oc
     return public_url
 
 
-def delete_file(key: str) -> None:
-    """Remove a stored object by *key*, from wherever it was written."""
+async def delete_file(key: str) -> None:
+    """Remove a stored object by *key*, from wherever it was written.
+
+    Like :func:`upload_file`, the blocking disk/network call runs in a
+    worker thread so it does not stall the event loop.
+    """
     if not settings.s3_configured:
-        _local_delete(key)
+        await anyio.to_thread.run_sync(_local_delete, key)
         return
     s3 = _get_s3()
-    s3.delete_object(Bucket=settings.S3_BUCKET, Key=key)
+    delete_object = partial(s3.delete_object, Bucket=settings.S3_BUCKET, Key=key)
+    await anyio.to_thread.run_sync(delete_object)
 
 
 def public_url(storage_key: str) -> str:

@@ -21,6 +21,29 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """This file talks to the REAL Redis (no mocking, unlike test_auth.py's
+    FakeRedis) — TestClient always reports the same fake IP ("testclient"),
+    so repeated runs of this file accumulate real register/login rate-limit
+    counters against that one key until they trip for real, failing a test
+    that has nothing to do with rate limiting. Clear them before every test."""
+    import asyncio
+
+    from app.core.cache import get_redis
+
+    async def _flush() -> None:
+        redis = get_redis()
+        keys: list[str] = []
+        for pattern in ("register_ip_rate:*", "login_ip_rate:*", "login_user_rate:*"):
+            keys.extend(await redis.keys(pattern))
+        if keys:
+            await redis.delete(*keys)
+
+    asyncio.run(_flush())
+    yield
+
+
 class TestOTPRequest:
     """POST /api/v1/auth/otp/request — request an OTP code."""
 
