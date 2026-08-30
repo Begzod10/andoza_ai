@@ -56,10 +56,6 @@ export default function DokonPage() {
   // Admin-only catalog management (create shops, upload 3D models) — a
   // separate surface from the customer-facing marketplace screens below.
   const isAdmin = useAuthStore((s) => s.user)?.is_admin === true;
-  // Admins land straight in the management panel — the marketplace screens
-  // below are an unbuilt "coming soon" stub, not something an admin came
-  // here to look at. "Do'konga qaytish" still lets them peek at it.
-  const [showAdminPanel, setShowAdminPanel] = useState(isAdmin);
 
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");
@@ -252,41 +248,20 @@ export default function DokonPage() {
   };
 
   // Render screens
-  if (isAdmin && showAdminPanel) {
-    return (
-      <div>
-        <div className="px-4 pt-4">
-          <button
-            onClick={() => setShowAdminPanel(false)}
-            className="text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            ← Do'konga qaytish
-          </button>
-        </div>
-        <AdminCatalogPanel />
-      </div>
-    );
+  // Admin has no reason to ever see the customer marketplace stub below —
+  // it's all "coming soon" placeholders, not a real shop to browse. Do'kon
+  // in the sidebar IS the management panel for an admin, full stop.
+  if (isAdmin) {
+    return <AdminCatalogPanel />;
   }
 
   if (screen === "shop") {
     return (
-      <div>
-        {isAdmin && (
-          <div className="flex justify-end px-4 pt-3">
-            <button
-              onClick={() => setShowAdminPanel(true)}
-              className="text-xs font-semibold text-brand hover:text-brand-light"
-            >
-              ⚙ Boshqaruv paneli
-            </button>
-          </div>
-        )}
-        <S1_ShopHome
-          cartCount={cart.length}
-          onCart={() => setScreen("cart")}
-          onProductSelect={handleProductSelect}
-        />
-      </div>
+      <S1_ShopHome
+        cartCount={cart.length}
+        onCart={() => setScreen("cart")}
+        onProductSelect={handleProductSelect}
+      />
     );
   }
 
