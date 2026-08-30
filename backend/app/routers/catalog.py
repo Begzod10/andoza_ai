@@ -125,10 +125,15 @@ async def list_material_offers(
 async def list_furniture(
     db: DbSession,
     category: str | None = Query(default=None),
+    room_type: str | None = Query(
+        default=None,
+        description="Filter to models for this room; models with no room_type "
+                    "(usable everywhere) are always included",
+    ),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
-    cache_key = f"furniture:{category}:{page}:{per_page}"
+    cache_key = f"furniture:{category}:{room_type}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedFurniture.model_validate(cached)
@@ -139,6 +144,10 @@ async def list_furniture(
     if category:
         query = query.where(Furniture.category == category)
         count_query = count_query.where(Furniture.category == category)
+    if room_type:
+        room_filter = Furniture.room_type.is_(None) | (Furniture.room_type == room_type)
+        query = query.where(room_filter)
+        count_query = count_query.where(room_filter)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()

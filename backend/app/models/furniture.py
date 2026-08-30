@@ -38,6 +38,18 @@ class Furniture(Base):
         nullable=True,
         comment="S3 key for the .glb 3-D model file",
     )
+    thumbnail_key: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="S3 key for the model's preview image",
+    )
+    room_type: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        index=True,
+        comment="Room this model is meant for (mehmonxona/oshxona/yotoqxona/"
+                "hammom/balkon); null means usable in every room",
+    )
     footprint_w: Mapped[float | None] = mapped_column(
         Numeric(5, 2),
         nullable=True,

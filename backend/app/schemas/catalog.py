@@ -9,6 +9,7 @@ class FurnitureOut(BaseModel):
     id: UUID
     store_id: UUID | None
     category: str
+    room_type: str | None
     name_uz: str
     price_uzs: int | None
     glb_key: str | None

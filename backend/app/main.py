@@ -16,7 +16,7 @@ from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
     wallpapers, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, currency,
+    orders, currency, admin_catalog,
 )
 
 
@@ -81,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(room_state.router, prefix="/api/v1", tags=["room-state"])
     app.include_router(orders.router, prefix="/api/v1", tags=["orders"])
     app.include_router(currency.router, prefix="/api/v1", tags=["currency"])
+    app.include_router(admin_catalog.router, prefix="/api/v1", tags=["admin-catalog"])
 
     # ------------------------------------------------------------------
     # Uploaded media (wallpapers, photos) when object storage is not set up.
