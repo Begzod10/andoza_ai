@@ -13,8 +13,8 @@ import type { WallCovering, WallPanelSettings, FloorType } from "@/store/roomSto
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
-import { FURNITURE_CATALOG, CATEGORY_LABELS } from "@/lib/furnitureCatalog";
-import type { FurnitureCatalogEntry, FurnitureCategory } from "@/lib/furnitureCatalog";
+import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
+import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
@@ -44,6 +44,20 @@ const WALL_COLORS = [
   "#FFFFFF", "#F5F0E8", "#E8D5C4", "#D4E8D4",
   "#C4D4E8", "#E8C4C4", "#C4C4E8", "#E8E8C4", "#D85A30",
 ];
+
+// Uzbek names for the swatches below — without these, screen readers and
+// colorblind users have no way to tell the buttons apart.
+const WALL_COLOR_NAMES: Record<string, string> = {
+  "#FFFFFF": "Oq",
+  "#F5F0E8": "Krem",
+  "#E8D5C4": "Bej",
+  "#D4E8D4": "Pista yashil",
+  "#C4D4E8": "Moviy",
+  "#E8C4C4": "Pushti",
+  "#C4C4E8": "Siren",
+  "#E8E8C4": "Och sariq",
+  "#D85A30": "Terrakota",
+};
 
 const FLOOR_TYPES = [
   { key: "parquet",  label: "Parket"  },
@@ -169,6 +183,19 @@ interface ModelCardEntry {
   modelPath?: string;
   hasTextures?: boolean;
   category?: FurnitureCategory;
+  placement?: FurniturePlacement;
+  /** Estimated price, so'm — user models and shop models; feeds the hisoblagich line for this item. */
+  priceUzs?: number;
+  /** Rendered preview of the model itself — user models only; falls back to emoji when absent. */
+  thumbnailUrl?: string;
+  /** True for a do'kon (shop) catalog model — editing happens in the admin
+   *  panel, not here, so these cards get no recategorize/price affordances.
+   *  Unlike a user upload, a shop model can also simply have no GLB yet
+   *  (admin created the listing before uploading the file). */
+  isShop?: boolean;
+  /** Shop name badge — only set (and only meaningful) when isShop is true;
+   *  null for a shop model an admin hasn't assigned to any store. */
+  storeName?: string | null;
 }
 
 /**
@@ -176,7 +203,7 @@ interface ModelCardEntry {
  * image dropped here skins every untextured part at once (the quick path),
  * while the 🖼 editor gives per-part control.
  */
-function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize }: {
+function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onFiles, onRecategorize, onSetPlacement, onSetPrice }: {
   entry: ModelCardEntry;
   count: number;
   busy: boolean;
@@ -185,8 +212,10 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
   onRemove(): void;
   onFiles(files: File[]): void;
   onRecategorize?(category: FurnitureCategory): void;
+  onSetPlacement?(placement: FurniturePlacement): void;
+  onSetPrice?(priceUzs: number): void;
 }) {
-  const ready = !entry.isUser || !!entry.modelPath;
+  const ready = (!entry.isUser && !entry.isShop) || !!entry.modelPath;
   const canTexture = entry.isUser && !!entry.modelPath;
   const { isOver, dropProps } = useFileDrop({
     onDrop: onFiles,
@@ -202,11 +231,18 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         ${isOver ? 'border-brand border-dashed bg-brand/5'
                  : count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
     >
-      {/* Thumbnail */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none">
-        {isOver ? '🖼' : entry.emoji}
+      {/* Thumbnail — a real render of the model when available, else the emoji */}
+      <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none overflow-hidden">
+        {!isOver && entry.thumbnailUrl ? (
+          <img src={entry.thumbnailUrl} alt={entry.name} className="w-full h-full object-cover" />
+        ) : (
+          isOver ? '🖼' : entry.emoji
+        )}
         {entry.isUser && !entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
+        )}
+        {entry.isShop && !entry.modelPath && (
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">3D model yo'q</span>
         )}
         {entry.isUser && !entry.hasTextures && entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
@@ -219,6 +255,12 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
           {isOver ? "Tekstura qo'yish" : entry.name}
         </p>
         <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+        {entry.isShop && (
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate" title={entry.storeName ?? undefined}>
+            🏪 {entry.storeName ?? "Do'konsiz"}
+            {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
+          </p>
+        )}
         {entry.isUser && onRecategorize && (
           <select
             value={entry.category ?? 'boshqa'}
@@ -230,6 +272,32 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
+        )}
+        {entry.isUser && onSetPlacement && (
+          <select
+            value={entry.placement ?? 'pol'}
+            onChange={(e) => onSetPlacement(e.target.value as FurniturePlacement)}
+            className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+            title="Xonada joylashuvi"
+          >
+            {Object.entries(PLACEMENT_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        )}
+        {entry.isUser && onSetPrice && (
+          <label className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={entry.priceUzs ?? 0}
+              onChange={(e) => onSetPrice(Math.max(0, Number(e.target.value) || 0))}
+              className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+              title="Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi"
+            />
+            <span className="shrink-0">so'm</span>
+          </label>
         )}
       </div>
 
@@ -288,7 +356,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
-          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory } =
+          userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePlacement, setUserFurniturePrice,
+          catalogFurniture } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -428,6 +497,28 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }, 600);
   }
 
+  // Reset button: click-to-arm, click-to-confirm — see the render below.
+  const [resetArmed, setResetArmed] = React.useState(false);
+  const resetArmTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current) }, []);
+  function armReset() {
+    setResetArmed(true);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    // Auto-disarm — a confirm row primed from a tap ten minutes ago and then
+    // rediscovered is more dangerous than no confirm step at all.
+    resetArmTimerRef.current = setTimeout(() => setResetArmed(false), 5000);
+  }
+  function cancelReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+  }
+  function confirmReset() {
+    setResetArmed(false);
+    if (resetArmTimerRef.current) clearTimeout(resetArmTimerRef.current);
+    resetDesignState();
+    mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } });
+  }
+
   function applyWallCovering(covering: WallCovering) {
     setWallCovering(targetWall, covering);
     const updated = {
@@ -473,9 +564,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   function handleSetFloorType(type: string) {
     const ft = type as FloorType;
-    setDesignState({ floorType: ft });
+    setDesignState({ floorType: ft, floorConfigured: true });
     setFloorTexture(null);
-    syncToApi({ ...designState, floorType: ft, floorTexture: null });
+    syncToApi({ ...designState, floorType: ft, floorConfigured: true, floorTexture: null });
   }
 
   const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
@@ -508,6 +599,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     }
     setFloorBusy(true);
     setFloorError(null);
+    setDesignState({ floorConfigured: true });
     try {
       const uploaded = await uploadWallpaper(file);
       setFloorTexture(uploaded.url);
@@ -555,7 +647,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const isAdmin = currentUser?.is_admin === true;
   const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
     queryKey: ["wallpapers"],
-    queryFn: listWallpapers,
+    queryFn: () => listWallpapers(),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
@@ -1052,7 +1144,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls */}
       {targetWall !== 'FLOOR' && (<>
-      <section>
+      <section className="pt-5 border-t border-gray-100">
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           {(["paint", "oboy", "texture"] as const).map((mode) => (
             <button
@@ -1072,14 +1164,15 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Paint colors */}
       {coveringMode === "paint" && (
-        <section>
+        <section className="pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
           <div className="flex flex-wrap gap-2">
             {WALL_COLORS.map((color) => (
               <button
                 key={color}
                 onClick={() => handleSetPaintColor(color)}
-                title={color}
+                title={WALL_COLOR_NAMES[color] ?? color}
+                aria-label={WALL_COLOR_NAMES[color] ?? color}
                 className="w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
                 style={{
                   backgroundColor: color,
@@ -1095,7 +1188,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Wallpaper patterns */}
       {coveringMode === "oboy" && (
-        <section className="space-y-4">
+        <section className="space-y-4 pt-5 border-t border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
             <div className="grid grid-cols-3 gap-2">
@@ -1164,7 +1257,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
       {/* Texture upload */}
       {coveringMode === "texture" && (
-        <section className="space-y-3">
+        <section className="space-y-3 pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Devor rasmi</h3>
           {renderTexturePicker('wallpaper', applyWallpaper, 'Oboy kutubxonasi')}
           {(() => {
@@ -1546,9 +1639,27 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     </section>
   )
 
+  // The picker only offers real inventory: do'kon (admin-added) models and
+  // your own uploads. The old hardcoded demo catalog (FURNITURE_CATALOG) is
+  // no longer offered here — it isn't real shop data — but stays resolvable
+  // elsewhere in this file so a room that already placed one doesn't break.
   const allCatalogEntries = [
-    ...FURNITURE_CATALOG.map(e => ({ ...e, isUser: false as const })),
-    ...userFurniture.map(e => ({ ...e, isUser: true as const })),
+    ...userFurniture.map(e => ({ ...e, isUser: true as const, isShop: false as const })),
+    // Do'kon-managed 3D models (admin catalog) — footprint-derived w×d, no
+    // recategorize/price editing here (that lives in the admin panel).
+    ...catalogFurniture.map(f => ({
+      id: f.id,
+      name: f.name_uz,
+      emoji: '🏪',
+      sizeM: { w: (f.footprint_w ?? 0) / 100, d: (f.footprint_d ?? 0) / 100 },
+      isUser: false as const,
+      isShop: true as const,
+      modelPath: f.glb_url ?? undefined,
+      thumbnailUrl: f.thumbnail_url ?? undefined,
+      category: f.category as FurnitureCategory,
+      priceUzs: f.price_uzs ?? undefined,
+      storeName: f.store_name,
+    })),
   ]
 
   const catChips: Array<{ key: FurnitureCategory | 'barchasi' | 'mening'; label: string }> = [
@@ -1561,7 +1672,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     if (furnitureCat === 'barchasi') return true
     if (furnitureCat === 'mening') return e.isUser
     // Uploads made before categories existed have none — file them under Boshqa
-    if (e.isUser) return (e.category ?? 'boshqa') === furnitureCat
+    if (e.isUser || e.isShop) return (e.category ?? 'boshqa') === furnitureCat
     return (e as FurnitureCatalogEntry).category === furnitureCat
   })
 
@@ -1616,9 +1727,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 emoji: entry.emoji,
                 sizeM: entry.sizeM,
                 isUser: entry.isUser,
+                isShop: entry.isShop,
                 modelPath: 'modelPath' in entry ? entry.modelPath : undefined,
                 hasTextures: 'hasTextures' in entry ? entry.hasTextures : undefined,
                 category: 'category' in entry ? entry.category : undefined,
+                priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
+                thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
+                storeName: 'storeName' in entry ? entry.storeName : undefined,
               }}
               count={count}
               busy={texBusy === entry.id}
@@ -1632,6 +1747,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               }}
               onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
               onRecategorize={entry.isUser ? (category) => setUserFurnitureCategory(entry.id, category) : undefined}
+              onSetPlacement={entry.isUser ? (placement) => setUserFurniturePlacement(entry.id, placement) : undefined}
+              onSetPrice={entry.isUser ? (priceUzs) => setUserFurniturePrice(entry.id, priceUzs) : undefined}
             />
           );
         })}
@@ -1704,18 +1821,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           {furniture.map((f) => {
             const staticEntry = FURNITURE_CATALOG.find((c) => c.id === f.furniture_id) as FurnitureCatalogEntry | undefined;
             const userEntry = userFurniture.find((c) => c.id === f.furniture_id);
+            const shopEntry = catalogFurniture.find((c) => c.id === f.furniture_id);
             const entry = staticEntry ?? userEntry;
             const slots = staticEntry?.materialSlots ?? null;
             const isEditing = colorEditorId === f.id;
             const hasOverrides = f.colorOverrides && Object.keys(f.colorOverrides).length > 0;
             const so = f.scaleOverride ?? 1;
-            const actualW = ((entry?.sizeM.w ?? 0) * so).toFixed(2);
-            const actualD = ((entry?.sizeM.d ?? 0) * so).toFixed(2);
+            // A shop model's sizeM isn't known here (its real scale is only
+            // detected once its GLB loads in the 3D view) — show its
+            // admin-set footprint instead of a misleading 0×0.
+            const shopSizeM = shopEntry
+              ? { w: (shopEntry.footprint_w ?? 0) / 100, d: (shopEntry.footprint_d ?? 0) / 100 }
+              : null;
+            const actualW = ((entry?.sizeM.w ?? shopSizeM?.w ?? 0) * so).toFixed(2);
+            const actualD = ((entry?.sizeM.d ?? shopSizeM?.d ?? 0) * so).toFixed(2);
             return (
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
-                  <span>{entry?.emoji ?? '📦'}</span>
-                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? 'Model'}</span>
+                  <span>{entry?.emoji ?? (shopEntry ? '🏪' : '📦')}</span>
+                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? 'Model'}</span>
                   <span className="text-[10px] text-gray-400 tabular-nums shrink-0">{actualW}×{actualD} m</span>
                   <button
                     onClick={() => setColorEditorId(isEditing ? null : f.id)}
@@ -1806,18 +1930,42 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <p className="text-xs text-amber-600">Oflayn rejimda — o'zgarishlar saqlandi</p>
         )}
 
-        {/* Reset button */}
-        <button
-          onClick={() => {
-            if (confirm('Barcha dizayn o\'zgarishlari bekor qilinadi. Davom etasizmi?')) {
-              resetDesignState()
-              mutation.mutate({ design_state: { wallCoverings: DEFAULT_DESIGN_STATE.wallCoverings, floorType: DEFAULT_DESIGN_STATE.floorType } })
-            }
-          }}
-          className="w-full mt-8 px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
-        >
-          🔄 Dizaynni Bekor Qilish
-        </button>
+        {/* Reset button — separated with its own divider from whatever setting
+            sits above (color swatches, panels, etc.) so it never reads as part
+            of that selection. Destructive, so a single tap can't fire it: the
+            first click only arms an inline confirm row (auto-disarms after a
+            few seconds so a stray tap doesn't leave it primed indefinitely);
+            the action only runs on the explicit second tap. */}
+        <div className="mt-8 pt-4 border-t border-gray-200">
+          {!resetArmed ? (
+            <button
+              onClick={armReset}
+              className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
+            >
+              🔄 Dizaynni Bekor Qilish
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-700">
+                Ishonchingiz komilmi? Barcha dizayn o'zgarishlari o'chiriladi.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={cancelReset}
+                  className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={confirmReset}
+                  className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Ha, o'chirish
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

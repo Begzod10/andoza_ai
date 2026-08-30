@@ -171,6 +171,7 @@ export interface ApartmentRoom {
   id: string;
   name: string;
   floor_area: number | null;
+  thumbnail_url?: string | null;
 }
 
 export interface CreateApartmentData {
@@ -247,6 +248,8 @@ export interface Room {
   perimeter?: number | null;
   openings_count?: number | null;
   updated_at?: string | null;
+  /** Captured 3D-viewport snapshot, shown as the project-card image. Null until first captured. */
+  thumbnail_url?: string | null;
 }
 
 export interface CreateRoomData {
@@ -294,6 +297,13 @@ export async function updateRoom(
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+/** Upload a captured 3D-viewport snapshot (JPEG blob) as the room's project-card thumbnail. */
+export async function uploadRoomThumbnail(roomId: string, blob: Blob): Promise<Room> {
+  const form = new FormData();
+  form.append("file", blob, "thumbnail.jpg");
+  return apiClient<Room>(`/rooms/${roomId}/thumbnail`, { method: "POST", body: form });
 }
 
 export async function deleteRoom(roomId: string): Promise<void> {
@@ -344,32 +354,44 @@ export async function getMaterials(params: MaterialParams = {}): Promise<Materia
   return page.items;
 }
 
-// ---------- Furniture types ----------
+// ---------- Furniture (public catalog — do'kon-managed 3D models) ----------
 
-export interface Furniture {
+/** A shop-managed 3D model as the public catalog serves it — mirrors
+ * `FurnitureOut` in `backend/app/schemas/catalog.py`. This is what the
+ * Studio's "3D Modellar" panel merges in alongside the built-in and
+ * user-imported models. */
+export interface CatalogFurniture {
   id: string;
-  name: string;
+  store_id: string | null;
+  store_name: string | null;
   category: string;
-  width: number;
-  depth: number;
-  height: number;
-  model_url: string | null;
+  room_type: string | null;
+  placement: "pol" | "devor" | "shift";
+  name_uz: string;
+  price_uzs: number | null;
+  glb_url: string | null;
   thumbnail_url: string | null;
-  price: number;
+  footprint_w: number | null;
+  footprint_d: number | null;
 }
 
-export interface FurnitureParams {
+export interface PaginatedCatalogFurniture {
+  items: CatalogFurniture[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface CatalogFurnitureParams {
   category?: string;
-  search?: string;
+  room_type?: string;
   page?: number;
-  page_size?: number;
+  per_page?: number;
 }
 
-// ---------- Furniture ----------
-
-export async function getFurniture(
-  params: FurnitureParams = {}
-): Promise<Furniture[]> {
+export async function listCatalogFurniture(
+  params: CatalogFurnitureParams = {}
+): Promise<PaginatedCatalogFurniture> {
   const query = new URLSearchParams(
     Object.fromEntries(
       Object.entries(params)
@@ -377,7 +399,7 @@ export async function getFurniture(
         .map(([k, v]) => [k, String(v)])
     )
   ).toString();
-  return apiClient<Furniture[]>(`/furniture${query ? `?${query}` : ""}`);
+  return apiClient<PaginatedCatalogFurniture>(`/furniture${query ? `?${query}` : ""}`);
 }
 
 // ---------- Store types ----------
@@ -394,6 +416,19 @@ export interface Store {
 
 export async function getStores(): Promise<Store[]> {
   return apiClient<Store[]>("/stores");
+}
+
+// ---------- Regions (viloyat/tuman reference data) ----------
+
+export interface Region {
+  name: string;
+  code: string;
+  districts: string[];
+}
+
+/** O'zbekiston viloyatlari va ularning tumanlari — static list, no auth needed. */
+export async function listRegions(): Promise<Region[]> {
+  return apiClient<Region[]>("/regions");
 }
 
 // ---------- Usta types ----------
@@ -457,6 +492,9 @@ export interface EstimateResponse {
   total_max: number;
   created_at: string;
   has_electrical: boolean;
+  /** so'm-per-1-USD this estimate was converted at (live CBU rate, cached ~1h). */
+  usd_rate: number;
+  total_usd: number;
 }
 
 // ---------- Estimate ----------
@@ -695,6 +733,16 @@ export async function waitForMeshyTask(
 export interface Wallpaper {
   id: string;
   name: string;
+  store_id: string | null;
+  store_name: string | null;
+  price_uzs: number | null;
+  description: string | null;
+  /** Roll/panel width, cm. */
+  width_cm: number | null;
+  /** Fixed panel height, cm — mural-style oboy sold as one piece. */
+  height_cm: number | null;
+  /** Total roll length in stock, metres — repeating-pattern oboy sold by the metre. */
+  total_length_m: number | null;
   /** Absolute URL — loaded straight into a WebGL texture. */
   url: string;
   content_type: string;
@@ -703,18 +751,212 @@ export interface Wallpaper {
 }
 
 /** Every wallpaper anyone has uploaded. The library is global and permanent. */
-export async function listWallpapers(): Promise<Wallpaper[]> {
-  return apiClient<Wallpaper[]>("/wallpapers");
+/** `store_id` filters to one shop's oboy — global library entries (no shop)
+ * are excluded when set. Omit to get the whole library. */
+export async function listWallpapers(params: { store_id?: string } = {}): Promise<Wallpaper[]> {
+  const query = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) as Record<string, string>,
+  ).toString();
+  return apiClient<Wallpaper[]>(`/wallpapers${query ? `?${query}` : ""}`);
 }
 
 /** Upload an image to the shared library. Re-uploading one returns the existing entry. */
-export async function uploadWallpaper(file: File): Promise<Wallpaper> {
+export async function uploadWallpaper(
+  file: File,
+  meta?: {
+    name?: string;
+    store_id?: string;
+    price_uzs?: number;
+    description?: string;
+    width_cm?: number;
+    height_cm?: number;
+    total_length_m?: number;
+  },
+): Promise<Wallpaper> {
   const form = new FormData();
   form.append("file", file);
+  if (meta?.name) form.append("name", meta.name);
+  if (meta?.store_id) form.append("store_id", meta.store_id);
+  if (meta?.price_uzs != null) form.append("price_uzs", String(meta.price_uzs));
+  if (meta?.description) form.append("description", meta.description);
+  if (meta?.width_cm != null) form.append("width_cm", String(meta.width_cm));
+  if (meta?.height_cm != null) form.append("height_cm", String(meta.height_cm));
+  if (meta?.total_length_m != null) form.append("total_length_m", String(meta.total_length_m));
   return apiClient<Wallpaper>("/wallpapers", { method: "POST", body: form });
 }
 
 /** Admins only — 403 otherwise. */
 export async function deleteWallpaper(id: string): Promise<void> {
   await apiClient<void>(`/wallpapers/${id}`, { method: "DELETE" });
+}
+
+/** Admins only — 403 otherwise. The image itself isn't editable — delete
+ * and re-upload instead. */
+export async function updateWallpaper(
+  id: string,
+  patch: Partial<{
+    name: string;
+    store_id: string | null;
+    price_uzs: number | null;
+    description: string | null;
+    width_cm: number | null;
+    height_cm: number | null;
+    total_length_m: number | null;
+  }>,
+): Promise<Wallpaper> {
+  return apiClient<Wallpaper>(`/wallpapers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+// ---------- Admin: shops and 3D-model catalog ----------
+//
+// Separate from `Furniture`/`Store` above — those model a different,
+// unrelated shape and are unused by the current UI. These mirror
+// backend/app/schemas/admin_catalog.py exactly. Every call here is
+// admin-only (403 for anyone else).
+
+export const ADMIN_FURNITURE_CATEGORIES = [
+  "divan", "stol", "stul", "karavot", "shkaf", "lampa", "boshqa",
+] as const;
+export type AdminFurnitureCategory = (typeof ADMIN_FURNITURE_CATEGORIES)[number];
+
+export const ADMIN_ROOM_TYPES = [
+  "mehmonxona", "oshxona", "yotoqxona", "hammom", "balkon",
+] as const;
+export type AdminRoomType = (typeof ADMIN_ROOM_TYPES)[number];
+
+export const ADMIN_PARTNER_TIERS = ["standard", "gold", "platinum"] as const;
+export type AdminPartnerTier = (typeof ADMIN_PARTNER_TIERS)[number];
+
+export interface AdminStore {
+  id: string;
+  name: string;
+  district: string | null;
+  phone: string | null;
+  telegram: string | null;
+  logo_color: string | null;
+  partner_tier: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminStoreInput {
+  name: string;
+  district?: string | null;
+  phone?: string | null;
+  telegram?: string | null;
+  logo_color?: string | null;
+  partner_tier?: AdminPartnerTier;
+}
+
+export async function listAdminStores(): Promise<AdminStore[]> {
+  return apiClient<AdminStore[]>("/admin/stores");
+}
+
+export async function createAdminStore(input: AdminStoreInput): Promise<AdminStore> {
+  return apiClient<AdminStore>("/admin/stores", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAdminStore(
+  id: string,
+  patch: Partial<AdminStoreInput & { is_active: boolean }>,
+): Promise<AdminStore> {
+  return apiClient<AdminStore>(`/admin/stores/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteAdminStore(id: string): Promise<void> {
+  await apiClient<void>(`/admin/stores/${id}`, { method: "DELETE" });
+}
+
+export const ADMIN_PLACEMENTS = ["pol", "devor", "shift"] as const;
+export type AdminPlacement = (typeof ADMIN_PLACEMENTS)[number];
+
+export interface AdminFurniture {
+  id: string;
+  store_id: string | null;
+  store_name: string | null;
+  category: string;
+  room_type: string | null;
+  placement: AdminPlacement;
+  name_uz: string;
+  price_uzs: number | null;
+  glb_url: string | null;
+  thumbnail_url: string | null;
+  footprint_w: number | null;
+  footprint_d: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface UploadAdminFurnitureInput {
+  file: File;
+  thumbnail?: File | null;
+  name_uz: string;
+  category: AdminFurnitureCategory;
+  room_type?: AdminRoomType | null;
+  placement?: AdminPlacement;
+  store_id?: string | null;
+  price_uzs?: number | null;
+  footprint_w?: number | null;
+  footprint_d?: number | null;
+}
+
+export async function listAdminFurniture(params: {
+  store_id?: string;
+  category?: string;
+  room_type?: string;
+} = {}): Promise<AdminFurniture[]> {
+  const query = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) as Record<string, string>,
+  ).toString();
+  return apiClient<AdminFurniture[]>(`/admin/furniture${query ? `?${query}` : ""}`);
+}
+
+/** Upload a .glb model into the shop catalog, tagged with the type of
+ * furniture and the room it belongs in. */
+export async function uploadAdminFurniture(input: UploadAdminFurnitureInput): Promise<AdminFurniture> {
+  const form = new FormData();
+  form.append("file", input.file);
+  if (input.thumbnail) form.append("thumbnail", input.thumbnail);
+  form.append("name_uz", input.name_uz);
+  form.append("category", input.category);
+  if (input.room_type) form.append("room_type", input.room_type);
+  if (input.placement) form.append("placement", input.placement);
+  if (input.store_id) form.append("store_id", input.store_id);
+  if (input.price_uzs != null) form.append("price_uzs", String(input.price_uzs));
+  if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
+  if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
+  return apiClient<AdminFurniture>("/admin/furniture", { method: "POST", body: form });
+}
+
+export async function updateAdminFurniture(
+  id: string,
+  patch: Partial<{
+    name_uz: string;
+    category: AdminFurnitureCategory;
+    room_type: AdminRoomType | null;
+    placement: AdminPlacement;
+    store_id: string | null;
+    price_uzs: number | null;
+    footprint_w: number | null;
+    footprint_d: number | null;
+    is_active: boolean;
+  }>,
+): Promise<AdminFurniture> {
+  return apiClient<AdminFurniture>(`/admin/furniture/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteAdminFurniture(id: string): Promise<void> {
+  await apiClient<void>(`/admin/furniture/${id}`, { method: "DELETE" });
 }

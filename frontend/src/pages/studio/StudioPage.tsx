@@ -16,28 +16,33 @@ function StudioNav({ roomId }: { roomId: string }) {
     { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
     { to: `/studio/${roomId}/elektr`, label: "Elektr" },
     { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
+    // /smeta/:roomId is a top-level route, not nested under /studio/:roomId —
+    // clicking this leaves the studio layout entirely (SmetaPage has its own
+    // header with a back link to here), unlike the other tabs above which
+    // stay within this same StudioPage shell.
+    { to: `/smeta/${roomId}`, label: "Hisoblagich" },
   ];
   return (
-    <div className="flex justify-start sm:justify-center px-3 sm:px-4 py-1 lg:py-2 bg-white border-b border-neutral-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 min-w-max">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all",
-                isActive
-                  ? "bg-white text-brand shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700"
-              )
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    // Lives inline in the header row now (not its own row) — overflow-x-auto
+    // keeps it usable on mobile where 5 tabs don't fit without scrolling.
+    <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all shrink-0",
+              isActive
+                ? "bg-white text-brand shadow-sm"
+                : "text-neutral-500 hover:text-neutral-700"
+            )
+          }
+        >
+          {item.label}
+        </NavLink>
+      ))}
+    </nav>
   );
 }
 
@@ -268,38 +273,51 @@ export default function StudioPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
-      {/* Header — design screen 08 */}
-      <header className="bg-white">
-        <div className="px-4 pt-2 pb-2 lg:pt-3 lg:pb-3 flex items-center gap-3">
-          {/* Back button */}
-          <NavLink
-            to="/projects"
-            className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
-              <path d="M11 4L6 9l5 5"/>
-            </svg>
-          </NavLink>
-          {/* Title + dims */}
-          <button
-            className="flex-1 min-w-0 text-center"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <p className="text-[16px] sm:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
-            <p className="text-[11px] text-muted flex items-center justify-center gap-1">
-              {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
+      {/* Header — was two rows (title bar, then a separate tab-nav row);
+          merged into one grid row so the canvas gets a full row of vertical
+          space back. Three columns: [back+title] auto-width and left-aligned,
+          [tabs] takes the remaining space and centers within it, [save+menu]
+          auto-width on the right. */}
+      <header className="bg-white border-b border-neutral-100">
+        <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          {/* Back button + title, left-aligned */}
+          <div className="flex items-center gap-2 min-w-0">
+            <NavLink
+              to="/projects"
+              className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
+                <path d="M11 4L6 9l5 5"/>
               </svg>
-            </p>
-          </button>
+            </NavLink>
+            <button
+              className="min-w-0 text-left hidden sm:block"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <p className="text-[16px] lg:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
+              <p className="text-[11px] text-muted flex items-center gap-1">
+                {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
+                </svg>
+              </p>
+            </button>
+          </div>
+
+          {/* Tabs — centered in the row's remaining space */}
+          <div className="flex justify-center min-w-0">
+            <StudioNav roomId={room.id} />
+          </div>
+
           {/* Save + kebab */}
           <div className="flex items-center gap-2 flex-shrink-0 relative">
             <button
               onClick={handleSave}
               disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
+              title="Saqlash"
               className={[
-                "px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
+                "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
                 saveStatus === 'saved'
                   ? "bg-success text-white"
                   : (isDirty || fetchStatus === 'notfound')
@@ -307,7 +325,13 @@ export default function StudioPage() {
                     : "bg-primary-tint text-brand",
               ].join(' ')}
             >
-              {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
+              <span className="hidden sm:inline">
+                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
+              </span>
+              <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7.17a1.5 1.5 0 0 1 1.06.44l1.83 1.83c.28.28.44.66.44 1.06V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-9Z"/>
+                <path d="M4.5 2v3h5.5V2M4.5 14v-4h7v4"/>
+              </svg>
             </button>
             <div className="relative">
               <button
@@ -341,7 +365,6 @@ export default function StudioPage() {
             </div>
           </div>
         </div>
-        <StudioNav roomId={room.id} />
       </header>
 
       {/* Offline / auth hint banner */}

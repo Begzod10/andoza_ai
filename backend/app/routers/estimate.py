@@ -69,6 +69,7 @@ from app.schemas.estimate import (
     EstimateSummary,
     PaginatedEstimates,
 )
+from app.services.currency import get_usd_rate, uzs_to_usd
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 
 router = APIRouter(prefix="/rooms/{room_id}")
@@ -212,6 +213,7 @@ async def preview_estimate(
     norms_map = await _load_norms(db)
 
     computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    usd_rate = await get_usd_rate()
 
     return EstimateResponse(
         id=uuid.uuid4(),
@@ -224,6 +226,8 @@ async def preview_estimate(
         status="draft",
         created_at=datetime.now(timezone.utc),
         has_electrical=computed.has_electrical,
+        usd_rate=usd_rate,
+        total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
 
 
@@ -259,6 +263,7 @@ async def create_estimate(
     db.add(estimate)
     await db.flush()
     await db.refresh(estimate)
+    usd_rate = await get_usd_rate()
 
     return EstimateResponse(
         id=estimate.id,
@@ -271,6 +276,8 @@ async def create_estimate(
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=computed.has_electrical,
+        usd_rate=usd_rate,
+        total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
 
 
@@ -396,6 +403,7 @@ async def get_estimate(
 
     raw_lines: list[dict] = estimate.lines or []
     total_uzs = estimate.total_uzs
+    usd_rate = await get_usd_rate()
 
     return EstimateResponse(
         id=estimate.id,
@@ -408,6 +416,8 @@ async def get_estimate(
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=_has_electrical(raw_lines),
+        usd_rate=usd_rate,
+        total_usd=round(uzs_to_usd(total_uzs, usd_rate)),
     )
 
 

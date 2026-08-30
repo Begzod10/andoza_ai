@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
-import type { FurnitureCategory } from '@/lib/furnitureCatalog'
+import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
+import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
 import { hourOfDay } from '@/lib/sunPosition'
 
@@ -90,6 +91,13 @@ export interface PlacedFurniture {
   colorOverrides?: Record<string, string>
   /** Deleted/detached sub-object keys ("indexPath:name" from modelParts.ts) — pruned from the scene graph on load. */
   hiddenParts?: string[]
+  /** Display name snapshot — set for user-uploaded models (see placeFurniture)
+   *  so the backend smeta line reads "Jihoz: <name>" instead of a raw id. */
+  name?: string
+  /** Per-item price snapshot, so'm. Set for user-uploaded models at placement
+   *  time (see placeFurniture) — there is no shared catalog slug to price a
+   *  one-off upload by, so the price travels with the placed instance itself. */
+  unitPriceUzs?: number
 }
 
 export interface UserFurnitureEntry {
@@ -98,12 +106,24 @@ export interface UserFurnitureEntry {
   emoji: string
   blobId: string
   modelPath: string  // blob URL — restored from IndexedDB on startup
+  /** JPEG data URL preview rendered from the model itself at import time
+   *  (see modelConverter.renderThumbnail). Absent for entries imported
+   *  before this existed, or when the render failed — falls back to emoji. */
+  thumbnailUrl?: string
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures: boolean
   /** Which catalog chip the model is filed under. Optional: entries persisted
    *  before categories existed have none, and are treated as 'boshqa'. */
   category?: FurnitureCategory
+  /** Where the model sits once placed. Optional: entries persisted before
+   *  this existed have none, and are treated as 'pol' (floor-standing). */
+  placement?: FurniturePlacement
+  /** Estimated price, so'm — editable by the user, defaulted by category at
+   *  import time (see estimateFurniturePriceUzs). Carried onto each placed
+   *  instance as PlacedFurniture.unitPriceUzs so the smeta/hisoblagich page
+   *  can price a room's own uploaded furniture, not just the built-in catalog. */
+  priceUzs?: number
 }
 
 export type FloorType = 'parquet' | 'tile' | 'laminate' | 'concrete'
@@ -144,6 +164,12 @@ export interface FloorTextureSettings {
 export interface DesignState {
   wallCoverings: { ALL: WallCovering } & Partial<Record<string, WallCovering>>
   floorType: FloorType
+  /** Set once the user actually visits Pol and picks something (handleSetFloorType).
+   *  Until then floorType just holds the schema default ('parquet'), and the
+   *  3D view renders a neutral placeholder instead of a full plank texture no
+   *  one chose — see loadDraftState for how legacy rooms without this key
+   *  are treated as already-configured so they don't lose their floor. */
+  floorConfigured?: boolean
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
@@ -230,6 +256,11 @@ interface RoomStore {
   electricals: PlacedElectrical[]
   lights: PlacedLight[]
   userFurniture: UserFurnitureEntry[]
+  /** Do'kon-managed 3D models from the admin catalog (GET /furniture) — fetched
+   *  by the studio page and stored here (not persisted) so every placement
+   *  path can price/label a placed shop model the same way it already does
+   *  for a user's own uploaded model, via placeFurniture's enrichment below. */
+  catalogFurniture: CatalogFurniture[]
   isDirty: boolean
   wizardStep: number
   designState: DesignState
@@ -266,6 +297,9 @@ interface RoomStore {
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
   setUserFurnitureCategory(id: string, category: FurnitureCategory): void
+  setUserFurniturePlacement(id: string, placement: FurniturePlacement): void
+  setUserFurniturePrice(id: string, priceUzs: number): void
+  setCatalogFurniture(items: CatalogFurniture[]): void
   loadRoom(room: RoomPayload): void
   loadDraftState(state: Record<string, unknown>): void
   setRoomId(id: string): void
@@ -334,6 +368,7 @@ export const DEFAULT_DESIGN_STATE: DesignState = {
   // flat before any finishing work, and the baseline every phase builds on.
   wallCoverings: { ALL: { kind: 'plaster' } },
   floorType: 'parquet',
+  floorConfigured: false,
   ceiling: { design: DEFAULT_CEILING_DESIGN },
   wallPanels: {
     ALL: {
@@ -364,6 +399,7 @@ export const useRoomStore = create<RoomStore>()(
   electricals: [],
   lights: [],
   userFurniture: [],
+  catalogFurniture: [],
   isDirty: false,
   wizardStep: 0,
   designState: DEFAULT_DESIGN_STATE,
@@ -488,10 +524,31 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   placeFurniture(item) {
-    set((state) => ({
-      isDirty: true,
-      furniture: [...state.furniture, item],
-    }))
+    set((state) => {
+      // A user-uploaded model has no shared catalog slug to price by later —
+      // snapshot its name/price onto the placed instance now, at the one
+      // point every placement path (drag-in, AI builder, add-object sheet)
+      // funnels through, so callers don't each need to know about pricing.
+      // A do'kon (shop) catalog model DOES have a shared id, but the backend
+      // smeta engine has no DB access to that catalog either — it only reads
+      // the room's own saved state — so the same per-instance snapshot is the
+      // only way its real price/name reach the estimate.
+      const userEntry = state.userFurniture.find((f) => f.id === item.furniture_id)
+      const catalogEntry = state.catalogFurniture.find((f) => f.id === item.furniture_id)
+      const priceSource = userEntry?.priceUzs ?? catalogEntry?.price_uzs ?? undefined
+      const nameSource = userEntry?.name ?? catalogEntry?.name_uz
+      const enriched = (userEntry || catalogEntry)
+        ? {
+            ...item,
+            name: item.name ?? nameSource,
+            unitPriceUzs: item.unitPriceUzs ?? priceSource,
+          }
+        : item
+      return {
+        isDirty: true,
+        furniture: [...state.furniture, enriched],
+      }
+    })
   },
 
   moveFurniture(id, x, y, rotation) {
@@ -606,6 +663,22 @@ export const useRoomStore = create<RoomStore>()(
     }))
   },
 
+  setUserFurniturePlacement(id, placement) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, placement } : f),
+    }))
+  },
+
+  setUserFurniturePrice(id, priceUzs) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, priceUzs } : f),
+    }))
+  },
+
+  setCatalogFurniture(items) {
+    set({ catalogFurniture: items })
+  },
+
   loadRoom(room) {
     // API geometry is in metres with 0–1 position fractions; the store uses mm.
     // Sets only identity + authoritative geometry — design state, furniture and
@@ -670,7 +743,11 @@ export const useRoomStore = create<RoomStore>()(
       ceilingHeight: s.ceilingHeight ?? 2700,
       geometry: cleanGeometry,
       wizardStep: s.wizardStep ?? 0,
-      designState: s.designState ?? DEFAULT_DESIGN_STATE,
+      // Rooms saved before floorConfigured existed have a real, user-visible
+      // floor already — default the backfill to true so they don't suddenly
+      // go neutral. A genuinely new room has no designState at all yet, so it
+      // falls through to DEFAULT_DESIGN_STATE's explicit floorConfigured: false.
+      designState: s.designState ? { floorConfigured: true, ...s.designState } : DEFAULT_DESIGN_STATE,
       name: s.name ?? 'Xona',
       roomId: s.roomId ?? null,
       furniture: s.furniture ?? [],
@@ -703,7 +780,7 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   setDesignState(patch) {
-    set((state) => ({ designState: { ...state.designState, ...patch } }))
+    set((state) => ({ designState: { ...state.designState, ...patch }, isDirty: true }))
   },
 
   setFloorTexture(url) {
@@ -719,6 +796,7 @@ export const useRoomStore = create<RoomStore>()(
           ? { ALL: covering }
           : { ...state.designState.wallCoverings, [wallId]: covering },
       },
+      isDirty: true,
     }))
   },
 
@@ -730,6 +808,7 @@ export const useRoomStore = create<RoomStore>()(
           ? { ALL: settings }
           : { ...state.designState.wallPanels, [wallId]: settings },
       },
+      isDirty: true,
     }))
   },
 

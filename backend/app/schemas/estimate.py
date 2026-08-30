@@ -29,6 +29,11 @@ class EstimateResponse(BaseModel):
     status: str = "final"
     created_at: datetime
     has_electrical: bool
+    # so'm-per-1-USD used to compute total_usd (see app.services.currency) —
+    # returned alongside so the frontend can convert every line client-side
+    # without a second round trip, and show the rate it priced against.
+    usd_rate: float = 0.0
+    total_usd: int = 0
 
 
 class EstimateSummary(BaseModel):

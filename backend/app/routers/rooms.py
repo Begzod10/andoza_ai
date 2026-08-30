@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import uuid as uuid_module
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.models.apartment import Apartment
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
@@ -17,6 +19,17 @@ from app.services.room_geometry import shoelace as _shoelace
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["rooms"])
+
+# Canvas exports only — this endpoint receives a client-side toDataURL()
+# capture, not an arbitrary user upload, so the allowed set stays narrow.
+_THUMBNAIL_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_THUMBNAIL_EXT_BY_TYPE = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_THUMBNAIL_MAX_BYTES = 4 * 1024 * 1024  # 4 MB — a viewport snapshot, not a texture
+
+
+def _with_thumbnail_url(out: RoomOut, room: Room, request: Request) -> RoomOut:
+    out.thumbnail_url = absolute_media_url(request, room.thumbnail_key)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +95,7 @@ async def create_room(apt_id: UUID, body: RoomCreate, db: DbSession, current_use
     response_model=list[RoomOut],
     summary="List all rooms of an apartment with full details",
 )
-async def list_rooms(apt_id: UUID, db: DbSession, current_user: CurrentUser) -> list[RoomOut]:
+async def list_rooms(apt_id: UUID, db: DbSession, current_user: CurrentUser, request: Request) -> list[RoomOut]:
     await _get_owned_apartment(apt_id, current_user.id, db)
     result = await db.execute(
         select(Room)
@@ -91,7 +104,10 @@ async def list_rooms(apt_id: UUID, db: DbSession, current_user: CurrentUser) -> 
         .where(Room.apartment_id == apt_id, Room.deleted == False)
         .order_by(Room.id)
     )
-    return [RoomOut.model_validate(r) for r in result.scalars().all()]
+    return [
+        _with_thumbnail_url(RoomOut.model_validate(r), r, request)
+        for r in result.scalars().all()
+    ]
 
 
 @router.get(
@@ -99,9 +115,9 @@ async def list_rooms(apt_id: UUID, db: DbSession, current_user: CurrentUser) -> 
     response_model=RoomOut,
     summary="Get full room details",
 )
-async def get_room(room_id: UUID, db: DbSession, current_user: CurrentUser) -> RoomOut:
+async def get_room(room_id: UUID, db: DbSession, current_user: CurrentUser, request: Request) -> RoomOut:
     room = await _get_owned_room(room_id, current_user.id, db)
-    return RoomOut.model_validate(room)
+    return _with_thumbnail_url(RoomOut.model_validate(room), room, request)
 
 
 @router.patch(
@@ -109,7 +125,9 @@ async def get_room(room_id: UUID, db: DbSession, current_user: CurrentUser) -> R
     response_model=RoomOut,
     summary="Partially update a room; recomputes metrics when geometry changes",
 )
-async def update_room(room_id: UUID, body: RoomUpdate, db: DbSession, current_user: CurrentUser) -> RoomOut:
+async def update_room(
+    room_id: UUID, body: RoomUpdate, db: DbSession, current_user: CurrentUser, request: Request
+) -> RoomOut:
     room = await _get_owned_room(room_id, current_user.id, db)
 
     if body.name is not None:
@@ -146,7 +164,68 @@ async def update_room(room_id: UUID, body: RoomUpdate, db: DbSession, current_us
     await db.flush()
     await db.refresh(room)
     logger.info("room_updated", room_id=str(room_id))
-    return RoomOut.model_validate(room)
+    return _with_thumbnail_url(RoomOut.model_validate(room), room, request)
+
+
+@router.post(
+    "/rooms/{room_id}/thumbnail",
+    response_model=RoomOut,
+    summary="Upload a captured 3D-viewport snapshot as the room's project-card thumbnail",
+)
+async def upload_room_thumbnail(
+    room_id: UUID,
+    file: UploadFile,
+    db: DbSession,
+    current_user: CurrentUser,
+    request: Request,
+) -> RoomOut:
+    """Replace the room's thumbnail with a client-captured canvas snapshot.
+
+    The studio calls this after `canvas.toDataURL()`, not with an arbitrary
+    user file — hence the narrow content-type set and small size cap versus
+    the wallpaper library upload. The previous image (if any) is deleted once
+    the new one is safely stored, so a room never keeps more than one.
+    """
+    room = await _get_owned_room(room_id, current_user.id, db)
+
+    if file.content_type not in _THUMBNAIL_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Faqat rasm yuklash mumkin ({', '.join(sorted(_THUMBNAIL_EXT_BY_TYPE.values()))})",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bo'sh fayl yuborildi")
+    if len(file_bytes) > _THUMBNAIL_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Rasm hajmi {_THUMBNAIL_MAX_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+        )
+
+    ext = _THUMBNAIL_EXT_BY_TYPE.get(file.content_type or "", "jpg")
+    key = f"thumbnails/{room_id}/{uuid_module.uuid4()}.{ext}"
+    try:
+        stored_url = upload_file(file_bytes, key, content_type=file.content_type or "image/jpeg")
+    except Exception as exc:
+        logger.error("room_thumbnail_upload_failed", room_id=str(room_id), error=str(exc))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Rasmni saqlab bo'lmadi") from exc
+
+    old_key = room.thumbnail_key
+    # S3 hands back an absolute URL; local storage a key under MEDIA_ROOT —
+    # same shape the wallpaper library stores, so public_url() handles both.
+    room.thumbnail_key = stored_url if stored_url.startswith("http") else key
+    await db.flush()
+    await db.refresh(room)
+
+    if old_key and old_key != room.thumbnail_key:
+        try:
+            delete_file(old_key)
+        except Exception as exc:  # the new thumbnail is already saved; a stray old file is not worth a 500
+            logger.warning("room_thumbnail_old_file_delete_failed", key=old_key, error=str(exc))
+
+    logger.info("room_thumbnail_uploaded", room_id=str(room_id))
+    return _with_thumbnail_url(RoomOut.model_validate(room), room, request)
 
 
 @router.delete(

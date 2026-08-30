@@ -729,9 +729,18 @@ export default function WizardPage() {
     const az = parseFloat(searchParams.get('az') ?? '0')
     const aw = parseFloat(searchParams.get('aw') ?? '0')
     const ad = parseFloat(searchParams.get('ad') ?? '0')
-    const newW = (s.geometry.walls.find((w) => w.id === 'B')?.length ?? 3000) / 1000
-    const newD = (s.geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000
-    const GAP = 0.15
+    // Must match roomExtents()'s convention (lib/roomDims.ts) — same as
+    // aw/ad above, which ThreeDPage's handleAddRoom computed via that exact
+    // function. This used to be swapped (wall B → newW, wall A → newD),
+    // desyncing from aw/ad and shrinking the gap into an outright overlap
+    // between adjacent rooms in the same apartment.
+    const newW = (s.geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000
+    const newD = (s.geometry.walls.find((w) => w.id === 'B')?.length ?? 3000) / 1000
+    // Rooms are adjacent, not detached — each has its own real wall thickness,
+    // so a near-zero gap still reads as two touching walls, not interpenetrating
+    // geometry. A visible dead strip of empty floor between rooms (the old
+    // 0.15m) read as a rendering bug, not a real architectural boundary.
+    const GAP = 0.02
     const pos =
       side === 'east'  ? { x: ax + aw / 2 + GAP + newW / 2, z: az } :
       side === 'west'  ? { x: ax - aw / 2 - GAP - newW / 2, z: az } :

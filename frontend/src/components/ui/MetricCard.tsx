@@ -13,6 +13,12 @@ interface MetricCardProps {
   decimals?: number
   /** Icon rendered above the value. */
   icon?: React.ReactNode
+  /**
+   * Background + text color classes for a tinted icon chip (e.g.
+   * 'bg-blue-100 text-blue-600'), instead of the plain brand-colored icon.
+   * Opt-in — omit to keep the original plain-icon look.
+   */
+  iconBgClassName?: string
   className?: string
 }
 
@@ -55,6 +61,7 @@ export function MetricCard({
   unit,
   decimals = 1,
   icon,
+  iconBgClassName,
   className,
 }: MetricCardProps) {
   const displayed = useCountUp(value, decimals)
@@ -62,17 +69,23 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        'rounded-lg bg-white',
+        'rounded-2xl bg-white',
         'border border-neutral-200',
         'shadow-card hover:shadow-lg transition-shadow',
-        'px-4 py-4 flex flex-col gap-3',
+        'px-5 py-5 flex flex-col gap-3',
         className,
       )}
     >
       {icon && (
-        <span className="text-brand text-xl leading-none">
-          {icon}
-        </span>
+        iconBgClassName ? (
+          <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center', iconBgClassName)}>
+            {icon}
+          </span>
+        ) : (
+          <span className="text-brand text-xl leading-none">
+            {icon}
+          </span>
+        )
       )}
 
       <div className="flex items-baseline gap-2">

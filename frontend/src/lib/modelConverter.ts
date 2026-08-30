@@ -86,7 +86,62 @@ function toStandardMaterials(root: THREE.Object3D): number {
   return converted.size
 }
 
-function extractSceneInfo(root: THREE.Object3D): ModelInfo {
+/** Every texture slot MeshStandardMaterial (and glTF-sourced materials)
+ *  carries — used by stripUnloadedTextures to catch broken bindings. */
+const TEXTURE_SLOTS = [
+  'map', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap',
+  'metalnessMap', 'alphaMap', 'aoMap', 'emissiveMap', 'envMap',
+  'lightMap', 'specularMap', 'gradientMap',
+] as const
+
+type TexturedMaterial = THREE.Material &
+  Partial<Record<(typeof TEXTURE_SLOTS)[number], THREE.Texture | null>>
+
+/**
+ * Some FBX/OBJ material channels — an external texture the manager's
+ * onError already flagged as missing, or an exotic map type (e.g.
+ * ShininessExponent, VectorDisplacementColor) the loader partially wires up
+ * before giving up on — leave a THREE.Texture bound to a material slot with
+ * no decoded `.image`. GLTFExporter throws outright on such a texture ("No
+ * valid image data found"), which used to abort the whole import over one
+ * bad slot in an otherwise-good model.
+ *
+ * Strip any texture missing image data before export. A material minus a
+ * broken map still renders (flat color); a failed export renders nothing.
+ * Returns how many texture slots were cleared.
+ */
+function stripUnloadedTextures(root: THREE.Object3D): number {
+  let cleared = 0
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const raw of mats) {
+      if (!raw) continue
+      const m = raw as TexturedMaterial
+      let touched = false
+      for (const slot of TEXTURE_SLOTS) {
+        const tex = m[slot]
+        if (tex && !tex.image) {
+          tex.dispose()
+          m[slot] = null
+          cleared++
+          touched = true
+        }
+      }
+      if (touched) m.needsUpdate = true
+    }
+  })
+  return cleared
+}
+
+/**
+ * Auto-detect a model's real-world scale purely from its own geometry —
+ * no target size needed. Used both right after import (modelConverter's own
+ * pipeline) and for shop-catalog models loaded straight from a URL in the
+ * studio, which arrive with no pre-computed scale at all.
+ */
+export function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
   // An empty scene would sail through as a 0×0 m entry with no materials and
   // nothing to render. Fail loudly instead — the import is not usable.
@@ -195,11 +250,15 @@ const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
 // can't decode (.tx/.tif/.tga/.psd are common in 3ds Max/Corona exports).
 // Requests for these are texture-like even when no picked file can serve them.
 const TEXTURE_REQUEST_EXT = /\.(tx|tiff?|tga|psd|png|jpe?g|webp|bmp)$/i
-// Filename markers for a colour/albedo map. The short markers (`_col`, `_d`)
-// must be matched between delimiters — as bare substrings they hit almost any
-// filename ("_d" alone matched every name containing the letter d).
+// Filename markers for a colour/albedo map. The short markers (`_col`, `_dif`,
+// `_d`) must be matched between delimiters — as bare substrings they hit
+// almost any filename ("_d" alone matched every name containing the letter
+// d). `dif` (e.g. "dif_wood.jpg", a common 3ds Max/Corona export convention)
+// used to fall through every branch here — it isn't "diffuse" in full, and
+// isn't the bare "d" token — leaving the material with no map at all and
+// whatever flat placeholder color the exporter baked in.
 const DIFFUSE_HINT_RE =
-  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])d($|[_-]))/i
+  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])dif($|[_-])|(^|[_-])d($|[_-]))/i
 // Maps that are NOT colour. Binding one of these as the diffuse yields a valid,
 // decodable, near-white texture — the model then renders flat white while every
 // "has a texture?" check happily reports yes.
@@ -303,7 +362,13 @@ function autoAssignDiffuseMaps(
     const mats = Array.isArray(child.material) ? child.material : [child.material]
     for (const m of mats) {
       if (!(m instanceof THREE.MeshStandardMaterial) && !(m instanceof THREE.MeshPhongMaterial)) continue
-      if (m.map) continue
+      // A map that's merely BOUND isn't necessarily usable: some FBX/Corona
+      // material graphs wire a diffuse slot through an internal node (seen in
+      // the wild as e.g. "Texmap_Level", a color-correction wrapper) that
+      // FBXLoader can't trace to an actual bitmap — it creates a Texture with
+      // no `.image` that will never load. Skipping only on a genuinely loaded
+      // map lets filename matching still rescue those.
+      if (m.map && m.map.image) continue
       const mName = normStem(m.name || child.name || '')
       // Same fuzzy cascade as texture-request resolution: normalized-stem
       // equality first, then containment in either direction.
@@ -343,6 +408,68 @@ function toGlbBuffer(scene: THREE.Object3D): Promise<ArrayBuffer> {
   })
 }
 
+const THUMBNAIL_SIZE = 256
+
+/**
+ * Render a 3/4-angle preview of *root* to a JPEG data URL, for the catalog
+ * card thumbnail — so an uploaded model shows an actual picture of itself
+ * instead of a generic box icon. Best-effort: any WebGL failure (or an
+ * environment with no GPU context) returns null rather than failing the
+ * import — a missing thumbnail just falls back to the emoji placeholder.
+ *
+ * Must run AFTER materials/textures are finalized (toStandardMaterials,
+ * autoAssignDiffuseMaps) and BEFORE toGlbBuffer, while *root* still has no
+ * parent — it's reparented into a throwaway scene for the render and put
+ * back exactly as found, so the export right after this sees an unchanged
+ * scene graph.
+ */
+function renderThumbnail(root: THREE.Object3D): string | null {
+  let renderer: THREE.WebGLRenderer | null = null
+  try {
+    const box = new THREE.Box3().setFromObject(root)
+    if (box.isEmpty()) return null
+    const center = box.getCenter(new THREE.Vector3())
+    const sphere = box.getBoundingSphere(new THREE.Sphere())
+    const radius = sphere.radius || 1
+
+    const canvas = document.createElement('canvas')
+    canvas.width = THUMBNAIL_SIZE
+    canvas.height = THUMBNAIL_SIZE
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+    renderer.setSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+    renderer.setPixelRatio(1)
+
+    const originalParent = root.parent
+    const stage = new THREE.Scene()
+    stage.add(root)
+    stage.add(new THREE.AmbientLight(0xffffff, 1.1))
+    const key = new THREE.DirectionalLight(0xffffff, 1.6)
+    key.position.set(1, 1.4, 1.6)
+    stage.add(key)
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6)
+    fill.position.set(-1.4, 0.6, -1)
+    stage.add(fill)
+
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, radius * 20)
+    const dist = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.35
+    camera.position.set(center.x + dist * 0.6, center.y + dist * 0.45, center.z + dist * 0.6)
+    camera.lookAt(center)
+
+    renderer.setClearColor(0xf3f4f6, 1)
+    renderer.render(stage, camera)
+    const url = canvas.toDataURL('image/jpeg', 0.72)
+
+    if (originalParent) originalParent.add(root)
+    else stage.remove(root)
+
+    return url
+  } catch {
+    return null
+  } finally {
+    renderer?.dispose()
+  }
+}
+
 /**
  * Convert a model plus its companion files (external textures, .bin buffers,
  * .mtl material libraries) into a single self-contained GLB.
@@ -360,6 +487,7 @@ export async function convertFilesToGlb(
   mainFile: File
   missingTextures: string[]
   parts: { textured: number; total: number }
+  thumbnailUrl: string | null
 }> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
@@ -453,8 +581,13 @@ export async function convertFilesToGlb(
       const stripped = stripBackdropPlanes(gltf.scene)
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
-      const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      const texturesCleared = stripUnloadedTextures(gltf.scene)
+      const buffer =
+        stripped + assigned + uvFixed + texturesCleared > 0
+          ? await toGlbBuffer(gltf.scene)
+          : origBuffer
+      const thumbnailUrl = renderThumbnail(gltf.scene)
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'gltf') {
@@ -463,8 +596,10 @@ export async function convertFilesToGlb(
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      stripUnloadedTextures(gltf.scene)
+      const thumbnailUrl = renderThumbnail(gltf.scene)
       const buffer = await toGlbBuffer(gltf.scene)
-      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene) }
+      return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
 
     if (ext === 'obj') {
@@ -483,8 +618,10 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     if (ext === 'fbx') {
@@ -494,8 +631,10 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
+      const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
-      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene) }
+      return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
     throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)

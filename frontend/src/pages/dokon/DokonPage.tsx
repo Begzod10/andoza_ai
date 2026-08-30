@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { Material } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import {
   S1_ShopHome,
   S2_ProjectMaterials,
@@ -9,6 +10,7 @@ import {
   S6_Payment,
   S7_OrderTracking,
 } from "@/components/dokon/screens";
+import AdminCatalogPanel from "./AdminCatalogPanel";
 
 type Screen =
   | "shop"
@@ -51,6 +53,14 @@ interface MockDealer {
  * Manages all 7 screens with proper state and navigation
  */
 export default function DokonPage() {
+  // Admin-only catalog management (create shops, upload 3D models) — a
+  // separate surface from the customer-facing marketplace screens below.
+  const isAdmin = useAuthStore((s) => s.user)?.is_admin === true;
+  // Admins land straight in the management panel — the marketplace screens
+  // below are an unbuilt "coming soon" stub, not something an admin came
+  // here to look at. "Do'konga qaytish" still lets them peek at it.
+  const [showAdminPanel, setShowAdminPanel] = useState(isAdmin);
+
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");
 
@@ -242,13 +252,41 @@ export default function DokonPage() {
   };
 
   // Render screens
+  if (isAdmin && showAdminPanel) {
+    return (
+      <div>
+        <div className="px-4 pt-4">
+          <button
+            onClick={() => setShowAdminPanel(false)}
+            className="text-sm text-neutral-500 hover:text-neutral-800"
+          >
+            ← Do'konga qaytish
+          </button>
+        </div>
+        <AdminCatalogPanel />
+      </div>
+    );
+  }
+
   if (screen === "shop") {
     return (
-      <S1_ShopHome
-        cartCount={cart.length}
-        onCart={() => setScreen("cart")}
-        onProductSelect={handleProductSelect}
-      />
+      <div>
+        {isAdmin && (
+          <div className="flex justify-end px-4 pt-3">
+            <button
+              onClick={() => setShowAdminPanel(true)}
+              className="text-xs font-semibold text-brand hover:text-brand-light"
+            >
+              ⚙ Boshqaruv paneli
+            </button>
+          </div>
+        )}
+        <S1_ShopHome
+          cartCount={cart.length}
+          onCart={() => setScreen("cart")}
+          onProductSelect={handleProductSelect}
+        />
+      </div>
     );
   }
 

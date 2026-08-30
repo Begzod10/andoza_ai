@@ -61,6 +61,21 @@ async def get_current_active_user(
     return current_user
 
 
+async def require_admin(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Gate for admin-only routers (shop/3D-model management, etc.). A single
+    dependency instead of an inline `if not current_user.is_admin` in every
+    endpoint, since admin surfaces span many endpoints at once."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Faqat administrator uchun",
+        )
+    return current_user
+
+
 # Convenience type aliases for Annotated deps
 CurrentUser = Annotated[User, Depends(get_current_active_user)]
+AdminUser = Annotated[User, Depends(require_admin)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]

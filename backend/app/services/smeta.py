@@ -67,6 +67,25 @@ ELEC_CABLE_PRICE_UZS: int = 10_000   # UZS per cable-metre estimate
 TILE_WASTE: float = 1.10
 LAMINAT_WASTE_DEFAULT: float = 1.07
 
+# ---------------------------------------------------------------------------
+# Furniture ("equipment") pricing
+#
+# Placed furniture (room.state['furniture']) references items from the
+# frontend's static FURNITURE_CATALOG (frontend/src/lib/furnitureCatalog.ts)
+# by a string slug id, e.g. 'couch_84' — a 3D-placement catalog with no
+# pricing of its own, entirely separate from the DB-backed Furniture table
+# the Do'kon shop prices against (which uses UUID ids). Reconciling the two
+# into one priced catalog is a real follow-up; this is the pragmatic bridge
+# in the meantime — known slugs get a real reference price, anything else
+# (a new catalog item, or a user's own uploaded model) falls back to a
+# category-typical estimate and is flagged approximate, same pattern as the
+# electrical line above.
+FURNITURE_CATALOG_PRICES_UZS: dict[str, int] = {
+    "boconcept_hauge_table": 8_000_000,
+    "couch_84": 6_000_000,
+}
+FURNITURE_FALLBACK_PRICE_UZS: int = 2_000_000
+
 NON_WALL_SURFACE_KEYS: frozenset[str] = frozenset({"floor", "ceiling"})
 
 # Waste factors by wallpaper pattern type
@@ -539,6 +558,66 @@ def _tile_lines(
     )]
 
 
+def _furniture_lines(room: "Room") -> list[ComputedLine]:
+    """One line per distinct placed furniture item (qty = how many placed).
+
+    Reads room.state['furniture'] — the array PlacedFurniture entries the
+    studio saves, each carrying a furniture_id slug. Pricing, in order of
+    preference:
+      1. A per-item ``unitPriceUzs`` snapshot on the placed entry itself —
+         set at import time for a user's own uploaded model, since there is
+         no shared slug to look up a price by (each upload mints its own id).
+      2. FURNITURE_CATALOG_PRICES_UZS, for built-in catalog slugs.
+      3. FURNITURE_FALLBACK_PRICE_UZS, flagged approximate rather than
+         silently omitted — an "equipment" total that quietly excludes some
+         of the room's own furniture would be misleading, not just
+         incomplete.
+    """
+    state: dict = room.state or {}
+    placed: list = state.get("furniture") or []
+    if not placed:
+        return []
+
+    counts: dict[str, int] = {}
+    names: dict[str, str] = {}
+    snapshot_prices: dict[str, int] = {}
+    for item in placed:
+        if not isinstance(item, dict):
+            continue
+        fid = item.get("furniture_id")
+        if not fid:
+            continue
+        counts[fid] = counts.get(fid, 0) + 1
+        name = item.get("name")
+        if name and fid not in names:
+            names[fid] = str(name)
+        snap = item.get("unitPriceUzs")
+        if isinstance(snap, (int, float)) and snap > 0 and fid not in snapshot_prices:
+            snapshot_prices[fid] = int(snap)
+
+    lines: list[ComputedLine] = []
+    for furniture_id, qty in sorted(counts.items()):
+        price = snapshot_prices.get(furniture_id) or FURNITURE_CATALOG_PRICES_UZS.get(furniture_id)
+        is_approximate = price is None
+        if price is None:
+            price = FURNITURE_FALLBACK_PRICE_UZS
+        label = names.get(furniture_id) or furniture_id
+        lines.append(_make_line(
+            label=f"Jihoz: {label}",
+            formula=f"{qty} dona × {price:,} so'm".replace(",", " "),
+            qty=qty,
+            unit="dona",
+            price_uzs=price,
+            category="jihoz",
+            is_approximate=is_approximate,
+            warning=(
+                "Narx taxminiy — bu jihoz uchun aniq narx bazada yo'q."
+                if is_approximate else None
+            ),
+        ))
+    return lines
+
+
 def _electrical_line(
     room: "Room",
     norms_map: "dict[str, Norm]",
@@ -718,7 +797,12 @@ def compute_estimate(
                 lines.extend(_tile_lines(room, floor_mat))
 
     # ------------------------------------------------------------------ #
-    # 4. Electrical — uses actual point counts from state when available   #
+    # 4. Furniture ("jihoz") — every distinct item the user has placed     #
+    # ------------------------------------------------------------------ #
+    lines.extend(_furniture_lines(room))
+
+    # ------------------------------------------------------------------ #
+    # 5. Electrical — uses actual point counts from state when available   #
     # ------------------------------------------------------------------ #
     elec_line = _electrical_line(room, norms_map)
     lines.append(elec_line)

@@ -56,6 +56,11 @@ class Room(Base):
     state: Mapped[dict | None] = mapped_column(
         JSONB, nullable=True, comment="Full frontend design state (designState, electricals, lights, furniture)"
     )
+    thumbnail_key: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Storage key for a captured 3D-viewport snapshot (S3 key, or path under MEDIA_ROOT)",
+    )
 
     # --- Computed / cached areas ------------------------------------------ #
     floor_area: Mapped[float | None] = mapped_column(

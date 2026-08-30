@@ -15,7 +15,7 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
-import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
+import { useRoomStore, resolveWallCovering, resolveWallColor, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
@@ -38,8 +38,9 @@ import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/sto
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
-import { getRooms, deleteRoom } from "@/lib/api";
+import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
+import { extractSceneInfo } from "@/lib/modelConverter";
+import { getRooms, deleteRoom, uploadRoomThumbnail, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -176,10 +177,15 @@ function RealismEffects({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
   return (
     <EffectComposer multisampling={0}>
+      {/* intensity was 1.1 — measured (canvas.getImageData, not eyeballed)
+          as the actual dominant factor keeping walls dark at low light,
+          independent of and fighting every scene-light change above. 0.35
+          keeps AO as a subtle corner/crease depth cue without crushing
+          whole flat walls toward black at night. */}
       <N8AO
         halfRes
         aoRadius={0.35}
-        intensity={1.1}
+        intensity={0.35}
         distanceFalloff={0.5}
         quality="performance"
         depthAwareUpsampling
@@ -270,12 +276,20 @@ function requestSharedTexture(
   };
 }
 
+// Bare-screed placeholder shown until the user actually visits Pol and picks
+// something — a plank/tile pattern no one chose read as a rendering bug
+// (z-fighting/UV artifact), not as "here's your default floor".
+const UNCONFIGURED_FLOOR_COLOR = "#DCD7CC";
+
 function WoodFloor({
-  width, depth, floorType, floorTexture, floorTextureSettings, isSelected, onClick,
+  width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
   floorTexture?: string | null;
   floorTextureSettings?: { repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number } | null;
+  /** False for a room that hasn't visited Pol yet — renders a flat neutral
+   *  screed instead of defaulting to a full parquet/tile pattern no one chose. */
+  floorConfigured?: boolean;
   isSelected?: boolean;
   onClick?: () => void;
 }) {
@@ -433,7 +447,11 @@ function WoodFloor({
     <group onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
-        <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
+        {floorConfigured ? (
+          <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
+        ) : (
+          <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />
+        )}
       </mesh>
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
@@ -2238,9 +2256,11 @@ export function SceneLighting({
 
   // Sky bounce follows the sun down. Without this the room keeps a full midday
   // fill under an orange dusk key, which reads as a colour bug rather than as
-  // evening. The floor of 0.18 is what keeps a night room navigable.
+  // evening. The floor keeps a night/late-hour room legible while editing —
+  // raised from 0.18 after users reported walls reading as unreadably dark
+  // at hours like 23:20 while actively painting in Bo'yoq/Oboi.
   const daylight = sun
-    ? Math.max(0.18, Math.pow(Math.sin(Math.max(sun.altitude, 0) * (Math.PI / 180)), 0.6))
+    ? Math.max(0.55, Math.pow(Math.sin(Math.max(sun.altitude, 0) * (Math.PI / 180)), 0.6))
     : 1
 
   return (
@@ -2263,10 +2283,23 @@ export function SceneLighting({
         shadow-normalBias={0.02}
         shadow-radius={4}
       />
-      {/* Cool sky-bounce fill light — much dimmer so shadows read clearly */}
+      {/* Cool sky-bounce fill light — scaled by daylight for time-of-day mood,
+          on top of the flat floor below (so evening still looks like evening,
+          it just never goes unreadable) */}
       <hemisphereLight color="#DCE8FF" groundColor="#CFC6B4" intensity={0.35 * daylight} />
-      {/* Ambient floor to prevent pitch-black occluded areas */}
-      <ambientLight color="#FFFFFF" intensity={0.18 * daylight} />
+      {/* Flat visibility floor, deliberately NOT scaled by daylight/sun angle:
+          a wall facing away from the single directional "sun" used to fall
+          back on 0.18*daylight alone and could read as near-black, which
+          looked like a broken material rather than "just unlit". Selection
+          is communicated by the emissive highlight on the wall itself (see
+          isSelected below), not by dimming everything that isn't selected —
+          so this can stay generous without fighting that signal.
+          ACES tone mapping compresses shadows/midtones hard enough that
+          0.42, then 0.62, both measured (via canvas.getImageData, not just
+          eyeballing a screenshot) as barely different — RGB ~54/255 on the
+          unlit plaster wall at 23:xx, well below "clearly legible". 1.0 is
+          the value that actually moved that reading into a readable range. */}
+      <ambientLight color="#FFFFFF" intensity={1.0} />
     </>
   );
 }
@@ -2367,16 +2400,17 @@ const ADD_ROOM_BTN_STYLE: React.CSSProperties = {
 
 export type RoomSide = 'north' | 'south' | 'east' | 'west';
 
-function AddRoomButtons({ W, D, H, onAdd, disabled }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean }) {
+function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean; occupiedSides?: Set<RoomSide> }) {
   const btnY = H * 0.5;
   const gap = 1.5;
 
-  const sides: { key: RoomSide; pos: [number, number, number] }[] = [
+  const allSides: { key: RoomSide; pos: [number, number, number] }[] = [
     { key: 'north', pos: [0,             btnY, -(D / 2 + gap)] },
     { key: 'south', pos: [0,             btnY,  D / 2 + gap]   },
     { key: 'east',  pos: [ W / 2 + gap,  btnY, 0]              },
     { key: 'west',  pos: [-(W / 2 + gap), btnY, 0]             },
   ];
+  const sides = allSides.filter(({ key }) => !occupiedSides?.has(key));
 
   return (
     <>
@@ -2433,9 +2467,15 @@ const SIBLING_DELETE_STYLE: React.CSSProperties = {
 
 function roomFootprint(r: Room, activeId: string, activeW: number, activeD: number): { w: number; d: number } {
   if (r.id === activeId) return { w: activeW, d: activeD };
-  const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
+  // Must match roomExtents()'s convention (lib/roomDims.ts): wall A → W,
+  // wall B → D. This used to be swapped, which desynced from the aw/ad the
+  // "+ add room" flow sends via roomExtents() in handleAddRoom below —
+  // adjacent rooms in the same apartment could compute a gap that was
+  // actually a geometric overlap (this exact apartment: -3.65 vs two 4.0m-
+  // deep rooms, a 0.35m intrusion — the two-rooms-overlap render bug).
   const wallA = r.geometry?.walls?.find((w) => w.id === 'A');
-  return { w: wallB?.length ?? 3, d: wallA?.length ?? 4 };
+  const wallB = r.geometry?.walls?.find((w) => w.id === 'B');
+  return { w: wallA?.length ?? 4, d: wallB?.length ?? 3 };
 }
 
 function roomLayoutPos(r: Room | undefined): { x: number; z: number } | undefined {
@@ -2446,8 +2486,14 @@ function roomLayoutPos(r: Room | undefined): { x: number; z: number } | undefine
 /**
  * Absolute apartment position for every room, in ONE shared frame:
  * rooms with a stored layoutPos use it verbatim; legacy rooms (no position)
- * form a row along X with the first of them at the origin — the same origin
- * the "+ add room" flow assumes for unpositioned anchors.
+ * form a row along X, starting past every stored room's footprint — the same
+ * origin the "+ add room" flow assumes for unpositioned anchors ONLY when
+ * nothing else already claims it.
+ *
+ * A legacy row that always started back at x=0 used to land exactly on top
+ * of a sibling that already has a real stored position there (the "two rooms
+ * merged into one" bug) — any apartment with one positioned room and one
+ * unpositioned room reproduced it, not just a specific stale pair.
  */
 function computeAbsolutePositions(
   rooms: Room[],
@@ -2455,24 +2501,87 @@ function computeAbsolutePositions(
   activeW: number,
   activeD: number,
 ): Map<string, { x: number; z: number }> {
-  const GAP = 1.2;
+  // Matches persistLayoutPos's GAP in WizardPage.tsx — rooms should read as
+  // adjacent (touching walls), not detached with a dead strip of floor
+  // between them.
+  const GAP = 0.02;
   const abs = new Map<string, { x: number; z: number }>();
-  let cursor = 0;
-  let originOffset: number | null = null;
+
+  // Pass 1: place every room that already has a real position, and note how
+  // far right their footprints reach so the legacy row can start beyond them.
+  let storedMaxX = -Infinity;
   for (const r of rooms) {
     const stored = roomLayoutPos(r);
-    if (stored) {
-      abs.set(r.id, stored);
-      continue;
-    }
+    if (!stored) continue;
+    abs.set(r.id, stored);
+    const { w } = roomFootprint(r, activeId, activeW, activeD);
+    storedMaxX = Math.max(storedMaxX, stored.x + w / 2);
+  }
+
+  // Pass 2: lay out every remaining (unpositioned) room in a row. With no
+  // stored rooms at all, the row starts at 0 (a lone unpositioned room reads
+  // as the origin, same as before); otherwise it starts clear of them.
+  let cursor = storedMaxX === -Infinity ? 0 : storedMaxX + GAP;
+  let originOffset: number | null = null;
+  for (const r of rooms) {
+    if (abs.has(r.id)) continue;
     const { w } = roomFootprint(r, activeId, activeW, activeD);
     const slot = cursor + w / 2;
     cursor += w + GAP;
-    if (originOffset === null) originOffset = slot; // first legacy room = origin
-    abs.set(r.id, { x: slot - originOffset, z: 0 });
+    if (storedMaxX === -Infinity) {
+      // No anchor to measure from — keep the first legacy room at the origin.
+      if (originOffset === null) originOffset = slot;
+      abs.set(r.id, { x: slot - originOffset, z: 0 });
+    } else {
+      abs.set(r.id, { x: slot, z: 0 });
+    }
   }
   return abs;
 }
+
+/**
+ * Which cardinal sides of the active room already have a sibling on them —
+ * so AddRoomButtons can skip that side's "+" instead of stacking it right
+ * on top of a room that's already there.
+ */
+function computeOccupiedSides(
+  rooms: Room[],
+  activeId: string,
+  activeW: number,
+  activeD: number,
+  activePos: { x: number; z: number } | null,
+): Set<RoomSide> {
+  if (rooms.length < 2) return new Set();
+  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+  const occupied = new Set<RoomSide>();
+  for (const r of rooms) {
+    if (r.id === activeId) continue;
+    const p = abs.get(r.id) ?? { x: 0, z: 0 };
+    const dx = p.x - anchor.x;
+    const dz = p.z - anchor.z;
+    // Whichever axis has the larger offset is the side this room sits on —
+    // matches how persistLayoutPos only ever offsets along one axis per side.
+    if (Math.abs(dz) >= Math.abs(dx)) {
+      occupied.add(dz < 0 ? 'north' : 'south');
+    } else {
+      occupied.add(dx < 0 ? 'west' : 'east');
+    }
+  }
+  return occupied;
+}
+
+// Flat approximation of each floor finish — the real per-type PBR textures
+// (WoodFloor) are only built for the active room; a sibling preview gets a
+// representative colour instead of loading a second full material pipeline.
+const SIBLING_FLOOR_COLOR_BY_TYPE: Record<string, string> = {
+  parquet: '#C9A06B',
+  tile: '#E8E8E8',
+  laminate: '#B98D5D',
+  concrete: '#9B9B9B',
+}
+const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
+const SIBLING_WALL_COLOR_DEFAULT = '#C9C2B4'
 
 function SiblingRooms({
   rooms,
@@ -2516,6 +2625,19 @@ function SiblingRooms({
           { p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
           { p: [w / 2, h / 2, 0], s: [0.08, h, d] },
         ];
+        // Real design state, when the sibling has been saved with one —
+        // shows this room's actual wall colour/floor finish instead of a
+        // fixed placeholder tint. Furniture placements referencing a custom
+        // (user-uploaded) model still won't resolve here — those blobs live
+        // only in the browser that imported them — but built-in catalog
+        // furniture (FURNITURE_CATALOG) renders for real, same as FurnitureItem
+        // does for the active room.
+        const design = sib.state?.designState as DesignState | undefined
+        const wallColor = design ? resolveWallColor(design.wallCoverings) : SIBLING_WALL_COLOR_DEFAULT
+        const floorColor = design?.floorType
+          ? SIBLING_FLOOR_COLOR_BY_TYPE[design.floorType] ?? SIBLING_FLOOR_COLOR_DEFAULT
+          : SIBLING_FLOOR_COLOR_DEFAULT
+        const placedFurniture = (sib.state?.furniture as PlacedFurniture[] | undefined) ?? []
         return (
           <group key={sib.id} position={[x, 0, z]}>
             <mesh
@@ -2525,13 +2647,16 @@ function SiblingRooms({
               onPointerOut={() => { document.body.style.cursor = 'auto'; }}
             >
               <boxGeometry args={[w, 0.04, d]} />
-              <meshStandardMaterial color="#D9C9A8" transparent opacity={0.85} />
+              <meshStandardMaterial color={floorColor} />
             </mesh>
             {walls.map((seg, i) => (
               <mesh key={i} position={seg.p}>
                 <boxGeometry args={seg.s} />
-                <meshStandardMaterial color="#C9C2B4" transparent opacity={0.65} />
+                <meshStandardMaterial color={wallColor} />
               </mesh>
+            ))}
+            {placedFurniture.map((item) => (
+              <FurnitureItem key={item.id} item={item} />
             ))}
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2562,13 +2687,20 @@ type AnyFurnitureEntry = {
   scale: number
   sizeM: { w: number; d: number; h: number }
   hasTextures?: boolean
+  /** Do'kon catalog models arrive with no known native unit — scale/sizeM
+   *  above are placeholders. The real values are auto-detected from the
+   *  loaded GLB's own geometry (extractSceneInfo) the first time it renders,
+   *  same as a freshly-imported user model. */
+  autoScale?: boolean
 }
 
 function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   return (
     FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-    userFurniture.find((f) => f.id === furnitureId)
+    userFurniture.find((f) => f.id === furnitureId) ??
+    catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
   )
 }
 
@@ -2699,13 +2831,20 @@ function FurnitureItem({ item }: { item: PlacedFurniture }) {
     return isFinite(box.min.y) ? -box.min.y : 0
   }, [cloned]);
 
+  // A do'kon catalog model has no authored scale — detect it from the loaded
+  // GLB's own geometry, same heuristic a fresh user import goes through.
+  const autoScale = useMemo(() => {
+    if (!entry?.autoScale) return null
+    try { return extractSceneInfo(cloned).scale } catch { return 1 }
+  }, [entry, cloned])
+
   useLayoutEffect(() => {
     if (!item.colorOverrides || Object.keys(item.colorOverrides).length === 0) return
     applyColorOverrides(cloned, item.colorOverrides)
   }, [cloned, item.colorOverrides])
 
   if (!entry || !modelPath) return null;
-  const s = entry.scale * (item.scaleOverride ?? 1);
+  const s = (autoScale ?? entry.scale) * (item.scaleOverride ?? 1);
   return (
     <primitive
       object={cloned}
@@ -2884,12 +3023,19 @@ function DraggableFurnitureItem({
     }
   }, [cloned])
 
+  // A do'kon catalog model has no authored scale — detect it from the loaded
+  // GLB's own geometry, same heuristic a fresh user import goes through.
+  const effScale = useMemo(() => {
+    if (!entry?.autoScale) return entry?.scale ?? 1
+    try { return extractSceneInfo(cloned).scale } catch { return 1 }
+  }, [entry, cloned])
+
   // Report actual footprint to parent for collision detection
   useEffect(() => {
     if (!entry) return
-    const s = entry.scale * (item.scaleOverride ?? 1)
+    const s = effScale * (item.scaleOverride ?? 1)
     onFootprint(item.id, geomHW * s, geomHD * s)
-  }, [item.id, geomHW, geomHD, entry, item.scaleOverride, onFootprint])
+  }, [item.id, geomHW, geomHD, entry, effScale, item.scaleOverride, onFootprint])
 
   useLayoutEffect(() => {
     if (!item.colorOverrides || Object.keys(item.colorOverrides).length === 0) return
@@ -2910,7 +3056,7 @@ function DraggableFurnitureItem({
       // keep the selection cage glued to the model during live rotation
       if (selRef.current) selRef.current.rotation.y = dragRotRef.current
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
-      const liveScale = entry.scale * (dragScaleRef.current ?? 1)
+      const liveScale = effScale * (dragScaleRef.current ?? 1)
       primitiveRef.current.scale.setScalar(liveScale)
       // cage is sized for the committed scale — hide it while live-scaling
       if (selRef.current) selRef.current.visible = false
@@ -2922,21 +3068,23 @@ function DraggableFurnitureItem({
   const so0 = item.scaleOverride ?? 1
   const cageGeo = useMemo(() => {
     if (!entry) return null
-    const sc = entry.scale * so0
+    const sc = effScale * so0
     const w = geomHW * sc * 2 + 0.06
     const d = geomHD * sc * 2 + 0.06
     // Height from the real geometry — catalog sizeM.h can disagree with it
     const h = geomHH * sc * 2 + 0.06
     return new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d))
-  }, [entry, so0, geomHW, geomHD, geomHH])
+  }, [entry, so0, effScale, geomHW, geomHD, geomHH])
   useEffect(() => () => { cageGeo?.dispose() }, [cageGeo])
 
   if (!entry || !modelPath) return null
 
   const so = item.scaleOverride ?? 1
-  const s = entry.scale * so
+  const s = effScale * so
   const yOff = yOffUnit * s
-  const modelH = (entry.sizeM.h ?? 1) * so
+  // A do'kon catalog model's sizeM.h is an unset placeholder (0) — the real
+  // geometry height (geomHH, doubled) times scale is the only true source.
+  const modelH = entry.autoScale ? geomHH * 2 * s : (entry.sizeM.h ?? 1) * so
   const buttonH = modelH + 0.18
   const btnActive = isDragging
   const fw = geomHW * s * 2   // actual footprint width
@@ -3132,6 +3280,7 @@ function DraggableFurnitureModels({
 }) {
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   const moveFurniture = useRoomStore((s) => s.moveFurniture)
   const resizeFurniture = useRoomStore((s) => s.resizeFurniture)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -3159,7 +3308,8 @@ function DraggableFurnitureModels({
   function resolveEntry(furnitureId: string): AnyFurnitureEntry | undefined {
     return (
       FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-      (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId)
+      (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId) ??
+      catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
     )
   }
 
@@ -3421,7 +3571,7 @@ function NWallRoomShell({
       {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
       <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial
-          color={FLOOR_COLORS[designState.floorType] ?? '#C9AB7E'}
+          color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
           roughness={0.8}
         />
       </mesh>
@@ -3641,6 +3791,7 @@ export function RoomScene({
               width={W} depth={D} floorType={designState.floorType}
               floorTexture={designState.floorTexture}
               floorTextureSettings={designState.floorTextureSettings}
+              floorConfigured={designState.floorConfigured}
               isSelected={isFloorSelected}
               onClick={onFloorClick}
             />
@@ -3937,6 +4088,21 @@ export default function ThreeDPage() {
   const navigate = useNavigate();
   const [addingRoom, setAddingRoom] = useState(false);
 
+  // Do'kon-managed 3D models (admin catalog) — fetched once per studio
+  // session and mirrored into the room store so the "3D Modellar" panel and
+  // every placement path can resolve/price them the same way as built-in and
+  // user-uploaded models. Large per_page: shop catalogs are small in
+  // practice and the whole studio wants the full list, not one page of it.
+  const setCatalogFurniture = useRoomStore((s) => s.setCatalogFurniture);
+  const { data: catalogFurniturePage } = useQuery({
+    queryKey: ['catalog-furniture'],
+    queryFn: () => listCatalogFurniture({ per_page: 100 }),
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (catalogFurniturePage) setCatalogFurniture(catalogFurniturePage.items);
+  }, [catalogFurniturePage, setCatalogFurniture]);
+
   async function handleAddRoom(side: RoomSide) {
     if (addingRoom) return;
     setAddingRoom(true);
@@ -4006,6 +4172,26 @@ export default function ThreeDPage() {
   const [showHelp, setShowHelp] = useState(false);
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
+  // Project-card thumbnail: grabbed from the live canvas when the user
+  // leaves this room's 3D view, so the pixels shown are what they last saw.
+  const glCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const roomIdRef = useRef(room.id);
+  roomIdRef.current = room.id;
+  // Fires on unmount — i.e. whenever the user leaves this room's 3D view,
+  // regardless of how (back button, sidebar nav, tab switch away from the
+  // studio). Fire-and-forget: a failed capture should never surface as a
+  // user-facing error mid-navigation, and the next capture just replaces it.
+  useEffect(() => {
+    return () => {
+      const canvas = glCanvasRef.current;
+      if (!canvas) return;
+      const capturedRoomId = roomIdRef.current;
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        uploadRoomThumbnail(capturedRoomId, blob).catch(() => {});
+      }, 'image/jpeg', 0.8);
+    };
+  }, []);
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
@@ -4529,6 +4715,9 @@ export default function ThreeDPage() {
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
+              title={stage.label}
+              aria-label={stage.label}
+              aria-current={status === 'current' ? 'step' : undefined}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 lg:py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
                 status === 'current' ? 'border-brand text-brand' :
                 status === 'done'    ? 'border-transparent text-success' :
@@ -4558,6 +4747,9 @@ export default function ThreeDPage() {
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
+              title={stage.label}
+              aria-label={stage.label}
+              aria-current={status === 'current' ? 'step' : undefined}
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
                 status === 'current'
                   ? 'bg-brand text-white'
@@ -4587,8 +4779,29 @@ export default function ThreeDPage() {
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 shrink-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {/* Toolbar — current phase, then view preset, transform tools, view
+            controls, lighting, AI, each cluster separated by a divider. This
+            is the studio's only toolbar row now that the header absorbed the
+            old separate tab-nav row (see StudioPage.tsx).
+
+            Wrapped in `relative` for the right-edge fade hint below: with
+            this many clusters the row overflows on narrower screens, and
+            scrollbar-width:none (previously set here) suppressed the native
+            scrollbar in Chromium too — not just Firefox — leaving zero
+            visual cue that content like the AI button was one scroll away
+            rather than actually missing. Now shows the app's thin global
+            scrollbar (styles/global.css) AND a fade gradient, so it reads as
+            "scroll for more" instead of "cut off". */}
+        <div className="relative shrink-0">
+        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 overflow-x-auto">
+          {activeIdx >= 0 && (
+            <>
+              <span className="text-xs font-semibold text-gray-700 shrink-0 whitespace-nowrap">
+                Bosqich: {RENO_STAGES[activeIdx].label}
+              </span>
+              <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
+            </>
+          )}
           <span className="text-xs font-medium text-gray-500 mr-0.5 shrink-0 hidden sm:block">Ko'rinish:</span>
           {(["back", "top"] as ViewPreset[]).map((v) => (
             <button
@@ -4618,6 +4831,10 @@ export default function ThreeDPage() {
             </svg>
             <span>Sozlamalar</span>
           </button>
+        </div>
+        {/* Right-edge fade — pointer-events-none so it never blocks clicks on
+            whatever's actually scrolled underneath it. */}
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent" />
         </div>
 
         {/* Canvas area */}
@@ -4666,8 +4883,9 @@ export default function ThreeDPage() {
             </p>
           )}
 
-          {/* Hint overlay — bottom-left of canvas */}
-          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-gray-500/70 pointer-events-none select-none">
+          {/* Hint overlay — bottom-left of canvas. Backed by a dark pill so it
+              stays legible regardless of scene brightness (day sky vs night). */}
+          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-white/90 bg-black/45 backdrop-blur-sm px-2.5 py-1 rounded-full pointer-events-none select-none">
             {isTouch
               ? "Bir barmoq: aylantirish · Ikki barmoq: surish/masshtab · 2× bosish: fokus"
               : "Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus"}
@@ -4765,7 +4983,12 @@ export default function ThreeDPage() {
             toneMappingExposure: 1.15,
             outputColorSpace: THREE.SRGBColorSpace,
             powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
+            // Without this, the drawing buffer can already be cleared by the
+            // time the unmount-triggered toBlob() capture below runs, which
+            // would silently produce a blank thumbnail instead of an error.
+            preserveDrawingBuffer: true,
           }}
+          onCreated={({ gl }) => { glCanvasRef.current = gl.domElement; }}
           onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); }}
           dpr={glAttempt === 0 ? dpr : 1}
         >
@@ -4838,9 +5061,15 @@ export default function ThreeDPage() {
                 <SafeEnvironment files={ENV_HDRI} background intensity={1} />
               </>
             )}
-            {/* Scene light off: barely-visible ambient so the room stays navigable;
-                the room's own lamps (lightsOn) become the dominant light source */}
-            {!sceneLightOn && <ambientLight intensity={0.08} color="#8090B0" />}
+            {/* Scene light off: soft ambient + hemisphere fill keep the floor,
+                walls and door frame readable even before any room lamp is on;
+                the room's own lamps (lightsOn) still read as the dominant source */}
+            {!sceneLightOn && (
+              <>
+                <ambientLight intensity={0.22} color="#8090B0" />
+                <hemisphereLight args={["#4a5570", "#0c0e14", 0.35]} />
+              </>
+            )}
 
             <RoomScene
               room={room}
@@ -4873,7 +5102,12 @@ export default function ThreeDPage() {
               onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
             />
             <SwapButtons W={W} D={D} H={H} />
-            {topView && <AddRoomButtons W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom} />}
+            {topView && (
+              <AddRoomButtons
+                W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom}
+                occupiedSides={aptRooms ? computeOccupiedSides(aptRooms, room.id, W, D, activeLayoutPos) : undefined}
+              />
+            )}
             {topView && aptRooms && (
               <SiblingRooms
                 rooms={aptRooms}
