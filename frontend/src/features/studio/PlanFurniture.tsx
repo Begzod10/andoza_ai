@@ -29,9 +29,11 @@ export function resolveFurnitureEntry(
   )
 }
 
-const OUTLINE = '#3F3A33'
-const DETAIL = '#7A7264'
+const OUTLINE = '#1E3A8A' // dark blue — matches the window/door plan linework
+const DETAIL = '#1E3A8A'
 const SELECT = '#D85A30'
+// Single thin weight shared across every 2D plan sketch line (see MebelPlanView).
+const LINE_W = 16
 
 /** Item scale in metres per model unit (catalog unit scale × user resize). */
 export function itemScale(entry: AnyFurnitureEntry, item: PlacedFurniture): number {
@@ -92,7 +94,7 @@ function PlanSymbol({
           fill={selected ? '#FBE3D6' : '#FFFFFF'}
           fillOpacity={selected ? 0.95 : 0.86}
           stroke={selected ? SELECT : OUTLINE}
-          strokeWidth={selected ? 40 : 24}
+          strokeWidth={LINE_W}
           strokeLinejoin="round"
         />
         {details && (
@@ -100,7 +102,7 @@ function PlanSymbol({
             d={details}
             fill="none"
             stroke={selected ? SELECT : DETAIL}
-            strokeWidth={selected ? 22 : 15}
+            strokeWidth={LINE_W}
             strokeLinejoin="round"
             pointerEvents="none"
           />

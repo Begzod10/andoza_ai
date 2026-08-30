@@ -82,6 +82,8 @@ const BLUE = '#1E3A8A'
 const WALL_DARK = '#2B2622'
 const FLOOR_FILL = '#F0EDE5'
 const SELECT = '#D85A30'
+// Single thin weight for every 2D plan sketch line (windows, doors, furniture).
+const LINE_W = 16
 
 interface WallDef {
   id: string
@@ -571,7 +573,7 @@ export function MebelPlanView() {
         <svg
           ref={svgRef}
           viewBox={vb}
-          className="flex-1 min-h-0 w-full touch-none"
+          className="flex-1 min-h-0 w-full touch-none select-none"
           onPointerDown={startPan}
           onPointerMove={handleMove}
           onPointerUp={endDrag}
@@ -624,34 +626,42 @@ export function MebelPlanView() {
                       <rect x={p} y={0} width={w} height={T} fill="#FFFFFF" />
                       {el.type === 'deraza' && (
                         <>
-                          <line x1={p} y1={T * 0.35} x2={p + w} y2={T * 0.35} stroke={BLUE} strokeWidth={40} />
-                          <line x1={p} y1={T * 0.65} x2={p + w} y2={T * 0.65} stroke={BLUE} strokeWidth={40} />
+                          <line x1={p} y1={T * 0.35} x2={p + w} y2={T * 0.35} stroke={BLUE} strokeWidth={LINE_W} />
+                          <line x1={p} y1={T * 0.65} x2={p + w} y2={T * 0.65} stroke={BLUE} strokeWidth={LINE_W} />
                           {/* mullions of the chosen window type, as a plan reads them */}
                           {(() => {
                             const n = mullionCount(resolveWindowStyle(el))
                             return Array.from({ length: n }, (_, k) => {
                               const x = p + (w / (n + 1)) * (k + 1)
-                              return <line key={k} x1={x} y1={0} x2={x} y2={T} stroke={BLUE} strokeWidth={40} />
+                              return <line key={k} x1={x} y1={0} x2={x} y2={T} stroke={BLUE} strokeWidth={LINE_W} />
                             })
                           })()}
                         </>
                       )}
                       {el.type === 'balkon' && (
                         <>
-                          <line x1={p} y1={T * 0.5} x2={p + w} y2={T * 0.5} stroke={BLUE} strokeWidth={40} />
-                          <line x1={p + w * 0.55} y1={0} x2={p + w * 0.55} y2={T} stroke={BLUE} strokeWidth={40} />
+                          <line x1={p} y1={T * 0.5} x2={p + w} y2={T * 0.5} stroke={BLUE} strokeWidth={LINE_W} />
+                          <line x1={p + w * 0.55} y1={0} x2={p + w * 0.55} y2={T} stroke={BLUE} strokeWidth={LINE_W} />
                         </>
                       )}
-                      {el.type === 'eshik' && (
-                        <>
-                          {/* swing arc into the interior */}
-                          <path
-                            d={`M ${p} ${T + w} A ${w} ${w} 0 0 1 ${p + w} ${T}`}
-                            fill="none" stroke="#A89F8D" strokeWidth={26} strokeDasharray="80 60"
-                          />
-                          <line x1={p} y1={T} x2={p} y2={T + w} stroke={WALL_DARK} strokeWidth={50} />
-                        </>
-                      )}
+                      {el.type === 'eshik' && (() => {
+                        // Hinge jamb follows el.hinge (Chap=left / O'ng=right),
+                        // matching the 3D door. Leaf swings into the room from the
+                        // hinge jamb; the arc shares that hinge and mirrors with it.
+                        const right = (el.hinge ?? 'left') === 'right'
+                        const hx = right ? p + w : p     // hinge jamb x
+                        const fx = right ? p : p + w     // far jamb (closed leaf tip)
+                        const sweep = right ? 1 : 0      // arc handedness mirrors the hinge
+                        return (
+                          <>
+                            <line x1={hx} y1={T} x2={hx} y2={T + w} stroke={BLUE} strokeWidth={LINE_W} />
+                            <path
+                              d={`M ${hx} ${T + w} A ${w} ${w} 0 0 ${sweep} ${fx} ${T}`}
+                              fill="none" stroke={BLUE} strokeWidth={LINE_W} strokeDasharray="80 60"
+                            />
+                          </>
+                        )
+                      })()}
                       {isSel && (
                         <rect
                           x={p - 40} y={-40} width={w + 80} height={T + 80}

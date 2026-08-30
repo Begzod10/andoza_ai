@@ -33,6 +33,7 @@ import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio/DoorLeaves";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import type { RoomGeometry, DesignState, WallCovering, WallElement } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -2165,6 +2166,10 @@ function CeilingProfile({
  * still filling the room with midday bounce is the mismatch this whole thing
  * exists to remove.
  */
+// HDRI environment served from public/hdri. Loaded via drei <Environment>
+// (EXRLoader), it lights the scene image-based and paints the sky.
+const ENV_HDRI = "/hdri/qwantani_moon_noon_puresky_2k.exr"
+
 export function BrandedSky({ sun }: { sun: SunState }) {
   const scene = useThree((s) => s.scene)
   const invalidate = useThree((s) => s.invalidate)
@@ -4827,7 +4832,10 @@ export default function ThreeDPage() {
                   highQuality={highQuality3d}
                   sun={sun}
                 />
-                <BrandedSky sun={sun} />
+                {/* Image-based lighting + sky from the urban_street HDRI.
+                    Replaces the procedural BrandedSky; the directional sun above
+                    still provides the cast shadows. */}
+                <SafeEnvironment files={ENV_HDRI} background intensity={1} />
               </>
             )}
             {/* Scene light off: barely-visible ambient so the room stays navigable;
