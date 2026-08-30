@@ -108,45 +108,71 @@ export function WallFade({ hidden, children }: { hidden: boolean; children: Reac
     const target = hidden ? 0 : 1
     if (Math.abs(f.opacity - target) < 0.001) {
       if (target === 1 && f.mats.length) restore(f)
-      g.visible = target !== 0
+      // Fully hidden: keep the group IN the scene (visible=true) but stop it
+      // drawing any colour/depth — DON'T set visible=false. A hidden wall must
+      // stay a shadow caster; dropping it out of the render tree also drops it
+      // from the sun's shadow map, so daylight leaks straight through the gap
+      // onto the floor. The meshes keep castShadow and the shadow pass ignores
+      // colorWrite, so the wall keeps blocking the sun while showing nothing —
+      // the same trick the ceiling uses (see Ceiling in ThreeDPage).
+      if (target === 0 && collect(g, f)) suppressColour(f)
+      g.visible = true
       return
     }
     // (Re)collect materials at the start of a ramp — children may have changed
-    if (f.mats.length === 0) {
-      g.traverse((o) => {
-        const mesh = o as THREE.Mesh
-        if (!mesh.isMesh) return
-        const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        for (const m of list) {
-          if (m.userData.__fadeOrig === undefined) {
-            m.userData.__fadeOrig = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite }
-          }
-          f.mats.push(m)
-        }
-      })
-    }
+    collect(g, f)
     g.visible = true
     // ~200ms linear ramp
     const step = dt / 0.2
     f.opacity = target === 0 ? Math.max(0, f.opacity - step) : Math.min(1, f.opacity + step)
     for (const m of f.mats) {
       m.transparent = true
+      m.colorWrite = true
       m.depthWrite = f.opacity > 0.5
       m.opacity = f.opacity * ((m.userData.__fadeOrig?.opacity as number) ?? 1)
     }
-    if (f.opacity === 0) g.visible = false
   })
 
   return <group ref={group}>{children}</group>
 }
 
+// Gather this group's unique materials once per ramp, stashing their original
+// blend flags. Returns true if materials are available.
+function collect(g: THREE.Group, f: FadeState): boolean {
+  if (f.mats.length > 0) return true
+  g.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of list) {
+      if (m.userData.__fadeOrig === undefined) {
+        m.userData.__fadeOrig = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite, colorWrite: m.colorWrite }
+      }
+      f.mats.push(m)
+    }
+  })
+  return f.mats.length > 0
+}
+
+// Draw nothing (no colour, no depth) while leaving the mesh in the scene so it
+// still casts a shadow and blocks the sun.
+function suppressColour(f: FadeState) {
+  for (const m of f.mats) {
+    m.transparent = true
+    m.opacity = 0
+    m.colorWrite = false
+    m.depthWrite = false
+  }
+}
+
 function restore(f: FadeState) {
   for (const m of f.mats) {
-    const orig = m.userData.__fadeOrig as { transparent: boolean; opacity: number; depthWrite: boolean } | undefined
+    const orig = m.userData.__fadeOrig as { transparent: boolean; opacity: number; depthWrite: boolean; colorWrite: boolean } | undefined
     if (orig) {
       m.transparent = orig.transparent
       m.opacity = orig.opacity
       m.depthWrite = orig.depthWrite
+      m.colorWrite = orig.colorWrite ?? true
     }
   }
   f.mats = []
