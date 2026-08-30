@@ -2351,6 +2351,49 @@ const SIBLING_FLOOR_COLOR_BY_TYPE: Record<string, string> = {
 const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
 const SIBLING_WALL_COLOR_DEFAULT = '#C9C2B4'
 
+/** One sibling-room wall — resolves that wall's OWN covering (not just the
+ *  room-wide "ALL" default) and actually shows an oboy/texture image or
+ *  procedural pattern instead of a flat placeholder tint, same as the active
+ *  room. Its own component (not inlined in the .map() below) because a
+ *  `kind: 'texture'` covering needs async image loading with its own state. */
+function SiblingWall({
+  wallId, position, size, coverings,
+}: {
+  wallId: 'A' | 'B' | 'C' | 'D'
+  position: [number, number, number]
+  size: [number, number, number]
+  coverings: DesignState['wallCoverings'] | undefined
+}) {
+  const covering = coverings ? resolveWallCovering(coverings, wallId) : undefined
+  const textureUrl = covering?.kind === 'texture' ? covering.url : null
+  const [loadedTex, setLoadedTex] = useState<THREE.Texture | null>(null)
+
+  useEffect(() => {
+    if (!textureUrl) { setLoadedTex(null); return }
+    const unsub = requestSharedTexture(
+      textureUrl,
+      (entry) => setLoadedTex(entry.tex),
+      () => setLoadedTex(null),
+    )
+    return unsub
+  }, [textureUrl])
+
+  const oboyTex = useMemo(() => {
+    if (covering?.kind !== 'oboy') return null
+    return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor)
+  }, [covering])
+
+  const flatColor = covering ? resolveWallColor(coverings!, wallId) : SIBLING_WALL_COLOR_DEFAULT
+  const map = covering?.kind === 'texture' ? loadedTex : covering?.kind === 'oboy' ? oboyTex : null
+
+  return (
+    <mesh position={position}>
+      <boxGeometry args={size} />
+      <meshStandardMaterial map={map ?? undefined} color={map ? '#ffffff' : flatColor} />
+    </mesh>
+  )
+}
+
 function SiblingRooms({
   rooms,
   activeId,
@@ -2387,21 +2430,23 @@ function SiblingRooms({
       {layout.map(({ room: sib, w, d, x, z }) => {
         const open = () => onOpen(sib.id);
         const h = sib.ceiling_h ?? 2.7;
-        const walls: Array<{ p: [number, number, number]; s: [number, number, number] }> = [
-          { p: [0, h / 2, -d / 2], s: [w + 0.08, h, 0.08] },
-          { p: [0, h / 2, d / 2], s: [w + 0.08, h, 0.08] },
-          { p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
-          { p: [w / 2, h / 2, 0], s: [0.08, h, d] },
+        // Wall id ↔ side matches getWallPlane(): A back (z<0), C front (z>0),
+        // D left (x<0), B right (x>0) — each wall resolves its OWN covering
+        // instead of only ever falling back to the room-wide "ALL" default.
+        const walls: Array<{ id: 'A' | 'C' | 'D' | 'B'; p: [number, number, number]; s: [number, number, number] }> = [
+          { id: 'A', p: [0, h / 2, -d / 2], s: [w + 0.08, h, 0.08] },
+          { id: 'C', p: [0, h / 2, d / 2], s: [w + 0.08, h, 0.08] },
+          { id: 'D', p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
+          { id: 'B', p: [w / 2, h / 2, 0], s: [0.08, h, d] },
         ];
         // Real design state, when the sibling has been saved with one —
-        // shows this room's actual wall colour/floor finish instead of a
+        // shows this room's actual wall colour/oboy/floor finish instead of a
         // fixed placeholder tint. Furniture placements referencing a custom
         // (user-uploaded) model still won't resolve here — those blobs live
-        // only in the browser that imported them — but built-in catalog
-        // furniture (FURNITURE_CATALOG) renders for real, same as FurnitureItem
+        // only in the browser that imported them — but built-in catalog and
+        // do'kon (shop) furniture render for real, same as FurnitureItem
         // does for the active room.
         const design = sib.state?.designState as DesignState | undefined
-        const wallColor = design ? resolveWallColor(design.wallCoverings) : SIBLING_WALL_COLOR_DEFAULT
         const floorColor = design?.floorType
           ? SIBLING_FLOOR_COLOR_BY_TYPE[design.floorType] ?? SIBLING_FLOOR_COLOR_DEFAULT
           : SIBLING_FLOOR_COLOR_DEFAULT
@@ -2417,11 +2462,14 @@ function SiblingRooms({
               <boxGeometry args={[w, 0.04, d]} />
               <meshStandardMaterial color={floorColor} />
             </mesh>
-            {walls.map((seg, i) => (
-              <mesh key={i} position={seg.p}>
-                <boxGeometry args={seg.s} />
-                <meshStandardMaterial color={wallColor} />
-              </mesh>
+            {walls.map((seg) => (
+              <SiblingWall
+                key={seg.id}
+                wallId={seg.id}
+                position={seg.p}
+                size={seg.s}
+                coverings={design?.wallCoverings}
+              />
             ))}
             {placedFurniture.map((item) => (
               <FurnitureItem key={item.id} item={item} />
