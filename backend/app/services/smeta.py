@@ -327,17 +327,87 @@ def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     )
 
 
-def _paint_only_line(room: "Room", material: "Material", norm: "Norm") -> ComputedLine:
-    """Bo'yoq (paint) finish coat only — always required regardless of stage."""
-    net_wall = _float(room.net_wall_area)
+def _painted_wall_area_m2(
+    room: "Room",
+    wall_surfaces_map: dict[str, str],
+    materials_map: dict[str, "Material"],
+) -> tuple[float, list[str]]:
+    """Sum net area (m²) of walls whose finish actually resolves to paint.
+
+    Mirrors the per-wall geometry walk in ``_wallpaper_lines`` so a mixed
+    paint/oboy room never double-counts a wallpapered wall's area into the
+    paint line too (that wall already gets its own roll line).
+
+    A wall counts as painted when its ``wallCoverings`` entry (own key,
+    falling back to ``"ALL"``) has ``kind == "paint"`` — the frontend's
+    ``WallCovering`` variant, not to be confused with the "boyoq"
+    ``Material.category``. When no covering was ever recorded for a wall at
+    all, fall back to whichever material category ``surfaces`` assigns it.
+
+    Returns ``(total_area_m2, wall_ids)``. An empty ``wall_ids`` with no
+    geometry at all is the signal to fall back to ``room.net_wall_area``
+    (kept for rooms whose surfaces are set but geometry.walls is empty).
+    """
+    geometry: dict = room.geometry or {}
+    walls_data = geometry.get("walls", [])
+    if not walls_data:
+        return _float(room.net_wall_area), []
+
+    ceiling_h_m = _to_metres(_float(room.ceiling_h, 2.7))
+    wall_coverings: dict = (room.state or {}).get("wallCoverings", {})
+
+    total_area = 0.0
+    counted_wall_ids: list[str] = []
+    for wall in walls_data:
+        wall_key = str(wall.get("id", ""))
+        covering = wall_coverings.get(wall_key) or wall_coverings.get("ALL")
+        if isinstance(covering, dict) and covering.get("kind"):
+            is_painted = covering.get("kind") == "paint"
+        else:
+            mat_id = wall_surfaces_map.get(wall_key) or wall_surfaces_map.get("ALL")
+            material = materials_map.get(mat_id) if mat_id else None
+            is_painted = bool(material and material.category == "boyoq")
+        if not is_painted:
+            continue
+
+        raw_length = float(wall.get("length", 0) or 0)
+        wall_length_m = _to_metres(raw_length)
+        if wall_length_m <= 0:
+            continue
+        gross_area = wall_length_m * ceiling_h_m
+        elements = wall.get("elements", []) or []
+        openings_area = sum(
+            _to_metres(float(el.get("width", 0) or 0))
+            * _to_metres(float(el.get("height", 0) or 0))
+            for el in elements
+        )
+        total_area += max(0.0, gross_area - openings_area)
+        counted_wall_ids.append(wall_key)
+
+    return total_area, counted_wall_ids
+
+
+def _paint_only_line(
+    material: "Material",
+    norm: "Norm",
+    net_wall_m2: float,
+    wall_ids: list[str],
+) -> ComputedLine:
+    """Bo'yoq (paint) finish coat only — always required regardless of stage.
+
+    ``net_wall_m2`` must cover ONLY the walls whose finish resolves to paint
+    (see ``_painted_wall_area_m2``) — using the whole room's net_wall_area
+    here would double-count any wall that is actually wallpapered.
+    """
     coverage = _float(norm.coverage_per_unit, 9.0)
     coats = int(norm.coats) if norm.coats else 2
 
-    liters = math.ceil(net_wall * coats / coverage)
+    liters = math.ceil(net_wall_m2 * coats / coverage)
+    wall_note = f" (devor {', '.join(wall_ids)})" if wall_ids else ""
     return _make_line(
         label=f"Bo'yoq: {material.name_uz}",
         formula=(
-            f"{net_wall:.1f} m² × {coats} qatlam "
+            f"{net_wall_m2:.1f} m²{wall_note} × {coats} qatlam "
             f"÷ {coverage:.1f} m²/litr = {liters} litr"
         ),
         qty=liters,
@@ -747,8 +817,12 @@ def compute_estimate(
     if "boyoq" in wall_categories:
         boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
         boyoq_norm = norms_map.get("boyoq")
-        if boyoq_norm and _float(room.net_wall_area) > 0:
-            lines.append(_paint_only_line(room, boyoq_mat, boyoq_norm))
+        if boyoq_norm:
+            painted_area, painted_wall_ids = _painted_wall_area_m2(
+                room, wall_surfaces_map, materials_map
+            )
+            if painted_area > 0:
+                lines.append(_paint_only_line(boyoq_mat, boyoq_norm, painted_area, painted_wall_ids))
 
     # ------------------------------------------------------------------ #
     # 2. Wallpaper (oboy) finish — per-wall from design state             #

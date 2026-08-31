@@ -312,6 +312,14 @@ def test_4_mixed_oboy_paint_laminate(boyoq_norm, laminat_norm, oboy_norm, paint_
     # Total: suvoq(1) + 2 oboy + 3 paint(boyoq/grunt/shpatlyovka) + 2 laminat/plintus + 1 elektr = 9
     assert len(est.lines) == 9
 
+    # Fix 2: the paint litre count must only cover walls B+D (paint), NOT
+    # room.net_wall_area (48.6, all 4 walls) — that would double-count A+C,
+    # which are wallpapered and already get their own oboy roll lines.
+    # B+D net area = 2 * (4.0 * 2.7) = 21.6 m²; ceil(21.6 * 2 / 9.0) = 5 litr
+    paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
+    assert paint_line.qty == 5.0
+    assert "21.6" in paint_line.formula
+
 
 # ---------------------------------------------------------------------------
 # Test 5: Zero openings room, all oboy (tekstura)
@@ -756,3 +764,62 @@ def test_17_wallpaper_only_room_respects_stage_gating(oboy_norm, oboy_mat):
     assert not {"suvoq", "grunt", "shpatlyovka"} & set(finished_cats)
     # The wallpaper finish itself is never skipped, at any stage
     assert finished_cats.count("oboy") == raw_cats.count("oboy") == 4
+
+
+# ---------------------------------------------------------------------------
+# Test 18 (Fix 2) — painted wall with a door opening excludes the opening
+# ---------------------------------------------------------------------------
+
+def test_18_paint_area_excludes_openings_on_painted_wall(boyoq_norm, paint_mat):
+    """One painted wall with a door: the paint line's area must subtract the
+    door, same as _wallpaper_lines already does for oboy walls."""
+    door = _elem("eshik", 0.9, 2.1)
+    walls = [_wall("A", 4.0, [door]), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=12.0,
+        net_wall_area=34.11,
+        perimeter=14.0,
+        openings_count=1,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1"},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats(paint_mat)
+    norms = _norms(boyoq_norm)
+
+    est = compute_estimate(room, mats, norms)
+    paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
+
+    # net = 14*2.7 - 0.9*2.1 = 37.8 - 1.89 = 35.91; ceil(35.91*2/9.0) = ceil(7.98) = 8
+    assert paint_line.qty == 8.0
+
+
+# ---------------------------------------------------------------------------
+# Test 19 (Fix 2) — no wallCoverings recorded at all falls back to surfaces
+# ---------------------------------------------------------------------------
+
+def test_19_paint_area_falls_back_to_surfaces_when_no_covering_recorded(boyoq_norm, paint_mat):
+    """A room whose walls were never touched in the "Devorlar" design step
+    has no wallCoverings at all (state={}) — the paint area must still be
+    computed from the boyoq material assigned via `surfaces`, not silently
+    come out as zero."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=12.0,
+        net_wall_area=37.8,
+        perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1"},
+        state={},
+    )
+    mats = _mats(paint_mat)
+    norms = _norms(boyoq_norm)
+
+    est = compute_estimate(room, mats, norms)
+    paint_line = next((ln for ln in est.lines if ln.category == "boyoq"), None)
+
+    assert paint_line is not None
+    # ceil(37.8 * 2 / 9.0) = ceil(8.4) = 9
+    assert paint_line.qty == 9.0
