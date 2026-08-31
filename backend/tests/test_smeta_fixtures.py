@@ -171,15 +171,18 @@ def test_1_simple_paint_laminate(boyoq_norm, laminat_norm, paint_mat, laminat_ma
 
     est = compute_estimate(room, mats, norms)
 
-    # categories present: boyoq(3 lines) + laminat+plintus(2 lines) + elektr(1) = 6
+    # No RoomState passed → defaults to "xom" (raw shell), so every prep
+    # line is included: suvoq(1) + boyoq(3: paint/grunt/shpatlyovka) +
+    # laminat+plintus(2) + elektr(1) = 7
     cats = [ln.category for ln in est.lines]
+    assert cats.count("suvoq") == 1
     assert cats.count("boyoq") == 1
     assert cats.count("grunt") == 1
     assert cats.count("shpatlyovka") == 1
     assert cats.count("laminat") == 1
     assert cats.count("plintus") == 1
     assert cats.count("elektr") == 1
-    assert len(est.lines) == 6
+    assert len(est.lines) == 7
 
     # Spot-check paint qty: ceil(37.8 * 2 / 9.0) = ceil(8.4) = 9 liters
     paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
@@ -212,7 +215,9 @@ def test_2_paint_laminate_with_openings(boyoq_norm, laminat_norm, paint_mat, lam
 
     est = compute_estimate(room, mats, norms)
 
-    assert len(est.lines) == 6
+    # Defaults to "xom" → +1 line (suvoq) versus the pre-stage-gating count
+    assert len(est.lines) == 7
+    assert any(ln.category == "suvoq" for ln in est.lines)
 
     # Spot-check paint: ceil(34.11 * 2 / 9.0) = ceil(7.58) = 8 liters
     paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
@@ -247,8 +252,11 @@ def test_3_oboy_all_damask_tile(oboy_norm, tile_mat, oboy_mat):
     oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
     assert len(oboy_lines) == 4, "One oboy line per wall A, B, C, D"
 
-    # Total oboy lines: 4 + tile: 1 + elektr: 1 = 6
-    assert len(est.lines) == 6
+    # Wallpaper-only room ("boyoq" never in wall_categories) still needs wall
+    # prep — defaults to "xom", so suvoq+grunt+shpatlyovka are all included:
+    # suvoq+grunt+shpatlyovka(3) + oboy(4) + tile(1) + elektr(1) = 9
+    assert sum(1 for ln in est.lines if ln.category in ("suvoq", "grunt", "shpatlyovka")) == 3
+    assert len(est.lines) == 9
 
     # Wall A: 5.0 * 2.7 = 13.5, waste=13.5*1.15=15.525, rolls=ceil(15.525/10.653)=2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
@@ -296,10 +304,13 @@ def test_4_mixed_oboy_paint_laminate(boyoq_norm, laminat_norm, oboy_norm, paint_
 
     # Paint lines (boyoq+grunt+shpatlyovka) should also be present
     assert any(ln.category == "boyoq" for ln in est.lines)
+    # Room also needs plaster (suvoq) — defaults to "xom" since some walls
+    # need prep regardless of which finish (paint vs oboy) they end up with.
+    assert any(ln.category == "suvoq" for ln in est.lines)
     # Laminat + plintus + elektr
     assert any(ln.category == "laminat" for ln in est.lines)
-    # Total: 2 oboy + 3 paint + 2 laminat/plintus + 1 elektr = 8
-    assert len(est.lines) == 8
+    # Total: suvoq(1) + 2 oboy + 3 paint(boyoq/grunt/shpatlyovka) + 2 laminat/plintus + 1 elektr = 9
+    assert len(est.lines) == 9
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +342,10 @@ def test_5_oboy_tekstura_no_floor(oboy_norm, oboy_mat):
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
     assert wall_a.qty == 1.0
 
-    # No floor material → only oboy(4) + elektr(1) = 5 lines
-    assert len(est.lines) == 5
+    # No floor material, but a raw ("xom") wallpapered room still needs
+    # suvoq+grunt+shpatlyovka prep → 3 + oboy(4) + elektr(1) = 8 lines
+    assert sum(1 for ln in est.lines if ln.category in ("suvoq", "grunt", "shpatlyovka")) == 3
+    assert len(est.lines) == 8
 
 
 # ---------------------------------------------------------------------------
@@ -392,8 +405,9 @@ def test_7_minimal_paint_no_floor(boyoq_norm, paint_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    # boyoq + grunt + shpatlyovka + elektr = 4 lines
-    assert len(est.lines) == 4
+    # suvoq + boyoq + grunt + shpatlyovka + elektr = 5 lines (defaults to "xom")
+    assert len(est.lines) == 5
+    assert sum(1 for ln in est.lines if ln.category == "suvoq") == 1
     assert sum(1 for ln in est.lines if ln.category == "boyoq") == 1
     assert sum(1 for ln in est.lines if ln.category == "elektr") == 1
 
@@ -420,8 +434,9 @@ def test_8_large_tile_paint(boyoq_norm, plitka_norm, paint_mat, tile_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    # boyoq + grunt + shpatlyovka + plitka + elektr = 5 lines
-    assert len(est.lines) == 5
+    # suvoq + boyoq + grunt + shpatlyovka + plitka + elektr = 6 lines (defaults to "xom")
+    assert len(est.lines) == 6
+    assert sum(1 for ln in est.lines if ln.category == "suvoq") == 1
 
     tile_line = next(ln for ln in est.lines if ln.category == "plitka")
     # m² = ceil(35.0 * 1.10 * 100) / 100 = ceil(3850) / 100 = 38.50
@@ -494,8 +509,8 @@ def test_10_paint_only_no_floor(boyoq_norm, paint_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    # boyoq + grunt + shpatlyovka + elektr = 4, no floor lines
-    assert len(est.lines) == 4
+    # suvoq + boyoq + grunt + shpatlyovka + elektr = 5, no floor lines (defaults to "xom")
+    assert len(est.lines) == 5
     assert not any(ln.category in ("laminat", "plitka", "plintus") for ln in est.lines)
 
 
@@ -562,8 +577,10 @@ def test_12_oboy_bolalar_laminat(oboy_norm, laminat_norm, oboy_mat, laminat_mat)
     wall_b = next(ln for ln in oboy_lines if "devor B" in ln.label)
     assert wall_b.qty == 1.0
 
-    # oboy(4) + laminat(1) + plintus(1) + elektr(1) = 7
-    assert len(est.lines) == 7
+    # Wallpaper-only room defaults to "xom" → suvoq+grunt+shpatlyovka(3) +
+    # oboy(4) + laminat(1) + plintus(1) + elektr(1) = 10
+    assert sum(1 for ln in est.lines if ln.category in ("suvoq", "grunt", "shpatlyovka")) == 3
+    assert len(est.lines) == 10
 
 
 # ---------------------------------------------------------------------------
@@ -588,7 +605,9 @@ def test_13_paint_only_high_ceiling(boyoq_norm, paint_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    assert len(est.lines) == 4
+    # Defaults to "xom" → suvoq + boyoq + grunt + shpatlyovka + elektr = 5
+    assert len(est.lines) == 5
+    assert sum(1 for ln in est.lines if ln.category == "suvoq") == 1
 
     # Paint: ceil(36.0 * 2 / 9.0) = ceil(8.0) = 8 liters
     paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
@@ -665,5 +684,75 @@ def test_15_plinth_reduced_by_doors(boyoq_norm, laminat_norm, paint_mat, laminat
     # pieces = ceil(12.2 / 2.5) = ceil(4.88) = 5
     assert plinth_line.qty == 5.0
 
-    # Confirm total lines: boyoq+grunt+shpatlyovka(3) + laminat+plintus(2) + elektr(1) = 6
-    assert len(est.lines) == 6
+    # Defaults to "xom" → suvoq(1) + boyoq+grunt+shpatlyovka(3) + laminat+plintus(2) + elektr(1) = 7
+    assert sum(1 for ln in est.lines if ln.category == "suvoq") == 1
+    assert len(est.lines) == 7
+
+
+# ---------------------------------------------------------------------------
+# Test 16 (Fix 1) — omitting current_state is identical to explicit "xom"
+# ---------------------------------------------------------------------------
+
+def test_16_omitted_stage_equals_explicit_xom(boyoq_norm, laminat_norm, paint_mat, laminat_mat):
+    """Regression guard: compute_estimate(...) with no stage args must match
+    compute_estimate(..., current_state="xom", ...) exactly — the two used to
+    diverge (omitted meant "skip all prep", which was the Fix 1 bug)."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=12.0,
+        net_wall_area=37.8,
+        perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1", "floor": "l1"},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats(paint_mat, laminat_mat)
+    norms = _norms(boyoq_norm, laminat_norm)
+
+    omitted = compute_estimate(room, mats, norms)
+    explicit_xom = compute_estimate(
+        room, mats, norms, current_state="xom", floor_state="xom", ceiling_state="xom",
+    )
+
+    assert [ln.category for ln in omitted.lines] == [ln.category for ln in explicit_xom.lines]
+    assert omitted.total_uzs == explicit_xom.total_uzs
+    assert any(ln.category == "suvoq" for ln in omitted.lines), (
+        "a raw/omitted-stage room must get a plaster (suvoq) line — this is "
+        "the exact bug Fix 1 closes"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 17 (Fix 1) — wallpaper-only rooms now participate in stage gating
+# ---------------------------------------------------------------------------
+
+def test_17_wallpaper_only_room_respects_stage_gating(oboy_norm, oboy_mat):
+    """Before Fix 1, a wallpaper-only room got NO prep lines at all, ever —
+    regardless of construction stage — because prep was only ever attached
+    via the paint branch. Now a wallpaper-only room at "shpaklovka" (primed +
+    puttied) must skip suvoq/grunt/shpatlyovka just like a painted room does,
+    keeping only its oboy finish lines."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=12.0,
+        net_wall_area=37.8,
+        perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "o1"},
+        state={"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "tekstura"}}},
+    )
+    mats = _mats(oboy_mat)
+    norms = _norms(oboy_norm)
+
+    raw = compute_estimate(room, mats, norms, current_state="xom")
+    finished_prep = compute_estimate(room, mats, norms, current_state="shpaklovka")
+
+    raw_cats = [ln.category for ln in raw.lines]
+    finished_cats = [ln.category for ln in finished_prep.lines]
+
+    assert {"suvoq", "grunt", "shpatlyovka"} <= set(raw_cats)
+    assert not {"suvoq", "grunt", "shpatlyovka"} & set(finished_cats)
+    # The wallpaper finish itself is never skipped, at any stage
+    assert finished_cats.count("oboy") == raw_cats.count("oboy") == 4

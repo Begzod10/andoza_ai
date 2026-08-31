@@ -63,6 +63,7 @@ from app.models.estimate import Estimate
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room import Room
+from app.models.room_state import RoomState
 from app.schemas.estimate import (
     EstimateLine,
     EstimateResponse,
@@ -140,6 +141,31 @@ async def _load_norms(db: Any) -> dict[str, Norm]:
     return {n.material_key: n for n in result.scalars().all()}
 
 
+async def _load_stage(room_id: uuid.UUID, db: Any) -> tuple[str, str, str]:
+    """Return (current_state, floor_state, ceiling_state) for *room_id*.
+
+    Mirrors app.routers.room_state's per-surface-override fallback: a NULL
+    floor_state/ceiling_state on the row means "same stage as the room
+    overall". A room with no RoomState row at all (never visited the
+    construction-progress step) defaults to "xom" — the safest choice, since
+    it includes every prep line rather than silently skipping one. This is
+    what makes compute_estimate's stage-gating (suvoq/grunt/shpatlyovka)
+    actually take effect on the main preview/create/PDF routes — without it,
+    current_state defaults to None inside compute_estimate and those prep
+    lines are silently dropped.
+    """
+    result = await db.execute(select(RoomState).where(RoomState.room_id == room_id))
+    room_state = result.scalar_one_or_none()
+    if room_state is None:
+        return "xom", "xom", "xom"
+    current = room_state.current_state
+    return (
+        current,
+        room_state.floor_state or current,
+        room_state.ceiling_state or current,
+    )
+
+
 def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
     return [
         EstimateLine(
@@ -211,8 +237,12 @@ async def preview_estimate(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
@@ -249,8 +279,12 @@ async def create_estimate(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
 
     # Persist immutable snapshot
     estimate = Estimate(
@@ -334,8 +368,12 @@ async def _generate_estimate_pdf(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
 
     pdf_bytes = _build_pdf(room, computed)
 

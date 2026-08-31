@@ -12,16 +12,18 @@ Delta mechanic
 ---------------
 ``compute_estimate`` accepts optional ``current_state`` / ``floor_state`` /
 ``ceiling_state`` parameters (construction-progress stage, see
-``STAGE_ORDER`` below).  When omitted (``None``), the function behaves
-exactly as before — every wall-prep line (suvoq/grunt/shpatlyovka) is always
-included, which is the semantics used by the legacy single-shot smeta flow
-and by the existing test-suite.
+``STAGE_ORDER`` below). Every caller is expected to pass the room's real
+``RoomState`` (routers load it and default to "xom" when the room has none
+yet — see ``app.routers.estimate`` and ``app.routers.room_state``).  When
+omitted (``None``), ``stage_index()`` treats it as "xom" (raw shell) — the
+safest default, since it includes every prep line rather than silently
+skipping one.
 
-When a stage is supplied, prep lines whose stage is already behind the
-room's current progress are skipped — this is the core of the "delta"
-mechanic implemented in ``app.services.delta``.  The paint/wallpaper finish
-line itself is never skipped: choosing a finish is the whole point of the
-tool, independent of how far the room's substrate prep has progressed.
+Prep lines whose stage is already behind the room's current progress are
+skipped — this is the core of the "delta" mechanic implemented in
+``app.services.delta``.  The paint/wallpaper finish line itself is never
+skipped: choosing a finish is the whole point of the tool, independent of
+how far the room's substrate prep has progressed.
 """
 from __future__ import annotations
 
@@ -345,26 +347,6 @@ def _paint_only_line(room: "Room", material: "Material", norm: "Norm") -> Comput
         material_id=str(material.id),
         store_name=_store_name(material),
     )
-
-
-def _paint_lines(
-    room: "Room",
-    material: "Material",
-    norm: "Norm",
-    norms_map: "dict[str, Norm]",
-) -> list[ComputedLine]:
-    """Boyoq + grunt (primer) + shpatlyovka (putty) — legacy, always all three.
-
-    Preserved byte-for-byte for backward compatibility with the single-shot
-    (non delta-aware) smeta flow and the existing test-suite. Internally
-    delegates to the same extracted helpers used by the delta-aware path, so
-    output is identical to before the refactor.
-    """
-    return [
-        _paint_only_line(room, material, norm),
-        _grunt_line(room, norms_map),
-        _putty_line(room, norms_map),
-    ]
 
 
 def _wallpaper_lines(
@@ -700,12 +682,14 @@ def compute_estimate(
     norms_map:
         Mapping of ``norm.material_key`` to Norm ORM objects.
     current_state:
-        Optional construction-progress stage (see STAGE_ORDER). When
-        ``None`` (default), every wall-prep line is always included —
-        identical to the pre-delta-mechanic behaviour. When provided, prep
-        stages already completed (suvoq / grunt+shpatlyovka) are skipped —
-        this is the "delta" mechanic. See app.services.delta.compute_delta
-        for the full current-vs-finished comparison built on top of this.
+        Construction-progress stage (see STAGE_ORDER). Callers should always
+        pass the room's real RoomState (routers default to "xom" — raw
+        shell — when a room has none yet). Prep stages already completed
+        (suvoq / grunt+shpatlyovka) are skipped — this is the "delta"
+        mechanic. Omitting it (``None``) is treated as "xom", the safest
+        default: every prep line is included rather than silently skipped.
+        See app.services.delta.compute_delta for the full
+        current-vs-finished comparison built on top of this.
     floor_state / ceiling_state:
         Optional per-surface overrides. When a surface's stage is already
         "tayyor" (finished), its material line is skipped entirely — the
@@ -750,18 +734,12 @@ def compute_estimate(
     #    mixed-finish rooms never double-count prep material.             #
     # ------------------------------------------------------------------ #
     if needs_wall_prep and _float(room.net_wall_area) > 0:
-        if current_state is None:
-            # Legacy path: prep lines only ever attached via _paint_lines()
-            # below (paint branch); wallpaper-only rooms keep their
-            # pre-existing behaviour of no prep lines at all.
-            pass
-        else:
-            idx = stage_index(current_state)
-            if idx < stage_index(STAGE_SUVOQ):
-                lines.append(_plaster_line(room, norms_map))
-            if idx < stage_index(STAGE_SHPAKLOVKA):
-                lines.append(_grunt_line(room, norms_map))
-                lines.append(_putty_line(room, norms_map))
+        idx = stage_index(current_state)
+        if idx < stage_index(STAGE_SUVOQ):
+            lines.append(_plaster_line(room, norms_map))
+        if idx < stage_index(STAGE_SHPAKLOVKA):
+            lines.append(_grunt_line(room, norms_map))
+            lines.append(_putty_line(room, norms_map))
 
     # ------------------------------------------------------------------ #
     # 1. Paint (boyoq) finish                                             #
@@ -770,10 +748,7 @@ def compute_estimate(
         boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
         boyoq_norm = norms_map.get("boyoq")
         if boyoq_norm and _float(room.net_wall_area) > 0:
-            if current_state is None:
-                lines.extend(_paint_lines(room, boyoq_mat, boyoq_norm, norms_map))
-            else:
-                lines.append(_paint_only_line(room, boyoq_mat, boyoq_norm))
+            lines.append(_paint_only_line(room, boyoq_mat, boyoq_norm))
 
     # ------------------------------------------------------------------ #
     # 2. Wallpaper (oboy) finish — per-wall from design state             #
