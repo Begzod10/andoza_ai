@@ -9,8 +9,6 @@ import {
   Html,
   Grid,
   RoundedBox,
-  GizmoHelper,
-  GizmoViewport,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
@@ -4064,14 +4062,6 @@ export default function ThreeDPage() {
             </p>
           )}
 
-          {/* Hint overlay — bottom-left of canvas. Backed by a dark pill so it
-              stays legible regardless of scene brightness (day sky vs night). */}
-          <p className="absolute bottom-16 left-4 z-10 text-[10px] text-white/90 bg-black/45 backdrop-blur-sm px-2.5 py-1 rounded-full pointer-events-none select-none">
-            {isTouch
-              ? "Bir barmoq: aylantirish · Ikki barmoq: surish/masshtab · 2× bosish: fokus"
-              : "Chap: aylantirish · O'ng: surish · G'ildirak: zoom · 2× bosish: fokus"}
-          </p>
-
           {/* Navigation help card */}
           {showHelp && (
             <div className="absolute top-3 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
@@ -4352,14 +4342,6 @@ export default function ThreeDPage() {
               controlsRef={controlsRef}
               onEmpty={() => setPresetVersion((n) => n + 1)}
             />
-
-            {/* Orientation gizmo — click an axis to snap the view */}
-            <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
-              <GizmoViewport
-                axisColors={['#D85A30', '#7FB069', '#5B8DEF']}
-                labelColor="#3A342E"
-              />
-            </GizmoHelper>
           </Suspense>
         </Canvas>
         </CanvasErrorBoundary>
