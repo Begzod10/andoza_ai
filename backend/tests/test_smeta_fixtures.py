@@ -952,3 +952,43 @@ def test_22_totals_include_approximate_lines():
     assert est.total_min == int(2_190_000 * 0.9)
     # Wider band on the approximate portion: (190_000 + 2_000_000*1.3) * 1.1
     assert est.total_max == int((190_000 + 2_000_000 * 1.3) * 1.1)
+
+
+# ---------------------------------------------------------------------------
+# Test 23 (Fix 6) — has_electrical vs electrical_confirmed no longer contradict
+# ---------------------------------------------------------------------------
+
+def test_23_electrical_confirmed_distinguishes_fallback_from_real_count(boyoq_norm, paint_mat):
+    """An electrical line is ALWAYS present (compute_estimate always adds
+    one) — has_electrical must reflect that (always True), while
+    electrical_confirmed must be the thing that actually distinguishes a
+    real placed point count from the ELEC_POINTS_DEFAULT fallback guess.
+    Before Fix 6, has_electrical WAS the confirmed-only check, so a visible
+    fallback electrical line sat next to a contradictory 'Yo'q'."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+
+    def _room_with_electricals(electricals):
+        return _room(
+            ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+            geometry={"walls": walls},
+            surfaces={"ALL": "p1"},
+            state={
+                "wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}},
+                "electricals": electricals,
+            },
+        )
+
+    mats = _mats(paint_mat)
+    norms = _norms(boyoq_norm)
+
+    # No placed points at all → fallback guess: has_electrical True, NOT confirmed
+    fallback_est = compute_estimate(_room_with_electricals([]), mats, norms)
+    assert fallback_est.has_electrical is True
+    assert fallback_est.electrical_confirmed is False
+
+    # Real placed points → both True
+    confirmed_est = compute_estimate(
+        _room_with_electricals([{"id": "e1"}, {"id": "e2"}]), mats, norms
+    )
+    assert confirmed_est.has_electrical is True
+    assert confirmed_est.electrical_confirmed is True

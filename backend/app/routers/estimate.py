@@ -207,6 +207,13 @@ def _lines_to_jsonb(lines: list[ComputedLine]) -> list[dict]:
 
 
 def _has_electrical(raw_lines: list[dict]) -> bool:
+    """Any electrical line at all — compute_estimate always adds one, so
+    this is nearly always True; electrical_confirmed (below) is what
+    distinguishes a real point count from the fallback guess."""
+    return any(ln.get("category") == "elektr" for ln in raw_lines)
+
+
+def _electrical_confirmed(raw_lines: list[dict]) -> bool:
     return any(
         ln.get("category") == "elektr" and not ln.get("is_approximate", False)
         for ln in raw_lines
@@ -286,6 +293,7 @@ async def preview_estimate(
         status="draft",
         created_at=datetime.now(timezone.utc),
         has_electrical=computed.has_electrical,
+        electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
@@ -342,6 +350,7 @@ async def create_estimate(
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=computed.has_electrical,
+        electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
@@ -488,6 +497,7 @@ async def get_estimate(
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=_has_electrical(raw_lines),
+        electrical_confirmed=_electrical_confirmed(raw_lines),
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(totals["total_uzs"], usd_rate)),
     )
@@ -669,7 +679,10 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     )
     story.append(Paragraph(disclaimer_text, disclaimer))
 
-    if est.has_electrical:
+    # Keyed to electrical_confirmed, not has_electrical (there's always an
+    # electrical line) — the warning belongs on the fallback-guess case, not
+    # the case where the user already placed real points.
+    if not est.electrical_confirmed:
         story.append(Paragraph(
             "⚠  Elektr ishlari narxi taxminiy — elektrik ustasi bilan tasdiqlang.",
             warning_style,

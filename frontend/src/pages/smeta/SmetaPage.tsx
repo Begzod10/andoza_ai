@@ -158,7 +158,11 @@ export default function SmetaPage() {
               <div className="bg-surface rounded-lg p-4 shadow-subtle col-span-2 sm:col-span-1">
                 <p className="text-xs text-muted mb-1">Elektr ishlari</p>
                 <p className="text-lg font-bold text-neutral-900">
-                  {estimate.has_electrical ? "Ha" : "Yo'q"}
+                  {estimate.has_electrical
+                    ? estimate.electrical_confirmed
+                      ? "Ha"
+                      : "Ha (taxminiy)"
+                    : "Yo'q"}
                 </p>
               </div>
             </div>

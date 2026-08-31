@@ -165,7 +165,15 @@ class ComputedEstimate:
     total_uzs: int = 0
     total_min: int = 0
     total_max: int = 0
+    # An electrical line is always present (compute_estimate always adds
+    # one) — has_electrical says whether one exists at all, and
+    # electrical_confirmed says whether it's backed by real placed point
+    # counts rather than the ELEC_POINTS_DEFAULT fallback. The two used to
+    # be conflated under has_electrical alone, which showed "Yo'q" (no
+    # electrical work) right next to a visible electrical line whenever the
+    # count was only a fallback guess.
     has_electrical: bool = False
+    electrical_confirmed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -907,9 +915,11 @@ def compute_estimate(
     # Wider band on the approximate portion — its price is a guess, so the
     # upper bound should reflect that it could run considerably higher.
     total_max = int((total_exact_uzs + total_approx_uzs * 1.3) * 1.1)
-    # has_electrical is True only when there is at least one confirmed (non-approximate)
-    # electrical line — i.e. the user provided actual point counts.
-    has_electrical = any(
+    # has_electrical: any electrical line at all (there always is one).
+    # electrical_confirmed: only when it's backed by real placed point
+    # counts, not the ELEC_POINTS_DEFAULT fallback guess.
+    has_electrical = any(ln.category == "elektr" for ln in lines)
+    electrical_confirmed = any(
         ln.category == "elektr" and not ln.is_approximate for ln in lines
     )
 
@@ -921,4 +931,5 @@ def compute_estimate(
         total_min=total_min,
         total_max=total_max,
         has_electrical=has_electrical,
+        electrical_confirmed=electrical_confirmed,
     )

@@ -234,3 +234,28 @@ class TestGetEstimateTotalsRecomputedFromLines:
             "must recompute from the stored lines, not echo the stale "
             "understated total_uzs column"
         )
+
+
+class TestElectricalConfirmedFlag:
+    """Fix 6: has_electrical and electrical_confirmed must not contradict
+    each other over HTTP the way has_electrical alone used to."""
+
+    def test_preview_response_carries_both_flags(self, client):
+        paint_mat = _material(price_uzs=25_000)
+        room = _room(surfaces={"ALL": str(paint_mat.id)})
+        room_state = RoomState(room_id=room.id, current_state="shpaklovka")
+        db = _db(
+            _Result(one=room),
+            _Result(many=[paint_mat]),
+            _Result(many=[_norm()]),
+            _Result(one=room_state),
+        )
+        _as(_user(), db)
+
+        response = client.post(f"/api/v1/rooms/{room.id}/estimate/preview")
+
+        assert response.status_code == 200
+        body = response.json()
+        # No electricals/lights placed in this fixture room → fallback guess
+        assert body["has_electrical"] is True
+        assert body["electrical_confirmed"] is False

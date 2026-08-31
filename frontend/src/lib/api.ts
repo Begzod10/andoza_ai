@@ -496,7 +496,11 @@ export interface EstimateResponse {
   total_min: number;
   total_max: number;
   created_at: string;
+  /** An electrical line is always present — this is nearly always true. */
   has_electrical: boolean;
+  /** Whether has_electrical is backed by real placed point counts rather
+   *  than the fallback default guess. */
+  electrical_confirmed: boolean;
   /** so'm-per-1-USD this estimate was converted at (live CBU rate, cached ~1h). */
   usd_rate: number;
   total_usd: number;

@@ -35,6 +35,9 @@ class EstimateResponse(BaseModel):
     status: str = "final"
     created_at: datetime
     has_electrical: bool
+    # Whether has_electrical is backed by real placed point counts rather
+    # than the ELEC_POINTS_DEFAULT fallback guess — see app.services.smeta.
+    electrical_confirmed: bool = False
     # so'm-per-1-USD used to compute total_usd (see app.services.currency) —
     # returned alongside so the frontend can convert every line client-side
     # without a second round trip, and show the rate it priced against.
