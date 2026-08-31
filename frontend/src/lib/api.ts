@@ -487,7 +487,12 @@ export interface EstimateResponse {
   id: string;
   room_id: string;
   lines: EstimateLine[];
+  /** Full expected spend: total_exact_uzs + total_approx_uzs combined. */
   total_uzs: number;
+  /** Sum of lines NOT flagged is_approximate — backed by a real catalog price. */
+  total_exact_uzs: number;
+  /** Sum of lines flagged is_approximate (fallback pricing, missing norm, ...). */
+  total_approx_uzs: number;
   total_min: number;
   total_max: number;
   created_at: string;

@@ -83,12 +83,14 @@ def _norm(
     coverage_per_unit: float = 9.0,
     coats: int = 2,
     waste_factor: float = LAMINAT_WASTE_DEFAULT,
+    params: dict | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         material_key=material_key,
         coverage_per_unit=coverage_per_unit,
         coats=coats,
         waste_factor=waste_factor,
+        params=params,
     )
 
 
@@ -903,8 +905,50 @@ def test_21_oboy_missing_material_flagged_approximate(oboy_norm):
         assert ln.is_approximate is True
         assert ln.warning == "Material topilmadi — narx smetaga kirmadi. Devor uchun material tanlang."
 
-    # Approximate lines must not inflate total_uzs's non-approximate meaning
-    # (Fix 5 changes total accounting; for now — pre Fix 5 — approximate
-    # lines are excluded from total_uzs, so all 4 zero-priced oboy lines
-    # contribute nothing to it either way).
+    # These lines are zero-priced (no material to price against), so they
+    # contribute nothing to total_uzs either way — Fix 5's exact/approx
+    # split is exercised by test_22 below with a nonzero approximate line.
     assert all(ln.subtotal_uzs == 0 for ln in oboy_lines)
+
+
+# ---------------------------------------------------------------------------
+# Test 22 (Fix 5) — total_uzs includes approximate lines; min/max formula
+# ---------------------------------------------------------------------------
+
+def test_22_totals_include_approximate_lines():
+    """A room with one exact line (confirmed electrical, real point count)
+    and one approximate line (furniture with no known price, fallback
+    2,000,000 UZS) must fold BOTH into total_uzs — the old behaviour
+    silently dropped the approximate line from the total entirely."""
+    room = _room(
+        geometry={"walls": []},
+        surfaces={},
+        state={
+            "furniture": [{"furniture_id": "unknown-item", "name": "Noma'lum jihoz"}],
+            "electricals": [{"id": "e1"}, {"id": "e2"}],
+        },
+    )
+    mats = _mats()
+    norms = _norms()
+
+    est = compute_estimate(room, mats, norms)
+
+    furniture_line = next(ln for ln in est.lines if ln.category == "jihoz")
+    elektr_line = next(ln for ln in est.lines if ln.category == "elektr")
+
+    assert furniture_line.is_approximate is True
+    assert furniture_line.subtotal_uzs == 2_000_000
+    assert elektr_line.is_approximate is False
+    # 2 points * 8.0 m avg run * 1.15 slack = 18.4 → ceil = 19 m * 10,000 UZS
+    assert elektr_line.subtotal_uzs == 190_000
+
+    assert est.total_exact_uzs == 190_000
+    assert est.total_approx_uzs == 2_000_000
+    assert est.total_uzs == 2_190_000, (
+        "total_uzs must be the FULL expected spend (exact + approximate) — "
+        "this is the exact Fix 5 bug: it used to exclude the furniture line "
+        "entirely, understating the total"
+    )
+    assert est.total_min == int(2_190_000 * 0.9)
+    # Wider band on the approximate portion: (190_000 + 2_000_000*1.3) * 1.1
+    assert est.total_max == int((190_000 + 2_000_000 * 1.3) * 1.1)

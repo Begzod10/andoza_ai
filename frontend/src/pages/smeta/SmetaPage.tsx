@@ -163,12 +163,24 @@ export default function SmetaPage() {
               </div>
             </div>
 
-            {/* Total */}
-            <div className="bg-brand/10 border-2 border-brand rounded-lg p-5 flex items-center justify-between">
-              <p className="text-lg font-semibold text-brand">{uz.smeta.jami}</p>
-              <p className="text-2xl font-extrabold text-brand">
-                {fmt(estimate.total_uzs)}
+            {/* Total — total_uzs is the FULL expected spend (exact +
+                approximate lines combined); the range and the note below
+                make clear how much of it is a firm number vs. a guess. */}
+            <div className="bg-brand/10 border-2 border-brand rounded-lg p-5 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-semibold text-brand">{uz.smeta.jami}</p>
+                <p className="text-2xl font-extrabold text-brand">
+                  {fmt(estimate.total_uzs)}
+                </p>
+              </div>
+              <p className="text-xs text-brand/70 text-right">
+                {uz.smeta.diapazon}: {fmt(estimate.total_min)} – {fmt(estimate.total_max)}
               </p>
+              {estimate.total_approx_uzs > 0 && (
+                <p className="text-xs text-warning text-right">
+                  {uz.smeta.shundan_taxminiy}: ~{fmt(estimate.total_approx_uzs)}
+                </p>
+              )}
             </div>
 
             {/* Line items */}

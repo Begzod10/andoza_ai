@@ -23,6 +23,12 @@ class EstimateResponse(BaseModel):
     room_id: UUID
     lines: list[EstimateLine]
     total_uzs: int
+    # Split of total_uzs by line precision — added, never removes a field,
+    # so an old persisted Estimate (from before this split existed) still
+    # deserialises: GET /estimates/{id} recomputes both from the stored
+    # lines JSONB rather than trusting a column that predates the split.
+    total_exact_uzs: int = 0
+    total_approx_uzs: int = 0
     total_min: int
     total_max: int
     currency: str = "UZS"

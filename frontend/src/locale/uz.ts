@@ -90,6 +90,8 @@ export const uz = {
     hisoblash: "Hisoblash",
     qayta_hisoblash: "Qayta hisoblash",
     yuklanmoqda: "Smeta yuklanmoqda...",
+    shundan_taxminiy: "shundan taxminiy",
+    diapazon: "Diapazon",
   },
   ustalar: {
     sarlavha: "Ustalar",

@@ -213,6 +213,34 @@ def _has_electrical(raw_lines: list[dict]) -> bool:
     )
 
 
+def _totals_from_raw_lines(raw_lines: list[dict]) -> dict[str, int]:
+    """Recompute the exact/approx/total/min/max split from a persisted
+    Estimate's stored lines JSONB — never from the row's own total_uzs
+    column.
+
+    Every ComputedLine has always carried is_approximate + subtotal_uzs, so
+    this works uniformly for a snapshot written before this split existed
+    (its total_uzs column reflects the old exact-only sum) and one written
+    after (whose column already matches). Recomputing here means an old
+    snapshot renders with the correct full total instead of the
+    historically-understated one, with no migration needed.
+    """
+    total_exact = sum(
+        ln.get("subtotal_uzs", 0) for ln in raw_lines if not ln.get("is_approximate", False)
+    )
+    total_approx = sum(
+        ln.get("subtotal_uzs", 0) for ln in raw_lines if ln.get("is_approximate", False)
+    )
+    total_uzs = total_exact + total_approx
+    return {
+        "total_exact_uzs": total_exact,
+        "total_approx_uzs": total_approx,
+        "total_uzs": total_uzs,
+        "total_min": int(total_uzs * 0.9),
+        "total_max": int((total_exact + total_approx * 1.3) * 1.1),
+    }
+
+
 # ---------------------------------------------------------------------------
 # POST /rooms/{room_id}/estimate/preview  (live preview, no persistence)
 # ---------------------------------------------------------------------------
@@ -250,6 +278,8 @@ async def preview_estimate(
         room_id=room.id,
         lines=_computed_to_schema_lines(computed.lines),
         total_uzs=computed.total_uzs,
+        total_exact_uzs=computed.total_exact_uzs,
+        total_approx_uzs=computed.total_approx_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
         currency=_DEFAULT_CURRENCY,
@@ -304,6 +334,8 @@ async def create_estimate(
         room_id=room.id,
         lines=_computed_to_schema_lines(computed.lines),
         total_uzs=computed.total_uzs,
+        total_exact_uzs=computed.total_exact_uzs,
+        total_approx_uzs=computed.total_approx_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
         currency=estimate.currency,
@@ -440,22 +472,24 @@ async def get_estimate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
 
     raw_lines: list[dict] = estimate.lines or []
-    total_uzs = estimate.total_uzs
+    totals = _totals_from_raw_lines(raw_lines)
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
         id=estimate.id,
         room_id=estimate.room_id,
         lines=_jsonb_lines_to_schema(raw_lines),
-        total_uzs=total_uzs,
-        total_min=int(total_uzs * 0.9),
-        total_max=int(total_uzs * 1.1),
+        total_uzs=totals["total_uzs"],
+        total_exact_uzs=totals["total_exact_uzs"],
+        total_approx_uzs=totals["total_approx_uzs"],
+        total_min=totals["total_min"],
+        total_max=totals["total_max"],
         currency=estimate.currency,
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=_has_electrical(raw_lines),
         usd_rate=usd_rate,
-        total_usd=round(uzs_to_usd(total_uzs, usd_rate)),
+        total_usd=round(uzs_to_usd(totals["total_uzs"], usd_rate)),
     )
 
 
@@ -600,13 +634,18 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story.append(Spacer(1, 0.2 * cm))
 
     total_data = [
-        ["Taxminiy xarajat (aniq materiallar):",
+        ["Taxminiy xarajat (jami):",
          f"{_fmt_num(est.total_uzs)} UZS"],
         ["Minimal variant (−10%):",
          f"{_fmt_num(est.total_min)} UZS"],
-        ["Maksimal variant (+10%):",
+        ["Maksimal variant (taxminiy qismlar uchun kengroq):",
          f"{_fmt_num(est.total_max)} UZS"],
     ]
+    if est.total_approx_uzs > 0:
+        total_data.append([
+            "   shundan ~taxminiy:",
+            f"{_fmt_num(est.total_approx_uzs)} UZS",
+        ])
     total_tbl = Table(
         total_data,
         colWidths=[10 * cm, 5 * cm],
@@ -625,7 +664,8 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     disclaimer_text = (
         "Bu taxminiy hisob. Yakuniy narx material tanlovi, bozor o'zgarishi "
         "va ishchi haqiga qarab farq qilishi mumkin. "
-        "Taxminiy elektr xarajatlari umumiy summaga kiritilmagan."
+        "\"~taxminiy\" belgili qatorlar jami summaga kiritilgan, lekin "
+        "ularning narxi aniq emas — final xarajat farq qilishi mumkin."
     )
     story.append(Paragraph(disclaimer_text, disclaimer))
 

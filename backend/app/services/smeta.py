@@ -147,8 +147,21 @@ class ComputedLine:
 
 @dataclass
 class ComputedEstimate:
-    """Returned by compute_estimate(); not yet persisted."""
+    """Returned by compute_estimate(); not yet persisted.
+
+    total_exact_uzs / total_approx_uzs split the line items by
+    ``is_approximate`` — a fallback-priced furniture item or a prep line
+    with no matching Norm row are real spend the user will actually incur,
+    just priced less precisely than a line backed by a real catalog
+    Material. ``total_uzs`` is their sum (the full expected spend); it used
+    to silently drop the approximate portion, which understated the total
+    and (via app.services.delta) could collapse delta_savings_uzs to 0
+    whenever the only thing distinguishing two stages was an
+    approximately-priced prep line.
+    """
     lines: list[ComputedLine] = field(default_factory=list)
+    total_exact_uzs: int = 0
+    total_approx_uzs: int = 0
     total_uzs: int = 0
     total_min: int = 0
     total_max: int = 0
@@ -881,11 +894,19 @@ def compute_estimate(
     lines.append(elec_line)
 
     # ------------------------------------------------------------------ #
-    # Totals (exclude approximate lines from deterministic total)         #
+    # Totals — total_uzs is the FULL expected spend (exact + approximate).
+    # Silently dropping approximate lines here used to understate the total
+    # and (via app.services.delta) could zero out delta_savings_uzs whenever
+    # the only difference between two stages was an approximately-priced
+    # prep line with no matching Norm row.
     # ------------------------------------------------------------------ #
-    total_uzs = sum(ln.subtotal_uzs for ln in lines if not ln.is_approximate)
+    total_exact_uzs = sum(ln.subtotal_uzs for ln in lines if not ln.is_approximate)
+    total_approx_uzs = sum(ln.subtotal_uzs for ln in lines if ln.is_approximate)
+    total_uzs = total_exact_uzs + total_approx_uzs
     total_min = int(total_uzs * 0.9)
-    total_max = int(total_uzs * 1.1)
+    # Wider band on the approximate portion — its price is a guess, so the
+    # upper bound should reflect that it could run considerably higher.
+    total_max = int((total_exact_uzs + total_approx_uzs * 1.3) * 1.1)
     # has_electrical is True only when there is at least one confirmed (non-approximate)
     # electrical line — i.e. the user provided actual point counts.
     has_electrical = any(
@@ -894,6 +915,8 @@ def compute_estimate(
 
     return ComputedEstimate(
         lines=lines,
+        total_exact_uzs=total_exact_uzs,
+        total_approx_uzs=total_approx_uzs,
         total_uzs=total_uzs,
         total_min=total_min,
         total_max=total_max,

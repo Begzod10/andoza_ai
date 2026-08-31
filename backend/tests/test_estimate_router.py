@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -22,6 +23,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.deps import get_current_active_user
 from app.database import get_db
 from app.main import app
+from app.models.estimate import Estimate
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room import Room
@@ -187,3 +189,48 @@ class TestPreviewEstimateStageGating:
         assert "grunt" not in categories
         assert "shpatlyovka" not in categories
         assert "boyoq" in categories
+
+
+class TestGetEstimateTotalsRecomputedFromLines:
+    """GET /api/v1/estimates/{id} (Fix 5) — totals must be recomputed from
+    the stored lines JSONB, not trusted from the row's total_uzs column —
+    so an old snapshot written before the exact/approx split existed still
+    renders the FULL total, not the historically-understated one."""
+
+    def test_old_snapshot_total_uzs_column_is_ignored_in_favour_of_lines(self, client):
+        exact_line = {
+            "label": "Elektr kabel", "formula": "...", "qty": 19, "unit": "m",
+            "unit_price_uzs": 10_000, "subtotal_uzs": 190_000,
+            "category": "elektr", "material_id": None, "store_name": None,
+            "is_approximate": False, "warning": None,
+        }
+        approx_line = {
+            "label": "Jihoz: Noma'lum", "formula": "...", "qty": 1, "unit": "dona",
+            "unit_price_uzs": 2_000_000, "subtotal_uzs": 2_000_000,
+            "category": "jihoz", "material_id": None, "store_name": None,
+            "is_approximate": True, "warning": "Narx taxminiy",
+        }
+        estimate = Estimate(
+            id=uuid.uuid4(),
+            room_id=uuid.uuid4(),
+            lines=[exact_line, approx_line],
+            # Deliberately the OLD (pre-Fix-5, exact-only) total — a real
+            # snapshot written before this fix would have this stored value.
+            total_uzs=190_000,
+            currency="UZS",
+            status="final",
+            created_at=datetime.now(timezone.utc),
+        )
+        db = _db(_Result(one=estimate))
+        _as(_user(), db)
+
+        response = client.get(f"/api/v1/estimates/{estimate.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total_exact_uzs"] == 190_000
+        assert body["total_approx_uzs"] == 2_000_000
+        assert body["total_uzs"] == 2_190_000, (
+            "must recompute from the stored lines, not echo the stale "
+            "understated total_uzs column"
+        )
