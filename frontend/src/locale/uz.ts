@@ -92,6 +92,8 @@ export const uz = {
     yuklanmoqda: "Smeta yuklanmoqda...",
     shundan_taxminiy: "shundan taxminiy",
     diapazon: "Diapazon",
+    saqlash: "Saqlash",
+    saqlandi: "Saqlandi ✓",
   },
   ustalar: {
     sarlavha: "Ustalar",

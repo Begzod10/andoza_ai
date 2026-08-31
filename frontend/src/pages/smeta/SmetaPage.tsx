@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createEstimate, getEstimatePDF, getRoom } from "@/lib/api";
+import { createEstimate, previewEstimate, getEstimatePDF, getRoom } from "@/lib/api";
 import { formatUZS, formatUSDFromUZS } from "@/lib/utils";
 import { uz } from "@/locale/uz";
 import type { EstimateResponse } from "@/lib/api";
@@ -23,6 +23,7 @@ export default function SmetaPage() {
   const [askOpen, setAskOpen] = useState(false);
   const [highlightedLines, setHighlightedLines] = useState<Set<string>>(new Set());
   const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   // Format a so'm amount in whichever currency the user picked — every price
   // in this page routes through this so the toggle stays in sync everywhere.
@@ -38,14 +39,31 @@ export default function SmetaPage() {
     enabled: !!roomId,
   });
 
+  // Live preview — hits the transient /estimate/preview route, which
+  // computes but never persists. Used for the initial auto-calc and for
+  // "Qayta hisoblash", so simply opening this page (or recalculating a few
+  // times while comparing materials) no longer writes an Estimate row each
+  // time and pollutes the room's estimate history.
   const mutation = useMutation({
-    mutationFn: () => createEstimate(roomId!),
+    mutationFn: () => previewEstimate(roomId!),
     onSuccess: (data) => setEstimate(data),
+  });
+
+  // Explicit save — the only path that persists a snapshot. A separate
+  // mutation (not reusing `mutation`) so its pending/success state doesn't
+  // fight with the preview button's.
+  const saveMutation = useMutation({
+    mutationFn: () => createEstimate(roomId!),
+    onSuccess: (data) => {
+      setEstimate(data);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    },
   });
 
   // Calculate the moment the page opens — no reason to make the user hit
   // "Hisoblash" themselves first. Guarded per-room so it fires exactly once
-  // per visit (StrictMode's double-invoke included) rather than double-POSTing.
+  // per visit (StrictMode's double-invoke included) rather than double-firing.
   const autoFiredForRoomRef = useRef<string | null>(null);
   useEffect(() => {
     if (!roomId || autoFiredForRoomRef.current === roomId) return;
@@ -265,6 +283,19 @@ export default function SmetaPage() {
                 className="flex items-center gap-2 border-2 border-neutral-300 px-5 py-2.5 rounded-lg text-sm font-semibold hover:border-brand transition-colors disabled:opacity-60"
               >
                 {uz.smeta.qayta_hisoblash}
+              </button>
+              {/* Only this button persists an Estimate row — opening the
+                  page or hitting "Qayta hisoblash" is preview-only. */}
+              <button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="flex items-center gap-2 border-2 border-brand text-brand px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-brand/10 transition-colors disabled:opacity-60"
+              >
+                {saveMutation.isPending
+                  ? uz.common.yuklanmoqda
+                  : saveStatus === "saved"
+                    ? uz.smeta.saqlandi
+                    : uz.smeta.saqlash}
               </button>
               {/* AI ask button — only shown when estimate is available */}
               <button
