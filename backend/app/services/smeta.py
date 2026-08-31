@@ -249,8 +249,11 @@ def _door_widths_m(room: "Room") -> float:
     )
     if total > 0:
         return total
-    # Fallback: assume half of counted openings are doors
-    door_count = max(1, (room.openings_count or 0) // 2)
+    # Fallback: assume half of counted openings are doors. No forced
+    # minimum of 1 — a room with openings_count=0 (or unset) genuinely has
+    # zero doors, and used to have a phantom door width subtracted from its
+    # plinth length regardless.
+    door_count = (room.openings_count or 0) // 2
     return door_count * DOOR_WIDTH_DEFAULT_M
 
 
@@ -348,12 +351,16 @@ def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     )
 
 
-def _painted_wall_area_m2(
+def _painted_wall_areas(
     room: "Room",
     wall_surfaces_map: dict[str, str],
     materials_map: dict[str, "Material"],
-) -> tuple[float, list[str]]:
-    """Sum net area (m²) of walls whose finish actually resolves to paint.
+) -> list[tuple[str | None, float, list[str]]]:
+    """Group painted walls' net area (m²) by the material actually assigned
+    to each wall — a room with two different paint colours on different
+    walls must price each colour's walls against its own price, not bill
+    every painted wall at whichever material a single arbitrary lookup
+    happened to find first.
 
     Mirrors the per-wall geometry walk in ``_wallpaper_lines`` so a mixed
     paint/oboy room never double-counts a wallpapered wall's area into the
@@ -365,20 +372,22 @@ def _painted_wall_area_m2(
     ``Material.category``. When no covering was ever recorded for a wall at
     all, fall back to whichever material category ``surfaces`` assigns it.
 
-    Returns ``(total_area_m2, wall_ids)``. An empty ``wall_ids`` with no
-    geometry at all is the signal to fall back to ``room.net_wall_area``
-    (kept for rooms whose surfaces are set but geometry.walls is empty).
+    Returns one ``(material_id, area_m2, wall_ids)`` tuple per distinct
+    material id found among painted walls — ``material_id`` is ``None``
+    when a room has no geometry at all (the caller falls back to
+    ``room.net_wall_area`` and whichever boyoq material it already found).
     """
     geometry: dict = room.geometry or {}
     walls_data = geometry.get("walls", [])
     if not walls_data:
-        return _float(room.net_wall_area), []
+        return [(None, _float(room.net_wall_area), [])]
 
     ceiling_h_m = _to_metres(_float(room.ceiling_h, 2.7))
     wall_coverings: dict = (room.state or {}).get("wallCoverings", {})
 
-    total_area = 0.0
-    counted_wall_ids: list[str] = []
+    # material_id -> [area_m2, wall_ids] — a plain dict preserves insertion
+    # order (first-seen material first), which keeps output deterministic.
+    groups: dict[str | None, list] = {}
     for wall in walls_data:
         wall_key = str(wall.get("id", ""))
         covering = wall_coverings.get(wall_key) or wall_coverings.get("ALL")
@@ -402,10 +411,14 @@ def _painted_wall_area_m2(
             * _to_metres(float(el.get("height", 0) or 0))
             for el in elements
         )
-        total_area += max(0.0, gross_area - openings_area)
-        counted_wall_ids.append(wall_key)
+        net_area = max(0.0, gross_area - openings_area)
 
-    return total_area, counted_wall_ids
+        mat_id = wall_surfaces_map.get(wall_key) or wall_surfaces_map.get("ALL")
+        group = groups.setdefault(mat_id, [0.0, []])
+        group[0] += net_area
+        group[1].append(wall_key)
+
+    return [(mat_id, area, wall_ids) for mat_id, (area, wall_ids) in groups.items()]
 
 
 def _paint_only_line(
@@ -595,7 +608,18 @@ def _laminate_lines(
         store_name=_store_name(material),
     ))
 
-    # Plinth — read dimensions and price from DB norm when available
+    lines.append(_plinth_line(room, norms_map))
+
+    return lines
+
+
+def _plinth_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+    """Plintus (skirting board) — floor perimeter minus door widths.
+
+    Shared by every floor covering that needs a skirting board: laminate
+    always got one; tile used to get none at all, as if a tiled room's
+    walls never meet a floor.
+    """
     plintus_norm = norms_map.get("plintus")
     plintus_params = plintus_norm.params if plintus_norm and plintus_norm.params else {}
     plinth_piece_m = float(plintus_params.get("piece_m", PLINTH_PIECE_M))
@@ -607,7 +631,7 @@ def _laminate_lines(
     perimeter = _float(room.perimeter)
     plinth_m = max(0.0, perimeter - door_m)
     pieces = math.ceil(plinth_m / plinth_piece_m)
-    lines.append(_make_line(
+    return _make_line(
         label=f"Plintus ({plinth_piece_m:.1f} m dona)",
         formula=(
             f"Perimetr {perimeter:.2f} m − eshiklar {door_m:.2f} m "
@@ -619,16 +643,16 @@ def _laminate_lines(
         category="plintus",
         is_approximate=plinth_approximate,
         warning=plinth_warning,
-    ))
-
-    return lines
+    )
 
 
 def _tile_lines(
     room: "Room",
     material: "Material",
+    norms_map: "dict[str, Norm]",
 ) -> list[ComputedLine]:
-    """Plitka (floor tile)."""
+    """Plitka (floor tile) + plinth — a tiled room's walls meet the floor
+    same as a laminate one's; it used to get no skirting board line at all."""
     floor_area = _float(room.floor_area)
     # 2-decimal precision with tiyin math
     m2_tiyin = math.ceil(floor_area * TILE_WASTE * 100)   # 2-decimal fixed-point
@@ -639,7 +663,7 @@ def _tile_lines(
     subtotal_tiyin = m2_tiyin * int(material.price_uzs)
     subtotal_uzs = subtotal_tiyin // 100
 
-    return [ComputedLine(
+    tile_line = ComputedLine(
         label=f"Plitka: {material.name_uz}",
         formula=(
             f"{floor_area:.2f} m² × {TILE_WASTE:.2f} (chiqindi) "
@@ -652,7 +676,8 @@ def _tile_lines(
         category="plitka",
         material_id=str(material.id),
         store_name=_store_name(material),
-    )]
+    )
+    return [tile_line, _plinth_line(room, norms_map)]
 
 
 def _furniture_lines(room: "Room") -> list[ComputedLine]:
@@ -860,14 +885,19 @@ def compute_estimate(
     # 1. Paint (boyoq) finish                                             #
     # ------------------------------------------------------------------ #
     if "boyoq" in wall_categories:
-        boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
+        # Fallback material for a wall group whose own assignment doesn't
+        # resolve to a real boyoq material — never silently drop that
+        # wall's area from the paint total.
+        fallback_boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
         boyoq_norm = norms_map.get("boyoq")
         if boyoq_norm:
-            painted_area, painted_wall_ids = _painted_wall_area_m2(
-                room, wall_surfaces_map, materials_map
-            )
-            if painted_area > 0:
-                lines.append(_paint_only_line(boyoq_mat, boyoq_norm, painted_area, painted_wall_ids))
+            for mat_id, area, wall_ids in _painted_wall_areas(room, wall_surfaces_map, materials_map):
+                if area <= 0:
+                    continue
+                material = materials_map.get(mat_id) if mat_id else None
+                if material is None or material.category != "boyoq":
+                    material = fallback_boyoq_mat
+                lines.append(_paint_only_line(material, boyoq_norm, area, wall_ids))
 
     # ------------------------------------------------------------------ #
     # 2. Wallpaper (oboy) finish — per-wall from design state             #
@@ -888,7 +918,7 @@ def compute_estimate(
                 lines.extend(_laminate_lines(room, floor_mat, laminat_norm, norms_map))
         elif floor_mat.category == "plitka":
             if _float(room.floor_area) > 0:
-                lines.extend(_tile_lines(room, floor_mat))
+                lines.extend(_tile_lines(room, floor_mat, norms_map))
 
     # ------------------------------------------------------------------ #
     # 4. Furniture ("jihoz") — every distinct item the user has placed     #

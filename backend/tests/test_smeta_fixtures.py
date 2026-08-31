@@ -256,9 +256,11 @@ def test_3_oboy_all_damask_tile(oboy_norm, tile_mat, oboy_mat):
 
     # Wallpaper-only room ("boyoq" never in wall_categories) still needs wall
     # prep — defaults to "xom", so suvoq+grunt+shpatlyovka are all included:
-    # suvoq+grunt+shpatlyovka(3) + oboy(4) + tile(1) + elektr(1) = 9
+    # suvoq+grunt+shpatlyovka(3) + oboy(4) + tile+plintus(2) + elektr(1) = 10
+    # (Fix 8: tile floors now get a plinth line too, same as laminate)
     assert sum(1 for ln in est.lines if ln.category in ("suvoq", "grunt", "shpatlyovka")) == 3
-    assert len(est.lines) == 9
+    assert any(ln.category == "plintus" for ln in est.lines)
+    assert len(est.lines) == 10
 
     # Wall A: 5.0 * 2.7 = 13.5, waste=13.5*1.15=15.525, rolls=ceil(15.525/10.653)=2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
@@ -446,13 +448,20 @@ def test_8_large_tile_paint(boyoq_norm, plitka_norm, paint_mat, tile_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    # suvoq + boyoq + grunt + shpatlyovka + plitka + elektr = 6 lines (defaults to "xom")
-    assert len(est.lines) == 6
+    # suvoq + boyoq + grunt + shpatlyovka + plitka + plintus + elektr = 7
+    # (Fix 8: tile floors now get a plinth line too, same as laminate)
+    assert len(est.lines) == 7
     assert sum(1 for ln in est.lines if ln.category == "suvoq") == 1
+    assert sum(1 for ln in est.lines if ln.category == "plintus") == 1
 
     tile_line = next(ln for ln in est.lines if ln.category == "plitka")
     # m² = ceil(35.0 * 1.10 * 100) / 100 = ceil(3850) / 100 = 38.50
     assert tile_line.qty == pytest.approx(38.5, abs=0.01)
+
+    # No doors recorded (openings_count=0) → door_m=0 (Fix 8: no forced
+    # minimum of one door) → plinth_m = perimeter = 24.0; ceil(24.0/2.5) = 10
+    plinth_line = next(ln for ln in est.lines if ln.category == "plintus")
+    assert plinth_line.qty == 10.0
 
 
 # ---------------------------------------------------------------------------
@@ -547,13 +556,18 @@ def test_11_tile_floor_no_wall_material(plitka_norm, tile_mat):
 
     est = compute_estimate(room, mats, norms)
 
-    # plitka + elektr = 2
-    assert len(est.lines) == 2
+    # plitka + plintus + elektr = 3 (Fix 8: tile now gets a plinth line too)
+    assert len(est.lines) == 3
     assert any(ln.category == "plitka" for ln in est.lines)
+    assert any(ln.category == "plintus" for ln in est.lines)
 
     tile_line = next(ln for ln in est.lines if ln.category == "plitka")
     # ceil(12.0 * 1.10 * 100) / 100 = ceil(1320) / 100 = 13.2
     assert tile_line.qty == pytest.approx(13.2, abs=0.01)
+
+    # No doors (openings_count=0) → plinth_m = perimeter = 14.0; ceil(14.0/2.5) = 6
+    plinth_line = next(ln for ln in est.lines if ln.category == "plintus")
+    assert plinth_line.qty == 6.0
 
 
 # ---------------------------------------------------------------------------
@@ -992,3 +1006,103 @@ def test_23_electrical_confirmed_distinguishes_fallback_from_real_count(boyoq_no
     )
     assert confirmed_est.has_electrical is True
     assert confirmed_est.electrical_confirmed is True
+
+
+# ---------------------------------------------------------------------------
+# Test 24 (Fix 8) — door-width fallback has no forced minimum of one door
+# ---------------------------------------------------------------------------
+
+def test_24_no_recorded_doors_means_zero_door_width_in_plinth(boyoq_norm, laminat_norm, paint_mat, laminat_mat):
+    """A room with openings_count=0 and no explicit door elements at all
+    must get plinth = perimeter exactly — the old fallback subtracted one
+    phantom 0.9m door even when the room genuinely has none."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        openings_count=0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1", "floor": "l1"},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats(paint_mat, laminat_mat)
+    norms = _norms(boyoq_norm, laminat_norm)
+
+    est = compute_estimate(room, mats, norms)
+    plinth_line = next(ln for ln in est.lines if ln.category == "plintus")
+
+    # perimeter=14.0, door_m=0 (no minimum) → ceil(14.0/2.5) = 6
+    assert plinth_line.qty == 6.0
+    assert "0.00 m" in plinth_line.formula
+
+
+# ---------------------------------------------------------------------------
+# Test 25 (Fix 8) — two different paint materials price each wall correctly
+# ---------------------------------------------------------------------------
+
+def test_25_multiple_paint_materials_priced_per_wall(laminat_norm, laminat_mat):
+    """Wall A painted with a cheap material, wall C with an expensive one —
+    each must produce its own boyoq line at its own price and its own area,
+    not one combined line arbitrarily priced at whichever material a
+    single next() lookup happened to find first."""
+    boyoq_norm = _norm("boyoq", coverage_per_unit=9.0, coats=2)
+    cheap = _material("cheap", "boyoq", "Arzon oq", price_uzs=20_000)
+    pricey = _material("pricey", "boyoq", "Premium ko'k", price_uzs=60_000)
+
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"A": "cheap", "B": "cheap", "C": "pricey", "D": "pricey", "floor": "l1"},
+        state={
+            "wallCoverings": {
+                "A": {"kind": "paint", "color": "#fff"},
+                "B": {"kind": "paint", "color": "#fff"},
+                "C": {"kind": "paint", "color": "#00f"},
+                "D": {"kind": "paint", "color": "#00f"},
+            }
+        },
+    )
+    mats = _mats(cheap, pricey, laminat_mat)
+    norms = _norms(boyoq_norm, laminat_norm)
+
+    est = compute_estimate(room, mats, norms)
+    boyoq_lines = [ln for ln in est.lines if ln.category == "boyoq"]
+
+    assert len(boyoq_lines) == 2, "one line per distinct paint material, not one combined line"
+
+    cheap_line = next(ln for ln in boyoq_lines if ln.material_id == "cheap")
+    pricey_line = next(ln for ln in boyoq_lines if ln.material_id == "pricey")
+
+    # A+B: (4.0+3.0)*2.7 = 18.9 m² → ceil(18.9*2/9.0) = ceil(4.2) = 5 litr @ 20,000
+    assert cheap_line.qty == 5.0
+    assert cheap_line.unit_price_uzs == 20_000
+
+    # C+D: same area 18.9 m² → 5 litr @ 60,000 (a different price, proving
+    # each group is priced against its OWN material, not the same one twice)
+    assert pricey_line.qty == 5.0
+    assert pricey_line.unit_price_uzs == 60_000
+    assert pricey_line.subtotal_uzs == 3 * cheap_line.subtotal_uzs
+
+
+# ---------------------------------------------------------------------------
+# Test 26 (Fix 8) — tile floors get a plinth line, same as laminate
+# ---------------------------------------------------------------------------
+
+def test_26_tile_floor_gets_plinth_line(plitka_norm, tile_mat):
+    """A tile floor's walls meet the floor exactly like a laminate floor's —
+    it used to get no skirting board line at all."""
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]},
+        surfaces={"floor": "t1"},
+        state={},
+    )
+    mats = _mats(tile_mat)
+    norms = _norms(plitka_norm)
+
+    est = compute_estimate(room, mats, norms)
+
+    assert any(ln.category == "plintus" for ln in est.lines)
+    plinth_line = next(ln for ln in est.lines if ln.category == "plintus")
+    # perimeter=14.0, no doors → ceil(14.0/2.5) = 6
+    assert plinth_line.qty == 6.0
