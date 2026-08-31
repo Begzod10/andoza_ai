@@ -380,15 +380,17 @@ def test_6_oboy_yolli_high_ceiling(oboy_norm, oboy_mat):
     oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
     assert len(oboy_lines) == 4
 
-    # Wall A: 4.0 * 3.2 = 12.8, yolli waste=1.10, gross*waste=14.08
-    # rolls = ceil(14.08 / 10.653) = ceil(1.3222) = 2
+    # Strip-based (Fix 3): strips_per_roll = floor(10.05 / 3.2) = 3
+    # Wall A: strips = ceil(4.0 * 1.10 / 1.06) = ceil(4.15) = 5; rolls = ceil(5/3) = 2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
     assert wall_a.qty == 2.0
 
-    # Wall B: 3.0 * 3.2 = 9.6, waste=10.56
-    # rolls = ceil(10.56 / 10.653) = ceil(0.9913) = 1
+    # Wall B: strips = ceil(3.0 * 1.10 / 1.06) = ceil(3.11) = 4; rolls = ceil(4/3) = 2
+    # (Before Fix 3's strip math, area-based rounding wrongly gave 1 roll —
+    # 3 strips fit on paper by area, but only 3 strips actually come out of
+    # one roll, and this wall needs 4.)
     wall_b = next(ln for ln in oboy_lines if "devor B" in ln.label)
-    assert wall_b.qty == 1.0
+    assert wall_b.qty == 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -485,15 +487,16 @@ def test_9_oboy_geometrik_with_openings(oboy_norm, oboy_mat):
     oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
     assert len(oboy_lines) == 4
 
-    # Wall A: gross=13.5, openings=0.9*2.1+1.5*1.2=1.89+1.8=3.69, net=9.81
-    #         waste=9.81*1.15=11.28, rolls=ceil(11.28/10.653)=2
+    # Strip-based (Fix 3): openings are NOT subtracted (a strip runs the
+    # full ceiling height regardless of a door/window behind it).
+    # strips_per_roll = floor(10.05 / 2.7) = 3
+    # Wall A: strips = ceil(5.0 * 1.15 / 1.06) = ceil(5.42) = 6; rolls = ceil(6/3) = 2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
     assert wall_a.qty == 2.0
 
-    # Wall D: gross=10.8, openings=1.5*1.2=1.8, net=9.0
-    #         waste=9.0*1.15=10.35, rolls=ceil(10.35/10.653)=1
+    # Wall D: strips = ceil(4.0 * 1.15 / 1.06) = ceil(4.34) = 5; rolls = ceil(5/3) = 2
     wall_d = next(ln for ln in oboy_lines if "devor D" in ln.label)
-    assert wall_d.qty == 1.0
+    assert wall_d.qty == 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -575,15 +578,14 @@ def test_12_oboy_bolalar_laminat(oboy_norm, laminat_norm, oboy_mat, laminat_mat)
     oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
     assert len(oboy_lines) == 4
 
-    # Wall A: 4.0*2.7=10.8, bolalar waste=1.15, gross*waste=12.42
-    # rolls = ceil(12.42 / 10.653) = 2
+    # Strip-based (Fix 3): strips_per_roll = floor(10.05 / 2.7) = 3
+    # Wall A: strips = ceil(4.0 * 1.15 / 1.06) = ceil(4.34) = 5; rolls = ceil(5/3) = 2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
     assert wall_a.qty == 2.0
 
-    # Wall B: 3.0*2.7=8.1, bolalar waste=1.15, 8.1*1.15=9.315
-    # rolls = ceil(9.315 / 10.653) = 1
+    # Wall B: strips = ceil(3.0 * 1.15 / 1.06) = ceil(3.25) = 4; rolls = ceil(4/3) = 2
     wall_b = next(ln for ln in oboy_lines if "devor B" in ln.label)
-    assert wall_b.qty == 1.0
+    assert wall_b.qty == 2.0
 
     # Wallpaper-only room defaults to "xom" → suvoq+grunt+shpatlyovka(3) +
     # oboy(4) + laminat(1) + plintus(1) + elektr(1) = 10
@@ -648,10 +650,10 @@ def test_14_oboy_gul_waste_factor(oboy_norm, oboy_mat):
     oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
     assert len(oboy_lines) == 4
 
-    # Wall A: 3.0*2.7=8.1, gul waste=1.15, area=8.1*1.15=9.315
-    # rolls = ceil(9.315 / 10.653) = 1
+    # Strip-based (Fix 3): strips_per_roll = floor(10.05 / 2.7) = 3
+    # Wall A: strips = ceil(3.0 * 1.15 / 1.06) = ceil(3.25) = 4; rolls = ceil(4/3) = 2
     wall_a = next(ln for ln in oboy_lines if "devor A" in ln.label)
-    assert wall_a.qty == 1.0
+    assert wall_a.qty == 2.0
 
     # Verify the formula string contains the waste factor 1.15
     assert "1.15" in wall_a.formula
@@ -823,3 +825,47 @@ def test_19_paint_area_falls_back_to_surfaces_when_no_covering_recorded(boyoq_no
     assert paint_line is not None
     # ceil(37.8 * 2 / 9.0) = ceil(8.4) = 9
     assert paint_line.qty == 9.0
+
+
+# ---------------------------------------------------------------------------
+# Test 20 (Fix 3) — strip-based math vs. the old area-based math
+# ---------------------------------------------------------------------------
+
+def test_20_wallpaper_strips_not_area_regression(oboy_norm, oboy_mat):
+    """A 3 m wall at 2.7 m ceiling, no waste (patternId unset → 1.10 default
+    from WASTE_FACTORS.get fallback... use a pattern with waste=1.0 instead
+    so the numbers are exact): old area math said 1 roll (3*2.7=8.1 m² fits
+    inside one 10.653 m² roll on paper); real purchasing needs 2, because a
+    10.05 m roll cut into 2.7 m strips only yields 3 strips (8.1 m of usable
+    length), and this wall alone needs 3 strips at ceiling height, using up
+    that entire roll's usable length with nothing left for the door
+    reveal etc. Bump the wall to 3.5 m so it clearly needs a 4th strip that
+    does not fit in the first roll — proving the fix without depending on
+    a knife-edge rounding coincidence.
+    """
+    walls = [_wall("A", 3.5), _wall("B", 3.0), _wall("C", 3.5), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=10.5,
+        net_wall_area=35.1,
+        perimeter=13.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "o1"},
+        state={"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "unknown_pattern"}}},
+    )
+    mats = _mats(oboy_mat)
+    norms = _norms(oboy_norm)
+
+    est = compute_estimate(room, mats, norms)
+    wall_a = next(ln for ln in est.lines if ln.category == "oboy" and "devor A" in ln.label)
+
+    # Unknown pattern → WASTE_FACTORS.get(..., 1.10) default.
+    # strips = ceil(3.5 * 1.10 / 1.06) = ceil(3.632) = 4
+    # strips_per_roll = floor(10.05 / 2.7) = 3
+    # rolls = ceil(4 / 3) = 2
+    #
+    # The old area-based math would have computed:
+    #   net_area = 3.5*2.7=9.45; waste=9.45*1.10=10.395
+    #   rolls = ceil(10.395 / 10.653) = ceil(0.9758) = 1  ← underestimate
+    assert wall_a.qty == 2.0
+    assert "polosa" in wall_a.formula

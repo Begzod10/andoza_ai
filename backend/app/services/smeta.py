@@ -432,6 +432,12 @@ def _wallpaper_lines(
     _to_metres heuristic).  Reads which walls have oboy covering from
     room.state['wallCoverings'].  Emits one ComputedLine per wall that has
     an 'oboy' kind covering.
+
+    Purchasing is by strip, not by area: a 10.05 m roll cut into 2.7 m
+    ceiling-height strips only yields 3 usable strips (≈8.1 m of the roll's
+    10.05 m, not the full 10.653 m² roll area) — the leftover offcut from
+    each roll can't be pieced together into a partial strip. Sizing by area
+    alone systematically underestimates roll count.
     """
     geometry: dict = room.geometry or {}
     walls_data = geometry.get("walls", [])
@@ -460,16 +466,16 @@ def _wallpaper_lines(
         if wall_length_m <= 0:
             continue
 
-        gross_area = wall_length_m * ceiling_h_m
-
+        # Openings are NOT subtracted from the strip count below — a strip
+        # is cut full-height and hung past a door/window opening in
+        # practice (you don't piece together an interrupted strip from two
+        # offcuts), so this is informational only, surfaced in the formula.
         elements = wall.get("elements", []) or []
         openings_area = sum(
             _to_metres(float(el.get("width", 0) or 0))
             * _to_metres(float(el.get("height", 0) or 0))
             for el in elements
         )
-
-        net_area = max(0.0, gross_area - openings_area)
 
         pattern_id: str = covering.get("patternId", "") or ""
         # Waste factor: prefer DB norm (oboy_{pattern_id}), fallback to WASTE_FACTORS dict
@@ -484,10 +490,14 @@ def _wallpaper_lines(
         oboy_params = getattr(oboy_norm, "params", None) or {}
         roll_width = float(oboy_params.get("roll_width_m", ROLL_WIDTH_M))
         roll_length = float(oboy_params.get("roll_length_m", ROLL_LENGTH_M))
-        roll_area = roll_width * roll_length
 
-        strips_per_roll = int(roll_length / ceiling_h_m) if ceiling_h_m > 0 else 1  # noqa: F841
-        rolls_per_wall = math.ceil(net_area * waste_factor / roll_area) if roll_area > 0 else 0
+        # Strip-based purchasing: how many full-height strips this wall
+        # needs, how many strips a single roll actually yields (a roll's
+        # leftover offcut below one ceiling-height is unusable), and how
+        # many rolls that requires.
+        strips_needed = math.ceil(wall_length_m * waste_factor / roll_width) if roll_width > 0 else 0
+        strips_per_roll = max(1, math.floor(roll_length / ceiling_h_m)) if ceiling_h_m > 0 else 1
+        rolls_per_wall = math.ceil(strips_needed / strips_per_roll) if strips_per_roll > 0 else 0
 
         mat_id = wall_surfaces.get(wall_key) or wall_surfaces.get("ALL")
         material = materials_map.get(mat_id) if mat_id else None
@@ -497,11 +507,15 @@ def _wallpaper_lines(
             if material
             else f"Oboy devor {wall_key}"
         )
+        openings_note = (
+            f" (teshiklar {openings_area:.2f} m² polosaga ta'sir qilmaydi)"
+            if openings_area > 0 else ""
+        )
         formula = (
-            f"Devor {wall_key}: {wall_length_m:.2f} m × {ceiling_h_m:.2f} m "
-            f"− teshiklar {openings_area:.2f} m² = {net_area:.2f} m²; "
-            f"× {waste_factor:.2f} (isrof) ÷ {roll_area:.3f} m²/rulon "
-            f"= {rolls_per_wall} rulon"
+            f"Devor {wall_key}: {wall_length_m:.2f} m × {waste_factor:.2f} (isrof) "
+            f"÷ {roll_width:.2f} m = {strips_needed} polosa; "
+            f"1 rulon = {strips_per_roll} polosa → {rolls_per_wall} rulon"
+            f"{openings_note}"
         )
 
         price_uzs = int(material.price_uzs) if material else 0
