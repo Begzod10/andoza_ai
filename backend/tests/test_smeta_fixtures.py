@@ -869,3 +869,42 @@ def test_20_wallpaper_strips_not_area_regression(oboy_norm, oboy_mat):
     #   rolls = ceil(10.395 / 10.653) = ceil(0.9758) = 1  ← underestimate
     assert wall_a.qty == 2.0
     assert "polosa" in wall_a.formula
+
+
+# ---------------------------------------------------------------------------
+# Test 21 (Fix 4) — oboy wall with a missing material is flagged, not free
+# ---------------------------------------------------------------------------
+
+def test_21_oboy_missing_material_flagged_approximate(oboy_norm):
+    """A wall's covering references a material id that isn't in
+    materials_map (deleted, or never a real row) — this must NOT become a
+    silent 0-price line counted as exact; it must be flagged approximate
+    with a warning telling the user to pick a material."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7,
+        floor_area=12.0,
+        net_wall_area=37.8,
+        perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "ghost-material-id"},
+        state={"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "tekstura"}}},
+    )
+    mats = _mats()  # empty — "ghost-material-id" resolves to nothing
+    norms = _norms(oboy_norm)
+
+    est = compute_estimate(room, mats, norms)
+    oboy_lines = [ln for ln in est.lines if ln.category == "oboy"]
+
+    assert len(oboy_lines) == 4
+    for ln in oboy_lines:
+        assert ln.unit_price_uzs == 0
+        assert ln.subtotal_uzs == 0
+        assert ln.is_approximate is True
+        assert ln.warning == "Material topilmadi — narx smetaga kirmadi. Devor uchun material tanlang."
+
+    # Approximate lines must not inflate total_uzs's non-approximate meaning
+    # (Fix 5 changes total accounting; for now — pre Fix 5 — approximate
+    # lines are excluded from total_uzs, so all 4 zero-priced oboy lines
+    # contribute nothing to it either way).
+    assert all(ln.subtotal_uzs == 0 for ln in oboy_lines)

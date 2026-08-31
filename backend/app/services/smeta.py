@@ -519,6 +519,11 @@ def _wallpaper_lines(
         )
 
         price_uzs = int(material.price_uzs) if material else 0
+        # A wall's covering can reference a material id that no longer
+        # resolves (deleted, or never a real row) — that must not become a
+        # silent 0-price line counted as "exact": it would quietly deflate
+        # the total instead of surfacing that this wall needs a material.
+        material_missing = material is None
 
         lines.append(_make_line(
             label=label,
@@ -529,6 +534,11 @@ def _wallpaper_lines(
             category="oboy",
             material_id=str(material.id) if material else None,
             store_name=_store_name(material) if material else None,
+            is_approximate=material_missing,
+            warning=(
+                "Material topilmadi — narx smetaga kirmadi. "
+                "Devor uchun material tanlang."
+            ) if material_missing else None,
         ))
 
     return lines
