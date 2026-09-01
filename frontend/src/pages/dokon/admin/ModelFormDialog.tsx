@@ -17,6 +17,7 @@ import {
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
+import { objFilesToGlb, UNIT_LABELS, type ConvertedModel, type ModelUnit } from "@/lib/objToGlb";
 
 /**
  * Dialog form for uploading a 3D model. When opened from a shop's profile,
@@ -44,8 +45,17 @@ export function ModelFormDialog({
   const [placement, setPlacement] = useState<AdminPlacement>("pol");
   const [storeId, setStoreId] = useState("");
   const [priceUzs, setPriceUzs] = useState("");
+  // Always a `.glb` ready to upload — a picked .obj is converted to GLB in the
+  // browser (bundling its .mtl + textures) before it lands here.
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [converting, setConverting] = useState(false);
+  // OBJ import: the raw picked files are kept so the model can be re-converted
+  // when the admin changes the source unit; `sizeM` shows the resulting real
+  // size so a wrong unit is obvious ("0.30 m chair" → switch to Dyuym).
+  const [objFiles, setObjFiles] = useState<File[] | null>(null);
+  const [unit, setUnit] = useState<ModelUnit>("auto");
+  const [sizeM, setSizeM] = useState<ConvertedModel["sizeM"] | null>(null);
 
   function reset() {
     setNameUz("");
@@ -56,6 +66,54 @@ export function ModelFormDialog({
     setPriceUzs("");
     setFile(null);
     setThumbnail(null);
+    setConverting(false);
+    setObjFiles(null);
+    setUnit("auto");
+    setSizeM(null);
+  }
+
+  async function convertObj(picked: File[], withUnit: ModelUnit) {
+    setConverting(true);
+    setFile(null);
+    onError(null);
+    try {
+      const { file: glb, sizeM: size } = await objFilesToGlb(picked, withUnit);
+      setFile(glb);
+      setSizeM(size);
+    } catch (err) {
+      onError(errorMessage(err, "OBJ faylni GLB ga aylantirib bo'lmadi"));
+    } finally {
+      setConverting(false);
+    }
+  }
+
+  async function handleModelFiles(fileList: FileList | null) {
+    const picked = fileList ? Array.from(fileList) : [];
+    setObjFiles(null);
+    setSizeM(null);
+    if (picked.length === 0) {
+      setFile(null);
+      return;
+    }
+    const glb = picked.find((f) => f.name.toLowerCase().endsWith(".glb"));
+    if (glb) {
+      // A ready-made GLB — use it directly (ignores any extra picked files).
+      setFile(glb);
+      return;
+    }
+    if (!picked.some((f) => f.name.toLowerCase().endsWith(".obj"))) {
+      onError("Iltimos .glb yoki .obj fayl tanlang");
+      setFile(null);
+      return;
+    }
+    // OBJ: convert to a self-contained GLB in the browser at the chosen unit.
+    setObjFiles(picked);
+    await convertObj(picked, unit);
+  }
+
+  function handleUnitChange(next: ModelUnit) {
+    setUnit(next);
+    if (objFiles) void convertObj(objFiles, next);
   }
 
   const uploadMutation = useMutation({
@@ -153,13 +211,36 @@ export function ModelFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-neutral-900 mb-1.5">3D model (.glb)</label>
+            <label className="block text-sm font-medium text-neutral-900 mb-1.5">3D model (.glb yoki .obj)</label>
             <input
               type="file"
-              accept=".glb"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              multiple
+              accept=".glb,.obj,.mtl,image/*"
+              onChange={(e) => void handleModelFiles(e.target.files)}
               className="text-xs w-full"
             />
+            <p className="text-[11px] text-neutral-500 mt-1">
+              OBJ uchun .obj bilan birga .mtl va tekstura rasmlarini ham tanlang — brauzerda .glb ga aylantiriladi.
+            </p>
+            {converting && <p className="text-[11px] text-brand-600 mt-1">GLB ga aylantirilmoqda…</p>}
+            {objFiles && (
+              <div className="mt-2 space-y-1">
+                <Select
+                  label="Model o'lchami (birlik)"
+                  value={unit}
+                  onChange={(e) => handleUnitChange(e.target.value as ModelUnit)}
+                >
+                  {(Object.keys(UNIT_LABELS) as ModelUnit[]).map((u) => (
+                    <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                  ))}
+                </Select>
+                {sizeM && (
+                  <p className="text-[11px] text-neutral-500">
+                    O'lcham ≈ {sizeM.w} × {sizeM.d} × {sizeM.h} m — noto'g'ri bo'lsa birlikni o'zgartiring.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-900 mb-1.5">Rasm (ixtiyoriy)</label>
@@ -178,7 +259,7 @@ export function ModelFormDialog({
           <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={!nameUz.trim() || !file} loading={uploadMutation.isPending}>
+          <Button type="submit" disabled={!nameUz.trim() || !file || converting} loading={uploadMutation.isPending || converting}>
             Yuklash
           </Button>
         </div>
