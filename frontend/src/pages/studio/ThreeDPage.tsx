@@ -3447,6 +3447,10 @@ export default function ThreeDPage() {
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  // Desktop-only edge-collapse toggles for the phase-stepper rail (left) and
+  // design panel (right). Both default open; the mobile drawer uses showPanel.
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
 
   // ── Surface radial menu (long-press "aylana" on a wall/ceiling/floor) ──
   // The top phase-stepper is hidden (see SHOW_PHASE_STEPPER); design actions
@@ -3920,7 +3924,7 @@ export default function ThreeDPage() {
   // The renovation phase stepper is superseded by the per-surface radial menu
   // (long-press a wall/ceiling/floor). Flip to true to bring the top stepper
   // back. The view/camera toolbar below it is kept.
-  const SHOW_PHASE_STEPPER = false;
+  const SHOW_PHASE_STEPPER = true;
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
@@ -3958,7 +3962,11 @@ export default function ThreeDPage() {
 
       {/* ── Desktop: left phase stepper sidebar (hidden — replaced by surface radial menu) ── */}
       {SHOW_PHASE_STEPPER && (
-      <nav className="hidden lg:flex w-36 shrink-0 bg-surface border-r border-gray-200 flex-col pt-3 select-none">
+      <div className="relative hidden lg:block shrink-0">
+      <nav
+        className="hidden lg:flex bg-surface border-r border-gray-200 flex-col pt-3 select-none overflow-hidden"
+        style={{ width: leftOpen ? 144 : 0, transition: 'width 0.2s ease' }}
+      >
         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
@@ -3993,6 +4001,43 @@ export default function ThreeDPage() {
           );
         })}
       </nav>
+      {/* Docked to the rail's visible edge — left offset tracks leftOpen so
+          it always sits flush against wherever the rail's edge currently is,
+          mid-transition included. */}
+      <button
+        onClick={() => setLeftOpen(v => !v)}
+        title={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
+        aria-label={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
+        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: leftOpen ? 144 : 0,
+          // Open: straddle the rail's edge (plenty of room at x=144). Closed:
+          // the rail is flush against the true page edge (x=0), so the usual
+          // -50% centering would push half the button past x=0 — clipped by
+          // the viewport with no way to see or click it back open. Anchor
+          // flush instead, extending inward, so it's always fully visible.
+          transform: leftOpen ? 'translate(-50%, -50%)' : 'translate(0, -50%)',
+          width: 22,
+          height: 40,
+          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
+          // a different part of the tree, so a low z-index here didn't
+          // reliably out-rank it — confirmed via elementFromPoint returning
+          // the canvas, not this button). Same z-tier as the mobile panel
+          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
+          zIndex: 60,
+          transition: 'left 0.2s ease',
+        }}
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: leftOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }}
+        >
+          <path d="M6.5 1L2.5 5l4 4" />
+        </svg>
+      </button>
+      </div>
       )}
 
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
@@ -4424,15 +4469,20 @@ export default function ThreeDPage() {
       )}
 
       {/* Panel — mobile: slide-up sheet | desktop: slide-in right drawer */}
+      <div className="relative shrink-0 lg:h-full">
+      <div
+        className="lg:shrink-0 lg:h-full"
+        style={{ width: rightOpen ? 288 : 0, overflow: rightOpen ? 'auto' : 'hidden', transition: 'width 0.2s ease' }}
+      >
       <div
         className={[
-          'fixed z-50 bg-surface shadow-2xl transition-transform duration-300 ease-in-out flex flex-col',
-          /* mobile base: bottom sheet */
-          'bottom-0 left-0 right-0 max-h-[72vh] rounded-t-2xl overflow-hidden',
+          'fixed z-50 bg-surface flex flex-col',
+          /* mobile base: bottom sheet (showPanel drives the slide-up) */
+          'bottom-0 left-0 right-0 max-h-[72vh] rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden',
           showPanel ? 'translate-y-0' : 'translate-y-full',
-          /* desktop: right-edge drawer (cancel the y-translate, drive x) */
-          'lg:top-0 lg:bottom-0 lg:left-auto lg:right-0 lg:h-full lg:w-72 lg:max-h-none lg:rounded-none lg:border-l lg:border-gray-200 lg:translate-y-0',
-          showPanel ? 'lg:translate-x-0' : 'lg:translate-x-full',
+          /* desktop: in-flow static sidebar — visibility is driven by the
+             rightOpen collapse wrapper, not by showPanel/translate */
+          'lg:static lg:translate-y-0 lg:max-h-none lg:h-full lg:rounded-none lg:shadow-none lg:z-auto lg:overflow-auto lg:border-l lg:border-gray-200',
         ].join(' ')}
       >
         {/* Mobile drag handle */}
@@ -4446,7 +4496,7 @@ export default function ThreeDPage() {
         <div className="hidden lg:flex shrink-0 items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-surface">
           <span className="text-sm font-semibold text-gray-800">Asboblar va dizayn</span>
           <button
-            onClick={() => setShowPanel(false)}
+            onClick={() => { setRightOpen(false); setShowPanel(false); }}
             aria-label="Yopish"
             title="Yopish"
             className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
@@ -4710,6 +4760,44 @@ export default function ThreeDPage() {
           selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
           armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
         </div>
+      </div>
+      </div>
+      {/* Docked to the panel's left edge (mirrors the left rail's toggle,
+          chevron pointing the opposite way). Sibling of the collapse
+          wrapper above, not nested in it — see the comment on the outer
+          wrapper for why. */}
+      <button
+        onClick={() => setRightOpen(v => !v)}
+        title={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
+        aria-label={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
+        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: rightOpen ? 288 : 0,
+          // Same fix as the left rail's toggle: closed means flush against
+          // the true page edge, where +50% centering would push half the
+          // button past the viewport — visible only as a sliver, unclickable
+          // in practice. Anchor flush and extend inward instead when closed.
+          transform: rightOpen ? 'translate(50%, -50%)' : 'translate(0, -50%)',
+          width: 22,
+          height: 40,
+          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
+          // a different part of the tree, so a low z-index here didn't
+          // reliably out-rank it — confirmed via elementFromPoint returning
+          // the canvas, not this button). Same z-tier as the mobile panel
+          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
+          zIndex: 60,
+          transition: 'right 0.2s ease',
+        }}
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: rightOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
+        >
+          <path d="M6.5 1L2.5 5l4 4" />
+        </svg>
+      </button>
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
