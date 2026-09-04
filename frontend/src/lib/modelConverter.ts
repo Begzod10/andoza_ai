@@ -4,6 +4,17 @@ import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+
+/** GLTFLoader with the meshopt decoder attached — our admin uploads are stored
+ *  meshopt-compressed (EXT_meshopt_compression), so any GLB that flows through
+ *  the import pipeline must be able to decode it. (The studio's catalog render
+ *  path uses drei useGLTF, which wires the decoder itself.) */
+function makeGLTFLoader(manager?: THREE.LoadingManager): GLTFLoader {
+  const loader = manager ? new GLTFLoader(manager) : new GLTFLoader()
+  loader.setMeshoptDecoder(MeshoptDecoder)
+  return loader
+}
 
 export interface ModelInfo {
   sizeM: { w: number; d: number; h: number }
@@ -576,7 +587,7 @@ export async function convertFilesToGlb(
       // a bundled backdrop plane (then the scene must be re-packed)
       const [origBuffer, gltf] = await Promise.all([
         mainFile.arrayBuffer(),
-        new GLTFLoader(manager).loadAsync(mainUrl),
+        makeGLTFLoader(manager).loadAsync(mainUrl),
       ])
       const stripped = stripBackdropPlanes(gltf.scene)
       const uvFixed = ensureSceneUVs(gltf.scene)
@@ -591,7 +602,7 @@ export async function convertFilesToGlb(
     }
 
     if (ext === 'gltf') {
-      const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
+      const gltf = await makeGLTFLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(gltf.scene)
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
@@ -657,7 +668,7 @@ export interface GlbMaterialInfo {
 
 function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
   return new Promise((resolve, reject) => {
-    new GLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
+    makeGLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
   })
 }
 

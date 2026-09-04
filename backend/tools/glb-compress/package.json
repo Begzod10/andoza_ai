@@ -1,0 +1,14 @@
+{
+  "name": "glb-compress",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-side GLB optimizer for uploaded furniture models (quantize + WebP textures + meshopt).",
+  "dependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.33.5"
+  }
+}

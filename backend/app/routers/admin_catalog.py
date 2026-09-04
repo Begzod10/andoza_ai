@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
+from app.core.glb_compress import compress_glb
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.models.furniture import Furniture
 from app.models.store import Store
@@ -233,6 +234,10 @@ async def upload_furniture_model(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Fayl hajmi {_MAX_GLB_SIZE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
         )
+
+    # Shrink the model before storing (quantize + WebP textures + meshopt).
+    # Best-effort: on any failure the original bytes are returned unchanged.
+    glb_bytes = await compress_glb(glb_bytes)
 
     thumbnail_key: str | None = None
     if thumbnail is not None and (thumbnail.filename or ""):
