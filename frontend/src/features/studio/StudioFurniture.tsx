@@ -41,10 +41,17 @@ type AnyFurnitureEntry = {
 function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
-  return (
-    FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-    userFurniture.find((f) => f.id === furnitureId) ??
-    catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
+  // Memoize: catalogToFurnitureEntry() mints a NEW object every call, so
+  // without this a do'kon model's entry changed reference on every render —
+  // which invalidated the scene.clone() memo below and made R3F churn (and
+  // dispose the shared GLTF cache) while dragging, so the model vanished until
+  // a reload. Built-in FURNITURE_CATALOG entries are stable references already.
+  return useMemo(
+    () =>
+      FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
+      userFurniture.find((f) => f.id === furnitureId) ??
+      catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId)),
+    [furnitureId, userFurniture, catalogFurniture],
   )
 }
 
@@ -157,6 +164,10 @@ export function FurnitureItem({ item }: { item: PlacedFurniture }) {
   return (
     <primitive
       object={cloned}
+      // A clone shares geometry/materials with drei's cached GLTF — never let
+      // R3F auto-dispose those on unmount or every other placement of the same
+      // model would go blank.
+      dispose={null}
       position={[item.x / 1000, yOffUnit * s, item.y / 1000]}
       rotation={[0, item.rotation, 0]}
       scale={s}
@@ -409,6 +420,8 @@ function DraggableFurnitureItem({
       <primitive
         ref={primitiveRef}
         object={cloned}
+        // Shares geometry/materials with the cached GLTF — don't auto-dispose.
+        dispose={null}
         position={[0, yOff, 0]}
         rotation={[0, item.rotation, 0]}
         scale={s}
