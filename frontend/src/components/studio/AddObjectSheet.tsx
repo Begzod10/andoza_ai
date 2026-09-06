@@ -46,7 +46,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
-  const { setWallCovering, addLight, placeFurniture, catalogFurniture } = useRoomStore();
+  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture } = useRoomStore();
 
   // Real do'kon-managed paint products — no invented palette. Same category
   // ("boyoq") the smeta engine prices wall paint against.
@@ -68,6 +68,9 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
     const material = paintMaterials.find((m: Material) => m.id === selectedMaterialId);
     if (!material) return;
     setWallCovering("ALL", { kind: "paint", color: material.color_hex ?? "#D9D9D9" });
+    // Link the real product so the smeta prices this wall exactly, instead
+    // of falling back to an approximate per-litre guess.
+    applySurface("ALL", material.id);
     onClose();
   }
 

@@ -1106,3 +1106,203 @@ def test_26_tile_floor_gets_plinth_line(plitka_norm, tile_mat):
     plinth_line = next(ln for ln in est.lines if ln.category == "plintus")
     # perimeter=14.0, no doors → ceil(14.0/2.5) = 6
     assert plinth_line.qty == 6.0
+
+
+# ---------------------------------------------------------------------------
+# Test 27 (Fix 9) — a painted wall recorded only in wallCoverings (the real
+# studio flow) still triggers prep and a paint line even when `surfaces`
+# never resolved to a Material.
+# ---------------------------------------------------------------------------
+
+def test_27_paint_recorded_only_in_wallcoverings_still_prices(boyoq_norm):
+    """The real-world studio bug: a room painted through the actual paint
+    picker only ever writes to state['wallCoverings'] — `surfaces` is never
+    populated by that flow (only the separate AI-builder path touches it).
+    Before this fix, "boyoq" in wall_categories was the ONLY gate for both
+    wall-prep and the paint finish line, and wall_categories is derived
+    solely from `surfaces` — so a painted room with empty `surfaces` got
+    NO suvoq/grunt/shpatlyovka and NO paint line at all, silently.
+    """
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={},  # <- never populated, exactly like the real studio flow
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats()  # no boyoq Material anywhere either
+    norms = _norms(boyoq_norm)
+
+    est = compute_estimate(room, mats, norms)
+    cats = [ln.category for ln in est.lines]
+
+    # Prep must still run — this used to be silently skipped entirely.
+    assert "suvoq" in cats
+    assert "grunt" in cats
+    assert "shpatlyovka" in cats
+
+    paint_line = next((ln for ln in est.lines if ln.category == "boyoq"), None)
+    assert paint_line is not None, "a painted room must always get a paint line"
+    # No material anywhere resolves → flagged approximate, nonzero fallback
+    # price (never a silent 0, matching the furniture-fallback philosophy).
+    assert paint_line.is_approximate is True
+    assert paint_line.unit_price_uzs == 28_000
+    assert paint_line.subtotal_uzs > 0
+    assert "tanlanmagan" in (paint_line.warning or "")
+
+
+def test_28_paint_recorded_in_wallcoverings_with_real_material_prices_exactly(boyoq_norm, paint_mat):
+    """Once the frontend wiring fix lands (paint picker calling applySurface
+    alongside setWallCovering), `surfaces` DOES resolve to a real boyoq
+    Material — the paint line must then be priced exactly against it, not
+    fall back to the approximate per-litre guess."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1"},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats(paint_mat)
+    norms = _norms(boyoq_norm)
+
+    est = compute_estimate(room, mats, norms)
+    paint_line = next(ln for ln in est.lines if ln.category == "boyoq")
+
+    assert paint_line.is_approximate is False
+    assert paint_line.unit_price_uzs == paint_mat.price_uzs
+    assert paint_line.material_id == "p1"
+
+
+def test_29_ceiling_construction_priced_for_border_design(boyoq_norm):
+    """A room with a real 'border' drop-ceiling design recorded in
+    state['ceiling'] must get gipsokarton + profile line items, sized off
+    the perimeter ring (not the full ceiling area) — border designs only
+    drop a band around the edge, per ceilingDesigns.ts geometry."""
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": []},
+        surfaces={},
+        state={"ceiling": {"design": "border", "settings": {"border": 420, "strip": True}}},
+    )
+    est = compute_estimate(room, _mats(), _norms())
+    shift_lines = [ln for ln in est.lines if ln.category == "shift"]
+
+    assert {"Shift gipsokartoni", "Shift profili (karkas)", "LED lenta (shift nishi)"} <= {
+        ln.label for ln in shift_lines
+    }
+    # panel_area = perimeter * border_m = 14.0 * 0.42 = 5.88 m²
+    sheet_line = next(ln for ln in shift_lines if ln.label == "Shift gipsokartoni")
+    assert "5.9 m²" in sheet_line.formula
+    assert all(ln.is_approximate for ln in shift_lines)
+
+
+def test_30_ceiling_non_drop_and_no_ceiling_config_are_unpriced(boyoq_norm):
+    """A 'non_drop' design (or no ceiling config recorded at all) is a bare
+    structural slab — nothing built, nothing priced."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+
+    room_explicit_non_drop = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls}, surfaces={},
+        state={"ceiling": {"design": "non_drop"}},
+    )
+    room_no_ceiling_key = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls}, surfaces={}, state={},
+    )
+
+    for room in (room_explicit_non_drop, room_no_ceiling_key):
+        est = compute_estimate(room, _mats(), _norms())
+        assert not any(ln.category == "shift" for ln in est.lines)
+
+
+def test_31_ceiling_construction_skipped_when_ceiling_state_finished(boyoq_norm):
+    """ceiling_state="tayyor" means the ceiling already exists — no further
+    construction spend, mirroring floor_already_done for the floor."""
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": []}, surfaces={},
+        state={"ceiling": {"design": "flat", "settings": {"strip": False}}},
+    )
+    est = compute_estimate(room, _mats(), _norms(), ceiling_state="tayyor")
+    assert not any(ln.category == "shift" for ln in est.lines)
+
+    # Sanity: the same room WITHOUT ceiling_state="tayyor" does get priced.
+    est_active = compute_estimate(room, _mats(), _norms())
+    assert any(ln.category == "shift" for ln in est_active.lines)
+
+
+# ---------------------------------------------------------------------------
+# Test 32 (Fix 10) — the real persisted shape nests wallCoverings/ceiling
+# under state["designState"], not at the top level of room.state
+# ---------------------------------------------------------------------------
+
+def test_32_real_persisted_shape_nests_under_design_state(boyoq_norm, oboy_norm, oboy_mat):
+    """StudioPage.handleSave persists {geometry, ceilingHeight, name,
+    designState: {wallCoverings, floorType, ceiling, ...}, furniture,
+    electricals, lights, layoutPos} — confirmed against a live database row.
+    wallCoverings/ceiling/floorType sit one level DEEPER than furniture/
+    electricals/lights, which are top-level. Reading wallCoverings/ceiling
+    straight off room.state (the old code, and every fixture test above)
+    finds an empty dict for every real room — this test uses the exact
+    nested shape a real save produces, not the flat shorthand the other
+    fixtures use for readability."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "o1"},
+        state={
+            "name": "Xona",
+            "geometry": {"walls": walls},
+            "ceilingHeight": 2700,
+            "designState": {
+                "wallCoverings": {"ALL": {"kind": "oboy", "patternId": "damask"}},
+                "floorType": "laminate",
+                "ceiling": {"design": "border", "settings": {"border": 420, "strip": True}},
+                "floorConfigured": True,
+            },
+            "furniture": [],
+            "electricals": [],
+            "lights": [],
+            "layoutPos": None,
+        },
+    )
+    mats = _mats(oboy_mat)
+    norms = _norms(boyoq_norm, oboy_norm)
+
+    est = compute_estimate(room, mats, norms)
+    cats = [ln.category for ln in est.lines]
+
+    assert cats.count("oboy") == 4, "wallpaper lines must fire from the nested designState shape"
+    assert {"suvoq", "grunt", "shpatlyovka"} <= set(cats)
+    assert "shift" in cats, "ceiling construction must fire from the nested designState shape"
+
+
+# ---------------------------------------------------------------------------
+# Test 33 (Fix 11) — a painted room still gets a paint line with an empty
+# norms table, matching how the prep lines already degrade gracefully
+# ---------------------------------------------------------------------------
+
+def test_33_paint_line_survives_missing_boyoq_norm():
+    """Reproduces a real dev-environment gap: the `norms` table has zero rows
+    (confirmed against a live database). _plaster_line/_grunt_line/_putty_line
+    already fall back to hardcoded defaults when their Norm row is missing —
+    the paint line used to be the only one gated on `if boyoq_norm:` at the
+    call site, so it silently produced nothing at all instead of degrading
+    the same way."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    est = compute_estimate(room, _mats(), _norms())  # no boyoq Norm row at all
+
+    paint_line = next((ln for ln in est.lines if ln.category == "boyoq"), None)
+    assert paint_line is not None, "a painted room must get a paint line even with an empty norms table"
+    assert paint_line.is_approximate is True
+    assert paint_line.subtotal_uzs > 0
+    assert "Norma topilmadi" in (paint_line.warning or "")

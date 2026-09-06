@@ -112,6 +112,10 @@ export default function StudioPage() {
             ceiling_h: s.ceilingHeight / 1000,
             geometry: geometryPayload,
             state: stateBlob as unknown as Record<string, unknown>,
+            // Wall/floor → real do'kon Material links (applySurface) — the
+            // smeta engine prices paint/wallpaper/floor against these.
+            // Omitted here before, they never reached the database at all.
+            surfaces: s.surfaces,
           });
           useRoomStore.getState().markSaved();
           setSaveStatus('saved');
@@ -136,6 +140,7 @@ export default function StudioPage() {
       // Save full state to the new room
       await updateRoom(newRoom.id, {
         state: stateBlob as unknown as Record<string, unknown>,
+        surfaces: s.surfaces,
       });
       useRoomStore.getState().setRoomId(newRoom.id);
       useRoomStore.getState().markSaved();

@@ -228,6 +228,10 @@ interface RoomPayload {
     }>
     vertices?: [number, number][]
   } | null
+  /** Wall/floor → real do'kon Material id links (see applySurface). Restored
+   * on load so a room reopened on a different device/browser keeps its
+   * paint/wallpaper/floor material pricing instead of starting blank. */
+  surfaces?: Record<string, unknown> | null
 }
 
 // ─── Store interface ──────────────────────────────────────────────────────────
@@ -713,6 +717,7 @@ export const useRoomStore = create<RoomStore>()(
       name: room.name ?? 'Xona',
       ceilingHeight: Math.round((room.ceiling_h ?? 2.7) * 1000),
       geometry,
+      surfaces: (room.surfaces ?? {}) as AppliedSurfaces,
       isDirty: false,
     })
   },

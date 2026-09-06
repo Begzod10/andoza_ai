@@ -357,7 +357,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const { designState, setDesignState, setWallCovering, setWallPanel, setFloorTexture, resetDesignState, geometry, ceilingHeight,
           furniture, placeFurniture, removeFurniture, setFurnitureColors,
           userFurniture, removeUserFurniture, setUserFurniturePath, setUserFurnitureCategory, setUserFurniturePlacement, setUserFurniturePrice,
-          catalogFurniture } =
+          catalogFurniture, surfaces, applySurface } =
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -456,6 +456,32 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     staleTime: 10 * 60 * 1000,
   });
 
+  // Real do'kon-managed paint products, same category ("boyoq") the smeta
+  // engine prices wall paint against. Picking one (below) links the wall to
+  // it via applySurface so the estimate prices it exactly instead of falling
+  // back to an approximate per-litre guess.
+  const { data: boyoqProducts = [] } = useQuery({
+    queryKey: ["materials", "boyoq"],
+    queryFn: () => getMaterials({ category: "boyoq", per_page: 20 }),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Real do'kon-managed floor covering, filtered to the category matching
+  // the currently-selected floor type. "concrete" has no do'kon category —
+  // a bare screed has no covering to price, so no query/picker for it.
+  const FLOOR_TYPE_TO_MATERIAL_CATEGORY: Record<string, string> = {
+    parquet: "parket",
+    laminate: "laminat",
+    tile: "plitka",
+  };
+  const floorMaterialCategory = FLOOR_TYPE_TO_MATERIAL_CATEGORY[floorType];
+  const { data: floorProducts = [] } = useQuery({
+    queryKey: ["materials", floorMaterialCategory],
+    queryFn: () => getMaterials({ category: floorMaterialCategory!, per_page: 20 }),
+    enabled: !!floorMaterialCategory,
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Sync local mode/pattern state when the selected wall changes
   React.useEffect(() => {
     const c =
@@ -479,15 +505,21 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   }, [targetWall]);
 
   const mutation = useMutation({
-    mutationFn: (data: { design_state: Record<string, unknown> }) =>
+    mutationFn: (data: { design_state: Record<string, unknown>; surfaces?: Record<string, unknown> }) =>
       updateRoom(room.id, data),
   });
 
   const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // surfacesRef always holds the latest store value so a debounced sync
+  // fired from a design-state change still PATCHes the surfaces picked in
+  // between — surfaces itself isn't a syncToApi(ds) argument.
+  const surfacesRef = React.useRef(surfaces);
+  surfacesRef.current = surfaces;
   function syncToApi(ds: typeof designState) {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       mutation.mutate({
+        surfaces: surfacesRef.current,
         design_state: {
           wallCoverings: ds.wallCoverings,
           floorType: ds.floorType,
@@ -530,6 +562,18 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
 
   function handleSetPaintColor(color: string) {
     applyWallCovering({ kind: "paint", color });
+    // A plain swatch has no do'kon material behind it — clear any earlier
+    // link so the smeta doesn't keep pricing this wall against a product
+    // the user just moved away from.
+    applySurface(targetWall, "");
+  }
+
+  /** A real, priced do'kon boyoq product — links `surfaces` so the smeta
+   * prices this wall exactly instead of falling back to an approximate
+   * per-litre guess. */
+  function handleSetPaintProduct(material: Material) {
+    applyWallCovering({ kind: "paint", color: material.color_hex ?? "#D9D9D9" });
+    applySurface(targetWall, material.id);
   }
 
   function handleSetOboy(
@@ -567,6 +611,16 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setDesignState({ floorType: ft, floorConfigured: true });
     setFloorTexture(null);
     syncToApi({ ...designState, floorType: ft, floorConfigured: true, floorTexture: null });
+    // Switching category invalidates any material picked for the old one
+    // (e.g. a laminate product doesn't belong on a "tile" floor) — clear it
+    // rather than leave the smeta pricing the new floor against it.
+    applySurface("floor", "");
+  }
+
+  /** A real, priced do'kon floor product — links `surfaces.floor` so the
+   * smeta prices this floor exactly instead of skipping it entirely. */
+  function handleSetFloorProduct(materialId: string) {
+    applySurface("floor", materialId);
   }
 
   const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
@@ -852,6 +906,17 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const wallColorForPreview = resolveWallColor(designState.wallCoverings);
   const hasOboy = Object.values(designState.wallCoverings).some((c) => c?.kind === "oboy");
 
+  // Which real do'kon paint product (if any) the current target wall is
+  // linked to — derived from `surfaces` rather than separate local state, so
+  // it stays correct across wall switches and room reloads for free.
+  const currentWallSurfaceId = surfaces[targetWall] ?? surfaces["ALL"];
+  const activePaintProductId = boyoqProducts.some((p) => p.id === currentWallSurfaceId)
+    ? currentWallSurfaceId
+    : null;
+  const activeFloorProductId = floorProducts.some((p) => p.id === surfaces.floor)
+    ? surfaces.floor
+    : null;
+
   // Server smeta is authoritative; oboySmeta.ts is instant fallback only
   const { data: previewData, isLoading: previewLoading } = useQuery({
     queryKey: ["estimate-preview", room.id, designState],
@@ -1029,6 +1094,43 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                   </button>
                 ))}
               </div>
+
+              {floorMaterialCategory && floorProducts.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
+                  <div className="flex flex-col gap-2">
+                    {floorProducts.map((product: Material) => {
+                      const isActive = activeFloorProductId === product.id;
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => handleSetFloorProduct(product.id)}
+                          className={`w-full flex items-center gap-3 p-2.5 rounded-card text-left border-2 transition-colors ${
+                            isActive ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+                          }`}
+                        >
+                          <div
+                            className="w-9 h-9 rounded-lg flex-shrink-0"
+                            style={{ backgroundColor: product.color_hex ?? "#D8D3C8" }}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{product.name_uz}</p>
+                            <p className="text-xs text-muted">{product.price_uzs.toLocaleString("uz-UZ")} so'm/{product.unit}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Do'kondan tanlangan pol materiali smetaga aniq narx bilan kiradi.
+                  </p>
+                </div>
+              )}
+              {floorMaterialCategory && floorProducts.length === 0 && (
+                <p className="text-xs text-gray-400 mt-3">
+                  Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi.
+                </p>
+              )}
             </section>
           )}
 
@@ -1183,6 +1285,37 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               />
             ))}
           </div>
+
+          {boyoqProducts.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {boyoqProducts.map((product: Material) => {
+                  const color = product.color_hex ?? "#E5E7EB";
+                  const isActive = activePaintProductId === product.id;
+                  return (
+                    <button
+                      key={product.id}
+                      title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
+                      onClick={() => handleSetPaintProduct(product)}
+                      className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
+                    >
+                      <div
+                        className="w-12 h-12 rounded-lg border-2 transition-all"
+                        style={{ backgroundColor: color, borderColor: isActive ? "#D85A30" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #D85A30" : undefined }}
+                      />
+                      <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
+                        {product.name_uz.split(" ").slice(0, 2).join(" ")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
+              </p>
+            </div>
+          )}
         </section>
       )}
 
@@ -1225,7 +1358,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     <button
                       key={product.id}
                       title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
-                      onClick={() => { setSelectedProductId(product.id); handleSetOboy({ baseColor: color }); }}
+                      onClick={() => { setSelectedProductId(product.id); handleSetOboy({ baseColor: color }); applySurface(targetWall, product.id); }}
                       className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
                     >
                       <div
@@ -1245,7 +1378,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <div className="space-y-2.5">
             <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
-              <input type="color" value={baseColor} onChange={(e) => { setSelectedProductId(null); handleSetOboy({ baseColor: e.target.value }); }} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
+              <input type="color" value={baseColor} onChange={(e) => { setSelectedProductId(null); handleSetOboy({ baseColor: e.target.value }); applySurface(targetWall, ""); }} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>

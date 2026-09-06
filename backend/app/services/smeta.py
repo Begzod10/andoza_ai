@@ -69,6 +69,28 @@ ELEC_CABLE_PRICE_UZS: int = 10_000   # UZS per cable-metre estimate
 TILE_WASTE: float = 1.10
 LAMINAT_WASTE_DEFAULT: float = 1.07
 
+# A painted wall whose covering never resolved to a real boyoq Material at
+# all (no material anywhere in materials_map, not even a same-room fallback)
+# still needs paint bought — same reasoning as FURNITURE_FALLBACK_PRICE_UZS:
+# a 0-priced line silently understates the room, a flagged-approximate
+# nonzero one at least gives a realistic ballpark.
+PAINT_FALLBACK_PRICE_PER_LITER_UZS: int = 28_000  # hardcoded Tashkent 2024 avg
+
+# Suspended-ceiling construction ("Shift" tab — frontend/src/lib/ceilingDesigns.ts).
+# Approximates the frontend's exact box geometry (buildCeilingParts) with
+# simple area/perimeter formulas — good enough for a material estimate, so
+# every line here is always flagged approximate.
+DRYWALL_SHEET_M2: float = 3.0          # standard 1.2 × 2.5 m gips karton list
+DRYWALL_WASTE: float = 1.15
+DRYWALL_SHEET_PRICE_UZS: int = 95_000     # hardcoded Tashkent 2024 avg
+PROFILE_PRICE_PER_M_UZS: int = 10_000     # UD/CD karkas profili + metizlar, metrga
+LED_STRIP_PRICE_PER_M_UZS: int = 45_000   # alyuminiy profil + LED lenta + drayver ulushi
+# Designs whose main panel drops across the whole ceiling vs. only a
+# perimeter ring — see CEILING_DESIGNS in ceilingDesigns.ts for the geometry
+# each of these actually builds.
+FULL_DROP_CEILING_DESIGNS: frozenset[str] = frozenset({"flat", "floating"})
+RING_ONLY_CEILING_DESIGNS: frozenset[str] = frozenset({"border", "recessed"})
+
 # ---------------------------------------------------------------------------
 # Furniture ("equipment") pricing
 #
@@ -194,6 +216,30 @@ def _to_metres(v: float) -> float:
     For now, geometry from the frontend arrives in mm.
     """
     return v / 1000.0 if v > 100 else v
+
+
+def _design_state(room: "Room") -> dict:
+    """The studio's design blob, nested one level under room.state.
+
+    StudioPage.handleSave persists ``{geometry, ceilingHeight, name,
+    designState: {wallCoverings, floorType, ceiling, ...}, furniture,
+    electricals, lights, layoutPos}`` — furniture/electricals/lights sit at
+    the top level of room.state, but wallCoverings/ceiling/floorType are
+    nested one level deeper, under "designState". Reading them straight off
+    room.state (as this file used to) always found an empty dict in a real
+    persisted room — never a fixture-shaped one — so paint/wallpaper/ceiling
+    silently priced nothing for every real room, regardless of how correct
+    the per-wall math below was.
+    """
+    state: dict = room.state or {}
+    design_state = state.get("designState")
+    if isinstance(design_state, dict):
+        return design_state
+    # Back-compat: a room.state with no "designState" key at all (the whole
+    # smeta test suite's fixtures, and conceivably a legacy record) is
+    # treated as already being the design state itself, so a flat
+    # {"wallCoverings": {...}} still resolves.
+    return state
 
 
 def _make_line(
@@ -383,7 +429,7 @@ def _painted_wall_areas(
         return [(None, _float(room.net_wall_area), [])]
 
     ceiling_h_m = _to_metres(_float(room.ceiling_h, 2.7))
-    wall_coverings: dict = (room.state or {}).get("wallCoverings", {})
+    wall_coverings: dict = _design_state(room).get("wallCoverings", {})
 
     # material_id -> [area_m2, wall_ids] — a plain dict preserves insertion
     # order (first-seen material first), which keeps output deterministic.
@@ -421,23 +467,50 @@ def _painted_wall_areas(
     return [(mat_id, area, wall_ids) for mat_id, (area, wall_ids) in groups.items()]
 
 
+class _PaintMaterialLike:
+    """Duck-typed stand-in for Material when a painted wall resolves to no
+    real boyoq row anywhere — not even a same-room fallback. Lets
+    ``_paint_only_line`` still emit a normal-looking line (flagged
+    approximate) instead of the caller needing a whole separate code path."""
+
+    def __init__(self, name_uz: str, price_uzs: int) -> None:
+        self.name_uz = name_uz
+        self.price_uzs = price_uzs
+        self.id = None
+        self.store = None
+
+
 def _paint_only_line(
     material: "Material",
-    norm: "Norm",
+    norm: "Norm | None",
     net_wall_m2: float,
     wall_ids: list[str],
+    *,
+    is_approximate: bool = False,
+    warning: str | None = None,
 ) -> ComputedLine:
     """Bo'yoq (paint) finish coat only — always required regardless of stage.
 
     ``net_wall_m2`` must cover ONLY the walls whose finish resolves to paint
     (see ``_painted_wall_area_m2``) — using the whole room's net_wall_area
     here would double-count any wall that is actually wallpapered.
+
+    ``norm`` may be ``None`` (no matching Norm row in the database) — falls
+    back to the same hardcoded defaults ``_plaster_line``/``_grunt_line``/
+    ``_putty_line`` already use rather than requiring the caller to skip the
+    whole line, which used to mean a room priced with an empty norms table
+    got no paint line at all despite every prep line still pricing fine.
     """
-    coverage = _float(norm.coverage_per_unit, 9.0)
-    coats = int(norm.coats) if norm.coats else 2
+    coverage = _float(norm.coverage_per_unit, 9.0) if norm else 9.0
+    coats = (int(norm.coats) if norm.coats else 2) if norm else 2
+    if norm is None:
+        is_approximate = True
+        norm_note = "Norma topilmadi, standart qiymat ishlatildi."
+        warning = f"{warning} {norm_note}" if warning else norm_note
 
     liters = math.ceil(net_wall_m2 * coats / coverage)
     wall_note = f" (devor {', '.join(wall_ids)})" if wall_ids else ""
+    has_id = getattr(material, "id", None) is not None
     return _make_line(
         label=f"Bo'yoq: {material.name_uz}",
         formula=(
@@ -448,8 +521,10 @@ def _paint_only_line(
         unit="litr",
         price_uzs=material.price_uzs,
         category="boyoq",
-        material_id=str(material.id),
-        store_name=_store_name(material),
+        material_id=str(material.id) if has_id else None,
+        store_name=_store_name(material) if has_id else None,
+        is_approximate=is_approximate,
+        warning=warning,
     )
 
 
@@ -480,8 +555,7 @@ def _wallpaper_lines(
     ceiling_h_raw = _float(room.ceiling_h, 2.7)
     ceiling_h_m = _to_metres(ceiling_h_raw)
 
-    state: dict = room.state or {}
-    wall_coverings: dict = state.get("wallCoverings", {})
+    wall_coverings: dict = _design_state(room).get("wallCoverings", {})
 
     lines: list[ComputedLine] = []
 
@@ -798,6 +872,109 @@ def _electrical_line(
     )
 
 
+def _ceiling_construction_lines(
+    room: "Room",
+    norms_map: "dict[str, Norm]",
+) -> list[ComputedLine]:
+    """Suspended-ceiling construction: gips karton box + karkas profili, plus
+    a hidden LED strip line when the design uses one.
+
+    Reads ``room.state['designState']['ceiling'] = {"design":
+    <CeilingDesignId>, "settings": {...}}`` — saved by the studio's "Shift"
+    tab (frontend/src/lib/ceilingDesigns.ts) under the nested designState key
+    (see ``_design_state``). A "non_drop" design (or no ceiling config
+    recorded at all) means the structural slab is left bare: nothing built,
+    nothing priced.
+
+    This is a deliberate simplification of the frontend's exact box geometry
+    (``buildCeilingParts``) down to area/perimeter formulas — full vs.
+    ring-only panel area depending on the design — good enough for a
+    material estimate but never exact, so every line here is flagged
+    approximate.
+    """
+    ceiling_cfg = _design_state(room).get("ceiling")
+    if not isinstance(ceiling_cfg, dict):
+        return []
+    design_id = str(ceiling_cfg.get("design") or "non_drop")
+    if design_id == "non_drop":
+        return []
+
+    settings: dict = ceiling_cfg.get("settings") or {}
+    perimeter = _float(room.perimeter)
+    floor_area = _float(room.floor_area)
+    border_m = float(settings.get("border", 420)) / 1000.0
+    has_strip = bool(settings.get("strip", True))
+
+    if design_id in FULL_DROP_CEILING_DESIGNS:
+        panel_area = floor_area
+    elif design_id in RING_ONLY_CEILING_DESIGNS:
+        panel_area = perimeter * border_m
+    elif design_id == "double_layer":
+        # Full first layer plus a ring-shaped second layer at the perimeter.
+        panel_area = floor_area + perimeter * border_m
+    else:
+        # Unrecognised id (future design) — a full drop is the safer
+        # over-estimate rather than silently pricing nothing.
+        panel_area = floor_area
+
+    shift_norm = norms_map.get("shift_karton")
+    shift_params = shift_norm.params if shift_norm and shift_norm.params else {}
+    sheet_m2 = float(shift_params.get("sheet_m2", DRYWALL_SHEET_M2))
+    waste = float(shift_params.get("waste_factor", DRYWALL_WASTE))
+    sheet_price = int(shift_params.get("sheet_price_uzs", DRYWALL_SHEET_PRICE_UZS))
+    norm_warning_suffix = (
+        " Norma topilmadi, standart qiymat ishlatildi." if shift_norm is None else ""
+    )
+
+    lines: list[ComputedLine] = []
+
+    if panel_area > 0:
+        sheets = math.ceil(panel_area * waste / sheet_m2)
+        lines.append(_make_line(
+            label="Shift gipsokartoni",
+            formula=(
+                f"{panel_area:.1f} m² × {waste:.2f} (chiqindi) "
+                f"÷ {sheet_m2:.1f} m²/list = {sheets} list"
+            ),
+            qty=sheets,
+            unit="list",
+            price_uzs=sheet_price,
+            category="shift",
+            is_approximate=True,
+            warning=(
+                "Taxminiy hisob — shift konstruksiyasi murakkab shakl, "
+                f"ustaga tasdiqlang.{norm_warning_suffix}"
+            ),
+        ))
+
+        profile_m = math.ceil(perimeter * 2)
+        lines.append(_make_line(
+            label="Shift profili (karkas)",
+            formula=f"Perimetr {perimeter:.2f} m × 2 (yuqori/pastki karkas) = {profile_m} m",
+            qty=profile_m,
+            unit="m",
+            price_uzs=PROFILE_PRICE_PER_M_UZS,
+            category="shift",
+            is_approximate=True,
+            warning="Taxminiy hisob — karkas miqdorini ustaga tasdiqlang.",
+        ))
+
+    if has_strip and perimeter > 0:
+        strip_m = math.ceil(perimeter)
+        lines.append(_make_line(
+            label="LED lenta (shift nishi)",
+            formula=f"Perimetr {perimeter:.2f} m ≈ {strip_m} m lenta",
+            qty=strip_m,
+            unit="m",
+            price_uzs=LED_STRIP_PRICE_PER_M_UZS,
+            category="shift",
+            is_approximate=True,
+            warning="Taxminiy hisob — lenta uzunligi dizayn shakliga qarab farq qiladi.",
+        ))
+
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -861,12 +1038,24 @@ def compute_estimate(
         if k not in NON_WALL_SURFACE_KEYS and v
     }
 
-    wall_coverings_state: dict = (room.state or {}).get("wallCoverings", {})
+    wall_coverings_state: dict = _design_state(room).get("wallCoverings", {})
     has_any_oboy = any(
         isinstance(c, dict) and c.get("kind") == "oboy"
         for c in wall_coverings_state.values()
     )
-    needs_wall_prep = bool(wall_categories) or has_any_oboy
+    # Mirrors has_any_oboy: a painted wall recorded only in wallCoverings
+    # (the normal studio flow — see DesignPanel's paint picker) must trigger
+    # prep and the paint finish line even when `surfaces` never resolved to
+    # a real boyoq Material at all. Before this, "boyoq" in wall_categories
+    # was the ONLY paint gate — derived solely from `surfaces` — so a room
+    # painted through the studio's actual paint picker got no prep and no
+    # paint line whatsoever, because nothing in that flow ever wrote to
+    # `surfaces`.
+    has_any_paint = any(
+        isinstance(c, dict) and c.get("kind") == "paint"
+        for c in wall_coverings_state.values()
+    )
+    needs_wall_prep = bool(wall_categories) or has_any_oboy or has_any_paint
 
     # ------------------------------------------------------------------ #
     # 0. Wall prep (suvoq → shpaklovka) — delta-gated, computed ONCE      #
@@ -882,22 +1071,37 @@ def compute_estimate(
             lines.append(_putty_line(room, norms_map))
 
     # ------------------------------------------------------------------ #
-    # 1. Paint (boyoq) finish                                             #
+    # 1. Paint (boyoq) finish — triggered by EITHER a resolved boyoq       #
+    #    Material in `surfaces` OR a "paint" kind recorded in the studio's #
+    #    wallCoverings state (the normal flow — see has_any_paint above).  #
+    #    A group that resolves no boyoq material at all (neither its own  #
+    #    nor a same-room fallback) still gets a line, flagged approximate #
+    #    at a hardcoded per-litre price — never silently dropped.         #
     # ------------------------------------------------------------------ #
-    if "boyoq" in wall_categories:
-        # Fallback material for a wall group whose own assignment doesn't
-        # resolve to a real boyoq material — never silently drop that
-        # wall's area from the paint total.
-        fallback_boyoq_mat = next(m for m in wall_materials if m.category == "boyoq")
+    if has_any_paint or "boyoq" in wall_categories:
+        boyoq_materials_in_room = [m for m in wall_materials if m.category == "boyoq"]
+        fallback_boyoq_mat = boyoq_materials_in_room[0] if boyoq_materials_in_room else None
         boyoq_norm = norms_map.get("boyoq")
-        if boyoq_norm:
-            for mat_id, area, wall_ids in _painted_wall_areas(room, wall_surfaces_map, materials_map):
-                if area <= 0:
-                    continue
-                material = materials_map.get(mat_id) if mat_id else None
-                if material is None or material.category != "boyoq":
-                    material = fallback_boyoq_mat
+        for mat_id, area, wall_ids in _painted_wall_areas(room, wall_surfaces_map, materials_map):
+            if area <= 0:
+                continue
+            material = materials_map.get(mat_id) if mat_id else None
+            if material is not None and material.category == "boyoq":
                 lines.append(_paint_only_line(material, boyoq_norm, area, wall_ids))
+            elif fallback_boyoq_mat is not None:
+                lines.append(_paint_only_line(fallback_boyoq_mat, boyoq_norm, area, wall_ids))
+            else:
+                stand_in = _PaintMaterialLike(
+                    "Bo'yoq (material tanlanmagan)", PAINT_FALLBACK_PRICE_PER_LITER_UZS,
+                )
+                lines.append(_paint_only_line(
+                    stand_in, boyoq_norm, area, wall_ids,
+                    is_approximate=True,
+                        warning=(
+                            "Material tanlanmagan — taxminiy narx ishlatildi. "
+                            "Devor uchun bo'yoq tanlang."
+                        ),
+                    ))
 
     # ------------------------------------------------------------------ #
     # 2. Wallpaper (oboy) finish — per-wall from design state             #
@@ -919,6 +1123,14 @@ def compute_estimate(
         elif floor_mat.category == "plitka":
             if _float(room.floor_area) > 0:
                 lines.extend(_tile_lines(room, floor_mat, norms_map))
+
+    # ------------------------------------------------------------------ #
+    # 3b. Ceiling construction — skipped entirely when ceiling_state is   #
+    #     finished, same reasoning as floor_already_done above.           #
+    # ------------------------------------------------------------------ #
+    ceiling_already_done = ceiling_state == "tayyor"
+    if not ceiling_already_done:
+        lines.extend(_ceiling_construction_lines(room, norms_map))
 
     # ------------------------------------------------------------------ #
     # 4. Furniture ("jihoz") — every distinct item the user has placed     #
