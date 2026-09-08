@@ -3,6 +3,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { requestOTP, verifyOTP, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
+import { LoginBackground } from "./LoginBackground";
+
+// Contrast fix: a plain neutral-200 border on a white field on a white card
+// was nearly invisible at rest. neutral-300 + a subtle neutral-50 tint at
+// rest (switching to white on focus) gives every field a visible affordance
+// without a JS focus-state per field — the tint is opacity, not layout, so
+// it composes with each input's own extra classes below.
+const FIELD_BASE =
+  "w-full border border-neutral-300 bg-neutral-50 focus:bg-white rounded-lg px-4 py-3 text-sm " +
+  "focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors";
 
 type AuthMode = "login" | "register" | "otp-phone" | "otp-code";
 
@@ -35,7 +45,7 @@ function PasswordInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
-        className="w-full border border-neutral-200 rounded-lg px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+        className={`${FIELD_BASE} pr-11`}
       />
       <button
         type="button"
@@ -243,14 +253,26 @@ export default function LoginPage() {
 
   // ── Render ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5">
+    <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5 relative overflow-hidden">
+      <LoginBackground />
+      {/* Legibility scrim: nearly transparent behind the card, opaque toward
+       * the edges — the 3D room stays visible around the corners without
+       * ever competing with the card/headline for contrast. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 42%, rgba(249,249,249,0.15) 0%, rgba(249,249,249,0.55) 55%, rgba(249,249,249,0.8) 100%)",
+        }}
+      />
+
       {/* Logo */}
-      <div className="mb-8 text-center">
+      <div className="mb-8 text-center relative z-10">
         <div className="text-5xl font-bold text-neutral-900 mb-2">👋 Salom</div>
         <p className="text-lg text-muted">UyTa'mir-ga xush kelibsiz</p>
       </div>
 
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-card p-8">
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-card p-8 relative z-10">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
           <>
@@ -269,7 +291,7 @@ export default function LoginPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="w-11 h-12 text-center text-lg font-bold border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                  className="w-11 h-12 text-center text-lg font-bold border border-neutral-300 bg-neutral-50 focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
                 />
               ))}
             </div>
@@ -312,7 +334,7 @@ export default function LoginPage() {
                       placeholder="username"
                       autoComplete="username"
                       autoFocus
-                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className={FIELD_BASE}
                     />
                   </div>
                   <div>
@@ -371,7 +393,7 @@ export default function LoginPage() {
                       placeholder="Ismingiz"
                       autoComplete="name"
                       autoFocus
-                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className={FIELD_BASE}
                     />
                   </div>
                   <div>
@@ -382,7 +404,7 @@ export default function LoginPage() {
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="username"
                       autoComplete="username"
-                      className="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                      className={FIELD_BASE}
                     />
                   </div>
                   <div>
@@ -491,7 +513,7 @@ export default function LoginPage() {
         )}
       </div>
 
-      <p className="text-xs text-muted mt-6 text-center opacity-60">AndozaAI v1.0.0</p>
+      <p className="text-xs text-muted mt-6 text-center opacity-60 relative z-10">AndozaAI v1.0.0</p>
     </div>
   );
 }

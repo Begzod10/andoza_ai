@@ -36,7 +36,9 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
 const baseInput =
   'w-full transition-all duration-150 ' +
   'border border-neutral-300 ' +
-  'bg-white ' +
+  // Subtle tint at rest, full white on focus — a plain white field on a
+  // white card gave the border alone too little to read against.
+  'bg-neutral-50 focus:bg-white ' +
   'text-neutral-900 ' +
   'placeholder:text-neutral-500 ' +
   'focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ' +
