@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -225,17 +225,27 @@ async def list_stores(db: DbSession) -> list[StoreOut]:
 # Ustalar
 # ---------------------------------------------------------------------------
 
+_USTA_SORTS = {"rating", "price_asc", "price_desc"}
+
+
 @router.get(
     "/ustalar",
     response_model=list[UstaOut],
-    summary="List craftsmen, filterable by category and district",
+    summary="List craftsmen, filterable by category/district, sortable by rating or price",
 )
 async def list_ustalar(
     db: DbSession,
     category: str | None = Query(default=None),
     district: str | None = Query(default=None),
+    sort: str | None = Query(default=None, description="rating | price_asc | price_desc"),
 ) -> list[UstaOut]:
-    cache_key = f"ustalar:{category}:{district}"
+    if sort is not None and sort not in _USTA_SORTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"sort {', '.join(sorted(_USTA_SORTS))} dan biri (yoki bo'sh) bo'lishi kerak",
+        )
+
+    cache_key = f"ustalar:{category}:{district}:{sort}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return [UstaOut.model_validate(u) for u in cached]
@@ -246,7 +256,17 @@ async def list_ustalar(
     if district:
         query = query.where(Usta.district == district)
 
-    result = await db.execute(query.order_by(Usta.rating.desc()))
+    # price_asc/price_desc order by price_min — the "starting from" price a
+    # craftsman card actually leads with. NULLS LAST either direction so a
+    # craftsman who hasn't set a price doesn't jump to the front on price_asc.
+    if sort == "price_asc":
+        query = query.order_by(Usta.price_min.asc().nulls_last())
+    elif sort == "price_desc":
+        query = query.order_by(Usta.price_min.desc().nulls_last())
+    else:
+        query = query.order_by(Usta.rating.desc())
+
+    result = await db.execute(query)
     ustalar = result.scalars().all()
     payload = [UstaOut.model_validate(u) for u in ustalar]
     await cache_set(

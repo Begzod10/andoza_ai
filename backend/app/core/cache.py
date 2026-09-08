@@ -60,3 +60,19 @@ async def cache_set(key: str, value: Any, ttl: int = 300) -> None:
     redis = get_redis()
     serialized = json.dumps(value, default=str)
     await redis.set(key, serialized, ex=ttl)
+
+
+async def cache_delete_prefix(prefix: str) -> None:
+    """Delete every cached key starting with *prefix*.
+
+    A catalog-style GET (materials, ustalar) caches its filtered result sets
+    under keys like "ustalar:{category}:{district}" with no way to know in
+    advance which combinations were ever queried — so a write that should
+    invalidate them (an admin create/update/delete) scans for every key
+    under the entity's prefix rather than guessing the exact key(s) touched.
+    Call this after any admin write to an entity whose public list caches.
+    """
+    redis = get_redis()
+    keys = [key async for key in redis.scan_iter(match=f"{prefix}*")]
+    if keys:
+        await redis.delete(*keys)

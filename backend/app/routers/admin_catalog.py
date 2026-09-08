@@ -3,24 +3,31 @@ from __future__ import annotations
 import uuid as uuid_module
 
 import structlog
-from fastapi import APIRouter, Form, HTTPException, Request, Response, UploadFile, status
-from sqlalchemy import select
+from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, UploadFile, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
+from app.core.cache import cache_delete_prefix
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.models.furniture import Furniture
 from app.models.store import Store
+from app.models.usta import Usta
 from app.schemas.admin_catalog import (
     FURNITURE_CATEGORIES,
     PARTNER_TIERS,
     PLACEMENTS,
     ROOM_TYPES,
+    USTA_CATEGORIES,
     FurnitureAdminOut,
     FurnitureUpdate,
+    PaginatedUstalarAdmin,
     StoreAdminOut,
     StoreCreate,
     StoreUpdate,
+    UstaAdminOut,
+    UstaCreate,
+    UstaUpdate,
 )
 
 logger = structlog.get_logger(__name__)
@@ -408,3 +415,165 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
             logger.warning("furniture_file_delete_failed", key=key, error=str(exc))
 
     logger.info("furniture_deleted", id=str(furniture_id), admin_id=str(admin.id))
+
+
+# ---------------------------------------------------------------------------
+# Ustalar (craftsmen)
+# ---------------------------------------------------------------------------
+
+def _validate_usta_prices(price_min: int | None, price_max: int | None) -> None:
+    if price_min is not None and price_max is not None and price_min > price_max:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="price_min price_max dan katta bo'lishi mumkin emas",
+        )
+
+
+@router.post(
+    "/ustalar",
+    response_model=UstaAdminOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a craftsman profile (admin only)",
+)
+async def create_usta(payload: UstaCreate, admin: AdminUser, db: DbSession) -> UstaAdminOut:
+    if payload.category not in USTA_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"category {', '.join(sorted(USTA_CATEGORIES))} dan biri bo'lishi kerak",
+        )
+    _validate_usta_prices(payload.price_min, payload.price_max)
+
+    usta = Usta(
+        name=payload.name,
+        category=payload.category,
+        district=payload.district,
+        lat=payload.lat,
+        lng=payload.lng,
+        phone=payload.phone,
+        telegram=payload.telegram,
+        avatar_url=payload.avatar_url,
+        # Explicit rather than relying on the column default alone — a new
+        # profile has no rating or completed jobs yet.
+        rating=0.0,
+        jobs_count=0,
+        price_min=payload.price_min,
+        price_max=payload.price_max,
+        verified=payload.verified,
+    )
+    db.add(usta)
+    await db.flush()
+    await db.refresh(usta)
+    await cache_delete_prefix("ustalar:")
+
+    logger.info("usta_created", id=str(usta.id), admin_id=str(admin.id))
+    return UstaAdminOut.model_validate(usta)
+
+
+@router.get(
+    "/ustalar",
+    response_model=PaginatedUstalarAdmin,
+    summary="Paginated craftsmen list — search by name, filter by category/district/verified/active, includes inactive (admin only)",
+)
+async def list_ustalar_admin(
+    admin: AdminUser,
+    db: DbSession,
+    q: str | None = Query(default=None, description="Search by name or phone"),
+    category: str | None = Query(default=None),
+    district: str | None = Query(default=None),
+    verified: bool | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+) -> PaginatedUstalarAdmin:
+    query = select(Usta)
+    count_query = select(func.count()).select_from(Usta)
+
+    if q:
+        needle = f"%{q}%"
+        text_filter = or_(Usta.name.ilike(needle), Usta.phone.ilike(needle))
+        query = query.where(text_filter)
+        count_query = count_query.where(text_filter)
+    if category is not None:
+        query = query.where(Usta.category == category)
+        count_query = count_query.where(Usta.category == category)
+    if district is not None:
+        query = query.where(Usta.district == district)
+        count_query = count_query.where(Usta.district == district)
+    if verified is not None:
+        query = query.where(Usta.verified == verified)
+        count_query = count_query.where(Usta.verified == verified)
+    if is_active is not None:
+        query = query.where(Usta.is_active == is_active)
+        count_query = count_query.where(Usta.is_active == is_active)
+
+    total = (await db.execute(count_query)).scalar_one()
+
+    offset = (page - 1) * per_page
+    result = await db.execute(
+        query.order_by(Usta.created_at.desc()).offset(offset).limit(per_page)
+    )
+    items = result.scalars().all()
+
+    return PaginatedUstalarAdmin(
+        items=[UstaAdminOut.model_validate(u) for u in items],
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+@router.patch(
+    "/ustalar/{usta_id}",
+    response_model=UstaAdminOut,
+    summary="Update a craftsman profile (admin only)",
+)
+async def update_usta(
+    usta_id: uuid_module.UUID,
+    payload: UstaUpdate,
+    admin: AdminUser,
+    db: DbSession,
+) -> UstaAdminOut:
+    if payload.category is not None and payload.category not in USTA_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"category {', '.join(sorted(USTA_CATEGORIES))} dan biri bo'lishi kerak",
+        )
+
+    result = await db.execute(select(Usta).where(Usta.id == usta_id))
+    usta = result.scalar_one_or_none()
+    if usta is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usta topilmadi")
+
+    updates = payload.model_dump(exclude_unset=True)
+    _validate_usta_prices(
+        updates.get("price_min", usta.price_min),
+        updates.get("price_max", usta.price_max),
+    )
+    for field, value in updates.items():
+        setattr(usta, field, value)
+
+    await db.flush()
+    await db.refresh(usta)
+    await cache_delete_prefix("ustalar:")
+
+    logger.info("usta_updated", id=str(usta.id), admin_id=str(admin.id), fields=list(updates))
+    return UstaAdminOut.model_validate(usta)
+
+
+@router.delete(
+    "/ustalar/{usta_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Delete a craftsman profile and its leads (admin only)",
+)
+async def delete_usta(usta_id: uuid_module.UUID, admin: AdminUser, db: DbSession):
+    result = await db.execute(select(Usta).where(Usta.id == usta_id))
+    usta = result.scalar_one_or_none()
+    if usta is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usta topilmadi")
+
+    await db.delete(usta)
+    await db.flush()
+    await cache_delete_prefix("ustalar:")
+
+    logger.info("usta_deleted", id=str(usta_id), admin_id=str(admin.id))

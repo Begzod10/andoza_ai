@@ -18,6 +18,7 @@ from app.database import get_db
 from app.main import app
 from app.models.furniture import Furniture
 from app.models.store import Store
+from app.models.usta import Usta
 
 
 def _user(is_admin: bool = False):
@@ -36,6 +37,9 @@ class _Result:
         self._many = list(many)
 
     def scalar_one_or_none(self):
+        return self._one
+
+    def scalar_one(self):
         return self._one
 
     def scalars(self):
@@ -355,4 +359,205 @@ class TestDeleteFurniture:
         db = _db(_Result(one=None))
         _as(_user(is_admin=True), db)
         response = client.delete(f"/api/v1/admin/furniture/{uuid.uuid4()}")
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Ustalar (craftsmen)
+# ---------------------------------------------------------------------------
+
+def _usta(**overrides) -> Usta:
+    defaults = dict(
+        id=uuid.uuid4(),
+        name="Aziz Elektrik",
+        category="elektrik",
+        district="Chilonzor",
+        lat=None,
+        lng=None,
+        phone="+998901234567",
+        telegram=None,
+        avatar_url=None,
+        rating=0.0,
+        jobs_count=0,
+        price_min=100_000,
+        price_max=300_000,
+        verified=False,
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    defaults.update(overrides)
+    usta = Usta(**{k: v for k, v in defaults.items() if k not in ("id", "created_at")})
+    usta.id = defaults["id"]
+    usta.created_at = defaults["created_at"]
+    return usta
+
+
+class TestUstaWritesAreAdminOnly:
+    def test_create_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.post(
+            "/api/v1/admin/ustalar",
+            json={"name": "X", "category": "elektrik", "phone": "+998900000000"},
+        )
+        assert response.status_code == 403
+        db.add.assert_not_called()
+
+    def test_list_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.get("/api/v1/admin/ustalar")
+        assert response.status_code == 403
+
+    def test_update_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.patch(f"/api/v1/admin/ustalar/{uuid.uuid4()}", json={"name": "X"})
+        assert response.status_code == 403
+
+    def test_delete_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.delete(f"/api/v1/admin/ustalar/{uuid.uuid4()}")
+        assert response.status_code == 403
+
+
+class TestCreateUsta:
+    def test_admin_creates_usta(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()):
+            response = client.post(
+                "/api/v1/admin/ustalar",
+                json={
+                    "name": "Aziz Elektrik",
+                    "category": "elektrik",
+                    "district": "Chilonzor",
+                    "phone": "+998901234567",
+                    "price_min": 100_000,
+                    "price_max": 300_000,
+                    "verified": True,
+                },
+            )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["name"] == "Aziz Elektrik"
+        assert body["verified"] is True
+        db.add.assert_called_once()
+
+    def test_rejects_unknown_category(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        response = client.post(
+            "/api/v1/admin/ustalar",
+            json={"name": "X", "category": "duradgor", "phone": "+998900000000"},
+        )
+        assert response.status_code == 422
+        db.add.assert_not_called()
+
+    def test_rejects_price_min_above_price_max(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        response = client.post(
+            "/api/v1/admin/ustalar",
+            json={
+                "name": "X",
+                "category": "elektrik",
+                "phone": "+998900000000",
+                "price_min": 500_000,
+                "price_max": 100_000,
+            },
+        )
+        assert response.status_code == 422
+        db.add.assert_not_called()
+
+
+class TestListUstaAdmin:
+    def test_search_and_pagination_envelope(self, client):
+        usta = _usta()
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_Result(one=1), _Result(many=[usta])])
+        _as(_user(is_admin=True), db)
+
+        response = client.get("/api/v1/admin/ustalar?q=Aziz&page=1&per_page=20")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["page"] == 1
+        assert body["per_page"] == 20
+        assert len(body["items"]) == 1
+        assert body["items"][0]["name"] == "Aziz Elektrik"
+
+    def test_empty_result(self, client):
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_Result(one=0), _Result(many=[])])
+        _as(_user(is_admin=True), db)
+
+        response = client.get("/api/v1/admin/ustalar?category=santexnik")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 0
+        assert body["items"] == []
+
+
+class TestUpdateUsta:
+    def test_partial_update_only_touches_given_fields(self, client):
+        usta = _usta()
+        db = _db(_Result(one=usta))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()):
+            response = client.patch(
+                f"/api/v1/admin/ustalar/{usta.id}",
+                json={"verified": True},
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["verified"] is True
+        assert body["name"] == "Aziz Elektrik"  # untouched
+
+    def test_rejects_unknown_category(self, client):
+        usta = _usta()
+        db = _db(_Result(one=usta))
+        _as(_user(is_admin=True), db)
+        response = client.patch(
+            f"/api/v1/admin/ustalar/{usta.id}",
+            json={"category": "duradgor"},
+        )
+        assert response.status_code == 422
+
+    def test_rejects_price_min_above_existing_price_max(self, client):
+        """price_min alone, bumped above the row's EXISTING price_max — must
+        still be caught even though price_max wasn't part of this request."""
+        usta = _usta(price_min=100_000, price_max=300_000)
+        db = _db(_Result(one=usta))
+        _as(_user(is_admin=True), db)
+        response = client.patch(
+            f"/api/v1/admin/ustalar/{usta.id}",
+            json={"price_min": 400_000},
+        )
+        assert response.status_code == 422
+
+    def test_missing_is_404(self, client):
+        db = _db(_Result(one=None))
+        _as(_user(is_admin=True), db)
+        response = client.patch(f"/api/v1/admin/ustalar/{uuid.uuid4()}", json={"name": "X"})
+        assert response.status_code == 404
+
+
+class TestDeleteUsta:
+    def test_removes_row(self, client):
+        usta = _usta()
+        db = _db(_Result(one=usta))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()):
+            response = client.delete(f"/api/v1/admin/ustalar/{usta.id}")
+        assert response.status_code == 204
+        db.delete.assert_awaited_once_with(usta)
+
+    def test_missing_is_404(self, client):
+        db = _db(_Result(one=None))
+        _as(_user(is_admin=True), db)
+        response = client.delete(f"/api/v1/admin/ustalar/{uuid.uuid4()}")
         assert response.status_code == 404

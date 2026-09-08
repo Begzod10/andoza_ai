@@ -19,6 +19,9 @@ PLACEMENTS = {"pol", "devor", "shift"}
 
 PARTNER_TIERS = {"standard", "gold", "platinum"}
 
+# Kept in sync with app.models.usta.UstaCategory
+USTA_CATEGORIES = {"elektrik", "santexnik", "malyar", "oboy", "laminat", "brigada"}
+
 
 class StoreCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -86,3 +89,68 @@ class FurnitureAdminOut(BaseModel):
     footprint_d: float | None
     is_active: bool
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Ustalar (craftsmen)
+# ---------------------------------------------------------------------------
+
+class UstaCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    category: str
+    district: str | None = Field(default=None, max_length=100)
+    lat: float | None = None
+    lng: float | None = None
+    phone: str = Field(min_length=1, max_length=20)
+    telegram: str | None = Field(default=None, max_length=100)
+    avatar_url: str | None = Field(default=None, max_length=500)
+    price_min: int | None = Field(default=None, ge=0)
+    price_max: int | None = Field(default=None, ge=0)
+    verified: bool = False
+
+
+class UstaUpdate(BaseModel):
+    """All fields optional — a PATCH only touches what's supplied."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    category: str | None = None
+    district: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    phone: str | None = Field(default=None, min_length=1, max_length=20)
+    telegram: str | None = None
+    avatar_url: str | None = None
+    rating: float | None = Field(default=None, ge=0, le=5)
+    jobs_count: int | None = Field(default=None, ge=0)
+    price_min: int | None = Field(default=None, ge=0)
+    price_max: int | None = Field(default=None, ge=0)
+    verified: bool | None = None
+    is_active: bool | None = None
+
+
+class UstaAdminOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    category: str
+    district: str | None
+    lat: float | None
+    lng: float | None
+    phone: str
+    telegram: str | None
+    avatar_url: str | None
+    rating: float
+    jobs_count: int
+    price_min: int | None
+    price_max: int | None
+    verified: bool
+    is_active: bool
+    created_at: datetime
+
+
+class PaginatedUstalarAdmin(BaseModel):
+    items: list[UstaAdminOut]
+    total: int
+    page: int
+    per_page: int
