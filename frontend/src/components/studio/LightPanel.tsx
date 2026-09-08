@@ -14,7 +14,7 @@ import * as React from 'react'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedLight } from '@/store/roomStore'
-import { roomExtents } from '@/lib/roomDims'
+import { nextLightPositionMm } from '@/lib/placement'
 import {
   LIGHT_TYPES,
   LIGHT_LIMITS,
@@ -76,16 +76,12 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
   }
 
   function place(type: LightType) {
-    const { W, D } = roomExtents(geometry)
     // Drop it in the middle of the room; dragging in the 3D view moves it.
     // Nudge each new fixture off the last so a stack of them stays clickable.
-    const nth = lights.length
-    const jitter = (nth % 4) * 250
     const light: PlacedLight = {
       id: nanoid(),
       type: type.id,
-      xMm: Math.round((W * 1000) / 2 + jitter - 375),
-      zMm: Math.round((D * 1000) / 2 + (nth % 3) * 250 - 250),
+      ...nextLightPositionMm(geometry, lights.length),
       ...(type.mount === 'wall' ? { wallId: 'A' as const } : {}),
     }
     addLight(light)

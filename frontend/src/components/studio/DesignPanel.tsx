@@ -35,6 +35,7 @@ import {
   type CeilingDesignId, type CeilingSettings, type CeilingSettingKey,
 } from "@/lib/ceilingDesigns";
 import { lightType } from "@/lib/lightCatalog";
+import { nextFurnitureOffsetMm } from "@/lib/placement";
 
 type WallTarget = "ALL" | "A" | "B" | "C" | "D" | "FLOOR" | "CEILING";
 type CoveringMode = "paint" | "oboy" | "texture";
@@ -1875,7 +1876,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               }}
               count={count}
               busy={texBusy === entry.id}
-              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, x: (count * 300) % 1000, y: (count * 300) % 1000, rotation: 0 })}
+              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, ...nextFurnitureOffsetMm(count), rotation: 0 })}
               onOpenTexEditor={() => openTexEditor(entry.id)}
               onRemove={() => {
                 // Drop the stored GLB too — otherwise deleted models keep

@@ -4,6 +4,7 @@ import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
 import { useRoomStore } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
+import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 
 type Section = "wallpaper" | "lyustra" | "furniture";
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
@@ -46,7 +47,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
-  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture } = useRoomStore();
+  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
 
   // Real do'kon-managed paint products — no invented palette. Same category
   // ("boyoq") the smeta engine prices wall paint against.
@@ -178,7 +179,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                   <p className="text-[12px] text-muted mt-0.5">{t.lumens} lm · {t.colorK}K</p>
                   <button
                     onClick={() => {
-                      addLight({ id: `light_${t.id}_${Date.now()}`, type: t.id, xMm: 2000, zMm: 1500 });
+                      addLight({ id: `light_${t.id}_${Date.now()}`, type: t.id, ...nextLightPositionMm(geometry, lights.length) });
                       onClose();
                     }}
                     className="mt-2 w-full py-1.5 bg-brand text-white rounded-xl text-[13px] font-semibold active:scale-95 transition-transform"
@@ -242,7 +243,8 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         </div>
                         <button
                           onClick={() => {
-                            placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, x: 0, y: 0, rotation: 0 });
+                            const count = furniture.filter((f) => f.furniture_id === item.id).length;
+                            placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, ...nextFurnitureOffsetMm(count), rotation: 0 });
                             onClose();
                           }}
                           className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
