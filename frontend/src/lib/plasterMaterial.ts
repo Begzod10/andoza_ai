@@ -34,6 +34,34 @@ export interface PlasterMaps {
 
 let cached: PlasterMaps | null = null
 
+/**
+ * Clones made via `tex.clone()` before `tex.image` exists (the network
+ * request — or its 404 fallback — hasn't resolved yet) capture an empty
+ * image and never hear about it later: `clone()` takes a one-time snapshot,
+ * it does not stay linked to its source. Left unhandled, such a clone keeps
+ * `needsUpdate` set with no image behind it, which is exactly what
+ * "THREE.WebGLRenderer: Texture marked for update but no image data found"
+ * flags — and the wall it's on renders with no map data, permanently.
+ * Every wall mounted before the singleton maps finish loading hit this on a
+ * fresh page load, since `cached` starts null on every reload and wall
+ * meshes clone synchronously on mount, well before the async load settles.
+ *
+ * Clones made while a source isn't ready yet register themselves here and
+ * get patched with the real image the moment that source resolves
+ * (success or fallback) instead of staying blank forever.
+ */
+const pendingClones = new Map<THREE.Texture, Set<THREE.Texture>>()
+
+function resolveSource(source: THREE.Texture): void {
+  const waiters = pendingClones.get(source)
+  if (!waiters) return
+  for (const clone of waiters) {
+    clone.image = source.image
+    clone.needsUpdate = true
+  }
+  pendingClones.delete(source)
+}
+
 function configure(tex: THREE.Texture, srgb: boolean): THREE.Texture {
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -72,7 +100,7 @@ const FALLBACK_FILL: Record<string, string> = {
 function loadMap(loader: THREE.TextureLoader, name: keyof typeof FALLBACK_FILL, srgb: boolean): THREE.Texture {
   const tex = loader.load(
     `${BASE}/${name}.jpg`,
-    undefined,
+    () => resolveSource(tex),
     undefined,
     () => {
       console.warn(
@@ -81,6 +109,7 @@ function loadMap(loader: THREE.TextureLoader, name: keyof typeof FALLBACK_FILL, 
       )
       tex.image = solidTexture(FALLBACK_FILL[name])
       tex.needsUpdate = true
+      resolveSource(tex)
     },
   )
   return configure(tex, srgb)
@@ -127,7 +156,18 @@ export function clonePlasterMapsFor(
     const t = tex.clone()
     t.repeat.set(uRepeat, vRepeat)
     t.offset.set(uOffset, vOffset)
-    t.needsUpdate = true
+    if (tex.image) {
+      // Source already resolved (this session's cache, or a slow-mounting
+      // wall that lost the race) — safe to upload right away.
+      t.needsUpdate = true
+    } else {
+      // Source still in flight: flagging needsUpdate now would just be the
+      // "no image data found" warning, and this clone would never get a
+      // second chance to pick up the real pixels. Wait for resolveSource().
+      let waiters = pendingClones.get(tex)
+      if (!waiters) pendingClones.set(tex, (waiters = new Set()))
+      waiters.add(t)
+    }
     return t
   }
 
