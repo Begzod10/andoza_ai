@@ -1244,8 +1244,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         </>
       )}
 
-      {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls */}
-      {targetWall !== 'FLOOR' && (<>
+      {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls. CEILING
+       * has its own finish (the "Shift turi" section above, ceiling.settings.color) —
+       * nothing here ever reads a 'CEILING' wallCoverings/wallPanels entry, so this
+       * used to render fully-interactive paint/oboy/panel controls for the ceiling
+       * that saved a value nothing displayed, while getPanelCount() below always
+       * showed "0 dona" since no wall in geometry has id 'CEILING'. */}
+      {targetWall !== 'FLOOR' && targetWall !== 'CEILING' && (<>
       <section className="pt-5 border-t border-gray-100">
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           {(["paint", "oboy", "texture"] as const).map((mode) => (
