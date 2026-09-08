@@ -1306,3 +1306,57 @@ def test_33_paint_line_survives_missing_boyoq_norm():
     assert paint_line.is_approximate is True
     assert paint_line.subtotal_uzs > 0
     assert "Norma topilmadi" in (paint_line.warning or "")
+
+
+# ---------------------------------------------------------------------------
+# Test 34 (Fix 12) — a material's own roll size overrides the generic default
+# ---------------------------------------------------------------------------
+
+def test_34_oboy_material_own_roll_size_overrides_generic_default(oboy_norm):
+    """_wallpaper_lines used to price every oboy product against one
+    hardcoded 1.06x10.05m roll regardless of which real product was
+    selected. A material with its own roll_width_cm/roll_length_m (a real
+    single-width European roll: 53cm x 10m) must be priced against THAT
+    size instead — using the generic 1.06m width here would understate the
+    strip count by roughly half."""
+    walls = [_wall("A", 3.0)]
+    narrow_roll = _material("narrow", "oboy", "Bitta kenglikdagi oboy", 60_000)
+    narrow_roll.roll_width_cm = 53.0
+    narrow_roll.roll_length_m = 10.0
+
+    room = _room(
+        ceiling_h=2.7, floor_area=9.0, net_wall_area=8.1, perimeter=12.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "narrow"},
+        state={"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "unknown_pattern"}}},
+    )
+    est = compute_estimate(room, _mats(narrow_roll), _norms(oboy_norm))
+    wall_a = next(ln for ln in est.lines if ln.category == "oboy")
+
+    # waste_factor defaults to 1.10 (unknown pattern).
+    # strips_needed = ceil(3.0 * 1.10 / 0.53) = ceil(6.226) = 7
+    # strips_per_roll = floor(10.0 / 2.7) = 3
+    # rolls = ceil(7/3) = 3   (vs. 2 with the generic 1.06m-wide default)
+    assert wall_a.qty == 3.0
+    assert "0.53 m" in wall_a.formula
+
+
+def test_35_oboy_material_without_roll_size_falls_back_to_default(oboy_norm, oboy_mat):
+    """A material with no roll_width_cm/roll_length_m set (the common case
+    today — every seeded oboy product) keeps using the generic default,
+    unchanged from before this fix."""
+    walls = [_wall("A", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=9.0, net_wall_area=8.1, perimeter=12.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "o1"},
+        state={"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "unknown_pattern"}}},
+    )
+    est = compute_estimate(room, _mats(oboy_mat), _norms(oboy_norm))
+    wall_a = next(ln for ln in est.lines if ln.category == "oboy")
+
+    # strips_needed = ceil(3.0 * 1.10 / 1.06) = ceil(3.113) = 4
+    # strips_per_roll = floor(10.05 / 2.7) = 3
+    # rolls = ceil(4/3) = 2
+    assert wall_a.qty == 2.0
+    assert "1.06 m" in wall_a.formula

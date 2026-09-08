@@ -324,6 +324,10 @@ export interface Material {
   color_hex: string | null;
   texture_key: string | null;
   pbr_roughness: number;
+  /** oboy only: this product's real roll size, when known. Unset falls back
+   * to the smeta engine's generic default (1.06 x 10.05 m). */
+  roll_width_cm?: number | null;
+  roll_length_m?: number | null;
 }
 
 export interface MaterialsPage {

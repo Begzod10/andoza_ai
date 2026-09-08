@@ -70,6 +70,16 @@ class Material(Base):
     pbr_roughness: Mapped[float] = mapped_column(
         Numeric(3, 2), nullable=False, default=0.5, comment="0.0 = mirror, 1.0 = matte"
     )
+    # oboy (wallpaper) only — this product's real roll size. Both stay unset
+    # for every other category, and for an oboy row whose exact roll size
+    # isn't known yet; the smeta engine falls back to a generic default (see
+    # app.services.smeta.ROLL_WIDTH_M/ROLL_LENGTH_M) when either is None.
+    roll_width_cm: Mapped[float | None] = mapped_column(
+        Numeric(6, 1), nullable=True, comment="oboy only: real roll width, cm"
+    )
+    roll_length_m: Mapped[float | None] = mapped_column(
+        Numeric(6, 2), nullable=True, comment="oboy only: real roll length, m"
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

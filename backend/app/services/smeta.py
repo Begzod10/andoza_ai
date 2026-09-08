@@ -593,11 +593,25 @@ def _wallpaper_lines(
         else:
             waste_factor = WASTE_FACTORS.get(pattern_id, 1.10)
 
-        # Roll dimensions: prefer DB norm params for "oboy", fallback to constants
+        mat_id = wall_surfaces.get(wall_key) or wall_surfaces.get("ALL")
+        material = materials_map.get(mat_id) if mat_id else None
+
+        # Roll dimensions: prefer the selected product's OWN real roll size
+        # (Material.roll_width_cm/roll_length_m) when set — pricing every
+        # oboy product against one hardcoded generic roll regardless of which
+        # real product was picked skews the count for anything not actually
+        # 1.06 x 10.05 m (many real rolls are a narrower single-width size).
+        # Falls back to the DB norm params for "oboy", then the constants.
         oboy_norm = norm  # passed as norm parameter
         oboy_params = getattr(oboy_norm, "params", None) or {}
-        roll_width = float(oboy_params.get("roll_width_m", ROLL_WIDTH_M))
-        roll_length = float(oboy_params.get("roll_length_m", ROLL_LENGTH_M))
+        material_roll_width_cm = getattr(material, "roll_width_cm", None) if material else None
+        material_roll_length_m = getattr(material, "roll_length_m", None) if material else None
+        if material_roll_width_cm and material_roll_length_m:
+            roll_width = float(material_roll_width_cm) / 100.0
+            roll_length = float(material_roll_length_m)
+        else:
+            roll_width = float(oboy_params.get("roll_width_m", ROLL_WIDTH_M))
+            roll_length = float(oboy_params.get("roll_length_m", ROLL_LENGTH_M))
 
         # Strip-based purchasing: how many full-height strips this wall
         # needs, how many strips a single roll actually yields (a roll's
@@ -606,9 +620,6 @@ def _wallpaper_lines(
         strips_needed = math.ceil(wall_length_m * waste_factor / roll_width) if roll_width > 0 else 0
         strips_per_roll = max(1, math.floor(roll_length / ceiling_h_m)) if ceiling_h_m > 0 else 1
         rolls_per_wall = math.ceil(strips_needed / strips_per_roll) if strips_per_roll > 0 else 0
-
-        mat_id = wall_surfaces.get(wall_key) or wall_surfaces.get("ALL")
-        material = materials_map.get(mat_id) if mat_id else None
 
         label = (
             f"Oboy devor {wall_key}: {material.name_uz}"
