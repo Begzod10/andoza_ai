@@ -1,9 +1,29 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { requestOTP, verifyOTP, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
-import { LoginBackground } from "./LoginBackground";
+
+// Desktop/tablet only — the 3D scene's real cost (a ~250KB gzipped
+// three.js/r3f chunk, a continuous WebGL render loop with real shadows, and
+// on iOS a motion-permission prompt on first tap) isn't worth it on a phone,
+// where the card also covers most of the available width anyway. Lazy so
+// the chunk is never even fetched below the breakpoint.
+const LoginBackground = lazy(() =>
+  import("./LoginBackground").then((m) => ({ default: m.LoginBackground })),
+);
+
+function useIsDesktop(breakpointPx = 768): boolean {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${breakpointPx}px)`);
+    setIsDesktop(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [breakpointPx]);
+  return isDesktop;
+}
 
 // Contrast fix: a plain neutral-200 border on a white field on a white card
 // was nearly invisible at rest. neutral-300 + a subtle neutral-50 tint at
@@ -96,6 +116,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
+  const isDesktop = useIsDesktop();
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
 
@@ -254,7 +275,11 @@ export default function LoginPage() {
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5 relative overflow-hidden">
-      <LoginBackground />
+      {isDesktop && (
+        <Suspense fallback={null}>
+          <LoginBackground />
+        </Suspense>
+      )}
       {/* Legibility scrim: nearly transparent behind the card, opaque toward
        * the edges — the 3D room stays visible around the corners without
        * ever competing with the card/headline for contrast. */}
@@ -272,7 +297,7 @@ export default function LoginPage() {
         <p className="text-lg text-muted">UyTa'mir-ga xush kelibsiz</p>
       </div>
 
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-card p-8 relative z-10">
+      <div className="w-full max-w-sm bg-white/50 backdrop-blur-md rounded-2xl shadow-card p-8 relative z-10">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
           <>
