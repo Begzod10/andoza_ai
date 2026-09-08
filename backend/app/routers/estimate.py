@@ -72,6 +72,7 @@ from app.schemas.estimate import (
 )
 from app.services.currency import get_usd_rate, uzs_to_usd
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
+from app.services.smeta_ai import fill_ai_price_gaps
 
 router = APIRouter(prefix="/rooms/{room_id}")
 
@@ -178,6 +179,7 @@ def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
             is_approximate=ln.is_approximate,
             store_id=None,
             category=ln.category,
+            warning=ln.warning,
         )
         for ln in lines
     ]
@@ -196,6 +198,7 @@ def _jsonb_lines_to_schema(raw_lines: list[dict]) -> list[EstimateLine]:
             is_approximate=ln.get("is_approximate", False),
             store_id=None,
             category=ln.get("category", ""),
+            warning=ln.get("warning"),
         )
         for ln in raw_lines
     ]
@@ -278,6 +281,7 @@ async def preview_estimate(
         room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
     )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
@@ -323,6 +327,7 @@ async def create_estimate(
         room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
     )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
     # Persist immutable snapshot
     estimate = Estimate(
@@ -415,6 +420,7 @@ async def _generate_estimate_pdf(
         room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
     )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
     pdf_bytes = _build_pdf(room, computed)
 

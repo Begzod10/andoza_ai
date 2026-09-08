@@ -485,6 +485,10 @@ export interface EstimateLine {
   is_approximate: boolean;
   store_id: string | null;
   category?: string;
+  /** Why this line is approximate/incomplete, e.g. "Material tanlanmagan —
+   * taxminiy narx ishlatildi" or an AI-estimated price's builder note.
+   * Previously computed but never sent past the PDF export. */
+  warning?: string | null;
 }
 
 export interface EstimateResponse {

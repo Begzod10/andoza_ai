@@ -165,6 +165,15 @@ class ComputedLine:
     store_name: str | None = None
     is_approximate: bool = False
     warning: str | None = None
+    # Set only on a line compute_estimate genuinely cannot price on its own
+    # (no deterministic catalog price exists for it at all — see the
+    # "texture" wall-covering line below). The router's async post-pass
+    # (app.services.smeta_ai) looks for these, asks an LLM prompted as an
+    # experienced builder for a realistic ballpark, and backfills
+    # unit_price_uzs/subtotal_uzs when one comes back — otherwise the line
+    # stays at 0 with this context intact, never blocking the estimate.
+    needs_ai_price: bool = False
+    ai_price_context: str | None = None
 
 
 @dataclass
@@ -254,6 +263,8 @@ def _make_line(
     store_name: str | None = None,
     is_approximate: bool = False,
     warning: str | None = None,
+    needs_ai_price: bool = False,
+    ai_price_context: str | None = None,
 ) -> ComputedLine:
     """Build a ComputedLine with integer tiyin arithmetic for the subtotal."""
     qty_val: float = float(qty)
@@ -273,6 +284,8 @@ def _make_line(
         store_name=store_name,
         is_approximate=is_approximate,
         warning=warning,
+        needs_ai_price=needs_ai_price,
+        ai_price_context=ai_price_context,
     )
 
 
@@ -465,6 +478,82 @@ def _painted_wall_areas(
         group[1].append(wall_key)
 
     return [(mat_id, area, wall_ids) for mat_id, (area, wall_ids) in groups.items()]
+
+
+def _texture_wall_areas(room: "Room") -> list[tuple[str, float, list[str]]]:
+    """Group "texture" (user-uploaded custom wallpaper photo) walls' net
+    area (m²) by image URL — mirrors ``_painted_wall_areas``'s geometry walk,
+    but a texture wall is identified purely by its own ``url`` (there is no
+    Material row behind it the way ``surfaces`` provides for paint).
+
+    Openings ARE subtracted (unlike the oboy roll math): a custom photo
+    print is sized and printed to the exact net wall area it covers, not
+    hung in fixed-width strips past a door/window opening.
+
+    Returns one ``(url, area_m2, wall_ids)`` tuple per distinct image found
+    among texture-covered walls.
+    """
+    geometry: dict = room.geometry or {}
+    walls_data = geometry.get("walls", [])
+    if not walls_data:
+        return []
+
+    ceiling_h_m = _to_metres(_float(room.ceiling_h, 2.7))
+    wall_coverings: dict = _design_state(room).get("wallCoverings", {})
+
+    groups: dict[str, list] = {}
+    for wall in walls_data:
+        wall_key = str(wall.get("id", ""))
+        covering = wall_coverings.get(wall_key) or wall_coverings.get("ALL")
+        if not isinstance(covering, dict) or covering.get("kind") != "texture":
+            continue
+        url = covering.get("url")
+        if not url:
+            continue
+
+        raw_length = float(wall.get("length", 0) or 0)
+        wall_length_m = _to_metres(raw_length)
+        if wall_length_m <= 0:
+            continue
+        gross_area = wall_length_m * ceiling_h_m
+        elements = wall.get("elements", []) or []
+        openings_area = sum(
+            _to_metres(float(el.get("width", 0) or 0))
+            * _to_metres(float(el.get("height", 0) or 0))
+            for el in elements
+        )
+        net_area = max(0.0, gross_area - openings_area)
+
+        group = groups.setdefault(url, [0.0, []])
+        group[0] += net_area
+        group[1].append(wall_key)
+
+    return [(url, area, wall_ids) for url, (area, wall_ids) in groups.items()]
+
+
+def _texture_line(url: str, area_m2: float, wall_ids: list[str]) -> ComputedLine:
+    """Placeholder line for a custom photo wallpaper — compute_estimate has
+    no deterministic price for this (it isn't a do'kon catalog Material at
+    all), so this always comes back needing an AI price: 0 now, flagged
+    approximate, with enough context in ai_price_context for the router's
+    async post-pass (app.services.smeta_ai) to ask for a realistic one.
+    """
+    wall_note = f" (devor {', '.join(wall_ids)})" if wall_ids else ""
+    return _make_line(
+        label="Devor foto-bosma (individual)",
+        formula=f"{area_m2:.1f} m²{wall_note} — o'lchamiga qarab chop etiladi",
+        qty=round(area_m2, 2),
+        unit="m²",
+        price_uzs=0,
+        category="texture",
+        is_approximate=True,
+        warning="Narx aniqlanmoqda — AI orqali taxminiy narx so'ralmoqda.",
+        needs_ai_price=True,
+        ai_price_context=(
+            f"Xona devoriga individual buyurtma bilan chop etilgan foto-oboy "
+            f"(mualliflik surati/dizayni), o'rnatish bilan birga, {area_m2:.1f} m² maydon uchun"
+        ),
+    )
 
 
 class _PaintMaterialLike:
@@ -990,6 +1079,41 @@ def _ceiling_construction_lines(
 # Public API
 # ---------------------------------------------------------------------------
 
+def recompute_totals(lines: list[ComputedLine]) -> ComputedEstimate:
+    """Roll a (possibly post-processed) line list up into a full
+    ComputedEstimate. Shared by compute_estimate's own return and by the
+    router's async AI-price-backfill pass (app.services.smeta_ai) — that
+    pass mutates a line's price in place after compute_estimate returns
+    and needs the exact same totals formula re-applied, not a hand-rolled
+    duplicate that could drift from it.
+    """
+    total_exact_uzs = sum(ln.subtotal_uzs for ln in lines if not ln.is_approximate)
+    total_approx_uzs = sum(ln.subtotal_uzs for ln in lines if ln.is_approximate)
+    total_uzs = total_exact_uzs + total_approx_uzs
+    total_min = int(total_uzs * 0.9)
+    # Wider band on the approximate portion — its price is a guess, so the
+    # upper bound should reflect that it could run considerably higher.
+    total_max = int((total_exact_uzs + total_approx_uzs * 1.3) * 1.1)
+    # has_electrical: any electrical line at all (there always is one).
+    # electrical_confirmed: only when it's backed by real placed point
+    # counts, not the ELEC_POINTS_DEFAULT fallback guess.
+    has_electrical = any(ln.category == "elektr" for ln in lines)
+    electrical_confirmed = any(
+        ln.category == "elektr" and not ln.is_approximate for ln in lines
+    )
+
+    return ComputedEstimate(
+        lines=lines,
+        total_exact_uzs=total_exact_uzs,
+        total_approx_uzs=total_approx_uzs,
+        total_uzs=total_uzs,
+        total_min=total_min,
+        total_max=total_max,
+        has_electrical=has_electrical,
+        electrical_confirmed=electrical_confirmed,
+    )
+
+
 def compute_estimate(
     room: "Room",
     materials_map: dict[str, "Material"],
@@ -1066,7 +1190,15 @@ def compute_estimate(
         isinstance(c, dict) and c.get("kind") == "paint"
         for c in wall_coverings_state.values()
     )
-    needs_wall_prep = bool(wall_categories) or has_any_oboy or has_any_paint
+    # Same reasoning again for a custom-uploaded photo wallpaper ("texture"
+    # kind) — it needs plaster/primer/putty under it exactly like oboy does,
+    # even though its finish line itself can't be priced deterministically
+    # (see _texture_line below).
+    has_any_texture = any(
+        isinstance(c, dict) and c.get("kind") == "texture"
+        for c in wall_coverings_state.values()
+    )
+    needs_wall_prep = bool(wall_categories) or has_any_oboy or has_any_paint or has_any_texture
 
     # ------------------------------------------------------------------ #
     # 0. Wall prep (suvoq → shpaklovka) — delta-gated, computed ONCE      #
@@ -1122,6 +1254,17 @@ def compute_estimate(
         lines.extend(_wallpaper_lines(room, wall_surfaces_map, materials_map, oboy_norm, norms_map))
 
     # ------------------------------------------------------------------ #
+    # 2b. Custom photo wallpaper ("texture") — no catalog price exists;   #
+    #     always emitted needing an AI price (see recompute_totals /      #
+    #     app.services.smeta_ai for how the router backfills it).         #
+    # ------------------------------------------------------------------ #
+    if has_any_texture:
+        for url, area, wall_ids in _texture_wall_areas(room):
+            if area <= 0:
+                continue
+            lines.append(_texture_line(url, area, wall_ids))
+
+    # ------------------------------------------------------------------ #
     # 3. Floor covering — skipped entirely when floor_state is finished   #
     # ------------------------------------------------------------------ #
     floor_already_done = floor_state == "tayyor"
@@ -1154,35 +1297,9 @@ def compute_estimate(
     elec_line = _electrical_line(room, norms_map)
     lines.append(elec_line)
 
-    # ------------------------------------------------------------------ #
     # Totals — total_uzs is the FULL expected spend (exact + approximate).
     # Silently dropping approximate lines here used to understate the total
     # and (via app.services.delta) could zero out delta_savings_uzs whenever
     # the only difference between two stages was an approximately-priced
     # prep line with no matching Norm row.
-    # ------------------------------------------------------------------ #
-    total_exact_uzs = sum(ln.subtotal_uzs for ln in lines if not ln.is_approximate)
-    total_approx_uzs = sum(ln.subtotal_uzs for ln in lines if ln.is_approximate)
-    total_uzs = total_exact_uzs + total_approx_uzs
-    total_min = int(total_uzs * 0.9)
-    # Wider band on the approximate portion — its price is a guess, so the
-    # upper bound should reflect that it could run considerably higher.
-    total_max = int((total_exact_uzs + total_approx_uzs * 1.3) * 1.1)
-    # has_electrical: any electrical line at all (there always is one).
-    # electrical_confirmed: only when it's backed by real placed point
-    # counts, not the ELEC_POINTS_DEFAULT fallback guess.
-    has_electrical = any(ln.category == "elektr" for ln in lines)
-    electrical_confirmed = any(
-        ln.category == "elektr" and not ln.is_approximate for ln in lines
-    )
-
-    return ComputedEstimate(
-        lines=lines,
-        total_exact_uzs=total_exact_uzs,
-        total_approx_uzs=total_approx_uzs,
-        total_uzs=total_uzs,
-        total_min=total_min,
-        total_max=total_max,
-        has_electrical=has_electrical,
-        electrical_confirmed=electrical_confirmed,
-    )
+    return recompute_totals(lines)

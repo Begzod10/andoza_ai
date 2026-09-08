@@ -247,6 +247,11 @@ export default function SmetaPage() {
                           {line.is_approximate && (
                             <span className="ml-2 text-xs text-warning">~taxminiy</span>
                           )}
+                          {line.warning && (
+                            <p className="mt-0.5 text-xs font-normal text-warning/80 leading-snug">
+                              {line.warning}
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted max-w-[200px] truncate">
                           {line.formula}

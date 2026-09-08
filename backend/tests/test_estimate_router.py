@@ -259,3 +259,68 @@ class TestElectricalConfirmedFlag:
         # No electricals/lights placed in this fixture room → fallback guess
         assert body["has_electrical"] is True
         assert body["electrical_confirmed"] is False
+
+
+class TestAiPriceGapBackfillReachesHttp:
+    """A custom photo wallpaper ("texture" wall covering) has no
+    deterministic price — the preview endpoint must run the AI backfill
+    pass and return the real price in the HTTP response, not the 0/
+    needs_ai_price placeholder compute_estimate produces on its own."""
+
+    def test_texture_line_gets_ai_price_in_response(self, client):
+        room = _room(
+            surfaces={},
+            state={"wallCoverings": {"A": {"kind": "texture", "url": "http://x/photo.jpg"}}},
+        )
+        db = _db(
+            _Result(one=room),         # _load_room_for_user
+            _Result(many=[]),          # _load_materials (surfaces empty)
+            _Result(many=[]),          # _load_norms
+            _Result(one=None),         # _load_stage → defaults to "xom"
+        )
+        _as(_user(), db)
+
+        from unittest.mock import AsyncMock, patch
+        with patch(
+            "app.services.smeta_ai.estimate_builder_price",
+            new=AsyncMock(return_value=(220_000, "Bozor o'rtacha narxi")),
+        ):
+            response = client.post(f"/api/v1/rooms/{room.id}/estimate/preview")
+
+        assert response.status_code == 200
+        body = response.json()
+        texture_line = next(ln for ln in body["lines"] if ln["category"] == "texture")
+        assert texture_line["unit_price"] == 220_000
+        assert texture_line["is_approximate"] is True
+        assert "AI taxminiy narx" in texture_line["warning"]
+        # The line's real price must actually be folded into the total, not
+        # left out the way an unfilled 0-price placeholder would.
+        assert body["total_uzs"] >= texture_line["total_uzs"]
+
+    def test_ai_call_failure_still_returns_a_usable_estimate(self, client):
+        """When the AI backfill fails (budget exhausted, network error,
+        AI disabled), the endpoint must still return 200 with the
+        placeholder line intact — never a 500 over a best-effort extra."""
+        room = _room(
+            surfaces={},
+            state={"wallCoverings": {"A": {"kind": "texture", "url": "http://x/photo.jpg"}}},
+        )
+        db = _db(
+            _Result(one=room),
+            _Result(many=[]),
+            _Result(many=[]),
+            _Result(one=None),
+        )
+        _as(_user(), db)
+
+        from unittest.mock import AsyncMock, patch
+        with patch(
+            "app.services.smeta_ai.call_llm",
+            new=AsyncMock(side_effect=RuntimeError("AI features are disabled.")),
+        ), patch("app.services.smeta_ai.cache_get", new=AsyncMock(return_value=None)):
+            response = client.post(f"/api/v1/rooms/{room.id}/estimate/preview")
+
+        assert response.status_code == 200
+        texture_line = next(ln for ln in response.json()["lines"] if ln["category"] == "texture")
+        assert texture_line["unit_price"] == 0
+        assert "aniqlanmoqda" in texture_line["warning"]

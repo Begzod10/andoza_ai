@@ -1360,3 +1360,91 @@ def test_35_oboy_material_without_roll_size_falls_back_to_default(oboy_norm, obo
     # rolls = ceil(4/3) = 2
     assert wall_a.qty == 2.0
     assert "1.06 m" in wall_a.formula
+
+
+# ---------------------------------------------------------------------------
+# Test 36 (Fix 13) — custom photo wallpaper ("texture") gets prep + a
+# needs-AI-price placeholder line, instead of nothing at all
+# ---------------------------------------------------------------------------
+
+def test_36_texture_wall_gets_prep_and_ai_price_placeholder(boyoq_norm):
+    """A wall covered with a user-uploaded custom photo ("texture" kind) had
+    NO line at all before — not even wall prep. It can't be priced off a
+    do'kon catalog (there's no Material behind it), so it must come back
+    flagged needs_ai_price with 0 for now, not silently omitted."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={},
+        state={
+            "wallCoverings": {
+                "A": {"kind": "texture", "url": "http://x/photo.jpg", "color": "#fff"},
+            }
+        },
+    )
+    est = compute_estimate(room, _mats(), _norms())
+    cats = [ln.category for ln in est.lines]
+
+    assert {"suvoq", "grunt", "shpatlyovka"} <= set(cats), "texture walls need prep too"
+
+    texture_line = next((ln for ln in est.lines if ln.category == "texture"), None)
+    assert texture_line is not None
+    assert texture_line.needs_ai_price is True
+    assert texture_line.ai_price_context is not None
+    assert texture_line.unit_price_uzs == 0
+    assert texture_line.is_approximate is True
+    # 4.0 * 2.7 = 10.8 m² (wall A only — B/C/D have no covering at all)
+    assert texture_line.qty == pytest.approx(10.8, abs=0.01)
+
+
+def test_37_texture_walls_group_by_url_not_combined(boyoq_norm):
+    """Two different uploaded photos on two different walls must produce two
+    separate lines, each priced (eventually) against its own image — not one
+    combined line that hides which photo costs what."""
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={},
+        state={
+            "wallCoverings": {
+                "A": {"kind": "texture", "url": "http://x/photo1.jpg"},
+                "C": {"kind": "texture", "url": "http://x/photo2.jpg"},
+            }
+        },
+    )
+    est = compute_estimate(room, _mats(), _norms())
+    texture_lines = [ln for ln in est.lines if ln.category == "texture"]
+    assert len(texture_lines) == 2
+
+
+# ---------------------------------------------------------------------------
+# Test 38 (Fix 13) — recompute_totals matches compute_estimate's own totals
+# ---------------------------------------------------------------------------
+
+def test_38_recompute_totals_matches_compute_estimate(boyoq_norm, laminat_norm, paint_mat, laminat_mat):
+    """recompute_totals is the exact function compute_estimate itself calls
+    for its own return — calling it again on the same lines must reproduce
+    identical totals, since app.services.smeta_ai's router post-pass relies
+    on exactly that after mutating one line's price."""
+    from app.services.smeta import recompute_totals
+
+    walls = [_wall("A", 4.0), _wall("B", 3.0), _wall("C", 4.0), _wall("D", 3.0)]
+    room = _room(
+        ceiling_h=2.7, floor_area=12.0, net_wall_area=37.8, perimeter=14.0,
+        geometry={"walls": walls},
+        surfaces={"ALL": "p1", "floor": "l1"},
+        state={"wallCoverings": {"ALL": {"kind": "paint", "color": "#fff"}}},
+    )
+    mats = _mats(paint_mat, laminat_mat)
+    norms = _norms(boyoq_norm, laminat_norm)
+
+    est = compute_estimate(room, mats, norms)
+    recomputed = recompute_totals(est.lines)
+
+    assert recomputed.total_uzs == est.total_uzs
+    assert recomputed.total_exact_uzs == est.total_exact_uzs
+    assert recomputed.total_approx_uzs == est.total_approx_uzs
+    assert recomputed.total_min == est.total_min
+    assert recomputed.total_max == est.total_max
