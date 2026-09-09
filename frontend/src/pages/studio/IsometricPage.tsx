@@ -311,8 +311,11 @@ export default function IsometricPage() {
                   className="w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
                   style={{
                     backgroundColor: color,
-                    borderColor: wallColorForPreview === color ? '#D85A30' : '#D1D5DB',
-                    boxShadow: wallColorForPreview === color ? '0 0 0 2px #D85A30' : undefined,
+                    // Brand blue selection ring — was '#D85A30' (the
+                    // Terracotta *palette entry* two lines up, reused by
+                    // mistake as if it were the brand accent).
+                    borderColor: wallColorForPreview === color ? '#1E40AF' : '#D1D5DB',
+                    boxShadow: wallColorForPreview === color ? '0 0 0 2px #1E40AF' : undefined,
                   }}
                   aria-pressed={wallColorForPreview === color}
                 />
@@ -337,7 +340,7 @@ export default function IsometricPage() {
                     height="60"
                     className="rounded-md overflow-hidden"
                     style={{
-                      border: selectedPattern === p.id ? '2px solid #D85A30' : '2px solid #E5E7EB',
+                      border: selectedPattern === p.id ? '2px solid #1E40AF' : '2px solid #E5E7EB',
                     }}
                   >
                     <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />

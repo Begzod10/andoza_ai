@@ -36,7 +36,7 @@ function UnsupportedView() {
       <button
         onClick={() => navigate('/wizard')}
         className="px-8 py-3 rounded-full text-[15px] font-semibold text-white"
-        style={{ background: '#D85A30' }}
+        style={{ background: '#1E40AF' }}
       >
         Qo'lda kiritish →
       </button>
@@ -116,7 +116,7 @@ export default function LidarPage() {
         <button
           onClick={() => setPhase('idle')}
           className="px-8 py-3 rounded-full text-[15px] font-semibold text-white"
-          style={{ background: '#D85A30' }}
+          style={{ background: '#1E40AF' }}
         >
           Qayta urinish
         </button>
@@ -167,7 +167,7 @@ export default function LidarPage() {
       <button
         onClick={startScan}
         className="z-10 px-10 py-4 rounded-full text-[16px] font-bold text-white shadow-lg"
-        style={{ background: '#D85A30' }}
+        style={{ background: '#1E40AF' }}
       >
         Skanerlashni boshlash
       </button>

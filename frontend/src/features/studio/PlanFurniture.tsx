@@ -35,7 +35,9 @@ export function resolveFurnitureEntry(
 
 const OUTLINE = '#3F3A33'
 const DETAIL = '#7A7264'
-const SELECT = '#D85A30'
+// Brand blue (tailwind.config's `brand` token) — was '#D85A30', a terracotta
+// wall-paint swatch value that had nothing to do with the actual brand color.
+const SELECT = '#1E40AF'
 
 /** Item scale in metres per model unit (catalog unit scale × user resize). */
 export function itemScale(entry: AnyFurnitureEntry, item: PlacedFurniture): number {

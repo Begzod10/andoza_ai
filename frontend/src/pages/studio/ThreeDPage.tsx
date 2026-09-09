@@ -387,7 +387,7 @@ function WoodFloor({
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
           <planeGeometry args={[width + 0.04, depth + 0.04]} />
-          <meshBasicMaterial color="#D85A30" opacity={0.18} transparent depthWrite={false} />
+          <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
         </mesh>
       )}
     </group>
@@ -551,18 +551,18 @@ function WallSegment({
           // casts neutral-grey plaster brown. Keep IBL low so raw concrete
           // reads as concrete, and let the analytic lights carry the shaping.
           envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"}
+          emissive={isSelected ? "#1E40AF" : "#000000"}
           emissiveIntensity={isSelected ? 0.15 : 0}
         />
       ) : covering.kind === 'paint' ? (
         <meshStandardMaterial color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
+          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
         <meshStandardMaterial map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : (
         <meshStandardMaterial map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2}
-          emissive={isSelected ? "#D85A30" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       )}
     </mesh>
   );
@@ -2089,7 +2089,7 @@ const ADD_ROOM_BTN_STYLE: React.CSSProperties = {
   width: '44px',
   height: '44px',
   borderRadius: '50%',
-  border: '2.5px solid #D85A30',
+  border: '2.5px solid #1E40AF',
   background: 'rgba(255,255,255,0.92)',
   cursor: 'pointer',
   fontSize: '22px',
@@ -2097,7 +2097,7 @@ const ADD_ROOM_BTN_STYLE: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   boxShadow: '0 2px 12px rgba(0,0,0,0.22)',
-  color: '#D85A30',
+  color: '#1E40AF',
   fontWeight: 'bold',
   userSelect: 'none',
   lineHeight: 1,
@@ -2622,9 +2622,9 @@ function NWallRoomShell({
           >
             <boxGeometry args={[length, H, T]} />
             <meshStandardMaterial
-              color={isSelected ? '#D85A30' : baseColor}
+              color={isSelected ? '#1E40AF' : baseColor}
               roughness={0.85}
-              emissive={isSelected ? '#D85A30' : '#000000'}
+              emissive={isSelected ? '#1E40AF' : '#000000'}
               emissiveIntensity={isSelected ? 0.12 : 0}
             />
           </mesh>

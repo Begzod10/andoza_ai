@@ -15,7 +15,11 @@ const COS30 = Math.cos(Math.PI / 6)
 const SIN30 = Math.sin(Math.PI / 6)
 const SCALE = 0.044           // SVG units per mm
 const PARAPET_MM = 300        // 0.3 m parapet for walls C & D
-const COLOR_ACTIVE = '#D85A30'
+// Brand blue (matches tailwind.config's `brand` token) — this is a raw SVG
+// context so it can't reach the Tailwind class, but it must stay in sync.
+// Was '#D85A30' (a terracotta wall-paint swatch value) reused by mistake;
+// that hex has no relationship to the actual brand color.
+const COLOR_ACTIVE = '#1E40AF'
 const COLOR_DONE = '#1D9E75'
 const COLOR_IDLE = '#CBD5E1'
 const COLOR_FLOOR = '#E2E8F0'
@@ -130,7 +134,7 @@ function WallElementShape({ element, wallAxis, wallFixed }: WallElementShapeProp
         <polyline
           points={pts([tl, tr])}
           fill="none"
-          stroke="#D85A30"
+          stroke={COLOR_ACTIVE}
           strokeWidth={1}
           strokeDasharray="2 2"
         />

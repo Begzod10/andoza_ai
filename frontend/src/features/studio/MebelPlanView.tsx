@@ -81,7 +81,9 @@ const TOOL_META: Array<{ type: ElType; label: string; hint: string }> = [
 const BLUE = '#1E3A8A'
 const WALL_DARK = '#2B2622'
 const FLOOR_FILL = '#F0EDE5'
-const SELECT = '#D85A30'
+// Brand blue (tailwind.config's `brand` token) — was '#D85A30', a terracotta
+// wall-paint swatch value that had nothing to do with the actual brand color.
+const SELECT = '#1E40AF'
 
 interface WallDef {
   id: string
@@ -550,7 +552,7 @@ export function MebelPlanView() {
                   key={f.id}
                   onClick={() => { setSelectedFur(selectedFur === f.id ? null : f.id); setSelected(null) }}
                   className={`flex items-center gap-2 p-1.5 rounded-lg border text-left transition-colors ${
-                    selectedFur === f.id ? 'border-[#D85A30] bg-orange-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    selectedFur === f.id ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
                   <span className="text-[14px] leading-none shrink-0">{entry?.emoji ?? '📦'}</span>
