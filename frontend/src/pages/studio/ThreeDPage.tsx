@@ -1801,6 +1801,20 @@ function formatClock(hour: number): string {
   return `${h}:${String(m).padStart(2, '0')}`
 }
 
+/**
+ * Room names can contain spaces, apostrophes and other characters that are
+ * unsafe (or just ugly) in a downloaded filename — strip anything outside
+ * a conservative safe set and collapse the rest to single dashes.
+ */
+function slugifyFileName(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'xona'
+}
+
 // ─── Ceiling designs ──────────────────────────────────────────────────────────
 
 /**
@@ -3175,6 +3189,42 @@ export default function ThreeDPage() {
       }, 'image/jpeg', 0.8);
     };
   }, []);
+  // Manual "Skrinshot" export — same glCanvasRef/preserveDrawingBuffer setup
+  // as the thumbnail capture above, but PNG (lossless) and downloaded to the
+  // user's device rather than uploaded. Purely client-side: no server call,
+  // no shareable link — just the smallest useful export.
+  const [screenshotStatus, setScreenshotStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const screenshotResetRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (screenshotResetRef.current != null) window.clearTimeout(screenshotResetRef.current);
+  }, []);
+  function flashScreenshotStatus(status: 'saved' | 'error') {
+    setScreenshotStatus(status);
+    if (screenshotResetRef.current != null) window.clearTimeout(screenshotResetRef.current);
+    screenshotResetRef.current = window.setTimeout(() => setScreenshotStatus('idle'), 1500);
+  }
+  function handleScreenshot() {
+    const canvas = glCanvasRef.current;
+    if (!canvas) {
+      flashScreenshotStatus('error');
+      return;
+    }
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        flashScreenshotStatus('error');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `xona-${slugifyFileName(room.name)}-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      flashScreenshotStatus('saved');
+    }, 'image/png');
+  }
   const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
   const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
@@ -3919,6 +3969,41 @@ export default function ThreeDPage() {
                 <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
               </svg>
               <span className="hidden sm:inline">Markaz</span>
+            </button>
+            {/* Skrinshot: grabs the live canvas (same glCanvasRef +
+                preserveDrawingBuffer setup as the project-card thumbnail
+                above) as a lossless PNG and downloads it — no server call,
+                no shareable link, just the smallest useful export. */}
+            <button
+              onClick={handleScreenshot}
+              title="Skrinshot — dizaynni rasm sifatida saqlash"
+              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
+                screenshotStatus === 'saved'
+                  ? 'bg-success text-white border-success'
+                  : screenshotStatus === 'error'
+                  ? 'bg-red-100 text-red-600 border-red-300'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              {screenshotStatus === 'saved' ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              ) : screenshotStatus === 'error' ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v5M12 16h.01" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 8V6a1 1 0 0 1 1-1h2l1.5-2h7L17 5h2a1 1 0 0 1 1 1v2" />
+                  <path d="M3 8h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+                  <circle cx="12" cy="13.5" r="3.5" />
+                </svg>
+              )}
+              <span className="hidden sm:inline">
+                {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
+              </span>
             </button>
             {/* Cutaway mode: interior → auto cutaway → fixed diorama.
                 Disabled in top view where the shell is already open. */}
