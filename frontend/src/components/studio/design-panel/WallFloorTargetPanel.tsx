@@ -18,6 +18,7 @@ const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY
 export function WallFloorTargetPanel({ handleSetFloorType }: {
   handleSetFloorType(type: string): void;
 }) {
+  const uvwIdBase = React.useId();
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
   const floorTextureSettings = useRoomStore((s) => s.designState.floorTextureSettings);
@@ -155,21 +156,23 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                 value={floorQuery}
                 onChange={(e) => setFloorQuery(e.target.value)}
                 placeholder="Qidirish..."
-                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
               />
               {floorProducts.length === 0 ? (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-500">
                   {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi."}
                 </p>
               ) : (
                 <>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2" role="listbox" aria-label="Pol materiali">
                     {floorProducts.map((product: Material) => {
                       const isActive = activeFloorProductId === product.id;
                       return (
                         <button
                           key={product.id}
                           onClick={() => handleSetFloorProduct(product.id)}
+                          role="option"
+                          aria-selected={isActive}
                           className={`w-full flex items-center gap-3 p-2.5 rounded-card text-left border-2 transition-colors ${
                             isActive ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
                           }`}
@@ -186,7 +189,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                       );
                     })}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-1.5">
+                  <p className="text-[11px] text-gray-500 mt-1.5">
                     Do'kondan tanlangan pol materiali smetaga aniq narx bilan kiradi.
                   </p>
                 </>
@@ -217,7 +220,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
               <path d="M21 15l-5-5L5 21"/>
             </svg>
             <span className="text-sm font-medium">{floorBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}</span>
-            <span className="text-xs text-gray-400">JPG, PNG, WEBP · 15 MB gacha</span>
+            <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
           </button>
           {floorError && <p className="text-xs text-amber-600 leading-snug">{floorError}</p>}
           {floorTexture && (() => {
@@ -243,50 +246,50 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Masshtab X</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{(1 / fs.repeatX).toFixed(2)} m</span>
+                      <label htmlFor={`${uvwIdBase}-scale-x`} className="text-xs text-gray-600 font-medium">Masshtab X</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatX).toFixed(2)} m</span>
                     </div>
-                    <input type="range" min="0.1" max="5" step="0.05" value={fs.repeatX}
+                    <input id={`${uvwIdBase}-scale-x`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatX}
                       onChange={(e) => updateFloorTexSettings({ repeatX: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Masshtab Y</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{(1 / fs.repeatY).toFixed(2)} m</span>
+                      <label htmlFor={`${uvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">Masshtab Y</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatY).toFixed(2)} m</span>
                     </div>
-                    <input type="range" min="0.1" max="5" step="0.05" value={fs.repeatY}
+                    <input id={`${uvwIdBase}-scale-y`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatY}
                       onChange={(e) => updateFloorTexSettings({ repeatY: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Burish</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{Math.round(fs.rotation * 180 / Math.PI)}°</span>
+                      <label htmlFor={`${uvwIdBase}-rotation`} className="text-xs text-gray-600 font-medium">Burish</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{Math.round(fs.rotation * 180 / Math.PI)}°</span>
                     </div>
-                    <input type="range" min="0" max={Math.PI * 2} step={Math.PI / 36} value={fs.rotation}
+                    <input id={`${uvwIdBase}-rotation`} type="range" min="0" max={Math.PI * 2} step={Math.PI / 36} value={fs.rotation}
                       onChange={(e) => updateFloorTexSettings({ rotation: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Siljish X</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{fs.offsetX.toFixed(2)}</span>
+                      <label htmlFor={`${uvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">Siljish X</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{fs.offsetX.toFixed(2)}</span>
                     </div>
-                    <input type="range" min="0" max="1" step="0.01" value={fs.offsetX}
+                    <input id={`${uvwIdBase}-offset-x`} type="range" min="0" max="1" step="0.01" value={fs.offsetX}
                       onChange={(e) => updateFloorTexSettings({ offsetX: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Siljish Y</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{fs.offsetY.toFixed(2)}</span>
+                      <label htmlFor={`${uvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">Siljish Y</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{fs.offsetY.toFixed(2)}</span>
                     </div>
-                    <input type="range" min="0" max="1" step="0.01" value={fs.offsetY}
+                    <input id={`${uvwIdBase}-offset-y`} type="range" min="0" max="1" step="0.01" value={fs.offsetY}
                       onChange={(e) => updateFloorTexSettings({ offsetY: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>

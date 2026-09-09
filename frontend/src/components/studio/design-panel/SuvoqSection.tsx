@@ -62,21 +62,23 @@ export function SuvoqSection({
     <section className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq / Beton</h3>
-        <p className="text-[11px] text-gray-400 leading-snug">
+        <p className="text-[11px] text-gray-500 leading-snug">
           Devor yuzasini tanlang. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.
         </p>
       </div>
 
       {/* Which wall the finish lands on */}
       <div>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">
           Qaysi devorga
         </span>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1" role="listbox" aria-label="Qaysi devorga">
           {WALL_TARGETS.filter((w) => w.key !== 'FLOOR').map((w) => (
             <button
               key={w.key}
               onClick={() => setTargetWall(w.key)}
+              role="option"
+              aria-selected={targetWall === w.key}
               className={`px-2 py-1 rounded-lg text-[11px] font-semibold border-2 transition-colors ${
                 targetWall === w.key
                   ? 'border-brand bg-brand text-white'
@@ -91,10 +93,10 @@ export function SuvoqSection({
 
       {/* The finishes */}
       <div>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">
           Beton teksturasi
         </span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2" role="listbox" aria-label="Beton teksturasi">
           {PLASTER_FINISHES.map((f) => {
             const url = plasterTextureUrl(f);
             const active = currentCoveringUrl === url;
@@ -103,6 +105,8 @@ export function SuvoqSection({
                 key={f.id}
                 onClick={() => applyPlaster(f)}
                 title={f.hint}
+                role="option"
+                aria-selected={active}
                 className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
                   active ? 'border-brand ring-2 ring-brand/25' : 'border-gray-200 hover:border-brand/50'
                 }`}

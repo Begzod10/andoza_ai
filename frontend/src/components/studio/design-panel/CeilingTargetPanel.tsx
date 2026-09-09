@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { DesignState } from "@/store/roomStore";
 import {
@@ -14,9 +15,21 @@ import { CeilingPreview } from "@/lib/ceilingPreview";
  * single shared instance owned by DesignPanel (see WallSection's own props
  * doc for why).
  */
+// Human names for the swatches below, in the same convention as WallSection's
+// WALL_COLOR_NAMES — without these, screen readers and colorblind users have
+// no way to tell the buttons apart (a raw hex string reads out as noise).
+const CEILING_COLOR_NAMES: Record<string, string> = {
+  "#FFFFFF": "Oq",
+  "#F4F1EA": "Fil suyagi",
+  "#EDE9E0": "Qum",
+  "#E3E6E8": "Kumush",
+  "#D8D3C8": "Kul-bej",
+};
+
 export function CeilingTargetPanel({ syncToApi }: {
   syncToApi: (ds: DesignState) => void;
 }) {
+  const settingsIdBase = React.useId();
   const designState = useRoomStore((s) => s.designState);
   const setDesignState = useRoomStore((s) => s.setDesignState);
 
@@ -109,15 +122,17 @@ export function CeilingTargetPanel({ syncToApi }: {
             .filter((key) => key !== 'stripK' || ceilingSettings.strip)
             .map((key) => {
               const range = CEILING_SETTING_RANGE[key];
+              const inputId = `${settingsIdBase}-${key}`;
               return (
                 <div key={key}>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs text-gray-600 font-medium">{range.label}</label>
-                    <span className="text-xs text-gray-400 tabular-nums">
+                    <label htmlFor={inputId} className="text-xs text-gray-600 font-medium">{range.label}</label>
+                    <span className="text-xs text-gray-500 tabular-nums">
                       {ceilingSettings[key]} {range.unit}
                     </span>
                   </div>
                   <input
+                    id={inputId}
                     type="range"
                     min={range.min}
                     max={range.max}
@@ -131,19 +146,26 @@ export function CeilingTargetPanel({ syncToApi }: {
             })}
 
           <div>
-            <label className="text-xs text-gray-600 font-medium block mb-1.5">Shift rangi</label>
-            <div className="flex flex-wrap gap-1.5">
-              {["#FFFFFF", "#F4F1EA", "#EDE9E0", "#E3E6E8", "#D8D3C8"].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => handleCeilingSetting({ color: c })}
-                  style={{ background: c }}
-                  aria-label={c}
-                  className={`w-7 h-7 rounded-full border-2 transition-colors ${
-                    ceilingSettings.color === c ? "border-brand" : "border-gray-200"
-                  }`}
-                />
-              ))}
+            <span className="text-xs text-gray-600 font-medium block mb-1.5">Shift rangi</span>
+            <div className="flex flex-wrap gap-1.5" role="listbox" aria-label="Shift rangi">
+              {["#FFFFFF", "#F4F1EA", "#EDE9E0", "#E3E6E8", "#D8D3C8"].map((c) => {
+                const active = ceilingSettings.color === c;
+                const name = CEILING_COLOR_NAMES[c] ?? c;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => handleCeilingSetting({ color: c })}
+                    style={{ background: c }}
+                    title={name}
+                    aria-label={name}
+                    aria-selected={active}
+                    role="option"
+                    className={`w-11 h-11 rounded-full border-2 transition-colors ${
+                      active ? "border-brand" : "border-gray-200"
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
         </section>

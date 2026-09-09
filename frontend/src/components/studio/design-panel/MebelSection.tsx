@@ -47,7 +47,7 @@ function PartRow({ mat, busy, onFiles, onPick }: {
         <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
       )}
       <span
-        className={`text-[10px] shrink-0 ${mat.hasMap && !mat.textured ? 'text-amber-600' : 'text-gray-400'}`}
+        className={`text-[10px] shrink-0 ${mat.hasMap && !mat.textured ? 'text-amber-600' : 'text-gray-500'}`}
         title={mat.hasMap && !mat.textured ? "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)" : undefined}
       >
         {mat.textured ? 'tekstura ✓' : mat.hasMap ? "ko'rinmaydi" : "yo'q"}
@@ -143,9 +143,9 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">
           {isOver ? "Tekstura qo'yish" : entry.name}
         </p>
-        <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+        <p className="text-[10px] text-gray-500 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
         {entry.isShop && (
-          <p className="text-[10px] text-gray-400 mt-0.5 truncate" title={entry.storeName ?? undefined}>
+          <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={entry.storeName ?? undefined}>
             🏪 {entry.storeName ?? "Do'konsiz"}
             {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
           </p>
@@ -182,7 +182,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
               step={1000}
               value={entry.priceUzs ?? 0}
               onChange={(e) => onSetPrice(Math.max(0, Number(e.target.value) || 0))}
-              className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
+              className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
               title="Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi"
             />
             <span className="shrink-0">so'm</span>
@@ -218,8 +218,9 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         {entry.isUser && (
           <button
             onClick={onRemove}
-            className="px-2 border-l border-gray-100 text-gray-300 hover:text-red-400 transition-colors text-xs"
+            className="px-2 border-l border-gray-100 text-red-600 hover:text-red-700 transition-colors text-xs"
             title="Modelni o'chirish"
+            aria-label="Modelni o'chirish"
           >✕</button>
         )}
       </div>
@@ -275,10 +276,34 @@ export function MebelSection() {
   const texTargetRef = React.useRef<{ entryId: string; index?: number } | null>(null);
   const [texBusy, setTexBusy] = React.useState<string | null>(null);
   const [texEditor, setTexEditor] = React.useState<{ entryId: string; name: string; mats: GlbMaterialInfo[] } | null>(null);
+  const texEditorTitleId = React.useId();
+  // Whatever had focus (the card's 🖼 button) right before the dialog opened
+  // — restored on close so keyboard focus doesn't get dropped back to <body>.
+  const texEditorTriggerRef = React.useRef<HTMLElement | null>(null);
+  const texEditorCloseRef = React.useRef<HTMLButtonElement>(null);
+
+  // Dialog semantics: move focus in on open, Escape closes, focus returns to
+  // the opening button on close.
+  React.useEffect(() => {
+    if (!texEditor) return;
+    texEditorCloseRef.current?.focus();
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setTexEditor(null);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      texEditorTriggerRef.current?.focus();
+    };
+  }, [texEditor]);
 
   async function openTexEditor(entryId: string) {
     const entry = userFurniture.find((e) => e.id === entryId);
     if (!entry) return;
+    texEditorTriggerRef.current = document.activeElement as HTMLElement | null;
     setTexBusy(entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
@@ -464,12 +489,23 @@ export function MebelSection() {
       {/* Material channel editor — one image per channel */}
       {texEditor && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setTexEditor(null)}>
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={texEditorTitleId}
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-bold text-gray-900 truncate">{texEditor.name}</p>
-              <button onClick={() => setTexEditor(null)} className="text-gray-400 hover:text-gray-600 font-bold px-1">✕</button>
+              <p id={texEditorTitleId} className="text-sm font-bold text-gray-900 truncate">{texEditor.name}</p>
+              <button
+                ref={texEditorCloseRef}
+                onClick={() => setTexEditor(null)}
+                aria-label="Yopish"
+                className="text-gray-400 hover:text-gray-600 font-bold px-1"
+              >✕</button>
             </div>
-            <p className="text-[11px] text-gray-400 mb-3">
+            <p className="text-[11px] text-gray-500 mb-3">
               {texEditor.mats.length} ta qism. Rasmni to'g'ridan-to'g'ri qism ustiga sudrab tashlang —
               bir nechta rasm birga tashlansa, nomiga qarab kanallarga taqsimlanadi
               (rang · normal · rough · AO).
@@ -523,7 +559,7 @@ export function MebelSection() {
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
                   <span>{entry?.emoji ?? (shopEntry ? '🏪' : '📦')}</span>
                   <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? 'Model'}</span>
-                  <span className="text-[10px] text-gray-400 tabular-nums shrink-0">{actualW}×{actualD} m</span>
+                  <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{actualW}×{actualD} m</span>
                   <button
                     onClick={() => setColorEditorId(isEditing ? null : f.id)}
                     title="Rang o'zgartirish"
@@ -536,10 +572,12 @@ export function MebelSection() {
                   <div className="px-2 py-1.5 space-y-1.5 bg-gray-50 border-t border-gray-100">
                     {slots ? slots.map((slot) => {
                       const current = f.colorOverrides?.[slot.name] ?? '#ffffff';
+                      const slotInputId = `furniture-color-${f.id}-${slot.name}`;
                       return (
                         <div key={slot.name} className="flex items-center gap-2">
-                          <label className="text-xs text-gray-500 w-16 shrink-0">{slot.label}</label>
+                          <label htmlFor={slotInputId} className="text-xs text-gray-500 w-16 shrink-0">{slot.label}</label>
                           <input
+                            id={slotInputId}
                             type="color"
                             value={current}
                             onChange={(e) => setFurnitureColors(f.id, { ...(f.colorOverrides ?? {}), [slot.name]: e.target.value })}
@@ -560,8 +598,9 @@ export function MebelSection() {
                       );
                     }) : (
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-500 w-16 shrink-0">Rang</label>
+                        <label htmlFor={`furniture-color-${f.id}-single`} className="text-xs text-gray-500 w-16 shrink-0">Rang</label>
                         <input
+                          id={`furniture-color-${f.id}-single`}
                           type="color"
                           value={f.colorOverrides?.['*'] ?? '#ffffff'}
                           onChange={(e) => setFurnitureColors(f.id, { '*': e.target.value })}

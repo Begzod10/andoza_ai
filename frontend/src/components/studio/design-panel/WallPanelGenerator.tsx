@@ -12,6 +12,7 @@ function PanelInput({
   maxMm: number;
   onCommit: (mm: number) => void;
 }) {
+  const inputId = React.useId();
   const displayMm = String(valueMm);
   const [draft, setDraft] = React.useState<string | null>(null);
   const showing = draft ?? displayMm;
@@ -30,8 +31,9 @@ function PanelInput({
 
   return (
     <div>
-      <label className="text-xs text-gray-500 block mb-1">{label}</label>
+      <label htmlFor={inputId} className="text-xs text-gray-500 block mb-1">{label}</label>
       <input
+        id={inputId}
         type="text"
         inputMode="decimal"
         value={showing}
@@ -65,6 +67,7 @@ function renderLengthMm(w: { id: string; length: number }): number {
  * settings and the panel count below apply to.
  */
 export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
+  const panelColorId = React.useId();
   const wallPanels = useRoomStore((s) => s.designState.wallPanels);
   const setWallPanel = useRoomStore((s) => s.setWallPanel);
   const geometry = useRoomStore((s) => s.geometry);
@@ -101,10 +104,11 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
         <h3 className="text-sm font-semibold text-gray-900">Devor panellari</h3>
         <button
           onClick={() => handlePanelChange({ enabled: !panelSettings.enabled })}
-          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand/40 ${
             panelSettings.enabled ? 'bg-brand' : 'bg-gray-200'
           }`}
           aria-checked={panelSettings.enabled}
+          aria-label="Devor panellari yoqilgan/o'chirilgan"
           role="switch"
         >
           <span
@@ -184,8 +188,9 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
 
           {/* Color */}
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Panel rangi</label>
+            <label htmlFor={panelColorId} className="text-xs text-gray-500 block mb-1">Panel rangi</label>
             <input
+              id={panelColorId}
               type="color"
               value={panelSettings.color}
               onChange={(e) => handlePanelChange({ color: e.target.value })}
@@ -198,9 +203,9 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
             <p className="text-xs text-gray-500 mb-0.5">Bir devordagi panel soni</p>
             <p className="text-2xl font-bold text-gray-900 leading-tight">
               {getPanelCount()}
-              <span className="text-sm font-normal text-gray-400 ml-1">dona</span>
+              <span className="text-sm font-normal text-gray-500 ml-1">dona</span>
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-[10px] text-gray-500 mt-0.5">
               {(() => {
                 const refWalls = targetWall === 'ALL' ? geometry.walls : geometry.walls.filter(w => w.id === targetWall);
                 const avgMm = refWalls.reduce((s, w) => s + renderLengthMm(w), 0) / (refWalls.length || 1);

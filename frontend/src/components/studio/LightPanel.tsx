@@ -92,11 +92,11 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
     <div className="space-y-3">
       {/* ── Fixture palette ─────────────────────────────────────────── */}
       <div>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
           Chiroq qo'shish
         </p>
         {planMode && (
-          <p className="text-[10px] text-gray-400 leading-snug mb-2">
+          <p className="text-[10px] text-gray-500 leading-snug mb-2">
             {armedType
               ? "Endi 2D rejada aniq joyni bosing."
               : "Turini tanlang, so'ng 2D rejada joyni bosing."}
@@ -116,7 +116,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
             >
               <span className="text-lg leading-none">{t.emoji}</span>
               <span className="mt-1 text-[11px] font-semibold text-gray-800 leading-tight">{t.name}</span>
-              <span className="text-[9px] text-gray-400 leading-tight">
+              <span className="text-[9px] text-gray-500 leading-tight">
                 {t.lumens} lm · {t.colorK}K
               </span>
             </button>
@@ -127,7 +127,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
       {/* ── Placed lights ───────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
             Xonadagi chiroqlar ({lights.length})
           </p>
           {lights.length > 0 && (
@@ -141,7 +141,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
         </div>
 
         {lights.length === 0 ? (
-          <p className="text-[11px] text-gray-400 leading-snug">
+          <p className="text-[11px] text-gray-500 leading-snug">
             {planMode
               ? "Hali chiroq yo'q. Yuqoridan turini tanlang, so'ng 2D rejada aniq joyni bosing."
               : "Hali chiroq yo'q. Yuqoridan turini tanlang — chiroq xona markaziga qo'yiladi, keyin 3D'da sudrab joyiga suring."}
@@ -155,6 +155,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                 <button
                   key={l.id}
                   onClick={() => select(isActive ? null : l.id)}
+                  aria-pressed={isActive}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-colors ${
                     isActive
                       ? 'border-brand bg-brand/5'
@@ -220,7 +221,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         </button>
       </div>
 
-      {t.hint && <p className="text-[10px] text-gray-400 leading-snug">{t.hint}</p>}
+      {t.hint && <p className="text-[10px] text-gray-500 leading-snug">{t.hint}</p>}
 
       <Slider
         label="Yorqinlik"
@@ -235,7 +236,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-semibold text-gray-500">Rang harorati</span>
-          <span className="text-[10px] font-mono text-gray-400">{colorK}K</span>
+          <span className="text-[10px] font-mono text-gray-500">{colorK}K</span>
         </div>
         <div className="flex gap-1 mb-1.5">
           {WHITE_PRESETS.map((p) => (
@@ -243,6 +244,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
               key={p.k}
               onClick={() => onPatch({ colorK: p.k })}
               title={`${p.label} · ${p.k}K`}
+              aria-pressed={colorK === p.k}
               className={`flex-1 h-6 rounded-md border-2 transition-all ${
                 colorK === p.k ? 'border-brand scale-105' : 'border-black/10 hover:border-black/25'
               }`}
@@ -252,6 +254,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         </div>
         <input
           type="range"
+          aria-label="Rang harorati"
           className="w-full accent-brand"
           value={colorK}
           min={LIGHT_LIMITS.colorK.min}
@@ -307,6 +310,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
               <button
                 key={w}
                 onClick={() => onPatch({ wallId: w })}
+                aria-pressed={(light.wallId ?? 'A') === w}
                 className={`flex-1 py-1 rounded-md text-[10px] font-bold border-2 transition-colors ${
                   (light.wallId ?? 'A') === w
                     ? 'border-brand bg-white text-brand'
@@ -381,11 +385,12 @@ function Slider({ label, value, display, min, max, step, onChange, onReset }: {
               Tiklash
             </button>
           )}
-          <span className="text-[10px] font-mono text-gray-400">{display}</span>
+          <span className="text-[10px] font-mono text-gray-500">{display}</span>
         </span>
       </div>
       <input
         type="range"
+        aria-label={label}
         className="w-full accent-brand"
         value={value}
         min={min}

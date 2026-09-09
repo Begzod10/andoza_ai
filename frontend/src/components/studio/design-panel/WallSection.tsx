@@ -65,6 +65,8 @@ export function WallSection({
   room, selectedWall, onWallChange, syncToApi, applyWallCovering,
   handleSetPaintColor, handleSetFloorType, renderTexturePicker, applyWallpaper,
 }: WallSectionProps) {
+  const oboyColorIdBase = React.useId();
+  const textureUvwIdBase = React.useId();
   const designState = useRoomStore((s) => s.designState);
   const geometry = useRoomStore((s) => s.geometry);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
@@ -248,24 +250,35 @@ export function WallSection({
         <section className="pt-5 border-t border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
           <div className="flex flex-wrap gap-2">
-            {WALL_COLORS.map((color) => (
-              <button
-                key={color}
-                onClick={() => handleSetPaintColor(color)}
-                title={WALL_COLOR_NAMES[color] ?? color}
-                aria-label={WALL_COLOR_NAMES[color] ?? color}
-                className="w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: color,
-                  // Brand blue selection ring — was "#D85A30" (the Terrakota
-                  // *palette entry* above, reused by mistake as if it were
-                  // the brand accent).
-                  borderColor: wallColorForPreview === color ? "#1E40AF" : "#D1D5DB",
-                  boxShadow: wallColorForPreview === color ? "0 0 0 2px #1E40AF" : undefined,
-                }}
-                aria-pressed={wallColorForPreview === color}
-              />
-            ))}
+            {WALL_COLORS.map((color) => {
+              const isSelected = wallColorForPreview === color;
+              // Terrakota is dark and saturated enough that the brand-blue
+              // ring alone drops to ~2.25:1 against it — every other swatch
+              // passes fine (5.15–8.72:1). A white ring between the swatch
+              // and the blue ring keeps this one legible without touching
+              // the other eight.
+              const isTerrakota = color === "#D85A30";
+              return (
+                <button
+                  key={color}
+                  onClick={() => handleSetPaintColor(color)}
+                  title={WALL_COLOR_NAMES[color] ?? color}
+                  aria-label={WALL_COLOR_NAMES[color] ?? color}
+                  className="w-11 h-11 rounded-full border-2 transition-transform hover:scale-110 active:scale-95"
+                  style={{
+                    backgroundColor: color,
+                    // Brand blue selection ring — was "#D85A30" (the Terrakota
+                    // *palette entry* above, reused by mistake as if it were
+                    // the brand accent).
+                    borderColor: isSelected ? (isTerrakota ? "#FFFFFF" : "#1E40AF") : "#D1D5DB",
+                    boxShadow: isSelected
+                      ? (isTerrakota ? "0 0 0 4px #1E40AF" : "0 0 0 2px #1E40AF")
+                      : undefined,
+                  }}
+                  aria-pressed={isSelected}
+                />
+              );
+            })}
           </div>
 
           {(boyoqProducts.length > 0 || boyoqQuery) && (
@@ -276,10 +289,10 @@ export function WallSection({
                 value={boyoqQuery}
                 onChange={(e) => setBoyoqQuery(e.target.value)}
                 placeholder="Qidirish..."
-                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
               />
               {boyoqProducts.length === 0 ? (
-                <p className="text-xs text-gray-400">Hech narsa topilmadi</p>
+                <p className="text-xs text-gray-500">Hech narsa topilmadi</p>
               ) : (
                 <>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
@@ -292,7 +305,7 @@ export function WallSection({
                       />
                     ))}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-1.5">
+                  <p className="text-[11px] text-gray-500 mt-1.5">
                     Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
                   </p>
                 </>
@@ -308,25 +321,29 @@ export function WallSection({
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
             <div className="grid grid-cols-3 gap-2">
-              {OBOY_PATTERNS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSetOboy({ patternId: p.id })}
-                  className="flex flex-col items-center gap-1"
-                  title={p.label}
-                >
-                  <svg
-                    width="60"
-                    height="60"
-                    className="rounded-md overflow-hidden"
-                    style={{ border: selectedPattern === p.id ? "2px solid #1E40AF" : "2px solid #E5E7EB" }}
+              {OBOY_PATTERNS.map((p) => {
+                const isSelected = selectedPattern === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSetOboy({ patternId: p.id })}
+                    className="flex flex-col items-center gap-1"
+                    title={p.label}
+                    aria-pressed={isSelected}
                   >
-                    <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />
-                    <rect width="60" height="60" fill={`url(#thumb-${p.id})`} />
-                  </svg>
-                  <span className="text-xs text-gray-600">{p.label}</span>
-                </button>
-              ))}
+                    <svg
+                      width="60"
+                      height="60"
+                      className="rounded-md overflow-hidden"
+                      style={{ border: isSelected ? "2px solid #1E40AF" : "2px solid #E5E7EB" }}
+                    >
+                      <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />
+                      <rect width="60" height="60" fill={`url(#thumb-${p.id})`} />
+                    </svg>
+                    <span className="text-xs text-gray-600">{p.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -338,10 +355,10 @@ export function WallSection({
                 value={oboyQuery}
                 onChange={(e) => setOboyQuery(e.target.value)}
                 placeholder="Qidirish..."
-                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
               />
               {oboyProducts.length === 0 ? (
-                <p className="text-xs text-gray-400">Hech narsa topilmadi</p>
+                <p className="text-xs text-gray-500">Hech narsa topilmadi</p>
               ) : (
                 <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
                   {oboyProducts.map((product: Material) => (
@@ -363,12 +380,12 @@ export function WallSection({
 
           <div className="space-y-2.5">
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
-              <input type="color" value={baseColor} onChange={(e) => { setSelectedProductId(null); handleSetOboy({ baseColor: e.target.value }); applySurface(targetWall, ""); }} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
+              <label htmlFor={`${oboyColorIdBase}-base`} className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
+              <input id={`${oboyColorIdBase}-base`} type="color" value={baseColor} onChange={(e) => { setSelectedProductId(null); handleSetOboy({ baseColor: e.target.value }); applySurface(targetWall, ""); }} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>
-              <input type="color" value={accentColor} onChange={(e) => handleSetOboy({ accentColor: e.target.value })} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
+              <label htmlFor={`${oboyColorIdBase}-accent`} className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>
+              <input id={`${oboyColorIdBase}-accent`} type="color" value={accentColor} onChange={(e) => handleSetOboy({ accentColor: e.target.value })} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
             </div>
           </div>
         </section>
@@ -407,19 +424,19 @@ export function WallSection({
                   {/* Scale — value = tiles per meter; display as tile size in cm */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Masshtab X</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{Math.round(100 / c.repeatX)} sm</span>
+                      <label htmlFor={`${textureUvwIdBase}-scale-x`} className="text-xs text-gray-600 font-medium">Masshtab X</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{Math.round(100 / c.repeatX)} sm</span>
                     </div>
-                    <input type="range" min="0.1" max="5" step="0.05" value={c.repeatX}
+                    <input id={`${textureUvwIdBase}-scale-x`} type="range" min="0.1" max="5" step="0.05" value={c.repeatX}
                       onChange={(e) => updateTextureProp({ repeatX: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Vertikal cho'zish</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{c.repeatY.toFixed(2)}×</span>
+                      <label htmlFor={`${textureUvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">Vertikal cho'zish</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{c.repeatY.toFixed(2)}×</span>
                     </div>
-                    <input type="range" min="0.1" max="4" step="0.05" value={c.repeatY}
+                    <input id={`${textureUvwIdBase}-scale-y`} type="range" min="0.1" max="4" step="0.05" value={c.repeatY}
                       onChange={(e) => updateTextureProp({ repeatY: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
@@ -427,10 +444,10 @@ export function WallSection({
                   {/* Rotation */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Burish</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{Math.round(c.rotation * 180 / Math.PI)}°</span>
+                      <label htmlFor={`${textureUvwIdBase}-rotation`} className="text-xs text-gray-600 font-medium">Burish</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{Math.round(c.rotation * 180 / Math.PI)}°</span>
                     </div>
-                    <input type="range" min="0" max={Math.PI * 2} step={Math.PI / 36} value={c.rotation}
+                    <input id={`${textureUvwIdBase}-rotation`} type="range" min="0" max={Math.PI * 2} step={Math.PI / 36} value={c.rotation}
                       onChange={(e) => updateTextureProp({ rotation: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
@@ -438,19 +455,19 @@ export function WallSection({
                   {/* Offset */}
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Siljish X</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{c.offsetX.toFixed(2)}</span>
+                      <label htmlFor={`${textureUvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">Siljish X</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{c.offsetX.toFixed(2)}</span>
                     </div>
-                    <input type="range" min="0" max="1" step="0.01" value={c.offsetX}
+                    <input id={`${textureUvwIdBase}-offset-x`} type="range" min="0" max="1" step="0.01" value={c.offsetX}
                       onChange={(e) => updateTextureProp({ offsetX: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs text-gray-600 font-medium">Siljish Y</label>
-                      <span className="text-xs text-gray-400 tabular-nums">{c.offsetY.toFixed(2)}</span>
+                      <label htmlFor={`${textureUvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">Siljish Y</label>
+                      <span className="text-xs text-gray-500 tabular-nums">{c.offsetY.toFixed(2)}</span>
                     </div>
-                    <input type="range" min="0" max="1" step="0.01" value={c.offsetY}
+                    <input id={`${textureUvwIdBase}-offset-y`} type="range" min="0" max="1" step="0.01" value={c.offsetY}
                       onChange={(e) => updateTextureProp({ offsetY: parseFloat(e.target.value) })}
                       className="w-full accent-brand h-1.5" />
                   </div>

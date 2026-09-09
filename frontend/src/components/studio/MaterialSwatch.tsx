@@ -21,6 +21,7 @@ export function MaterialSwatch({ material, isActive, onClick }: MaterialSwatchPr
     <button
       title={`${material.name_uz} — ${material.price_uzs.toLocaleString("uz-UZ")} so'm/${material.unit}`}
       onClick={onClick}
+      aria-pressed={isActive}
       className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
     >
       <div

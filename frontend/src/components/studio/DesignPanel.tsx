@@ -213,7 +213,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <span className="text-sm font-medium">
             {wallpaperBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}
           </span>
-          <span className="text-xs text-gray-400">JPG, PNG, WEBP · 15 MB gacha</span>
+          <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
         </button>
         {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
 
@@ -222,7 +222,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
-              <span className="text-[10px] text-gray-400">{wallpapers.length} ta</span>
+              <span className="text-[10px] text-gray-500">{wallpapers.length} ta</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {wallpapers.map((w) => (
@@ -237,18 +237,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     <img src={w.url} alt={w.name} loading="lazy" className="w-full h-full object-cover" />
                   </button>
                   {isAdmin && (
+                    // w-11 h-11 (44px) invisible hit area centered on the same
+                    // visual spot the old w-5 h-5 circle occupied — enlarging
+                    // the circle itself would swallow a chunk of a 3-column
+                    // thumbnail grid, so only the tappable area grows.
                     <button
                       onClick={() => handleWallpaperDelete(w)}
                       title="Kutubxonadan o'chirish"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none text-gray-400 hover:text-red-500"
+                      aria-label="Kutubxonadan o'chirish"
+                      className="absolute -top-[18px] -right-[18px] w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-500"
                     >
-                      ✕
+                      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none">
+                        ✕
+                      </span>
                     </button>
                   )}
                 </div>
               ))}
             </div>
-            <p className="text-[10px] leading-4 text-gray-400">
+            <p className="text-[10px] leading-4 text-gray-500">
               Yuklangan rasmlar hamma foydalanuvchilar uchun saqlanadi
               {isAdmin ? '.' : "; ularni faqat administrator o'chira oladi."}
             </p>
