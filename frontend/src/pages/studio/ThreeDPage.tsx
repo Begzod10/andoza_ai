@@ -692,8 +692,8 @@ export default function ThreeDPage() {
               aria-current={status === 'current' ? 'step' : undefined}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 lg:py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
                 status === 'current' ? 'border-brand text-brand' :
-                status === 'done'    ? 'border-transparent text-success' :
-                                       'border-transparent text-gray-400'
+                status === 'done'    ? 'border-transparent text-emerald-700' :
+                                       'border-transparent text-gray-500'
               }`}
             >
               {status === 'done' && (
@@ -713,10 +713,23 @@ export default function ThreeDPage() {
       {SHOW_PHASE_STEPPER && (
       <div className="relative hidden lg:block shrink-0">
       <nav
+        aria-hidden={!leftOpen}
         className="hidden lg:flex bg-surface border-r border-gray-200 flex-col pt-3 select-none overflow-hidden"
-        style={{ width: leftOpen ? 144 : 0, transition: 'width 0.2s ease' }}
+        style={{
+          width: leftOpen ? 144 : 0,
+          // `visibility` (not just width/overflow) so the collapsed rail's
+          // buttons drop out of the Tab order and the AT tree — width:0 +
+          // overflow:hidden alone still leaves them focusable-by-Tab while
+          // invisible. Delayed only on the way to hidden so the width
+          // animation still visibly plays first; instant on the way back to
+          // visible so content reappears in step with the width growing.
+          visibility: leftOpen ? 'visible' : 'hidden',
+          transition: leftOpen
+            ? 'width 0.2s ease, visibility 0s linear 0s'
+            : 'width 0.2s ease, visibility 0s linear 0.2s',
+        }}
       >
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
+        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
           return (
@@ -730,8 +743,8 @@ export default function ThreeDPage() {
                 status === 'current'
                   ? 'bg-brand text-white'
                   : status === 'done'
-                  ? 'text-success hover:bg-gray-50'
-                  : 'text-gray-400 hover:bg-gray-50'
+                  ? 'text-emerald-700 hover:bg-gray-50'
+                  : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
               {status === 'done' && (
@@ -820,6 +833,7 @@ export default function ThreeDPage() {
             <button
               key={v}
               onClick={() => { setPreset(v); setPresetVersion(n => n + 1) }}
+              aria-pressed={preset === v}
               className={`shrink-0 px-2.5 py-1 rounded-full text-xs transition-colors ${
                 preset === v
                   ? "bg-brand text-white font-medium"
@@ -834,6 +848,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('select')}
                 title="Tanlash"
+                aria-pressed={toolMode === 'select'}
                 className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -846,6 +861,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('move')}
                 title="Siljitish"
+                aria-pressed={toolMode === 'move'}
                 className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -858,6 +874,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('rotate')}
                 title="Aylantirish"
+                aria-pressed={toolMode === 'rotate'}
                 className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -871,6 +888,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('scale')}
                 title="O'lcham"
+                aria-pressed={toolMode === 'scale'}
                 className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -883,6 +901,7 @@ export default function ThreeDPage() {
               <button
                 onClick={() => setToolMode('part')}
                 title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
+                aria-pressed={toolMode === 'part'}
                 className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
                   toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -903,6 +922,7 @@ export default function ThreeDPage() {
                 onClick={() => useRoomStore.temporal.getState().undo()}
                 disabled={!canUndo}
                 title="Bekor qilish (Ctrl+Z)"
+                aria-label="Bekor qilish (Ctrl+Z)"
                 className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -914,6 +934,7 @@ export default function ThreeDPage() {
                 onClick={() => useRoomStore.temporal.getState().redo()}
                 disabled={!canRedo}
                 title="Qaytarish (Ctrl+Y)"
+                aria-label="Qaytarish (Ctrl+Y)"
                 className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -947,7 +968,7 @@ export default function ThreeDPage() {
                     className="w-14 text-xs border border-gray-300 rounded px-1 py-0.5 text-center focus:outline-none focus:border-brand"
                     title="Burchakni darajada kiriting va Enter bosing"
                   />
-                  <span className="text-gray-400 text-xs">°</span>
+                  <span className="text-gray-500 text-xs">°</span>
                   <button type="submit" className="text-xs px-1.5 py-0.5 bg-brand text-white rounded font-medium">✓</button>
                 </form>
               )
@@ -956,6 +977,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowHelp(v => !v)}
               title="Boshqaruv bo'yicha yordam"
+              aria-label="Boshqaruv bo'yicha yordam"
               className="flex items-center justify-center w-7 h-7 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
             >
               ?
@@ -964,6 +986,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setPresetVersion(n => n + 1)}
               title="Markazlash — kamerani xona markaziga qaytarish"
+              aria-label="Markazlash — kamerani xona markaziga qaytarish"
               className="flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -979,6 +1002,7 @@ export default function ThreeDPage() {
             <button
               onClick={handleScreenshot}
               title="Skrinshot — dizaynni rasm sifatida saqlash"
+              aria-label="Skrinshot — dizaynni rasm sifatida saqlash"
               className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 screenshotStatus === 'saved'
                   ? 'bg-success text-white border-success'
@@ -1003,7 +1027,7 @@ export default function ThreeDPage() {
                   <circle cx="12" cy="13.5" r="3.5" />
                 </svg>
               )}
-              <span className="hidden sm:inline">
+              <span className="hidden sm:inline" aria-live="polite">
                 {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
               </span>
             </button>
@@ -1013,6 +1037,12 @@ export default function ThreeDPage() {
               onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
               disabled={topView}
               title={
+                topView ? "Yuqoridan ko'rinishda kesma shart emas"
+                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                : "Ichki ko'rinishga qaytish"
+              }
+              aria-label={
                 topView ? "Yuqoridan ko'rinishda kesma shart emas"
                 : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
                 : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
@@ -1041,6 +1071,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setSceneLightOn(v => !v)}
               title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
+              aria-label={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
               className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 sceneLightOn
                   ? 'bg-brand text-white border-brand hover:bg-brand/90'
@@ -1081,10 +1112,11 @@ export default function ThreeDPage() {
             <button
               onClick={() => setLightsOn(v => !v)}
               title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
+              aria-label={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
               className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
                 lightsOn
                   ? 'bg-brand text-white border-brand hover:bg-brand/90'
-                  : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
               }`}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1103,6 +1135,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => setShowAiSheet(true)}
               title="AI bilan qurish"
+              aria-label="AI bilan qurish"
               className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-warning text-white hover:bg-warning-dark transition-colors shrink-0"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1117,6 +1150,7 @@ export default function ThreeDPage() {
             <button
               onClick={() => { setShowPanel(v => !v); setShowHelp(false); }}
               title="Dizayn paneli"
+              aria-label="Dizayn paneli"
               className="lg:hidden flex items-center justify-center gap-1 px-2 py-2 min-h-[44px] min-w-[44px] rounded-full text-xs font-medium bg-brand text-white shrink-0"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1493,8 +1527,22 @@ export default function ThreeDPage() {
           anything once `lg:static` below turns the panel into a normal-flow
           box that respects it. */}
       <div
+        aria-hidden={!rightOpen}
         className="lg:shrink-0"
-        style={{ width: rightOpen ? 288 : 0, overflow: rightOpen ? 'auto' : 'hidden', transition: 'width 0.2s ease' }}
+        style={{
+          width: rightOpen ? 288 : 0,
+          overflow: rightOpen ? 'auto' : 'hidden',
+          // Same fix as the left rail's toggle: width:0 + overflow:hidden
+          // alone still leaves the design panel's controls focusable-by-Tab
+          // while invisible. `visibility` removes them from the Tab order
+          // and the AT tree; delayed only when collapsing so the width
+          // animation still plays first, instant when expanding so content
+          // reappears in step with the width growing.
+          visibility: rightOpen ? 'visible' : 'hidden',
+          transition: rightOpen
+            ? 'width 0.2s ease, visibility 0s linear 0s'
+            : 'width 0.2s ease, visibility 0s linear 0.2s',
+        }}
       >
       {/* Panel — desktop: static sidebar | mobile: slide-up sheet */}
       <div
