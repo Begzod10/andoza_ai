@@ -100,6 +100,32 @@ export default function StudioPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Undo/redo keyboard shortcuts — mounted here (the shell wrapping every
+  // studio tab via <Outlet/>) rather than duplicated per-tab, since the
+  // history lives on the shared roomStore regardless of which tab is open.
+  // ThreeDPage.tsx has its own keydown listener for tool-mode shortcuts
+  // (1-5, t, k, n, l, delete, ...); it already ignores any ctrl/meta/alt
+  // combo, so this doesn't fight with it.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const isMod = e.ctrlKey || e.metaKey;
+      if (!isMod || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) useRoomStore.temporal.getState().redo();
+        else useRoomStore.temporal.getState().undo();
+      } else if (key === 'y') {
+        e.preventDefault();
+        useRoomStore.temporal.getState().redo();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   async function handleSave() {
     if (saveStatus === 'saving') return;
     setSaveStatus('saving');

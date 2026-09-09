@@ -12,7 +12,7 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
-import { useRoomStore, resolveWallCovering, resolveWallColor, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
+import { useRoomStore, useTemporalRoomStore, resolveWallCovering, resolveWallColor, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import type { PlacedFurniture, PlacedLight, PlacedElectrical, WallPanelSettings } from "@/store/roomStore";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { DesignPanel } from "@/components/studio/DesignPanel";
@@ -3134,6 +3134,8 @@ export default function ThreeDPage() {
   const showContactShadows = declineCount < 2;
   const useComposer = highQuality3d && declineCount < 2;
   const [toolMode, setToolMode] = useState<ToolMode>('select');
+  const canUndo = useTemporalRoomStore((s) => s.pastStates.length > 0);
+  const canRedo = useTemporalRoomStore((s) => s.futureStates.length > 0);
   const [lightsOn, setLightsOn] = useState(true);
   const [sceneLightOn, setSceneLightOn] = useState(true);
   // Shared with the walkthrough — see the note on `sunHour` in the store.
@@ -3839,6 +3841,33 @@ export default function ThreeDPage() {
                   <path d="M16 3.5l-8 4.5"/>
                 </svg>
                 <span className="hidden sm:inline">Qismlar</span>
+              </button>
+            </div>
+            {/* Undo/redo — Ctrl+Z / Ctrl+Y work from any studio tab (see
+                StudioPage.tsx), these buttons are the discoverable,
+                touch-friendly equivalent for this tab specifically. */}
+            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5 shrink-0">
+              <button
+                onClick={() => useRoomStore.temporal.getState().undo()}
+                disabled={!canUndo}
+                title="Bekor qilish (Ctrl+Z)"
+                className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 14L4 9l5-5"/>
+                  <path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => useRoomStore.temporal.getState().redo()}
+                disabled={!canRedo}
+                title="Qaytarish (Ctrl+Y)"
+                className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 14l5-5-5-5"/>
+                  <path d="M20 9H9a5 5 0 0 0 0 10h1"/>
+                </svg>
               </button>
             </div>
             {toolMode === 'rotate' && selectedFurId && (() => {

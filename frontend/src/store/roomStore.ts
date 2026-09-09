@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useStoreWithEqualityFn } from 'zustand/traditional'
+import { temporal, type TemporalState } from 'zundo'
+import { shallow } from 'zustand/shallow'
 import { nanoid } from 'nanoid'
 import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
 import type { CatalogFurniture } from '@/lib/api'
@@ -386,8 +389,72 @@ export const DEFAULT_DESIGN_STATE: DesignState = {
   },
 }
 
+// ─── Undo/redo (zundo) ────────────────────────────────────────────────────────
+//
+// Only the fields a user actually *edits* in the studio participate in
+// undo/redo — not identity (roomId/apartmentId/draftId/name), not transient
+// UI state (sunHour is a live preview slider, wizardStep/isDirty/saveStatus
+// are navigation/save bookkeeping, catalogFurniture/userFurniture are loaded
+// catalog data, not room edits). `surfaces` IS included even though it looks
+// like backend bookkeeping — applySurface() links a wall's paint/wallpaper to
+// a real do'kon Material *in the same user action* as setWallCovering()
+// changing designState, so leaving it out would let undo revert the visible
+// color while leaving the price-relevant material link pointing at the old
+// one (or vice versa on redo).
+export interface RoomTemporalState {
+  geometry: RoomGeometry
+  designState: DesignState
+  surfaces: AppliedSurfaces
+  furniture: PlacedFurniture[]
+  electricals: PlacedElectrical[]
+  lights: PlacedLight[]
+  layoutPos: { x: number; z: number } | null
+  ceilingHeight: number
+}
+
+function partializeTemporal(state: RoomStore): RoomTemporalState {
+  return {
+    geometry: state.geometry,
+    designState: state.designState,
+    surfaces: state.surfaces,
+    furniture: state.furniture,
+    electricals: state.electricals,
+    lights: state.lights,
+    layoutPos: state.layoutPos,
+    ceilingHeight: state.ceilingHeight,
+  }
+}
+
+/**
+ * Leading-edge throttle: the first call within `ms` fires immediately: later
+ * calls in that window are dropped. Used to coalesce a burst of set() calls
+ * — a slider dragged across a dozen frames, or one user action that happens
+ * to call two setters back-to-back (setWallCovering + applySurface) — into a
+ * single undo step, using whatever state existed at the *start* of the burst
+ * as the "past" snapshot (a trailing-edge debounce would instead fire once
+ * the burst calms down, by which point current state has already caught up
+ * to it — pushing a near-no-op history entry right next to the real one).
+ */
+function leadingThrottle<Args extends unknown[]>(fn: (...args: Args) => void, ms: number) {
+  let lastCall = 0
+  return (...args: Args) => {
+    const now = Date.now()
+    if (now - lastCall >= ms) {
+      lastCall = now
+      fn(...args)
+    }
+  }
+}
+
+// A burst of set() calls closer together than this counts as "one edit" for
+// undo purposes — long enough to coalesce a slider drag or a paint-then-link
+// action pair, short enough that two genuinely separate clicks a beat apart
+// still land as two separate undo steps.
+export const UNDO_COALESCE_MS = 400
+
 export const useRoomStore = create<RoomStore>()(
   persist(
+    temporal(
     (set) => ({
   draftId: null,
   roomId: null,
@@ -720,6 +787,11 @@ export const useRoomStore = create<RoomStore>()(
       surfaces: (room.surfaces ?? {}) as AppliedSurfaces,
       isDirty: false,
     })
+    // This is the room's starting point, not an edit — without clearing,
+    // a user's very first Ctrl+Z would "undo" past it into whatever
+    // in-memory default state happened to precede this load (an empty
+    // room, or worse, a previous room's leftover history).
+    useRoomStore.temporal.getState().clear()
   },
 
   loadDraftState(state) {
@@ -759,6 +831,10 @@ export const useRoomStore = create<RoomStore>()(
       layoutPos: s.layoutPos ?? null,
       isDirty: false,
     })
+    // Same reasoning as loadRoom above — a bulk restore is the starting
+    // point for this session, not a step the user should be able to
+    // undo away from.
+    useRoomStore.temporal.getState().clear()
   },
 
   setRoomId(id) {
@@ -842,6 +918,18 @@ export const useRoomStore = create<RoomStore>()(
     })
   },
 }),
+      {
+        partialize: partializeTemporal,
+        // Skip pushing a history entry when none of the undoable fields
+        // actually changed — most store writes (setSunHour, markSaved,
+        // setDraftId, setRoomId, wizardStep, ...) touch fields outside
+        // partializeTemporal and would otherwise spam the stack with
+        // no-op steps that "undo" to an identical state.
+        equality: shallow,
+        limit: 50,
+        handleSet: (handleSet) => leadingThrottle(handleSet, UNDO_COALESCE_MS),
+      },
+    ),
     {
       name: 'andoza-ai-room-draft',
       version: 3,
@@ -887,6 +975,21 @@ export const useRoomStore = create<RoomStore>()(
     },
   ),
 )
+
+/**
+ * Reactive access to the undo/redo history — plain `useRoomStore.temporal`
+ * (the vanilla store zundo attaches) does not trigger a re-render on its
+ * own, so a component reading e.g. `pastStates.length` to disable an Undo
+ * button needs this hook instead of calling `.temporal.getState()` directly.
+ * `useRoomStore.temporal.getState().undo()` / `.redo()` are fine to call
+ * as one-off actions (a button's onClick, a keydown handler) without going
+ * through this hook at all.
+ */
+export function useTemporalRoomStore<T>(
+  selector: (state: TemporalState<RoomTemporalState>) => T,
+): T {
+  return useStoreWithEqualityFn(useRoomStore.temporal, selector, Object.is)
+}
 
 // ─── Pure derived metric functions ───────────────────────────────────────────
 
