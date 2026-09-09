@@ -8,6 +8,10 @@ import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 
 type Section = "wallpaper" | "lyustra" | "furniture";
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
+// Same ids and labels as DesignPanel's WALL_TARGETS (minus FLOOR/CEILING —
+// this sheet's "Devor" section is wall paint only) so the two surfaces speak
+// the same language instead of drifting.
+type WallId = "ALL" | "A" | "B" | "C" | "D";
 
 interface AddObjectSheetProps {
   onClose: () => void;
@@ -33,6 +37,14 @@ const CEILING_LIGHT_TYPES = LIGHT_TYPES.filter(
 
 const ROOM_TABS: RoomTab[] = ["Mehmonxona", "Oshxona", "Yotoqxona", "Vanna"];
 
+const WALL_TARGETS: { key: WallId; label: string }[] = [
+  { key: "ALL", label: "Hamma devorlar" },
+  { key: "A",   label: "Devor A" },
+  { key: "B",   label: "Devor B" },
+  { key: "C",   label: "Devor C" },
+  { key: "D",   label: "Devor D" },
+];
+
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "wallpaper", label: "Devor" },
   { key: "lyustra",   label: "Chiroq" },
@@ -47,6 +59,12 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  // Defaults to "Hamma devorlar" (matching what this quick action always
+  // did before), but is now a real choice — picking a specific wall no
+  // longer silently wipes every other wall's color. Setting "ALL" clears
+  // per-wall overrides in the store, so applying it here without a picker
+  // used to blow away desktop customization with a single tap.
+  const [targetWall, setTargetWall] = useState<WallId>("ALL");
   const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
 
   // Real do'kon-managed paint products — no invented palette. Same category
@@ -68,10 +86,10 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
     if (!selectedMaterialId) return;
     const material = paintMaterials.find((m: Material) => m.id === selectedMaterialId);
     if (!material) return;
-    setWallCovering("ALL", { kind: "paint", color: material.color_hex ?? "#D9D9D9" });
+    setWallCovering(targetWall, { kind: "paint", color: material.color_hex ?? "#D9D9D9" });
     // Link the real product so the smeta prices this wall exactly, instead
     // of falling back to an approximate per-litre guess.
-    applySurface("ALL", material.id);
+    applySurface(targetWall, material.id);
     onClose();
   }
 
@@ -125,7 +143,22 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           {/* ── Wallpaper (paint) section — real do'kon boyoq products ──── */}
           {section === "wallpaper" && (
             <div>
-              <p className="text-[13px] text-muted mb-3">Barcha devorlar uchun rang</p>
+              <div className="flex gap-2 mb-3 overflow-x-auto">
+                {WALL_TARGETS.map((w) => (
+                  <button
+                    key={w.key}
+                    onClick={() => setTargetWall(w.key)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                      targetWall === w.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[13px] text-muted mb-3">
+                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${WALL_TARGETS.find((w) => w.key === targetWall)?.label} uchun rang`}
+              </p>
               {paintMaterials.length === 0 ? (
                 <p className="text-[13px] text-muted py-4 text-center">
                   Hozircha do'konda bo'yoq mahsuloti yo'q
