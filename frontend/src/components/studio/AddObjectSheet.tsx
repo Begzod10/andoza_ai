@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
@@ -57,6 +57,25 @@ function fmtPrice(uzs: number | null): string | null {
   return uzs == null ? null : `${uzs.toLocaleString("uz-UZ")} so'm`;
 }
 
+// Keeps Tab cycling inside the sheet instead of leaking out to the page
+// behind the backdrop while it's open.
+function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
+  if (e.key !== 'Tab') return;
+  const focusables = container.querySelectorAll<HTMLElement>(
+    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+  );
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObjectSheetProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
@@ -68,6 +87,36 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   // used to blow away desktop customization with a single tap.
   const [targetWall, setTargetWall] = useState<WallId>("ALL");
   const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
+
+  // Focus management: this sheet is only ever mounted while open (the
+  // caller conditionally renders it), so on-mount capture of whatever had
+  // focus (the button that opened it) and restoring it on unmount is enough
+  // — no need to track an open/closed prop transition.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (panelRef.current) trapTabKey(e, panelRef.current);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus();
+    };
+    // Mount-only: this sheet is remounted fresh each time it opens, so
+    // re-running on every onClose identity change isn't needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Search-by-name over the paint strip below — debounced so typing doesn't
   // fire a request (and a React Query cache entry) per keystroke.
@@ -107,6 +156,10 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
         onClick={onClose}
       />
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-object-sheet-title"
         className="fixed bottom-0 left-0 right-0 z-50 bg-white animate-slide-up flex flex-col"
         style={{ borderRadius: "28px 28px 0 0", maxHeight: "72vh" }}
       >
@@ -117,13 +170,14 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
-          <h2 className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
+          <h2 id="add-object-sheet-title" className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center"
+            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center"
             aria-label="Yopish"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M1 1l12 12M13 1L1 13"/>
             </svg>
           </button>
@@ -284,7 +338,8 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                             placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, ...nextFurnitureOffsetMm(count), rotation: 0 });
                             onClose();
                           }}
-                          className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
+                          aria-label={`${item.name_uz} qo'shish`}
+                          className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
                         >
                           +
                         </button>

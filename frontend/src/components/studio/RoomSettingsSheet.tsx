@@ -1,7 +1,27 @@
+import { useEffect, useRef } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { WallElement } from "@/store/roomStore";
 import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
+
+// Keeps Tab cycling inside the sheet instead of leaking out to the page
+// behind the backdrop while it's open.
+function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
+  if (e.key !== 'Tab') return;
+  const focusables = container.querySelectorAll<HTMLElement>(
+    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+  );
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
 
 const WALL_LABELS: Record<string, string> = {
   A: "Devor A (uzunlik)",
@@ -14,12 +34,14 @@ const DEFAULT_WINDOW = { type: "deraza" as const, width: 900, height: 1200, sill
 const DEFAULT_DOOR   = { type: "eshik"  as const, width: 900, height: 2100, sill_height: 0,   position: 0 };
 
 function MiniStepper({
+  label,
   value,
   onChange,
   min,
   max,
   step,
 }: {
+  label: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
@@ -27,10 +49,11 @@ function MiniStepper({
   step: number;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <button
         onClick={() => onChange(Math.max(min, value - step))}
-        className="w-6 h-6 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
+        aria-label={`${label} kamaytirish`}
+        className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
       >
         −
       </button>
@@ -39,7 +62,8 @@ function MiniStepper({
       </span>
       <button
         onClick={() => onChange(Math.min(max, value + step))}
-        className="w-6 h-6 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
+        aria-label={`${label} oshirish`}
+        className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
       >
         +
       </button>
@@ -70,10 +94,11 @@ function DimStepper({
         <p className="text-[14px] font-semibold text-gray-800">{label}</p>
         {sub && <p className="text-[11px] text-muted">{sub}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <button
           onClick={() => onChange(Math.max(min, value - step))}
-          className="w-8 h-8 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+          aria-label={`${label} kamaytirish`}
+          className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           −
         </button>
@@ -82,7 +107,8 @@ function DimStepper({
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}
-          className="w-8 h-8 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+          aria-label={`${label} oshirish`}
+          className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           +
         </button>
@@ -125,6 +151,7 @@ function ElementRow({
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Kenglik</span>
           <MiniStepper
+            label="Kenglik"
             value={el.width}
             onChange={(v) => updateElement(wallId, el.id, { width: v })}
             min={400} max={3000} step={100}
@@ -133,6 +160,7 @@ function ElementRow({
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Balandlik</span>
           <MiniStepper
+            label="Balandlik"
             value={el.height}
             onChange={(v) => updateElement(wallId, el.id, { height: v })}
             min={400} max={3000} step={100}
@@ -142,6 +170,7 @@ function ElementRow({
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Poldan</span>
             <MiniStepper
+              label="Poldan balandlik"
               value={el.sill_height}
               onChange={(v) => updateElement(wallId, el.id, { sill_height: v })}
               min={0} max={2000} step={100}
@@ -192,6 +221,34 @@ export default function RoomSettingsSheet({
   const wallA = geometry.walls.find((w) => w.id === "A")?.length ?? 4000;
   const wallB = geometry.walls.find((w) => w.id === "B")?.length ?? 3000;
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // Focus management: unlike AddObjectSheet, this component stays mounted
+  // across opens/closes (`open` just toggles rendering below), so capture
+  // and restore have to key off the `open` prop rather than mount/unmount.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (panelRef.current) trapTabKey(e, panelRef.current);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   function setLength(axis: "AC" | "BD", val: number) {
     if (axis === "AC") { setWallLength("A", val); setWallLength("C", val); }
     else               { setWallLength("B", val); setWallLength("D", val); }
@@ -206,6 +263,10 @@ export default function RoomSettingsSheet({
       onClick={onClose}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="room-settings-title"
         className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -217,10 +278,12 @@ export default function RoomSettingsSheet({
         <div className="px-5 pb-10">
           {/* header */}
           <div className="flex items-center justify-between py-3 mb-1">
-            <h2 className="text-[18px] font-extrabold text-gray-900">Xona sozlamalari</h2>
+            <h2 id="room-settings-title" className="text-[18px] font-extrabold text-gray-900">Xona sozlamalari</h2>
             <button
+              ref={closeButtonRef}
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-[#F3F4F6] flex items-center justify-center text-gray-500 text-[13px] font-bold"
+              aria-label="Yopish"
+              className="w-11 h-11 rounded-full bg-[#F3F4F6] flex items-center justify-center text-gray-500 text-[13px] font-bold"
             >
               ✕
             </button>

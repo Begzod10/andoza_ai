@@ -68,7 +68,7 @@ function StudioNav({ roomId, isDirty }: { roomId: string; isDirty: boolean }) {
               "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all shrink-0",
               isActive
                 ? "bg-white text-brand shadow-sm"
-                : "text-neutral-500 hover:text-neutral-700"
+                : "text-neutral-600 hover:text-neutral-700"
             )
           }
         >
@@ -99,9 +99,17 @@ export default function StudioPage() {
   // DesignPanel) so uploaded models reappear on reload without opening panels
   useRestoreUserModels();
   const isDirty = useRoomStore((s) => s.isDirty);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Focus targets for the share popover's focus management: the kebab
+  // button is the stable "trigger" to restore focus to on close (the
+  // "Ulashish" menu item that actually opened it unmounts immediately,
+  // since opening the popover also closes the kebab dropdown).
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const sharePopoverRef = useRef<HTMLDivElement>(null);
+  const shareCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const sharePopoverWasOpenRef = useRef(false);
 
   // "Ulashish" (Share) — a room-level action like Save, hence living in the
   // kebab menu rather than a new 3D-view-specific toolbar button. A small
@@ -162,6 +170,39 @@ export default function StudioPage() {
       alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'));
     }
   }
+
+  // Focus management for the share popover: move focus into it (its close
+  // button) on open, close on Escape or an outside click, and restore focus
+  // to the kebab button (the stable trigger — see menuButtonRef above) when
+  // it closes.
+  useEffect(() => {
+    if (sharePopoverOpen) {
+      sharePopoverWasOpenRef.current = true;
+      shareCloseButtonRef.current?.focus();
+
+      function onKeyDown(e: KeyboardEvent) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setSharePopoverOpen(false);
+        }
+      }
+      function onPointerDown(e: MouseEvent) {
+        if (sharePopoverRef.current && !sharePopoverRef.current.contains(e.target as Node)) {
+          setSharePopoverOpen(false);
+        }
+      }
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('mousedown', onPointerDown);
+      return () => {
+        document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('mousedown', onPointerDown);
+      };
+    }
+    if (sharePopoverWasOpenRef.current) {
+      sharePopoverWasOpenRef.current = false;
+      menuButtonRef.current?.focus();
+    }
+  }, [sharePopoverOpen]);
 
   // Undo/redo keyboard shortcuts — mounted here (the shell wrapping every
   // studio tab via <Outlet/>) rather than duplicated per-tab, since the
@@ -284,7 +325,11 @@ export default function StudioPage() {
       navigate(`/studio/${newRoom.id}/${currentTab}`, { replace: true });
       setTimeout(() => setSaveStatus('idle'), 2500);
     } catch {
-      setSaveStatus('idle');
+      // A failed save must never be silent — surface it visibly (button
+      // text/color swap, same pattern as 'saved'/'saving' below) instead of
+      // quietly reverting to 'idle' as if nothing happened.
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 4000);
     }
   }
 
@@ -423,9 +468,10 @@ export default function StudioPage() {
           <div className="flex items-center gap-2 min-w-0">
             <NavLink
               to="/projects"
+              aria-label="Orqaga"
               className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
             >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M11 4L6 9l5 5"/>
               </svg>
             </NavLink>
@@ -453,31 +499,50 @@ export default function StudioPage() {
             <button
               onClick={handleSave}
               disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
-              title="Saqlash"
+              title={saveStatus === 'error' ? uz.errors.server_xato : "Saqlash"}
               className={[
                 "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
                 "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
                 saveStatus === 'saved'
                   ? "bg-success text-white"
-                  : (isDirty || fetchStatus === 'notfound')
-                    ? "bg-brand text-white"
-                    : "bg-primary-tint text-brand",
+                  : saveStatus === 'error'
+                    ? "bg-red-600 text-white"
+                    : (isDirty || fetchStatus === 'notfound')
+                      ? "bg-brand text-white"
+                      : "bg-primary-tint text-brand",
               ].join(' ')}
             >
-              <span className="hidden sm:inline">
-                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : 'Saqlash'}
+              <span className="hidden sm:inline" aria-hidden="true">
+                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : saveStatus === 'error' ? 'Xato' : 'Saqlash'}
               </span>
-              <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7.17a1.5 1.5 0 0 1 1.06.44l1.83 1.83c.28.28.44.66.44 1.06V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-9Z"/>
                 <path d="M4.5 2v3h5.5V2M4.5 14v-4h7v4"/>
               </svg>
+              {/* Always-present live region — the visible text above is
+                  hidden entirely (display:none) below the sm breakpoint, so
+                  a screen-reader-only region is the only reliable way to
+                  announce save status on mobile, and it doubles as the
+                  desktop announcement too (visible spans are aria-hidden
+                  to avoid a double announcement). */}
+              <span className="sr-only" aria-live="polite">
+                {saveStatus === 'saving'
+                  ? 'Saqlanmoqda...'
+                  : saveStatus === 'saved'
+                    ? 'Saqlandi'
+                    : saveStatus === 'error'
+                      ? uz.errors.server_xato
+                      : 'Saqlash'}
+              </span>
             </button>
             <div className="relative">
               <button
+                ref={menuButtonRef}
                 onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Ko'proq"
                 className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition-colors"
               >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280" aria-hidden="true">
                   <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/>
                 </svg>
               </button>
@@ -510,19 +575,26 @@ export default function StudioPage() {
                 </div>
               )}
               {sharePopoverOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 w-72 p-3">
+                <div
+                  ref={sharePopoverRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="share-popover-title"
+                  className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 w-72 p-3"
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-gray-800">Ulashish havolasi</p>
+                    <p id="share-popover-title" className="text-xs font-semibold text-gray-800">Ulashish havolasi</p>
                     <button
+                      ref={shareCloseButtonRef}
                       onClick={() => setSharePopoverOpen(false)}
-                      className="text-neutral-400 hover:text-neutral-600 text-sm leading-none"
+                      className="text-neutral-500 hover:text-neutral-600 text-sm leading-none"
                       aria-label="Yopish"
                     >
                       ✕
                     </button>
                   </div>
                   {shareBusy && (
-                    <p className="text-xs text-muted py-2">Havola yaratilmoqda…</p>
+                    <p className="text-xs text-muted py-2" aria-live="polite">Havola yaratilmoqda…</p>
                   )}
                   {!shareBusy && shareToken && (
                     <>
@@ -547,7 +619,9 @@ export default function StudioPage() {
                                 : "bg-brand text-white hover:bg-brand/90",
                           ].join(' ')}
                         >
-                          {copyStatus === 'copied' ? 'Nusxalandi' : copyStatus === 'error' ? 'Xato' : 'Nusxalash'}
+                          <span aria-live="polite">
+                            {copyStatus === 'copied' ? 'Nusxalandi' : copyStatus === 'error' ? 'Xato' : 'Nusxalash'}
+                          </span>
                         </button>
                       </div>
                       <button
