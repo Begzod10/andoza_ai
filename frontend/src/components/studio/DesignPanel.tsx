@@ -21,6 +21,7 @@ import type { LightTypeId } from "@/lib/lightCatalog";
 import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
 import type { PlasterFinish } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
+import { useDebounce } from "@/hooks/useDebounce";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
 import { useFileDrop, isImageFile, MODEL_FILE_RE } from "@/hooks/useFileDrop";
@@ -451,9 +452,18 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
   const [furnitureCat, setFurnitureCat] = React.useState<FurnitureCategory | 'barchasi' | 'mening'>('barchasi');
 
+  // Search-by-name over each do'kon strip below — debounced so typing
+  // doesn't fire a request (and a React Query cache entry) per keystroke.
+  const [oboyQuery, setOboyQuery] = React.useState("");
+  const debouncedOboyQuery = useDebounce(oboyQuery, 300);
+  const [boyoqQuery, setBoyoqQuery] = React.useState("");
+  const debouncedBoyoqQuery = useDebounce(boyoqQuery, 300);
+  const [floorQuery, setFloorQuery] = React.useState("");
+  const debouncedFloorQuery = useDebounce(floorQuery, 300);
+
   const { data: oboyProducts = [] } = useQuery({
-    queryKey: ["materials", "oboy"],
-    queryFn: () => getMaterials({ category: "oboy", per_page: 20 }),
+    queryKey: ["materials", "oboy", debouncedOboyQuery],
+    queryFn: () => getMaterials({ category: "oboy", q: debouncedOboyQuery || undefined, per_page: 20 }),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -462,8 +472,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   // it via applySurface so the estimate prices it exactly instead of falling
   // back to an approximate per-litre guess.
   const { data: boyoqProducts = [] } = useQuery({
-    queryKey: ["materials", "boyoq"],
-    queryFn: () => getMaterials({ category: "boyoq", per_page: 20 }),
+    queryKey: ["materials", "boyoq", debouncedBoyoqQuery],
+    queryFn: () => getMaterials({ category: "boyoq", q: debouncedBoyoqQuery || undefined, per_page: 20 }),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -477,8 +487,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   };
   const floorMaterialCategory = FLOOR_TYPE_TO_MATERIAL_CATEGORY[floorType];
   const { data: floorProducts = [] } = useQuery({
-    queryKey: ["materials", floorMaterialCategory],
-    queryFn: () => getMaterials({ category: floorMaterialCategory!, per_page: 20 }),
+    queryKey: ["materials", floorMaterialCategory, debouncedFloorQuery],
+    queryFn: () => getMaterials({ category: floorMaterialCategory!, q: debouncedFloorQuery || undefined, per_page: 20 }),
     enabled: !!floorMaterialCategory,
     staleTime: 10 * 60 * 1000,
   });
@@ -1096,41 +1106,51 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                 ))}
               </div>
 
-              {floorMaterialCategory && floorProducts.length > 0 && (
+              {floorMaterialCategory && (
                 <div className="mt-4">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
-                  <div className="flex flex-col gap-2">
-                    {floorProducts.map((product: Material) => {
-                      const isActive = activeFloorProductId === product.id;
-                      return (
-                        <button
-                          key={product.id}
-                          onClick={() => handleSetFloorProduct(product.id)}
-                          className={`w-full flex items-center gap-3 p-2.5 rounded-card text-left border-2 transition-colors ${
-                            isActive ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
-                          }`}
-                        >
-                          <div
-                            className="w-9 h-9 rounded-lg flex-shrink-0"
-                            style={{ backgroundColor: product.color_hex ?? "#D8D3C8" }}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{product.name_uz}</p>
-                            <p className="text-xs text-muted">{product.price_uzs.toLocaleString("uz-UZ")} so'm/{product.unit}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-1.5">
-                    Do'kondan tanlangan pol materiali smetaga aniq narx bilan kiradi.
-                  </p>
+                  <input
+                    type="text"
+                    value={floorQuery}
+                    onChange={(e) => setFloorQuery(e.target.value)}
+                    placeholder="Qidirish..."
+                    className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+                  />
+                  {floorProducts.length === 0 ? (
+                    <p className="text-xs text-gray-400">
+                      {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi."}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-2">
+                        {floorProducts.map((product: Material) => {
+                          const isActive = activeFloorProductId === product.id;
+                          return (
+                            <button
+                              key={product.id}
+                              onClick={() => handleSetFloorProduct(product.id)}
+                              className={`w-full flex items-center gap-3 p-2.5 rounded-card text-left border-2 transition-colors ${
+                                isActive ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+                              }`}
+                            >
+                              <div
+                                className="w-9 h-9 rounded-lg flex-shrink-0"
+                                style={{ backgroundColor: product.color_hex ?? "#D8D3C8" }}
+                              />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{product.name_uz}</p>
+                                <p className="text-xs text-muted">{product.price_uzs.toLocaleString("uz-UZ")} so'm/{product.unit}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1.5">
+                        Do'kondan tanlangan pol materiali smetaga aniq narx bilan kiradi.
+                      </p>
+                    </>
+                  )}
                 </div>
-              )}
-              {floorMaterialCategory && floorProducts.length === 0 && (
-                <p className="text-xs text-gray-400 mt-3">
-                  Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi.
-                </p>
               )}
             </section>
           )}
@@ -1295,34 +1315,47 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             ))}
           </div>
 
-          {boyoqProducts.length > 0 && (
+          {(boyoqProducts.length > 0 || boyoqQuery) && (
             <div className="mt-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {boyoqProducts.map((product: Material) => {
-                  const color = product.color_hex ?? "#E5E7EB";
-                  const isActive = activePaintProductId === product.id;
-                  return (
-                    <button
-                      key={product.id}
-                      title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
-                      onClick={() => handleSetPaintProduct(product)}
-                      className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
-                    >
-                      <div
-                        className="w-12 h-12 rounded-lg border-2 transition-all"
-                        style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
-                      />
-                      <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
-                        {product.name_uz.split(" ").slice(0, 2).join(" ")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-gray-400 mt-1.5">
-                Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
-              </p>
+              <input
+                type="text"
+                value={boyoqQuery}
+                onChange={(e) => setBoyoqQuery(e.target.value)}
+                placeholder="Qidirish..."
+                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+              />
+              {boyoqProducts.length === 0 ? (
+                <p className="text-xs text-gray-400">Hech narsa topilmadi</p>
+              ) : (
+                <>
+                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                    {boyoqProducts.map((product: Material) => {
+                      const color = product.color_hex ?? "#E5E7EB";
+                      const isActive = activePaintProductId === product.id;
+                      return (
+                        <button
+                          key={product.id}
+                          title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
+                          onClick={() => handleSetPaintProduct(product)}
+                          className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
+                        >
+                          <div
+                            className="w-12 h-12 rounded-lg border-2 transition-all"
+                            style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
+                          />
+                          <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
+                            {product.name_uz.split(" ").slice(0, 2).join(" ")}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </section>
@@ -1356,31 +1389,42 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             </div>
           </div>
 
-          {oboyProducts.length > 0 && (
+          {(oboyProducts.length > 0 || oboyQuery) && (
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {oboyProducts.map((product: Material) => {
-                  const color = product.color_hex ?? "#E5E7EB";
-                  const isActive = selectedProductId === product.id;
-                  return (
-                    <button
-                      key={product.id}
-                      title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
-                      onClick={() => { setSelectedProductId(product.id); handleSetOboy({ baseColor: color }); applySurface(targetWall, product.id); }}
-                      className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
-                    >
-                      <div
-                        className="w-12 h-12 rounded-lg border-2 transition-all"
-                        style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
-                      />
-                      <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
-                        {product.name_uz.split(" ").slice(0, 2).join(" ")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <input
+                type="text"
+                value={oboyQuery}
+                onChange={(e) => setOboyQuery(e.target.value)}
+                placeholder="Qidirish..."
+                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand transition-colors"
+              />
+              {oboyProducts.length === 0 ? (
+                <p className="text-xs text-gray-400">Hech narsa topilmadi</p>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  {oboyProducts.map((product: Material) => {
+                    const color = product.color_hex ?? "#E5E7EB";
+                    const isActive = selectedProductId === product.id;
+                    return (
+                      <button
+                        key={product.id}
+                        title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
+                        onClick={() => { setSelectedProductId(product.id); handleSetOboy({ baseColor: color }); applySurface(targetWall, product.id); }}
+                        className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
+                      >
+                        <div
+                          className="w-12 h-12 rounded-lg border-2 transition-all"
+                          style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
+                        />
+                        <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
+                          {product.name_uz.split(" ").slice(0, 2).join(" ")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

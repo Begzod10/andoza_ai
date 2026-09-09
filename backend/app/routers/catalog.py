@@ -46,10 +46,11 @@ async def list_materials(
     db: DbSession,
     category: str | None = Query(default=None),
     store: UUID | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search by name_uz substring"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMaterials:
-    cache_key = f"materials:{category}:{store}:{page}:{per_page}"
+    cache_key = f"materials:{category}:{store}:{q}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
@@ -63,6 +64,9 @@ async def list_materials(
     if store:
         query = query.where(Material.store_id == store)
         count_query = count_query.where(Material.store_id == store)
+    if q:
+        query = query.where(Material.name_uz.ilike(f"%{q}%"))
+        count_query = count_query.where(Material.name_uz.ilike(f"%{q}%"))
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()

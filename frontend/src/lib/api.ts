@@ -340,6 +340,8 @@ export interface MaterialsPage {
 export interface MaterialParams {
   category?: string;
   store?: string;
+  /** Case-insensitive substring match against the product's name_uz. */
+  q?: string;
   page?: number;
   per_page?: number;
 }

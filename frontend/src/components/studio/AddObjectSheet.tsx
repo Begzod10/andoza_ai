@@ -5,6 +5,7 @@ import type { Material, CatalogFurniture } from "@/lib/api";
 import { useRoomStore } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
+import { useDebounce } from "@/hooks/useDebounce";
 
 type Section = "wallpaper" | "lyustra" | "furniture";
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
@@ -67,11 +68,16 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   const [targetWall, setTargetWall] = useState<WallId>("ALL");
   const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
 
+  // Search-by-name over the paint strip below — debounced so typing doesn't
+  // fire a request (and a React Query cache entry) per keystroke.
+  const [paintQuery, setPaintQuery] = useState("");
+  const debouncedPaintQuery = useDebounce(paintQuery, 300);
+
   // Real do'kon-managed paint products — no invented palette. Same category
   // ("boyoq") the smeta engine prices wall paint against.
   const { data: paintMaterials = [] } = useQuery({
-    queryKey: ["materials", "boyoq"],
-    queryFn: () => getMaterials({ category: "boyoq", per_page: 20 }),
+    queryKey: ["materials", "boyoq", debouncedPaintQuery],
+    queryFn: () => getMaterials({ category: "boyoq", q: debouncedPaintQuery || undefined, per_page: 20 }),
     enabled: section === "wallpaper",
   });
 
@@ -159,9 +165,16 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               <p className="text-[13px] text-muted mb-3">
                 {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${WALL_TARGETS.find((w) => w.key === targetWall)?.label} uchun rang`}
               </p>
+              <input
+                type="text"
+                value={paintQuery}
+                onChange={(e) => setPaintQuery(e.target.value)}
+                placeholder="Qidirish..."
+                className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
+              />
               {paintMaterials.length === 0 ? (
                 <p className="text-[13px] text-muted py-4 text-center">
-                  Hozircha do'konda bo'yoq mahsuloti yo'q
+                  {paintQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bo'yoq mahsuloti yo'q"}
                 </p>
               ) : (
                 <div className="flex gap-3 flex-wrap">
