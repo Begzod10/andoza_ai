@@ -312,6 +312,44 @@ export async function deleteRoom(roomId: string): Promise<void> {
   });
 }
 
+// ---------- Room sharing (public read-only links) ----------
+
+export interface ShareLinkData {
+  share_token: string;
+}
+
+/** Owner-only. Idempotent: returns the room's existing token if it already has one. */
+export async function createShareLink(roomId: string): Promise<ShareLinkData> {
+  return apiClient<ShareLinkData>(`/rooms/${roomId}/share`, {
+    method: "POST",
+  });
+}
+
+/** Owner-only. Clears the room's share token; any outstanding link 404s afterwards. */
+export async function revokeShareLink(roomId: string): Promise<void> {
+  return apiClient<void>(`/rooms/${roomId}/share`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Read-only room shape served by GET /public/rooms/{token} — no auth.
+ * Deliberately NOT the full Room type: no id, no apartment_id, no owner
+ * reference, just enough to render the 3D view (see SharedRoomPage).
+ */
+export interface PublicRoom {
+  name: string;
+  ceiling_h: number | null;
+  geometry: RoomGeometryData | null;
+  surfaces: Record<string, unknown> | null;
+  /** Trimmed subset of Room.state: designState/furniture/electricals/lights only. */
+  state: Record<string, unknown> | null;
+}
+
+export async function getPublicRoom(token: string): Promise<PublicRoom> {
+  return apiClient<PublicRoom>(`/public/rooms/${encodeURIComponent(token)}`);
+}
+
 // ---------- Material types ----------
 
 export interface Material {

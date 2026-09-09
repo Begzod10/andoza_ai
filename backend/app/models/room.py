@@ -61,6 +61,13 @@ class Room(Base):
         nullable=True,
         comment="Storage key for a captured 3D-viewport snapshot (S3 key, or path under MEDIA_ROOT)",
     )
+    share_token: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="Public read-only share link token (secrets.token_urlsafe); NULL when not shared",
+    )
 
     # --- Computed / cached areas ------------------------------------------ #
     floor_area: Mapped[float | None] = mapped_column(

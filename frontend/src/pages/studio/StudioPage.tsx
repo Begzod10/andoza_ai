@@ -1,8 +1,11 @@
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate } from "@/lib/api";
+import {
+  getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate,
+  createShareLink, revokeShareLink,
+} from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { cn, formatUZSCompact } from "@/lib/utils";
@@ -99,6 +102,66 @@ export default function StudioPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // "Ulashish" (Share) — a room-level action like Save, hence living in the
+  // kebab menu rather than a new 3D-view-specific toolbar button. A small
+  // inline popover next to the menu (not a whole sheet component) mirrors
+  // the screenshot button's flash-state convention below for the copy
+  // feedback, and RoomSettingsSheet's confirm-before-destructive-action
+  // pattern for revoke.
+  const [sharePopoverOpen, setSharePopoverOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const copyResetRef = useRef<number | null>(null);
+
+  function flashCopyStatus(status: 'copied' | 'error') {
+    setCopyStatus(status);
+    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
+    copyResetRef.current = window.setTimeout(() => setCopyStatus('idle'), 1500);
+  }
+
+  async function handleShareClick() {
+    setMenuOpen(false);
+    setSharePopoverOpen(true);
+    if (shareToken || shareBusy) return;
+    setShareBusy(true);
+    try {
+      const res = await createShareLink(room.id);
+      setShareToken(res.share_token);
+    } catch (err) {
+      alert('Havolani yaratib bo\'lmadi: ' + (err instanceof Error ? err.message : 'Xato'));
+      setSharePopoverOpen(false);
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  function buildShareUrl(token: string): string {
+    return `${window.location.origin}/share/${token}`;
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareToken) return;
+    try {
+      await navigator.clipboard.writeText(buildShareUrl(shareToken));
+      flashCopyStatus('copied');
+    } catch {
+      flashCopyStatus('error');
+    }
+  }
+
+  async function handleRevokeShareLink() {
+    if (!shareToken) return;
+    if (!window.confirm('Ulashish havolasini bekor qilasizmi? Havola endi ishlamaydi.')) return;
+    try {
+      await revokeShareLink(room.id);
+      setShareToken(null);
+      setSharePopoverOpen(false);
+    } catch (err) {
+      alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'));
+    }
+  }
 
   // Undo/redo keyboard shortcuts — mounted here (the shell wrapping every
   // studio tab via <Outlet/>) rather than duplicated per-tab, since the
@@ -420,6 +483,14 @@ export default function StudioPage() {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px]">
+                  {room.id !== 'local' && (
+                    <button
+                      onClick={handleShareClick}
+                      className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-neutral-50 first:rounded-t-lg transition-colors font-medium border-b border-neutral-100"
+                    >
+                      Ulashish
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lib bo\'lmaydi.')) {
@@ -436,6 +507,57 @@ export default function StudioPage() {
                   >
                     O'chirish
                   </button>
+                </div>
+              )}
+              {sharePopoverOpen && (
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 w-72 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-800">Ulashish havolasi</p>
+                    <button
+                      onClick={() => setSharePopoverOpen(false)}
+                      className="text-neutral-400 hover:text-neutral-600 text-sm leading-none"
+                      aria-label="Yopish"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {shareBusy && (
+                    <p className="text-xs text-muted py-2">Havola yaratilmoqda…</p>
+                  )}
+                  {!shareBusy && shareToken && (
+                    <>
+                      <p className="text-[11px] text-muted mb-2">
+                        Bu havolaga ega bo'lgan har kim xonani faqat ko'rishi mumkin — tahrirlash imkonsiz.
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          readOnly
+                          value={buildShareUrl(shareToken)}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="flex-1 min-w-0 text-[11px] bg-neutral-100 rounded-md px-2 py-1.5 text-gray-700"
+                        />
+                        <button
+                          onClick={handleCopyShareLink}
+                          className={[
+                            "shrink-0 text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-colors",
+                            copyStatus === 'copied'
+                              ? "bg-success text-white"
+                              : copyStatus === 'error'
+                                ? "bg-red-100 text-red-600"
+                                : "bg-brand text-white hover:bg-brand/90",
+                          ].join(' ')}
+                        >
+                          {copyStatus === 'copied' ? 'Nusxalandi' : copyStatus === 'error' ? 'Xato' : 'Nusxalash'}
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleRevokeShareLink}
+                        className="mt-2.5 w-full text-left text-[11px] text-red-600 hover:bg-red-50 rounded-md px-2 py-1.5 font-medium transition-colors"
+                      >
+                        Bekor qilish
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
