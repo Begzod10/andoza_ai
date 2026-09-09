@@ -34,6 +34,10 @@ interface WallDef {
 }
 
 const SNAP_M = 0.03 // 3 cm alignment threshold
+// Keyboard nudge step for a selected opening's position — matches the
+// resize steppers' existing ±100mm convention (there is no drag "grid" for
+// position; the pointer drag is continuous).
+const KEYBOARD_NUDGE_MM = 100
 
 function buildWallDefs(W: number, D: number): Record<string, WallDef> {
   return {
@@ -201,6 +205,49 @@ export function WallOpenings({
                 <meshBasicMaterial color="#2E5BFF" transparent opacity={isSel ? 0.18 : 0} depthWrite={false} side={THREE.DoubleSide} />
               </mesh>
 
+              {/* Keyboard path to mesh selection: three.js meshes have no
+                  native DOM focus, so this renders a real (invisible)
+                  <button> — via the same <Html> portal the toolbar below
+                  uses — anchored at the opening's centre. Tab reaches it,
+                  Enter/Space is the browser's native button activation
+                  (calling the same onSelect the mesh's onClick uses), arrows
+                  nudge position via the same updateElement the drag handler
+                  calls, and Delete/Backspace reuses the same removeElement
+                  the toolbar's "O'chirish" button calls. */}
+              <Html position={[px, py, pz]} center zIndexRange={[200, 0]} style={{ pointerEvents: 'none' }}>
+                <button
+                  type="button"
+                  aria-label={`${isDoor ? 'Eshik' : el.type === 'balkon' ? 'Balkon eshigi' : 'Deraza'} — ${w.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                  onClick={() => onSelect({ wallId: w.id, elId: el.id })}
+                  onKeyDown={(e) => {
+                    const wallLenMm = wd.length * 1000
+                    switch (e.key) {
+                      case 'ArrowLeft':
+                      case 'ArrowUp':
+                        e.preventDefault()
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, -KEYBOARD_NUDGE_MM) })
+                        break
+                      case 'ArrowRight':
+                      case 'ArrowDown':
+                        e.preventDefault()
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, KEYBOARD_NUDGE_MM) })
+                        break
+                      case 'Delete':
+                      case 'Backspace':
+                        e.preventDefault()
+                        removeElement(w.id, el.id)
+                        if (isSel) { onSelect(null); setMode('idle') }
+                        break
+                    }
+                  }}
+                  style={{
+                    width: 28, height: 28, padding: 0, margin: 0,
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    pointerEvents: 'auto',
+                  }}
+                />
+              </Html>
+
               {/* Selection border */}
               {isSel && (
                 <lineSegments position={[px, py, pz]} rotation={[0, wd.ry, 0]}>
@@ -278,6 +325,13 @@ function btn(active: boolean): React.CSSProperties {
 const stepBtn: React.CSSProperties = {
   border: 'none', borderRadius: 6, width: 26, height: 26, fontSize: 15, fontWeight: 700,
   cursor: 'pointer', background: '#F1F3F8', color: '#1A2340', lineHeight: 1,
+}
+
+/** New position (mm) after a keyboard ±delta, clamped to the wall's bounds.
+ *  Unlike the pointer drag's computeDrag, this does not re-run the sibling
+ *  no-overlap/snap logic — it is a simple bounded nudge, not a full re-drag. */
+function clampPosition(el: WallElement, wallLenMm: number, deltaMm: number): number {
+  return Math.max(0, Math.min(wallLenMm - el.width, el.position + deltaMm))
 }
 
 /** New width (mm) after a ±delta, min 40 cm and never past the wall's right edge. */

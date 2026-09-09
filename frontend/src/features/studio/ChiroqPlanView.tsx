@@ -63,6 +63,9 @@ export function ChiroqPlanView({
   const addLight = useRoomStore((s) => s.addLight)
   const moveLight = useRoomStore((s) => s.moveLight)
   const updateLight = useRoomStore((s) => s.updateLight)
+  // Same action LightPanel's delete button calls for the selected fixture —
+  // reused here for the keyboard Delete/Backspace path.
+  const removeLight = useRoomStore((s) => s.removeLight)
 
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dragRef = useRef<{ id: string; offX: number; offZ: number } | null>(null)
@@ -153,6 +156,58 @@ export function ChiroqPlanView({
   const endDrag = () => { dragRef.current = null }
   const selected = lights.find((l) => l.id === selectedId) ?? null
 
+  /** Keyboard nudge on the same SNAP grid the pointer drag snaps to. */
+  function nudgeLight(l: PlacedLight, dx: number, dz: number) {
+    const t = lightType(l.type)
+    let x = clamp(snap(l.xMm + dx), 0, W)
+    let z = clamp(snap(l.zMm + dz), 0, D)
+    // A wall fixture slides along its own wall, same constraint handleMove applies.
+    if (t.mount === 'wall') {
+      const wall = l.wallId ?? 'A'
+      if (wall === 'A') z = 0
+      if (wall === 'C') z = D
+      if (wall === 'D') x = 0
+      if (wall === 'B') x = W
+    }
+    moveLight(l.id, x, z)
+  }
+
+  /** Keyboard path parallel to pointer drag: Enter/Space selects like a
+   *  click does, arrows nudge via the same moveLight the drag uses,
+   *  Delete/Backspace removes via the same removeLight LightPanel's
+   *  delete button calls for the selected fixture. */
+  function handleLightKeyDown(l: PlacedLight, e: React.KeyboardEvent) {
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        onSelect(l.id)
+        break
+      case 'ArrowLeft':
+        e.preventDefault()
+        nudgeLight(l, -SNAP, 0)
+        break
+      case 'ArrowRight':
+        e.preventDefault()
+        nudgeLight(l, SNAP, 0)
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        nudgeLight(l, 0, -SNAP)
+        break
+      case 'ArrowDown':
+        e.preventDefault()
+        nudgeLight(l, 0, SNAP)
+        break
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault()
+        removeLight(l.id)
+        if (selectedId === l.id) onSelect(null)
+        break
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* ── Status strip: what a click will do right now ─────────── */}
@@ -181,6 +236,11 @@ export function ChiroqPlanView({
         onPointerLeave={() => { endDrag(); setHover(null) }}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {/* Scoped focus ring for the keyboard-focusable fixtures below — see
+            the same note in PlacementPage.tsx/MebelPlanView.tsx: restated
+            locally rather than relying silently on the app's global
+            :focus-visible outline rule applying to these SVG shapes. */}
+        <style>{`.kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #2563EB); outline-offset: 2px; }`}</style>
         <rect x={0} y={0} width={W} height={D} fill={FLOOR_FILL} />
 
         {/* metre grid — the reference for "exactly here" */}
@@ -226,6 +286,7 @@ export function ChiroqPlanView({
             light={l}
             selected={l.id === selectedId}
             onPointerDown={(e) => startDrag(l, e)}
+            onKeyDown={(e) => handleLightKeyDown(l, e)}
           />
         ))}
 
@@ -267,10 +328,11 @@ export function ChiroqPlanView({
 }
 
 /** Plan symbol for one fixture: a glow, the mount's outline, and its emoji. */
-function LightGlyph({ light, selected, onPointerDown }: {
+function LightGlyph({ light, selected, onPointerDown, onKeyDown }: {
   light: PlacedLight
   selected: boolean
   onPointerDown: (e: React.PointerEvent) => void
+  onKeyDown: (e: React.KeyboardEvent) => void
 }) {
   const t: LightType = lightType(light.type)
   const hex = kelvinToHex(light.colorK ?? t.colorK)
@@ -278,7 +340,15 @@ function LightGlyph({ light, selected, onPointerDown }: {
   const dim = light.off
 
   return (
-    <g style={{ cursor: 'grab' }} onPointerDown={onPointerDown}>
+    <g
+      style={{ cursor: 'grab' }}
+      tabIndex={0}
+      role="button"
+      aria-label={`${t.name} chirog'i — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+      className="kbd-focusable"
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+    >
       {/* spill — a rough sense of how far the fixture throws */}
       <circle cx={light.xMm} cy={light.zMm} r={r * 3.2} fill={hex} opacity={dim ? 0.04 : 0.13} />
       <circle cx={light.xMm} cy={light.zMm} r={r} fill={dim ? '#D1D5DB' : hex} stroke={WALL_DARK} strokeWidth={14} />

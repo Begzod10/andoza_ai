@@ -26,6 +26,10 @@ const NAVY = '#1B3784'
 const WIRE = '#DC2626'
 const SCALE = 88        // SVG px per metre
 const PAD   = 48        // padding around room
+// Keyboard arrow-key nudge step for placed electricals — no drag-snap grid
+// exists for this surface (pointer drag is continuous, rounded to 1mm), so
+// this is a dedicated keyboard-only step size.
+const KEYBOARD_NUDGE_MM = 20
 
 // ─── Device catalog ───────────────────────────────────────────────────────────
 
@@ -662,7 +666,7 @@ interface FloorPlanProps {
 
 function FloorPlan({
   room, geometry, electricals, lights, tab, activeTool, wireConfigs,
-  onPlaceElectrical, onMoveElectrical, onPlaceLight, onRemoveLight,
+  onPlaceElectrical, onMoveElectrical, onRemoveElectrical, onPlaceLight, onRemoveLight,
 }: FloorPlanProps) {
   // X follows wall A, Z follows wall B — the orientation every view shares
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
@@ -776,6 +780,12 @@ function FloorPlan({
       onMouseLeave={() => { setHover(null); setHoverLight(null) }}
       onClick={handleClick}
     >
+      {/* Scoped focus ring for the keyboard-focusable plan items below —
+          the app's global :focus-visible rule (styles/global.css) targets
+          `outline`, which browsers do render on SVG shapes, but that isn't
+          guaranteed for every element/shape combination here, so it's
+          restated explicitly and locally rather than relying on it silently. */}
+      <style>{`.kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1B3784); outline-offset: 2px; }`}</style>
       <defs>
         <radialGradient id="lightGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#E0F0FF" stopOpacity="0.95"/>
@@ -856,9 +866,23 @@ function FloorPlan({
         const dim = light.off
         const r = Math.max(7, (Math.max(t.sizeM.w, t.sizeM.d) * SCALE) / 2)
         const isLinear = t.id === 'led_linear' || t.id === 'track' || t.id === 'led_track' || t.id === 'bath'
+        function activateLight(e: { stopPropagation: () => void }) {
+          e.stopPropagation()
+          onRemoveLight(light.id)
+        }
         return (
           <g key={light.id} style={{ cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); onRemoveLight(light.id) }}>
+            tabIndex={0}
+            role="button"
+            aria-label={`${t.name} chirog'i — o'chirish uchun Enter yoki Delete bosing`}
+            className="kbd-focusable"
+            onClick={activateLight}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ' || e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault()
+                activateLight(e)
+              }
+            }}>
             {/* spill — roughly how far this fixture throws */}
             <circle cx={lx} cy={ly} r={r * 3.2} fill={hex} opacity={dim ? 0.04 : 0.13}/>
             <circle cx={lx} cy={ly} r={r} fill={dim ? '#D1D5DB' : hex}
@@ -922,12 +946,52 @@ function FloorPlan({
               setDraggingEl({ id: el.id, wallId: el.wallId as WallId, posMm: el.positionMm })
             }
 
+            // Keyboard equivalent of the pointer drag (move) and the sidebar's
+            // "✕" button (delete). There is no separate on-canvas click-select
+            // for these items today — pointer users only drag or delete via
+            // the sidebar list — so focus itself is the keyboard "selection",
+            // and Enter/Space is a no-op that matches the item's own (also
+            // no-op) click behavior while still preventing Space from scrolling.
+            function handleElKeyDown(e: React.KeyboardEvent) {
+              const isH = el.wallId === 'A' || el.wallId === 'C'
+              const wallLenMm = isH ? W * 1000 : D * 1000
+              switch (e.key) {
+                case 'ArrowLeft':
+                case 'ArrowUp':
+                  e.preventDefault()
+                  onMoveElectrical(el.id, Math.max(80, Math.min(wallLenMm - 80, el.positionMm - KEYBOARD_NUDGE_MM)))
+                  break
+                case 'ArrowRight':
+                case 'ArrowDown':
+                  e.preventDefault()
+                  onMoveElectrical(el.id, Math.max(80, Math.min(wallLenMm - 80, el.positionMm + KEYBOARD_NUDGE_MM)))
+                  break
+                case 'Delete':
+                case 'Backspace':
+                  e.preventDefault()
+                  onRemoveElectrical(el.id)
+                  break
+                case 'Enter':
+                case ' ':
+                  e.preventDefault()
+                  break
+              }
+            }
+
+            const elLabel = CATALOG.find(c => c.type === el.type)?.label ?? el.type
+            const elAriaLabel = `${elLabel} — ${el.wallId} devor. Ko'chirish: strelka tugmalari, o'chirish: Delete`
+
             if (el.type === 'panel') {
               return (
                 <g key={el.id}
                   transform={`translate(${dp.x}, ${dp.y})`}
                   style={{ cursor: isDragged ? 'grabbing' : 'grab' }}
-                  onPointerDown={startElDrag}>
+                  tabIndex={0}
+                  role="button"
+                  aria-label={elAriaLabel}
+                  className="kbd-focusable"
+                  onPointerDown={startElDrag}
+                  onKeyDown={handleElKeyDown}>
                   <rect x="-11" y="-15" width="22" height="28" rx="2.5"
                     fill={NAVY} stroke="#0D2560" strokeWidth="1.2"
                     opacity={isDragged ? 0.75 : 1}/>
@@ -950,7 +1014,12 @@ function FloorPlan({
               <g key={el.id}
                 transform={`translate(${dp.x}, ${dp.y})`}
                 style={{ cursor: isDragged ? 'grabbing' : 'grab' }}
-                onPointerDown={startElDrag}>
+                tabIndex={0}
+                role="button"
+                aria-label={elAriaLabel}
+                className="kbd-focusable"
+                onPointerDown={startElDrag}
+                onKeyDown={handleElKeyDown}>
                 <circle r="12" fill="white" opacity={isDragged ? 0.5 : 0.8}/>
                 <MiniSymbol type={el.type} wallId={el.wallId as WallId}/>
                 {isDragged && <circle r="14" fill="none" stroke={NAVY} strokeWidth="1" strokeDasharray="3 2" opacity="0.5"/>}
