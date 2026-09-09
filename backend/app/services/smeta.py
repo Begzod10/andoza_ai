@@ -122,6 +122,57 @@ FURNITURE_CATALOG_PRICES_UZS: dict[str, int] = {
 }
 FURNITURE_FALLBACK_PRICE_UZS: int = 2_000_000
 
+# ---------------------------------------------------------------------------
+# Light fixture pricing
+#
+# Placed lights (room.state['lights']) reference a fixture kind from the
+# frontend's static LIGHT_TYPES (frontend/src/lib/lightCatalog.ts) by a
+# `type` slug — same shape problem as furniture above (a 3D-placement
+# catalog, no pricing of its own), same bridge: known slugs get a reference
+# price, an unrecognized/missing one falls back to a generic fixture price
+# flagged approximate. A light with no `type` at all predates fixture types
+# and is a plain ceiling light (DEFAULT_LIGHT_TYPE in lightCatalog.ts).
+# Previously lights only ever showed up as electrical *points* in the wiring
+# estimate (_electrical_line) — the fixtures themselves were never priced,
+# so a room with five chandeliers and a room with five bare sockets summed
+# to the same "jihoz" total.
+LIGHT_CATALOG_PRICES_UZS: dict[str, int] = {
+    "pendant": 250_000,
+    "chandelier": 1_500_000,
+    "ceiling": 150_000,
+    "downlight": 80_000,
+    "spotlight": 120_000,
+    "ies": 350_000,
+    "led_panel": 300_000,
+    "led_linear": 200_000,
+    "track": 400_000,
+    "led_track": 450_000,
+    "bra": 180_000,
+    "bath": 220_000,
+    "floor_lamp": 350_000,
+}
+LIGHT_FALLBACK_PRICE_UZS: int = 200_000
+DEFAULT_LIGHT_TYPE: str = "ceiling"
+
+# Uzbek display names for the catalog above — mirrors LIGHT_TYPES[].name in
+# lightCatalog.ts. Placed-light entries don't carry a name snapshot (unlike
+# furniture's optional unitPriceUzs/name), so this is the only source.
+LIGHT_TYPE_NAMES: dict[str, str] = {
+    "pendant": "Osma chiroq",
+    "chandelier": "Qandil",
+    "ceiling": "Shift chirog'i",
+    "downlight": "Downlight",
+    "spotlight": "Spot chiroq",
+    "ies": "IES spot",
+    "led_panel": "LED panel",
+    "led_linear": "LED chiziqli",
+    "track": "Trek (shina)",
+    "led_track": "LED trek chirog'i",
+    "bra": "Bra",
+    "bath": "Vanna chirog'i",
+    "floor_lamp": "Torsher",
+}
+
 NON_WALL_SURFACE_KEYS: frozenset[str] = frozenset({"floor", "ceiling"})
 
 # Waste factors by wallpaper pattern type
@@ -926,6 +977,54 @@ def _furniture_lines(room: "Room") -> list[ComputedLine]:
     return lines
 
 
+def _light_lines(room: "Room") -> list[ComputedLine]:
+    """One line per distinct placed light fixture kind (qty = how many placed).
+
+    Reads room.state['lights'] — the array of PlacedLight entries the studio
+    saves, each optionally carrying a `type` slug from LIGHT_TYPES. Mirrors
+    _furniture_lines' pricing fallback chain, minus the per-item price
+    snapshot (lights have no equivalent of furniture's user-uploaded models,
+    so there's nothing to snapshot a price onto).
+
+    _electrical_line already counts these same entries as wiring *points*;
+    this is the fixture purchase price, a separate cost the electrical line
+    never covered.
+    """
+    state: dict = room.state or {}
+    placed: list = state.get("lights") or []
+    if not placed:
+        return []
+
+    counts: dict[str, int] = {}
+    for item in placed:
+        if not isinstance(item, dict):
+            continue
+        light_type = item.get("type") or DEFAULT_LIGHT_TYPE
+        counts[light_type] = counts.get(light_type, 0) + 1
+
+    lines: list[ComputedLine] = []
+    for light_type, qty in sorted(counts.items()):
+        price = LIGHT_CATALOG_PRICES_UZS.get(light_type)
+        is_approximate = price is None
+        if price is None:
+            price = LIGHT_FALLBACK_PRICE_UZS
+        label = LIGHT_TYPE_NAMES.get(light_type, light_type)
+        lines.append(_make_line(
+            label=f"Chiroq: {label}",
+            formula=f"{qty} dona × {price:,} so'm".replace(",", " "),
+            qty=qty,
+            unit="dona",
+            price_uzs=price,
+            category="chiroq",
+            is_approximate=is_approximate,
+            warning=(
+                "Narx taxminiy — bu chiroq turi uchun aniq narx bazada yo'q."
+                if is_approximate else None
+            ),
+        ))
+    return lines
+
+
 def _electrical_line(
     room: "Room",
     norms_map: "dict[str, Norm]",
@@ -1302,6 +1401,12 @@ def compute_estimate(
     # 4. Furniture ("jihoz") — every distinct item the user has placed     #
     # ------------------------------------------------------------------ #
     lines.extend(_furniture_lines(room))
+
+    # ------------------------------------------------------------------ #
+    # 4b. Light fixtures — the purchase price of each placed light. Separate #
+    #     from the electrical line below, which only prices the wiring.    #
+    # ------------------------------------------------------------------ #
+    lines.extend(_light_lines(room))
 
     # ------------------------------------------------------------------ #
     # 5. Electrical — uses actual point counts from state when available   #
