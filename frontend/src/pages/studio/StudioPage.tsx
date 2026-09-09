@@ -20,7 +20,11 @@ function StudioNav({ roomId }: { roomId: string }) {
     // clicking this leaves the studio layout entirely (SmetaPage has its own
     // header with a back link to here), unlike the other tabs above which
     // stay within this same StudioPage shell.
-    { to: `/smeta/${roomId}`, label: "Hisoblagich" },
+    // "Smeta" everywhere else that names this same page (route, page <h1>,
+    // WizardPage's "Smeta ko'rish" button, the whole uz.smeta.* locale
+    // namespace) — this tab used to say "Hisoblagich" ("calculator"),
+    // making it read like a different feature.
+    { to: `/smeta/${roomId}`, label: "Smeta" },
   ];
   return (
     // Lives inline in the header row now (not its own row) — overflow-x-auto

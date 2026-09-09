@@ -91,6 +91,18 @@ LED_STRIP_PRICE_PER_M_UZS: int = 45_000   # alyuminiy profil + LED lenta + drayv
 FULL_DROP_CEILING_DESIGNS: frozenset[str] = frozenset({"flat", "floating"})
 RING_ONLY_CEILING_DESIGNS: frozenset[str] = frozenset({"border", "recessed"})
 
+# Shown on any estimate line whose material norm (per-unit usage rate) wasn't
+# found for the given surface/params — the line still gets priced, using a
+# sensible default, but the number is an approximation rather than a real
+# per-project norm lookup. One shared string instead of six near-identical
+# inline literals, worded as a customer-facing sentence rather than a log
+# message (SmetaPage already renders line.is_approximate as a separate
+# "~taxminiy" badge — this note explains *why*, so it must add information
+# instead of repeating that badge in different words).
+APPROXIMATE_NORM_NOTE = (
+    "Bu qism uchun aniq norma topilmadi — standart ko'rsatkich bo'yicha hisoblandi."
+)
+
 # ---------------------------------------------------------------------------
 # Furniture ("equipment") pricing
 #
@@ -336,7 +348,7 @@ def _plaster_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     bag_kg = int(plaster_params.get("bag_kg", PLASTER_BAG_KG))
     price = int(plaster_params.get("bag_price_uzs", PLASTER_BAG_PRICE_UZS))
     approximate = plaster_norm is None
-    warning = "Norma topilmadi, standart qiymat ishlatildi" if plaster_norm is None else None
+    warning = APPROXIMATE_NORM_NOTE if plaster_norm is None else None
 
     kg = net_wall * rate
     bags = math.ceil(kg / bag_kg) if bag_kg > 0 else 0
@@ -363,7 +375,7 @@ def _grunt_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     primer_bag_kg = int(grunt_params.get("bag_kg", PRIMER_BAG_KG))
     primer_price = int(grunt_params.get("bag_price_uzs", PRIMER_BAG_PRICE_UZS))
     grunt_approximate = grunt_norm is None
-    grunt_warning = "Norma topilmadi, standart qiymat ishlatildi" if grunt_norm is None else None
+    grunt_warning = APPROXIMATE_NORM_NOTE if grunt_norm is None else None
 
     kg_primer = math.ceil(net_wall * primer_rate)
     bags_primer = math.ceil(kg_primer / primer_bag_kg)
@@ -391,7 +403,7 @@ def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     putty_bag_kg = int(putty_params.get("bag_kg", PUTTY_BAG_KG))
     putty_price = int(putty_params.get("bag_price_uzs", PUTTY_BAG_PRICE_UZS))
     putty_approximate = putty_norm is None
-    putty_warning = "Norma topilmadi, standart qiymat ishlatildi" if putty_norm is None else None
+    putty_warning = APPROXIMATE_NORM_NOTE if putty_norm is None else None
 
     kg_putty = net_wall * putty_rate
     bags_putty = math.ceil(kg_putty / putty_bag_kg)
@@ -594,7 +606,7 @@ def _paint_only_line(
     coats = (int(norm.coats) if norm.coats else 2) if norm else 2
     if norm is None:
         is_approximate = True
-        norm_note = "Norma topilmadi, standart qiymat ishlatildi."
+        norm_note = APPROXIMATE_NORM_NOTE
         warning = f"{warning} {norm_note}" if warning else norm_note
 
     liters = math.ceil(net_wall_m2 * coats / coverage)
@@ -799,7 +811,7 @@ def _plinth_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     plinth_piece_m = float(plintus_params.get("piece_m", PLINTH_PIECE_M))
     plinth_price = int(plintus_params.get("piece_price_uzs", PLINTH_PIECE_PRICE_UZS))
     plinth_approximate = plintus_norm is None
-    plinth_warning = "Norma topilmadi, standart qiymat ishlatildi" if plintus_norm is None else None
+    plinth_warning = APPROXIMATE_NORM_NOTE if plintus_norm is None else None
 
     door_m = _door_widths_m(room)
     perimeter = _float(room.perimeter)
@@ -931,7 +943,7 @@ def _electrical_line(
     price_per_m = int(elec_params.get("price_per_m_uzs", ELEC_CABLE_PRICE_UZS))
 
     norm_warning_suffix = (
-        " Norma topilmadi, standart qiymat ishlatildi." if elec_norm is None else ""
+        f" {APPROXIMATE_NORM_NOTE}" if elec_norm is None else ""
     )
 
     # Derive point count from user-placed electricals and ceiling lights.
@@ -1023,7 +1035,7 @@ def _ceiling_construction_lines(
     waste = float(shift_params.get("waste_factor", DRYWALL_WASTE))
     sheet_price = int(shift_params.get("sheet_price_uzs", DRYWALL_SHEET_PRICE_UZS))
     norm_warning_suffix = (
-        " Norma topilmadi, standart qiymat ishlatildi." if shift_norm is None else ""
+        f" {APPROXIMATE_NORM_NOTE}" if shift_norm is None else ""
     )
 
     lines: list[ComputedLine] = []

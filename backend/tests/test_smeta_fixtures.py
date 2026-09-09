@@ -23,6 +23,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.smeta import (
+    APPROXIMATE_NORM_NOTE,
     ROLL_AREA_M2,
     TILE_WASTE,
     LAMINAT_WASTE_DEFAULT,
@@ -1305,7 +1306,7 @@ def test_33_paint_line_survives_missing_boyoq_norm():
     assert paint_line is not None, "a painted room must get a paint line even with an empty norms table"
     assert paint_line.is_approximate is True
     assert paint_line.subtotal_uzs > 0
-    assert "Norma topilmadi" in (paint_line.warning or "")
+    assert APPROXIMATE_NORM_NOTE in (paint_line.warning or "")
 
 
 # ---------------------------------------------------------------------------
