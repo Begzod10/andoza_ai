@@ -6,6 +6,7 @@ import {
   type CeilingDesignId, type CeilingSettings, type CeilingSettingKey,
 } from "@/lib/ceilingDesigns";
 import { lightType } from "@/lib/lightCatalog";
+import { CeilingPreview } from "@/lib/ceilingPreview";
 
 /**
  * Ceiling profile + settings — shown from WallSection when the "Shift"
@@ -55,21 +56,29 @@ export function CeilingTargetPanel({ syncToApi }: {
                   active ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
                 }`}
               >
-                <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
-                  {cd.label}
-                </span>
-                <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{cd.hint}</span>
-                {/* The fixtures that belong with this profile — the pairing
-                    is half of what makes each one look like itself. */}
-                <span className="flex flex-wrap gap-1 mt-1.5">
-                  {cd.lighting.map((id) => (
-                    <span
-                      key={id}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
-                    >
-                      {lightType(id).emoji} {lightType(id).name}
+                <span className="flex items-start gap-2.5">
+                  <CeilingPreview
+                    designId={cd.id}
+                    className="w-12 h-8 flex-shrink-0 mt-0.5"
+                  />
+                  <span className="min-w-0">
+                    <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
+                      {cd.label}
                     </span>
-                  ))}
+                    <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{cd.hint}</span>
+                    {/* The fixtures that belong with this profile — the pairing
+                        is half of what makes each one look like itself. */}
+                    <span className="flex flex-wrap gap-1 mt-1.5">
+                      {cd.lighting.map((id) => (
+                        <span
+                          key={id}
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
+                        >
+                          {lightType(id).emoji} {lightType(id).name}
+                        </span>
+                      ))}
+                    </span>
+                  </span>
                 </span>
               </button>
             );
