@@ -195,11 +195,13 @@ export default function SmetaPage() {
                   {fmt(estimate.total_uzs)}
                 </p>
               </div>
-              <p className="text-xs text-brand/70 text-right">
+              {/* text-brand/70 on this bg-brand/10 card was 3.65:1 — under the
+                  4.5:1 minimum for text this small. Full-opacity brand is 7.38:1. */}
+              <p className="text-xs text-brand text-right">
                 {uz.smeta.diapazon}: {fmt(estimate.total_min)} – {fmt(estimate.total_max)}
               </p>
               {estimate.total_approx_uzs > 0 && (
-                <p className="text-xs text-warning text-right">
+                <p className="text-xs text-orange-700 text-right">
                   {uz.smeta.shundan_taxminiy}: ~{fmt(estimate.total_approx_uzs)}
                 </p>
               )}
@@ -211,22 +213,22 @@ export default function SmetaPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-200">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         Ish / material
                       </th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         Formula
                       </th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         {uz.smeta.miqdori}
                       </th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         {uz.smeta.birlik}
                       </th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         {uz.smeta.narxi}
                       </th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
+                      <th scope="col" className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide">
                         {uz.smeta.summa}
                       </th>
                     </tr>
@@ -245,10 +247,13 @@ export default function SmetaPage() {
                         <td className="px-4 py-3 font-medium text-neutral-900">
                           {line.label}
                           {line.is_approximate && (
-                            <span className="ml-2 text-xs text-warning">~taxminiy</span>
+                            // text-warning (#F97316) is 2.8:1 against white — well under
+                            // WCAG AA's 4.5:1 for text this small. orange-700 (5.18:1)
+                            // keeps the same "warning orange" identity but is legible.
+                            <span className="ml-2 text-xs text-orange-700">~taxminiy</span>
                           )}
                           {line.warning && (
-                            <p className="mt-0.5 text-xs font-normal text-warning/80 leading-snug">
+                            <p className="mt-0.5 text-xs font-normal text-orange-700 leading-snug">
                               {line.warning}
                             </p>
                           )}

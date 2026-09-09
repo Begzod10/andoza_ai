@@ -51,8 +51,11 @@ function withDraftBackup(mutate: () => void): void {
 function CenteredMessage({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="min-h-[100dvh] bg-paper flex flex-col items-center justify-center gap-2 p-6 text-center">
-      <p className="text-neutral-500 text-lg font-semibold">{title}</p>
-      {subtitle && <p className="text-neutral-400 text-sm max-w-sm">{subtitle}</p>}
+      <h1 className="text-neutral-500 text-lg font-semibold">{title}</h1>
+      {/* text-neutral-400 (#9CA3AF) was 2.54:1 against this background — under
+          the 4.5:1 minimum, and this is the only message a visitor sees on a
+          broken/expired link. neutral-600 passes comfortably. */}
+      {subtitle && <p className="text-neutral-600 text-sm max-w-sm">{subtitle}</p>}
     </div>
   );
 }
@@ -144,7 +147,7 @@ export default function SharedRoomPage() {
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
       <header className="bg-white border-b border-neutral-100 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
-        <p className="text-[16px] font-extrabold text-gray-900 truncate min-w-0">{room.name}</p>
+        <h1 className="text-[16px] font-extrabold text-gray-900 truncate min-w-0">{room.name}</h1>
         <span className="text-[11px] text-muted font-semibold shrink-0">AndozaAI</span>
       </header>
 
@@ -195,7 +198,7 @@ export default function SharedRoomPage() {
       </main>
 
       <footer className="bg-white border-t border-neutral-100 px-4 py-2 text-center shrink-0">
-        <span className="text-[11px] text-neutral-400">AndozaAI orqali yaratilgan dizayn</span>
+        <span className="text-[11px] text-neutral-600">AndozaAI orqali yaratilgan dizayn</span>
       </footer>
     </div>
   );
