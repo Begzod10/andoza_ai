@@ -1,15 +1,15 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
-import { useQuery } from "@tanstack/react-query";
-import { getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
-import { cn } from "@/lib/utils";
+import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
-function StudioNav({ roomId }: { roomId: string }) {
+function StudioNav({ roomId, isDirty }: { roomId: string; isDirty: boolean }) {
   const navItems = [
     { to: `/studio/${roomId}/ichkarida`, label: "3D" },
     { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
@@ -26,6 +26,32 @@ function StudioNav({ roomId }: { roomId: string }) {
     // making it read like a different feature.
     { to: `/smeta/${roomId}`, label: "Smeta" },
   ];
+
+  // Studio audit finding (feature completeness): no running price total
+  // visible without leaving the 3D studio for the separate /smeta page.
+  // Surfaced here, on the tab that already leads there, rather than adding
+  // a new header slot — the header row is a tight 3-column grid on mobile
+  // (back+title / tabs / save+kebab) with no spare room.
+  //
+  // The estimate engine only ever prices the room's *saved* state (the
+  // preview endpoint loads room.state from the DB) — it has no way to see
+  // local edits still sitting unsaved in the store. Rather than fake a
+  // number that updates on every keystroke, this shows the true last-saved
+  // total and flags it with a "•" while isDirty, so it reads as "as of your
+  // last save" instead of silently pretending to be live when it isn't.
+  const isRealRoom = !!roomId && roomId !== "local";
+  const { data: estimate } = useQuery({
+    queryKey: ["studio-nav-total", roomId],
+    queryFn: () => previewEstimate(roomId),
+    enabled: isRealRoom,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    // A room with nothing priceable yet (brand new, empty) 400s/500s just
+    // as often as it succeeds — this badge is a nice-to-have, not worth a
+    // retry storm over.
+    retry: false,
+  });
+
   return (
     // Lives inline in the header row now (not its own row) — overflow-x-auto
     // keeps it usable on mobile where 5 tabs don't fit without scrolling.
@@ -44,6 +70,15 @@ function StudioNav({ roomId }: { roomId: string }) {
           }
         >
           {item.label}
+          {item.label === "Smeta" && estimate != null && (
+            <span
+              className="ml-1.5 text-[11px] font-normal opacity-70"
+              title={isDirty ? "So'nggi saqlangan holat bo'yicha — o'zgarishlar hali saqlanmagan" : undefined}
+            >
+              {isDirty && "• "}
+              {formatUZSCompact(estimate.total_uzs)}
+            </span>
+          )}
         </NavLink>
       ))}
     </nav>
@@ -54,6 +89,7 @@ export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const storeState = useRoomStore();
   const { draftId, loadDraftState, setApartmentId } = useRoomStore();
   // Restore user-imported model blobs from IndexedDB — mounted HERE (not in
@@ -123,6 +159,10 @@ export default function StudioPage() {
           });
           useRoomStore.getState().markSaved();
           setSaveStatus('saved');
+          // The nav-tab price badge previews room.state as of the last save
+          // — without this it'd keep showing the pre-save number for up to
+          // its 30s staleTime after a save the user just watched succeed.
+          queryClient.invalidateQueries({ queryKey: ["studio-nav-total", roomId] });
           setTimeout(() => setSaveStatus('idle'), 2500);
           return;
         } catch {
@@ -149,6 +189,7 @@ export default function StudioPage() {
       useRoomStore.getState().setRoomId(newRoom.id);
       useRoomStore.getState().markSaved();
       setSaveStatus('saved');
+      queryClient.invalidateQueries({ queryKey: ["studio-nav-total", newRoom.id] });
       // Replace stale URL with the real room ID
       const currentTab = location.pathname.split('/').pop() ?? 'ichkarida';
       navigate(`/studio/${newRoom.id}/${currentTab}`, { replace: true });
@@ -315,7 +356,7 @@ export default function StudioPage() {
 
           {/* Tabs — centered in the row's remaining space */}
           <div className="flex justify-center min-w-0">
-            <StudioNav roomId={room.id} />
+            <StudioNav roomId={room.id} isDirty={isDirty} />
           </div>
 
           {/* Save + kebab */}
