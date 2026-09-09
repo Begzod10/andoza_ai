@@ -6,6 +6,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 import { useDebounce } from "@/hooks/useDebounce";
+import { MaterialSwatch } from "./MaterialSwatch";
 
 type Section = "wallpaper" | "lyustra" | "furniture";
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
@@ -179,22 +180,12 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               ) : (
                 <div className="flex gap-3 flex-wrap">
                   {paintMaterials.map((m: Material) => (
-                    <button
+                    <MaterialSwatch
                       key={m.id}
+                      material={m}
+                      isActive={selectedMaterialId === m.id}
                       onClick={() => setSelectedMaterialId(m.id)}
-                      title={`${m.name_uz}${fmtPrice(m.price_uzs) ? ` — ${fmtPrice(m.price_uzs)}` : ""}`}
-                      className="flex flex-col items-center gap-1.5 w-16"
-                    >
-                      <div
-                        className={`w-14 h-14 rounded-2xl border-[3px] transition-all active:scale-95 ${
-                          selectedMaterialId === m.id ? "border-brand shadow-btn" : "border-gray-200"
-                        }`}
-                        style={{ background: m.color_hex ?? "#D9D9D9" }}
-                      />
-                      <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight line-clamp-2">
-                        {m.name_uz}
-                      </span>
-                    </button>
+                    />
                   ))}
                 </div>
               )}

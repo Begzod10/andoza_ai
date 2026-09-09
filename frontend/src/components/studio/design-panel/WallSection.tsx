@@ -13,6 +13,7 @@ import { WALL_TARGETS, resolveTargetWall, type WallTarget } from "./shared";
 import { CeilingTargetPanel } from "./CeilingTargetPanel";
 import { WallFloorTargetPanel } from "./WallFloorTargetPanel";
 import { WallPanelGenerator } from "./WallPanelGenerator";
+import { MaterialSwatch } from "../MaterialSwatch";
 
 type CoveringMode = "paint" | "oboy" | "texture";
 
@@ -282,26 +283,14 @@ export function WallSection({
               ) : (
                 <>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                    {boyoqProducts.map((product: Material) => {
-                      const color = product.color_hex ?? "#E5E7EB";
-                      const isActive = activePaintProductId === product.id;
-                      return (
-                        <button
-                          key={product.id}
-                          title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
-                          onClick={() => handleSetPaintProduct(product)}
-                          className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
-                        >
-                          <div
-                            className="w-12 h-12 rounded-lg border-2 transition-all"
-                            style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
-                          />
-                          <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
-                            {product.name_uz.split(" ").slice(0, 2).join(" ")}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {boyoqProducts.map((product: Material) => (
+                      <MaterialSwatch
+                        key={product.id}
+                        material={product}
+                        isActive={activePaintProductId === product.id}
+                        onClick={() => handleSetPaintProduct(product)}
+                      />
+                    ))}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1.5">
                     Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
@@ -355,26 +344,18 @@ export function WallSection({
                 <p className="text-xs text-gray-400">Hech narsa topilmadi</p>
               ) : (
                 <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                  {oboyProducts.map((product: Material) => {
-                    const color = product.color_hex ?? "#E5E7EB";
-                    const isActive = selectedProductId === product.id;
-                    return (
-                      <button
-                        key={product.id}
-                        title={`${product.name_uz} — ${product.price_uzs.toLocaleString("uz-UZ")} so'm/${product.unit}`}
-                        onClick={() => { setSelectedProductId(product.id); handleSetOboy({ baseColor: color }); applySurface(targetWall, product.id); }}
-                        className="flex-shrink-0 flex flex-col items-center gap-1 w-14"
-                      >
-                        <div
-                          className="w-12 h-12 rounded-lg border-2 transition-all"
-                          style={{ backgroundColor: color, borderColor: isActive ? "#1E40AF" : "#E5E7EB", boxShadow: isActive ? "0 0 0 2px #1E40AF" : undefined }}
-                        />
-                        <span className="text-[10px] text-gray-500 text-center line-clamp-2 leading-tight">
-                          {product.name_uz.split(" ").slice(0, 2).join(" ")}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {oboyProducts.map((product: Material) => (
+                    <MaterialSwatch
+                      key={product.id}
+                      material={product}
+                      isActive={selectedProductId === product.id}
+                      onClick={() => {
+                        setSelectedProductId(product.id);
+                        handleSetOboy({ baseColor: product.color_hex ?? "#E5E7EB" });
+                        applySurface(targetWall, product.id);
+                      }}
+                    />
+                  ))}
                 </div>
               )}
             </div>
