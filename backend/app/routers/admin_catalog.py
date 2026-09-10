@@ -87,6 +87,7 @@ async def create_store(payload: StoreCreate, admin: AdminUser, db: DbSession) ->
     db.add(store)
     await db.flush()
     await db.refresh(store)
+    await cache_delete_prefix("stores:")
 
     logger.info("store_created", id=str(store.id), admin_id=str(admin.id))
     return StoreAdminOut.model_validate(store)
@@ -130,6 +131,7 @@ async def update_store(
 
     await db.flush()
     await db.refresh(store)
+    await cache_delete_prefix("stores:")
     logger.info("store_updated", id=str(store.id), admin_id=str(admin.id), fields=list(updates))
     return StoreAdminOut.model_validate(store)
 
@@ -161,6 +163,7 @@ async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSessi
 
     await db.delete(store)
     await db.flush()
+    await cache_delete_prefix("stores:")
 
     for key in stray_keys:
         try:
@@ -298,6 +301,7 @@ async def upload_furniture_model(
     db.add(furniture)
     await db.flush()
     await db.refresh(furniture)
+    await cache_delete_prefix("furniture:")
 
     logger.info(
         "furniture_model_uploaded",
@@ -386,6 +390,7 @@ async def update_furniture(
 
     await db.flush()
     await db.refresh(furniture)
+    await cache_delete_prefix("furniture:")
     logger.info("furniture_updated", id=str(furniture.id), admin_id=str(admin.id), fields=list(updates))
     return _furniture_out(furniture, request, new_store.name if new_store else None)
 
@@ -414,6 +419,7 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
         except Exception as exc:  # the row is gone; a stray file is not worth a 500
             logger.warning("furniture_file_delete_failed", key=key, error=str(exc))
 
+    await cache_delete_prefix("furniture:")
     logger.info("furniture_deleted", id=str(furniture_id), admin_id=str(admin.id))
 
 
