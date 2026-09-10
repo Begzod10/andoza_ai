@@ -14,6 +14,7 @@ import { useRoomStore } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
 import { extractSceneInfo } from "@/lib/modelConverter";
+import { useMeasuredSizes } from "@/features/studio/measuredSizes";
 import {
   partKeyFor, resolvePartKey, resolvePartFromMesh, partLabel,
   applyHiddenParts, hasMeshesOutsidePart, setPartHighlight, exportPartToGlb,
@@ -355,7 +356,11 @@ function DraggableFurnitureItem({
     if (!entry) return
     const s = effScale * (item.scaleOverride ?? 1)
     onFootprint(item.id, geomHW * s, geomHD * s)
-  }, [item.id, geomHW, geomHD, entry, effScale, item.scaleOverride, onFootprint])
+    // Publish the model's true base size (metres, before per-placement scale)
+    // so the design panel can show real dimensions instead of a 0×0 shop
+    // placeholder — keyed by furniture_id since it's the model's intrinsic size.
+    useMeasuredSizes.getState().setSize(item.furniture_id, geomHW * effScale * 2, geomHD * effScale * 2)
+  }, [item.id, item.furniture_id, geomHW, geomHD, entry, effScale, item.scaleOverride, onFootprint])
 
   useLayoutEffect(() => {
     if (!item.colorOverrides || Object.keys(item.colorOverrides).length === 0) return

@@ -14,6 +14,7 @@ import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
+import { useMeasuredSizes } from "@/features/studio/measuredSizes";
 import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { LightPanel } from "@/components/studio/LightPanel";
@@ -217,6 +218,12 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
 }) {
   const ready = (!entry.isUser && !entry.isShop) || !!entry.modelPath;
   const canTexture = entry.isUser && !!entry.modelPath;
+  // Real size measured from the loaded GLB (see measuredSizes) — a shop upload's
+  // own sizeM is usually 0×0 (footprint unset). Prefer the measurement, fall
+  // back to the authored sizeM, and show nothing rather than a misleading 0×0.
+  const measured = useMeasuredSizes((s) => s.sizes[entry.id]);
+  const dimW = measured?.w ?? entry.sizeM.w;
+  const dimD = measured?.d ?? entry.sizeM.d;
   const { isOver, dropProps } = useFileDrop({
     onDrop: onFiles,
     accept: isImageFile,
@@ -254,7 +261,9 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">
           {isOver ? "Tekstura qo'yish" : entry.name}
         </p>
-        <p className="text-[10px] text-gray-400 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
+        {(dimW > 0 || dimD > 0) && (
+          <p className="text-[10px] text-gray-400 mt-0.5">{dimW.toFixed(2)}×{dimD.toFixed(2)} m</p>
+        )}
         {entry.isShop && (
           <p className="text-[10px] text-gray-400 mt-0.5 truncate" title={entry.storeName ?? undefined}>
             🏪 {entry.storeName ?? "Do'konsiz"}
@@ -361,6 +370,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     useRoomStore();
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
+  // Live model dimensions measured from each GLB in the 3D scene (see measuredSizes).
+  const measuredSizes = useMeasuredSizes((s) => s.sizes);
 
   // ── Drag & drop of model files anywhere on the Mebel panel ──────────
   const { importFiles: importModelFiles, status: modelImportStatus, warn: modelImportWarn } = useModelImport();
@@ -1827,14 +1838,17 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             const isEditing = colorEditorId === f.id;
             const hasOverrides = f.colorOverrides && Object.keys(f.colorOverrides).length > 0;
             const so = f.scaleOverride ?? 1;
-            // A shop model's sizeM isn't known here (its real scale is only
-            // detected once its GLB loads in the 3D view) — show its
-            // admin-set footprint instead of a misleading 0×0.
+            // Prefer the real base size measured from the loaded GLB in the 3D
+            // view (keyed by furniture_id). A shop model's own sizeM is unknown
+            // here, so fall back to its admin-set footprint, then to 0.
+            const measured = measuredSizes[f.furniture_id];
             const shopSizeM = shopEntry
               ? { w: (shopEntry.footprint_w ?? 0) / 100, d: (shopEntry.footprint_d ?? 0) / 100 }
               : null;
-            const actualW = ((entry?.sizeM.w ?? shopSizeM?.w ?? 0) * so).toFixed(2);
-            const actualD = ((entry?.sizeM.d ?? shopSizeM?.d ?? 0) * so).toFixed(2);
+            const baseW = measured?.w ?? entry?.sizeM.w ?? shopSizeM?.w ?? 0;
+            const baseD = measured?.d ?? entry?.sizeM.d ?? shopSizeM?.d ?? 0;
+            const actualW = (baseW * so).toFixed(2);
+            const actualD = (baseD * so).toFixed(2);
             return (
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
