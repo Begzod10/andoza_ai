@@ -133,7 +133,9 @@ async def wait_for_task(
     task_id: str,
     user: Annotated[User, Depends(get_current_user)],
 ) -> ConvertImageTo3DResponse:
-    """Wait for task completion (blocking up to 5 minutes).
+    """Wait for task completion (blocking, capped well under common
+    reverse-proxy/load-balancer idle-timeout defaults — see module docstring
+    note below on why this is a partial mitigation, not a full fix).
 
     Args:
         task_id: Meshy task ID
@@ -147,7 +149,19 @@ async def wait_for_task(
     """
     try:
         meshy = get_meshy_client()
-        task = await meshy.wait_for_completion(task_id, max_polls=60, poll_interval=5.0)
+        # Was max_polls=60 x poll_interval=5.0 = 300s (5 min) — long enough
+        # that a browser or reverse proxy could kill the connection out from
+        # under this request. The frontend (Image3DConverter.tsx via
+        # waitForMeshyTask in lib/api.ts) awaits this endpoint once and has
+        # no re-poll/retry logic of its own for a "still processing"
+        # response, so we cannot safely return early with partial state —
+        # that would surface to the user as a hard error. Until the frontend
+        # gains its own re-poll loop against GET /api/meshy/task/{task_id}
+        # (which already exists and is client-poll-friendly), the safest
+        # change available at this call site is shrinking the blocking
+        # window to comfortably clear common proxy/LB idle-timeout defaults
+        # (60s) while keeping today's blocking-until-done semantics.
+        task = await meshy.wait_for_completion(task_id, max_polls=11, poll_interval=5.0)
 
         return ConvertImageTo3DResponse(
             task_id=task_id,
