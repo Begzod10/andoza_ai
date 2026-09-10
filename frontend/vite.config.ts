@@ -39,6 +39,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+        // The three-vendor / react-three-vendor chunks (Three.js + R3F
+        // ecosystem, 1MB+ combined) are only needed by the lazy-loaded 3D
+        // studio pages. Force-precaching them on every first visit — even for
+        // someone who only opens a shared room link or a marketing page —
+        // costs every visitor a multi-MB download they may never use. Precache
+        // everything else as before, but let these two load (and get cached)
+        // lazily on first real use via runtimeCaching below.
+        globIgnores: [
+          "**/assets/three-vendor-*.js",
+          "**/assets/react-three-vendor-*.js",
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -47,6 +58,20 @@ export default defineConfig({
               cacheName: "google-fonts-cache",
               expiration: {
                 maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: /\/assets\/(three-vendor|react-three-vendor)-.*\.js$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "three-vendor-cache",
+              expiration: {
+                maxEntries: 4,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: {

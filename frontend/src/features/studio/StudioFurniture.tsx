@@ -176,8 +176,15 @@ export function FurnitureModels() {
   );
 }
 
-// Preload all catalog models so first render is instant
-FURNITURE_CATALOG.forEach((e) => useGLTF.preload(e.modelPath));
+// NOTE: this module used to eagerly `useGLTF.preload()` every catalog GLB the
+// instant it loaded (i.e. whenever the studio chunk loads — including for
+// tabs like "Chiroqlar"/lighting that never render furniture at all). That
+// force-fetched the entire catalog (4.4MB+ per model on disk) up front.
+// Each <FurnitureItem>/<DraggableFurnitureItem> already calls useGLTF(modelPath)
+// itself, and drei caches by URL — so removing this just makes loading lazy
+// (on first actual placement/render) instead of eager. Every call site is
+// already wrapped in a <Suspense> boundary (see ThreeDPage, PlacementPage,
+// WalkthroughPage, SharedRoomPage), so this is a pure perf change.
 
 // ─── Draggable furniture (ThreeDPage only) ────────────────────────────────────
 
