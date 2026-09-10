@@ -72,6 +72,13 @@ async def estimate_builder_price(
         return cached["price_uzs"], cached.get("note", "")
 
     try:
+        # This is a best-effort background enrichment on a user-facing
+        # preview/create-estimate/PDF request path — it must never hold that
+        # request hostage for the client's full 120s x 3-attempt budget
+        # (worst case ~6 minutes). Give it a much tighter budget instead:
+        # 2 attempts x 9s + a 1s backoff between them ≈ 19s worst case.
+        # Explicit user-initiated AI actions (ai.py's smeta_ask/ai_build)
+        # are untouched and keep the client's default (120s x 3 attempts).
         response = await call_llm(
             model=settings.AI_MODEL_EXPLAINER,
             system=_SYSTEM_PROMPT,
@@ -79,6 +86,8 @@ async def estimate_builder_price(
             max_tokens=200,
             user_id=user_id,
             model_type="explainer",
+            timeout=9.0,
+            max_retries=2,
         )
     except Exception as exc:
         # BudgetExceededError, "AI features disabled", a network error — none
