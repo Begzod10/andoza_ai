@@ -56,7 +56,7 @@ class Material(Base):
         nullable=False,
         index=True,
     )
-    category: Mapped[str] = mapped_column(MaterialCategory, nullable=False)
+    category: Mapped[str] = mapped_column(MaterialCategory, nullable=False, index=True)
     name_uz: Mapped[str] = mapped_column(String(200), nullable=False)
     unit: Mapped[str] = mapped_column(MaterialUnit, nullable=False)
     price_uzs: Mapped[int] = mapped_column(BigInteger, nullable=False)
