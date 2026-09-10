@@ -93,8 +93,19 @@ export default function StudioPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const storeState = useRoomStore();
-  const { draftId, loadDraftState, setApartmentId } = useRoomStore();
+  // Narrow selectors only — a whole-store subscription here (`useRoomStore()`)
+  // would re-run this component's memoized `localRoom` derivation (and every
+  // effect below) on every store write from anywhere in the app, since
+  // Zustand hands back a new top-level state object on each `set()`. Actions
+  // (`loadDraftState`, `setApartmentId`) are stable references in Zustand and
+  // safe to select directly.
+  const geometry = useRoomStore((s) => s.geometry);
+  const apartmentId = useRoomStore((s) => s.apartmentId);
+  const name = useRoomStore((s) => s.name);
+  const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
+  const draftId = useRoomStore((s) => s.draftId);
+  const loadDraftState = useRoomStore((s) => s.loadDraftState);
+  const setApartmentId = useRoomStore((s) => s.setApartmentId);
   // Restore user-imported model blobs from IndexedDB — mounted HERE (not in
   // DesignPanel) so uploaded models reappear on reload without opening panels
   useRestoreUserModels();
@@ -336,7 +347,7 @@ export default function StudioPage() {
   // Fallback: restore from draft-room when draftId is set but apiRoom has no state
   useEffect(() => {
     if (!draftId) return;
-    const hasElements = storeState.geometry.walls.some(w => w.elements.length > 0);
+    const hasElements = geometry.walls.some(w => w.elements.length > 0);
     if (hasElements) return;
     getDraftRoom(draftId)
       .then(draft => { if (draft?.state) loadDraftState(draft.state as Record<string, unknown>) })
@@ -346,33 +357,37 @@ export default function StudioPage() {
 
   // Build a synthetic Room from store data for offline/local use
   const localRoom = useMemo<Room>(() => {
-    const wallA = storeState.geometry.walls.find((w) => w.id === "A");
-    const wallB = storeState.geometry.walls.find((w) => w.id === "B");
+    const wallA = geometry.walls.find((w) => w.id === "A");
+    const wallB = geometry.walls.find((w) => w.id === "B");
     const lengthM = (wallA?.length ?? 4000) / 1000;
     const widthM = (wallB?.length ?? 3000) / 1000;
     return {
       id: roomId ?? "local",
-      apartment_id: storeState.apartmentId ?? "local",
-      name: storeState.name,
+      apartment_id: apartmentId ?? "local",
+      name: name,
       room_type: "mehmonxona",
-      area: computeFloorArea(storeState.geometry) / 1e6,
-      ceiling_height: storeState.ceilingHeight / 1000,
+      area: computeFloorArea(geometry) / 1e6,
+      ceiling_height: ceilingHeight / 1000,
       width: widthM,
       length: lengthM,
-      num_doors: storeState.geometry.walls.reduce(
+      num_doors: geometry.walls.reduce(
         (s, w) => s + w.elements.filter((e) => e.type === "eshik").length, 0,
       ),
-      num_windows: storeState.geometry.walls.reduce(
+      num_windows: geometry.walls.reduce(
         (s, w) => s + w.elements.filter((e) => e.type === "deraza").length, 0,
       ),
-      has_balcony: storeState.geometry.walls.some((w) =>
+      has_balcony: geometry.walls.some((w) =>
         w.elements.some((e) => e.type === "balkon"),
       ),
       renovation_level: "orta",
       design_state: {},
       created_at: new Date().toISOString(),
     };
-  }, [roomId, storeState]);
+    // Narrow deps: only the specific fields this derivation actually reads.
+    // A whole-store `storeState` object here previously recomputed on every
+    // Zustand `set()` anywhere in the app (new top-level object per write),
+    // not just when geometry/name/ceilingHeight/apartmentId changed.
+  }, [roomId, geometry, apartmentId, name, ceilingHeight]);
 
   type FetchStatus = "ok" | "auth" | "notfound" | "offline";
 
@@ -437,14 +452,14 @@ export default function StudioPage() {
       return;
     }
     if (!state) return;
-    const hasElements = storeState.geometry.walls.some(w => w.elements.length > 0);
+    const hasElements = geometry.walls.some(w => w.elements.length > 0);
     if (hasElements) return;
     loadDraftState(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiRoom]);
 
   // 404 with no local data → show not-found
-  if (fetchStatus === "notfound" && !storeState.isDirty) {
+  if (fetchStatus === "notfound" && !isDirty) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-paper gap-4">
         <p className="text-neutral-500 text-lg">Xona topilmadi</p>

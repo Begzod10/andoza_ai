@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import { memo, useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -13,7 +13,7 @@ import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
  * ThreeDPage.tsx — see that file's header comment for the full picture.
  */
 
-export function WoodFloor({
+export const WoodFloor = memo(function WoodFloor({
   width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
@@ -193,7 +193,7 @@ export function WoodFloor({
       )}
     </group>
   );
-}
+});
 
 
 // ─── Ceiling designs ──────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ export function WoodFloor({
  * worth building when the ceiling is being looked at; the slab blocks the sun
  * either way, which is the one part that must not depend on the view.
  */
-export function Ceiling({
+export const Ceiling = memo(function Ceiling({
   W, D, H, T, designId, settings, hidden, meshRef,
 }: {
   W: number; D: number; H: number; T: number
@@ -241,7 +241,7 @@ export function Ceiling({
       )}
     </group>
   )
-}
+});
 
 
 /**

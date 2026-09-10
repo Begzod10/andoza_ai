@@ -1,9 +1,9 @@
 import * as React from "react";
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
-import type { DesignState, RoomGeometry } from "@/store/roomStore";
+import type { DesignState, RoomGeometry, WallElement } from "@/store/roomStore";
 import type { Room } from "@/lib/api";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { DEFAULT_CEILING_DESIGN } from "@/lib/ceilingDesigns";
@@ -25,6 +25,12 @@ import { CeilingLights } from "./LightingComponents";
  * the top-level RoomScene that picks between them. Split out of
  * ThreeDPage.tsx — see that file's header comment for the full picture.
  */
+
+// Stable empty-array fallback for a wall with no elements yet — `?? []`
+// inline would create a brand-new array reference on every render, which
+// (like the fresh objects/arrays fixed below) would defeat <Wall>'s
+// React.memo for that prop even though the "no elements" value never changes.
+const EMPTY_ELEMENTS: WallElement[] = [];
 
 // ─── Corner shadow accents ────────────────────────────────────────────────────
 
@@ -53,7 +59,13 @@ function CornerShadows({ width, depth, composerActive }: { width: number; depth:
 // ─── In-scene swap buttons ────────────────────────────────────────────────────
 
 export const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D: number; H: number }) {
-  const { geometry, swapAdjacentElements } = useRoomStore();
+  // Narrow selectors only — this component is mounted inside the R3F
+  // <Canvas> whenever a legacy ABCD wall has ≥2 openings. A whole-store
+  // subscription (`useRoomStore()`) re-rendered it on every store write
+  // anywhere in the app for as long as it stayed mounted. `swapAdjacentElements`
+  // is a stable Zustand action reference, safe to select directly.
+  const geometry = useRoomStore((s) => s.geometry);
+  const swapAdjacentElements = useRoomStore((s) => s.swapAdjacentElements);
   const s = 1 / 1000;
   const T = WALL_T;
   const T_MM = WALL_T * 1000;
@@ -66,60 +78,68 @@ export const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D
     { id: "D", axis: "Z" as const, cx: -(W / 2 + T / 2), cz: 0,               wallLenM: D + 2 * T, elOffset: T_MM },
   ], [W, D]);
 
-  const items: React.ReactElement[] = [];
+  // Rebuilding this list (wall lookups + resolveElementPositions + sort) from
+  // scratch on every render was wasted work whenever anything else in the
+  // scene re-rendered this component without geometry/dimensions actually
+  // changing — memoize it on the specific fields it derives from.
+  const items = useMemo<React.ReactElement[]>(() => {
+    const built: React.ReactElement[] = [];
 
-  for (const wd of wallDefs) {
-    const wall = geometry.walls.find((w) => w.id === wd.id);
-    if (!wall) continue;
-    if (wall.elements.filter((e) => e.type === "eshik" || e.type === "deraza").length < 2) continue;
+    for (const wd of wallDefs) {
+      const wall = geometry.walls.find((w) => w.id === wd.id);
+      if (!wall) continue;
+      if (wall.elements.filter((e) => e.type === "eshik" || e.type === "deraza").length < 2) continue;
 
-    const rawLenMm = (wd.id === "B" || wd.id === "D") ? D * 1000 : wd.wallLenM * 1000;
-    const resolved = resolveElementPositions(wall.elements, rawLenMm);
-    const sorted = resolved
-      .filter((e) => e.type === "eshik" || e.type === "deraza")
-      .map((e) => ({ ...e, position: e.position + wd.elOffset }))
-      .sort((a, b) => a.position - b.position);
+      const rawLenMm = (wd.id === "B" || wd.id === "D") ? D * 1000 : wd.wallLenM * 1000;
+      const resolved = resolveElementPositions(wall.elements, rawLenMm);
+      const sorted = resolved
+        .filter((e) => e.type === "eshik" || e.type === "deraza")
+        .map((e) => ({ ...e, position: e.position + wd.elOffset }))
+        .sort((a, b) => a.position - b.position);
 
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const el1 = sorted[i];
-      const el2 = sorted[i + 1];
-      const gapMidMm = (el1.position + el1.width + el2.position) / 2;
-      const wallLenMm = wd.wallLenM * 1000;
-      const localOffset = (gapMidMm - wallLenMm / 2) * s;
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const el1 = sorted[i];
+        const el2 = sorted[i + 1];
+        const gapMidMm = (el1.position + el1.width + el2.position) / 2;
+        const wallLenMm = wd.wallLenM * 1000;
+        const localOffset = (gapMidMm - wallLenMm / 2) * s;
 
-      const px = wd.axis === "X" ? wd.cx + localOffset : wd.cx;
-      const pz = wd.axis === "Z" ? wd.cz + localOffset : wd.cz;
+        const px = wd.axis === "X" ? wd.cx + localOffset : wd.cx;
+        const pz = wd.axis === "Z" ? wd.cz + localOffset : wd.cz;
 
-      // Capture the exact two IDs this button is responsible for
-      const wId = wd.id;
-      const e1Id = el1.id;
-      const e2Id = el2.id;
+        // Capture the exact two IDs this button is responsible for
+        const wId = wd.id;
+        const e1Id = el1.id;
+        const e2Id = el2.id;
 
-      items.push(
-        <Html key={`swap-${wd.id}-${i}`} position={[px, buttonY, pz]} center zIndexRange={[50, 0]}>
-          <button
-            onClick={() => swapAdjacentElements(wId, e1Id, e2Id)}
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              border: "1px solid rgba(0,0,0,0.14)",
-              background: "rgba(255,255,255,0.90)",
-              cursor: "pointer",
-              fontSize: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-              userSelect: "none",
-            }}
-          >
-            ⇄
-          </button>
-        </Html>,
-      );
+        built.push(
+          <Html key={`swap-${wd.id}-${i}`} position={[px, buttonY, pz]} center zIndexRange={[50, 0]}>
+            <button
+              onClick={() => swapAdjacentElements(wId, e1Id, e2Id)}
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                border: "1px solid rgba(0,0,0,0.14)",
+                background: "rgba(255,255,255,0.90)",
+                cursor: "pointer",
+                fontSize: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+                userSelect: "none",
+              }}
+            >
+              ⇄
+            </button>
+          </Html>,
+        );
+      }
     }
-  }
+
+    return built;
+  }, [geometry, wallDefs, buttonY, T_MM, s, swapAdjacentElements]);
 
   return <>{items}</>;
 });
@@ -278,7 +298,7 @@ function NWallRoomShell({
 
 // ─── Full room scene ──────────────────────────────────────────────────────────
 
-export function RoomScene({
+export const RoomScene = memo(function RoomScene({
   room,
   geometry,
   topView,
@@ -336,11 +356,29 @@ export function RoomScene({
   const wallC = geometry.walls.find((w) => w.id === "C");
   const wallD = geometry.walls.find((w) => w.id === "D");
 
-  // Per-wall coverings with depth shading
-  const coveringA = shadeCovering(resolveWallCovering(designState.wallCoverings, 'A'), 0.92);
-  const coveringB = shadeCovering(resolveWallCovering(designState.wallCoverings, 'B'), 0.82);
-  const coveringC = shadeCovering(resolveWallCovering(designState.wallCoverings, 'C'), 0.92);
-  const coveringD = shadeCovering(resolveWallCovering(designState.wallCoverings, 'D'), 0.82);
+  // Per-wall coverings with depth shading. `shadeCovering` allocates a new
+  // object on every call (except for the 'plaster' kind) — without memoizing
+  // here, each of the four <Wall> below would receive a fresh `covering`
+  // object on every RoomScene render regardless of whether that wall's own
+  // covering actually changed, making `React.memo` on <Wall> a no-op for this
+  // prop. Keyed on `designState.wallCoverings`, which the store only replaces
+  // (immutably) when a covering is actually edited.
+  const coveringA = useMemo(
+    () => shadeCovering(resolveWallCovering(designState.wallCoverings, 'A'), 0.92),
+    [designState.wallCoverings],
+  );
+  const coveringB = useMemo(
+    () => shadeCovering(resolveWallCovering(designState.wallCoverings, 'B'), 0.82),
+    [designState.wallCoverings],
+  );
+  const coveringC = useMemo(
+    () => shadeCovering(resolveWallCovering(designState.wallCoverings, 'C'), 0.92),
+    [designState.wallCoverings],
+  );
+  const coveringD = useMemo(
+    () => shadeCovering(resolveWallCovering(designState.wallCoverings, 'D'), 0.82),
+    [designState.wallCoverings],
+  );
 
   // Per-wall panel settings
   const panelsA = resolveWallPanel(designState.wallPanels, 'A');
@@ -374,10 +412,29 @@ export function RoomScene({
    *   Pre-resolve them, then shift by T so they land within the D+2T wall.
    */
   const T_MM = Math.round(T * 1000);
-  const elementsBOuter = resolveElementPositions(wallB?.elements ?? [], D * 1000)
-    .map(el => ({ ...el, position: el.position + T_MM }));
-  const elementsDOuter = resolveElementPositions(wallD?.elements ?? [], D * 1000)
-    .map(el => ({ ...el, position: el.position + T_MM }));
+  // `.map()` here built a brand-new array on every render regardless of
+  // whether wallB/wallD's elements actually changed — memoizing lets
+  // <Wall>'s React.memo actually skip B/D re-renders when only, say, wall A
+  // or C changed (RoomScene re-runs for the whole shell either way).
+  const elementsBOuter = useMemo(
+    () => resolveElementPositions(wallB?.elements ?? EMPTY_ELEMENTS, D * 1000)
+      .map(el => ({ ...el, position: el.position + T_MM })),
+    [wallB?.elements, D, T_MM],
+  );
+  const elementsDOuter = useMemo(
+    () => resolveElementPositions(wallD?.elements ?? EMPTY_ELEMENTS, D * 1000)
+      .map(el => ({ ...el, position: el.position + T_MM })),
+    [wallD?.elements, D, T_MM],
+  );
+
+  // Stable per-wall click handlers — an inline `() => onWallClick?.('A')`
+  // literal at the call site below would be a fresh function reference on
+  // every RoomScene render, which (like `covering`/`elements` above) would
+  // defeat <Wall>'s React.memo regardless of whether the wall itself changed.
+  const handleWallClickA = useCallback(() => onWallClick?.('A'), [onWallClick]);
+  const handleWallClickB = useCallback(() => onWallClick?.('B'), [onWallClick]);
+  const handleWallClickC = useCallback(() => onWallClick?.('C'), [onWallClick]);
+  const handleWallClickD = useCallback(() => onWallClick?.('D'), [onWallClick]);
 
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
@@ -448,8 +505,8 @@ export function RoomScene({
           <WallFade hidden={hiddenWalls.has('A')}>
             <group {...(holdBind?.('wall', 'A') ?? {})}>
               <Wall plaster={plasterWalls} wallId="A" length={W} height={H} thickness={T} covering={coveringA}
-                elements={wallA?.elements ?? []} axis="X" cx={0} cz={-(D / 2 + T / 2)}
-                isSelected={selectedWall === 'A'} onClick={() => onWallClick?.('A')}
+                elements={wallA?.elements ?? EMPTY_ELEMENTS} axis="X" cx={0} cz={-(D / 2 + T / 2)}
+                isSelected={selectedWall === 'A'} onClick={handleWallClickA}
                 panelSettings={panelsA} />
             </group>
 
@@ -461,7 +518,7 @@ export function RoomScene({
             <group {...(holdBind?.('wall', 'B') ?? {})}>
               <Wall plaster={plasterWalls} wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
                 elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
-                isSelected={selectedWall === 'B'} onClick={() => onWallClick?.('B')}
+                isSelected={selectedWall === 'B'} onClick={handleWallClickB}
                 panelSettings={panelsB} />
             </group>
 
@@ -472,8 +529,8 @@ export function RoomScene({
           <WallFade hidden={hiddenWalls.has('C')}>
             <group {...(holdBind?.('wall', 'C') ?? {})}>
               <Wall plaster={plasterWalls} wallId="C" length={W} height={H} thickness={T} covering={coveringC}
-                elements={wallC?.elements ?? []} axis="X" cx={0} cz={D / 2 + T / 2}
-                isSelected={selectedWall === 'C'} onClick={() => onWallClick?.('C')}
+                elements={wallC?.elements ?? EMPTY_ELEMENTS} axis="X" cx={0} cz={D / 2 + T / 2}
+                isSelected={selectedWall === 'C'} onClick={handleWallClickC}
                 panelSettings={panelsC} />
             </group>
 
@@ -485,7 +542,7 @@ export function RoomScene({
             <group {...(holdBind?.('wall', 'D') ?? {})}>
               <Wall plaster={plasterWalls} wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
                 elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}
-                isSelected={selectedWall === 'D'} onClick={() => onWallClick?.('D')}
+                isSelected={selectedWall === 'D'} onClick={handleWallClickD}
                 panelSettings={panelsD} />
             </group>
 
@@ -533,4 +590,4 @@ export function RoomScene({
       )}
     </group>
   );
-}
+});

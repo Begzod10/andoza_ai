@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -376,7 +376,7 @@ function WallPanelGrid({
 }
 
 
-export function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
+export const Wall = memo(function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
   const oboyTexture = useMemo(() => {
     if (covering.kind !== 'oboy') return null;
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor);
@@ -551,7 +551,7 @@ export function Wall({ length, height, thickness, covering, elements, axis, cx, 
       )}
     </group>
   );
-}
+});
 
 
 // ─── Window glass panes ───────────────────────────────────────────────────────
