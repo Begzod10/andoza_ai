@@ -325,6 +325,8 @@ async def list_furniture_admin(
     store_id: uuid_module.UUID | None = None,
     category: str | None = None,
     room_type: str | None = None,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
 ) -> list[FurnitureAdminOut]:
     query = select(Furniture).options(selectinload(Furniture.store))
     if store_id is not None:
@@ -334,7 +336,10 @@ async def list_furniture_admin(
     if room_type is not None:
         query = query.where(Furniture.room_type == room_type)
 
-    result = await db.execute(query.order_by(Furniture.created_at.desc()))
+    offset = (page - 1) * per_page
+    result = await db.execute(
+        query.order_by(Furniture.created_at.desc()).offset(offset).limit(per_page)
+    )
     items = result.scalars().all()
     return [_furniture_out(f, request, f.store.name if f.store else None) for f in items]
 

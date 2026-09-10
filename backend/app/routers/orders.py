@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -98,12 +98,17 @@ async def create_order(
 async def list_orders(
     current_user: CurrentUser,
     db: DbSession,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
 ) -> list[OrderOut]:
+    offset = (page - 1) * per_page
     result = await db.execute(
         select(Order)
         .where(Order.user_id == current_user.id)
         .options(selectinload(Order.lines))
         .order_by(Order.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
     )
     orders = result.scalars().all()
     return [OrderOut.model_validate(order) for order in orders]

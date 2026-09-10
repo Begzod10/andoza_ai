@@ -76,11 +76,16 @@ async def list_wallpapers(
                     "shop) are always excluded when this is set — use the "
                     "admin catalog's unassigned view for those instead",
     ),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
 ) -> list[WallpaperOut]:
     query = select(Wallpaper).options(selectinload(Wallpaper.store))
     if store_id is not None:
         query = query.where(Wallpaper.store_id == store_id)
-    result = await db.execute(query.order_by(Wallpaper.created_at.desc()))
+    offset = (page - 1) * per_page
+    result = await db.execute(
+        query.order_by(Wallpaper.created_at.desc()).offset(offset).limit(per_page)
+    )
     return [_out(w, request) for w in result.scalars().all()]
 
 
