@@ -16,6 +16,7 @@ class EstimateLine(BaseModel):
     is_approximate: bool = False
     store_id: UUID | None = None
     category: str = ""
+    warning: str | None = None
 
 
 class EstimateResponse(BaseModel):
@@ -23,12 +24,21 @@ class EstimateResponse(BaseModel):
     room_id: UUID
     lines: list[EstimateLine]
     total_uzs: int
+    # Split of total_uzs by line precision — added, never removes a field,
+    # so an old persisted Estimate (from before this split existed) still
+    # deserialises: GET /estimates/{id} recomputes both from the stored
+    # lines JSONB rather than trusting a column that predates the split.
+    total_exact_uzs: int = 0
+    total_approx_uzs: int = 0
     total_min: int
     total_max: int
     currency: str = "UZS"
     status: str = "final"
     created_at: datetime
     has_electrical: bool
+    # Whether has_electrical is backed by real placed point counts rather
+    # than the ELEC_POINTS_DEFAULT fallback guess — see app.services.smeta.
+    electrical_confirmed: bool = False
     # so'm-per-1-USD used to compute total_usd (see app.services.currency) —
     # returned alongside so the frontend can convert every line client-side
     # without a second round trip, and show the rate it priced against.

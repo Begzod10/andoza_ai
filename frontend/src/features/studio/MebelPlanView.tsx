@@ -81,7 +81,9 @@ const TOOL_META: Array<{ type: ElType; label: string; hint: string }> = [
 const BLUE = '#1E3A8A'
 const WALL_DARK = '#2B2622'
 const FLOOR_FILL = '#F0EDE5'
-const SELECT = '#D85A30'
+// Brand blue (tailwind.config's `brand` token) — was '#D85A30', a terracotta
+// wall-paint swatch value that had nothing to do with the actual brand color.
+const SELECT = '#1E40AF'
 
 interface WallDef {
   id: string
@@ -194,6 +196,7 @@ export function MebelPlanView() {
   const removeElement = useRoomStore((s) => s.removeElement)
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
+  const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   const moveFurniture = useRoomStore((s) => s.moveFurniture)
   const resizeFurniture = useRoomStore((s) => s.resizeFurniture)
   const removeFurniture = useRoomStore((s) => s.removeFurniture)
@@ -259,7 +262,7 @@ export function MebelPlanView() {
 
   /** Placed item → its plan-space extents around the model origin, in mm. */
   function furExtents(item: PlacedFurniture) {
-    const entry = resolveFurnitureEntry(item.furniture_id, userFurniture)
+    const entry = resolveFurnitureEntry(item.furniture_id, userFurniture, catalogFurniture)
     const hull = hullsRef.current.get(item.id)
     if (entry && hull) {
       const b = hullBounds(hull, item.rotation, itemScale(entry, item) * 1000)
@@ -413,7 +416,7 @@ export function MebelPlanView() {
   }
 
   const selFur = selectedFur ? furniture.find((f) => f.id === selectedFur) ?? null : null
-  const selFurEntry = selFur ? resolveFurnitureEntry(selFur.furniture_id, userFurniture) : undefined
+  const selFurEntry = selFur ? resolveFurnitureEntry(selFur.furniture_id, userFurniture, catalogFurniture) : undefined
 
   /** Turn the selected item; the new angle may push it out of the room, so re-clamp. */
   function setFurnitureRotation(deg: number) {
@@ -542,14 +545,14 @@ export function MebelPlanView() {
         ) : (
           <div className="flex flex-col gap-1">
             {furniture.map((f) => {
-              const entry = resolveFurnitureEntry(f.furniture_id, userFurniture)
+              const entry = resolveFurnitureEntry(f.furniture_id, userFurniture, catalogFurniture)
               const so = f.scaleOverride ?? 1
               return (
                 <button
                   key={f.id}
                   onClick={() => { setSelectedFur(selectedFur === f.id ? null : f.id); setSelected(null) }}
                   className={`flex items-center gap-2 p-1.5 rounded-lg border text-left transition-colors ${
-                    selectedFur === f.id ? 'border-[#D85A30] bg-orange-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    selectedFur === f.id ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
                   <span className="text-[14px] leading-none shrink-0">{entry?.emoji ?? '📦'}</span>
@@ -578,6 +581,11 @@ export function MebelPlanView() {
           onPointerLeave={endDrag}
           onContextMenu={(e) => e.preventDefault()}
         >
+          {/* Scoped focus ring for the keyboard-focusable items below — see
+              the same note in PlacementPage.tsx/ChiroqPlanView.tsx: restated
+              locally rather than relying silently on the app's global
+              :focus-visible outline rule applying to these SVG shapes. */}
+          <style>{`.kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1E40AF); outline-offset: 2px; }`}</style>
           {/* floor */}
           <rect x={0} y={0} width={W} height={Dp} fill={FLOOR_FILL} />
           {/* faint grid every metre */}
@@ -614,11 +622,58 @@ export function MebelPlanView() {
                   const isSel = selected?.id === el.id
                   const p = el.position
                   const w = el.width
+
+                  // Keyboard equivalent of the pointer path: Enter/Space
+                  // selects exactly like a click does (startDrag also
+                  // selects, but only a keyboard-triggered select should not
+                  // arm a drag); arrows nudge on the same DRAG_STEP grid the
+                  // pointer drag snaps to, via the same clampElementPosition
+                  // + updateElement the drag handler and inspector nudge
+                  // buttons already use; Delete/Backspace reuses removeElement,
+                  // the same action the inspector's "O'chirish" button calls.
+                  function handleOpeningKeyDown(e: React.KeyboardEvent) {
+                    switch (e.key) {
+                      case 'Enter':
+                      case ' ':
+                        e.preventDefault()
+                        setSelected({ wallId: wall.id, id: el.id })
+                        setSelectedFur(null)
+                        break
+                      case 'ArrowLeft':
+                      case 'ArrowUp': {
+                        e.preventDefault()
+                        const others = resolvedWallEls(wall.id, wall.len).filter((o) => o.id !== el.id)
+                        const pos = clampElementPosition(p - DRAG_STEP, w, wall.len, others)
+                        if (pos !== null) updateElement(wall.id, el.id, { position: pos })
+                        break
+                      }
+                      case 'ArrowRight':
+                      case 'ArrowDown': {
+                        e.preventDefault()
+                        const others = resolvedWallEls(wall.id, wall.len).filter((o) => o.id !== el.id)
+                        const pos = clampElementPosition(p + DRAG_STEP, w, wall.len, others)
+                        if (pos !== null) updateElement(wall.id, el.id, { position: pos })
+                        break
+                      }
+                      case 'Delete':
+                      case 'Backspace':
+                        e.preventDefault()
+                        removeElement(wall.id, el.id)
+                        if (selected?.id === el.id) setSelected(null)
+                        break
+                    }
+                  }
+
                   return (
                     <g
                       key={el.id ?? `${wall.id}-${i}`}
                       style={{ cursor: 'grab' }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${el.type === 'eshik' ? 'Eshik' : el.type === 'deraza' ? 'Deraza' : 'Balkon'} — ${wall.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                      className="kbd-focusable"
                       onPointerDown={(e) => startDrag(wall, el, e)}
+                      onKeyDown={handleOpeningKeyDown}
                     >
                       {/* opening */}
                       <rect x={p} y={0} width={w} height={T} fill="#FFFFFF" />
@@ -669,12 +724,83 @@ export function MebelPlanView() {
           <PlanFurnitureLayer
             furniture={furniture}
             userFurniture={userFurniture}
+            catalogFurniture={catalogFurniture}
             W={W}
             Dp={Dp}
             selectedId={selectedFur}
             onHull={onHull}
             onPointerDownItem={startFurnitureDrag}
           />
+
+          {/* Keyboard-only accessibility overlay for furniture: the visible
+              silhouettes above come from PlanFurnitureLayer (PlanFurniture.tsx,
+              not owned by this pass), so pointer interaction there is left
+              untouched. This transparent, pointer-events:none rect per item
+              sits over the item's real footprint (furExtents — the same
+              bounds the drag clamp uses) purely to give Tab a stop, and its
+              handlers call the exact same moveFurniture/removeFurniture store
+              actions the mouse drag and the "O'chirish" button already call. */}
+          {furniture.map((item) => {
+            const entry = resolveFurnitureEntry(item.furniture_id, userFurniture, catalogFurniture)
+            const b = furExtents(item)
+            const planX = item.x + W / 2
+            const planY = item.y + Dp / 2
+
+            function nudgeFurniture(dx: number, dy: number) {
+              const snapped = clampFurniture(item, planX + dx, planY + dy)
+              moveFurniture(item.id, Math.round(snapped.x - W / 2), Math.round(snapped.y - Dp / 2), item.rotation)
+            }
+
+            function handleFurKeyDown(e: React.KeyboardEvent) {
+              switch (e.key) {
+                case 'Enter':
+                case ' ':
+                  e.preventDefault()
+                  setSelectedFur(item.id)
+                  setSelected(null)
+                  break
+                case 'ArrowLeft':
+                  e.preventDefault()
+                  nudgeFurniture(-FUR_STEP, 0)
+                  break
+                case 'ArrowRight':
+                  e.preventDefault()
+                  nudgeFurniture(FUR_STEP, 0)
+                  break
+                case 'ArrowUp':
+                  e.preventDefault()
+                  nudgeFurniture(0, -FUR_STEP)
+                  break
+                case 'ArrowDown':
+                  e.preventDefault()
+                  nudgeFurniture(0, FUR_STEP)
+                  break
+                case 'Delete':
+                case 'Backspace':
+                  e.preventDefault()
+                  removeFurniture(item.id)
+                  if (selectedFur === item.id) setSelectedFur(null)
+                  break
+              }
+            }
+
+            return (
+              <rect
+                key={`kbd-${item.id}`}
+                x={planX + b.minX}
+                y={planY + b.minZ}
+                width={Math.max(1, b.maxX - b.minX)}
+                height={Math.max(1, b.maxZ - b.minZ)}
+                fill="transparent"
+                style={{ pointerEvents: 'none' }}
+                tabIndex={0}
+                role="button"
+                aria-label={`${entry?.name ?? 'Mebel'} — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                className="kbd-focusable"
+                onKeyDown={handleFurKeyDown}
+              />
+            )
+          })}
 
           {/* dimension chain for the selected element */}
           {selected && selResolved && (

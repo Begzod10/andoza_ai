@@ -86,7 +86,62 @@ function toStandardMaterials(root: THREE.Object3D): number {
   return converted.size
 }
 
-function extractSceneInfo(root: THREE.Object3D): ModelInfo {
+/** Every texture slot MeshStandardMaterial (and glTF-sourced materials)
+ *  carries — used by stripUnloadedTextures to catch broken bindings. */
+const TEXTURE_SLOTS = [
+  'map', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap',
+  'metalnessMap', 'alphaMap', 'aoMap', 'emissiveMap', 'envMap',
+  'lightMap', 'specularMap', 'gradientMap',
+] as const
+
+type TexturedMaterial = THREE.Material &
+  Partial<Record<(typeof TEXTURE_SLOTS)[number], THREE.Texture | null>>
+
+/**
+ * Some FBX/OBJ material channels — an external texture the manager's
+ * onError already flagged as missing, or an exotic map type (e.g.
+ * ShininessExponent, VectorDisplacementColor) the loader partially wires up
+ * before giving up on — leave a THREE.Texture bound to a material slot with
+ * no decoded `.image`. GLTFExporter throws outright on such a texture ("No
+ * valid image data found"), which used to abort the whole import over one
+ * bad slot in an otherwise-good model.
+ *
+ * Strip any texture missing image data before export. A material minus a
+ * broken map still renders (flat color); a failed export renders nothing.
+ * Returns how many texture slots were cleared.
+ */
+function stripUnloadedTextures(root: THREE.Object3D): number {
+  let cleared = 0
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const raw of mats) {
+      if (!raw) continue
+      const m = raw as TexturedMaterial
+      let touched = false
+      for (const slot of TEXTURE_SLOTS) {
+        const tex = m[slot]
+        if (tex && !tex.image) {
+          tex.dispose()
+          m[slot] = null
+          cleared++
+          touched = true
+        }
+      }
+      if (touched) m.needsUpdate = true
+    }
+  })
+  return cleared
+}
+
+/**
+ * Auto-detect a model's real-world scale purely from its own geometry —
+ * no target size needed. Used both right after import (modelConverter's own
+ * pipeline) and for shop-catalog models loaded straight from a URL in the
+ * studio, which arrive with no pre-computed scale at all.
+ */
+export function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   const box = new THREE.Box3().setFromObject(root)
   // An empty scene would sail through as a 0×0 m entry with no materials and
   // nothing to render. Fail loudly instead — the import is not usable.
@@ -195,11 +250,15 @@ const IMG_EXT = /\.(png|jpe?g|webp|bmp)$/i
 // can't decode (.tx/.tif/.tga/.psd are common in 3ds Max/Corona exports).
 // Requests for these are texture-like even when no picked file can serve them.
 const TEXTURE_REQUEST_EXT = /\.(tx|tiff?|tga|psd|png|jpe?g|webp|bmp)$/i
-// Filename markers for a colour/albedo map. The short markers (`_col`, `_d`)
-// must be matched between delimiters — as bare substrings they hit almost any
-// filename ("_d" alone matched every name containing the letter d).
+// Filename markers for a colour/albedo map. The short markers (`_col`, `_dif`,
+// `_d`) must be matched between delimiters — as bare substrings they hit
+// almost any filename ("_d" alone matched every name containing the letter
+// d). `dif` (e.g. "dif_wood.jpg", a common 3ds Max/Corona export convention)
+// used to fall through every branch here — it isn't "diffuse" in full, and
+// isn't the bare "d" token — leaving the material with no map at all and
+// whatever flat placeholder color the exporter baked in.
 const DIFFUSE_HINT_RE =
-  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])d($|[_-]))/i
+  /(diffuse|albedo|base[_-]?colou?r|colou?r|(^|[_-])col($|[_-])|(^|[_-])dif($|[_-])|(^|[_-])d($|[_-]))/i
 // Maps that are NOT colour. Binding one of these as the diffuse yields a valid,
 // decodable, near-white texture — the model then renders flat white while every
 // "has a texture?" check happily reports yes.
@@ -303,7 +362,13 @@ function autoAssignDiffuseMaps(
     const mats = Array.isArray(child.material) ? child.material : [child.material]
     for (const m of mats) {
       if (!(m instanceof THREE.MeshStandardMaterial) && !(m instanceof THREE.MeshPhongMaterial)) continue
-      if (m.map) continue
+      // A map that's merely BOUND isn't necessarily usable: some FBX/Corona
+      // material graphs wire a diffuse slot through an internal node (seen in
+      // the wild as e.g. "Texmap_Level", a color-correction wrapper) that
+      // FBXLoader can't trace to an actual bitmap — it creates a Texture with
+      // no `.image` that will never load. Skipping only on a genuinely loaded
+      // map lets filename matching still rescue those.
+      if (m.map && m.map.image) continue
       const mName = normStem(m.name || child.name || '')
       // Same fuzzy cascade as texture-request resolution: normalized-stem
       // equality first, then containment in either direction.
@@ -516,7 +581,11 @@ export async function convertFilesToGlb(
       const stripped = stripBackdropPlanes(gltf.scene)
       const uvFixed = ensureSceneUVs(gltf.scene)
       const assigned = await autoAssignDiffuseMaps(gltf.scene, files, resources)
-      const buffer = stripped + assigned + uvFixed > 0 ? await toGlbBuffer(gltf.scene) : origBuffer
+      const texturesCleared = stripUnloadedTextures(gltf.scene)
+      const buffer =
+        stripped + assigned + uvFixed + texturesCleared > 0
+          ? await toGlbBuffer(gltf.scene)
+          : origBuffer
       const thumbnailUrl = renderThumbnail(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
     }
@@ -527,6 +596,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(gltf.scene, files, resources)
+      stripUnloadedTextures(gltf.scene)
       const thumbnailUrl = renderThumbnail(gltf.scene)
       const buffer = await toGlbBuffer(gltf.scene)
       return { buffer, info: extractSceneInfo(gltf.scene), mainFile, missingTextures: missingList(), parts: countTextured(gltf.scene), thumbnailUrl }
@@ -548,6 +618,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
       const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
@@ -560,6 +631,7 @@ export async function convertFilesToGlb(
       ensureSceneUVs(scene)
       await awaitTextures()
       await autoAssignDiffuseMaps(scene, files, resources)
+      stripUnloadedTextures(scene)
       const thumbnailUrl = renderThumbnail(scene)
       const buffer = await toGlbBuffer(scene)
       return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
@@ -828,28 +900,3 @@ export async function applyMaterialToGlb(
   return await toGlbBuffer(gltf.scene)
 }
 
-/**
- * Manually skin a stored GLB with an image.
- * - targetIndex given: bind ONLY that part (material cloned first, so parts
- *   sharing a material are textured independently).
- * - targetIndex omitted: bind every unmapped part, or all of them when the
- *   model is already fully mapped (so the action always has an effect).
- * Re-exports a self-contained GLB.
- */
-export async function applyTextureToGlb(
-  buffer: ArrayBuffer,
-  imageFile: File,
-  targetIndex?: number,
-): Promise<ArrayBuffer> {
-  // Single-image case of applyMaterialToGlb — the image is classified by name,
-  // so a file called *_normal.png still lands on the right channel.
-  return applyMaterialToGlb(buffer, [imageFile], targetIndex)
-}
-
-/** Single-file convenience wrapper (kept for compatibility). */
-export async function convertToGlb(
-  file: File,
-): Promise<{ buffer: ArrayBuffer; info: ModelInfo }> {
-  const { buffer, info } = await convertFilesToGlb([file])
-  return { buffer, info }
-}

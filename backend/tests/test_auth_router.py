@@ -7,6 +7,8 @@ Tests:
   - GET /api/v1/auth/me → requires auth
   - POST /api/v1/auth/logout → requires auth
 """
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch, MagicMock
@@ -17,6 +19,29 @@ from app.main import app
 def client():
     """FastAPI TestClient."""
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """This file talks to the REAL Redis (no mocking, unlike test_auth.py's
+    FakeRedis) — TestClient always reports the same fake IP ("testclient"),
+    so repeated runs of this file accumulate real register/login rate-limit
+    counters against that one key until they trip for real, failing a test
+    that has nothing to do with rate limiting. Clear them before every test."""
+    import asyncio
+
+    from app.core.cache import get_redis
+
+    async def _flush() -> None:
+        redis = get_redis()
+        keys: list[str] = []
+        for pattern in ("register_ip_rate:*", "login_ip_rate:*", "login_user_rate:*"):
+            keys.extend(await redis.keys(pattern))
+        if keys:
+            await redis.delete(*keys)
+
+    asyncio.run(_flush())
+    yield
 
 
 class TestOTPRequest:
@@ -136,12 +161,18 @@ class TestAuthValidation:
 
     def test_register_with_valid_data(self, client):
         """POST /api/v1/auth/register with valid data."""
+        # A hardcoded username/phone here collides with whatever an earlier
+        # run already left in a persistent dev DB (a fresh CI DB never hits
+        # this, but a real dev database does) — register()ing a 409 on
+        # someone else's leftover row isn't this test's concern either way,
+        # so give every run its own identity instead.
+        suffix = uuid.uuid4().hex[:10]
         response = client.post(
             '/api/v1/auth/register',
             json={
-                'username': 'testuser',
+                'username': f'testuser_{suffix}',
                 'password': 'TestPassword123',
-                'phone': '+998901234567'
+                'phone': f'+998{str(uuid.uuid4().int)[:9]}'
             }
         )
         # Should succeed or fail with 400, not 404
@@ -149,11 +180,28 @@ class TestAuthValidation:
 
     def test_login_with_password(self, client):
         """POST /api/v1/auth/login with credentials."""
+        # Self-contained: register the exact user being logged into, rather
+        # than assuming test_register_with_valid_data already created one —
+        # that made this test's outcome depend on execution order and on
+        # what a previous run happened to leave in the DB.
+        suffix = uuid.uuid4().hex[:10]
+        username = f'testuser_{suffix}'
+        password = 'TestPassword123'
+        register_response = client.post(
+            '/api/v1/auth/register',
+            json={
+                'username': username,
+                'password': password,
+                'phone': f'+998{str(uuid.uuid4().int)[:9]}'
+            }
+        )
+        assert register_response.status_code in [200, 201]
+
         response = client.post(
             '/api/v1/auth/login',
             json={
-                'username': 'testuser',
-                'password': 'TestPassword123'
+                'username': username,
+                'password': password
             }
         )
         # Should return 200/401 based on creds, not 404

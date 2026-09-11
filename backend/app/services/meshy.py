@@ -154,33 +154,6 @@ class MeshyClient:
 
         raise TimeoutError(f"Meshy task {task_id} did not complete within {max_polls * poll_interval}s")
 
-    async def download_model(
-        self,
-        model_url: str,
-        format: str = "glb",
-    ) -> bytes:
-        """Download 3D model file from Meshy.
-
-        Args:
-            model_url: URL to .glb or other format
-            format: Expected format ('glb', 'obj', 'fbx', etc.)
-
-        Returns:
-            Model file binary data
-
-        Raises:
-            MeshyError: If download fails
-        """
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            try:
-                response = await client.get(model_url)
-                response.raise_for_status()
-                log.info("meshy_model_downloaded", size_bytes=len(response.content))
-                return response.content
-            except httpx.HTTPError as e:
-                log.error("meshy_download_error", url=model_url, error=str(e))
-                raise MeshyError(f"Failed to download model from {model_url}: {e}") from e
-
     async def convert_image_to_3d(
         self,
         image_url: str,

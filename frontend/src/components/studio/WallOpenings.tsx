@@ -11,8 +11,16 @@
  * wall from its left edge) and `sill_height` (mm above the floor). A drag only
  * ever writes those two numbers back via updateElement(wallId, …), so an
  * opening can never leave its wall.
+ *
+ * Perf note: a pointer drag commits to the store via updateElement exactly
+ * ONCE, on pointerup — never on every pointermove. Live drag position lives
+ * in `liveDragRef` (see below) and is read directly during render (already
+ * re-triggered every pointermove by the pre-existing `setGuides` call), so
+ * the dragged opening's own visuals stay fully live without touching
+ * Zustand's `geometry` — which every other 3D/panel consumer also reads —
+ * on every frame of the gesture.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -34,6 +42,10 @@ interface WallDef {
 }
 
 const SNAP_M = 0.03 // 3 cm alignment threshold
+// Keyboard nudge step for a selected opening's position — matches the
+// resize steppers' existing ±100mm convention (there is no drag "grid" for
+// position; the pointer drag is continuous).
+const KEYBOARD_NUDGE_MM = 100
 
 function buildWallDefs(W: number, D: number): Record<string, WallDef> {
   return {
@@ -72,6 +84,42 @@ export function WallOpenings({
   const dragging = useRef(false)
   const [dragActive, setDragActive] = useState(false) // reactive twin of `dragging` for label rendering
   const [guides, setGuides] = useState<Array<{ kind: 'h' | 'v'; wallId: string; at: number }>>([])
+
+  // ── Live-drag position (perf) ───────────────────────────────────────
+  // The whole gesture writes to the store exactly ONCE, on pointerup.
+  // While dragging, the live position/sill_height live only in this ref —
+  // never in Zustand — so every pointermove does NOT trigger a full
+  // `geometry` rebuild (which would cascade re-renders through every other
+  // consumer of `geometry`: ThreeDPage, RoomScene, DesignPanel's
+  // WallSection/SuvoqSection/WallPanelGenerator, …). The `setGuides(g)` call
+  // in `onMove` already re-renders this component on every pointermove (it
+  // always did, even before this fix), so reading this ref during render
+  // is enough to keep the dragged opening's visuals — hit-plane, selection
+  // border, toolbar, dimension labels — perfectly live without any extra
+  // store write or extra re-render source.
+  const liveDragRef = useRef<{ wallId: string; elId: string; position: number; sill_height: number } | null>(null)
+
+  // Selection-border plane geometry is only ever needed for the single
+  // currently-selected opening, so a one-slot cache keyed on its (width,
+  // height) is enough to stop `new THREE.PlaneGeometry(...)` from being
+  // reallocated on every re-render while dragging (mirrors the per-segment
+  // memoization WallComponents.tsx uses — this can't be a real `useMemo`
+  // because the geometry is built inside a `.map()` callback, not a
+  // component, so hooks aren't available here).
+  const edgesPlaneCache = useRef<{ key: string; geo: THREE.PlaneGeometry } | null>(null)
+  function getEdgesPlane(widthM: number, heightM: number): THREE.PlaneGeometry {
+    const key = `${widthM}:${heightM}`
+    const cached = edgesPlaneCache.current
+    if (cached && cached.key === key) return cached.geo
+    cached?.geo.dispose()
+    const geo = new THREE.PlaneGeometry(widthM, heightM)
+    edgesPlaneCache.current = { key, geo }
+    return geo
+  }
+  // Dispose the last cached instance when this layer unmounts (e.g. leaving
+  // the 3D view) — the per-key disposal inside getEdgesPlane only handles
+  // the "dimensions changed" case, not final teardown.
+  useEffect(() => () => { edgesPlaneCache.current?.geo.dispose() }, [])
 
   // ── Drag maths ───────────────────────────────────────────────────────
   function computeDrag(wd: WallDef, el: WallElement, hit: THREE.Vector3): { position: number; sill_height: number; guides: Array<{ kind: 'h' | 'v'; wallId: string; at: number }> } {
@@ -159,8 +207,12 @@ export function WallOpenings({
     e.stopPropagation()
     const hit = new THREE.Vector3()
     if (!e.ray.intersectPlane(wd.plane, hit)) return
+    // Collision/edge clamping (computeDrag) still runs on every pointermove
+    // — that's cheap and drives the live visual feedback below. What no
+    // longer happens here is a store write: the result goes into a ref, not
+    // into `updateElement`, so this does not touch `geometry` at all.
     const { position, sill_height, guides: g } = computeDrag(wd, el, hit)
-    updateElement(wd.id, el.id, { position, sill_height })
+    liveDragRef.current = { wallId: wd.id, elId: el.id, position, sill_height }
     setGuides(g)
   }
   function onUp(e: ThreeEvent<PointerEvent>) {
@@ -169,6 +221,10 @@ export function WallOpenings({
     setDragActive(false)
     onInteracting(false)
     setGuides([])
+    // The ONE store write for the whole drag gesture — the final position.
+    const live = liveDragRef.current
+    if (live) updateElement(live.wallId, live.elId, { position: live.position, sill_height: live.sill_height })
+    liveDragRef.current = null
     ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
   }
 
@@ -182,8 +238,16 @@ export function WallOpenings({
           if (el.type !== 'deraza' && el.type !== 'eshik' && el.type !== 'balkon') return null
           const isDoor = el.type === 'eshik'
           const isSel = selected?.wallId === w.id && selected?.elId === el.id
-          const centerAlongM = (el.position + el.width / 2) * s
-          const centerY = (el.sill_height + el.height / 2) * s
+          // While THIS element is the one being dragged, render from the
+          // live ref instead of the (intentionally stale, until pointerup)
+          // store value — everything below reads `liveEl`, never `el`, for
+          // anything position/sill_height related.
+          const live = liveDragRef.current
+          const liveEl: WallElement = live && live.wallId === w.id && live.elId === el.id
+            ? { ...el, position: live.position, sill_height: live.sill_height }
+            : el
+          const centerAlongM = (liveEl.position + liveEl.width / 2) * s
+          const centerY = (liveEl.sill_height + liveEl.height / 2) * s
           const [px, py, pz] = toWorld(wd, centerAlongM, centerY, 0.02)
           return (
             <group key={`op-${w.id}-${el.id}`}>
@@ -201,17 +265,60 @@ export function WallOpenings({
                 <meshBasicMaterial color="#2E5BFF" transparent opacity={isSel ? 0.18 : 0} depthWrite={false} side={THREE.DoubleSide} />
               </mesh>
 
+              {/* Keyboard path to mesh selection: three.js meshes have no
+                  native DOM focus, so this renders a real (invisible)
+                  <button> — via the same <Html> portal the toolbar below
+                  uses — anchored at the opening's centre. Tab reaches it,
+                  Enter/Space is the browser's native button activation
+                  (calling the same onSelect the mesh's onClick uses), arrows
+                  nudge position via the same updateElement the drag handler
+                  calls, and Delete/Backspace reuses the same removeElement
+                  the toolbar's "O'chirish" button calls. */}
+              <Html position={[px, py, pz]} center zIndexRange={[200, 0]} style={{ pointerEvents: 'none' }}>
+                <button
+                  type="button"
+                  aria-label={`${isDoor ? 'Eshik' : el.type === 'balkon' ? 'Balkon eshigi' : 'Deraza'} — ${w.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                  onClick={() => onSelect({ wallId: w.id, elId: el.id })}
+                  onKeyDown={(e) => {
+                    const wallLenMm = wd.length * 1000
+                    switch (e.key) {
+                      case 'ArrowLeft':
+                      case 'ArrowUp':
+                        e.preventDefault()
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, -KEYBOARD_NUDGE_MM) })
+                        break
+                      case 'ArrowRight':
+                      case 'ArrowDown':
+                        e.preventDefault()
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, KEYBOARD_NUDGE_MM) })
+                        break
+                      case 'Delete':
+                      case 'Backspace':
+                        e.preventDefault()
+                        removeElement(w.id, el.id)
+                        if (isSel) { onSelect(null); setMode('idle') }
+                        break
+                    }
+                  }}
+                  style={{
+                    width: 28, height: 28, padding: 0, margin: 0,
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    pointerEvents: 'auto',
+                  }}
+                />
+              </Html>
+
               {/* Selection border */}
               {isSel && (
                 <lineSegments position={[px, py, pz]} rotation={[0, wd.ry, 0]}>
-                  <edgesGeometry args={[new THREE.PlaneGeometry(el.width * s, el.height * s)]} />
+                  <edgesGeometry args={[getEdgesPlane(el.width * s, el.height * s)]} />
                   <lineBasicMaterial color="#2E5BFF" />
                 </lineSegments>
               )}
 
               {/* Floating toolbar */}
               {isSel && (
-                <Html position={toWorld(wd, centerAlongM, (el.sill_height + el.height) * s + 0.12, 0.04)} center zIndexRange={[220, 0]}>
+                <Html position={toWorld(wd, centerAlongM, (liveEl.sill_height + liveEl.height) * s + 0.12, 0.04)} center zIndexRange={[220, 0]}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: 6, padding: 6, background: 'white', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap' }}>
                       <button onClick={() => setMode((m) => (m === 'move' ? 'idle' : 'move'))}
@@ -240,7 +347,7 @@ export function WallOpenings({
 
               {/* Live dimension labels while dragging this object */}
               {isSel && mode === 'move' && dragActive && (
-                <DimensionLabels wd={wd} el={el} W={W} D={D} H={H} isDoor={isDoor} />
+                <DimensionLabels wd={wd} el={liveEl} W={W} D={D} H={H} isDoor={isDoor} />
               )}
             </group>
           )
@@ -278,6 +385,13 @@ function btn(active: boolean): React.CSSProperties {
 const stepBtn: React.CSSProperties = {
   border: 'none', borderRadius: 6, width: 26, height: 26, fontSize: 15, fontWeight: 700,
   cursor: 'pointer', background: '#F1F3F8', color: '#1A2340', lineHeight: 1,
+}
+
+/** New position (mm) after a keyboard ±delta, clamped to the wall's bounds.
+ *  Unlike the pointer drag's computeDrag, this does not re-run the sibling
+ *  no-overlap/snap logic — it is a simple bounded nudge, not a full re-drag. */
+function clampPosition(el: WallElement, wallLenMm: number, deltaMm: number): number {
+  return Math.max(0, Math.min(wallLenMm - el.width, el.position + deltaMm))
 }
 
 /** New width (mm) after a ±delta, min 40 cm and never past the wall's right edge. */

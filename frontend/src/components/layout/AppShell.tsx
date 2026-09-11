@@ -1,6 +1,8 @@
 import type React from 'react'
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { logoutApi } from '@/lib/api'
+import { useAuthStore } from '@/store/authStore'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -142,6 +144,16 @@ function IconProfile() {
   )
 }
 
+function IconLogout() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  )
+}
+
 const SIDEBAR_NAV: Array<{ to: string; label: string; icon: (active: boolean) => React.ReactNode }> = [
   { to: '/projects', label: 'Uy',      icon: (a) => <IconHome filled={a} /> },
   { to: '/dokon',    label: "Do'kon",  icon: (a) => <IconShop filled={a} /> },
@@ -152,6 +164,18 @@ const SIDEBAR_NAV: Array<{ to: string; label: string; icon: (active: boolean) =>
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
 
 function DesktopSidebar({ onNew }: { onNew: () => void }) {
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    try {
+      await logoutApi()
+    } catch {
+      // Cookie may already be gone (expired session) — clear local state regardless.
+    }
+    useAuthStore.getState().logout()
+    navigate('/login')
+  }
+
   return (
     <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-neutral-200 z-30">
       {/* Logo */}
@@ -186,6 +210,14 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
             )}
           </NavLink>
         ))}
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-neutral-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+        >
+          <span className="text-neutral-400"><IconLogout /></span>
+          Chiqish
+        </button>
       </nav>
 
       {/* New project button */}

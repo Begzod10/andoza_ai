@@ -40,6 +40,25 @@ export function formatUSDFromUZS(soum: number, usdRate: number): string {
 }
 
 /**
+ * Format a so'm amount compactly for tight spaces (a nav-tab badge, a
+ * running-total chip) where formatUZS's full digit string doesn't fit.
+ * Examples: 60_987_000 -> "61 mln so'm", 850_000 -> "850 ming so'm",
+ * 4_500 -> "4 500 so'm" (falls back to formatUZS below 1 000).
+ */
+export function formatUZSCompact(soum: number): string {
+  const abs = Math.abs(soum);
+  if (abs >= 1_000_000) {
+    const millions = Math.round((soum / 1_000_000) * 10) / 10;
+    const rounded = Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1);
+    return `${rounded} mln so'm`;
+  }
+  if (abs >= 1_000) {
+    return `${Math.round(soum / 1_000)} ming so'm`;
+  }
+  return formatUZS(soum);
+}
+
+/**
  * Format area in square metres.
  * Example: 12.4 -> "12.4 m²"
  */

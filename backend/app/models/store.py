@@ -52,6 +52,12 @@ class Store(Base):
         cascade="all, delete-orphan",
         lazy="select",
     )
+    wallpapers: Mapped[list["Wallpaper"]] = relationship(  # noqa: F821
+        "Wallpaper",
+        back_populates="store",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
 
     def __repr__(self) -> str:
         return f"<Store id={self.id} name={self.name!r} tier={self.partner_tier!r}>"

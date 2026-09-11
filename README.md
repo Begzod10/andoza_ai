@@ -25,22 +25,33 @@ open http://localhost:5173
 - Backend: FastAPI + PostgreSQL + Redis + Celery -> localhost:8000
 - API docs: http://localhost:8000/docs
 
-## Phase 1 (current)
+## Shipped
 
 - Measurement wizard (60-second room input)
-- Isometric room preview (live SVG)
-- Material catalog with UZS prices
-- Smeta engine (deterministic calculations)
+- 3D "Ichkarida" studio (React Three Fiber) — walls/floor/ceiling finishes,
+  oboy (wallpaper) and paint, wall panels, furniture placement, lighting,
+  electrical points, sibling-room floor-plan view
+- Do'kon: admin-managed catalog of shops, 3D furniture models, and oboy —
+  surfaced live inside the studio's furniture picker
+- Smeta engine (deterministic room-cost calculation) with live USD/UZS
+  conversion, PDF export, and an AI-assisted Q&A drawer over the estimate
 - Ustalar directory with lead generation
-- Phone OTP authentication
+- Phone OTP + password authentication
 
-## Phase 2 (next)
+## Next
 
-- 3D "Ichkarida" mode with PBR materials
-- Walk controls
-- PDF export polish
+- Photo mode (SAM 2 segmentation) and AI dizayner recommendations
+- Walk-through camera controls
+- Real payment flow on the customer-facing marketplace (currently a stub)
 
-## Phase 3 (planned)
+## Project layout
 
-- Photo mode (SAM 2 segmentation)
-- AI dizayner recommendations
+```
+backend/   FastAPI + SQLAlchemy (async) + Alembic + Celery/Redis
+frontend/  React 18 + Vite + TypeScript + R3F (3D) + Zustand + TanStack Query
+```
+
+Routers/services/schemas/models are separated in `backend/app/`; the frontend
+groups by feature under `frontend/src/{pages,components,features,lib,store}`.
+See `.github/workflows/` for CI (`ci.yml`) and the auto-deploy pipeline
+(`deploy.yml`) — every push to `master` is tested, then deployed.

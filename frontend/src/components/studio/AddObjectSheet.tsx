@@ -1,49 +1,51 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getMaterials } from "@/lib/api";
+import type { Material, CatalogFurniture } from "@/lib/api";
 import { useRoomStore } from "@/store/roomStore";
+import { LIGHT_TYPES } from "@/lib/lightCatalog";
+import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
+import { useDebounce } from "@/hooks/useDebounce";
+import { MaterialSwatch } from "./MaterialSwatch";
 
 type Section = "wallpaper" | "lyustra" | "furniture";
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
+// Same ids and labels as DesignPanel's WALL_TARGETS (minus FLOOR/CEILING —
+// this sheet's "Devor" section is wall paint only) so the two surfaces speak
+// the same language instead of drifting.
+type WallId = "ALL" | "A" | "B" | "C" | "D";
 
 interface AddObjectSheetProps {
   onClose: () => void;
   initialSection?: Section;
 }
 
-const WALLPAPER_SWATCHES = [
-  { label: "Ko'k",    color: "#3B63DE" },
-  { label: "Bej",     color: "#E8D9C0" },
-  { label: "Siren",   color: "#C4A0D4" },
-  { label: "Zaytun",  color: "#8FAD6A" },
-  { label: "Naqsh",   color: "pattern" },
-] as const;
-
-const LYUSTRA_ITEMS = [
-  { id: "lyustra_modern",   name: "Modern",     price: "250 000", bg: "#FFF1E7" },
-  { id: "lyustra_klassik",  name: "Klassik",    price: "180 000", bg: "#EEF2FF" },
-  { id: "lyustra_led",      name: "LED Panel",  price: "95 000",  bg: "#EAF7F0" },
-];
-
-const FURNITURE_BY_ROOM: Record<RoomTab, Array<{ id: string; name: string; size: string }>> = {
-  Mehmonxona: [
-    { id: "sofa",    name: "Divan",        size: "2.2 × 0.9 m" },
-    { id: "coffee",  name: "Jurnal stol",  size: "1.0 × 0.6 m" },
-    { id: "tv",      name: "TV stend",     size: "1.8 × 0.45 m" },
-  ],
-  Oshxona: [
-    { id: "table",   name: "Ovqat stoli",  size: "1.2 × 0.8 m" },
-    { id: "cabinet", name: "Shkaf",        size: "0.6 × 0.6 m" },
-  ],
-  Yotoqxona: [
-    { id: "bed",      name: "Karavot",      size: "2.0 × 1.8 m" },
-    { id: "wardrobe", name: "Kiyim shkafi", size: "2.0 × 0.6 m" },
-  ],
-  Vanna: [
-    { id: "bath",    name: "Vanna",        size: "1.7 × 0.75 m" },
-    { id: "toilet",  name: "Unitas",       size: "0.7 × 0.4 m" },
-  ],
+// Uzbek tab label -> the admin catalog's real room_type key (ADMIN_ROOM_TYPES
+// in lib/api.ts). "Vanna" is the label users know; "hammom" is what the
+// catalog actually stores it as.
+const ROOM_TAB_TO_ROOM_TYPE: Record<RoomTab, string> = {
+  Mehmonxona: "mehmonxona",
+  Oshxona: "oshxona",
+  Yotoqxona: "yotoqxona",
+  Vanna: "hammom",
 };
 
+// Ceiling/recessed fixtures only — this sheet drops a light at a fixed
+// default position with no wall picker, so a wall-mounted fixture (bra)
+// wouldn't have anywhere sensible to attach.
+const CEILING_LIGHT_TYPES = LIGHT_TYPES.filter(
+  (t) => t.mount === "ceiling" || t.mount === "recessed"
+);
+
 const ROOM_TABS: RoomTab[] = ["Mehmonxona", "Oshxona", "Yotoqxona", "Vanna"];
+
+const WALL_TARGETS: { key: WallId; label: string }[] = [
+  { key: "ALL", label: "Hamma devorlar" },
+  { key: "A",   label: "Devor A" },
+  { key: "B",   label: "Devor B" },
+  { key: "C",   label: "Devor C" },
+  { key: "D",   label: "Devor D" },
+];
 
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "wallpaper", label: "Devor" },
@@ -51,37 +53,99 @@ const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "furniture", label: "Mebel" },
 ];
 
-function LyustraIcon({ bg }: { bg: string }) {
-  return (
-    <div className="h-24 rounded-2xl flex items-center justify-center mb-2" style={{ background: bg }}>
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-        <ellipse cx="20" cy="18" rx="8" ry="5" stroke="#1E40AF" strokeWidth="1.8" fill="#EEF2FF"/>
-        <path d="M20 23v10" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
-        <circle cx="20" cy="14" r="3" fill="#FDE68A" stroke="#F59E0B" strokeWidth="1.2"/>
-        <path d="M14 30h12" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
-        {[13, 17, 23, 27].map((x) => (
-          <line key={x} x1={x} y1="30" x2={x} y2="35" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
-        ))}
-      </svg>
-    </div>
+function fmtPrice(uzs: number | null): string | null {
+  return uzs == null ? null : `${uzs.toLocaleString("uz-UZ")} so'm`;
+}
+
+// Keeps Tab cycling inside the sheet instead of leaking out to the page
+// behind the backdrop while it's open.
+function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
+  if (e.key !== 'Tab') return;
+  const focusables = container.querySelectorAll<HTMLElement>(
+    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
   );
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObjectSheetProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
-  const [selectedSwatch, setSelectedSwatch] = useState<string | null>(null);
-  const { setWallCovering, addLight, placeFurniture } = useRoomStore();
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  // Defaults to "Hamma devorlar" (matching what this quick action always
+  // did before), but is now a real choice — picking a specific wall no
+  // longer silently wipes every other wall's color. Setting "ALL" clears
+  // per-wall overrides in the store, so applying it here without a picker
+  // used to blow away desktop customization with a single tap.
+  const [targetWall, setTargetWall] = useState<WallId>("ALL");
+  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
+
+  // Focus management: this sheet is only ever mounted while open (the
+  // caller conditionally renders it), so on-mount capture of whatever had
+  // focus (the button that opened it) and restoring it on unmount is enough
+  // — no need to track an open/closed prop transition.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (panelRef.current) trapTabKey(e, panelRef.current);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus();
+    };
+    // Mount-only: this sheet is remounted fresh each time it opens, so
+    // re-running on every onClose identity change isn't needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Search-by-name over the paint strip below — debounced so typing doesn't
+  // fire a request (and a React Query cache entry) per keystroke.
+  const [paintQuery, setPaintQuery] = useState("");
+  const debouncedPaintQuery = useDebounce(paintQuery, 300);
+
+  // Real do'kon-managed paint products — no invented palette. Same category
+  // ("boyoq") the smeta engine prices wall paint against.
+  const { data: paintMaterials = [] } = useQuery({
+    queryKey: ["materials", "boyoq", debouncedPaintQuery],
+    queryFn: () => getMaterials({ category: "boyoq", q: debouncedPaintQuery || undefined, per_page: 20 }),
+    enabled: section === "wallpaper",
+  });
+
+  // Real do'kon-managed furniture — filtered per room tab below. Lamps are
+  // excluded here so they only show once, under "Chiroq".
+  const roomTypeKey = ROOM_TAB_TO_ROOM_TYPE[roomTab];
+  const furnitureForRoom: CatalogFurniture[] = catalogFurniture.filter(
+    (f) => f.category !== "lampa" && (f.room_type === null || f.room_type === roomTypeKey)
+  );
 
   function applyWallpaper() {
-    if (!selectedSwatch) return;
-    const swatch = WALLPAPER_SWATCHES.find((s) => s.label === selectedSwatch);
-    if (!swatch) return;
-    if (swatch.color === "pattern") {
-      setWallCovering("ALL", { kind: "oboy", patternId: "stripes", baseColor: "#E8D9C0", accentColor: "#C4A0D4" });
-    } else {
-      setWallCovering("ALL", { kind: "paint", color: swatch.color });
-    }
+    if (!selectedMaterialId) return;
+    const material = paintMaterials.find((m: Material) => m.id === selectedMaterialId);
+    if (!material) return;
+    setWallCovering(targetWall, { kind: "paint", color: material.color_hex ?? "#D9D9D9" });
+    // Link the real product so the smeta prices this wall exactly, instead
+    // of falling back to an approximate per-litre guess.
+    applySurface(targetWall, material.id);
     onClose();
   }
 
@@ -92,6 +156,10 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
         onClick={onClose}
       />
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-object-sheet-title"
         className="fixed bottom-0 left-0 right-0 z-50 bg-white animate-slide-up flex flex-col"
         style={{ borderRadius: "28px 28px 0 0", maxHeight: "72vh" }}
       >
@@ -102,13 +170,14 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
-          <h2 className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
+          <h2 id="add-object-sheet-title" className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-[30%] bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center"
             aria-label="Yopish"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M1 1l12 12M13 1L1 13"/>
             </svg>
           </button>
@@ -121,7 +190,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
               key={s.key}
               onClick={() => setSection(s.key)}
               className={`px-4 py-1.5 rounded-full text-[14px] font-semibold transition-colors ${
-                section === s.key ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft text-gray-600 shadow-soft-raised-sm"
+                section === s.key ? "bg-brand text-white" : "bg-gray-100 text-gray-600"
               }`}
             >
               {s.label}
@@ -132,36 +201,52 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 pb-8">
 
-          {/* ── Wallpaper section ─────────────────────────────────────── */}
+          {/* ── Wallpaper (paint) section — real do'kon boyoq products ──── */}
           {section === "wallpaper" && (
             <div>
-              <p className="text-[13px] text-muted mb-3">Barcha devorlar uchun rang</p>
-              <div className="flex gap-3 flex-wrap">
-                {WALLPAPER_SWATCHES.map((sw) => (
+              <div className="flex gap-2 mb-3 overflow-x-auto">
+                {WALL_TARGETS.map((w) => (
                   <button
-                    key={sw.label}
-                    onClick={() => setSelectedSwatch(sw.label)}
-                    className="flex flex-col items-center gap-1.5"
+                    key={w.key}
+                    onClick={() => setTargetWall(w.key)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                      targetWall === w.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                    }`}
                   >
-                    <div
-                      className={`w-14 h-14 rounded-2xl border-[3px] transition-all active:scale-95 ${
-                        selectedSwatch === sw.label ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "border-gray-200"
-                      }`}
-                      style={{
-                        background:
-                          sw.color === "pattern"
-                            ? "repeating-linear-gradient(45deg,#E8D9C0 0,#E8D9C0 4px,#C4A0D4 4px,#C4A0D4 8px)"
-                            : sw.color,
-                      }}
-                    />
-                    <span className="text-[11px] font-semibold text-gray-700">{sw.label}</span>
+                    {w.label}
                   </button>
                 ))}
               </div>
-              {selectedSwatch && (
+              <p className="text-[13px] text-muted mb-3">
+                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${WALL_TARGETS.find((w) => w.key === targetWall)?.label} uchun rang`}
+              </p>
+              <input
+                type="text"
+                value={paintQuery}
+                onChange={(e) => setPaintQuery(e.target.value)}
+                placeholder="Qidirish..."
+                className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
+              />
+              {paintMaterials.length === 0 ? (
+                <p className="text-[13px] text-muted py-4 text-center">
+                  {paintQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bo'yoq mahsuloti yo'q"}
+                </p>
+              ) : (
+                <div className="flex gap-3 flex-wrap">
+                  {paintMaterials.map((m: Material) => (
+                    <MaterialSwatch
+                      key={m.id}
+                      material={m}
+                      isActive={selectedMaterialId === m.id}
+                      onClick={() => setSelectedMaterialId(m.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              {selectedMaterialId && (
                 <button
                   onClick={applyWallpaper}
-                  className="mt-5 w-full py-3 font-bold text-[16px] rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+                  className="mt-5 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
                 >
                   Qo'llash
                 </button>
@@ -169,24 +254,26 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
             </div>
           )}
 
-          {/* ── Lyustra section ───────────────────────────────────────── */}
+          {/* ── Lyustra section — real ceiling-fixture catalog ──────────── */}
           {section === "lyustra" && (
             <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollSnapType: "x mandatory" }}>
-              {LYUSTRA_ITEMS.map((item) => (
+              {CEILING_LIGHT_TYPES.map((t) => (
                 <div
-                  key={item.id}
+                  key={t.id}
                   className="flex-shrink-0 w-40 bg-[#F7F8FA] rounded-[20px] p-3 border border-gray-100"
                   style={{ scrollSnapAlign: "start" }}
                 >
-                  <LyustraIcon bg={item.bg} />
-                  <p className="text-[14px] font-bold text-gray-900">{item.name}</p>
-                  <p className="text-[12px] text-muted mt-0.5">{item.price} so'm</p>
+                  <div className="h-24 rounded-2xl flex items-center justify-center mb-2 bg-white text-4xl">
+                    {t.emoji}
+                  </div>
+                  <p className="text-[14px] font-bold text-gray-900">{t.name}</p>
+                  <p className="text-[12px] text-muted mt-0.5">{t.lumens} lm · {t.colorK}K</p>
                   <button
                     onClick={() => {
-                      addLight({ id: `light_${item.id}_${Date.now()}`, xMm: 2000, zMm: 1500 });
+                      addLight({ id: `light_${t.id}_${Date.now()}`, type: t.id, ...nextLightPositionMm(geometry, lights.length) });
                       onClose();
                     }}
-                    className="mt-2 w-full py-2 rounded-full text-[13px] font-semibold transition-transform bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100"
+                    className="mt-2 w-full py-1.5 bg-brand text-white rounded-xl text-[13px] font-semibold active:scale-95 transition-transform"
                   >
                     Qo'shish
                   </button>
@@ -195,7 +282,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
             </div>
           )}
 
-          {/* ── Furniture section ─────────────────────────────────────── */}
+          {/* ── Furniture section — real do'kon-managed 3D models ───────── */}
           {section === "furniture" && (
             <div>
               <div className="flex gap-2 mb-4 overflow-x-auto">
@@ -204,43 +291,63 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                     key={tab}
                     onClick={() => setRoomTab(tab)}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
-                      roomTab === tab ? "bg-soft-active text-soft-active-ink shadow-soft-lift" : "bg-soft text-muted shadow-soft-raised-sm"
+                      roomTab === tab ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
                     }`}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-col gap-2">
-                {FURNITURE_BY_ROOM[roomTab].map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-3 p-3 bg-[#F7F8FA] rounded-[16px]"
-                  >
-                    <div className="w-12 h-12 bg-soft rounded-2xl shadow-soft-raised-sm flex items-center justify-center flex-shrink-0">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="7" width="20" height="14" rx="2"/>
-                        <path d="M16 7V5a2 2 0 00-8 0v2"/>
-                        <line x1="12" y1="12" x2="12" y2="16"/>
-                        <line x1="10" y1="14" x2="14" y2="14"/>
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-bold text-gray-900">{item.name}</p>
-                      <p className="text-[12px] text-muted">{item.size}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, x: 0, y: 0, rotation: 0 });
-                        onClose();
-                      }}
-                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xl transition-transform bg-soft-active text-soft-active-ink shadow-soft-lift active:scale-[0.95]"
-                    >
-                      +
-                    </button>
-                  </div>
-                ))}
-              </div>
+              {furnitureForRoom.length === 0 ? (
+                <p className="text-[13px] text-muted py-6 text-center">
+                  Bu xona turi uchun do'konda mebel yo'q
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {furnitureForRoom.map((item) => {
+                    const wM = item.footprint_w != null ? (item.footprint_w / 100).toFixed(2) : null;
+                    const dM = item.footprint_d != null ? (item.footprint_d / 100).toFixed(2) : null;
+                    const size = wM && dM ? `${wM} × ${dM} m` : null;
+                    const price = fmtPrice(item.price_uzs);
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 p-3 bg-[#F7F8FA] rounded-[16px]"
+                      >
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {item.thumbnail_url ? (
+                            <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="7" width="20" height="14" rx="2"/>
+                              <path d="M16 7V5a2 2 0 00-8 0v2"/>
+                              <line x1="12" y1="12" x2="12" y2="16"/>
+                              <line x1="10" y1="14" x2="14" y2="14"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-bold text-gray-900 truncate">{item.name_uz}</p>
+                          <p className="text-[12px] text-muted">
+                            {[size, price].filter(Boolean).join(" · ") || (item.store_name ?? "")}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const count = furniture.filter((f) => f.furniture_id === item.id).length;
+                            placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, ...nextFurnitureOffsetMm(count), rotation: 0 });
+                            onClose();
+                          }}
+                          aria-label={`${item.name_uz} qo'shish`}
+                          className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

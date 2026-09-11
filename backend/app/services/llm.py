@@ -255,8 +255,10 @@ async def call_llm(
     max_tokens: int = 4096,
     user_id: Optional[str] = None,
     model_type: str = "explainer",
+    timeout: Optional[float] = None,
+    max_retries: int = 3,
 ) -> LLMMessage:
-    """Call the OpenAI API with exponential backoff (3 attempts).
+    """Call the OpenAI API with exponential backoff.
 
     Args:
         model:      OpenAI model ID (e.g. "gpt-4-turbo").
@@ -267,6 +269,16 @@ async def call_llm(
         user_id:    When provided, the per-user daily budget is checked and
                     incremented before making the call.
         model_type: "builder" | "explainer" — selects the budget pool.
+        timeout:    Optional per-attempt wall-clock budget in seconds, enforced
+                    on top of the client's own (120s) httpx timeout via
+                    `asyncio.wait_for`. Use this to give a specific call site a
+                    much tighter total budget than the client default — e.g. a
+                    best-effort background enrichment path that must not block
+                    a user-facing request for minutes. Explicit user-initiated
+                    AI actions should leave this `None` (client default applies).
+        max_retries: Number of attempts (default 3, matching prior hardcoded
+                    behavior). Lower this alongside `timeout` to bound the
+                    worst-case total wait for a tight-budget call site.
 
     Returns:
         An Anthropic-compatible `LLMMessage` (`.content` blocks + `.usage`).
@@ -296,9 +308,14 @@ async def call_llm(
         kwargs["tools"] = _to_openai_tools(tools)
 
     last_exc: Optional[Exception] = None
-    for attempt in range(3):
+    for attempt in range(max_retries):
         try:
-            resp = await client.chat.completions.create(**kwargs)
+            if timeout is not None:
+                resp = await asyncio.wait_for(
+                    client.chat.completions.create(**kwargs), timeout=timeout
+                )
+            else:
+                resp = await client.chat.completions.create(**kwargs)
             message = _from_openai_response(resp)
             log.info(
                 "llm.call_ok",
@@ -316,8 +333,16 @@ async def call_llm(
                 log.warning(
                     "llm.retryable_error", attempt=attempt, code=code, model=model
                 )
-                await asyncio.sleep(2**attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)
             else:
                 raise
+        except asyncio.TimeoutError as exc:
+            last_exc = exc
+            log.warning(
+                "llm.timeout", attempt=attempt, model=model, timeout=timeout
+            )
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2**attempt)
 
     raise last_exc  # type: ignore[misc]

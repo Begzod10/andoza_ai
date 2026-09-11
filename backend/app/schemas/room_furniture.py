@@ -37,12 +37,3 @@ class FurniturePlacementListOut(BaseModel):
 
     items: list[FurniturePlacementOut] = []
     count: int = 0
-
-
-class RoomFurnitureOut(BaseModel):
-    """Complete furniture placement state for a room."""
-
-    placements: list[FurniturePlacementOut] = []
-    count: int = 0
-
-    model_config = {"from_attributes": True}

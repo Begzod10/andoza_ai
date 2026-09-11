@@ -179,3 +179,33 @@ def test_stage_index_unknown_state_treated_as_raw():
     assert stage_index(None) == 0
     assert stage_index("not_a_real_state") == 0
     assert stage_index("tayyor") == len(STAGE_ORDER) - 1
+
+
+def test_savings_not_zeroed_when_skipped_line_has_no_norm(materials_map):
+    """Fix 5 regression: before it, total_uzs excluded approximate lines
+    entirely — so if the ONLY line distinguishing 'xom' from 'suvoq' (the
+    plaster line) had no matching Norm row and was therefore approximate,
+    it contributed 0 to both full_estimate.total_uzs and
+    delta_estimate.total_uzs, and delta_savings_uzs came out as 0 even
+    though skipping that line is real, nonzero savings."""
+    norms_map_without_suvoq = {
+        "boyoq": _norm("boyoq"),
+        "laminat": _norm("laminat", coverage_per_unit=2.13),
+        # "suvoq" deliberately absent — the plaster line falls back to
+        # hardcoded constants and is flagged is_approximate=True.
+        "grunt": _norm("grunt"),
+        "shpatlyovka": _norm("shpatlyovka"),
+        "plintus": _norm("plintus"),
+        "elektr_kabel": _norm("elektr_kabel"),
+    }
+    room = _room()
+    state = _room_state("suvoq")
+
+    result = compute_delta(room, state, materials_map, norms_map_without_suvoq)
+
+    full_suvoq_line = next(ln for ln in result.full_estimate.lines if ln.category == "suvoq")
+    assert full_suvoq_line.is_approximate is True
+    assert full_suvoq_line.subtotal_uzs > 0
+
+    assert result.delta_savings_uzs == full_suvoq_line.subtotal_uzs
+    assert result.delta_savings_uzs > 0

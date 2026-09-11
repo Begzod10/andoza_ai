@@ -252,9 +252,18 @@ async def smeta_ask(
         f"- {ln.label}: {ln.qty:.2f} {ln.unit} × {ln.unit_price_uzs:,} = {ln.subtotal_uzs:,} UZS"
         for ln in computed.lines[:30]
     )
+    # total_uzs is the FULL expected spend (exact + approximately-priced
+    # lines combined) — surface the approximate slice too so the assistant
+    # never implies the whole number is precisely known when part of it
+    # isn't (e.g. fallback-priced furniture, a prep line with no norm).
+    approx_note = (
+        f"Shundan ~taxminiy: {computed.total_approx_uzs:,} UZS\n"
+        if computed.total_approx_uzs > 0 else ""
+    )
     estimate_context = (
         f"Jami: {computed.total_uzs:,} UZS\n"
-        f"Min: {computed.total_min:,} UZS | Max: {computed.total_max:,} UZS\n\n"
+        f"Min: {computed.total_min:,} UZS | Max: {computed.total_max:,} UZS\n"
+        f"{approx_note}\n"
         f"Smeta satrlari:\n{lines_summary}"
     )
 

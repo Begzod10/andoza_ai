@@ -14,7 +14,6 @@ from app.models.apartment import Apartment
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
-from app.services.room_geometry import shoelace as _shoelace
 
 logger = structlog.get_logger(__name__)
 
@@ -206,7 +205,7 @@ async def upload_room_thumbnail(
     ext = _THUMBNAIL_EXT_BY_TYPE.get(file.content_type or "", "jpg")
     key = f"thumbnails/{room_id}/{uuid_module.uuid4()}.{ext}"
     try:
-        stored_url = upload_file(file_bytes, key, content_type=file.content_type or "image/jpeg")
+        stored_url = await upload_file(file_bytes, key, content_type=file.content_type or "image/jpeg")
     except Exception as exc:
         logger.error("room_thumbnail_upload_failed", room_id=str(room_id), error=str(exc))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Rasmni saqlab bo'lmadi") from exc
@@ -220,7 +219,7 @@ async def upload_room_thumbnail(
 
     if old_key and old_key != room.thumbnail_key:
         try:
-            delete_file(old_key)
+            await delete_file(old_key)
         except Exception as exc:  # the new thumbnail is already saved; a stray old file is not worth a 500
             logger.warning("room_thumbnail_old_file_delete_failed", key=old_key, error=str(exc))
 

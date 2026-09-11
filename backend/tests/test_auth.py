@@ -12,6 +12,8 @@ from __future__ import annotations
 import importlib.util
 import sys
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -57,6 +59,90 @@ def _load_auth_module():
 _auth_mod = _load_auth_module()
 _set_auth_cookie = _auth_mod._set_auth_cookie
 _set_refresh_cookie = _auth_mod._set_refresh_cookie
+
+
+class FakeRedis:
+    """Simulates the subset of the Redis API the rate-limit helpers use,
+    backed by a plain in-memory dict — no real Redis needed."""
+
+    def __init__(self):
+        self.counters: dict[str, int] = {}
+
+    async def get(self, key: str):
+        # decode_responses=True → return strings, not bytes
+        val = self.counters.get(key, 0)
+        return str(val) if val else None
+
+    async def incr(self, key: str) -> int:
+        self.counters[key] = self.counters.get(key, 0) + 1
+        return self.counters[key]
+
+    async def expire(self, key: str, ttl: int) -> None:
+        pass  # no-op in tests
+
+    async def set(self, key: str, value: str, ex: int = 0) -> None:
+        self.counters[key] = value  # type: ignore[assignment]
+
+    def pipeline(self):
+        return FakePipeline(self)
+
+
+class FakePipeline:
+    def __init__(self, redis: "FakeRedis"):
+        self._redis = redis
+        self._cmds: list = []
+
+    async def incr(self, key: str) -> None:
+        self._cmds.append(("incr", key))
+
+    async def expire(self, key: str, ttl: int) -> None:
+        self._cmds.append(("expire", key, ttl))
+
+    async def execute(self):
+        results = []
+        for cmd in self._cmds:
+            if cmd[0] == "incr":
+                results.append(await self._redis.incr(cmd[1]))
+            else:
+                results.append(None)
+        self._cmds.clear()
+        return results
+
+
+class FakeScalarResult:
+    """Stands in for SQLAlchemy's Result when the query should find nothing —
+    both login and register look up an existing user by username first."""
+
+    def scalar_one_or_none(self):
+        return None
+
+
+class FakeDb:
+    """Minimal AsyncSession stand-in: no user ever exists, so register()
+    proceeds to create one and login() falls through to 'invalid credentials'.
+    flush() fills in the server-side defaults (id, created_at, ...) that a
+    real INSERT would generate, so UserOut.model_validate() has what it needs."""
+
+    def __init__(self):
+        self._pending: list = []
+
+    async def execute(self, *args, **kwargs):
+        return FakeScalarResult()
+
+    def add(self, obj) -> None:
+        self._pending.append(obj)
+
+    async def flush(self) -> None:
+        for obj in self._pending:
+            if getattr(obj, "id", None) is None:
+                obj.id = uuid.uuid4()
+            if getattr(obj, "created_at", None) is None:
+                obj.created_at = datetime.now(timezone.utc)
+            if getattr(obj, "is_active", None) is None:
+                obj.is_active = True
+            if getattr(obj, "is_admin", None) is None:
+                obj.is_admin = False
+        self._pending.clear()
 
 
 # ===========================================================================
@@ -302,3 +388,100 @@ class TestOtpIpRateLimit:
         # First 10 should succeed (200), the 11th should be 429
         assert all(s == 200 for s in responses[:10]), f"Expected 200s, got {responses[:10]}"
         assert responses[10] == 429, f"Expected 429 on request 11, got {responses[10]}"
+
+
+# ===========================================================================
+# Password login/register rate limits — mocked Redis + FastAPI, mocked DB
+# ===========================================================================
+
+
+def _make_router_only_app():
+    """Minimal FastAPI app wiring just the auth router, loaded directly to
+    avoid app/routers/__init__.py's heavy optional deps (celery, boto3)."""
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(_auth_mod.router, prefix="/api/v1")
+    return app
+
+
+class TestLoginRateLimit:
+    """POST /api/v1/auth/login is throttled by IP and by username, independently."""
+
+    def test_eleventh_attempt_for_same_username_returns_429(self):
+        """Per-username lockout (limit 10): repeated attempts against one
+        account get 429 on the 11th try, even though the per-IP limit (20)
+        has not been reached yet."""
+        fake_redis = FakeRedis()
+        fake_db = FakeDb()
+
+        with patch.object(_auth_mod, "get_redis", return_value=fake_redis):
+            app = _make_router_only_app()
+            app.dependency_overrides[_auth_mod.get_db] = lambda: fake_db
+            client = TestClient(app, raise_server_exceptions=False)
+
+            responses = []
+            bodies = []
+            for _ in range(11):
+                r = client.post(
+                    "/api/v1/auth/login",
+                    json={"username": "victim_user", "password": "wrong-pass"},
+                )
+                responses.append(r.status_code)
+                bodies.append(r.json())
+
+        # First 10 reach the credential check and fail with 401 (no such user
+        # in FakeDb); the 11th is blocked by the per-username rate limit.
+        assert all(s == 401 for s in responses[:10]), f"Expected 401s, got {responses[:10]}"
+        assert responses[10] == 429, f"Expected 429 on attempt 11, got {responses[10]}"
+        assert "urinish" in bodies[10]["detail"].lower()
+
+    def test_twentyfirst_attempt_from_same_ip_returns_429(self):
+        """Per-IP throttle (limit 20): spraying many *different* usernames
+        from one IP gets 429 on the 21st attempt, even though each username
+        is only tried once (well under the per-username limit of 10)."""
+        fake_redis = FakeRedis()
+        fake_db = FakeDb()
+
+        with patch.object(_auth_mod, "get_redis", return_value=fake_redis):
+            app = _make_router_only_app()
+            app.dependency_overrides[_auth_mod.get_db] = lambda: fake_db
+            client = TestClient(app, raise_server_exceptions=False)
+
+            responses = []
+            for i in range(21):
+                r = client.post(
+                    "/api/v1/auth/login",
+                    json={"username": f"user_{i}", "password": "wrong-pass"},
+                )
+                responses.append(r.status_code)
+
+        assert all(s == 401 for s in responses[:20]), f"Expected 401s, got {responses[:20]}"
+        assert responses[20] == 429, f"Expected 429 on attempt 21, got {responses[20]}"
+
+
+class TestRegisterRateLimit:
+    """POST /api/v1/auth/register is throttled per-IP to block mass account creation."""
+
+    def test_twentyfirst_registration_from_same_ip_returns_429(self):
+        fake_redis = FakeRedis()
+        fake_db = FakeDb()
+
+        with patch.object(_auth_mod, "get_redis", return_value=fake_redis):
+            app = _make_router_only_app()
+            app.dependency_overrides[_auth_mod.get_db] = lambda: fake_db
+            client = TestClient(app, raise_server_exceptions=False)
+
+            responses = []
+            for i in range(21):
+                r = client.post(
+                    "/api/v1/auth/register",
+                    json={
+                        "username": f"newuser_{i}",
+                        "password": "SomePassword123",
+                    },
+                )
+                responses.append(r.status_code)
+
+        assert all(s == 201 for s in responses[:20]), f"Expected 201s, got {responses[:20]}"
+        assert responses[20] == 429, f"Expected 429 on registration 21, got {responses[20]}"

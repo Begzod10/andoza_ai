@@ -37,6 +37,19 @@ _OTP_IP_RATE_WINDOW = 3600  # 1 hour
 _OTP_MAX_ATTEMPTS = 5      # max verify attempts before lockout
 _OTP_ATTEMPT_TTL = 300     # 5 minutes — same as OTP lifetime
 
+# Password login: throttled both by IP (blocks spraying many accounts from
+# one source) and by username (blocks brute-forcing one account by spreading
+# requests across many IPs). Both must pass independently.
+_LOGIN_IP_RATE_LIMIT = 20     # max login attempts per IP per window
+_LOGIN_IP_RATE_WINDOW = 900   # 15 minutes
+_LOGIN_USER_RATE_LIMIT = 10   # max login attempts per username per window
+_LOGIN_USER_RATE_WINDOW = 900  # 15 minutes
+
+# Registration: lighter IP-only throttle — each attempt creates a distinct
+# account, so there is no per-username axis to protect.
+_REGISTER_IP_RATE_LIMIT = 20    # max registrations per IP per window
+_REGISTER_IP_RATE_WINDOW = 3600  # 1 hour
+
 _IS_DEV = settings.ENVIRONMENT == "development"
 _COOKIE_MAX_AGE = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 _REFRESH_COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
@@ -74,6 +87,26 @@ def _get_client_ip(request: Request) -> str:
         if forwarded_for:
             return forwarded_for.split(",")[0].strip()
     return request.client.host  # type: ignore[union-attr]
+
+
+async def _enforce_rate_limit(
+    redis, key: str, limit: int, window: int, detail: str
+) -> None:
+    """Increment the counter for *key* and raise 429 once *limit* is exceeded
+    within *window* seconds. Same get-check-incr-expire pattern as the OTP
+    per-IP/per-phone limits above."""
+    count_raw = await redis.get(key)
+    count = int(count_raw) if count_raw else 0
+    if count >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=detail,
+        )
+    pipe = redis.pipeline()
+    await pipe.incr(key)
+    if count == 0:
+        await pipe.expire(key, window)
+    await pipe.execute()
 
 
 @router.post(
@@ -285,9 +318,21 @@ async def logout(response: Response):  # noqa: ANN201 — 204 No Content, no bod
 )
 async def register(
     body: RegisterRequest,
+    request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> LoginResponse:
+    """Rate-limited: max registrations per IP per hour to prevent mass account creation."""
+    redis = get_redis()
+    client_ip = _get_client_ip(request)
+    await _enforce_rate_limit(
+        redis,
+        f"register_ip_rate:{client_ip}",
+        _REGISTER_IP_RATE_LIMIT,
+        _REGISTER_IP_RATE_WINDOW,
+        "Bu IP manzildan juda ko'p ro'yxatdan o'tish urinishi bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+
     existing = await db.execute(select(User).where(User.username == body.username))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -326,9 +371,29 @@ async def register(
 )
 async def login_with_password(
     body: LoginRequest,
+    request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> LoginResponse:
+    """Rate-limited by IP (anti credential-spraying) and by username
+    (anti brute-force), each independently, before any credential check runs."""
+    redis = get_redis()
+    client_ip = _get_client_ip(request)
+    await _enforce_rate_limit(
+        redis,
+        f"login_ip_rate:{client_ip}",
+        _LOGIN_IP_RATE_LIMIT,
+        _LOGIN_IP_RATE_WINDOW,
+        "Bu IP manzildan juda ko'p kirish urinishi bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+    await _enforce_rate_limit(
+        redis,
+        f"login_user_rate:{body.username}",
+        _LOGIN_USER_RATE_LIMIT,
+        _LOGIN_USER_RATE_WINDOW,
+        "Bu hisob uchun juda ko'p kirish urinishi bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+
     result = await db.execute(select(User).where(User.username == body.username))
     user = result.scalar_one_or_none()
 

@@ -16,6 +16,8 @@ class MaterialOut(BaseModel):
     texture_key: str | None
     pbr_roughness: float
     image_url: str | None = None
+    roll_width_cm: float | None = None
+    roll_length_m: float | None = None
 
     model_config = {"from_attributes": True}
 

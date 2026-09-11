@@ -12,26 +12,32 @@
 import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
-import { FURNITURE_CATALOG, type FurnitureCatalogEntry } from '@/lib/furnitureCatalog'
+import { FURNITURE_CATALOG, catalogToFurnitureEntry, type FurnitureCatalogEntry, type ResolvedCatalogEntry } from '@/lib/furnitureCatalog'
 import type { PlacedFurniture, UserFurnitureEntry } from '@/store/roomStore'
+import type { CatalogFurniture } from '@/lib/api'
+import { extractSceneInfo } from '@/lib/modelConverter'
 import { rectHull, type Hull } from '@/lib/modelFootprint'
 import { topViewOutline, topViewPoints, type Poly, type TopView } from '@/lib/modelTopView'
 
-export type AnyFurnitureEntry = FurnitureCatalogEntry | UserFurnitureEntry
+export type AnyFurnitureEntry = FurnitureCatalogEntry | UserFurnitureEntry | ResolvedCatalogEntry
 
 export function resolveFurnitureEntry(
   furnitureId: string,
   userFurniture: UserFurnitureEntry[],
+  catalogFurniture: CatalogFurniture[] = [],
 ): AnyFurnitureEntry | undefined {
   return (
     FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
-    userFurniture.find((f) => f.id === furnitureId)
+    userFurniture.find((f) => f.id === furnitureId) ??
+    catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
   )
 }
 
 const OUTLINE = '#3F3A33'
 const DETAIL = '#7A7264'
-const SELECT = '#D85A30'
+// Brand blue (tailwind.config's `brand` token) — was '#D85A30', a terracotta
+// wall-paint swatch value that had nothing to do with the actual brand color.
+const SELECT = '#1E40AF'
 
 /** Item scale in metres per model unit (catalog unit scale × user resize). */
 export function itemScale(entry: AnyFurnitureEntry, item: PlacedFurniture): number {
@@ -142,8 +148,16 @@ function ModelSymbol(props: ShapeProps) {
     () => topViewOutline(scene as THREE.Object3D, entry.modelPath),
     [scene, entry.modelPath],
   )
+  // A do'kon catalog model has no authored scale — detect it from the same
+  // loaded geometry the outline was just traced from, same heuristic a fresh
+  // user import goes through (see extractSceneInfo).
+  const effEntry = useMemo(() => {
+    if (!('autoScale' in entry) || !entry.autoScale) return entry
+    try { return { ...entry, scale: extractSceneInfo(scene as THREE.Object3D).scale } }
+    catch { return entry }
+  }, [entry, scene])
   if (view.outline.length === 0) return <BoxSymbol {...props} />
-  return <PlanSymbol {...props} view={view} schematic={false} />
+  return <PlanSymbol {...props} entry={effEntry} view={view} schematic={false} />
 }
 
 /**
@@ -163,6 +177,7 @@ class SymbolBoundary extends Component<{ fallback: ReactNode; children: ReactNod
 export function PlanFurnitureLayer({
   furniture,
   userFurniture,
+  catalogFurniture = [],
   W,
   Dp,
   selectedId,
@@ -171,6 +186,8 @@ export function PlanFurnitureLayer({
 }: {
   furniture: PlacedFurniture[]
   userFurniture: UserFurnitureEntry[]
+  /** Do'kon-managed 3D models (admin catalog) — see roomStore.catalogFurniture. */
+  catalogFurniture?: CatalogFurniture[]
   /** Interior room width/depth in mm — furniture coords are centred on the room. */
   W: number
   Dp: number
@@ -181,7 +198,7 @@ export function PlanFurnitureLayer({
   return (
     <g>
       {furniture.map((item) => {
-        const entry = resolveFurnitureEntry(item.furniture_id, userFurniture)
+        const entry = resolveFurnitureEntry(item.furniture_id, userFurniture, catalogFurniture)
         if (!entry) return null
         const shared: ShapeProps = {
           item,

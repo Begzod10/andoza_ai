@@ -69,6 +69,7 @@ const DokonPage = lazy(() => import("@/pages/dokon/DokonPage"));
 const UstalarPage = lazy(() => import("@/pages/ustalar/UstalarPage"));
 const ProfilePage = lazy(() => import("@/pages/profile/ProfilePage"));
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
+const SharedRoomPage = lazy(() => import("@/pages/share/SharedRoomPage"));
 const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
 
@@ -82,6 +83,13 @@ const routes: RouteObject[] = [
   {
     path: "/login",
     element: withSuspense(<LoginPage />),
+  },
+  // Public, unauthenticated read-only room view — NOT nested under the
+  // RequireAuth-wrapped /studio/:roomId tree below, same sibling-of-the-
+  // shell placement as /login above.
+  {
+    path: "/share/:token",
+    element: withSuspense(<SharedRoomPage />),
   },
 
   // ── Main shell (Uy + Do'kon bottom nav) ──

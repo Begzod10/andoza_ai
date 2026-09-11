@@ -217,18 +217,6 @@ export function createOboyTexture(
   return tex
 }
 
-/**
- * Set repeat so one tile = ROLL_PHYSICAL_WIDTH_M × ROLL_PHYSICAL_WIDTH_M
- * on a wall of given world-space width × height (in metres).
- */
-export function setOboyRepeat(tex: THREE.CanvasTexture, wallWidthM: number, wallHeightM: number) {
-  tex.repeat.set(
-    wallWidthM / ROLL_PHYSICAL_WIDTH_M,
-    wallHeightM / ROLL_PHYSICAL_WIDTH_M,
-  )
-  tex.needsUpdate = true
-}
-
 // ─── SVG pattern strings for isometric preview ───────────────────────────────
 
 export function getOboySvgPattern(patternId: OboyPatternId, base: string, accent: string, uid: string): string {

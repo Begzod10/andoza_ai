@@ -54,7 +54,7 @@ async def upload_photo(
     photo_key = f"photos/{current_user.id}/{uuid_module.uuid4()}.{ext}"
 
     try:
-        photo_url = upload_file(file_bytes, photo_key, content_type=file.content_type or "image/jpeg")
+        photo_url = await upload_file(file_bytes, photo_key, content_type=file.content_type or "image/jpeg")
     except Exception as exc:
         logger.error("s3_upload_failed", key=photo_key, error=str(exc))
         raise HTTPException(

@@ -5,18 +5,21 @@ from typing import Annotated
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.cache import cache_get, cache_set
+from app.core.storage import absolute_media_url
+from app.core.uz_regions import UZ_REGIONS
 from app.database import get_db
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.material_offer import MaterialOffer
 from app.models.store import Store
 from app.models.usta import Usta
-from app.schemas.catalog import FurnitureOut, PaginatedFurniture, StoreOut
+from app.schemas.catalog import FurnitureOut, PaginatedFurniture, RegionOut, StoreOut
 from app.schemas.material import MaterialOut, PaginatedMaterials
 from app.schemas.material_offer import MaterialOfferOut
 from app.schemas.usta import UstaOut
@@ -43,10 +46,11 @@ async def list_materials(
     db: DbSession,
     category: str | None = Query(default=None),
     store: UUID | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search by name_uz substring"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMaterials:
-    cache_key = f"materials:{category}:{store}:{page}:{per_page}"
+    cache_key = f"materials:{category}:{store}:{q}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
@@ -60,6 +64,9 @@ async def list_materials(
     if store:
         query = query.where(Material.store_id == store)
         count_query = count_query.where(Material.store_id == store)
+    if q:
+        query = query.where(Material.name_uz.ilike(f"%{q}%"))
+        count_query = count_query.where(Material.name_uz.ilike(f"%{q}%"))
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
@@ -117,28 +124,62 @@ async def list_material_offers(
 # Furniture
 # ---------------------------------------------------------------------------
 
+def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
+    return FurnitureOut(
+        id=f.id,
+        store_id=f.store_id,
+        store_name=f.store.name if f.store else None,
+        category=f.category,
+        room_type=f.room_type,
+        placement=f.placement,
+        name_uz=f.name_uz,
+        price_uzs=f.price_uzs,
+        glb_url=absolute_media_url(request, f.glb_key),
+        thumbnail_url=absolute_media_url(request, f.thumbnail_key),
+        footprint_w=f.footprint_w,
+        footprint_d=f.footprint_d,
+    )
+
+
 @router.get(
     "/furniture",
     response_model=PaginatedFurniture,
     summary="Paginated furniture items",
 )
 async def list_furniture(
+    request: Request,
     db: DbSession,
     category: str | None = Query(default=None),
+    room_type: str | None = Query(
+        default=None,
+        description="Filter to models for this room; models with no room_type "
+                    "(usable everywhere) are always included",
+    ),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
-    cache_key = f"furniture:{category}:{page}:{per_page}"
+    # glb_url/thumbnail_url are resolved per-request (they embed the request's
+    # host), so the cache stores the already-resolved payload — safe as long
+    # as storage is served from a stable base URL for the TTL window.
+    cache_key = f"furniture:{category}:{room_type}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedFurniture.model_validate(cached)
 
-    query = select(Furniture).where(Furniture.is_active.is_(True))
+    query = (
+        select(Furniture)
+        .options(selectinload(Furniture.store))
+        .where(Furniture.is_active.is_(True))
+    )
     count_query = select(func.count()).select_from(Furniture).where(Furniture.is_active.is_(True))
 
     if category:
         query = query.where(Furniture.category == category)
         count_query = count_query.where(Furniture.category == category)
+    if room_type:
+        room_filter = Furniture.room_type.is_(None) | (Furniture.room_type == room_type)
+        query = query.where(room_filter)
+        count_query = count_query.where(room_filter)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
@@ -148,7 +189,7 @@ async def list_furniture(
     items = result.scalars().all()
 
     payload = PaginatedFurniture(
-        items=[FurnitureOut.model_validate(f) for f in items],
+        items=[_furniture_out(request, f) for f in items],
         total=total,
         page=page,
         per_page=per_page,
@@ -188,17 +229,27 @@ async def list_stores(db: DbSession) -> list[StoreOut]:
 # Ustalar
 # ---------------------------------------------------------------------------
 
+_USTA_SORTS = {"rating", "price_asc", "price_desc"}
+
+
 @router.get(
     "/ustalar",
     response_model=list[UstaOut],
-    summary="List craftsmen, filterable by category and district",
+    summary="List craftsmen, filterable by category/district, sortable by rating or price",
 )
 async def list_ustalar(
     db: DbSession,
     category: str | None = Query(default=None),
     district: str | None = Query(default=None),
+    sort: str | None = Query(default=None, description="rating | price_asc | price_desc"),
 ) -> list[UstaOut]:
-    cache_key = f"ustalar:{category}:{district}"
+    if sort is not None and sort not in _USTA_SORTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"sort {', '.join(sorted(_USTA_SORTS))} dan biri (yoki bo'sh) bo'lishi kerak",
+        )
+
+    cache_key = f"ustalar:{category}:{district}:{sort}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return [UstaOut.model_validate(u) for u in cached]
@@ -209,7 +260,17 @@ async def list_ustalar(
     if district:
         query = query.where(Usta.district == district)
 
-    result = await db.execute(query.order_by(Usta.rating.desc()))
+    # price_asc/price_desc order by price_min — the "starting from" price a
+    # craftsman card actually leads with. NULLS LAST either direction so a
+    # craftsman who hasn't set a price doesn't jump to the front on price_asc.
+    if sort == "price_asc":
+        query = query.order_by(Usta.price_min.asc().nulls_last())
+    elif sort == "price_desc":
+        query = query.order_by(Usta.price_min.desc().nulls_last())
+    else:
+        query = query.order_by(Usta.rating.desc())
+
+    result = await db.execute(query)
     ustalar = result.scalars().all()
     payload = [UstaOut.model_validate(u) for u in ustalar]
     await cache_set(
@@ -218,3 +279,19 @@ async def list_ustalar(
         ttl=_CATALOG_CACHE_TTL,
     )
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Regions (viloyat/tuman reference data — no DB table, static list)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/regions",
+    response_model=list[RegionOut],
+    summary="O'zbekiston viloyatlari va ularning tumanlari",
+)
+async def list_regions() -> list[RegionOut]:
+    return [
+        RegionOut(name=name, code=code, districts=list(districts))
+        for name, (code, districts) in UZ_REGIONS.items()
+    ]

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { Material } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import {
   S1_ShopHome,
   S2_ProjectMaterials,
@@ -9,6 +10,7 @@ import {
   S6_Payment,
   S7_OrderTracking,
 } from "@/components/dokon/screens";
+import AdminCatalogPanel from "./AdminCatalogPanel";
 
 type Screen =
   | "shop"
@@ -51,6 +53,10 @@ interface MockDealer {
  * Manages all 7 screens with proper state and navigation
  */
 export default function DokonPage() {
+  // Admin-only catalog management (create shops, upload 3D models) — a
+  // separate surface from the customer-facing marketplace screens below.
+  const isAdmin = useAuthStore((s) => s.user)?.is_admin === true;
+
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");
 
@@ -242,6 +248,13 @@ export default function DokonPage() {
   };
 
   // Render screens
+  // Admin has no reason to ever see the customer marketplace stub below —
+  // it's all "coming soon" placeholders, not a real shop to browse. Do'kon
+  // in the sidebar IS the management panel for an admin, full stop.
+  if (isAdmin) {
+    return <AdminCatalogPanel />;
+  }
+
   if (screen === "shop") {
     return (
       <S1_ShopHome

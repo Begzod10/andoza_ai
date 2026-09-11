@@ -63,6 +63,7 @@ from app.models.estimate import Estimate
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room import Room
+from app.models.room_state import RoomState
 from app.schemas.estimate import (
     EstimateLine,
     EstimateResponse,
@@ -71,6 +72,7 @@ from app.schemas.estimate import (
 )
 from app.services.currency import get_usd_rate, uzs_to_usd
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
+from app.services.smeta_ai import fill_ai_price_gaps
 
 router = APIRouter(prefix="/rooms/{room_id}")
 
@@ -140,6 +142,31 @@ async def _load_norms(db: Any) -> dict[str, Norm]:
     return {n.material_key: n for n in result.scalars().all()}
 
 
+async def _load_stage(room_id: uuid.UUID, db: Any) -> tuple[str, str, str]:
+    """Return (current_state, floor_state, ceiling_state) for *room_id*.
+
+    Mirrors app.routers.room_state's per-surface-override fallback: a NULL
+    floor_state/ceiling_state on the row means "same stage as the room
+    overall". A room with no RoomState row at all (never visited the
+    construction-progress step) defaults to "xom" — the safest choice, since
+    it includes every prep line rather than silently skipping one. This is
+    what makes compute_estimate's stage-gating (suvoq/grunt/shpatlyovka)
+    actually take effect on the main preview/create/PDF routes — without it,
+    current_state defaults to None inside compute_estimate and those prep
+    lines are silently dropped.
+    """
+    result = await db.execute(select(RoomState).where(RoomState.room_id == room_id))
+    room_state = result.scalar_one_or_none()
+    if room_state is None:
+        return "xom", "xom", "xom"
+    current = room_state.current_state
+    return (
+        current,
+        room_state.floor_state or current,
+        room_state.ceiling_state or current,
+    )
+
+
 def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
     return [
         EstimateLine(
@@ -152,6 +179,7 @@ def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
             is_approximate=ln.is_approximate,
             store_id=None,
             category=ln.category,
+            warning=ln.warning,
         )
         for ln in lines
     ]
@@ -170,6 +198,7 @@ def _jsonb_lines_to_schema(raw_lines: list[dict]) -> list[EstimateLine]:
             is_approximate=ln.get("is_approximate", False),
             store_id=None,
             category=ln.get("category", ""),
+            warning=ln.get("warning"),
         )
         for ln in raw_lines
     ]
@@ -181,10 +210,45 @@ def _lines_to_jsonb(lines: list[ComputedLine]) -> list[dict]:
 
 
 def _has_electrical(raw_lines: list[dict]) -> bool:
+    """Any electrical line at all — compute_estimate always adds one, so
+    this is nearly always True; electrical_confirmed (below) is what
+    distinguishes a real point count from the fallback guess."""
+    return any(ln.get("category") == "elektr" for ln in raw_lines)
+
+
+def _electrical_confirmed(raw_lines: list[dict]) -> bool:
     return any(
         ln.get("category") == "elektr" and not ln.get("is_approximate", False)
         for ln in raw_lines
     )
+
+
+def _totals_from_raw_lines(raw_lines: list[dict]) -> dict[str, int]:
+    """Recompute the exact/approx/total/min/max split from a persisted
+    Estimate's stored lines JSONB — never from the row's own total_uzs
+    column.
+
+    Every ComputedLine has always carried is_approximate + subtotal_uzs, so
+    this works uniformly for a snapshot written before this split existed
+    (its total_uzs column reflects the old exact-only sum) and one written
+    after (whose column already matches). Recomputing here means an old
+    snapshot renders with the correct full total instead of the
+    historically-understated one, with no migration needed.
+    """
+    total_exact = sum(
+        ln.get("subtotal_uzs", 0) for ln in raw_lines if not ln.get("is_approximate", False)
+    )
+    total_approx = sum(
+        ln.get("subtotal_uzs", 0) for ln in raw_lines if ln.get("is_approximate", False)
+    )
+    total_uzs = total_exact + total_approx
+    return {
+        "total_exact_uzs": total_exact,
+        "total_approx_uzs": total_approx,
+        "total_uzs": total_uzs,
+        "total_min": int(total_uzs * 0.9),
+        "total_max": int((total_exact + total_approx * 1.3) * 1.1),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +275,13 @@ async def preview_estimate(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
@@ -220,12 +289,15 @@ async def preview_estimate(
         room_id=room.id,
         lines=_computed_to_schema_lines(computed.lines),
         total_uzs=computed.total_uzs,
+        total_exact_uzs=computed.total_exact_uzs,
+        total_approx_uzs=computed.total_approx_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
         currency=_DEFAULT_CURRENCY,
         status="draft",
         created_at=datetime.now(timezone.utc),
         has_electrical=computed.has_electrical,
+        electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
@@ -249,8 +321,13 @@ async def create_estimate(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
     # Persist immutable snapshot
     estimate = Estimate(
@@ -270,12 +347,15 @@ async def create_estimate(
         room_id=room.id,
         lines=_computed_to_schema_lines(computed.lines),
         total_uzs=computed.total_uzs,
+        total_exact_uzs=computed.total_exact_uzs,
+        total_approx_uzs=computed.total_approx_uzs,
         total_min=computed.total_min,
         total_max=computed.total_max,
         currency=estimate.currency,
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=computed.has_electrical,
+        electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
     )
@@ -334,8 +414,13 @@ async def _generate_estimate_pdf(
     room = await _load_room_for_user(room_id, current_user.id, db)
     materials_map = await _load_materials(room, db)
     norms_map = await _load_norms(db)
+    current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
-    computed: ComputedEstimate = compute_estimate(room, materials_map, norms_map)
+    computed: ComputedEstimate = compute_estimate(
+        room, materials_map, norms_map,
+        current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+    )
+    computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
     pdf_bytes = _build_pdf(room, computed)
 
@@ -402,22 +487,25 @@ async def get_estimate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
 
     raw_lines: list[dict] = estimate.lines or []
-    total_uzs = estimate.total_uzs
+    totals = _totals_from_raw_lines(raw_lines)
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
         id=estimate.id,
         room_id=estimate.room_id,
         lines=_jsonb_lines_to_schema(raw_lines),
-        total_uzs=total_uzs,
-        total_min=int(total_uzs * 0.9),
-        total_max=int(total_uzs * 1.1),
+        total_uzs=totals["total_uzs"],
+        total_exact_uzs=totals["total_exact_uzs"],
+        total_approx_uzs=totals["total_approx_uzs"],
+        total_min=totals["total_min"],
+        total_max=totals["total_max"],
         currency=estimate.currency,
         status=estimate.status,
         created_at=estimate.created_at,
         has_electrical=_has_electrical(raw_lines),
+        electrical_confirmed=_electrical_confirmed(raw_lines),
         usd_rate=usd_rate,
-        total_usd=round(uzs_to_usd(total_uzs, usd_rate)),
+        total_usd=round(uzs_to_usd(totals["total_uzs"], usd_rate)),
     )
 
 
@@ -515,7 +603,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
             prefix + _fmt_num(ln.subtotal_uzs),
         ]
 
-    def _table_style(nrows: int) -> TableStyle:
+    def _table_style() -> TableStyle:
         return TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), _BRAND_BLUE),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -553,7 +641,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
                 ])
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-        tbl.setStyle(_table_style(len(table_data)))
+        tbl.setStyle(_table_style())
         story.append(tbl)
         story.append(Spacer(1, 0.3 * cm))
 
@@ -562,13 +650,18 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story.append(Spacer(1, 0.2 * cm))
 
     total_data = [
-        ["Taxminiy xarajat (aniq materiallar):",
+        ["Taxminiy xarajat (jami):",
          f"{_fmt_num(est.total_uzs)} UZS"],
         ["Minimal variant (−10%):",
          f"{_fmt_num(est.total_min)} UZS"],
-        ["Maksimal variant (+10%):",
+        ["Maksimal variant (taxminiy qismlar uchun kengroq):",
          f"{_fmt_num(est.total_max)} UZS"],
     ]
+    if est.total_approx_uzs > 0:
+        total_data.append([
+            "   shundan ~taxminiy:",
+            f"{_fmt_num(est.total_approx_uzs)} UZS",
+        ])
     total_tbl = Table(
         total_data,
         colWidths=[10 * cm, 5 * cm],
@@ -587,11 +680,15 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     disclaimer_text = (
         "Bu taxminiy hisob. Yakuniy narx material tanlovi, bozor o'zgarishi "
         "va ishchi haqiga qarab farq qilishi mumkin. "
-        "Taxminiy elektr xarajatlari umumiy summaga kiritilmagan."
+        "\"~taxminiy\" belgili qatorlar jami summaga kiritilgan, lekin "
+        "ularning narxi aniq emas — final xarajat farq qilishi mumkin."
     )
     story.append(Paragraph(disclaimer_text, disclaimer))
 
-    if est.has_electrical:
+    # Keyed to electrical_confirmed, not has_electrical (there's always an
+    # electrical line) — the warning belongs on the fallback-guess case, not
+    # the case where the user already placed real points.
+    if not est.electrical_confirmed:
         story.append(Paragraph(
             "⚠  Elektr ishlari narxi taxminiy — elektrik ustasi bilan tasdiqlang.",
             warning_style,

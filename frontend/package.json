@@ -38,11 +38,13 @@
     "tailwind-merge": "^2.3.0",
     "three": "^0.165.0",
     "vite-plugin-pwa": "^0.20.0",
+    "zundo": "^2.3.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
     "@playwright/test": "^1.44.1",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^18.3.3",
