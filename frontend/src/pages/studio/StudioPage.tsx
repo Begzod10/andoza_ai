@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate,
@@ -12,7 +14,8 @@ import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
-function StudioNav({ roomId, isDirty }: { roomId: string; isDirty: boolean }) {
+function StudioNav({ roomId, isDirty, topOffset }: { roomId: string; isDirty: boolean; topOffset: number }) {
+  const [navOpen, setNavOpen] = useState(false);
   const navItems = [
     { to: `/studio/${roomId}/ichkarida`, label: "3D" },
     { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
@@ -56,35 +59,44 @@ function StudioNav({ roomId, isDirty }: { roomId: string; isDirty: boolean }) {
   });
 
   return (
-    // Lives inline in the header row now (not its own row) — overflow-x-auto
-    // keeps it usable on mobile where 5 tabs don't fit without scrolling.
-    <nav className="flex bg-neutral-100 rounded-lg p-1 gap-1 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {navItems.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center justify-center px-3 sm:px-4 min-h-[44px] py-2 lg:min-h-0 lg:py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-all shrink-0",
-              isActive
-                ? "bg-white text-brand shadow-sm"
-                : "text-neutral-600 hover:text-neutral-700"
-            )
-          }
-        >
-          {item.label}
-          {item.label === "Smeta" && estimate != null && (
-            <span
-              className="ml-1.5 text-[11px] font-normal opacity-70"
-              title={isDirty ? "So'nggi saqlangan holat bo'yicha — o'zgarishlar hali saqlanmagan" : undefined}
+    // Collapsed into a single round trigger button — pressing it opens a
+    // TopDrawer sliding down from below the header with the same tabs laid
+    // out as a vertical list, instead of the old horizontal scroll strip.
+    <>
+      <TopDrawerButton active={navOpen} onClick={() => setNavOpen(true)} label="Bo'limlar">
+        <Menu size={18} aria-hidden="true" />
+      </TopDrawerButton>
+      <TopDrawer open={navOpen} onOpenChange={setNavOpen} title="Bo'limlar" topOffset={topOffset}>
+        <div className="flex flex-col p-2">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setNavOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center justify-between gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors",
+                  isActive
+                    ? "bg-primary-tint text-brand"
+                    : "text-neutral-700 hover:bg-neutral-50"
+                )
+              }
             >
-              {isDirty && "• "}
-              {formatUZSCompact(estimate.total_uzs)}
-            </span>
-          )}
-        </NavLink>
-      ))}
-    </nav>
+              <span>{item.label}</span>
+              {item.label === "Smeta" && estimate != null && (
+                <span
+                  className="text-[11px] font-normal opacity-70"
+                  title={isDirty ? "So'nggi saqlangan holat bo'yicha — o'zgarishlar hali saqlanmagan" : undefined}
+                >
+                  {isDirty && "• "}
+                  {formatUZSCompact(estimate.total_uzs)}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </TopDrawer>
+    </>
   );
 }
 
@@ -113,6 +125,21 @@ export default function StudioPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Measured (not hardcoded) header height, fed to StudioNav's TopDrawer as
+  // its topOffset so the drawer opens flush below the header row regardless
+  // of how tall that row renders at a given breakpoint (it varies: py-2 vs
+  // lg:py-3 padding, plus the two-line title/subtitle that's hidden below sm).
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const updateHeight = () => setHeaderHeight(el.getBoundingClientRect().height);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   // Focus targets for the share popover's focus management: the kebab
   // button is the stable "trigger" to restore focus to on close (the
   // "Ulashish" menu item that actually opened it unmounts immediately,
@@ -477,7 +504,7 @@ export default function StudioPage() {
           space back. Three columns: [back+title] auto-width and left-aligned,
           [tabs] takes the remaining space and centers within it, [save+menu]
           auto-width on the right. */}
-      <header className="bg-white border-b border-neutral-100">
+      <header ref={headerRef} className="bg-white border-b border-neutral-100">
         <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Back button + title, left-aligned */}
           <div className="flex items-center gap-2 min-w-0">
@@ -504,9 +531,9 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Tabs — centered in the row's remaining space */}
+          {/* Sections menu trigger — centered in the row's remaining space */}
           <div className="flex justify-center min-w-0">
-            <StudioNav roomId={room.id} isDirty={isDirty} />
+            <StudioNav roomId={room.id} isDirty={isDirty} topOffset={headerHeight} />
           </div>
 
           {/* Save + kebab */}
