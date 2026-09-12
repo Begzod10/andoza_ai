@@ -18,6 +18,7 @@ from app.models.lead import Lead  # noqa: F401
 from app.models.estimate import Estimate  # noqa: F401
 from app.models.draft_room import DraftRoom  # noqa: F401
 from app.models.wallpaper import Wallpaper  # noqa: F401
+from app.models.user_model import UserModel  # noqa: F401
 from app.models.room_state import RoomState  # noqa: F401
 from app.models.electrical import RoomElectrical, ElectricalDevice  # noqa: F401
 from app.models.decoration import RoomDecoration  # noqa: F401
@@ -39,6 +40,7 @@ __all__ = [
     "Estimate",
     "DraftRoom",
     "Wallpaper",
+    "UserModel",
     "RoomElectrical",
     "ElectricalDevice",
     "RoomDecoration",

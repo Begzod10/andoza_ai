@@ -107,6 +107,13 @@ export interface UserFurnitureEntry {
   emoji: string
   blobId: string
   modelPath: string  // blob URL — restored from IndexedDB on startup
+  /** Server row id once the model has been saved to the account (see
+   *  uploadUserModel). Absent while the upload is in flight or failed —
+   *  such an entry still works locally, it just isn't durable yet. */
+  serverId?: string
+  /** Absolute media URL of the server copy — the restore path when the
+   *  IndexedDB copy is gone (cleared site data, another device). */
+  remoteUrl?: string
   /** JPEG data URL preview rendered from the model itself at import time
    *  (see modelConverter.renderThumbnail). Absent for entries imported
    *  before this existed, or when the render failed — falls back to emoji. */
@@ -301,6 +308,7 @@ interface RoomStore {
   addUserFurniture(entry: UserFurnitureEntry): void
   removeUserFurniture(id: string): void
   setUserFurniturePath(id: string, path: string): void
+  setUserFurnitureServer(id: string, serverId: string, remoteUrl: string): void
   setUserFurnitureCategory(id: string, category: FurnitureCategory): void
   setUserFurniturePlacement(id: string, placement: FurniturePlacement): void
   setUserFurniturePrice(id: string, priceUzs: number): void
@@ -759,6 +767,12 @@ export const useRoomStore = create<RoomStore>()(
   setUserFurniturePath(id, path) {
     set((state) => ({
       userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, modelPath: path } : f),
+    }))
+  },
+
+  setUserFurnitureServer(id, serverId, remoteUrl) {
+    set((state) => ({
+      userFurniture: state.userFurniture.map((f) => f.id === id ? { ...f, serverId, remoteUrl } : f),
     }))
   },
 
