@@ -34,6 +34,13 @@ alembic/versions/
 *.db
 *.sqlite3
 media/
+# …except the user-imported 3D models: the user wants those versioned in the
+# repo, not only in media storage. Re-include the parent, ignore its other
+# children, then re-include models/ (gitignore can't re-include inside an
+# excluded directory, hence the three-step dance).
+!backend/media/
+backend/media/*
+!backend/media/models/
 uploads/
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
