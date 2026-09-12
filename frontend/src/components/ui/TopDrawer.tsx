@@ -35,7 +35,11 @@ export function TopDrawer({ open, onOpenChange, title, topOffset = 0, children }
             <Dialog.Overlay asChild>
               <motion.div
                 key="overlay"
-                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+                // Light tint, no blur — the panel is now narrow (not
+                // full-width) specifically so the 3D viewport stays visible
+                // to its right while a menu is open; a heavy backdrop would
+                // defeat that.
+                className="fixed inset-0 z-40 bg-black/10"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -53,9 +57,9 @@ export function TopDrawer({ open, onOpenChange, title, topOffset = 0, children }
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ type: 'spring', damping: 30, stiffness: 320 }}
                 className={cn(
-                  'fixed left-0 right-0 z-50',
+                  'fixed left-0 z-50 w-[85vw] max-w-[320px]',
                   'bg-white',
-                  'rounded-b-2xl shadow-card',
+                  'rounded-br-2xl shadow-card',
                   'flex flex-col overflow-hidden',
                   'outline-none',
                 )}

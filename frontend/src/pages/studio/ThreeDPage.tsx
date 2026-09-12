@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Layers, Wrench } from "lucide-react";
 import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { Canvas } from "@react-three/fiber";
@@ -57,6 +58,14 @@ THREE.ColorManagement.enabled = true;
 export interface StudioContext {
   room: Room;
   onSave: () => Promise<void>;
+  /** DOM node (rendered by StudioPage's header) this page portals its own
+   *  collapsed menu-trigger buttons into, so they land in the header's one
+   *  row instead of stacking as separate rows below it. Null until the
+   *  header has mounted the slot. */
+  toolbarSlot?: HTMLDivElement | null;
+  /** Header height, reused as this page's own TopDrawers' topOffset so they
+   *  open flush below the (now shared) header row. */
+  toolbarSlotTop?: number;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -75,7 +84,7 @@ const isTouch =
       window.matchMedia('(max-width: 1023px)').matches))
 
 export default function ThreeDPage() {
-  const { room, onSave } = useOutletContext<StudioContext>();
+  const { room, onSave, toolbarSlot, toolbarSlotTop } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -282,29 +291,14 @@ export default function ThreeDPage() {
         ? (phaseParam as PhaseKey)
         : 'boyoq'
   const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
-  // Row A (mobile stage strip) / Row B (toolbar) are each collapsed into a
-  // single round TopDrawerButton — these track whether their menu panel is
-  // open, and measure each row's own bottom edge so the panel opens flush
-  // beneath it regardless of whatever fixed chrome (header, etc.) sits above.
+  // The mobile stage picker and the toolbar are each collapsed into a single
+  // round TopDrawerButton, portaled (below) into StudioPage's header row so
+  // both sit in one row alongside the section-switcher button instead of
+  // stacking as separate rows. topOffset for both drawers comes straight
+  // from the header's own measured height (toolbarSlotTop), since that's
+  // now the only fixed chrome either one opens beneath.
   const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
   const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
-  const stageRowRef = useRef<HTMLDivElement>(null);
-  const toolbarRowRef = useRef<HTMLDivElement>(null);
-  const [stageDrawerTop, setStageDrawerTop] = useState(0);
-  const [toolsDrawerTop, setToolsDrawerTop] = useState(0);
-  useEffect(() => {
-    const measure = () => {
-      if (stageRowRef.current) {
-        setStageDrawerTop(stageRowRef.current.getBoundingClientRect().bottom);
-      }
-      if (toolbarRowRef.current) {
-        setToolsDrawerTop(toolbarRowRef.current.getBoundingClientRect().bottom);
-      }
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -758,13 +752,20 @@ export default function ThreeDPage() {
   return (
     <div className="flex flex-col lg:flex-row h-full">
 
-      {/* ── Mobile: stage strip collapsed into a round drawer trigger ── */}
+      {/* ── Mobile: stage strip collapsed into a round drawer trigger,
+          portaled into StudioPage's header so it sits in that one row
+          alongside the section-switcher and the tools-drawer trigger below,
+          instead of a separate row of its own. ── */}
+      {SHOW_PHASE_STEPPER && toolbarSlot && createPortal(
+        <div className="lg:hidden">
+          <TopDrawerButton active={stageDrawerOpen} onClick={() => setStageDrawerOpen((v) => !v)} label="Bosqichlar">
+            <Layers size={18} strokeWidth={2} />
+          </TopDrawerButton>
+        </div>,
+        toolbarSlot,
+      )}
       {SHOW_PHASE_STEPPER && (
-      <div ref={stageRowRef} className="flex lg:hidden shrink-0 items-center bg-surface border-b border-gray-200 px-3 py-2 select-none">
-        <TopDrawerButton active={stageDrawerOpen} onClick={() => setStageDrawerOpen((v) => !v)} label="Bosqichlar">
-          <Layers size={18} strokeWidth={2} />
-        </TopDrawerButton>
-        <TopDrawer open={stageDrawerOpen} onOpenChange={setStageDrawerOpen} title="Bosqichlar" topOffset={stageDrawerTop}>
+        <TopDrawer open={stageDrawerOpen} onOpenChange={setStageDrawerOpen} title="Bosqichlar" topOffset={toolbarSlotTop ?? 0}>
           <div className="py-2">
             {RENO_STAGES.map((stage, i) => {
               const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
@@ -794,7 +795,6 @@ export default function ThreeDPage() {
             })}
           </div>
         </TopDrawer>
-      </div>
       )}
 
       {/* ── Desktop: left phase stepper sidebar, collapsible ── */}
@@ -906,11 +906,14 @@ export default function ThreeDPage() {
             rather than actually missing. Now shows the app's thin global
             scrollbar (styles/global.css) AND a fade gradient, so it reads as
             "scroll for more" instead of "cut off". */}
-        <div ref={toolbarRowRef} className="relative shrink-0 flex items-center px-3 py-2 bg-surface border-b border-gray-200">
+        {toolbarSlot && createPortal(
           <TopDrawerButton active={toolsDrawerOpen} onClick={() => setToolsDrawerOpen((v) => !v)} label="Asboblar">
             <Wrench size={18} strokeWidth={2} />
-          </TopDrawerButton>
-          <TopDrawer open={toolsDrawerOpen} onOpenChange={setToolsDrawerOpen} title="Asboblar" topOffset={toolsDrawerTop}>
+          </TopDrawerButton>,
+          toolbarSlot,
+        )}
+        <>
+          <TopDrawer open={toolsDrawerOpen} onOpenChange={setToolsDrawerOpen} title="Asboblar" topOffset={toolbarSlotTop ?? 0}>
             <div className="flex flex-col divide-y divide-gray-100 pb-2">
 
               {/* Current stage label */}
@@ -1287,7 +1290,7 @@ export default function ThreeDPage() {
 
             </div>
           </TopDrawer>
-        </div>
+        </>
 
         {/* Canvas area */}
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">

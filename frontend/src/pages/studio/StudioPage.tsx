@@ -140,6 +140,11 @@ export default function StudioPage() {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  // DOM node the active tab (via Outlet context) portals its own collapsed
+  // menu-trigger buttons into, so they render inside this header row instead
+  // of a separate row of their own. A ref alone wouldn't do — the context
+  // value passed to <Outlet> needs to change (state) once the node mounts.
+  const [toolbarSlotEl, setToolbarSlotEl] = useState<HTMLDivElement | null>(null);
   // Focus targets for the share popover's focus management: the kebab
   // button is the stable "trigger" to restore focus to on close (the
   // "Ulashish" menu item that actually opened it unmounts immediately,
@@ -531,9 +536,14 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sections menu trigger — centered in the row's remaining space */}
-          <div className="flex justify-center min-w-0">
+          {/* Sections menu trigger, plus a portal slot the current tab's own
+              round trigger buttons (e.g. ThreeDPage's stage/tools drawers)
+              render into via Outlet context — so all of a tab's collapsed
+              menu buttons end up in this one header row, not stacked as
+              separate rows below it. */}
+          <div className="flex justify-center items-center gap-2 min-w-0">
             <StudioNav roomId={room.id} isDirty={isDirty} topOffset={headerHeight} />
+            <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
           </div>
 
           {/* Save + kebab */}
@@ -706,7 +716,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave }} />
+          <Outlet context={{ room, onSave: handleSave, toolbarSlot: toolbarSlotEl, toolbarSlotTop: headerHeight }} />
         </Suspense>
       </main>
     </div>
