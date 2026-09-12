@@ -21,7 +21,7 @@ router = APIRouter(prefix="/user-models", tags=["user-models"])
 # fallback and verify the magic bytes instead of trusting the label.
 _ALLOWED_CONTENT_TYPES = {"model/gltf-binary", "application/octet-stream"}
 _GLB_MAGIC = b"glTF"
-_MAX_MODEL_BYTES = 60 * 1024 * 1024  # 60 MB — furniture scans get big
+_MAX_MODEL_BYTES = 100 * 1024 * 1024  # 100 MB — real furniture scans land in the 60-70 MB range
 _MAX_THUMB_BYTES = 2 * 1024 * 1024
 
 
