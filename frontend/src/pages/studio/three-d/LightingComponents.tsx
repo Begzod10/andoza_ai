@@ -419,8 +419,14 @@ function DraggableLightItem({
           to (dragPosRef) so they never desync from the drag gesture.
           Rendered as a sibling of the (rotated) fixture group since
           wall distances are along absolute room axes, not the
-          fixture's own yaw. */}
-      {isSelected && (
+          fixture's own yaw.
+
+          Shown only while actively dragging, not merely while selected —
+          a light left selected after being placed/moved would otherwise
+          show these permanently until something else got selected, which
+          reads as clutter rather than the in-motion measurement aid it's
+          meant to be. */}
+      {isSelected && isDragging && (
         <LightWallDistanceLabels
           light={l}
           lightType={t}
