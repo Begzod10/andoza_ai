@@ -2,13 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
-import { useRoomStore } from "@/store/roomStore";
+import { useRoomStore, type FloorType } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 import { useDebounce } from "@/hooks/useDebounce";
 import { MaterialSwatch } from "./MaterialSwatch";
+import { FLOOR_TYPES } from "./design-panel/shared";
 
-type Section = "wallpaper" | "lyustra" | "furniture";
+type Section = "wallpaper" | "lyustra" | "furniture" | "floor";
+
+// Same do'kon-category mapping WallFloorTargetPanel uses (design-panel's
+// "Pol" target under Rang) — kept in sync there rather than shared, since
+// it's a two-line lookup and this sheet already mirrors that panel's
+// type/product picker deliberately, not by importing its internals.
+const FLOOR_TYPE_TO_MATERIAL_CATEGORY: Record<string, string> = {
+  parquet: "parket",
+  laminate: "laminat",
+  tile: "plitka",
+};
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
 // Same ids and labels as DesignPanel's WALL_TARGETS (minus FLOOR/CEILING —
 // this sheet's "Devor" section is wall paint only) so the two surfaces speak
@@ -49,6 +60,7 @@ const WALL_TARGETS: { key: WallId; label: string }[] = [
 
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "wallpaper", label: "Devor" },
+  { key: "floor",     label: "Pol" },
   { key: "lyustra",   label: "Chiroq" },
   { key: "furniture", label: "Mebel" },
 ];
@@ -86,7 +98,10 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   // per-wall overrides in the store, so applying it here without a picker
   // used to blow away desktop customization with a single tap.
   const [targetWall, setTargetWall] = useState<WallId>("ALL");
-  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
+  const {
+    setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture,
+    designState, setDesignState, setFloorTexture, surfaces,
+  } = useRoomStore();
 
   // Focus management: this sheet is only ever mounted while open (the
   // caller conditionally renders it), so on-mount capture of whatever had
@@ -130,6 +145,38 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
     queryFn: () => getMaterials({ category: "boyoq", q: debouncedPaintQuery || undefined, per_page: 20 }),
     enabled: section === "wallpaper",
   });
+
+  // Real do'kon-managed floor covering — same category mapping and query
+  // shape as WallFloorTargetPanel's "Pol" target under Rang, so picking a
+  // floor here and picking one there land on the exact same materials.
+  const [floorQuery, setFloorQuery] = useState("");
+  const debouncedFloorQuery = useDebounce(floorQuery, 300);
+  const floorType = designState.floorType;
+  const floorMaterialCategory = FLOOR_TYPE_TO_MATERIAL_CATEGORY[floorType];
+  const { data: floorProducts = [] } = useQuery({
+    queryKey: ["materials", floorMaterialCategory, debouncedFloorQuery],
+    queryFn: () => getMaterials({ category: floorMaterialCategory!, q: debouncedFloorQuery || undefined, per_page: 20 }),
+    enabled: section === "floor" && !!floorMaterialCategory,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Picking a type is a complete action on its own for "concrete" (no do'kon
+  // category exists for a bare screed — nothing further to pick), so that
+  // one closes the sheet immediately; the other three stay open so a do'kon
+  // product for the new category can be picked right after, same flow as
+  // WallFloorTargetPanel.
+  function handleSetFloorType(type: string) {
+    const ft = type as FloorType;
+    setDesignState({ floorType: ft, floorConfigured: true });
+    setFloorTexture(null);
+    applySurface("floor", "");
+    if (!FLOOR_TYPE_TO_MATERIAL_CATEGORY[ft]) onClose();
+  }
+
+  function applyFloorProduct(materialId: string) {
+    applySurface("floor", materialId);
+    onClose();
+  }
 
   // Real do'kon-managed furniture — filtered per room tab below. Lamps are
   // excluded here so they only show once, under "Chiroq".
@@ -250,6 +297,57 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                 >
                   Qo'llash
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Floor section — type picker + real do'kon floor covering ── */}
+          {section === "floor" && (
+            <div>
+              <div className="flex gap-2 mb-3 overflow-x-auto">
+                {FLOOR_TYPES.map((ft) => (
+                  <button
+                    key={ft.key}
+                    onClick={() => handleSetFloorType(ft.key)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                      floorType === ft.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                    }`}
+                  >
+                    {ft.label}
+                  </button>
+                ))}
+              </div>
+              {floorMaterialCategory ? (
+                <>
+                  <p className="text-[13px] text-muted mb-3">Do'kondan tanlang</p>
+                  <input
+                    type="text"
+                    value={floorQuery}
+                    onChange={(e) => setFloorQuery(e.target.value)}
+                    placeholder="Qidirish..."
+                    className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
+                  />
+                  {floorProducts.length === 0 ? (
+                    <p className="text-[13px] text-muted py-4 text-center">
+                      {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q"}
+                    </p>
+                  ) : (
+                    <div className="flex gap-3 flex-wrap">
+                      {floorProducts.map((m: Material) => (
+                        <MaterialSwatch
+                          key={m.id}
+                          material={m}
+                          isActive={surfaces.floor === m.id}
+                          onClick={() => applyFloorProduct(m.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-[13px] text-muted py-4 text-center">
+                  Beton pol uchun do'konda material yo'q — smeta bu pol uchun narx hisoblamaydi.
+                </p>
               )}
             </div>
           )}
