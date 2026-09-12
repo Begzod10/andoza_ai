@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { WallElement } from "@/store/roomStore";
 import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
+import NewWindowSheet from "./NewWindowSheet";
 
 // Keeps Tab cycling inside the sheet instead of leaking out to the page
 // behind the backdrop while it's open.
@@ -218,6 +219,11 @@ export default function RoomSettingsSheet({
   const setCeilingH   = useRoomStore((s) => s.setCeilingHeight);
   const addElement    = useRoomStore((s) => s.addElement);
 
+  // Which wall's "+ Deraza" is pending a style/size choice — null when no
+  // chooser is open. Set on button click; the window is only actually
+  // added to the store once the user confirms in NewWindowSheet.
+  const [pendingWindowWallId, setPendingWindowWallId] = useState<string | null>(null);
+
   const wallA = geometry.walls.find((w) => w.id === "A")?.length ?? 4000;
   const wallB = geometry.walls.find((w) => w.id === "B")?.length ?? 3000;
 
@@ -257,6 +263,7 @@ export default function RoomSettingsSheet({
   if (!open) return null;
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-end"
       style={{ background: "rgba(0,0,0,.35)" }}
@@ -332,7 +339,7 @@ export default function RoomSettingsSheet({
 
                 <div className="flex gap-2 mt-3">
                   <button
-                    onClick={() => addElement(wall.id, DEFAULT_WINDOW)}
+                    onClick={() => setPendingWindowWallId(wall.id)}
                     className="flex-1 py-2 rounded-xl text-[13px] font-bold text-brand bg-brand-tint"
                   >
                     + Deraza
@@ -350,5 +357,16 @@ export default function RoomSettingsSheet({
         </div>
       </div>
     </div>
+    <NewWindowSheet
+      isOpen={pendingWindowWallId !== null}
+      onClose={() => setPendingWindowWallId(null)}
+      onConfirm={(values) => {
+        if (pendingWindowWallId) {
+          addElement(pendingWindowWallId, { ...DEFAULT_WINDOW, ...values });
+        }
+        setPendingWindowWallId(null);
+      }}
+    />
+    </>
   );
 }
