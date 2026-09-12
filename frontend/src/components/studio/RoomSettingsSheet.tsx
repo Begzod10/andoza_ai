@@ -31,8 +31,12 @@ const WALL_LABELS: Record<string, string> = {
   D: "Devor D (kenglik)",
 };
 
-const DEFAULT_WINDOW = { type: "deraza" as const, width: 900, height: 1200, sill_height: 800, position: 0 };
-const DEFAULT_DOOR   = { type: "eshik"  as const, width: 900, height: 2100, sill_height: 0,   position: 0 };
+// position: 0 is a placeholder here, not a real placement — positionAuto:
+// true tells resolveElementPositions (wallPositions.ts) to auto-center/
+// auto-spread it until the user first drags or keyboard-nudges it, at which
+// point WallOpenings.tsx marks it positionAuto: false permanently.
+const DEFAULT_WINDOW = { type: "deraza" as const, width: 900, height: 1200, sill_height: 800, position: 0, positionAuto: true };
+const DEFAULT_DOOR   = { type: "eshik"  as const, width: 900, height: 2100, sill_height: 0,   position: 0, positionAuto: true };
 
 function MiniStepper({
   label,

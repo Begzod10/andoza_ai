@@ -230,7 +230,7 @@ export function WallOpenings({
     setGuides([])
     // The ONE store write for the whole drag gesture — the final position.
     const live = liveDragRef.current
-    if (live) updateElement(live.wallId, live.elId, { position: live.position, sill_height: live.sill_height })
+    if (live) updateElement(live.wallId, live.elId, { position: live.position, sill_height: live.sill_height, positionAuto: false })
     liveDragRef.current = null
     liveOpeningDrag.current = null
     ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
@@ -294,12 +294,12 @@ export function WallOpenings({
                       case 'ArrowLeft':
                       case 'ArrowUp':
                         e.preventDefault()
-                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, -KEYBOARD_NUDGE_MM) })
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, -KEYBOARD_NUDGE_MM), positionAuto: false })
                         break
                       case 'ArrowRight':
                       case 'ArrowDown':
                         e.preventDefault()
-                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, KEYBOARD_NUDGE_MM) })
+                        updateElement(w.id, el.id, { position: clampPosition(el, wallLenMm, KEYBOARD_NUDGE_MM), positionAuto: false })
                         break
                       case 'Delete':
                       case 'Backspace':
