@@ -231,6 +231,29 @@ export default function ThreeDPage() {
   const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
   const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  // The door/window editor panel (DoorLeaves.tsx) is a floating <Html> overlay
+  // whose visibility is driven by selectedDoorId. onPointerMissed on the
+  // <Canvas> below only clears it for clicks that land inside the canvas and
+  // hit no mesh — a click anywhere else on the page (another tab, the
+  // sidebar, the toolbar) never reaches it, leaving the panel stuck open. This
+  // closes it on any genuine outside click while it's open, without
+  // interfering with clicks inside the canvas (left to the existing
+  // onPointerMissed/mesh-select handling) or inside the panel itself.
+  useEffect(() => {
+    if (selectedDoorId === null) return;
+    const onPointerDownCapture = (ev: PointerEvent) => {
+      const target = ev.target as Node | null;
+      if (!target) return;
+      const canvas = glCanvasRef.current;
+      if (canvas && (target === canvas || canvas.contains(target))) return;
+      if (target instanceof Element && target.closest('[data-opening-editor-panel]')) return;
+      setSelectedDoorId(null);
+    };
+    document.addEventListener('pointerdown', onPointerDownCapture, { capture: true });
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDownCapture, { capture: true });
+    };
+  }, [selectedDoorId]);
   // Fixture armed in the palette; the next click in the 2D plan places it.
   const [armedLightType, setArmedLightType] = useState<LightTypeId | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');

@@ -654,7 +654,7 @@ function WindowEditor({
   const angle = el.openAngle ?? 0;
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
+    <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         <NumField label="Eni (mm)" value={el.width} min={lim.minW} max={lim.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
@@ -734,7 +734,7 @@ function DoorEditor({
   const hinge = el.hinge ?? "left";
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
+    <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         <NumField label="Eni (mm)" value={el.width} min={LIMITS.door.minW} max={LIMITS.door.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
