@@ -2,7 +2,7 @@ import * as React from "react";
 import { useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
@@ -10,6 +10,7 @@ import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
+import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
@@ -324,11 +325,27 @@ function DoorLeaf({
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";
 
+  // Live-drag override (WallOpenings.tsx's own separate click-to-select-then-
+  // drag gesture, NOT this file's beginDrag/toolMode move|scale|rotate path
+  // below): while this door is the one WallOpenings.tsx is dragging, snap the
+  // whole root group to the live position/sill on every frame instead of
+  // waiting for the single pointerup store commit. sill_height is hoisted
+  // into this group's own Y (see below) so overriding position here also
+  // covers vertical movement, though doors always drag with sill 0.
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    if (!live || !groupRef.current) return;
+    if (live.wallId !== wf.id || live.elId !== el.id) return;
+    const lc = openingCentre(wf, { ...el, position: live.position });
+    groupRef.current.position.set(lc.x, live.sill_height * S, lc.z);
+  });
+
   return (
-    <group position={[c.x, 0, c.z]} rotation={[0, wf.yaw, 0]}>
+    <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
       {/* Hinge pivot — the whole leaf turns about this vertical edge */}
       <group position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
-        <group position={[(dir * leafW) / 2, sill + leafH / 2, 0]}>
+        <group position={[(dir * leafW) / 2, leafH / 2, 0]}>
           <mesh
             castShadow
             receiveShadow
@@ -380,7 +397,7 @@ function DoorLeaf({
 
       {selected && (
         <Html
-          position={[0, sill + h + 0.18, 0.02]}
+          position={[0, h + 0.18, 0.02]}
           center
           zIndexRange={[120, 0]}
           style={{ pointerEvents: "none" }}
@@ -551,7 +568,10 @@ function WindowSash({
   const w = el.width * S;
   const h = el.height * S;
   const sill = el.sill_height * S;
-  const midY = sill + h / 2;
+  // Relative to this component's root group, which now carries `sill` as its
+  // own Y (see below) — the old `sill + h / 2` absolute-from-floor value is
+  // unchanged once the group's Y is added back in.
+  const midY = h / 2;
 
   const style = resolveWindowStyle(el);
   const panes = useMemo(() => layoutPanes(style), [style]);
@@ -569,8 +589,20 @@ function WindowSash({
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";
 
+  // Live-drag override — same mechanism as DoorLeaf above. A window's drag
+  // moves both along-wall position AND sill_height, both folded into this
+  // root group's position (X/Z from openingCentre, Y from sill_height).
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    if (!live || !groupRef.current) return;
+    if (live.wallId !== wf.id || live.elId !== el.id) return;
+    const lc = openingCentre(wf, { ...el, position: live.position });
+    groupRef.current.position.set(lc.x, live.sill_height * S, lc.z);
+  });
+
   return (
-    <group position={[c.x, 0, c.z]} rotation={[0, wf.yaw, 0]}>
+    <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
       {panes.map((pane, i) => {
         const pw = pane.w * innerW;
         const ph = pane.h * innerH;
@@ -631,7 +663,7 @@ function WindowSash({
       )}
 
       {selected && (
-        <Html position={[0, sill + h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>
+        <Html position={[0, h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>
           <WindowEditor el={el} styleId={style.id} onPatch={onPatch} onDelete={onDelete} />
         </Html>
       )}

@@ -31,6 +31,7 @@ import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
+import { liveOpeningDrag } from '@/lib/liveOpeningDrag'
 
 export interface OpeningSel { wallId: string; elId: string }
 
@@ -216,6 +217,10 @@ export function WallOpenings({
     // into `updateElement`, so this does not touch `geometry` at all.
     const { position, sill_height, guides: g } = computeDrag(wd, el, hit)
     liveDragRef.current = { wallId: wd.id, elId: el.id, position, sill_height }
+    // Second write target — see liveOpeningDrag.ts's header comment. Same
+    // value, same moment, so WindowFrames/DoorFrames/OpeningLeaves never
+    // desync from WallOpenings' own hit-plane/selection border/labels.
+    liveOpeningDrag.current = { wallId: wd.id, elId: el.id, position, sill_height }
     setGuides(g)
   }
   function onUp(e: ThreeEvent<PointerEvent>) {
@@ -227,6 +232,7 @@ export function WallOpenings({
     const live = liveDragRef.current
     if (live) updateElement(live.wallId, live.elId, { position: live.position, sill_height: live.sill_height })
     liveDragRef.current = null
+    liveOpeningDrag.current = null
     ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
   }
 

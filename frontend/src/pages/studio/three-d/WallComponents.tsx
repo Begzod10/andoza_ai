@@ -1,14 +1,15 @@
 import * as React from "react";
-import { memo, useEffect, useMemo, useState } from "react";
-import { useThree } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import type { WallCovering, WallPanelSettings, RoomGeometry } from "@/store/roomStore";
+import type { WallCovering, WallPanelSettings, RoomGeometry, WallElement } from "@/store/roomStore";
 import { clonePlasterMapsFor, PLASTER_NORMAL_SCALE } from "@/lib/plasterMaterial";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
+import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { WALLPAPER_WIDTH_M } from "./constants";
 import { boardSegments } from "./helpers";
 
@@ -554,7 +555,108 @@ export const Wall = memo(function Wall({ length, height, thickness, covering, el
 });
 
 
-// ─── Window glass panes ───────────────────────────────────────────────────────
+// ─── Window / door frames ───────────────────────────────────────────────────
+
+const FRAME_W = 0.05; // 5cm frame width
+// Named distinctly from the `s` used locally inside Wall's segment-building
+// useMemo (a few dozen lines up) to avoid shadowing it.
+const MM = 1 / 1000;
+
+interface FrameWallDef {
+  id: string;
+  axis: "X" | "Z";
+  cx: number;
+  cz: number;
+  length: number;
+}
+
+/**
+ * World position [px, py, pz] of a frame group's origin: px/pz is the
+ * along-wall + wall-face placement (unchanged from the old flat/absolute
+ * maths — every child mesh used to bake this same offset in individually),
+ * and py is the sill height in world metres, hoisted here so every child's Y
+ * can be expressed relative to the sill instead of absolute-from-floor.
+ * Shared by the resting (JSX-driven) render and the live-drag override in
+ * `useFrame`, so both paths compute the exact same thing from either the
+ * store-derived element or the live drag ref's values.
+ */
+function frameGroupOrigin(
+  wd: FrameWallDef,
+  el: { position: number; width: number; sill_height: number },
+): [number, number, number] {
+  const offset = (el.position + el.width / 2 - wd.length * 500) * MM;
+  const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
+  const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
+  const py = el.sill_height * MM;
+  return [px, py, pz];
+}
+
+function useLiveFrameGroup(groupRef: React.RefObject<THREE.Group | null>, wd: FrameWallDef, el: WallElement) {
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    if (!live || !groupRef.current) return;
+    if (live.wallId !== wd.id || live.elId !== el.id) return;
+    const [lx, ly, lz] = frameGroupOrigin(wd, { position: live.position, width: el.width, sill_height: live.sill_height });
+    groupRef.current.position.set(lx, ly, lz);
+  });
+}
+
+const windowFrameMat = <meshStandardMaterial color="#C0B8A8" roughness={0.6} metalness={0.1} />;
+const windowSillLipMat = <meshStandardMaterial color="#D4C4B4" roughness={0.5} metalness={0.1} />;
+const doorFrameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
+const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} metalness={0.08} envMapIntensity={0.1} />;
+
+/** One window/balcony opening's frame + sill, grouped at the opening's own
+ *  origin (see `frameGroupOrigin`) so a live drag can move the whole set with
+ *  a single imperative position write instead of updating every mesh. */
+function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
+  const groupRef = useRef<THREE.Group>(null);
+  useLiveFrameGroup(groupRef, wd, el);
+
+  const elW = el.width * MM;
+  const elH = el.height * MM;
+  const [px, py, pz] = frameGroupOrigin(wd, el);
+  const isHorizontal = wd.axis === "X";
+  const fW = isHorizontal ? elW : FRAME_W;
+  const fD = isHorizontal ? FRAME_W : elW;
+  // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
+  // offsetting X on side walls pushed them perpendicular out of the wall
+  const jamb = elW / 2 - FRAME_W / 2;
+
+  return (
+    <group ref={groupRef} position={[px, py, pz]}>
+      {/* Left frame */}
+      <mesh position={isHorizontal ? [-jamb, elH / 2, 0] : [0, elH / 2, -jamb]}>
+        <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+        {windowFrameMat}
+      </mesh>
+
+      {/* Right frame */}
+      <mesh position={isHorizontal ? [jamb, elH / 2, 0] : [0, elH / 2, jamb]}>
+        <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+        {windowFrameMat}
+      </mesh>
+
+      {/* Top frame */}
+      <mesh position={[0, elH + FRAME_W / 2, 0]}>
+        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+        {windowFrameMat}
+      </mesh>
+
+      {/* Sill (bottom frame with visible edge and detail) */}
+      <mesh position={[0, -FRAME_W / 2, 0]}>
+        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+        {windowFrameMat}
+      </mesh>
+
+      {/* Sill lip detail (slight overhang for visual interest) */}
+      <mesh position={[0, -FRAME_W - 0.005, 0]}>
+        <boxGeometry args={[fW + 2 * FRAME_W + 0.01, 0.005, fD + 0.01]} />
+        {windowSillLipMat}
+      </mesh>
+    </group>
+  );
+}
 
 export function WindowFrames({
   geometry,
@@ -567,16 +669,13 @@ export function WindowFrames({
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
 }) {
-  const frames: React.ReactElement[] = [];
-  const s = 1 / 1000;
-  const FRAME_W = 0.05; // 5cm frame width
-  const frameMat = <meshStandardMaterial color="#C0B8A8" roughness={0.6} metalness={0.1} />;
+  const items: React.ReactElement[] = [];
 
-  const wallDefs = [
-    { id: "A", axis: "X" as const, cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X" as const, cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z" as const, cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z" as const, cx: -wallWidth / 2, cz: 0, length: wallDepth },
+  const wallDefs: FrameWallDef[] = [
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
   ];
 
   for (const wd of wallDefs) {
@@ -587,69 +686,61 @@ export function WindowFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "deraza" && el.type !== "balkon") continue;
-
-      const elW = el.width * s;
-      const elH = el.height * s;
-      const elBottomY = el.sill_height * s;
-      const elTopY = elBottomY + elH;
-      const offset = (el.position + el.width / 2 - wd.length * 500) * s;
-
-      const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
-      const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
-      const isHorizontal = wd.axis === "X";
-      const fW = isHorizontal ? elW : FRAME_W;
-      const fD = isHorizontal ? FRAME_W : elW;
-
-      const key = `frame-${wd.id}-${el.id ?? el.position}`;
-      // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
-      // offsetting X on side walls pushed them perpendicular out of the wall
-      const jamb = elW / 2 - FRAME_W / 2;
-      const midY = (elBottomY + elTopY) / 2;
-
-      // Left frame
-      frames.push(
-        <mesh key={`${key}-L`} position={isHorizontal ? [px - jamb, midY, pz] : [px, midY, pz - jamb]}>
-          <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Right frame
-      frames.push(
-        <mesh key={`${key}-R`} position={isHorizontal ? [px + jamb, midY, pz] : [px, midY, pz + jamb]}>
-          <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Top frame
-      frames.push(
-        <mesh key={`${key}-T`} position={[px, elTopY + FRAME_W / 2, pz]}>
-          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Sill (bottom frame with visible edge and detail)
-      frames.push(
-        <mesh key={`${key}-S`} position={[px, elBottomY - FRAME_W / 2, pz]}>
-          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Sill lip detail (slight overhang for visual interest)
-      frames.push(
-        <mesh key={`${key}-SL`} position={[px, elBottomY - FRAME_W - 0.005, pz]}>
-          <boxGeometry args={[fW + 2 * FRAME_W + 0.01, 0.005, fD + 0.01]} />
-          <meshStandardMaterial color="#D4C4B4" roughness={0.5} metalness={0.1} />
-        </mesh>,
-      );
+      items.push(<WindowFrameItem key={`frame-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }
-  return <>{frames}</>;
+  return <>{items}</>;
 }
 
+
+/** One door opening's frame + threshold, grouped at the opening's own origin
+ *  (see `frameGroupOrigin`) — mirrors WindowFrameItem. Doors always carry
+ *  sill_height 0 (see DoorLeaves.tsx's LIMITS), so the group's Y origin is
+ *  ordinarily 0, but the threshold's own Y is still expressed relative to it
+ *  (`0.01 - py`) so the rendered result is identical even if that ever
+ *  changes. */
+function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
+  const groupRef = useRef<THREE.Group>(null);
+  useLiveFrameGroup(groupRef, wd, el);
+
+  const elW = el.width * MM;
+  const elH = el.height * MM;
+  const [px, py, pz] = frameGroupOrigin(wd, el);
+  const isHorizontal = wd.axis === "X";
+  const fW = isHorizontal ? elW : FRAME_W;
+  const fD = isHorizontal ? FRAME_W : elW;
+  const jamb = elW / 2 - FRAME_W / 2;
+
+  return (
+    <group ref={groupRef} position={[px, py, pz]}>
+      {/* Left frame */}
+      <mesh position={isHorizontal ? [-jamb, elH / 2, 0] : [0, elH / 2, -jamb]}>
+        <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+        {doorFrameMat}
+      </mesh>
+
+      {/* Right frame */}
+      <mesh position={isHorizontal ? [jamb, elH / 2, 0] : [0, elH / 2, jamb]}>
+        <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+        {doorFrameMat}
+      </mesh>
+
+      {/* Top frame */}
+      <mesh position={[0, elH + FRAME_W / 2, 0]}>
+        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+        {doorFrameMat}
+      </mesh>
+
+      {/* Threshold (door sill at floor level) with wear finish — always at
+          absolute world Y=0.01 regardless of the group's own Y, same as the
+          old hardcoded absolute position. */}
+      <mesh position={[0, 0.01 - py, 0]}>
+        <boxGeometry args={[fW + 2 * FRAME_W, 0.01, fD]} />
+        {doorThresholdMat}
+      </mesh>
+    </group>
+  );
+}
 
 export function DoorFrames({
   geometry,
@@ -662,16 +753,13 @@ export function DoorFrames({
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
 }) {
-  const frames: React.ReactElement[] = [];
-  const s = 1 / 1000;
-  const FRAME_W = 0.05; // 5cm frame width
-  const frameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
+  const items: React.ReactElement[] = [];
 
-  const wallDefs = [
-    { id: "A", axis: "X" as const, cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X" as const, cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z" as const, cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z" as const, cx: -wallWidth / 2, cz: 0, length: wallDepth },
+  const wallDefs: FrameWallDef[] = [
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
   ];
 
   for (const wd of wallDefs) {
@@ -682,63 +770,10 @@ export function DoorFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "eshik") continue; // Only doors
-
-      const elW = el.width * s;
-      const elH = el.height * s;
-      const elBottomY = el.sill_height * s;
-      const elTopY = elBottomY + elH;
-      const offset = (el.position + el.width / 2 - wd.length * 500) * s;
-
-      const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
-      const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
-      const isHorizontal = wd.axis === "X";
-      const fW = isHorizontal ? elW : FRAME_W;
-      const fD = isHorizontal ? FRAME_W : elW;
-
-      const key = `door-${wd.id}-${el.id ?? el.position}`;
-      // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D)
-      const jamb = elW / 2 - FRAME_W / 2;
-      const midY = (elBottomY + elTopY) / 2;
-
-      // Left frame
-      frames.push(
-        <mesh key={`${key}-L`} position={isHorizontal ? [px - jamb, midY, pz] : [px, midY, pz - jamb]}>
-          <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Right frame
-      frames.push(
-        <mesh key={`${key}-R`} position={isHorizontal ? [px + jamb, midY, pz] : [px, midY, pz + jamb]}>
-          <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Top frame
-      frames.push(
-        <mesh key={`${key}-T`} position={[px, elTopY + FRAME_W / 2, pz]}>
-          <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
-          {frameMat}
-        </mesh>,
-      );
-
-      // Threshold (door sill at floor level) with wear finish
-      frames.push(
-        <mesh key={`${key}-H`} position={[px, 0.01, pz]}>
-          <boxGeometry args={[fW + 2 * FRAME_W, 0.01, fD]} />
-          <meshStandardMaterial
-            color="#5A4A3A"
-            roughness={0.75}
-            metalness={0.08}
-            envMapIntensity={0.1}
-          />
-        </mesh>,
-      );
+      items.push(<DoorFrameItem key={`door-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }
-  return <>{frames}</>;
+  return <>{items}</>;
 }
 
 
