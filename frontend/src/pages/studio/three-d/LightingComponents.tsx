@@ -319,62 +319,119 @@ export function DraggableLightModels({
         highQuality={highQuality}
       />
 
-      {lights.map((l) => {
-        const t = lightType(l.type)
-        const pose = fixturePose(l, t, roomW, roomD, roomH)
-        const isDragging = draggingId === l.id
-        const isSelected = selectedId === l.id
-        return (
-          <group key={l.id}>
-            <group position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
-              <LightFixture light={l} on={lightsOn} />
-              {/* Invisible grab/select handle over the fixture */}
-              <mesh
-                onPointerDown={(e) => {
-                  e.stopPropagation()
-                  onSelect?.(l.id)
-                  startDrag(l, e)
-                }}
-                onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
-                onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
-              >
-                <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
-                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-              </mesh>
-              {isSelected && (
-                <lineSegments>
-                  <edgesGeometry
-                    args={[new THREE.BoxGeometry(
-                      t.sizeM.w + 0.06,
-                      t.sizeM.h + 0.06,
-                      t.sizeM.d + 0.06,
-                    )]}
-                  />
-                  <lineBasicMaterial color="#2563EB" />
-                </lineSegments>
-              )}
-            </group>
-            {/* Live distance-to-wall labels — shown as soon as the fixture is
-                selected, tracking the same drag position the raycast writes
-                to (dragPosRef) so they never desync from the drag gesture.
-                Rendered as a sibling of the (rotated) fixture group since
-                wall distances are along absolute room axes, not the
-                fixture's own yaw. */}
-            {isSelected && (
-              <LightWallDistanceLabels
-                light={l}
-                lightType={t}
-                roomW={roomW}
-                roomD={roomD}
-                y={pose.y}
-                isDragging={isDragging}
-                dragPosRef={dragPosRef}
-              />
-            )}
-          </group>
-        )
-      })}
+      {lights.map((l) => (
+        <DraggableLightItem
+          key={l.id}
+          light={l}
+          roomW={roomW}
+          roomD={roomD}
+          roomH={roomH}
+          toolMode={toolMode}
+          lightsOn={lightsOn}
+          selectedId={selectedId}
+          draggingId={draggingId}
+          dragPosRef={dragPosRef}
+          onSelect={onSelect}
+          onStartDrag={startDrag}
+        />
+      ))}
     </>
+  )
+}
+
+/**
+ * A single user-placed ceiling fixture: the visible model, its invisible
+ * grab/select handle, the selection outline, and (while selected) its
+ * wall-distance labels.
+ *
+ * While this fixture is the one being dragged, its group tracks
+ * `dragPosRef` live via `useFrame` — the same ref `handleMove` writes to and
+ * `LightWallDistanceLabels` already reads — so the model slides under the
+ * cursor instead of only jumping once `commitDrag` writes the final position
+ * to the store on pointerup. Mirrors `DraggableElectricalItem` in
+ * ElectricalComponents.tsx: a ref on the fixture's own group, imperatively
+ * positioned from the live drag ref in `useFrame`, with a single store
+ * commit on release. When not dragging, the group renders from the normal
+ * store-derived `pose` as before.
+ */
+function DraggableLightItem({
+  light: l, roomW, roomD, roomH, toolMode, lightsOn, selectedId, draggingId, dragPosRef, onSelect, onStartDrag,
+}: {
+  light: PlacedLight
+  roomW: number
+  roomD: number
+  roomH: number
+  toolMode: ToolMode
+  lightsOn: boolean
+  selectedId?: string | null
+  draggingId: string | null
+  dragPosRef: MutableRefObject<THREE.Vector2>
+  onSelect?: (id: string | null) => void
+  onStartDrag: (light: PlacedLight, e: ThreeEvent<PointerEvent>) => void
+}) {
+  const t = lightType(l.type)
+  const pose = fixturePose(l, t, roomW, roomD, roomH)
+  const isDragging = draggingId === l.id
+  const isSelected = selectedId === l.id
+  const groupRef = useRef<THREE.Group>(null)
+
+  useFrame(() => {
+    if (!isDragging || !groupRef.current) return
+    // Same mm→world-metres conversion fixturePose()/LightWallDistanceLabels
+    // use: room-centred, so a fixture at mm (0,0) sits at world
+    // (-roomW/2, -roomD/2). dragPosRef stores (xMm, zMm) as (x, y).
+    groupRef.current.position.x = dragPosRef.current.x / 1000 - roomW / 2
+    groupRef.current.position.z = dragPosRef.current.y / 1000 - roomD / 2
+  })
+
+  return (
+    <group>
+      <group ref={groupRef} position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
+        <LightFixture light={l} on={lightsOn} />
+        {/* Invisible grab/select handle over the fixture */}
+        <mesh
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            onSelect?.(l.id)
+            onStartDrag(l, e)
+          }}
+          onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
+          onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
+        >
+          <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+        {isSelected && (
+          <lineSegments>
+            <edgesGeometry
+              args={[new THREE.BoxGeometry(
+                t.sizeM.w + 0.06,
+                t.sizeM.h + 0.06,
+                t.sizeM.d + 0.06,
+              )]}
+            />
+            <lineBasicMaterial color="#2563EB" />
+          </lineSegments>
+        )}
+      </group>
+      {/* Live distance-to-wall labels — shown as soon as the fixture is
+          selected, tracking the same drag position the raycast writes
+          to (dragPosRef) so they never desync from the drag gesture.
+          Rendered as a sibling of the (rotated) fixture group since
+          wall distances are along absolute room axes, not the
+          fixture's own yaw. */}
+      {isSelected && (
+        <LightWallDistanceLabels
+          light={l}
+          lightType={t}
+          roomW={roomW}
+          roomD={roomD}
+          y={pose.y}
+          isDragging={isDragging}
+          dragPosRef={dragPosRef}
+        />
+      )}
+    </group>
   )
 }
 
