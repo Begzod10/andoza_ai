@@ -311,6 +311,38 @@ export default function ThreeDPage() {
   // the click that ends the hold doesn't ALSO run the tap-select behaviour.
   const heldRef = useRef(false);
 
+  // ── Mutually-exclusive selection across object types ────────────────
+  // Five independent selection states exist above: furniture, a furniture
+  // sub-part, a wall opening (door/window editor layer), a ceiling light,
+  // and a wall opening (separate WallOpenings drag layer). They used to be
+  // set independently, so selecting one never cleared the others — e.g. a
+  // ceiling light's live wall-distance dimension labels stayed on screen
+  // after the user went on to select an unrelated piece of furniture.
+  // These wrappers make a real (non-null) selection of one type clear all
+  // the others. Deselecting (passing null) intentionally does NOT touch
+  // sibling state — e.g. a delete button calling onSelect(null) shouldn't
+  // also wipe an unrelated selection.
+  function selectFurniture(id: string | null) {
+    setSelectedFurId(id);
+    if (id !== null) { setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }
+  }
+  function selectFurniturePart(part: SelectedPart | null) {
+    setSelectedPart(part);
+    if (part !== null) { setSelectedFurId(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }
+  }
+  function selectDoor(id: string | null) {
+    setSelectedDoorId(id);
+    if (id !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedLightId(null); setSelOpening(null); }
+  }
+  function selectLight(id: string | null) {
+    setSelectedLightId(id);
+    if (id !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelOpening(null); }
+  }
+  function selectOpening(sel: OpeningSel | null) {
+    setSelOpening(sel);
+    if (sel !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); }
+  }
+
   // ── Drop a model file straight into the room ────────────────────────
   // Imported like a picked file, then placed immediately and the Mebel phase
   // opened, so the dropped object is both visible and editable in one gesture.
@@ -1204,7 +1236,7 @@ export default function ThreeDPage() {
               armedType={armedLightType}
               onPlaced={() => setArmedLightType(null)}
               selectedId={selectedLightId}
-              onSelect={setSelectedLightId}
+              onSelect={selectLight}
             />
           </div>
         )}
@@ -1333,7 +1365,7 @@ export default function ThreeDPage() {
             preserveDrawingBuffer: true,
           }}
           onCreated={({ gl }) => { glCanvasRef.current = gl.domElement; }}
-          onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); }}
+          onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }}
           dpr={glAttempt === 0 ? dpr : 1}
         >
           {/* Drop resolution during interaction, restore at rest */}
@@ -1437,7 +1469,7 @@ export default function ThreeDPage() {
               D={D}
               H={H}
               selected={selOpening}
-              onSelect={setSelOpening}
+              onSelect={selectOpening}
               updateElement={updateElement}
               removeElement={removeElement}
               onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
@@ -1464,7 +1496,7 @@ export default function ThreeDPage() {
                 onDelete={handleDeleteSibling}
               />
             )}
-            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={setSelectedFurId} selectedPart={selectedPart} onSelectPart={setSelectedPart} />
+            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture} selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
             <OpeningLayer
               geometry={geometry}
@@ -1474,9 +1506,9 @@ export default function ThreeDPage() {
               toolMode={toolMode}
               controlsRef={controlsRef}
               selectedId={selectedDoorId}
-              onSelect={setSelectedDoorId}
+              onSelect={selectDoor}
             />
-            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={setSelectedLightId} />
+            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
 
             <RealismEffects enabled={useComposer} />
 
@@ -1585,7 +1617,7 @@ export default function ThreeDPage() {
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
         <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
-          selectedLightId={selectedLightId} onLightChange={setSelectedLightId}
+          selectedLightId={selectedLightId} onLightChange={selectLight}
           armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
       </div>
       </div>
