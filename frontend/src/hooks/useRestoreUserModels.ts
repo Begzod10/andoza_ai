@@ -1,9 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useRoomStore } from '@/store/roomStore'
 import { getModelFromDb, saveModelToDb, arrayBufferToBlobUrl } from '@/lib/modelDb'
 import { listUserModels } from '@/lib/api'
 import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
-import { useGLTF } from '@react-three/drei'
+
+// The hook is mounted more than once (StudioPage and DesignPanel), so the
+// once-only guards live at module scope, not in a ref — two instances racing
+// the same server merge is how the shelf once ended up with every model twice.
+let mergeStarted = false
+const restoreInFlight = new Set<string>()
 
 /**
  * On startup, bring the user's imported models back to life.
@@ -14,15 +19,21 @@ import { useGLTF } from '@react-three/drei'
  *  2. The server copy (entry.remoteUrl) — when site data was cleared, the
  *     bytes are fetched back and re-cached into IndexedDB.
  *
+ * Restoring means recreating the blob URL only. Deliberately NO
+ * useGLTF.preload here: parsing every shelf model up front is minutes of
+ * blocked main thread once the shelf holds a dozen real scans (hundreds of
+ * MB) — the page froze outright. A model parses when something actually
+ * renders it (placement, or the shelf's own 3D preview), which is when the
+ * cost buys anything.
+ *
  * Separately, the server list is merged in once per session: models imported
- * on another device (or before localStorage was cleared) have no local entry
- * at all, and reappear on the "Mening" shelf from their server rows.
+ * on another device (or before localStorage was cleared) reappear from their
+ * server rows. A server row matching a local entry by name links up instead
+ * of duplicating — that heals entries whose serverId link was lost.
  */
 export function useRestoreUserModels() {
   const userFurniture = useRoomStore((s) => s.userFurniture)
-  const addUserFurniture = useRoomStore((s) => s.addUserFurniture)
   const setUserFurniturePath = useRoomStore((s) => s.setUserFurniturePath)
-  const mergedRef = useRef(false)
 
   // Reactive: room switches can reload userFurniture entries with empty
   // modelPath (blob URLs never survive persistence) — restore whenever any
@@ -30,45 +41,53 @@ export function useRestoreUserModels() {
   useEffect(() => {
     for (const entry of userFurniture) {
       if (entry.modelPath) continue  // already live
-      getModelFromDb(entry.blobId).then(async (buffer) => {
-        if (!buffer && entry.remoteUrl) {
-          // Local copy gone — pull the durable one back and re-cache it.
-          try {
-            const res = await fetch(entry.remoteUrl)
-            if (res.ok) {
-              buffer = await res.arrayBuffer()
-              saveModelToDb(entry.blobId, buffer).catch(() => {})
+      if (restoreInFlight.has(entry.id)) continue
+      restoreInFlight.add(entry.id)
+      getModelFromDb(entry.blobId)
+        .then(async (buffer) => {
+          if (!buffer && entry.remoteUrl) {
+            // Local copy gone — pull the durable one back and re-cache it.
+            try {
+              const res = await fetch(entry.remoteUrl)
+              if (res.ok) {
+                buffer = await res.arrayBuffer()
+                saveModelToDb(entry.blobId, buffer).catch(() => {})
+              }
+            } catch {
+              return  // offline or the file is gone; leave the entry dormant
             }
-          } catch {
-            return  // offline or the file is gone; leave the entry dormant
           }
-        }
-        if (!buffer) return
-        const url = arrayBufferToBlobUrl(buffer)
-        useGLTF.preload(url)
-        setUserFurniturePath(entry.id, url)
-      })
+          if (!buffer) return
+          setUserFurniturePath(entry.id, arrayBufferToBlobUrl(buffer))
+        })
+        .finally(() => restoreInFlight.delete(entry.id))
     }
   }, [userFurniture, setUserFurniturePath])
 
-  // Server merge — once per mount of the panel tree. Entries already known
-  // locally (matched by serverId, or by id for entries created from a server
-  // row) are left alone; only truly unknown rows are added.
+  // Server merge — once per session (module guard: this hook mounts twice).
   useEffect(() => {
-    if (mergedRef.current) return
-    mergedRef.current = true
+    if (mergeStarted) return
+    mergeStarted = true
     listUserModels()
       .then((models) => {
-        // Read the list at resolve time, not capture time — imports may have
+        // Read the store at resolve time, not capture time — imports may have
         // landed while the request was in flight.
-        const current = useRoomStore.getState().userFurniture
-        const known = new Set<string>()
-        for (const f of current) {
-          if (f.serverId) known.add(f.serverId)
-          known.add(f.id)
-        }
+        const { userFurniture: current, addUserFurniture, setUserFurnitureServer } =
+          useRoomStore.getState()
+        const byServerId = new Map(current.filter((f) => f.serverId).map((f) => [f.serverId!, f]))
+        const byId = new Map(current.map((f) => [f.id, f]))
         for (const m of models) {
-          if (known.has(m.id)) continue
+          if (byServerId.has(m.id) || byId.has(m.id)) continue
+          // Same name, not yet linked → this is the same model whose link was
+          // lost (e.g. another tab overwrote localStorage). Relink; don't
+          // duplicate — a duplicate has no local bytes and re-downloads the
+          // whole GLB on every load.
+          const orphan = current.find((f) => !f.serverId && f.name === m.name)
+          if (orphan) {
+            setUserFurnitureServer(orphan.id, m.id, m.url)
+            byServerId.set(m.id, orphan)
+            continue
+          }
           addUserFurniture({
             id: m.id,
             name: m.name,
@@ -86,7 +105,15 @@ export function useRestoreUserModels() {
             priceUzs: m.price_uzs ?? undefined,
           })
         }
+        // Heal any duplication a previous double-merge already persisted:
+        // a server-created twin (id === server row id) whose row is also
+        // linked from a different, original entry.
+        const { userFurniture: after, removeUserFurniture } = useRoomStore.getState()
+        for (const f of after) {
+          const linked = byServerId.get(f.id)
+          if (linked && linked.id !== f.id) removeUserFurniture(f.id)
+        }
       })
-      .catch(() => {})  // logged out or offline — the local flow still works
-  }, [addUserFurniture])
+      .catch(() => { mergeStarted = false })  // logged out or offline — retry next mount
+  }, [])
 }
