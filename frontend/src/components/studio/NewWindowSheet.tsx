@@ -8,6 +8,13 @@ const DEFAULT_WIDTH = 900;
 const DEFAULT_HEIGHT = 1200;
 const DEFAULT_SILL_HEIGHT = 800;
 
+// Same frame-color options and default as WindowEditor's "Rom rangi" swatches
+// in DoorLeaves.tsx (SASH_COLORS) — duplicated locally per this file's own
+// convention rather than shared, so a color picked here and one picked from
+// the post-placement editor offer the identical set.
+const FRAME_COLORS = ["#E8E2D8", "#FFFFFF", "#8B5E34", "#5A5A5A", "#2F4858"];
+const DEFAULT_FRAME_COLOR = FRAME_COLORS[0];
+
 // Keeps Tab cycling inside the sheet instead of leaking out to the page
 // behind the backdrop while it's open. Duplicated locally rather than
 // shared — same convention as RoomSettingsSheet.tsx / AddObjectSheet.tsx.
@@ -82,12 +89,20 @@ export interface NewWindowValues {
   height: number;
   sill_height: number;
   styleId: string;
+  leafColor: string;
 }
 
 interface NewWindowSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (values: NewWindowValues) => void;
+  /** Overrides the "Poldan balandlik" stepper's starting value — used by the
+   *  wall-tap flow (ThreeDPage's radial menu) to pre-fill it with the height
+   *  actually tapped, instead of always starting at DEFAULT_SILL_HEIGHT.
+   *  Whatever the stepper reads when confirmed (this default, left alone, or
+   *  the user's own adjustment) is what gets used — never silently
+   *  recomputed out from under a value the user set deliberately. */
+  initialSillHeight?: number;
 }
 
 /**
@@ -95,11 +110,12 @@ interface NewWindowSheetProps {
  * wall — a pure "gather choices, call a callback" component. The caller
  * (RoomSettingsSheet) owns the actual `addElement` store call.
  */
-export default function NewWindowSheet({ isOpen, onClose, onConfirm }: NewWindowSheetProps) {
+export default function NewWindowSheet({ isOpen, onClose, onConfirm, initialSillHeight }: NewWindowSheetProps) {
   const [styleId, setStyleId] = useState(DEFAULT_WINDOW_STYLE);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [sillHeight, setSillHeight] = useState(DEFAULT_SILL_HEIGHT);
+  const [leafColor, setLeafColor] = useState(DEFAULT_FRAME_COLOR);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -113,7 +129,8 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm }: NewWindow
     setStyleId(DEFAULT_WINDOW_STYLE);
     setWidth(DEFAULT_WIDTH);
     setHeight(DEFAULT_HEIGHT);
-    setSillHeight(DEFAULT_SILL_HEIGHT);
+    setSillHeight(initialSillHeight ?? DEFAULT_SILL_HEIGHT);
+    setLeafColor(DEFAULT_FRAME_COLOR);
 
     previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
@@ -137,7 +154,7 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm }: NewWindow
   if (!isOpen) return null;
 
   function handleConfirm() {
-    onConfirm({ width, height, sill_height: sillHeight, styleId });
+    onConfirm({ width, height, sill_height: sillHeight, styleId, leafColor });
   }
 
   return (
@@ -196,6 +213,26 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm }: NewWindow
               value={sillHeight} onChange={setSillHeight}
               min={0} max={2000} step={100}
             />
+          </div>
+
+          <p className="text-[11px] font-bold text-muted uppercase tracking-wider mt-5 mb-2">
+            Rom rangi
+          </p>
+          <div className="flex gap-2.5">
+            {FRAME_COLORS.map((hex) => (
+              <button
+                key={hex}
+                onClick={() => setLeafColor(hex)}
+                aria-label={hex}
+                aria-pressed={leafColor === hex}
+                className="w-9 h-9 rounded-full"
+                style={{
+                  background: hex,
+                  border: leafColor === hex ? "2.5px solid #2563EB" : "1px solid rgba(0,0,0,0.15)",
+                  boxShadow: leafColor === hex ? "0 0 0 2px #FFFFFF inset" : undefined,
+                }}
+              />
+            ))}
           </div>
 
           <button

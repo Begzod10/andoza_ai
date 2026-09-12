@@ -19,6 +19,7 @@ import SurfaceRadialMenu, { RadialIcons, type RadialSurface, type RadialItem } f
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import NewWindowSheet from "@/components/studio/NewWindowSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
@@ -302,6 +303,13 @@ export default function ThreeDPage() {
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
+  // Wall tap → "Oyna" (radial menu) opens the same type/size/color chooser
+  // RoomSettingsSheet's "+ Deraza" already uses, instead of dropping a
+  // default-sized window immediately — holds where the wall was tapped so
+  // the final window (whatever size gets picked) still centres on that spot.
+  const [pendingWindowSpot, setPendingWindowSpot] = useState<{
+    wallId: string; point: { x: number; y: number; z: number }; initialSillHeight: number;
+  } | null>(null);
   const [showAiSheet, setShowAiSheet] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
@@ -505,12 +513,15 @@ export default function ThreeDPage() {
    * `addElement(wallId, …)` and store only wall-local numbers, the opening is
    * bound to this wall and cannot jump to another.
    */
-  function createOpening(wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') {
-    const g = wallGeom(wallId);
-    if (!g || !point) return;
-    const isDoor = type === 'eshik';
-    const widthMm = 900;
-    const heightMm = isDoor ? 2100 : 1200;
+  /** Wall-local position/sill_height for an opening of the given size,
+   *  centred on a world-space hit point. Shared by the immediate door path
+   *  below and the deferred window-confirm handler, so both use the exact
+   *  same centring math regardless of when the final width/height is known. */
+  function computeOpeningRect(
+    g: { axis: 'X' | 'Z'; leftAlong: number; length: number },
+    point: { x: number; y: number; z: number },
+    widthMm: number, heightMm: number, isDoor: boolean,
+  ): { position: number; sill_height: number } {
     const wallLenMm = g.length * 1000;
     const wallHMm = H * 1000;
 
@@ -525,8 +536,30 @@ export default function ThreeDPage() {
       const vMm = point.y * 1000;
       sill_height = Math.max(0, Math.min(wallHMm - heightMm, vMm - heightMm / 2));
     }
+    return { position, sill_height };
+  }
 
-    addElement(wallId, { type, width: widthMm, height: heightMm, sill_height, position });
+  /** Doors are added immediately at the tapped spot with a fixed size (no
+   *  type/size to choose). Windows instead open pendingWindowSpot below —
+   *  createOpening('deraza', ...) only remembers WHERE it was tapped; the
+   *  actual addElement call happens once NewWindowSheet's onConfirm fires,
+   *  using the user's chosen width/height/style/color, re-centred on this
+   *  same point exactly like a door's fixed size already is. */
+  function createOpening(wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') {
+    const g = wallGeom(wallId);
+    if (!g || !point) return;
+    if (type === 'deraza') {
+      // Pre-fill the sheet's "Poldan balandlik" stepper with the height
+      // actually tapped (using the sheet's own default 900×1200 to compute
+      // it, since the real width/height aren't chosen yet) — a sensible
+      // starting point, not a value that gets silently overridden later if
+      // the user leaves it alone or adjusts it further.
+      const { sill_height } = computeOpeningRect(g, point, 900, 1200, false);
+      setPendingWindowSpot({ wallId, point, initialSillHeight: sill_height });
+      return;
+    }
+    const { position, sill_height } = computeOpeningRect(g, point, 900, 2100, true);
+    addElement(wallId, { type, width: 900, height: 2100, sill_height, position });
     setSelectedWall(wallId);
   }
 
@@ -1736,6 +1769,27 @@ export default function ThreeDPage() {
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
       <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
+      <NewWindowSheet
+        isOpen={pendingWindowSpot !== null}
+        onClose={() => setPendingWindowSpot(null)}
+        initialSillHeight={pendingWindowSpot?.initialSillHeight}
+        onConfirm={(values) => {
+          if (!pendingWindowSpot) return;
+          const { wallId, point } = pendingWindowSpot;
+          const g = wallGeom(wallId);
+          if (g) {
+            // Only the horizontal position gets recomputed here (there's no
+            // stepper for it — width is the only thing that affects it) —
+            // values.sill_height is used exactly as the sheet reports it,
+            // whether that's the tap-based default above or the user's own
+            // adjustment, never silently overridden.
+            const { position } = computeOpeningRect(g, point, values.width, values.height, false);
+            addElement(wallId, { type: 'deraza', ...values, position });
+            setSelectedWall(wallId);
+          }
+          setPendingWindowSpot(null);
+        }}
+      />
       <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
 
       {/* Surface long-press radial menu ("aylana") */}
