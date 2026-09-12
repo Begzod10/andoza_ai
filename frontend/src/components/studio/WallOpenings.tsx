@@ -1,9 +1,15 @@
 /**
  * WallOpenings — the interactive editing layer for windows & doors, rendered
  * on top of the (visual-only) WindowFrames/DoorFrames. It owns:
- *   • selection (tap an opening → floating toolbar: Surish / O'zgartirish / O'chirish)
- *   • move mode  (drag along the wall; window = X+Y, door = X only, bottom on floor)
- *   • live meter dimension labels while dragging (window: 4, door: 2)
+ *   • selection (tap an opening once to select it — the width/height/sill/
+ *     style/delete panel lives in DoorLeaves.tsx's WindowEditor/DoorEditor,
+ *     which opens automatically on selection, so this layer has no toolbar
+ *     of its own)
+ *   • free-drag move (once selected, press-and-drag anywhere on the opening
+ *     to reposition it along the wall in real time; window = X+Y, door = X
+ *     only, bottom on floor)
+ *   • live meter dimension labels while selected (window: 4, door: 2) —
+ *     shown as soon as the opening is selected, not only while dragging
  *   • Canva-style magenta alignment guides + snapping to sibling openings
  *   • edge clamping + no-overlap
  *
@@ -80,9 +86,7 @@ export function WallOpenings({
   onInteracting: (active: boolean) => void
 }) {
   const defs = useMemo(() => buildWallDefs(W, D), [W, D])
-  const [mode, setMode] = useState<'idle' | 'move' | 'resize'>('idle')
   const dragging = useRef(false)
-  const [dragActive, setDragActive] = useState(false) // reactive twin of `dragging` for label rendering
   const [guides, setGuides] = useState<Array<{ kind: 'h' | 'v'; wallId: string; at: number }>>([])
 
   // ── Live-drag position (perf) ───────────────────────────────────────
@@ -95,8 +99,8 @@ export function WallOpenings({
   // in `onMove` already re-renders this component on every pointermove (it
   // always did, even before this fix), so reading this ref during render
   // is enough to keep the dragged opening's visuals — hit-plane, selection
-  // border, toolbar, dimension labels — perfectly live without any extra
-  // store write or extra re-render source.
+  // border, dimension labels — perfectly live without any extra store write
+  // or extra re-render source.
   const liveDragRef = useRef<{ wallId: string; elId: string; position: number; sill_height: number } | null>(null)
 
   // Selection-border plane geometry is only ever needed for the single
@@ -196,9 +200,8 @@ export function WallOpenings({
 
   function onDown(e: ThreeEvent<PointerEvent>, el: WallElement) {
     e.stopPropagation()
-    if (!(selected && selected.elId === el.id && mode === 'move')) return
+    if (!(selected && selected.elId === el.id)) return
     dragging.current = true
-    setDragActive(true)
     onInteracting(true)
     ;(e.target as Element)?.setPointerCapture?.(e.pointerId)
   }
@@ -218,7 +221,6 @@ export function WallOpenings({
   function onUp(e: ThreeEvent<PointerEvent>) {
     if (!dragging.current) return
     dragging.current = false
-    setDragActive(false)
     onInteracting(false)
     setGuides([])
     // The ONE store write for the whole drag gesture — the final position.
@@ -267,13 +269,14 @@ export function WallOpenings({
 
               {/* Keyboard path to mesh selection: three.js meshes have no
                   native DOM focus, so this renders a real (invisible)
-                  <button> — via the same <Html> portal the toolbar below
-                  uses — anchored at the opening's centre. Tab reaches it,
-                  Enter/Space is the browser's native button activation
-                  (calling the same onSelect the mesh's onClick uses), arrows
-                  nudge position via the same updateElement the drag handler
-                  calls, and Delete/Backspace reuses the same removeElement
-                  the toolbar's "O'chirish" button calls. */}
+                  <button> anchored at the opening's centre via <Html>. Tab
+                  reaches it, Enter/Space is the browser's native button
+                  activation (calling the same onSelect the mesh's onClick
+                  uses), arrows nudge position via the same updateElement the
+                  drag handler calls, and Delete/Backspace calls
+                  removeElement directly — independent of the width/height/
+                  sill/style/delete panel that DoorLeaves.tsx's
+                  WindowEditor/DoorEditor already shows on selection. */}
               <Html position={[px, py, pz]} center zIndexRange={[200, 0]} style={{ pointerEvents: 'none' }}>
                 <button
                   type="button"
@@ -296,7 +299,7 @@ export function WallOpenings({
                       case 'Backspace':
                         e.preventDefault()
                         removeElement(w.id, el.id)
-                        if (isSel) { onSelect(null); setMode('idle') }
+                        if (isSel) onSelect(null)
                         break
                     }
                   }}
@@ -316,37 +319,13 @@ export function WallOpenings({
                 </lineSegments>
               )}
 
-              {/* Floating toolbar */}
+              {/* Live meter dimension labels — shown as soon as the opening
+                  is selected (matching the ceiling-lights behaviour), and
+                  already reads `liveEl`, so they keep updating live once a
+                  drag starts without needing a separate "while dragging"
+                  gate. Width/height/sill/style/delete live in DoorLeaves.tsx's
+                  WindowEditor/DoorEditor panel, not here. */}
               {isSel && (
-                <Html position={toWorld(wd, centerAlongM, (liveEl.sill_height + liveEl.height) * s + 0.12, 0.04)} center zIndexRange={[220, 0]}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 6, padding: 6, background: 'white', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => setMode((m) => (m === 'move' ? 'idle' : 'move'))}
-                        style={btn(mode === 'move')}>Surish</button>
-                      <button onClick={() => setMode((m) => (m === 'resize' ? 'idle' : 'resize'))}
-                        style={btn(mode === 'resize')}>O'zgartirish</button>
-                      <button onClick={() => { removeElement(w.id, el.id); onSelect(null); setMode('idle'); }}
-                        style={{ ...btn(false), color: '#E5484D' }}>O'chirish</button>
-                    </div>
-
-                    {/* Resize steppers (En = width, Bo'y = height). Door height
-                        grows upward only — its bottom stays on the floor. */}
-                    {mode === 'resize' && (
-                      <div style={{ display: 'flex', gap: 10, padding: 6, background: 'white', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#5A6785' }}>En</span>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { width: clampWidth(el, wd.length, -100) })}>−</button>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { width: clampWidth(el, wd.length, +100) })}>＋</button>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#5A6785' }}>Bo'y</span>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { height: clampHeight(el, H, -100) })}>−</button>
-                        <button style={stepBtn} onClick={() => updateElement(w.id, el.id, { height: clampHeight(el, H, +100) })}>＋</button>
-                      </div>
-                    )}
-                  </div>
-                </Html>
-              )}
-
-              {/* Live dimension labels while dragging this object */}
-              {isSel && mode === 'move' && dragActive && (
                 <DimensionLabels wd={wd} el={liveEl} W={W} D={D} H={H} isDoor={isDoor} />
               )}
             </group>
@@ -375,36 +354,11 @@ export function WallOpenings({
   )
 }
 
-function btn(active: boolean): React.CSSProperties {
-  return {
-    border: 'none', borderRadius: 7, padding: '6px 10px', fontSize: 12, fontWeight: 600,
-    cursor: 'pointer', background: active ? '#2E5BFF' : '#F1F3F8', color: active ? 'white' : '#1A2340',
-  }
-}
-
-const stepBtn: React.CSSProperties = {
-  border: 'none', borderRadius: 6, width: 26, height: 26, fontSize: 15, fontWeight: 700,
-  cursor: 'pointer', background: '#F1F3F8', color: '#1A2340', lineHeight: 1,
-}
-
 /** New position (mm) after a keyboard ±delta, clamped to the wall's bounds.
  *  Unlike the pointer drag's computeDrag, this does not re-run the sibling
  *  no-overlap/snap logic — it is a simple bounded nudge, not a full re-drag. */
 function clampPosition(el: WallElement, wallLenMm: number, deltaMm: number): number {
   return Math.max(0, Math.min(wallLenMm - el.width, el.position + deltaMm))
-}
-
-/** New width (mm) after a ±delta, min 40 cm and never past the wall's right edge. */
-function clampWidth(el: WallElement, wallLenM: number, deltaMm: number): number {
-  const maxW = wallLenM * 1000 - el.position
-  return Math.max(400, Math.min(maxW, el.width + deltaMm))
-}
-
-/** New height (mm) after a ±delta, min 40 cm and never past the ceiling. Doors
- *  keep sill_height = 0, so they grow upward from the floor. */
-function clampHeight(el: WallElement, ceilM: number, deltaMm: number): number {
-  const maxH = ceilM * 1000 - el.sill_height
-  return Math.max(400, Math.min(maxH, el.height + deltaMm))
 }
 
 function GuideLine({ a, b, color = '#FF2E9A' }: { a: [number, number, number]; b: [number, number, number]; color?: string }) {
