@@ -1,4 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Layers, Wrench } from "lucide-react";
+import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -280,6 +282,29 @@ export default function ThreeDPage() {
         ? (phaseParam as PhaseKey)
         : 'boyoq'
   const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
+  // Row A (mobile stage strip) / Row B (toolbar) are each collapsed into a
+  // single round TopDrawerButton — these track whether their menu panel is
+  // open, and measure each row's own bottom edge so the panel opens flush
+  // beneath it regardless of whatever fixed chrome (header, etc.) sits above.
+  const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
+  const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
+  const stageRowRef = useRef<HTMLDivElement>(null);
+  const toolbarRowRef = useRef<HTMLDivElement>(null);
+  const [stageDrawerTop, setStageDrawerTop] = useState(0);
+  const [toolsDrawerTop, setToolsDrawerTop] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      if (stageRowRef.current) {
+        setStageDrawerTop(stageRowRef.current.getBoundingClientRect().bottom);
+      }
+      if (toolbarRowRef.current) {
+        setToolsDrawerTop(toolbarRowRef.current.getBoundingClientRect().bottom);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -733,34 +758,42 @@ export default function ThreeDPage() {
   return (
     <div className="flex flex-col lg:flex-row h-full">
 
-      {/* ── Mobile: horizontal phase strip (hidden — replaced by surface radial menu) ── */}
+      {/* ── Mobile: stage strip collapsed into a round drawer trigger ── */}
       {SHOW_PHASE_STEPPER && (
-      <div className="flex lg:hidden shrink-0 overflow-x-auto bg-surface border-b border-gray-200 select-none" style={{ scrollbarWidth: 'none' }}>
-        {RENO_STAGES.map((stage, i) => {
-          const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
-          return (
-            <button
-              key={stage.key}
-              onClick={() => setActivePhase(stage.key)}
-              title={stage.label}
-              aria-label={stage.label}
-              aria-current={status === 'current' ? 'step' : undefined}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 lg:py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                status === 'current' ? 'border-brand text-brand' :
-                status === 'done'    ? 'border-transparent text-emerald-700' :
-                                       'border-transparent text-gray-500'
-              }`}
-            >
-              {status === 'done' && (
-                <svg width="10" height="10" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1.5 5.5l3 3 5-5"/>
-                </svg>
-              )}
-              {status === 'current' && <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />}
-              {stage.label}
-            </button>
-          );
-        })}
+      <div ref={stageRowRef} className="flex lg:hidden shrink-0 items-center bg-surface border-b border-gray-200 px-3 py-2 select-none">
+        <TopDrawerButton active={stageDrawerOpen} onClick={() => setStageDrawerOpen((v) => !v)} label="Bosqichlar">
+          <Layers size={18} strokeWidth={2} />
+        </TopDrawerButton>
+        <TopDrawer open={stageDrawerOpen} onOpenChange={setStageDrawerOpen} title="Bosqichlar" topOffset={stageDrawerTop}>
+          <div className="py-2">
+            {RENO_STAGES.map((stage, i) => {
+              const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
+              return (
+                <button
+                  key={stage.key}
+                  onClick={() => { setActivePhase(stage.key); setStageDrawerOpen(false); }}
+                  title={stage.label}
+                  aria-label={stage.label}
+                  aria-current={status === 'current' ? 'step' : undefined}
+                  className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-left transition-colors ${
+                    status === 'current' ? 'bg-brand text-white' :
+                    status === 'done'    ? 'text-emerald-700 hover:bg-gray-50' :
+                                           'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  {status === 'done' && (
+                    <svg width="14" height="14" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <path d="M1.5 5.5l3 3 5-5"/>
+                    </svg>
+                  )}
+                  {status === 'current' && <span className="w-2 h-2 rounded-full bg-white/90 inline-block shrink-0" />}
+                  {status === 'pending' && <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />}
+                  <span>{stage.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </TopDrawer>
       </div>
       )}
 
@@ -873,352 +906,387 @@ export default function ThreeDPage() {
             rather than actually missing. Now shows the app's thin global
             scrollbar (styles/global.css) AND a fade gradient, so it reads as
             "scroll for more" instead of "cut off". */}
-        <div className="relative shrink-0">
-        <div className="flex items-center gap-2 lg:gap-1.5 px-2 lg:px-4 py-1 lg:py-2 bg-surface border-b border-gray-200 overflow-x-auto">
-          {activeIdx >= 0 && (
-            <>
-              <span className="text-xs font-semibold text-gray-700 shrink-0 whitespace-nowrap">
-                Bosqich: {RENO_STAGES[activeIdx].label}
-              </span>
-              <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
-            </>
-          )}
-          <span className="text-xs font-medium text-gray-500 mr-0.5 shrink-0 hidden sm:block">Ko'rinish:</span>
-          {(["back", "top"] as ViewPreset[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => { setPreset(v); setPresetVersion(n => n + 1) }}
-              aria-pressed={preset === v}
-              className={`shrink-0 px-2.5 py-1 rounded-full text-xs transition-colors ${
-                preset === v
-                  ? "bg-brand text-white font-medium"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-              }`}
-            >
-              {VIEW_LABELS[v]}
-            </button>
-          ))}
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
-              <button
-                onClick={() => setToolMode('select')}
-                title="Tanlash"
-                aria-pressed={toolMode === 'select'}
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'select' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
-                </svg>
-                <span className="hidden sm:inline">Tanlash</span>
-              </button>
-              <button
-                onClick={() => setToolMode('move')}
-                title="Siljitish"
-                aria-pressed={toolMode === 'move'}
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'move' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
-                </svg>
-                <span className="hidden sm:inline">Siljitish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('rotate')}
-                title="Aylantirish"
-                aria-pressed={toolMode === 'rotate'}
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'rotate' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-                <span className="hidden sm:inline">Aylantirish</span>
-              </button>
-              <button
-                onClick={() => setToolMode('scale')}
-                title="O'lcham"
-                aria-pressed={toolMode === 'scale'}
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'scale' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
-                </svg>
-                <span className="hidden sm:inline">O'lcham</span>
-              </button>
-              <button
-                onClick={() => setToolMode('part')}
-                title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
-                aria-pressed={toolMode === 'part'}
-                className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors ${
-                  toolMode === 'part' ? 'bg-brand text-white shadow' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
-                  <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
-                  <path d="M16 3.5l-8 4.5"/>
-                </svg>
-                <span className="hidden sm:inline">Qismlar</span>
-              </button>
-            </div>
-            {/* Undo/redo — Ctrl+Z / Ctrl+Y work from any studio tab (see
-                StudioPage.tsx), these buttons are the discoverable,
-                touch-friendly equivalent for this tab specifically. */}
-            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5 shrink-0">
-              <button
-                onClick={() => useRoomStore.temporal.getState().undo()}
-                disabled={!canUndo}
-                title="Bekor qilish (Ctrl+Z)"
-                aria-label="Bekor qilish (Ctrl+Z)"
-                className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 14L4 9l5-5"/>
-                  <path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
-                </svg>
-              </button>
-              <button
-                onClick={() => useRoomStore.temporal.getState().redo()}
-                disabled={!canRedo}
-                title="Qaytarish (Ctrl+Y)"
-                aria-label="Qaytarish (Ctrl+Y)"
-                className="flex items-center justify-center px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 14l5-5-5-5"/>
-                  <path d="M20 9H9a5 5 0 0 0 0 10h1"/>
-                </svg>
-              </button>
-            </div>
-            {toolMode === 'rotate' && selectedFurId && (() => {
-              const item = furniture.find(f => f.id === selectedFurId)
-              if (!item) return null
-              const currentDeg = Math.round(item.rotation * (180 / Math.PI))
-              return (
-                <form
-                  className="flex items-center gap-1"
-                  onSubmit={e => {
-                    e.preventDefault()
-                    const deg = parseFloat(angleInputDeg)
-                    if (!isNaN(deg)) {
-                      moveFurniture(item.id, item.x, item.y, deg * (Math.PI / 180))
-                      setAngleInputDeg('')
-                    }
-                  }}
-                >
-                  <input
-                    key={selectedFurId + currentDeg}
-                    type="number"
-                    defaultValue={currentDeg}
-                    onChange={e => setAngleInputDeg(e.target.value)}
-                    placeholder={`${currentDeg}°`}
-                    className="w-14 text-xs border border-gray-300 rounded px-1 py-0.5 text-center focus:outline-none focus:border-brand"
-                    title="Burchakni darajada kiriting va Enter bosing"
-                  />
-                  <span className="text-gray-500 text-xs">°</span>
-                  <button type="submit" className="text-xs px-1.5 py-0.5 bg-brand text-white rounded font-medium">✓</button>
-                </form>
-              )
-            })()}
-            {/* Navigation help */}
-            <button
-              onClick={() => setShowHelp(v => !v)}
-              title="Boshqaruv bo'yicha yordam"
-              aria-label="Boshqaruv bo'yicha yordam"
-              className="flex items-center justify-center w-7 h-7 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-bold transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-            >
-              ?
-            </button>
-            {/* Recenter: snap the orbit pivot back to the room centre */}
-            <button
-              onClick={() => setPresetVersion(n => n + 1)}
-              title="Markazlash — kamerani xona markaziga qaytarish"
-              aria-label="Markazlash — kamerani xona markaziga qaytarish"
-              className="flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-              </svg>
-              <span className="hidden sm:inline">Markaz</span>
-            </button>
-            {/* Skrinshot: grabs the live canvas (same glCanvasRef +
-                preserveDrawingBuffer setup as the project-card thumbnail
-                above) as a lossless PNG and downloads it — no server call,
-                no shareable link, just the smallest useful export. */}
-            <button
-              onClick={handleScreenshot}
-              title="Skrinshot — dizaynni rasm sifatida saqlash"
-              aria-label="Skrinshot — dizaynni rasm sifatida saqlash"
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                screenshotStatus === 'saved'
-                  ? 'bg-success text-white border-success'
-                  : screenshotStatus === 'error'
-                  ? 'bg-red-100 text-red-600 border-red-300'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              {screenshotStatus === 'saved' ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-              ) : screenshotStatus === 'error' ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 8v5M12 16h.01" />
-                </svg>
-              ) : (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 8V6a1 1 0 0 1 1-1h2l1.5-2h7L17 5h2a1 1 0 0 1 1 1v2" />
-                  <path d="M3 8h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-                  <circle cx="12" cy="13.5" r="3.5" />
-                </svg>
+        <div ref={toolbarRowRef} className="relative shrink-0 flex items-center px-3 py-2 bg-surface border-b border-gray-200">
+          <TopDrawerButton active={toolsDrawerOpen} onClick={() => setToolsDrawerOpen((v) => !v)} label="Asboblar">
+            <Wrench size={18} strokeWidth={2} />
+          </TopDrawerButton>
+          <TopDrawer open={toolsDrawerOpen} onOpenChange={setToolsDrawerOpen} title="Asboblar" topOffset={toolsDrawerTop}>
+            <div className="flex flex-col divide-y divide-gray-100 pb-2">
+
+              {/* Current stage label */}
+              {activeIdx >= 0 && (
+                <div className="px-4 py-3">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Bosqich: {RENO_STAGES[activeIdx].label}
+                  </span>
+                </div>
               )}
-              <span className="hidden sm:inline" aria-live="polite">
-                {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
-              </span>
-            </button>
-            {/* Cutaway mode: interior → auto cutaway → fixed diorama.
-                Disabled in top view where the shell is already open. */}
-            <button
-              onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
-              disabled={topView}
-              title={
-                topView ? "Yuqoridan ko'rinishda kesma shart emas"
-                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
-                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
-                : "Ichki ko'rinishga qaytish"
-              }
-              aria-label={
-                topView ? "Yuqoridan ko'rinishda kesma shart emas"
-                : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
-                : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
-                : "Ichki ko'rinishga qaytish"
-              }
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                topView
-                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                  : cutaway !== 'off'
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
-                <path d="M3 8l9 5 9-5M12 13v9" />
-              </svg>
-              <span className="hidden sm:inline">
-                {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
-              </span>
-            </button>
-            {/* ── Lighting cluster: day/night, sun clock, room lights ── */}
-            <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
-            <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-1.5 py-0.5">
-            {/* Scene light (sun + environment) toggle */}
-            <button
-              onClick={() => setSceneLightOn(v => !v)}
-              title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              aria-label={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                sceneLightOn
-                  ? 'bg-brand text-white border-brand hover:bg-brand/90'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-              </svg>
-              <span className="hidden sm:inline">{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
-            </button>
-            {/* Sun clock. Only meaningful while the sun is the light source, so
-                it rides with the day/night toggle. */}
-            {sceneLightOn && (
-              <>
-              <span className="text-xs font-medium text-gray-500 shrink-0 hidden sm:block">Vaqt:</span>
-              <div
-                className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 shrink-0"
-                title="Quyosh vaqti — Toshkent bo'yicha"
-              >
-                <span className="text-[11px] font-semibold text-amber-800 tabular-nums w-9 text-right">
-                  {formatClock(sunHour)}
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={23.75}
-                  step={0.25}
-                  value={sunHour}
-                  onChange={(e) => setSunHour(parseFloat(e.target.value))}
-                  aria-label="Quyosh vaqti"
-                  className="w-14 sm:w-24 accent-amber-500 cursor-pointer"
-                />
+
+              {/* View preset */}
+              <div className="px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rinish</p>
+                <div className="flex items-center gap-2">
+                  {(["back", "top"] as ViewPreset[]).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => { setPreset(v); setPresetVersion(n => n + 1) }}
+                      aria-pressed={preset === v}
+                      className={`px-3 py-2 min-h-[44px] rounded-full text-sm transition-colors ${
+                        preset === v
+                          ? "bg-brand text-white font-medium"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {VIEW_LABELS[v]}
+                    </button>
+                  ))}
+                </div>
               </div>
-              </>
-            )}
-            <button
-              onClick={() => setLightsOn(v => !v)}
-              title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-              aria-label={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-              className={`flex items-center justify-center gap-1 px-2 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-medium transition-colors border shrink-0 ${
-                lightsOn
-                  ? 'bg-brand text-white border-brand hover:bg-brand/90'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 8.7 19 7c0-3.3-2.7-6-6-6S7 3.7 7 7c0 1.7 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/>
-                <path d="M9 18h6M10 22h4"/>
-              </svg>
-              <span className="hidden sm:inline">{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
-            </button>
+
+              {/* Tool modes */}
+              <div className="px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Asbob rejimi</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setToolMode('select')}
+                    title="Tanlash"
+                    aria-pressed={toolMode === 'select'}
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      toolMode === 'select' ? 'bg-white shadow text-gray-800 border-gray-300' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
+                    </svg>
+                    <span>Tanlash</span>
+                  </button>
+                  <button
+                    onClick={() => setToolMode('move')}
+                    title="Siljitish"
+                    aria-pressed={toolMode === 'move'}
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      toolMode === 'move' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
+                    </svg>
+                    <span>Siljitish</span>
+                  </button>
+                  <button
+                    onClick={() => setToolMode('rotate')}
+                    title="Aylantirish"
+                    aria-pressed={toolMode === 'rotate'}
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      toolMode === 'rotate' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                      <path d="M3 3v5h5"/>
+                    </svg>
+                    <span>Aylantirish</span>
+                  </button>
+                  <button
+                    onClick={() => setToolMode('scale')}
+                    title="O'lcham"
+                    aria-pressed={toolMode === 'scale'}
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      toolMode === 'scale' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
+                    </svg>
+                    <span>O'lcham</span>
+                  </button>
+                  <button
+                    onClick={() => setToolMode('part')}
+                    title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
+                    aria-pressed={toolMode === 'part'}
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      toolMode === 'part' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
+                      <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
+                      <path d="M16 3.5l-8 4.5"/>
+                    </svg>
+                    <span>Qismlar</span>
+                  </button>
+                </div>
+                {/* Rotation angle input — only while an object is selected in rotate mode */}
+                {toolMode === 'rotate' && selectedFurId && (() => {
+                  const item = furniture.find(f => f.id === selectedFurId)
+                  if (!item) return null
+                  const currentDeg = Math.round(item.rotation * (180 / Math.PI))
+                  return (
+                    <form
+                      className="flex items-center gap-2 mt-3"
+                      onSubmit={e => {
+                        e.preventDefault()
+                        const deg = parseFloat(angleInputDeg)
+                        if (!isNaN(deg)) {
+                          moveFurniture(item.id, item.x, item.y, deg * (Math.PI / 180))
+                          setAngleInputDeg('')
+                        }
+                      }}
+                    >
+                      <input
+                        key={selectedFurId + currentDeg}
+                        type="number"
+                        defaultValue={currentDeg}
+                        onChange={e => setAngleInputDeg(e.target.value)}
+                        placeholder={`${currentDeg}°`}
+                        className="w-20 text-sm border border-gray-300 rounded px-2 py-1.5 text-center focus:outline-none focus:border-brand"
+                        title="Burchakni darajada kiriting va Enter bosing"
+                      />
+                      <span className="text-gray-500 text-sm">°</span>
+                      <button type="submit" className="text-sm px-3 py-1.5 bg-brand text-white rounded font-medium">✓</button>
+                    </form>
+                  )
+                })()}
+              </div>
+
+              {/* Undo/redo — Ctrl+Z / Ctrl+Y work from any studio tab (see
+                  StudioPage.tsx), these buttons are the discoverable,
+                  touch-friendly equivalent for this tab specifically. */}
+              <div className="px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tarix</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => useRoomStore.temporal.getState().undo()}
+                    disabled={!canUndo}
+                    title="Bekor qilish (Ctrl+Z)"
+                    aria-label="Bekor qilish (Ctrl+Z)"
+                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-gray-100 text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 14L4 9l5-5"/>
+                      <path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
+                    </svg>
+                    <span>Bekor qilish</span>
+                  </button>
+                  <button
+                    onClick={() => useRoomStore.temporal.getState().redo()}
+                    disabled={!canRedo}
+                    title="Qaytarish (Ctrl+Y)"
+                    aria-label="Qaytarish (Ctrl+Y)"
+                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-gray-100 text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 14l5-5-5-5"/>
+                      <path d="M20 9H9a5 5 0 0 0 0 10h1"/>
+                    </svg>
+                    <span>Qaytarish</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* View controls: help, recenter, screenshot, cutaway */}
+              <div className="px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rish</p>
+                <div className="flex flex-wrap gap-2">
+                  {/* Navigation help */}
+                  <button
+                    onClick={() => setShowHelp(v => !v)}
+                    title="Boshqaruv bo'yicha yordam"
+                    aria-label="Boshqaruv bo'yicha yordam"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-full text-sm font-bold transition-colors border bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+                  >
+                    ?
+                  </button>
+                  {/* Recenter: snap the orbit pivot back to the room centre */}
+                  <button
+                    onClick={() => setPresetVersion(n => n + 1)}
+                    title="Markazlash — kamerani xona markaziga qaytarish"
+                    aria-label="Markazlash — kamerani xona markaziga qaytarish"
+                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                    </svg>
+                    <span>Markaz</span>
+                  </button>
+                  {/* Skrinshot: grabs the live canvas (same glCanvasRef +
+                      preserveDrawingBuffer setup as the project-card thumbnail
+                      above) as a lossless PNG and downloads it — no server call,
+                      no shareable link, just the smallest useful export. */}
+                  <button
+                    onClick={handleScreenshot}
+                    title="Skrinshot — dizaynni rasm sifatida saqlash"
+                    aria-label="Skrinshot — dizaynni rasm sifatida saqlash"
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      screenshotStatus === 'saved'
+                        ? 'bg-success text-white border-success'
+                        : screenshotStatus === 'error'
+                        ? 'bg-red-100 text-red-600 border-red-300'
+                        : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    {screenshotStatus === 'saved' ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    ) : screenshotStatus === 'error' ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 8v5M12 16h.01" />
+                      </svg>
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 8V6a1 1 0 0 1 1-1h2l1.5-2h7L17 5h2a1 1 0 0 1 1 1v2" />
+                        <path d="M3 8h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+                        <circle cx="12" cy="13.5" r="3.5" />
+                      </svg>
+                    )}
+                    <span aria-live="polite">
+                      {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
+                    </span>
+                  </button>
+                  {/* Cutaway mode: interior → auto cutaway → fixed diorama.
+                      Disabled in top view where the shell is already open. */}
+                  <button
+                    onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
+                    disabled={topView}
+                    title={
+                      topView ? "Yuqoridan ko'rinishda kesma shart emas"
+                      : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                      : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                      : "Ichki ko'rinishga qaytish"
+                    }
+                    aria-label={
+                      topView ? "Yuqoridan ko'rinishda kesma shart emas"
+                      : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
+                      : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
+                      : "Ichki ko'rinishga qaytish"
+                    }
+                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                      topView
+                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                        : cutaway !== 'off'
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                        : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+                      <path d="M3 8l9 5 9-5M12 13v9" />
+                    </svg>
+                    <span>
+                      {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Lighting cluster: day/night, sun clock, room lights ── */}
+              <div className="px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Yoritish</p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Scene light (sun + environment) toggle */}
+                    <button
+                      onClick={() => setSceneLightOn(v => !v)}
+                      title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
+                      aria-label={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
+                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                        sceneLightOn
+                          ? 'bg-brand text-white border-brand hover:bg-brand/90'
+                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                      </svg>
+                      <span>{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
+                    </button>
+                    <button
+                      onClick={() => setLightsOn(v => !v)}
+                      title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
+                      aria-label={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
+                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                        lightsOn
+                          ? 'bg-brand text-white border-brand hover:bg-brand/90'
+                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 8.7 19 7c0-3.3-2.7-6-6-6S7 3.7 7 7c0 1.7 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/>
+                        <path d="M9 18h6M10 22h4"/>
+                      </svg>
+                      <span>{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
+                    </button>
+                  </div>
+                  {/* Sun clock. Only meaningful while the sun is the light source, so
+                      it rides with the day/night toggle. */}
+                  {sceneLightOn && (
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50"
+                      title="Quyosh vaqti — Toshkent bo'yicha"
+                    >
+                      <span className="text-xs font-medium text-gray-500 shrink-0">Vaqt:</span>
+                      <span className="text-sm font-semibold text-amber-800 tabular-nums w-10 text-right">
+                        {formatClock(sunHour)}
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={23.75}
+                        step={0.25}
+                        value={sunHour}
+                        onChange={(e) => setSunHour(parseFloat(e.target.value))}
+                        aria-label="Quyosh vaqti"
+                        className="flex-1 accent-amber-500 cursor-pointer"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI builder button — stays visually distinct from the Kunduz/
+                  Yoqilgan brand-blue toggles (it's a one-shot special action,
+                  not a peer toggle), but now via the app's own warning/orange
+                  accent token (same family as the "Buyum qo'shish" CTA) rather
+                  than an unrelated purple with no other usage on the page. */}
+              <div className="px-4 py-3">
+                <button
+                  onClick={() => setShowAiSheet(true)}
+                  title="AI bilan qurish"
+                  aria-label="AI bilan qurish"
+                  className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+                  </svg>
+                  <span>AI bilan qurish</span>
+                </button>
+              </div>
+
+              {/* Mobile: design panel toggle. Closes the help card too — two
+                  overlays open at once is never useful, even though the
+                  z-index stack (backdrop z-40 over help card z-30) already
+                  keeps them from visually colliding. */}
+              <div className="lg:hidden px-4 py-3">
+                <button
+                  onClick={() => { setShowPanel(v => !v); setShowHelp(false); }}
+                  title="Dizayn paneli"
+                  aria-label="Dizayn paneli"
+                  className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-brand text-white"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
+                    <path d="M13.5 9v3.5M19 14.5V11l-5.5-2M6 14.5V11l5.5-2"/>
+                  </svg>
+                  <span>Dizayn paneli</span>
+                </button>
+              </div>
+
             </div>
-            <div className="hidden sm:block w-px h-6 bg-gray-300 shrink-0" />
-            {/* AI builder button — stays visually distinct from the Kunduz/
-                Yoqilgan brand-blue toggles (it's a one-shot special action,
-                not a peer toggle), but now via the app's own warning/orange
-                accent token (same family as the "Buyum qo'shish" CTA) rather
-                than an unrelated purple with no other usage on the page. */}
-            <button
-              onClick={() => setShowAiSheet(true)}
-              title="AI bilan qurish"
-              aria-label="AI bilan qurish"
-              className="flex items-center justify-center gap-1 px-2.5 py-2 lg:py-1 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 rounded-full text-xs font-semibold bg-warning text-white hover:bg-warning-dark transition-colors shrink-0"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
-              </svg>
-              <span className="hidden sm:inline">AI</span>
-            </button>
-            {/* Mobile: design panel toggle. Closes the help card too — two
-                overlays open at once is never useful, even though the
-                z-index stack (backdrop z-40 over help card z-30) already
-                keeps them from visually colliding. */}
-            <button
-              onClick={() => { setShowPanel(v => !v); setShowHelp(false); }}
-              title="Dizayn paneli"
-              aria-label="Dizayn paneli"
-              className="lg:hidden flex items-center justify-center gap-1 px-2 py-2 min-h-[44px] min-w-[44px] rounded-full text-xs font-medium bg-brand text-white shrink-0"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
-                <path d="M13.5 9v3.5M19 14.5V11l-5.5-2M6 14.5V11l5.5-2"/>
-              </svg>
-              <span className="hidden sm:inline">Dizayn</span>
-            </button>
-          </div>
-        </div>
-        {/* Right-edge fade — pointer-events-none so it never blocks clicks on
-            whatever's actually scrolled underneath it. */}
-        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent" />
+          </TopDrawer>
         </div>
 
         {/* Canvas area */}
