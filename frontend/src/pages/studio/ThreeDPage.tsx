@@ -1664,10 +1664,14 @@ export default function ThreeDPage() {
 
       {/* ── Right: contextual design panel ───────────────────────── */}
 
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop — transparent, not dimmed: the panel now docks to
+          the right half instead of covering the screen as a bottom sheet,
+          specifically so the 3D view stays fully visible on the left half
+          while it's open (the whole point is watching a material apply to
+          the wall live). Still catches a tap on that left half to close. */}
       {showPanel && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/30"
+          className="lg:hidden fixed inset-0 z-40"
           onClick={() => setShowPanel(false)}
         />
       )}
@@ -1707,22 +1711,32 @@ export default function ThreeDPage() {
             : 'width 0.2s ease, visibility 0s linear 0.2s',
         }}
       >
-      {/* Panel — desktop: static sidebar | mobile: slide-up sheet */}
+      {/* Panel — desktop: static sidebar | mobile: right-half slide-in panel
+          (was a bottom sheet covering ~72vh; docked to the right half
+          instead so the 3D canvas on the left stays visible and live while
+          picking a material — the actual point of this panel). */}
       <div
         className={[
           /* mobile base */
-          'fixed bottom-0 left-0 right-0 z-50 max-h-[72vh] rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden',
-          showPanel ? 'translate-y-0' : 'translate-y-full',
+          'fixed top-0 right-0 bottom-0 z-50 w-1/2 shadow-2xl transition-transform duration-300 ease-in-out overflow-y-auto bg-surface',
+          showPanel ? 'translate-x-0' : 'translate-x-full',
           /* desktop override */
-          'lg:static lg:translate-y-0 lg:max-h-none lg:h-full lg:rounded-none lg:shadow-none lg:z-auto lg:overflow-auto',
+          'lg:static lg:translate-x-0 lg:w-auto lg:h-full lg:shadow-none lg:z-auto lg:overflow-auto',
         ].join(' ')}
       >
-        {/* Mobile drag handle */}
-        <div
-          className="lg:hidden flex justify-center pt-2 pb-0.5 bg-surface rounded-t-2xl cursor-pointer"
-          onClick={() => setShowPanel(false)}
-        >
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        {/* Mobile close button — replaces the old drag-to-dismiss handle,
+            which doesn't make sense for a side panel. Tapping the now-
+            transparent backdrop on the left half also closes it. */}
+        <div className="lg:hidden flex justify-end p-2">
+          <button
+            onClick={() => setShowPanel(false)}
+            aria-label="Yopish"
+            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+          >
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M1 1l12 12M13 1L1 13"/>
+            </svg>
+          </button>
         </div>
         <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
           selectedLightId={selectedLightId} onLightChange={selectLight}
