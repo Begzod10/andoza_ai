@@ -568,8 +568,12 @@ export default function ThreeDPage() {
         onSelect: () => setShowAddSheet(true),
       },
       {
-        key: 'floor', label: 'Pol turi', icon: RadialIcons.floor,
-        onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('pol'); setShowPanel(true); },
+        // Mirrors the wall/ceiling "Rang" item — routes into WallSection's
+        // richer WallFloorTargetPanel (type picker + do'kon material search
+        // + image upload), not the plain 4-way FloorSection picker the old
+        // 'pol' phase opened.
+        key: 'floor', label: 'Rang', icon: RadialIcons.floor,
+        onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('boyoq'); setShowPanel(true); },
       },
     ];
   }
