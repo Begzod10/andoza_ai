@@ -377,7 +377,54 @@ function WallPanelGrid({
 }
 
 
-export const Wall = memo(function Wall({ length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
+/**
+ * Standalone twin of the `makeSeg` helper defined inside `Wall`'s main
+ * `segments` useMemo below (~line 428 at the time of writing) — identical
+ * geometry/rotation/UV math, deliberately duplicated here (not
+ * extracted-and-shared) so that primary useMemo stays completely untouched.
+ *
+ * Used only to build a single temporary "cover" patch mesh that fills an
+ * opening's hole with solid wall material while that opening is actively
+ * being dragged — see `dragPatchElId` state inside `Wall` below. Producing a
+ * `Seg` with the exact same shape/fields as the real segmentation means the
+ * patch renders through the same `<WallSegment>` component with byte-for-byte
+ * identical material handling, so it blends in seamlessly.
+ */
+function makeCoverSeg(
+  axis: "X" | "Z",
+  thickness: number,
+  posX: number, posY: number, posZ: number,
+  sw: number, sh: number, sd: number,
+  startMm: number,
+): Seg {
+  const segLenM = axis === 'X' ? sw : sd
+  const startM = startMm / 1000
+  const uOffset = (startM % WALLPAPER_WIDTH_M) / WALLPAPER_WIDTH_M
+  const uRepeat = segLenM / WALLPAPER_WIDTH_M
+  const vRepeat = sh / WALLPAPER_WIDTH_M
+
+  let px: number, py: number = posY, pz: number, ry: number, pw: number
+  const ph = sh
+
+  if (axis === 'X') {
+    const faceDir = posZ <= 0 ? 1 : -1
+    px = posX
+    pz = posZ + faceDir * thickness / 2
+    ry = faceDir > 0 ? 0 : Math.PI
+    pw = sw
+  } else {
+    const faceDir = posX >= 0 ? -1 : 1
+    px = posX + faceDir * thickness / 2
+    pz = posZ
+    ry = faceDir > 0 ? Math.PI / 2 : -Math.PI / 2
+    pw = sd
+  }
+
+  const startYm = posY - sh / 2
+  return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm, startYm }
+}
+
+export const Wall = memo(function Wall({ wallId, length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
   const oboyTexture = useMemo(() => {
     if (covering.kind !== 'oboy') return null;
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor);
@@ -420,6 +467,49 @@ export const Wall = memo(function Wall({ length, height, thickness, covering, el
     () => resolveElementPositions(elements, length * 1000),
     [elements, length],
   );
+
+  // ── Mid-drag "cover" patch ────────────────────────────────────────────
+  // WindowFrameItem/DoorFrameItem (and DoorLeaf/WindowSash in DoorLeaves.tsx)
+  // already track the live cursor position via `liveOpeningDrag` in their own
+  // `useFrame`s. This wall's own solid-panel segmentation (`segments` below)
+  // does NOT — it only reflects the committed `geometry` store state, updated
+  // once on pointerup. So while a drag is active the opening's hole would
+  // otherwise stay cut out at the OLD, pre-drag spot, while the visible frame
+  // has already moved — reading as a real hole in the wall. `dragPatchElId`
+  // tracks which of THIS wall's own elements (if any) is currently being
+  // dragged, so a single extra solid patch can be rendered over its ORIGINAL
+  // (still-committed) rectangle for the duration of the drag, deliberately
+  // NOT tracking the live position itself (only the frame/glass need to).
+  const [dragPatchElId, setDragPatchElId] = useState<string | null>(null);
+
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    const matchElId = live && live.wallId === wallId && elements.some((el) => el.id === live.elId)
+      ? live.elId
+      : null;
+    // Only touch state on an actual change — calling setState unconditionally
+    // here would force a re-render every frame of every drag, defeating the
+    // whole point of keeping the main segmentation non-live.
+    if (matchElId !== dragPatchElId) {
+      setDragPatchElId(matchElId);
+    }
+  });
+
+  const dragPatchSeg = useMemo(() => {
+    if (!dragPatchElId) return null;
+    const el = resolvedElements.find((e) => e.id === dragPatchElId);
+    if (!el) return null;
+    const s = 1 / 1000;
+    const elLeft = el.position;
+    const elRight = el.position + el.width;
+    const patchH = el.height * s;
+    const patchCY = el.sill_height * s + patchH / 2;
+    const offset = ((elLeft + elRight) / 2 - length * 500) * s;
+    const panW = el.width * s;
+    return axis === 'X'
+      ? makeCoverSeg(axis, thickness, cx + offset, patchCY, cz, panW, patchH, thickness, elLeft)
+      : makeCoverSeg(axis, thickness, cx, patchCY, cz + offset, thickness, patchH, panW, elLeft);
+  }, [dragPatchElId, resolvedElements, axis, cx, cz, thickness, length]);
 
   const segments = useMemo(() => {
     const segs: Seg[] = [];
@@ -535,6 +625,18 @@ export const Wall = memo(function Wall({ length, height, thickness, covering, el
           plaster={plaster}
         />
       ))}
+      {dragPatchSeg && (
+        <WallSegment
+          key={`drag-patch-${dragPatchElId}-${covering.kind === 'oboy' ? covering.patternId : 'p'}`}
+          seg={dragPatchSeg}
+          covering={covering}
+          baseTexture={oboyTexture}
+          imageTexture={imageTexture}
+          texAspect={texAspect}
+          isSelected={isSelected}
+          plaster={plaster}
+        />
+      )}
       {panelSettings?.enabled && (
         <WallPanelGrid
           wallLengthM={length}
