@@ -538,18 +538,18 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
         <button
-          onClick={() => roomId && navigate(`/smeta/${roomId}`)}
+          onClick={() => roomId && navigate(`/studio/${roomId}`)}
           disabled={!roomId}
           className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
-          Smeta ko'rish
+          Bezashni boshlash
         </button>
         <button
-          onClick={() => roomId && navigate(`/studio/${roomId}`)}
+          onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
           className="w-full border-2 border-brand text-brand rounded-lg py-3 text-sm font-semibold hover:bg-brand/5 transition-colors disabled:opacity-50"
         >
-          Bezashni boshlash
+          Smeta ko'rish
         </button>
         <button
           onClick={onNewRoom}
