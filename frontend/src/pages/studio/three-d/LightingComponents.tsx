@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedLight } from "@/store/roomStore";
 import type { ToolMode } from "@/features/studio/StudioFurniture";
-import { lightType, kelvinToHex, lumensToIntensity } from "@/lib/lightCatalog";
+import { lightType, kelvinToHex, lumensToIntensity, type LightType } from "@/lib/lightCatalog";
 import { LightFixture, fixturePose } from "@/components/studio/LightFixtures";
 import { computeDiskLightPositions } from "./helpers";
 
@@ -256,7 +257,9 @@ export function DraggableLightModels({
   const hitPoint = useRef(new THREE.Vector3())
 
   function startDrag(light: PlacedLight, e: ThreeEvent<PointerEvent>) {
-    if (toolMode === 'select') return
+    // An already-selected light is draggable right away, no tool-mode switch
+    // needed — only an unselected light in 'select' mode is a plain click.
+    if (toolMode === 'select' && light.id !== selectedId) return
     e.stopPropagation()
     dragPosRef.current.set(light.xMm, light.zMm)
     draggingIdRef.current = light.id
@@ -322,36 +325,142 @@ export function DraggableLightModels({
         const isDragging = draggingId === l.id
         const isSelected = selectedId === l.id
         return (
-          <group key={l.id} position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
-            <LightFixture light={l} on={lightsOn} />
-            {/* Invisible grab/select handle over the fixture */}
-            <mesh
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                onSelect?.(l.id)
-                if (toolMode !== 'select') startDrag(l, e)
-              }}
-              onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
-              onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
-            >
-              <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
-              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-            </mesh>
+          <group key={l.id}>
+            <group position={[pose.x, pose.y, pose.z]} rotation={[0, pose.rot, 0]}>
+              <LightFixture light={l} on={lightsOn} />
+              {/* Invisible grab/select handle over the fixture */}
+              <mesh
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onSelect?.(l.id)
+                  startDrag(l, e)
+                }}
+                onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
+                onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
+              >
+                <sphereGeometry args={[Math.max(0.14, t.sizeM.w * 0.6), 12, 10]} />
+                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+              </mesh>
+              {isSelected && (
+                <lineSegments>
+                  <edgesGeometry
+                    args={[new THREE.BoxGeometry(
+                      t.sizeM.w + 0.06,
+                      t.sizeM.h + 0.06,
+                      t.sizeM.d + 0.06,
+                    )]}
+                  />
+                  <lineBasicMaterial color="#2563EB" />
+                </lineSegments>
+              )}
+            </group>
+            {/* Live distance-to-wall labels — shown as soon as the fixture is
+                selected, tracking the same drag position the raycast writes
+                to (dragPosRef) so they never desync from the drag gesture.
+                Rendered as a sibling of the (rotated) fixture group since
+                wall distances are along absolute room axes, not the
+                fixture's own yaw. */}
             {isSelected && (
-              <lineSegments>
-                <edgesGeometry
-                  args={[new THREE.BoxGeometry(
-                    t.sizeM.w + 0.06,
-                    t.sizeM.h + 0.06,
-                    t.sizeM.d + 0.06,
-                  )]}
-                />
-                <lineBasicMaterial color="#2563EB" />
-              </lineSegments>
+              <LightWallDistanceLabels
+                light={l}
+                lightType={t}
+                roomW={roomW}
+                roomD={roomD}
+                y={pose.y}
+                isDragging={isDragging}
+                dragPosRef={dragPosRef}
+              />
             )}
           </group>
         )
       })}
+    </>
+  )
+}
+
+const wallDimLabelStyle: CSSProperties = {
+  background: '#1A2340',
+  color: 'white',
+  fontSize: 11,
+  fontWeight: 700,
+  padding: '2px 6px',
+  borderRadius: 6,
+  whiteSpace: 'nowrap',
+}
+
+/**
+ * Live "distance to each of the 4 walls" labels for the currently selected
+ * ceiling light — visible the instant it's selected, and tracking the same
+ * live drag position `startDrag`'s raycast writes to (`dragPosRef`) so the
+ * numbers never lag or desync from the fixture's own drag gesture.
+ *
+ * There's no existing 4-wall dimension helper in this codebase to reuse —
+ * WallOpenings.tsx's DimensionLabels and MebelPlanView.tsx's DimRuler are
+ * both single-axis/wall-local. This mirrors their visual language (same
+ * label style as WallOpenings' DimensionLabels) for a freestanding fixture
+ * measured against all 4 walls instead.
+ */
+function LightWallDistanceLabels({
+  light, lightType: t, roomW, roomD, y, isDragging, dragPosRef,
+}: {
+  light: PlacedLight
+  lightType: LightType
+  roomW: number
+  roomD: number
+  y: number
+  isDragging: boolean
+  dragPosRef: MutableRefObject<THREE.Vector2>
+}) {
+  // Mirrors dragPosRef's own (xMm, zMm) convention — see startDrag/handleMove.
+  const [live, setLive] = useState({ x: light.xMm, z: light.zMm })
+
+  useEffect(() => {
+    if (!isDragging) setLive({ x: light.xMm, z: light.zMm })
+  }, [isDragging, light.xMm, light.zMm])
+
+  useFrame(() => {
+    if (!isDragging) return
+    const nx = dragPosRef.current.x
+    const nz = dragPosRef.current.y
+    setLive((prev) => (prev.x === nx && prev.z === nz ? prev : { x: nx, z: nz }))
+  })
+
+  const hw = t.sizeM.w * 500
+  const hd = t.sizeM.d * 500
+  const roomWmm = roomW * 1000
+  const roomDmm = roomD * 1000
+
+  const distLeft = Math.max(0, live.x - hw)
+  const distRight = Math.max(0, roomWmm - (live.x + hw))
+  const distBack = Math.max(0, live.z - hd)
+  const distFront = Math.max(0, roomDmm - (live.z + hd))
+
+  // Same mm→world-metres conversion fixturePose() uses: room-centred, so a
+  // fixture at mm (0,0) sits at world (-roomW/2, -roomD/2).
+  const toWorldX = (mm: number) => mm / 1000 - roomW / 2
+  const toWorldZ = (mm: number) => mm / 1000 - roomD / 2
+
+  const worldX = toWorldX(live.x)
+  const worldZ = toWorldZ(live.z)
+  const leftMidX = toWorldX((live.x - hw) / 2)
+  const rightMidX = toWorldX((live.x + hw + roomWmm) / 2)
+  const backMidZ = toWorldZ((live.z - hd) / 2)
+  const frontMidZ = toWorldZ((live.z + hd + roomDmm) / 2)
+
+  return (
+    <>
+      <Html position={[leftMidX, y, worldZ]} center zIndexRange={[210, 0]}>
+        <div style={wallDimLabelStyle}>{(distLeft / 1000).toFixed(2)} m</div>
+      </Html>
+      <Html position={[rightMidX, y, worldZ]} center zIndexRange={[210, 0]}>
+        <div style={wallDimLabelStyle}>{(distRight / 1000).toFixed(2)} m</div>
+      </Html>
+      <Html position={[worldX, y, backMidZ]} center zIndexRange={[210, 0]}>
+        <div style={wallDimLabelStyle}>{(distBack / 1000).toFixed(2)} m</div>
+      </Html>
+      <Html position={[worldX, y, frontMidZ]} center zIndexRange={[210, 0]}>
+        <div style={wallDimLabelStyle}>{(distFront / 1000).toFixed(2)} m</div>
+      </Html>
     </>
   )
 }
