@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import json
 import uuid as uuid_module
+from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
-from app.core.storage import absolute_media_url, delete_file, upload_file
+from app.core.storage import absolute_media_url, delete_file, download_file, upload_file
 from app.models.apartment import Apartment
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
+from app.schemas.room_scan import parse_captured_room
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
+from app.services.room_scan_converter import convert_captured_room
 
 logger = structlog.get_logger(__name__)
 
@@ -87,6 +91,104 @@ async def create_room(apt_id: UUID, body: RoomCreate, db: DbSession, current_use
     await db.flush()
     logger.info("room_created", room_id=str(room.id), apt_id=str(apt_id))
     return RoomOut.model_validate(room)
+
+
+_MAX_USDZ_BYTES = 50 * 1024 * 1024
+
+
+@router.post(
+    "/rooms/{room_id}/room-scan",
+    response_model=RoomOut,
+    summary="Attach a LiDAR RoomPlan scan to a room (multipart room_json + usdz)",
+)
+async def upload_room_scan(
+    room_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+    room_json: str = Form(...),
+    usdz: UploadFile = File(...),
+) -> RoomOut:
+    """The server is the source of truth: `room_json` is re-converted here with
+    the SAME algorithm as the mobile preview and the result OVERWRITES the room's
+    geometry, so the two can never diverge. The `.usdz` is stored for the studio
+    overlay and queued for GLB conversion."""
+    room = await _get_owned_room(room_id, current_user.id, db)
+
+    if not (usdz.filename or "").lower().endswith(".usdz"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Faqat .usdz fayl qabul qilinadi")
+    data = await usdz.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bo'sh fayl")
+    if len(data) > _MAX_USDZ_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "USDZ fayl 50 MB dan katta")
+
+    try:
+        raw = json.loads(room_json)
+    except (ValueError, TypeError):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "room_json noto'g'ri JSON")
+    if not isinstance(raw, dict):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "room_json obyekt bo'lishi kerak")
+
+    conv = convert_captured_room(parse_captured_room(raw))
+    if len(conv.corners) < 3:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "Xona aniqlanmadi — kamida 3 ta burchak kerak")
+
+    usdz_key = f"scans/{current_user.id}/{uuid_module.uuid4()}.usdz"
+    await upload_file(data, usdz_key, content_type="model/vnd.usdz+zip")
+
+    # Overwrite geometry + metrics from the server conversion (source of truth).
+    room.geometry = conv.geometry.model_dump()
+    room.ceiling_h = conv.ceiling_h
+    for key, value in _compute_metrics(conv.geometry, conv.ceiling_h).items():
+        setattr(room, key, value)
+    room.room_scan = {
+        "source": "lidar",
+        "roomplan_version": "roomplan-1",
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "usdz_path": usdz_key,
+        "glb_path": None,
+        "object_count": len(conv.objects),
+        "objects": [
+            {
+                "category": o.category, "x": o.x, "y": o.y,
+                "width": o.width, "depth": o.depth, "height": o.height,
+                "rotation": o.rotation_rad, "confidence": o.confidence,
+            }
+            for o in conv.objects
+        ],
+    }
+    await db.flush()
+    logger.info("room_scan_uploaded", room_id=str(room.id), objects=len(conv.objects))
+
+    # Best-effort USDZ→GLB (Phase 4c). Never blocks; the studio renders the room
+    # from the parametric geometry whether or not a GLB is ever produced.
+    try:
+        from app.tasks.media import convert_room_scan_to_glb
+        convert_room_scan_to_glb.delay(str(room.id), usdz_key)
+    except Exception as exc:  # noqa: BLE001 — ImportError pre-4c, or broker down
+        logger.warning("room_scan_glb_dispatch_skipped", error=str(exc))
+
+    return RoomOut.model_validate(room)
+
+
+@router.get(
+    "/rooms/{room_id}/room-scan/model.glb",
+    summary="Stream a scanned room's GLB (auth-gated)",
+)
+async def get_room_scan_glb(
+    room_id: UUID, db: DbSession, current_user: CurrentUser
+) -> Response:
+    room = await _get_owned_room(room_id, current_user.id, db)
+    glb_key = (room.room_scan or {}).get("glb_path")
+    if not glb_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GLB hali tayyor emas")
+    try:
+        data = await download_file(glb_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("room_scan_glb_read_failed", room_id=str(room.id), error=str(exc))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GLB topilmadi")
+    return Response(content=data, media_type="model/gltf-binary")
 
 
 @router.get(

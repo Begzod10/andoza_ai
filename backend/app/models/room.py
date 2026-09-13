@@ -56,6 +56,12 @@ class Room(Base):
     state: Mapped[dict | None] = mapped_column(
         JSONB, nullable=True, comment="Full frontend design state (designState, electricals, lights, furniture)"
     )
+    room_scan: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="LiDAR RoomPlan scan metadata: source, roomplan_version, "
+                "scanned_at, usdz_path, glb_path, object_count, objects[]",
+    )
     thumbnail_key: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

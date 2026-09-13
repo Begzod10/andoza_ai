@@ -106,6 +106,28 @@ async def delete_file(key: str) -> None:
     await anyio.to_thread.run_sync(delete_object)
 
 
+def _local_download(key: str) -> bytes:
+    return _media_path(key).read_bytes()
+
+
+async def download_file(key: str) -> bytes:
+    """Read a stored object's bytes by *key*, from wherever it lives.
+
+    Used by auth-gated download endpoints (e.g. streaming a scan's GLB) that
+    must not just hand out the public URL. The blocking disk/network read runs
+    in a worker thread like the other storage calls.
+    """
+    if not settings.s3_configured:
+        return await anyio.to_thread.run_sync(_local_download, key)
+    s3 = _get_s3()
+
+    def _get() -> bytes:
+        obj = s3.get_object(Bucket=settings.S3_BUCKET, Key=key)
+        return obj["Body"].read()
+
+    return await anyio.to_thread.run_sync(_get)
+
+
 def public_url(storage_key: str) -> str:
     """URL for a stored key — S3 objects are already absolute, local keys are
     relative to MEDIA_URL_PREFIX."""

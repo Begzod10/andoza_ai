@@ -83,6 +83,7 @@ class RoomOut(BaseModel):
     surfaces: dict | None
     furniture_layout: list | None
     state: dict | None
+    room_scan: dict | None = None
     floor_area: float | None
     net_wall_area: float | None
     perimeter: float | None
