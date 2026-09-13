@@ -138,16 +138,27 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.is_admin === true;
+
+  // The shared picker below serves the Bo'yoq/Oboy, Suvoq and Shpaklovka
+  // phases, which each keep their OWN image library. Derive the scope bucket
+  // from the active phase so an image uploaded in one never surfaces in another
+  // (floor uploads are scoped to "pol" in FloorSection/WallFloorTargetPanel).
+  const libraryScope: "oboy" | "suvoq" | "shpaklovka" =
+    phase === "suvoq" ? "suvoq" : phase === "shpaklovka" ? "shpaklovka" : "oboy";
+
   const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
-    queryKey: ["wallpapers"],
-    queryFn: () => listWallpapers(),
+    queryKey: ["wallpapers", libraryScope],
+    queryFn: () => listWallpapers({ kind: libraryScope }),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
   const [wallpaperError, setWallpaperError] = React.useState<string | null>(null);
 
   function applyWallpaper(url: string) {
-    applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 0.5, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
+    // Default wallpaper UVW map size = 100 cm × 100 cm: repeatX is tiles-per-metre
+    // (see WallComponents), so 1.0 => one tile per metre = 100 cm; repeatY 1.0 keeps
+    // the pattern aspect-preserved (undistorted) at ~100 cm tall.
+    applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
   }
 
   // One picker for every phase that uploads a wall image.
@@ -277,10 +288,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperBusy(true);
     setWallpaperError(null);
     try {
-      const wallpaper = await uploadWallpaper(file);
+      const wallpaper = await uploadWallpaper(file, { kind: libraryScope });
       if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
       else applyWallpaper(wallpaper.url);
-      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+      queryClient.invalidateQueries({ queryKey: ["wallpapers", libraryScope] });
     } catch (err) {
       setWallpaperError(
         err instanceof Error && err.message

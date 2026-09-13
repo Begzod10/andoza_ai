@@ -1,9 +1,13 @@
-import { useEffect, useMemo } from "react";
-import { useThree } from "@react-three/fiber";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 import type { SunState } from "@/lib/sunPosition";
-import { createSkyTexture, skyIntensity } from "@/lib/skyEnvironment";
+import { skyIntensity } from "@/lib/skyEnvironment";
 import { fitShadowFrustum } from "@/lib/shadowFrustum";
+import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+
+/** User-supplied HDRI (8K EXR downsized to 2048x1024 .hdr) used as the
+ *  studio's sky + image-based lighting. Regenerate from a new source with
+ *  Blender (load EXR, image.scale(2048,1024), save as .hdr) into public/hdri/. */
+const STUDIO_HDRI = "/hdri/urban_street_04_2k.hdr";
 
 /**
  * Scene-wide environment: postprocessing (AO/AA), the generated sky (used
@@ -40,33 +44,15 @@ export function RealismEffects({ enabled }: { enabled: boolean }) {
 
 
 /**
- * Installs the generated sky as both the view out of the window and the room's
- * image-based lighting.
+ * Installs the chosen HDRI as both the view out of the window (background) and
+ * the room's image-based lighting, via the crash-safe SafeEnvironment wrapper
+ * (error boundary + Suspense + drei <Environment>).
  *
- * Both, from one texture, on purpose: a sky that is dark in the window while
- * still filling the room with midday bounce is the mismatch this whole thing
- * exists to remove.
+ * The environment intensity still tracks the sun's daylight curve, so
+ * reflections dim at night alongside the analytic light rig below.
  */
 export function BrandedSky({ sun }: { sun: SunState }) {
-  const scene = useThree((s) => s.scene)
-  const invalidate = useThree((s) => s.invalidate)
-  const texture = useMemo(() => createSkyTexture(sun), [sun])
-
-  useEffect(() => {
-    const prevBg = scene.background
-    const prevEnv = scene.environment
-    scene.background = texture
-    scene.environment = texture
-    scene.environmentIntensity = skyIntensity(sun)
-    invalidate()
-    return () => {
-      if (scene.background === texture) scene.background = prevBg
-      if (scene.environment === texture) scene.environment = prevEnv
-      texture.dispose()
-    }
-  }, [scene, texture, sun, invalidate])
-
-  return null
+  return <SafeEnvironment files={STUDIO_HDRI} background intensity={skyIntensity(sun)} />
 }
 
 

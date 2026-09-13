@@ -1687,7 +1687,7 @@ export default function ThreeDPage() {
           normally escapes a parent's normal flow. overflow:hidden clips
           ALL descendants that visually extend past its box, absolutely
           positioned or not. */}
-      <div className="relative shrink-0">
+      <div className="relative shrink-0 lg:h-full">
       {/* Desktop-only collapse wrapper. Harmless on mobile: the panel below
           stays `fixed` there (escapes normal flow, ignores an ancestor's
           width/overflow entirely), so this only actually clips/resizes
@@ -1695,7 +1695,12 @@ export default function ThreeDPage() {
           box that respects it. */}
       <div
         aria-hidden={!rightOpen}
-        className="lg:shrink-0"
+        // lg:h-full bounds this collapse wrapper to the docked area's height so
+        // the panel below (lg:h-full lg:overflow-auto) and the DesignPanel
+        // aside (lg:max-h-full + overflow-y-auto) resolve against a real height
+        // and actually scroll — without it they sized to content and tall
+        // stages (image library, Suvoq, etc.) were cut off with no scroll.
+        className="lg:shrink-0 lg:h-full"
         style={{
           width: rightOpen ? 288 : 0,
           overflow: rightOpen ? 'auto' : 'hidden',

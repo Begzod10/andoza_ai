@@ -53,6 +53,9 @@ export function WallpaperFormDialog({
       if (!file) throw new Error("Rasm tanlanmagan");
       return uploadWallpaper(file, {
         name: name.trim() || undefined,
+        // Admin-catalogued oboy products belong in the studio's Bo'yoq/Oboy
+        // library, same as before scoping existed.
+        kind: "oboy",
         store_id: fixedStoreId ?? storeId ?? undefined,
         price_uzs: priceUzs ? Number(priceUzs) : undefined,
         description: description.trim() || undefined,

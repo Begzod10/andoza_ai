@@ -790,6 +790,8 @@ export async function waitForMeshyTask(
 export interface Wallpaper {
   id: string;
   name: string;
+  /** Design-panel scope bucket (oboy|suvoq|shpaklovka|pol); null for legacy rows. */
+  kind: string | null;
   store_id: string | null;
   store_name: string | null;
   price_uzs: number | null;
@@ -809,8 +811,10 @@ export interface Wallpaper {
 
 /** Every wallpaper anyone has uploaded. The library is global and permanent. */
 /** `store_id` filters to one shop's oboy — global library entries (no shop)
- * are excluded when set. Omit to get the whole library. */
-export async function listWallpapers(params: { store_id?: string } = {}): Promise<Wallpaper[]> {
+ * are excluded when set. `kind` filters to one design-panel scope bucket
+ * (oboy|suvoq|shpaklovka|pol) so each studio panel only sees its own images.
+ * Omit both to get the whole library. */
+export async function listWallpapers(params: { store_id?: string; kind?: string } = {}): Promise<Wallpaper[]> {
   const query = new URLSearchParams(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) as Record<string, string>,
   ).toString();
@@ -822,6 +826,8 @@ export async function uploadWallpaper(
   file: File,
   meta?: {
     name?: string;
+    /** Design-panel scope bucket (oboy|suvoq|shpaklovka|pol) the image belongs to. */
+    kind?: string;
     store_id?: string;
     price_uzs?: number;
     description?: string;
@@ -833,6 +839,7 @@ export async function uploadWallpaper(
   const form = new FormData();
   form.append("file", file);
   if (meta?.name) form.append("name", meta.name);
+  if (meta?.kind) form.append("kind", meta.kind);
   if (meta?.store_id) form.append("store_id", meta.store_id);
   if (meta?.price_uzs != null) form.append("price_uzs", String(meta.price_uzs));
   if (meta?.description) form.append("description", meta.description);

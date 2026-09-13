@@ -33,15 +33,20 @@ export const WoodFloor = memo(function WoodFloor({
   useEffect(() => {
     if (!floorTexture) { setCustomTex(null); return; }
     let disposed = false;
-    new THREE.TextureLoader().load(floorTexture, (tex) => {
-      if (disposed) { tex.dispose(); return; }
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.center.set(0.5, 0.5);
-      setCustomTex(tex);
-      invalidate();
-    });
+    new THREE.TextureLoader().load(
+      floorTexture,
+      (tex) => {
+        if (disposed) { tex.dispose(); return; }
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.center.set(0.5, 0.5);
+        setCustomTex(tex);
+        invalidate();
+      },
+      undefined,
+      (err) => { console.warn("[FloorCeiling] floor texture failed to load:", floorTexture, err); },
+    );
     return () => { disposed = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floorTexture]);
@@ -184,7 +189,7 @@ export const WoodFloor = memo(function WoodFloor({
     <group onClick={onClick}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
-        {floorConfigured ? (
+        {floorConfigured || floorTexture ? (
           <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
         ) : (
           <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />
