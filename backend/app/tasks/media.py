@@ -62,18 +62,31 @@ def convert_room_scan_to_glb(self, room_id: str, usdz_key: str) -> dict:
     return asyncio.run(_convert_room_scan_to_glb(room_id, usdz_key))
 
 
-async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
+@app.task(
+    name="app.tasks.media.convert_room_scan_object_to_glb",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=30,
+    queue="converter",
+)
+def convert_room_scan_object_to_glb(self, room_id: str, object_index: int, usdz_key: str) -> dict:
+    """Phase 6: convert an Object-Capture USDZ → GLB and attach it to
+    ``room_scan.objects[object_index].glb_path``. Best-effort, same as the
+    room-level task."""
+    import asyncio
+
+    return asyncio.run(_convert_room_scan_object_to_glb(room_id, object_index, usdz_key))
+
+
+async def _blender_usdz_to_glb(usdz_key: str) -> str | None:
+    """Shared step: download the USDZ, run headless Blender off the event loop,
+    upload the GLB, return its key (or None on any failure)."""
+    import asyncio
     import os
     import tempfile
-    import uuid as _uuid
 
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-    from app.config import settings
     from app.core.room_scan_glb import usdz_to_glb
     from app.core.storage import download_file, upload_file
-    from app.models.room import Room
 
     data = await download_file(usdz_key)
     with tempfile.TemporaryDirectory() as td:
@@ -81,19 +94,29 @@ async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
         dst = os.path.join(td, "out.glb")
         with open(src, "wb") as fh:
             fh.write(data)
-        # Blender is blocking — keep it off the event loop.
-        ok = await asyncio.to_thread(usdz_to_glb, src, dst)
+        ok = await asyncio.to_thread(usdz_to_glb, src, dst)  # Blender blocks — off-loop
         if not ok:
-            logger.warning("convert_room_scan_to_glb: conversion failed room=%s", room_id)
-            return {"status": "failed", "room_id": room_id}
+            return None
         with open(dst, "rb") as fh:
             glb = fh.read()
 
     glb_key = usdz_key.rsplit(".", 1)[0] + ".glb"
     await upload_file(glb, glb_key, content_type="model/gltf-binary")
+    return glb_key
 
-    # Fresh engine — a Celery task runs in its own process/loop.
-    engine = create_async_engine(settings.DATABASE_URL)
+
+async def _update_room_scan(room_id: str, mutate) -> bool:
+    """Load the room, apply ``mutate(scan_dict)`` to a copy of room_scan,
+    reassign (JSONB change detection) and commit. Returns False if gone."""
+    import uuid as _uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from app.config import settings
+    from app.models.room import Room
+
+    engine = create_async_engine(settings.DATABASE_URL)  # own process/loop
     try:
         Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with Session() as db:
@@ -101,13 +124,50 @@ async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
                 await db.execute(select(Room).where(Room.id == _uuid.UUID(room_id)))
             ).scalar_one_or_none()
             if room is None:
-                return {"status": "room_gone", "room_id": room_id}
+                return False
             scan = dict(room.room_scan or {})
-            scan["glb_path"] = glb_key
+            mutate(scan)
             room.room_scan = scan
             await db.commit()
+            return True
     finally:
         await engine.dispose()
 
+
+async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
+    glb_key = await _blender_usdz_to_glb(usdz_key)
+    if glb_key is None:
+        logger.warning("convert_room_scan_to_glb: conversion failed room=%s", room_id)
+        return {"status": "failed", "room_id": room_id}
+
+    def _set(scan: dict) -> None:
+        scan["glb_path"] = glb_key
+
+    if not await _update_room_scan(room_id, _set):
+        return {"status": "room_gone", "room_id": room_id}
     logger.info("convert_room_scan_to_glb: ok room=%s glb=%s", room_id, glb_key)
     return {"status": "ok", "room_id": room_id, "glb_path": glb_key}
+
+
+async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz_key: str) -> dict:
+    glb_key = await _blender_usdz_to_glb(usdz_key)
+    if glb_key is None:
+        logger.warning(
+            "convert_room_scan_object_to_glb: conversion failed room=%s idx=%s",
+            room_id, object_index,
+        )
+        return {"status": "failed", "room_id": room_id}
+
+    def _set(scan: dict) -> None:
+        objects = list(scan.get("objects") or [])
+        if 0 <= object_index < len(objects):
+            objects[object_index] = {**objects[object_index], "glb_path": glb_key}
+            scan["objects"] = objects
+
+    if not await _update_room_scan(room_id, _set):
+        return {"status": "room_gone", "room_id": room_id}
+    logger.info(
+        "convert_room_scan_object_to_glb: ok room=%s idx=%s glb=%s",
+        room_id, object_index, glb_key,
+    )
+    return {"status": "ok", "room_id": room_id, "object_index": object_index, "glb_path": glb_key}

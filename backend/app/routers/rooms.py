@@ -191,6 +191,75 @@ async def get_room_scan_glb(
     return Response(content=data, media_type="model/gltf-binary")
 
 
+@router.post(
+    "/rooms/{room_id}/room-scan/objects",
+    response_model=RoomOut,
+    summary="Attach an Object-Capture USDZ to a scanned object (Phase 6)",
+)
+async def upload_room_scan_object(
+    room_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+    object_index: int = Form(...),
+    usdz: UploadFile = File(...),
+) -> RoomOut:
+    """Store a per-object photogrammetry USDZ and queue its GLB conversion; the
+    GLB is attached back onto ``room_scan.objects[object_index].glb_path`` so the
+    studio can offer "use the scanned model" for that ghost."""
+    room = await _get_owned_room(room_id, current_user.id, db)
+    scan = dict(room.room_scan or {})
+    objects = list(scan.get("objects") or [])
+    if not (0 <= object_index < len(objects)):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Bunday skanerlangan buyum yo'q")
+
+    if not (usdz.filename or "").lower().endswith(".usdz"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Faqat .usdz fayl qabul qilinadi")
+    data = await usdz.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bo'sh fayl")
+    if len(data) > _MAX_USDZ_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "USDZ fayl 50 MB dan katta")
+
+    usdz_key = f"scans/{current_user.id}/objects/{uuid_module.uuid4()}.usdz"
+    await upload_file(data, usdz_key, content_type="model/vnd.usdz+zip")
+
+    objects[object_index] = {**objects[object_index], "usdz_path": usdz_key, "glb_path": None}
+    scan["objects"] = objects
+    room.room_scan = scan
+    await db.flush()
+    logger.info("room_scan_object_uploaded", room_id=str(room.id), index=object_index)
+
+    try:
+        from app.tasks.media import convert_room_scan_object_to_glb
+        convert_room_scan_object_to_glb.delay(str(room.id), object_index, usdz_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("room_scan_object_glb_dispatch_skipped", error=str(exc))
+
+    return RoomOut.model_validate(room)
+
+
+@router.get(
+    "/rooms/{room_id}/room-scan/objects/{object_index}/model.glb",
+    summary="Stream a scanned object's GLB (auth-gated)",
+)
+async def get_room_scan_object_glb(
+    room_id: UUID, object_index: int, db: DbSession, current_user: CurrentUser
+) -> Response:
+    room = await _get_owned_room(room_id, current_user.id, db)
+    objects = (room.room_scan or {}).get("objects") or []
+    if not (0 <= object_index < len(objects)):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Bunday skanerlangan buyum yo'q")
+    glb_key = objects[object_index].get("glb_path")
+    if not glb_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GLB hali tayyor emas")
+    try:
+        data = await download_file(glb_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("room_scan_object_glb_read_failed", room_id=str(room.id), error=str(exc))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GLB topilmadi")
+    return Response(content=data, media_type="model/gltf-binary")
+
+
 @router.get(
     "/apartments/{apt_id}/rooms",
     response_model=list[RoomOut],

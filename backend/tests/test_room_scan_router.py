@@ -131,3 +131,54 @@ def test_rejects_oversized_usdz(ctx, monkeypatch):
         files=_usdz(size=1024),
     )
     assert resp.status_code == 413
+
+
+# ── Phase 6: per-object Object-Capture upload ──────────────────────────────
+
+def _with_scan_objects(room, n=1):
+    room.room_scan = {
+        "source": "lidar",
+        "objects": [
+            {"category": "table", "x": 1.0, "y": 1.0, "width": 1.0,
+             "depth": 1.0, "height": 0.7, "rotation": 0.0, "confidence": "high"}
+            for _ in range(n)
+        ],
+    }
+
+
+def test_object_upload_attaches_usdz_and_pending_glb(ctx):
+    client, room, db = ctx
+    _with_scan_objects(room)
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan/objects",
+        data={"object_index": "0"},
+        files=_usdz(),
+    )
+    assert resp.status_code == 200, resp.text
+    obj = resp.json()["room_scan"]["objects"][0]
+    assert obj["usdz_path"].endswith(".usdz")
+    assert obj["glb_path"] is None
+    rooms_mod.upload_file.assert_awaited()
+    db.flush.assert_awaited()
+
+
+def test_object_upload_bad_index_404(ctx):
+    client, room, _ = ctx
+    _with_scan_objects(room, n=0)
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan/objects",
+        data={"object_index": "5"},
+        files=_usdz(),
+    )
+    assert resp.status_code == 404
+
+
+def test_object_upload_rejects_non_usdz(ctx):
+    client, room, _ = ctx
+    _with_scan_objects(room)
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan/objects",
+        data={"object_index": "0"},
+        files={"usdz": ("obj.txt", b"x", "text/plain")},
+    )
+    assert resp.status_code == 400
