@@ -3,7 +3,16 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,6 +31,14 @@ class Wallpaper(Base):
     """
 
     __tablename__ = "wallpapers"
+
+    # The same image bytes may legitimately live in more than one design-panel
+    # library (e.g. a user uploads the same photo as both a `pol` floor and an
+    # `oboy` wall texture), so the sha256 dedup is scoped per `kind` rather than
+    # global: uniqueness is on (sha256, kind), not sha256 alone.
+    __table_args__ = (
+        UniqueConstraint("sha256", "kind", name="uq_wallpapers_sha256_kind"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -68,9 +85,22 @@ class Wallpaper(Base):
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(60), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    # Content hash — re-uploading the same image returns the existing entry
-    # instead of filling the library with duplicates.
-    sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    # Which design-panel library this image belongs to (scope bucket):
+    # "oboy" (Bo'yoq/Oboy walls), "suvoq", "shpaklovka", or "pol" (floor).
+    # Nullable so the column stays backwards-compatible; existing rows are
+    # backfilled to "oboy" by the migration. A panel only ever shows entries
+    # matching its own kind, so a floor image never leaks into a wall panel.
+    kind: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True,
+        index=True,
+        comment="Design-panel scope bucket: oboy|suvoq|shpaklovka|pol",
+    )
+    # Content hash — re-uploading the same image into the same `kind` returns
+    # the existing entry instead of filling that library with duplicates.
+    # Uniqueness is the (sha256, kind) pair (see __table_args__), so the same
+    # image can still be added to a different panel's library.
+    sha256: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
