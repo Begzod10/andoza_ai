@@ -210,6 +210,8 @@ function DraggableFurnitureItem({
   onFootprint,
   selectedPartKey,
   onSelectPart,
+  displayInfo,
+  onDelete,
 }: {
   item: PlacedFurniture
   isDragging: boolean
@@ -221,6 +223,8 @@ function DraggableFurnitureItem({
   onMeshPointerDown: (e: ThreeEvent<PointerEvent>) => void
   onButtonPointerDown: (e: React.PointerEvent) => void
   onFootprint: (id: string, hw: number, hd: number) => void
+  displayInfo: { name: string; priceUzs: number | null }
+  onDelete: (id: string) => void
   /** Active part key when this item owns the current part selection */
   selectedPartKey: string | null
   onSelectPart: (part: SelectedPart | null) => void
@@ -574,6 +578,37 @@ function DraggableFurnitureItem({
           </button>
         </Html>
       )}
+
+      {/* Characteristics + delete panel — shown on selection alone (any tool
+          mode, not just while dragging), mirroring WindowEditor's pattern in
+          DoorLeaves.tsx: tap once, see what it is and a way to remove it,
+          without needing the keyboard Delete key this only had before. */}
+      {isSelected && (
+        <Html position={[0, buttonH + 0.22, 0]} center zIndexRange={[110, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              pointerEvents: 'all', background: 'white', borderRadius: 12, padding: '10px 12px', minWidth: 150,
+              boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap', textAlign: 'center',
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>{displayInfo.name}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
+              {fw.toFixed(2)} × {fd.toFixed(2)} m
+              {displayInfo.priceUzs != null && ` · ${displayInfo.priceUzs.toLocaleString('uz-UZ')} so'm`}
+            </p>
+            <button
+              onClick={() => onDelete(item.id)}
+              style={{
+                marginTop: 8, width: '100%', border: 'none', borderRadius: 8, padding: '6px 10px',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#FEF2F2', color: '#E5484D',
+              }}
+            >
+              O'chirish
+            </button>
+          </div>
+        </Html>
+      )}
     </group>
   )
 }
@@ -585,6 +620,7 @@ export function DraggableFurnitureModels({
   toolMode,
   selectedId,
   onSelectItem,
+  onDelete,
   selectedPart,
   onSelectPart,
 }: {
@@ -594,6 +630,7 @@ export function DraggableFurnitureModels({
   toolMode: ToolMode
   selectedId: string | null
   onSelectItem: (id: string) => void
+  onDelete: (id: string) => void
   selectedPart: SelectedPart | null
   onSelectPart: (part: SelectedPart | null) => void
 }) {
@@ -630,6 +667,19 @@ export function DraggableFurnitureModels({
       (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId) ??
       catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
     )
+  }
+
+  // Display info for the selected-item panel below — a placed instance only
+  // carries a name/price snapshot for user uploads (see PlacedFurniture's own
+  // doc comment); a do'kon catalog placement has to look its name/price up
+  // by furniture_id instead, same as AddObjectSheet's own furniture list does.
+  function resolveDisplayInfo(item: PlacedFurniture): { name: string; priceUzs: number | null } {
+    if (item.name) return { name: item.name, priceUzs: item.unitPriceUzs ?? null }
+    const catalogItem = catalogFurniture.find((f) => f.id === item.furniture_id)
+    if (catalogItem) return { name: catalogItem.name_uz, priceUzs: catalogItem.price_uzs }
+    const userItem = (userFurniture as UserFurnitureEntry[]).find((f) => f.id === item.furniture_id)
+    if (userItem) return { name: userItem.name, priceUzs: null }
+    return { name: 'Mebel', priceUzs: null }
   }
 
   // Half-extents of an item's AABB after its yaw rotation — a model authored
@@ -806,6 +856,8 @@ export function DraggableFurnitureModels({
             onFootprint={handleFootprint}
             selectedPartKey={selectedPart?.itemId === item.id ? selectedPart.partKey : null}
             onSelectPart={onSelectPart}
+            displayInfo={resolveDisplayInfo(item)}
+            onDelete={onDelete}
           />
         </Suspense>
       ))}

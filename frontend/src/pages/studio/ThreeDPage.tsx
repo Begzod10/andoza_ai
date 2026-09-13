@@ -1604,7 +1604,9 @@ export default function ThreeDPage() {
                 onDelete={handleDeleteSibling}
               />
             )}
-            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture} selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
+            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
+              onDelete={(id) => { useRoomStore.getState().removeFurniture(id); setSelectedFurId(null); }}
+              selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
             <OpeningLayer
               geometry={geometry}
