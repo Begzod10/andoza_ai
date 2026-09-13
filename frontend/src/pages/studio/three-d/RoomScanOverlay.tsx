@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { BASE_URL, type RoomScan, type RoomScanObject } from "@/lib/api";
@@ -89,21 +89,20 @@ function verticesCentroidM(geometry: RoomGeometry): { x: number; z: number } {
 
 // ─── GLB reference model ───────────────────────────────────────────────────
 
-/** Fetch the scan GLB with the app's auth cookie and expose it as a blob URL.
+/** Fetch a scan GLB with the app's auth cookie and expose it as a blob URL.
  *  Cross-origin `useGLTF` would not send the cookie on its own, so we do the
  *  authed fetch ourselves (credentials:'include', same as every studio API
- *  call) and feed drei a same-document blob URL. */
-function useAuthedGlbUrl(roomId: string, enabled: boolean): string | null {
+ *  call) and feed drei a same-document blob URL. `endpoint` is the full URL to
+ *  fetch (room-level or per-object), or null to load nothing. */
+function useAuthedGlbUrl(endpoint: string | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!enabled || !roomId || roomId === "local") return;
+    if (!endpoint) return;
     let objectUrl: string | null = null;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${BASE_URL}/rooms/${roomId}/room-scan/model.glb`, {
-          credentials: "include",
-        });
+        const res = await fetch(endpoint, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         if (cancelled) return;
@@ -118,7 +117,7 @@ function useAuthedGlbUrl(roomId: string, enabled: boolean): string | null {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setUrl(null);
     };
-  }, [roomId, enabled]);
+  }, [endpoint]);
   return url;
 }
 
@@ -171,7 +170,10 @@ class ScanErrorBoundary extends Component<{ children: ReactNode }, BoundaryState
 }
 
 function ScanGlbOverlay({ roomId, offset }: { roomId: string; offset: { x: number; z: number } }) {
-  const url = useAuthedGlbUrl(roomId, true);
+  const endpoint = roomId && roomId !== "local"
+    ? `${BASE_URL}/rooms/${roomId}/room-scan/model.glb`
+    : null;
+  const url = useAuthedGlbUrl(endpoint);
   if (!url) return null;
   return (
     <ScanErrorBoundary>
@@ -182,16 +184,93 @@ function ScanGlbOverlay({ roomId, offset }: { roomId: string; offset: { x: numbe
   );
 }
 
+// ─── Per-object scanned model (photogrammetry GLB) ─────────────────────────
+
+/** The scanned GLB for a single object, rendered opaque at the ghost's
+ *  transform (position + rotation). If the mesh isn't already metric it is
+ *  scaled to the object's width×depth×height bounding box. Non-interactive by
+ *  default, matching the ghost it replaces. */
+function ScanObjectModel({ url, object }: { url: string; object: RoomScanObject }) {
+  const { scene } = useGLTF(url);
+  const targetW = Math.max(object.width, 0.05);
+  const targetD = Math.max(object.depth, 0.05);
+  const targetH = Math.max(object.height, 0.05);
+
+  const { cloned, scale, yOff } = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      // Non-interactive, same as the ghost it replaces.
+      mesh.raycast = noRaycast;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    // Fit the GLB into the scanned bounding box. A model already exported in
+    // metres lands at ~1.0 on each axis; a unit/cm model gets rescaled so it
+    // sits exactly where the ghost box was.
+    const box = new THREE.Box3().setFromObject(c);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const sx = size.x > 1e-4 ? targetW / size.x : 1;
+    const sy = size.y > 1e-4 ? targetH / size.y : 1;
+    const sz = size.z > 1e-4 ? targetD / size.z : 1;
+    // Uniform scale (median-ish) keeps proportions; the axes rarely disagree
+    // for a real object scan, and a non-uniform squash would look worse than a
+    // slight box mismatch.
+    const s = (sx + sy + sz) / 3;
+    // Lift so the model's base sits on the floor (y=0) after scaling.
+    const yOff = -box.min.y * s;
+    return { cloned: c, scale: s, yOff };
+  }, [scene, targetW, targetD, targetH]);
+
+  // Drop the cached GLTF (and its GPU resources) when the blob URL goes away.
+  useEffect(() => () => { useGLTF.clear(url); }, [url]);
+
+  return (
+    <primitive object={cloned} scale={scale} position={[0, yOff, 0]} />
+  );
+}
+
+function ScanObjectGlb({ roomId, index, object }: { roomId: string; index: number; object: RoomScanObject }) {
+  const endpoint = roomId && roomId !== "local"
+    ? `${BASE_URL}/rooms/${roomId}/room-scan/objects/${index}/model.glb`
+    : null;
+  const url = useAuthedGlbUrl(endpoint);
+  if (!url) return null;
+  return (
+    <ScanErrorBoundary>
+      <Suspense fallback={null}>
+        <ScanObjectModel url={url} object={object} />
+      </Suspense>
+    </ScanErrorBoundary>
+  );
+}
+
 // ─── Ghost boxes ───────────────────────────────────────────────────────────
 
 const GHOST_COLOR = "#F59E0B"; // amber — reads as "reference", not real furniture
 
+const GHOST_ACTION_BTN: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  padding: "3px 10px",
+  borderRadius: 8,
+  border: "1px solid #2563EB",
+  background: "#EFF6FF",
+  color: "#2563EB",
+  cursor: "pointer",
+  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+};
+
 function ScanGhostBox({
+  roomId,
   object,
   index,
   offset,
   onReplace,
 }: {
+  roomId: string;
   object: RoomScanObject;
   index: number;
   offset: { x: number; z: number };
@@ -202,12 +281,24 @@ function ScanGhostBox({
   const h = Math.max(object.height, 0.05);
   const worldX = object.x - offset.x;
   const worldZ = object.y - offset.z;
+  const hasScannedModel = !!object.glb_path;
+  // Once the user opts into the object's own scan, we render that GLB in place
+  // of the ghost box (opaque, at the same transform).
+  const [useScanned, setUseScanned] = useState(false);
 
   const edges = useMemo(
     () => new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)),
     [w, h, d],
   );
   useEffect(() => () => { edges.dispose(); }, [edges]);
+
+  if (useScanned) {
+    return (
+      <group position={[worldX, 0, worldZ]} rotation={[0, object.rotation, 0]}>
+        <ScanObjectGlb roomId={roomId} index={index} object={object} />
+      </group>
+    );
+  }
 
   return (
     <group position={[worldX, 0, worldZ]} rotation={[0, object.rotation, 0]}>
@@ -250,6 +341,15 @@ function ScanGhostBox({
           >
             {scanCategoryLabel(object.category)}
           </span>
+          {hasScannedModel && (
+            <button
+              onClick={() => setUseScanned(true)}
+              title={uz.studio.skan.skanerlangan_modelni_ishlatish}
+              style={{ ...GHOST_ACTION_BTN, border: "1px solid #059669", background: "#ECFDF5", color: "#059669" }}
+            >
+              {uz.studio.skan.skanerlangan_modelni_ishlatish}
+            </button>
+          )}
           <button
             onClick={() =>
               onReplace({
@@ -261,17 +361,7 @@ function ScanGhostBox({
               })
             }
             title={uz.studio.skan.katalogdan_almashtirish}
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              padding: "3px 10px",
-              borderRadius: 8,
-              border: "1px solid #2563EB",
-              background: "#EFF6FF",
-              color: "#2563EB",
-              cursor: "pointer",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-            }}
+            style={GHOST_ACTION_BTN}
           >
             {uz.studio.skan.katalogdan_almashtirish}
           </button>
@@ -308,6 +398,7 @@ export function RoomScanReference({
         replaced.has(i) ? null : (
           <ScanGhostBox
             key={i}
+            roomId={roomId}
             object={obj}
             index={i}
             offset={offset}

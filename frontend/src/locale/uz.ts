@@ -11,6 +11,7 @@ export const uz = {
       korinishi_bor: "Skan ko'rinishini yoqish",
       izoh: "Faqat ma'lumot uchun — o'lchov uchun ishlatilmaydi",
       katalogdan_almashtirish: "Katalogdan almashtirish",
+      skanerlangan_modelni_ishlatish: "Skanerlangan modelni ishlatish",
       // Scanned-object category labels (Uzbek) shown on the ghost boxes.
       kategoriya: {
         table: "Stol",

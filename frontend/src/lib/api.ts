@@ -238,6 +238,11 @@ export interface RoomScanObject {
   height: number;
   rotation: number;
   confidence: string;
+  /** Per-object photogrammetry scan (Phase 6). Null/absent when this object
+   *  was not individually scanned. When `glb_path` is set,
+   *  GET /rooms/{id}/room-scan/objects/{index}/model.glb streams it (auth). */
+  usdz_path?: string | null;
+  glb_path?: string | null;
 }
 
 /** LiDAR room-scan metadata attached to `RoomOut` for scanned (RoomPlan)
