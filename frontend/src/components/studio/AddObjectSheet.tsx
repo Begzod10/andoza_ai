@@ -91,6 +91,11 @@ function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
 export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObjectSheetProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
+  // Mebel: picking an item from the catalog list advances to a size-confirm
+  // step instead of placing it immediately — mirrors the window flow
+  // (NewWindowSheet: type first, then size, then place).
+  const [pendingFurniture, setPendingFurniture] = useState<CatalogFurniture | null>(null);
+  const [furnitureWidthCm, setFurnitureWidthCm] = useState(100);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
   // Defaults to "Hamma devorlar" (matching what this quick action always
   // did before), but is now a real choice — picking a specific wall no
@@ -381,7 +386,91 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           )}
 
           {/* ── Furniture section — real do'kon-managed 3D models ───────── */}
-          {section === "furniture" && (
+          {section === "furniture" && pendingFurniture && (
+            <div>
+              <button
+                onClick={() => setPendingFurniture(null)}
+                className="flex items-center gap-1 text-[13px] font-semibold text-muted mb-3"
+              >
+                ← Orqaga
+              </button>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-16 h-16 bg-[#F7F8FA] rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {pendingFurniture.thumbnail_url ? (
+                    <img src={pendingFurniture.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2"/>
+                      <path d="M16 7V5a2 2 0 00-8 0v2"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[16px] font-bold text-gray-900 truncate">{pendingFurniture.name_uz}</p>
+                  {fmtPrice(pendingFurniture.price_uzs) && (
+                    <p className="text-[12px] text-muted">{fmtPrice(pendingFurniture.price_uzs)}</p>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
+                Razmeri
+              </p>
+              <div className="bg-[#F9FAFB] rounded-2xl px-4">
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-[14px] font-semibold text-gray-800">Kenglik</p>
+                    {pendingFurniture.footprint_w != null && (
+                      <p className="text-[11px] text-muted">
+                        Standart: {(pendingFurniture.footprint_w / 100).toFixed(2)} m
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      onClick={() => setFurnitureWidthCm((v) => Math.max(20, v - 5))}
+                      aria-label="Kenglikni kamaytirish"
+                      className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+                    >
+                      −
+                    </button>
+                    <span className="text-[15px] font-bold text-gray-900 w-16 text-center">
+                      {(furnitureWidthCm / 100).toFixed(2)} m
+                    </span>
+                    <button
+                      onClick={() => setFurnitureWidthCm((v) => Math.min(400, v + 5))}
+                      aria-label="Kenglikni oshirish"
+                      className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted mt-2">
+                Bo'yi va chuqurligi shu nisbatda birga o'zgaradi.
+              </p>
+
+              <button
+                onClick={() => {
+                  const item = pendingFurniture;
+                  const count = furniture.filter((f) => f.furniture_id === item.id).length;
+                  const scaleOverride = item.footprint_w ? furnitureWidthCm / item.footprint_w : 1;
+                  placeFurniture({
+                    id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id,
+                    ...nextFurnitureOffsetMm(count), rotation: 0, scaleOverride,
+                  });
+                  setPendingFurniture(null);
+                  onClose();
+                }}
+                className="mt-6 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
+              >
+                + Qo'shish
+              </button>
+            </div>
+          )}
+
+          {section === "furniture" && !pendingFurniture && (
             <div>
               <div className="flex gap-2 mb-4 overflow-x-auto">
                 {ROOM_TABS.map((tab) => (
@@ -432,9 +521,8 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         </div>
                         <button
                           onClick={() => {
-                            const count = furniture.filter((f) => f.furniture_id === item.id).length;
-                            placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, ...nextFurnitureOffsetMm(count), rotation: 0 });
-                            onClose();
+                            setPendingFurniture(item);
+                            setFurnitureWidthCm(item.footprint_w ?? 100);
                           }}
                           aria-label={`${item.name_uz} qo'shish`}
                           className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
