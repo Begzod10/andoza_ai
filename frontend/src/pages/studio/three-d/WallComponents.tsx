@@ -10,6 +10,7 @@ import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
+import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { WALLPAPER_WIDTH_M } from "./constants";
 import { boardSegments } from "./helpers";
 
@@ -673,6 +674,51 @@ interface FrameWallDef {
 }
 
 /**
+ * Builds the per-wall `FrameWallDef[]` that `WindowFrames` and `DoorFrames`
+ * both iterate over — extracted here since the two were previously
+ * byte-for-byte duplicated.
+ *
+ * For the legacy 4-wall ABCD rectangle (no `geometry.vertices`) this returns
+ * the exact same hardcoded array both call sites used to build inline — a
+ * pure addition, zero behavior change for existing rectangle rooms.
+ *
+ * When `geometry.vertices` is populated (N-wall / rectilinear polygon rooms,
+ * e.g. from the hand-drawing feature), each edge's `FrameWallDef` is derived
+ * from `wallDefsFromVertices` (`@/lib/wallDefsFromVertices`): `cx`/`cz` are
+ * the edge's along-axis midpoint (`leftAlong + length / 2`) on the wall's own
+ * axis and its constant `face` coordinate on the other axis — exactly what
+ * `frameGroupOrigin` below needs. Neither it nor the frame meshes rotate
+ * with the wall (frames are always built axis-aligned to world X/Z, same as
+ * the legacy walls), so `ry`/`normal` are intentionally not carried over.
+ */
+function buildFrameWallDefs(
+  geometry: RoomGeometry,
+  wallWidth: number,
+  wallDepth: number,
+): FrameWallDef[] {
+  if (geometry.vertices && geometry.vertices.length >= 3) {
+    const wallIds = geometry.walls.map((w) => w.id);
+    const polyDefs = wallDefsFromVertices(geometry.vertices, wallIds);
+    return geometry.walls
+      .map((w) => polyDefs[w.id])
+      .filter((d): d is NonNullable<typeof d> => !!d)
+      .map((d) => ({
+        id: d.id,
+        axis: d.axis,
+        cx: d.axis === "X" ? d.leftAlong + d.length / 2 : d.face,
+        cz: d.axis === "Z" ? d.leftAlong + d.length / 2 : d.face,
+        length: d.length,
+      }));
+  }
+  return [
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
+  ];
+}
+
+/**
  * World position [px, py, pz] of a frame group's origin: px/pz is the
  * along-wall + wall-face placement (unchanged from the old flat/absolute
  * maths — every child mesh used to bake this same offset in individually),
@@ -773,12 +819,7 @@ export function WindowFrames({
 }) {
   const items: React.ReactElement[] = [];
 
-  const wallDefs: FrameWallDef[] = [
-    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
-  ];
+  const wallDefs: FrameWallDef[] = buildFrameWallDefs(geometry, wallWidth, wallDepth);
 
   for (const wd of wallDefs) {
     if (hiddenWalls?.has(wd.id)) continue;
@@ -857,12 +898,7 @@ export function DoorFrames({
 }) {
   const items: React.ReactElement[] = [];
 
-  const wallDefs: FrameWallDef[] = [
-    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
-  ];
+  const wallDefs: FrameWallDef[] = buildFrameWallDefs(geometry, wallWidth, wallDepth);
 
   for (const wd of wallDefs) {
     if (hiddenWalls?.has(wd.id)) continue;
@@ -879,10 +915,61 @@ export function DoorFrames({
 }
 
 
+/**
+ * `width`/`depth` (legacy rectangle span) stay as parameters used only by the
+ * fallback branch below — when `geometry.vertices` is populated the polygon
+ * branch derives every wall's own length/position from `wallDefsFromVertices`
+ * instead, so a rectilinear or notched (L-shape, etc.) polygon room gets a
+ * baseboard segment per real edge rather than 4 fixed ABCD edges.
+ *
+ * Per-edge placement in the polygon branch mirrors the legacy math exactly:
+ * `boardSegments` still returns centers relative to the wall's OWN midpoint
+ * (as if that wall were centered at 0), so the absolute along-wall world
+ * coordinate is `wallMid + segment.center` where `wallMid = leftAlong +
+ * length / 2`. The perpendicular (across-wall) placement reuses
+ * `wallDefsFromVertices`'s `normal` field directly: that normal already
+ * points INWARD (matching `Wall`'s own `ry`/normal convention in this same
+ * file — see the comment above `interface Seg` — NOT an outward-facing
+ * normal), so `face + normalComponent * (t / 2 - 0.006)` reproduces the
+ * legacy A/B/C/D offsets exactly:
+ *   Wall A: inward normal (0,0,1)  → face + 1*(t/2-0.006) = -depth/2+t/2-0.006 ✓
+ *   Wall C: inward normal (0,0,-1) → face + -1*(...)      =  depth/2-t/2+0.006 ✓
+ *   Wall B: inward normal (-1,0,0) → face + -1*(...)      =  width/2-t/2+0.006 ✓
+ *   Wall D: inward normal (1,0,0)  → face + 1*(...)       = -width/2+t/2-0.006 ✓
+ */
 export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; depth: number; geometry: RoomGeometry; hiddenWalls?: ReadonlySet<string> }) {
   const h = 0.1;
   const t = 0.02;
   const color = "#E0D8CC";
+  const mat = <meshStandardMaterial color={color} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />;
+
+  if (geometry.vertices && geometry.vertices.length >= 3) {
+    const wallIds = geometry.walls.map((w) => w.id);
+    const polyDefs = wallDefsFromVertices(geometry.vertices, wallIds);
+    return (
+      <group>
+        {geometry.walls.map((wall) => {
+          const d = polyDefs[wall.id];
+          if (!d || hiddenWalls?.has(wall.id)) return null;
+          const segs = boardSegments(d.length, wall.elements ?? []);
+          const wallMid = d.leftAlong + d.length / 2;
+          const perp = d.face + (d.axis === "X" ? d.normal.z : d.normal.x) * (t / 2 - 0.006);
+          return segs.map((s, i) => {
+            const along = wallMid + s.center;
+            const position: [number, number, number] = d.axis === "X"
+              ? [along, h / 2, perp]
+              : [perp, h / 2, along];
+            const args: [number, number, number] = d.axis === "X" ? [s.len, h, t] : [t, h, s.len];
+            return (
+              <mesh key={`${wall.id}-${i}`} position={position}>
+                <boxGeometry args={args} />{mat}
+              </mesh>
+            );
+          });
+        })}
+      </group>
+    );
+  }
 
   const wallA = geometry.walls.find(w => w.id === 'A');
   const wallB = geometry.walls.find(w => w.id === 'B');
@@ -894,7 +981,6 @@ export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: numb
   const segsB = boardSegments(depth, wallB?.elements ?? []);
   const segsD = boardSegments(depth, wallD?.elements ?? []);
 
-  const mat = <meshStandardMaterial color={color} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />;
   return (
     <group>
       {!hiddenWalls?.has('A') && segsA.map((s, i) => (
