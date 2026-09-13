@@ -11,6 +11,7 @@ import { resolveElementPositions } from "@/lib/wallPositions";
 import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
+import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
@@ -85,6 +86,38 @@ function wallFrames(W: number, D: number): WallFrame[] {
   ];
 }
 
+/**
+ * Same WallFrame contract as `wallFrames`, but for a polygon room — backs
+ * the rectilinear/N-wall hand-drawing feature (a RoomPlan-drawn layout with
+ * other-than-4 walls, described by `geometry.vertices`). Built on the shared
+ * `wallDefsFromVertices` utility so this file's frames stay in lockstep with
+ * `NWallRoomShell`'s rendered wall boxes (see that function's centering/
+ * rotation convention — read-only reference, not edited here).
+ *
+ * `PolyWallDef` describes each wall by its constant cross-axis `face` and
+ * its along-axis `leftAlong` (position-0) coordinate rather than a centre
+ * point, so the centre this file's frames need is reconstructed here as
+ * `leftAlong + length / 2`.
+ */
+function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
+  const defs = wallDefsFromVertices(vertices, wallIds);
+  const out: WallFrame[] = [];
+  for (const id of wallIds) {
+    const d = defs[id];
+    if (!d) continue; // degenerate edge (near-duplicate vertex) — no frame for it
+    const centreAlong = d.leftAlong + d.length / 2;
+    out.push({
+      id: d.id,
+      yaw: d.ry,
+      cx: d.axis === "X" ? centreAlong : d.face,
+      cz: d.axis === "Z" ? centreAlong : d.face,
+      axis: d.axis,
+      lengthM: d.length,
+    });
+  }
+  return out;
+}
+
 /** World-space centre of a door sitting at `position` mm along its wall. */
 function openingCentre(wf: WallFrame, el: WallElement) {
   const offset = (el.position + el.width / 2 - wf.lengthM * 500) * S;
@@ -142,7 +175,16 @@ export function OpeningLeaves({
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const frames = useMemo(() => wallFrames(wallWidth, wallDepth), [wallWidth, wallDepth]);
+  const wallIds = useMemo(() => geometry.walls.map((w) => w.id), [geometry.walls]);
+
+  // Polygon rooms (rectilinear hand-drawing feature, >4 walls) carry
+  // `geometry.vertices`; the legacy 4-wall ABCD rectangle does not, and MUST
+  // keep taking the exact same hardcoded-4-wall path it always has.
+  const frames = useMemo(() => {
+    return geometry.vertices && geometry.vertices.length >= 3
+      ? wallFramesFromVertices(geometry.vertices, wallIds)
+      : wallFrames(wallWidth, wallDepth);
+  }, [geometry.vertices, wallIds, wallWidth, wallDepth]);
 
   // Every door on every visible wall, already position-resolved
   const doors = useMemo(() => {
