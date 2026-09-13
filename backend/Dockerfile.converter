@@ -1,0 +1,30 @@
+# Converter service image: the app's Python deps + headless Blender, for the
+# USDZ→GLB Celery task on the `converter` queue. Kept separate from the API/worker
+# image so those stay slim (Blender + GL libs are large).
+FROM python:3.12-slim
+
+# Blender (provides the `blender` CLI + bpy) and the GL/X libs it needs to run
+# headless. xvfb is available as a fallback if a future Blender build insists on
+# a display (invoke via `xvfb-run -a blender ...`).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        blender \
+        xvfb \
+        libgl1 \
+        libglu1-mesa \
+        libxi6 \
+        libxrender1 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libsm6 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+
+ENV PYTHONPATH=/app \
+    BLENDER_BIN=blender
+
+# Only consumes the `converter` queue (the plain worker handles default,media).
+CMD ["celery", "-A", "celery_app", "worker", "-l", "info", "-Q", "converter", "-c", "2"]
