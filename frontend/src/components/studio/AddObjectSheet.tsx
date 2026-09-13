@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
@@ -7,7 +7,7 @@ import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 import { useDebounce } from "@/hooks/useDebounce";
 import { MaterialSwatch } from "./MaterialSwatch";
-import { FLOOR_TYPES } from "./design-panel/shared";
+import { FLOOR_TYPES, getWallTargets, type WallTarget } from "./design-panel/shared";
 
 type Section = "wallpaper" | "lyustra" | "furniture" | "floor";
 
@@ -21,10 +21,6 @@ const FLOOR_TYPE_TO_MATERIAL_CATEGORY: Record<string, string> = {
   tile: "plitka",
 };
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
-// Same ids and labels as DesignPanel's WALL_TARGETS (minus FLOOR/CEILING —
-// this sheet's "Devor" section is wall paint only) so the two surfaces speak
-// the same language instead of drifting.
-type WallId = "ALL" | "A" | "B" | "C" | "D";
 
 interface AddObjectSheetProps {
   onClose: () => void;
@@ -49,14 +45,6 @@ const CEILING_LIGHT_TYPES = LIGHT_TYPES.filter(
 );
 
 const ROOM_TABS: RoomTab[] = ["Mehmonxona", "Oshxona", "Yotoqxona", "Vanna"];
-
-const WALL_TARGETS: { key: WallId; label: string }[] = [
-  { key: "ALL", label: "Hamma devorlar" },
-  { key: "A",   label: "Devor A" },
-  { key: "B",   label: "Devor B" },
-  { key: "C",   label: "Devor C" },
-  { key: "D",   label: "Devor D" },
-];
 
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "wallpaper", label: "Devor" },
@@ -102,11 +90,17 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   // longer silently wipes every other wall's color. Setting "ALL" clears
   // per-wall overrides in the store, so applying it here without a picker
   // used to blow away desktop customization with a single tap.
-  const [targetWall, setTargetWall] = useState<WallId>("ALL");
+  const [targetWall, setTargetWall] = useState<WallTarget>("ALL");
   const {
     setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture,
     designState, setDesignState, setFloorTexture, surfaces,
   } = useRoomStore();
+  // ALL + one entry per actual wall in the room's own geometry (no
+  // FLOOR/CEILING — this sheet's "Devor" section is wall paint only) —
+  // recomputed whenever the room's walls change, same source WallSection and
+  // SuvoqSection use, so a hand-drawn polygon room's real wall ids show up
+  // here too instead of a stale/nonexistent A/B/C/D set.
+  const wallTargets = useMemo(() => getWallTargets(geometry), [geometry.walls]);
 
   // Focus management: this sheet is only ever mounted while open (the
   // caller conditionally renders it), so on-mount capture of whatever had
@@ -257,7 +251,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           {section === "wallpaper" && (
             <div>
               <div className="flex gap-2 mb-3 overflow-x-auto">
-                {WALL_TARGETS.map((w) => (
+                {wallTargets.map((w) => (
                   <button
                     key={w.key}
                     onClick={() => setTargetWall(w.key)}
@@ -270,7 +264,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                 ))}
               </div>
               <p className="text-[13px] text-muted mb-3">
-                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${WALL_TARGETS.find((w) => w.key === targetWall)?.label} uchun rang`}
+                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${wallTargets.find((w) => w.key === targetWall)?.label} uchun rang`}
               </p>
               <input
                 type="text"

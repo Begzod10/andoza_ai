@@ -9,12 +9,12 @@ import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import type { Room } from "@/lib/api";
+import { getWallTargets, type WallTarget } from "@/components/studio/design-panel/shared";
 
 interface StudioContext {
   room: Room;
 }
 
-type WallTarget = 'ALL' | 'A' | 'B' | 'C' | 'D'
 type CoveringMode = 'paint' | 'oboy'
 
 const WALL_COLORS = [
@@ -29,14 +29,6 @@ const FLOOR_TYPES = [
   { key: "concrete", label: "Beton" },
 ]
 
-const WALL_TARGETS: { key: WallTarget; label: string }[] = [
-  { key: 'ALL', label: 'Hamma devorlar' },
-  { key: 'A', label: 'Devor A' },
-  { key: 'B', label: 'Devor B' },
-  { key: 'C', label: 'Devor C' },
-  { key: 'D', label: 'Devor D' },
-]
-
 export default function IsometricPage() {
   const { room } = useOutletContext<StudioContext>();
   const { designState, setDesignState, setWallCovering, geometry, ceilingHeight } = useRoomStore();
@@ -46,6 +38,11 @@ export default function IsometricPage() {
   // ── Local UI state ──────────────────────────────────────────────────────────
   const [coveringMode, setCoveringMode] = React.useState<CoveringMode>('paint')
   const [targetWall, setTargetWall] = React.useState<WallTarget>('ALL')
+  // ALL + one entry per actual wall in the room's own geometry — recomputed
+  // whenever the room's walls change, same source WallSection/SuvoqSection/
+  // AddObjectSheet use, so a hand-drawn polygon room's real wall ids show up
+  // here too instead of a stale/nonexistent A/B/C/D set.
+  const wallTargets = React.useMemo(() => getWallTargets(geometry), [geometry.walls])
   const [selectedPattern, setSelectedPattern] = React.useState<OboyPatternId>('damask')
   const [baseColor, setBaseColor] = React.useState('#F5F0E8')
   const [accentColor, setAccentColor] = React.useState('#8B6F47')
@@ -264,7 +261,7 @@ export default function IsometricPage() {
         <section className="mb-4">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Devor</h3>
           <div className="flex flex-wrap gap-1.5">
-            {WALL_TARGETS.map(({ key, label }) => (
+            {wallTargets.map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setTargetWall(key)}

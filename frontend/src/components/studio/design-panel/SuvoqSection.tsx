@@ -1,9 +1,10 @@
 import type * as React from "react";
+import { useMemo } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { WallCovering } from "@/store/roomStore";
 import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
 import type { PlasterFinish } from "@/lib/plasterFinishes";
-import { WALL_TARGETS, resolveTargetWall, type WallTarget } from "./shared";
+import { getWallTargets, CEILING_TARGET, resolveTargetWall, type WallTarget } from "./shared";
 
 interface SuvoqSectionProps {
   selectedWall?: string | null;
@@ -36,6 +37,14 @@ export function SuvoqSection({
 
   const targetWall: WallTarget = resolveTargetWall(selectedWall);
   const setTargetWall = (w: WallTarget) => onWallChange?.(w === 'ALL' ? null : w);
+  // ALL + one entry per actual wall in the room's own geometry, plus CEILING
+  // (this section never targets FLOOR) — recomputed whenever the room's
+  // walls change, so a hand-drawn polygon room's real wall ids show up here
+  // instead of a stale/nonexistent A/B/C/D set.
+  const wallTargets = useMemo(
+    () => [...getWallTargets(geometry), CEILING_TARGET],
+    [geometry.walls],
+  );
 
   const currentCoveringUrl = (() => {
     const c = targetWall === 'ALL' ? wallCoverings.ALL : (wallCoverings[targetWall] ?? wallCoverings.ALL);
@@ -73,7 +82,7 @@ export function SuvoqSection({
           Qaysi devorga
         </span>
         <div className="flex flex-wrap gap-1" role="listbox" aria-label="Qaysi devorga">
-          {WALL_TARGETS.filter((w) => w.key !== 'FLOOR').map((w) => (
+          {wallTargets.map((w) => (
             <button
               key={w.key}
               onClick={() => setTargetWall(w.key)}
