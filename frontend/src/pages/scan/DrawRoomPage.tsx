@@ -141,9 +141,12 @@ export default function DrawRoomPage() {
     const geometry: RoomGeometry = { walls, vertices: ordered }
 
     // Same call shape LidarPage.tsx uses: load into the store, then hand
-    // off to the wizard — no custom review/save UI here.
+    // off to the wizard — no custom review/save UI here. `from=draw` tells
+    // the wizard the wall lengths are already exact (drawn, not guessed),
+    // so it only asks for ceiling height before saving and going straight
+    // into the 3D studio, skipping the per-wall review steps.
     loadRoom({ geometry, ceiling_h: DEFAULT_CEILING_M })
-    navigate('/wizard')
+    navigate('/wizard?from=draw')
   }
 
   const canClose = !closed && points.length >= MIN_POINTS_TO_CLOSE

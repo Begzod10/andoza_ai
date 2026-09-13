@@ -565,6 +565,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
 // ─── WizardPage ───────────────────────────────────────────────────────────────
 
 export default function WizardPage() {
+  const navigate = useNavigate()
   const {
     draftId,
     ceilingHeight,
@@ -587,6 +588,12 @@ export default function WizardPage() {
 
   const [searchParams] = useSearchParams()
   const existingApartmentId = searchParams.get('apartmentId') ?? null
+  // Hand-drawn rooms (DrawRoomPage) already have exact wall lengths from the
+  // drawing — asking the user to re-confirm each one is redundant. For this
+  // entry path only, ceiling height is the one remaining real question;
+  // confirming it saves the room and goes straight into its 3D view instead
+  // of stepping through geometry.walls.length wall-review screens + results.
+  const isFromDraw = searchParams.get('from') === 'draw'
 
   const [step, setStep] = React.useState(0)
   const [dir, setDir] = React.useState(1)
@@ -667,8 +674,8 @@ export default function WizardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geometry, ceilingHeight, step])
 
-  async function handleSave() {
-    if (roomId) return  // already saved (local or real)
+  async function handleSave(): Promise<string | null> {
+    if (roomId) return roomId  // already saved (local or real)
     // Assign a local ID immediately so navigation is never blocked.
     // NOTE: crypto.randomUUID() only exists in a secure context (HTTPS or
     // localhost). In a mobile WebView / phone the app is served over plain
@@ -715,8 +722,10 @@ export default function WizardPage() {
         try { await deleteDraftRoom(draftId) } catch { /* ignore */ }
         setDraftId(null)
       }
+      return room.id
     } catch {
       // keep the local ID — studio/smeta work in offline mode
+      return localId
     } finally {
       setSaving(false)
     }
@@ -759,6 +768,13 @@ export default function WizardPage() {
   }
 
   function goNext() {
+    if (step === 0 && isFromDraw) {
+      void handleSave().then((id) => {
+        void persistLayoutPos()
+        if (id) navigate(`/studio/${id}/ichkarida`)
+      })
+      return
+    }
     const nextStep = step + 1
     setDir(1)
     setStep(nextStep)
