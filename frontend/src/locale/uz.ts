@@ -5,6 +5,31 @@ export const uz = {
   studio: {
     devor_rangi: "Devor rangi",
     pol_turi: "Pol turi",
+    skan: {
+      korinishi: "Skan ko'rinishi",
+      korinishi_yoq: "Skan ko'rinishini o'chirish",
+      korinishi_bor: "Skan ko'rinishini yoqish",
+      izoh: "Faqat ma'lumot uchun — o'lchov uchun ishlatilmaydi",
+      katalogdan_almashtirish: "Katalogdan almashtirish",
+      // Scanned-object category labels (Uzbek) shown on the ghost boxes.
+      kategoriya: {
+        table: "Stol",
+        chair: "Stul",
+        sofa: "Divan",
+        bed: "Karavot",
+        storage: "Shkaf",
+        refrigerator: "Muzlatgich",
+        stove: "Plita",
+        sink: "Rakovina",
+        toilet: "Unitaz",
+        bathtub: "Vanna",
+        washer: "Kir mashinasi",
+        television: "Televizor",
+        fireplace: "Kamin",
+        stairs: "Zina",
+        other: "Boshqa",
+      } as Record<string, string>,
+    },
   },
   smeta: {
     sarlavha: "Smeta",

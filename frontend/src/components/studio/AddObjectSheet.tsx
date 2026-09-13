@@ -29,6 +29,17 @@ type WallId = "ALL" | "A" | "B" | "C" | "D";
 interface AddObjectSheetProps {
   onClose: () => void;
   initialSection?: Section;
+  /** Restrict the furniture list to one admin-catalog category (e.g. when
+   *  opened from a scanned-object ghost's "Katalogdan almashtirish"). Null =
+   *  no category filter (show every model). Only honoured in swap mode. */
+  initialCategory?: string | null;
+  /** When set (swap mode), a picked furniture item is placed at this
+   *  store-space (mm) position/rotation instead of the default staggered
+   *  offset, and the room-type tabs are hidden. */
+  placementOverride?: { x: number; y: number; rotation: number };
+  /** Called after a furniture item is placed via `placementOverride` — e.g.
+   *  so the caller can hide the ghost that was just replaced. */
+  onPlaced?: () => void;
 }
 
 // Uzbek tab label -> the admin catalog's real room_type key (ADMIN_ROOM_TYPES
@@ -88,7 +99,14 @@ function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
   }
 }
 
-export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObjectSheetProps) {
+export function AddObjectSheet({
+  onClose,
+  initialSection = "wallpaper",
+  initialCategory,
+  placementOverride,
+  onPlaced,
+}: AddObjectSheetProps) {
+  const isSwap = !!placementOverride;
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
   // Mebel: picking an item from the catalog list advances to a size-confirm
@@ -186,9 +204,13 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
   // Real do'kon-managed furniture — filtered per room tab below. Lamps are
   // excluded here so they only show once, under "Chiroq".
   const roomTypeKey = ROOM_TAB_TO_ROOM_TYPE[roomTab];
-  const furnitureForRoom: CatalogFurniture[] = catalogFurniture.filter(
-    (f) => f.category !== "lampa" && (f.room_type === null || f.room_type === roomTypeKey)
-  );
+  const furnitureForRoom: CatalogFurniture[] = catalogFurniture.filter((f) => {
+    if (f.category === "lampa") return false;
+    // Swap mode (from a scanned-object ghost): filter by the object's mapped
+    // category across every room type; a null category shows every model.
+    if (isSwap) return initialCategory ? f.category === initialCategory : true;
+    return f.room_type === null || f.room_type === roomTypeKey;
+  });
 
   function applyWallpaper() {
     if (!selectedMaterialId) return;
@@ -472,19 +494,23 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
 
           {section === "furniture" && !pendingFurniture && (
             <div>
-              <div className="flex gap-2 mb-4 overflow-x-auto">
-                {ROOM_TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setRoomTab(tab)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
-                      roomTab === tab ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+              {/* Room-type tabs are for browsing; in swap mode the list is
+                  already scoped to the scanned object's category, so hide them. */}
+              {!isSwap && (
+                <div className="flex gap-2 mb-4 overflow-x-auto">
+                  {ROOM_TABS.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setRoomTab(tab)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                        roomTab === tab ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
               {furnitureForRoom.length === 0 ? (
                 <p className="text-[13px] text-muted py-6 text-center">
                   Bu xona turi uchun do'konda mebel yo'q
@@ -521,8 +547,23 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         </div>
                         <button
                           onClick={() => {
-                            setPendingFurniture(item);
-                            setFurnitureWidthCm(item.footprint_w ?? 100);
+                            if (placementOverride) {
+                              // Swap mode — drop the scanned object's replacement
+                              // exactly where it was (position/rotation in mm).
+                              placeFurniture({
+                                id: `furn_${item.id}_${Date.now()}`,
+                                furniture_id: item.id,
+                                x: placementOverride.x,
+                                y: placementOverride.y,
+                                rotation: placementOverride.rotation,
+                              });
+                              onPlaced?.();
+                              onClose();
+                            } else {
+                              // Normal add → master's size-pick step.
+                              setPendingFurniture(item);
+                              setFurnitureWidthCm(item.footprint_w ?? 100);
+                            }
                           }}
                           aria-label={`${item.name_uz} qo'shish`}
                           className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
