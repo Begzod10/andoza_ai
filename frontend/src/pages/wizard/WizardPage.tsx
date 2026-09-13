@@ -701,6 +701,12 @@ export default function WizardPage() {
               position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
             })),
           })),
+          // Non-rectangular (hand-drawn / N-wall) rooms carry their real
+          // outline here — omitted for the legacy 4-wall case, where it's
+          // unset on the store's own geometry.
+          vertices: geometry.vertices?.length
+            ? geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number])
+            : undefined,
         },
       })
       setRoomId(room.id)  // upgrade to real server ID if save succeeds
