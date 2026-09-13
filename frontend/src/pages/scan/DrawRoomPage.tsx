@@ -13,6 +13,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRoomStore } from '@/store/roomStore'
+import type { Wall } from '@/store/roomStore'
 
 type Point = [number, number] // [x, z] mm, already snapped to SNAP_MM
 
@@ -31,6 +32,21 @@ const DEFAULT_CEILING_M = 2.7
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const snapMm = (mm: number) => Math.round(mm / SNAP_MM) * SNAP_MM
 
+/**
+ * Signed area via the shoelace trapezoid formula, sum((x2-x1)*(z2+z1)).
+ * In this SVG's z-down plan convention, a NEGATIVE sum means the points
+ * wind clockwise on screen; a positive sum means counter-clockwise —
+ * the winding RoomGeometry.vertices documents.
+ */
+function isClockwise(points: Point[]): boolean {
+  let sum = 0
+  for (let i = 0; i < points.length; i++) {
+    const [x1, z1] = points[i]
+    const [x2, z2] = points[(i + 1) % points.length]
+    sum += (x2 - x1) * (z2 + z1)
+  }
+  return sum < 0
+}
 
 /** Polygon area (mm²) via the plain shoelace formula — same formula computeFloorArea uses. */
 function polygonAreaMm2(points: Point[]): number {
@@ -112,36 +128,35 @@ export default function DrawRoomPage() {
   function handleContinue() {
     if (points.length < MIN_POINTS_TO_CLOSE) return
 
-    // Snap to the drawn shape's axis-aligned bounding box, exactly like
-    // LidarPage's own import pipeline does (snapToFourWalls in
-    // roomScanImport.ts) — NOT the raw drawn polygon. The 3D room shell
-    // (RoomShell/WallComponents/buildWallDefs, etc.) only knows how to render
-    // a plain 4-wall axis-aligned rectangle; real N-wall/polygon rendering is
-    // a future phase that doesn't exist yet. Shipping the actual drawn
-    // shape via `vertices` produced a room the 3D view couldn't render at
-    // all (a blank canvas, reported as "error after entering size by hand")
-    // — this is the same lesson LiDAR's importer already encodes, just not
-    // followed here originally.
-    const xs = points.map(([x]) => x)
-    const zs = points.map(([, z]) => z)
-    const minX = Math.min(...xs), maxX = Math.max(...xs)
-    const minZ = Math.min(...zs), maxZ = Math.max(...zs)
-    const widthMm = Math.round(maxX - minX)
-    const depthMm = Math.round(maxZ - minZ)
+    // Guarantee counter-clockwise winding, per RoomGeometry.vertices' contract.
+    const ordered = isClockwise(points) ? [...points].reverse() : points
+
+    // One wall per drawn edge — the real shape, not its bounding box.
+    // Ids are always generic W1..Wn, NEVER A/B/C/D, regardless of point
+    // count: RoomScene's isLegacyAbcd check routes any exactly-4-walls
+    // literally named A/B/C/D into the legacy axis-aligned-rectangle
+    // renderer, which bakes in equal-opposite-walls/exact-90°-corners math.
+    // A hand-drawn quadrilateral that merely looks rectangular isn't
+    // guaranteed to be exactly axis-aligned, so it must always go through
+    // NWallRoomShell (the N-wall/polygon renderer) instead — generic ids
+    // are what routes it there.
+    const wallsMm: Wall[] = ordered.map((p, i) => {
+      const next = ordered[(i + 1) % ordered.length]
+      const length = Math.hypot(next[0] - p[0], next[1] - p[1])
+      return { id: `W${i + 1}`, length, elements: [] }
+    })
 
     // loadRoom() takes the same payload shape the API returns (RoomPayload):
-    // wall lengths in METRES — it multiplies by 1000 internally to build the
-    // store's mm-based RoomGeometry. Points on this canvas are tracked in mm
-    // (see the `Point` type above), so widthMm/depthMm must be converted here;
-    // passing them straight through fed loadRoom values already 1000x too
-    // large (a 3m wall became a 3000m wall), which produced a technically
-    // valid but astronomically oversized room — one the 3D camera's far plane
-    // never reaches, rendering as a blank canvas, and one the backend rejects
-    // outright (Wall.length must be < 25m), so the room was never actually
-    // saved either.
-    const widthM = widthMm / 1000
-    const depthM = depthMm / 1000
-
+    // wall lengths AND vertices in METRES — it multiplies both by 1000
+    // internally to build the store's mm-based RoomGeometry. Points on this
+    // canvas are tracked in mm (see the `Point` type above), so both must be
+    // converted here; passing them straight through fed loadRoom values
+    // already 1000x too large (a 3m wall became a 3000m wall), which
+    // produced a technically valid but astronomically oversized room — one
+    // the 3D camera's far plane never reaches, rendering as a blank canvas,
+    // and one the backend rejects outright (Wall.length must be < 25m), so
+    // the room was never actually saved either.
+    //
     // Same call shape LidarPage.tsx uses: load into the store, then hand
     // off to the wizard — no custom review/save UI here. `from=draw` tells
     // the wizard the wall lengths are already exact (drawn, not guessed),
@@ -149,12 +164,8 @@ export default function DrawRoomPage() {
     // into the 3D studio, skipping the per-wall review steps.
     loadRoom({
       geometry: {
-        walls: [
-          { id: 'A', length: widthM, elements: [] },
-          { id: 'B', length: depthM, elements: [] },
-          { id: 'C', length: widthM, elements: [] },
-          { id: 'D', length: depthM, elements: [] },
-        ],
+        walls: wallsMm.map((w) => ({ ...w, length: w.length / 1000 })),
+        vertices: ordered.map(([x, z]) => [x / 1000, z / 1000]),
       },
       ceiling_h: DEFAULT_CEILING_M,
     })

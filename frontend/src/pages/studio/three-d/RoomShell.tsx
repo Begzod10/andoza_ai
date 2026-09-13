@@ -219,6 +219,13 @@ function NWallRoomShell({
         <meshStandardMaterial
           color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
           roughness={0.8}
+          // ShapeGeometry's front-face winding depends on the input polygon's
+          // winding in its own local X-Y space, before this mesh's rotation
+          // is applied — if that ends up facing down post-rotation, the
+          // floor would be invisible from the normal top-down/isometric
+          // camera with the default FrontSide. DoubleSide costs nothing and
+          // removes this whole class of winding-order bugs.
+          side={THREE.DoubleSide}
         />
       </mesh>
 
