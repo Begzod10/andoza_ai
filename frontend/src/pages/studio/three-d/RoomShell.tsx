@@ -200,10 +200,24 @@ function NWallRoomShell({
     return filtered.length > 2 ? filtered : centred
   }, [centred])
 
+  // ShapeGeometry builds its vertices flat in the local XY plane (z=0), and
+  // the floor/ceiling meshes below rotate that flat shape -90° about X to
+  // lay it into the XZ plane. That rotation maps local Y to world Z as
+  // -localY (Rx(-90°) sends (x, y, 0) -> (x, 0, -y)) — but the wall boxes
+  // above are positioned directly from the same polygon's raw (x, z), with
+  // no such flip. Feeding the raw z straight into the shape's Y slot (the
+  // previous version of this function) therefore came out mirrored across Z
+  // in world space relative to the wall footprint for any polygon that
+  // isn't symmetric under z -> -z. A centred rectangle's 4 corners happen to
+  // be exactly such a symmetric set (negating z just reorders the same 4
+  // points), which is why this stayed invisible until an L-shaped room's
+  // asymmetric vertex loop exposed it as a real gap between floor and walls.
+  // Negating z here cancels the rotation's own negation, so the shape's
+  // world (x, z) after rotation exactly matches the (x, z) the walls use.
   const buildShape = (verts: [number, number][]) => {
     const shape = new THREE.Shape()
-    shape.moveTo(verts[0][0], verts[0][1])
-    for (let i = 1; i < verts.length; i++) shape.lineTo(verts[i][0], verts[i][1])
+    shape.moveTo(verts[0][0], -verts[0][1])
+    for (let i = 1; i < verts.length; i++) shape.lineTo(verts[i][0], -verts[i][1])
     shape.closePath()
     return new THREE.ShapeGeometry(shape)
   }
