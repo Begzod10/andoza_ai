@@ -13,7 +13,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRoomStore } from '@/store/roomStore'
-import type { RoomGeometry, Wall } from '@/store/roomStore'
 
 type Point = [number, number] // [x, z] mm, already snapped to SNAP_MM
 
@@ -130,21 +129,35 @@ export default function DrawRoomPage() {
     const widthMm = Math.round(maxX - minX)
     const depthMm = Math.round(maxZ - minZ)
 
-    const walls: Wall[] = [
-      { id: 'A', length: widthMm, elements: [] },
-      { id: 'B', length: depthMm, elements: [] },
-      { id: 'C', length: widthMm, elements: [] },
-      { id: 'D', length: depthMm, elements: [] },
-    ]
-
-    const geometry: RoomGeometry = { walls }
+    // loadRoom() takes the same payload shape the API returns (RoomPayload):
+    // wall lengths in METRES — it multiplies by 1000 internally to build the
+    // store's mm-based RoomGeometry. Points on this canvas are tracked in mm
+    // (see the `Point` type above), so widthMm/depthMm must be converted here;
+    // passing them straight through fed loadRoom values already 1000x too
+    // large (a 3m wall became a 3000m wall), which produced a technically
+    // valid but astronomically oversized room — one the 3D camera's far plane
+    // never reaches, rendering as a blank canvas, and one the backend rejects
+    // outright (Wall.length must be < 25m), so the room was never actually
+    // saved either.
+    const widthM = widthMm / 1000
+    const depthM = depthMm / 1000
 
     // Same call shape LidarPage.tsx uses: load into the store, then hand
     // off to the wizard — no custom review/save UI here. `from=draw` tells
     // the wizard the wall lengths are already exact (drawn, not guessed),
     // so it only asks for ceiling height before saving and going straight
     // into the 3D studio, skipping the per-wall review steps.
-    loadRoom({ geometry, ceiling_h: DEFAULT_CEILING_M })
+    loadRoom({
+      geometry: {
+        walls: [
+          { id: 'A', length: widthM, elements: [] },
+          { id: 'B', length: depthM, elements: [] },
+          { id: 'C', length: widthM, elements: [] },
+          { id: 'D', length: depthM, elements: [] },
+        ],
+      },
+      ceiling_h: DEFAULT_CEILING_M,
+    })
     navigate('/wizard?from=draw')
   }
 
