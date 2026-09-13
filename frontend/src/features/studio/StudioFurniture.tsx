@@ -364,7 +364,7 @@ function DraggableFurnitureItem({
       if (selRef.current && !selRef.current.visible) selRef.current.visible = true
       return
     }
-    if (toolMode === 'move' && groupRef.current && dragPosRef.current) {
+    if ((toolMode === 'move' || toolMode === 'select') && groupRef.current && dragPosRef.current) {
       groupRef.current.position.x = dragPosRef.current.x
       groupRef.current.position.z = dragPosRef.current.z
     } else if (toolMode === 'rotate' && primitiveRef.current && dragRotRef.current !== null) {
@@ -405,7 +405,10 @@ function DraggableFurnitureItem({
   const btnActive = isDragging
   const fw = geomHW * s * 2   // actual footprint width
   const fd = geomHD * s * 2   // actual footprint depth
-  const meshCursor = toolMode === 'select' ? 'pointer'
+  // In 'select' mode, an already-selected item is directly draggable (see
+  // startDragFromMesh) — 'grab' signals that, same as 'move' mode; a
+  // not-yet-selected item just gets the plain 'pointer' selection cursor.
+  const meshCursor = toolMode === 'select' ? (isSelected ? 'grab' : 'pointer')
                    : toolMode === 'part'   ? 'crosshair'
                    : toolMode === 'rotate' ? 'ew-resize'
                    : toolMode === 'scale'  ? 'ns-resize'
@@ -661,7 +664,10 @@ export function DraggableFurnitureModels({
 
   function activateDrag(item: PlacedFurniture, clientX: number, clientY = 0) {
     onSelectItem(item.id)
-    if (toolMode === 'move') {
+    // 'select' mode reaching here only happens via the already-selected-item
+    // bypass above — there's no rotate/scale affordance in that mode, so a
+    // plain drag always means reposition, exactly like 'move' mode.
+    if (toolMode === 'move' || toolMode === 'select') {
       // Prefer actual geometry footprint; fall back to catalog sizeM
       const fp = footprintsRef.current.get(item.id)
       const entry = resolveEntry(item.furniture_id)
@@ -692,16 +698,24 @@ export function DraggableFurnitureModels({
     if (controlsRef.current) controlsRef.current.enabled = false
   }
 
+  // A press on an already-selected item starts dragging immediately, even in
+  // 'select' mode — no toolbar switch to 'move' needed first. Matches the
+  // same fix already shipped for ceiling lights (LightingComponents.tsx) and
+  // wall openings (WallOpenings.tsx): first press on an unselected item only
+  // selects it (selectedId hasn't updated yet for this render), a
+  // subsequent press on the now-selected item drags it. Non-select tool
+  // modes (move/rotate/scale) are unaffected — they already dragged on the
+  // very first press.
   function startDragFromMesh(item: PlacedFurniture, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
-    if (toolMode === 'select') { onSelectItem(item.id); return }
+    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }
 
   function startDragFromButton(item: PlacedFurniture, e: React.PointerEvent) {
     e.stopPropagation()
     e.preventDefault()
-    if (toolMode === 'select') { onSelectItem(item.id); return }
+    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }
 
@@ -710,7 +724,7 @@ export function DraggableFurnitureModels({
     if (!id) return
     const item = furnitureRef.current.find((f) => f.id === id)
     if (item) {
-      if (toolMode === 'move') {
+      if (toolMode === 'move' || toolMode === 'select') {
         moveFurniture(id, dragPosRef.current.x * 1000, dragPosRef.current.z * 1000, item.rotation)
       } else if (toolMode === 'rotate') {
         moveFurniture(id, item.x, item.y, dragRotRef.current)
@@ -729,7 +743,7 @@ export function DraggableFurnitureModels({
     const canvas = gl.domElement
 
     const handleMove = (e: PointerEvent) => {
-      if (toolMode === 'move') {
+      if (toolMode === 'move' || toolMode === 'select') {
         const rect = canvas.getBoundingClientRect()
         const ndc = new THREE.Vector2(
           ((e.clientX - rect.left) / rect.width) * 2 - 1,
