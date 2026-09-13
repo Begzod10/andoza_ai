@@ -279,6 +279,21 @@ function NWallRoomShell({
           : covering.baseColor
         const isSelected = selectedWall === wallId
 
+        // Corner joint fix: a square-cut box running exactly edge-length only
+        // touches its neighbour at a single point at a convex (e.g. rectangle)
+        // corner, which happens to look fine, but at a concave/reflex corner
+        // (an inward notch) it leaves a real gap — the two boxes' end faces
+        // never actually meet, exposing whatever is behind (e.g. another
+        // wall's side face) through the hole. Mirrors the legacy RoomScene's
+        // "B/D own the corners" convention (walls extended by T so they
+        // overlap at the shared thickness instead of only touching at a
+        // point), generalized for arbitrary per-edge angles: every wall
+        // extends by T/2 at each end, so at ANY joint — convex or concave —
+        // both meeting boxes overlap across the corner rather than merely
+        // meeting at a point. At convex corners this only grows an already-
+        // harmless overlap; it does not introduce a gap there.
+        const boxLength = length + T
+
         return (
           <mesh
             key={wallId}
@@ -288,7 +303,7 @@ function NWallRoomShell({
             receiveShadow
             onClick={() => onWallClick?.(wallId)}
           >
-            <boxGeometry args={[length, H, T]} />
+            <boxGeometry args={[boxLength, H, T]} />
             <meshStandardMaterial
               color={isSelected ? '#1E40AF' : baseColor}
               roughness={0.85}
