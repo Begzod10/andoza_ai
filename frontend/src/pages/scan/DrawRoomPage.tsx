@@ -32,21 +32,6 @@ const DEFAULT_CEILING_M = 2.7
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const snapMm = (mm: number) => Math.round(mm / SNAP_MM) * SNAP_MM
 
-/**
- * Signed area via the shoelace trapezoid formula, sum((x2-x1)*(z2+z1)).
- * In this SVG's z-down plan convention, a NEGATIVE sum means the points
- * wind clockwise on screen; a positive sum means counter-clockwise —
- * the winding RoomGeometry.vertices documents.
- */
-function isClockwise(points: Point[]): boolean {
-  let sum = 0
-  for (let i = 0; i < points.length; i++) {
-    const [x1, z1] = points[i]
-    const [x2, z2] = points[(i + 1) % points.length]
-    sum += (x2 - x1) * (z2 + z1)
-  }
-  return sum < 0
-}
 
 /** Polygon area (mm²) via the plain shoelace formula — same formula computeFloorArea uses. */
 function polygonAreaMm2(points: Point[]): number {
@@ -128,17 +113,31 @@ export default function DrawRoomPage() {
   function handleContinue() {
     if (points.length < MIN_POINTS_TO_CLOSE) return
 
-    // Guarantee counter-clockwise winding, per the vertices field's contract.
-    const ordered = isClockwise(points) ? [...points].reverse() : points
+    // Snap to the drawn shape's axis-aligned bounding box, exactly like
+    // LidarPage's own import pipeline does (snapToFourWalls in
+    // roomScanImport.ts) — NOT the raw drawn polygon. The 3D room shell
+    // (RoomShell/WallComponents/buildWallDefs, etc.) only knows how to render
+    // a plain 4-wall axis-aligned rectangle; real N-wall/polygon rendering is
+    // a future phase that doesn't exist yet. Shipping the actual drawn
+    // shape via `vertices` produced a room the 3D view couldn't render at
+    // all (a blank canvas, reported as "error after entering size by hand")
+    // — this is the same lesson LiDAR's importer already encodes, just not
+    // followed here originally.
+    const xs = points.map(([x]) => x)
+    const zs = points.map(([, z]) => z)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minZ = Math.min(...zs), maxZ = Math.max(...zs)
+    const widthMm = Math.round(maxX - minX)
+    const depthMm = Math.round(maxZ - minZ)
 
-    const walls: Wall[] = ordered.map((p, i) => {
-      const next = ordered[(i + 1) % ordered.length]
-      const length = Math.round(Math.hypot(next[0] - p[0], next[1] - p[1]))
-      const id = i < 4 ? (['A', 'B', 'C', 'D'] as const)[i] : `W${i + 1}`
-      return { id, length, elements: [] }
-    })
+    const walls: Wall[] = [
+      { id: 'A', length: widthMm, elements: [] },
+      { id: 'B', length: depthMm, elements: [] },
+      { id: 'C', length: widthMm, elements: [] },
+      { id: 'D', length: depthMm, elements: [] },
+    ]
 
-    const geometry: RoomGeometry = { walls, vertices: ordered }
+    const geometry: RoomGeometry = { walls }
 
     // Same call shape LidarPage.tsx uses: load into the store, then hand
     // off to the wizard — no custom review/save UI here. `from=draw` tells
