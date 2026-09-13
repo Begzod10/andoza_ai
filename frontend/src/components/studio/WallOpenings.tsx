@@ -32,6 +32,7 @@ import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { liveOpeningDrag } from '@/lib/liveOpeningDrag'
+import { wallDefsFromVertices } from '@/lib/wallDefsFromVertices'
 
 export interface OpeningSel { wallId: string; elId: string }
 
@@ -86,7 +87,17 @@ export function WallOpenings({
   removeElement: (wallId: string, elId: string) => void
   onInteracting: (active: boolean) => void
 }) {
-  const defs = useMemo(() => buildWallDefs(W, D), [W, D])
+  // Real polygon data (≥3 hand-drawn vertices) uses the generalized per-edge
+  // math; a legacy 4-wall rectangle room (no `vertices`) keeps using the
+  // existing hardcoded ABCD path completely unchanged, so today's rectangle
+  // rooms behave byte-for-byte the same as before this change.
+  const defs = useMemo(
+    () =>
+      geometry.vertices && geometry.vertices.length >= 3
+        ? wallDefsFromVertices(geometry.vertices, geometry.walls.map((w) => w.id))
+        : buildWallDefs(W, D),
+    [W, D, geometry.vertices, geometry.walls],
+  )
   const dragging = useRef(false)
   const [guides, setGuides] = useState<Array<{ kind: 'h' | 'v'; wallId: string; at: number }>>([])
 
