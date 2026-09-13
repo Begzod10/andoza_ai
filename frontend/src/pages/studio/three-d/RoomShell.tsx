@@ -1,8 +1,9 @@
 import * as React from "react";
-import { memo, useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
-import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
+import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { DesignState, RoomGeometry, WallElement } from "@/store/roomStore";
 import type { Room } from "@/lib/api";
 import { resolveElementPositions } from "@/lib/wallPositions";
@@ -14,9 +15,9 @@ import {
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
-import { shadeCovering } from "./helpers";
+import { shadeCovering, boardSegments } from "./helpers";
 import { WoodFloor, Ceiling } from "./FloorCeiling";
-import { Wall, WindowFrames, DoorFrames, Baseboard } from "./WallComponents";
+import { Wall, WindowFrames, DoorFrames, Baseboard, WindowFrameItem, DoorFrameItem, type FrameWallDef } from "./WallComponents";
 import { CeilingLights } from "./LightingComponents";
 
 /**
@@ -148,8 +149,79 @@ export const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D
 // ─── N-wall polygon room shell ────────────────────────────────────────────────
 //
 // Used when the room has non-ABCD wall IDs (e.g. from a RoomPlan scan).
-// Renders a polygon floor/ceiling and N wall boxes positioned along each edge.
-// Windows/doors and baseboards are omitted for now (Phase 5 enhancement).
+// Renders a polygon floor/ceiling plus, for EACH polygon edge, a real carved
+// wall (with door/window cutouts via the shared <Wall> segmentation), matching
+// window/door frames, and baseboard trim — the same look as the ABCD room.
+//
+// Each edge v[i]→v[(i+1)%n] is rendered as an axis-'X' wall built at the local
+// origin and wrapped in a <group position={edge midpoint} rotation-y={edge yaw}>
+// so all the existing X-axis wall/frame/baseboard code is reused, just rotated
+// into place. The along-length direction is fixed by the winding, so the
+// room-inward face is chosen per edge via <Wall innerFaceDir> (see that prop).
+
+const NBASE_H = 0.1;      // baseboard height (matches Baseboard)
+const NBASE_T = 0.02;     // baseboard depth
+const NBASE_COLOR = "#E0D8CC";
+
+interface PolyEdge {
+  index: number;
+  wallId: string;
+  /** Edge midpoint in centred metres (world XZ, room centred at origin). */
+  mx: number; mz: number;
+  /** Y rotation aligning local +X with the edge direction. */
+  yaw: number;
+  /** Edge length in metres. */
+  length: number;
+  /** Which local face is room-inward (+1 = local +Z, −1 = local −Z). */
+  faceDir: 1 | -1;
+  /** Outward normal (unit, world XZ) — used by the camera-facing cutaway. */
+  ox: number; oz: number;
+}
+
+function polyEdgesEqual(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+/**
+ * Camera-facing / diorama hidden-edge tracking for the polygon shell — the
+ * N-wall analogue of diorama.useHiddenWalls. Hides any edge whose OUTWARD
+ * normal points toward the camera (auto) or toward the fixed +X/+Z quadrant
+ * (diorama), with the same hysteresis so it doesn't flicker at the boundary.
+ */
+function useHiddenPolyEdges(mode: CutawayMode, edges: PolyEdge[]): ReadonlySet<number> {
+  const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
+  const current = useRef<ReadonlySet<number>>(hidden);
+
+  useFrame(({ camera }) => {
+    let next: Set<number>;
+    if (mode === 'off') {
+      if (current.current.size === 0) return;
+      next = new Set();
+    } else {
+      let dx: number, dz: number;
+      if (mode === 'diorama') {
+        dx = Math.SQRT1_2; dz = Math.SQRT1_2;
+      } else {
+        const len = Math.hypot(camera.position.x, camera.position.z) || 1;
+        dx = camera.position.x / len; dz = camera.position.z / len;
+      }
+      next = new Set<number>();
+      for (const e of edges) {
+        const dot = e.ox * dx + e.oz * dz;
+        const was = current.current.has(e.index);
+        // hysteresis: hide above 0.30, unhide below 0.22 (same as ABCD)
+        if (dot > (was ? 0.22 : 0.3)) next.add(e.index);
+      }
+      if (polyEdgesEqual(current.current, next)) return;
+    }
+    current.current = next;
+    setHidden(next);
+  });
+
+  return hidden;
+}
 
 function NWallRoomShell({
   geometry,
@@ -157,12 +229,16 @@ function NWallRoomShell({
   designState,
   selectedWall,
   onWallClick,
+  cutaway = 'off',
+  plasterWalls = false,
 }: {
   geometry: RoomGeometry;
   H: number;
   designState: DesignState;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
+  cutaway?: CutawayMode;
+  plasterWalls?: boolean;
 }) {
   const verts = geometry.vertices!
   const n = verts.length
@@ -210,7 +286,41 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
-  const T = 0.02  // polygon walls stay as boxes — 2cm minimum to avoid degenerate geometry
+  // Per-edge transforms + inward/outward normals. `centred` (not the filtered
+  // set) is used so edge i still lines up with geometry.walls[i]; the room is
+  // centred at the origin, so "toward centroid" is simply "toward (0,0)".
+  const edges = useMemo<PolyEdge[]>(() => {
+    const out: PolyEdge[] = []
+    for (let i = 0; i < centred.length; i++) {
+      const [x1, z1] = centred[i]
+      const [x2, z2] = centred[(i + 1) % centred.length]
+      const dx = x2 - x1
+      const dz = z2 - z1
+      const length = Math.hypot(dx, dz)
+      if (length < 0.01) continue
+      const mx = (x1 + x2) / 2
+      const mz = (z1 + z2) / 2
+      // Wrapping-group yaw: local +X → edge direction (dx,dz); this maps the
+      // wall's local +Z face normal to world (-dz,dx)/length.
+      const yaw = Math.atan2(-dz, dx)
+      const nx = -dz / length
+      const nz = dx / length
+      // local +Z (nx,nz) is room-inward when it points toward the centroid (0,0).
+      const inward = nx * -mx + nz * -mz
+      const faceDir: 1 | -1 = inward >= 0 ? 1 : -1
+      // Outward normal = away from centroid.
+      let ox = nx, oz = nz
+      if (ox * mx + oz * mz < 0) { ox = -ox; oz = -oz }
+      out.push({
+        index: i,
+        wallId: geometry.walls[i]?.id ?? String(i),
+        mx, mz, yaw, length, faceDir, ox, oz,
+      })
+    }
+    return out
+  }, [centred, geometry.walls])
+
+  const hiddenEdges = useHiddenPolyEdges(cutaway, edges)
 
   return (
     <group>
@@ -253,49 +363,61 @@ function NWallRoomShell({
         />
       </mesh>
 
-      {/* One wall box per polygon edge */}
-      {centred.map(([x1, z1], i) => {
-        const [x2, z2] = centred[(i + 1) % n]
-        const dx = x2 - x1
-        const dz = z2 - z1
-        const length = Math.sqrt(dx * dx + dz * dz)
-        if (length < 0.01) return null
-
-        const wall = geometry.walls[i]
-        const wallId = wall?.id ?? String(i)
-
-        // Rotation: atan2(-dz, dx) aligns box local-X with edge direction (dx,dz)
-        const ry = Math.atan2(-dz, dx)
-
-        // Alternate shade factor for depth cues (avoid all walls looking identical)
-        const shadeFactor = i % 2 === 0 ? 0.92 : 0.82
+      {/* One carved wall + frames + baseboard per polygon edge, rotated into place */}
+      {edges.map((e) => {
+        const wall = geometry.walls[e.index]
+        const elements = wall?.elements ?? []
+        // Alternate shade factor for depth cues (avoid all walls looking identical),
+        // same 0.92/0.82 pair the ABCD shell uses for its A/C vs B/D walls.
+        const shadeFactor = e.index % 2 === 0 ? 0.92 : 0.82
         const covering = shadeCovering(
-          resolveWallCovering(designState.wallCoverings, wallId),
+          resolveWallCovering(designState.wallCoverings, e.wallId),
           shadeFactor,
         )
-        const baseColor = covering.kind === 'plaster' ? PLASTER_BASE_COLOR
-          : covering.kind === 'paint' ? covering.color
-          : covering.kind === 'texture' ? covering.color
-          : covering.baseColor
-        const isSelected = selectedWall === wallId
+        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length }
+        const resolvedEls = resolveElementPositions(elements, e.length * 1000)
+        const baseSegs = boardSegments(e.length, elements)
 
         return (
-          <mesh
-            key={wallId}
-            position={[(x1 + x2) / 2, H / 2, (z1 + z2) / 2]}
-            rotation={[0, ry, 0]}
-            castShadow
-            receiveShadow
-            onClick={() => onWallClick?.(wallId)}
-          >
-            <boxGeometry args={[length, H, T]} />
-            <meshStandardMaterial
-              color={isSelected ? '#1E40AF' : baseColor}
-              roughness={0.85}
-              emissive={isSelected ? '#1E40AF' : '#000000'}
-              emissiveIntensity={isSelected ? 0.12 : 0}
-            />
-          </mesh>
+          <WallFade key={e.wallId} hidden={hiddenEdges.has(e.index)}>
+            <group position={[e.mx, 0, e.mz]} rotation={[0, e.yaw, 0]}>
+              <Wall
+                plaster={plasterWalls}
+                wallId={e.wallId}
+                length={e.length}
+                height={H}
+                thickness={WALL_T}
+                covering={covering}
+                elements={elements}
+                axis="X"
+                cx={0}
+                cz={0}
+                innerFaceDir={e.faceDir}
+                isSelected={selectedWall === e.wallId}
+                onClick={() => onWallClick?.(e.wallId)}
+                panelSettings={resolveWallPanel(designState.wallPanels, e.wallId)}
+              />
+              {resolvedEls.map((el) =>
+                el.type === 'eshik' ? (
+                  <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
+                ) : (
+                  <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />
+                ),
+              )}
+              {/* Baseboard: one box per gap segment, offset onto the room-inward
+                  side of the wall plane (faceDir). */}
+              {baseSegs.map((s, si) => (
+                <mesh
+                  key={`base-${si}`}
+                  position={[s.center, NBASE_H / 2, e.faceDir * (NBASE_T / 2)]}
+                  raycast={noRaycast}
+                >
+                  <boxGeometry args={[s.len, NBASE_H, NBASE_T]} />
+                  <meshStandardMaterial color={NBASE_COLOR} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />
+                </mesh>
+              ))}
+            </group>
+          </WallFade>
         )
       })}
     </group>
@@ -577,6 +699,8 @@ export const RoomScene = memo(function RoomScene({
             designState={designState}
             selectedWall={selectedWall}
             onWallClick={onWallClick}
+            cutaway={topView ? 'off' : cutaway}
+            plasterWalls={plasterWalls}
           />
         ) : null
       )}

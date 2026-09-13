@@ -456,7 +456,12 @@ export default function StudioPage() {
   // Always use localRoom for rendering: it mirrors the Zustand store so settings
   // sheet changes (ceiling height, wall lengths) reflect immediately in all 3D views.
   // apiRoom is used only for the status banner and initial state loading (useEffect below).
-  const room = localRoom;
+  // The LiDAR `room_scan` metadata is server-only (it is not mirrored into the
+  // store), so fold it back in from the fetched room for the scan overlay.
+  const room = useMemo<Room>(
+    () => (apiRoom?.room_scan ? { ...localRoom, room_scan: apiRoom.room_scan } : localRoom),
+    [localRoom, apiRoom],
+  );
 
   // When a saved room loads from API and has a full state blob, restore it into the store.
   useEffect(() => {
