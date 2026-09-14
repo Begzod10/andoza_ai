@@ -17,6 +17,16 @@ interface SuvoqSectionProps {
     libraryLabel: string,
   ) => React.ReactNode;
   plasterUploadCovering: (url: string) => WallCovering;
+  /** Suvoq phase only: hide the wall-target chips, the generated beton
+   * finishes and every mapping control — the panel is just "upload an image /
+   * pick one from the library", and picking applies it to ALL walls with a
+   * fixed 100 cm × 100 cm UVW map. Shpaklovka keeps the full UI. */
+  simplified?: boolean;
+  /** Simplified mode: apply this library texture to every wall (clears
+   * per-wall overrides) with the fixed 100 cm mapping. */
+  applySuvoqTexture?: (url: string) => void;
+  /** Simplified mode: strip the texture from every wall. */
+  removeSuvoqTexture?: () => void;
 }
 
 /**
@@ -30,6 +40,7 @@ interface SuvoqSectionProps {
 export function SuvoqSection({
   selectedWall, onWallChange, applyWallCovering, handleSetPaintColor,
   renderTexturePicker, plasterUploadCovering,
+  simplified, applySuvoqTexture, removeSuvoqTexture,
 }: SuvoqSectionProps) {
   const wallCoverings = useRoomStore((s) => s.designState.wallCoverings);
   const geometry = useRoomStore((s) => s.geometry);
@@ -45,6 +56,37 @@ export function SuvoqSection({
     () => [...getWallTargets(geometry), CEILING_TARGET],
     [geometry.walls],
   );
+
+  // Suvoq phase: no wall targeting, no generated finishes, no mapping
+  // controls — upload/pick an image and it lands on every wall at a fixed
+  // 100 cm × 100 cm tile (the parent owns that application logic).
+  if (simplified) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq</h3>
+          <p className="text-[11px] text-gray-500 leading-snug">
+            Rasm yuklang yoki kutubxonadan tanlang — tekstura barcha devorlarga qo'llanadi.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {renderTexturePicker(
+            'plaster',
+            (url) => applySuvoqTexture?.(url),
+            'Rasm kutubxonasi',
+          )}
+        </div>
+
+        <button
+          onClick={() => removeSuvoqTexture?.()}
+          className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Teksturani olib tashlash
+        </button>
+      </section>
+    );
+  }
 
   const currentCoveringUrl = (() => {
     const c = targetWall === 'ALL' ? wallCoverings.ALL : (wallCoverings[targetWall] ?? wallCoverings.ALL);

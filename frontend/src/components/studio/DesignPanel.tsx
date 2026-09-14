@@ -109,6 +109,21 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     syncToApi({ ...designState, ...updated });
   }
 
+  /** Apply a covering to EVERY wall, ignoring the selected wall: writes the
+   * `ALL` target (the store clears per-wall overrides for ALL, so nothing
+   * left over can mask it via resolveWallCovering's per-wall-first fallback)
+   * and syncs the same cleared shape to the API. */
+  function applyAllWallsCovering(covering: WallCovering) {
+    setWallCovering("ALL", covering);
+    syncToApi({ ...designState, wallCoverings: { ALL: covering } });
+  }
+
+  /** Suvoq-phase texture covering: UVW map fixed at 100 cm × 100 cm
+   * (repeatX is tiles-per-metre — see applyWallpaper) and not editable. */
+  function suvoqFixedCovering(url: string): WallCovering {
+    return { kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 };
+  }
+
   function handleSetPaintColor(color: string) {
     applyWallCovering({ kind: "paint", color });
     // A plain swatch has no do'kon material behind it — clear any earlier
@@ -289,7 +304,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperError(null);
     try {
       const wallpaper = await uploadWallpaper(file, { kind: libraryScope });
-      if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
+      // Suvoq is the simplified phase: every upload goes straight onto ALL
+      // walls with the fixed 100 cm mapping, whatever wall is selected.
+      if (phase === 'suvoq') applyAllWallsCovering(suvoqFixedCovering(wallpaper.url));
+      else if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
       else applyWallpaper(wallpaper.url);
       queryClient.invalidateQueries({ queryKey: ["wallpapers", libraryScope] });
     } catch (err) {
@@ -360,6 +378,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             handleSetPaintColor={handleSetPaintColor}
             renderTexturePicker={renderTexturePicker}
             plasterUploadCovering={plasterUploadCovering}
+            // Suvoq only — Shpaklovka shares this section and keeps its full UI.
+            simplified={phase === 'suvoq'}
+            applySuvoqTexture={(url) => applyAllWallsCovering(suvoqFixedCovering(url))}
+            removeSuvoqTexture={() => applyAllWallsCovering({ kind: 'paint', color: '#D8D3C8' })}
           />
         )}
         {phase === 'montaj' && <MontajSection />}
