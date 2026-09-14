@@ -763,11 +763,11 @@ const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} 
  *  every mesh.
  *
  *  The reveal is what makes the widthless wall plane (WALL_T = 0) read as a
- *  200 mm-thick wall: four slabs (jambs, head, sill board) line the opening
- *  and extend WINDOW_REVEAL_D outward — away from the room — from the
- *  interior wall face. The frame ring sits at the OUTER end of that tunnel
- *  (flush with the exterior face), so from inside you look down a 200 mm-deep
- *  niche to the glass. */
+ *  200 mm-thick wall: four zero-thickness planes (jambs, head, sill) line
+ *  the opening and extend WINDOW_REVEAL_D outward — away from the room —
+ *  from the interior wall face. The flat frame ring sits at the OUTER end of
+ *  that tunnel (flush with the exterior face), so from inside you look down
+ *  a 200 mm-deep niche to the glass. */
 function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const groupRef = useRef<THREE.Group>(null);
   useLiveFrameGroup(groupRef, wd, el);
@@ -787,13 +787,21 @@ function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const v = (along: number, y: number, nrm: number): [number, number, number] =>
     isHorizontal ? [along, y, nrm] : [nrm, y, along];
 
-  // Reveal slabs: 20 mm thick, sitting just OUTSIDE the opening rectangle so
-  // their inner faces line it exactly. They start 2 mm inside the room to
-  // cover the joint with the wall plane (no coplanar z-fighting, no sliver
-  // gap at the opening's edge) and run out to the reveal's exterior face.
-  const RT = 0.02;
-  const revLen = WINDOW_REVEAL_D + 0.002;
-  const revC = out * ((WINDOW_REVEAL_D - 0.002) / 2);
+  // Reveal surfaces: ZERO-thickness planes. Slabs with any real thickness
+  // showed their room-facing edge as a strip on the wall face right at the
+  // opening (user feedback) — a plane has no such edge, so the wall face
+  // ends exactly at the opening and the reveal turns a clean 90° into the
+  // 200 mm depth. Each plane starts flush at the interior wall surface and
+  // runs to the exterior edge, normal facing INTO the opening so it lights
+  // correctly from inside (and backface-culls from outside, exactly like
+  // the wall planes themselves).
+  const R = WINDOW_REVEAL_D;
+  // Canonical reveal frame: local +X along the wall, +Z pointing into the
+  // room (same convention as DoorLeaves' wallFrames) — the four planes are
+  // described once and this yaw maps them onto the wall.
+  const revealYaw = isHorizontal
+    ? (wd.cz <= 0 ? 0 : Math.PI)
+    : (wd.cx >= 0 ? -Math.PI / 2 : Math.PI / 2);
 
   // Frame ring: FLAT trim — full FRAME_W face width but only FRAME_T deep
   // along the wall normal (user feedback: a 50 mm-deep ring read as a
@@ -809,31 +817,35 @@ function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
 
   return (
     <group ref={groupRef} position={[px, py, pz]}>
-      {/* Reveal — left jamb (castShadow off: the ShadowShell already blocks
-          the sun; extra thin casters here only produce shadow acne) */}
-      <mesh position={v(-elW / 2 - RT / 2, elH / 2, revC)} castShadow={false} receiveShadow>
-        <boxGeometry args={v(RT, elH, revLen)} />
-        {windowRevealMat}
-      </mesh>
+      {/* Reveal planes, in the canonical frame mapped by revealYaw. The
+          reveal never casts (castShadow off: the ShadowShell already blocks
+          the sun; extra thin casters here only produce shadow acne). */}
+      <group rotation={[0, revealYaw, 0]}>
+        {/* Left jamb — perpendicular to the wall, normal into the opening */}
+        <mesh position={[-elW / 2, elH / 2, -R / 2]} rotation={[0, Math.PI / 2, 0]} castShadow={false} receiveShadow>
+          <planeGeometry args={[R, elH]} />
+          {windowRevealMat}
+        </mesh>
 
-      {/* Reveal — right jamb */}
-      <mesh position={v(elW / 2 + RT / 2, elH / 2, revC)} castShadow={false} receiveShadow>
-        <boxGeometry args={v(RT, elH, revLen)} />
-        {windowRevealMat}
-      </mesh>
+        {/* Right jamb */}
+        <mesh position={[elW / 2, elH / 2, -R / 2]} rotation={[0, -Math.PI / 2, 0]} castShadow={false} receiveShadow>
+          <planeGeometry args={[R, elH]} />
+          {windowRevealMat}
+        </mesh>
 
-      {/* Reveal — head */}
-      <mesh position={v(0, elH + RT / 2, revC)} castShadow={false} receiveShadow>
-        <boxGeometry args={v(elW + 2 * RT, RT, revLen)} />
-        {windowRevealMat}
-      </mesh>
+        {/* Head — faces down into the opening */}
+        <mesh position={[0, elH, -R / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
+          <planeGeometry args={[elW, R]} />
+          {windowRevealMat}
+        </mesh>
 
-      {/* Reveal — sill (flush with the opening bottom, no interior overhang:
-          user feedback rejected any ledge past the reveal's inner edge) */}
-      <mesh position={v(0, -RT / 2, revC)} castShadow={false} receiveShadow>
-        <boxGeometry args={v(elW + 2 * RT, RT, revLen)} />
-        {windowSillLipMat}
-      </mesh>
+        {/* Sill — faces up, flush with the opening bottom (no ledge past the
+            reveal's inner edge: user feedback rejected any overhang) */}
+        <mesh position={[0, 0, -R / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
+          <planeGeometry args={[elW, R]} />
+          {windowSillLipMat}
+        </mesh>
+      </group>
 
       {/* Left frame */}
       <mesh position={v(-jamb, elH / 2, frC)}>
