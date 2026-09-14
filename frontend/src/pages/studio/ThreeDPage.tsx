@@ -75,17 +75,6 @@ export interface StudioContext {
 
 export type { PhaseKey } from "@/lib/phases"
 
-// Touch/mobile studio. The studio is embedded in a mobile WebView, which can
-// (wrongly) report a fine pointer — so `(pointer:fine)` is unreliable here.
-// Detect real touch capability, plus the same narrow-viewport breakpoint the
-// mobile layout uses (lg = 1024px), so the hint matches the responsive chrome.
-const isTouch =
-  typeof window !== 'undefined' &&
-  (('ontouchstart' in window) ||
-    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
-    (typeof window.matchMedia === 'function' &&
-      window.matchMedia('(max-width: 1023px)').matches))
-
 export default function ThreeDPage() {
   const { room, onSave, toolbarSlot, toolbarSlotTop } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
@@ -1647,7 +1636,7 @@ export default function ThreeDPage() {
               maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : isTouch ? 0.45 : -0.45}
+              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : 0.45}
               zoomSpeed={0.8}
             />
 
