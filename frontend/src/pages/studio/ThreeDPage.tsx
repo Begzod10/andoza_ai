@@ -39,7 +39,7 @@ import { sunPosition, dayOfYear } from "@/lib/sunPosition";
 import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
 import type { LightTypeId } from "@/lib/lightCatalog";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
-import { type ViewPreset, VIEW_LABELS, type RoomSide } from "./three-d/constants";
+import { type ViewPreset, type RoomSide } from "./three-d/constants";
 import {
   formatClock, slugifyFileName, computeAbsolutePositions, computeOccupiedSides,
   getCamera, fitFramingToAspect,
@@ -111,8 +111,6 @@ export default function ThreeDPage() {
     const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
     // Anchor info for directional placement — captured before resetRoom clears it
     const myPos = useRoomStore.getState().layoutPos ?? { x: 0, z: 0 };
-    // Carry the current view into the new room's studio (fresh mount there)
-    sessionStorage.setItem('uytamir-studio-entry-view', preset);
     // Clear the current room from the store (roomId, draftId, geometry, …).
     // The wizard's handleSave() bails out when roomId is already set, so a
     // stale roomId means the new room is never created via createRoom().
@@ -136,13 +134,12 @@ export default function ThreeDPage() {
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width });
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7;
 
-  // The add-room flow stashes the view it was started from (usually 'top'),
-  // so the NEW room's studio opens in the same framing, centred on the room.
-  // The flag is cleared in an effect, NOT in the initializer — StrictMode
-  // runs initializers twice and the second pass would lose the value.
-  const [preset, setPreset] = useState<ViewPreset>(() =>
-    sessionStorage.getItem('uytamir-studio-entry-view') === 'top' ? 'top' : 'back',
-  );
+  // The top-down "Yuqori" preset was removed from this page — the 3D framing
+  // is the only view now, so `preset` never changes. Kept as ViewPreset state
+  // (not a narrowed literal) so the topView plumbing below stays type-correct.
+  const [preset] = useState<ViewPreset>('back');
+  // One-time cleanup of the legacy add-room entry-view stash so a stale 'top'
+  // written by an older session can't linger in sessionStorage.
   useEffect(() => {
     sessionStorage.removeItem('uytamir-studio-entry-view');
   }, []);
@@ -704,7 +701,6 @@ export default function ThreeDPage() {
         case '3': setToolMode('rotate'); break;
         case '4': setToolMode('scale'); break;
         case '5': setToolMode('part'); break;
-        case 't': setPreset((p) => (p === 'top' ? 'back' : 'top')); setPresetVersion((n) => n + 1); break;
         case 'k': setCutaway((m) => (m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')); break;
         case 'n': setSceneLightOn((v) => !v); break;
         case 'l': setLightsOn((v) => !v); break;
@@ -953,26 +949,10 @@ export default function ThreeDPage() {
                 </div>
               )}
 
-              {/* View preset */}
-              <div className="px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rinish</p>
-                <div className="flex items-center gap-2">
-                  {(["back", "top"] as ViewPreset[]).map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => { setPreset(v); setPresetVersion(n => n + 1) }}
-                      aria-pressed={preset === v}
-                      className={`px-3 py-2 min-h-[44px] rounded-full text-sm transition-colors ${
-                        preset === v
-                          ? "bg-brand text-white font-medium"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                      }`}
-                    >
-                      {VIEW_LABELS[v]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* The old "Ko'rinish" view-preset chips lived here. "Yuqori"
+                  (top view) is gone from this page, and the remaining view
+                  switching (3D / Kesma / Diorama) moved into the segmented
+                  control floating over the viewport's top-right corner. */}
 
               {/* Tool modes */}
               <div className="px-4 py-3">
@@ -1115,7 +1095,9 @@ export default function ThreeDPage() {
                 </div>
               </div>
 
-              {/* View controls: help, recenter, screenshot, cutaway */}
+              {/* View controls: help, recenter, screenshot. The cutaway
+                  toggle moved to the segmented control over the viewport's
+                  top-right corner. */}
               <div className="px-4 py-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rish</p>
                 <div className="flex flex-wrap gap-2">
@@ -1175,39 +1157,6 @@ export default function ThreeDPage() {
                     )}
                     <span aria-live="polite">
                       {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
-                    </span>
-                  </button>
-                  {/* Cutaway mode: interior → auto cutaway → fixed diorama.
-                      Disabled in top view where the shell is already open. */}
-                  <button
-                    onClick={() => setCutaway(m => m === 'off' ? 'auto' : m === 'auto' ? 'diorama' : 'off')}
-                    disabled={topView}
-                    title={
-                      topView ? "Yuqoridan ko'rinishda kesma shart emas"
-                      : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
-                      : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
-                      : "Ichki ko'rinishga qaytish"
-                    }
-                    aria-label={
-                      topView ? "Yuqoridan ko'rinishda kesma shart emas"
-                      : cutaway === 'off' ? "Kesma ko'rinishga o'tish (devorlar kamera tomonda yashirinadi)"
-                      : cutaway === 'auto' ? "Diorama rejimiga o'tish (sobit taqdimot ko'rinishi)"
-                      : "Ichki ko'rinishga qaytish"
-                    }
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      topView
-                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                        : cutaway !== 'off'
-                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
-                        : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                    }`}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
-                      <path d="M3 8l9 5 9-5M12 13v9" />
-                    </svg>
-                    <span>
-                      {cutaway === 'off' ? 'Ichki' : cutaway === 'auto' ? 'Kesma' : 'Diorama'}
                     </span>
                   </button>
                 </div>
@@ -1366,9 +1315,42 @@ export default function ThreeDPage() {
             </p>
           )}
 
-          {/* Navigation help card */}
+          {/* View mode — relocated here from the tools drawer's old
+              "Ko'rinish" chips + cutaway button. One segmented control pinned
+              to the viewport's top-right corner, exposing the same three-state
+              CutawayMode machine the old cycling button did: 3D = normal
+              interior view ('off'), Kesma = auto cutaway ('auto' — walls
+              facing the camera hide), Diorama = fixed presentation cutaway
+              ('diorama'). The K key still cycles the same states. z-20: above
+              the canvas and the z-10 button clusters, below the drop overlay
+              (z-40) and the mobile panel/backdrop tier (z-40/50). */}
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md">
+            {([
+              ['off', '3D', "Ichki ko'rinish — devorlar to'liq"],
+              ['auto', 'Kesma', "Kesma — devorlar kamera tomonda yashirinadi"],
+              ['diorama', 'Diorama', "Diorama — sobit taqdimot ko'rinishi"],
+            ] as const).map(([mode, label, title]) => (
+              <button
+                key={mode}
+                onClick={() => setCutaway(mode)}
+                title={title}
+                aria-label={title}
+                aria-pressed={cutaway === mode}
+                className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+                  cutaway === mode
+                    ? 'bg-brand text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Navigation help card — top-16 keeps it clear of the view-mode
+              segmented control pinned at top-3 in the same corner. */}
           {showHelp && (
-            <div className="absolute top-3 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
+            <div className="absolute top-16 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-bold text-gray-900">Boshqaruv</p>
                 <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
@@ -1390,7 +1372,7 @@ export default function ThreeDPage() {
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
                 <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
-                <li><b>T</b> — Yuqoridan / 3D &nbsp; <b>K</b> — Kesma</li>
+                <li><b>K</b> — Kesma / Diorama / 3D</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
                 <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
                 <li><b>Esc</b> — bekor qilish</li>
