@@ -210,6 +210,8 @@ function DraggableFurnitureItem({
   onFootprint,
   selectedPartKey,
   onSelectPart,
+  displayInfo,
+  onDelete,
 }: {
   item: PlacedFurniture
   isDragging: boolean
@@ -221,6 +223,8 @@ function DraggableFurnitureItem({
   onMeshPointerDown: (e: ThreeEvent<PointerEvent>) => void
   onButtonPointerDown: (e: React.PointerEvent) => void
   onFootprint: (id: string, hw: number, hd: number) => void
+  displayInfo: { name: string; priceUzs: number | null }
+  onDelete: (id: string) => void
   /** Active part key when this item owns the current part selection */
   selectedPartKey: string | null
   onSelectPart: (part: SelectedPart | null) => void
@@ -364,7 +368,7 @@ function DraggableFurnitureItem({
       if (selRef.current && !selRef.current.visible) selRef.current.visible = true
       return
     }
-    if (toolMode === 'move' && groupRef.current && dragPosRef.current) {
+    if ((toolMode === 'move' || toolMode === 'select') && groupRef.current && dragPosRef.current) {
       groupRef.current.position.x = dragPosRef.current.x
       groupRef.current.position.z = dragPosRef.current.z
     } else if (toolMode === 'rotate' && primitiveRef.current && dragRotRef.current !== null) {
@@ -405,7 +409,10 @@ function DraggableFurnitureItem({
   const btnActive = isDragging
   const fw = geomHW * s * 2   // actual footprint width
   const fd = geomHD * s * 2   // actual footprint depth
-  const meshCursor = toolMode === 'select' ? 'pointer'
+  // In 'select' mode, an already-selected item is directly draggable (see
+  // startDragFromMesh) — 'grab' signals that, same as 'move' mode; a
+  // not-yet-selected item just gets the plain 'pointer' selection cursor.
+  const meshCursor = toolMode === 'select' ? (isSelected ? 'grab' : 'pointer')
                    : toolMode === 'part'   ? 'crosshair'
                    : toolMode === 'rotate' ? 'ew-resize'
                    : toolMode === 'scale'  ? 'ns-resize'
@@ -571,6 +578,37 @@ function DraggableFurnitureItem({
           </button>
         </Html>
       )}
+
+      {/* Characteristics + delete panel — shown on selection alone (any tool
+          mode, not just while dragging), mirroring WindowEditor's pattern in
+          DoorLeaves.tsx: tap once, see what it is and a way to remove it,
+          without needing the keyboard Delete key this only had before. */}
+      {isSelected && (
+        <Html position={[0, buttonH + 0.22, 0]} center zIndexRange={[110, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              pointerEvents: 'all', background: 'white', borderRadius: 12, padding: '10px 12px', minWidth: 150,
+              boxShadow: '0 6px 20px rgba(0,0,0,.18)', whiteSpace: 'nowrap', textAlign: 'center',
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>{displayInfo.name}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
+              {fw.toFixed(2)} × {fd.toFixed(2)} m
+              {displayInfo.priceUzs != null && ` · ${displayInfo.priceUzs.toLocaleString('uz-UZ')} so'm`}
+            </p>
+            <button
+              onClick={() => onDelete(item.id)}
+              style={{
+                marginTop: 8, width: '100%', border: 'none', borderRadius: 8, padding: '6px 10px',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#FEF2F2', color: '#E5484D',
+              }}
+            >
+              O'chirish
+            </button>
+          </div>
+        </Html>
+      )}
     </group>
   )
 }
@@ -582,6 +620,7 @@ export function DraggableFurnitureModels({
   toolMode,
   selectedId,
   onSelectItem,
+  onDelete,
   selectedPart,
   onSelectPart,
 }: {
@@ -591,6 +630,7 @@ export function DraggableFurnitureModels({
   toolMode: ToolMode
   selectedId: string | null
   onSelectItem: (id: string) => void
+  onDelete: (id: string) => void
   selectedPart: SelectedPart | null
   onSelectPart: (part: SelectedPart | null) => void
 }) {
@@ -629,6 +669,19 @@ export function DraggableFurnitureModels({
     )
   }
 
+  // Display info for the selected-item panel below — a placed instance only
+  // carries a name/price snapshot for user uploads (see PlacedFurniture's own
+  // doc comment); a do'kon catalog placement has to look its name/price up
+  // by furniture_id instead, same as AddObjectSheet's own furniture list does.
+  function resolveDisplayInfo(item: PlacedFurniture): { name: string; priceUzs: number | null } {
+    if (item.name) return { name: item.name, priceUzs: item.unitPriceUzs ?? null }
+    const catalogItem = catalogFurniture.find((f) => f.id === item.furniture_id)
+    if (catalogItem) return { name: catalogItem.name_uz, priceUzs: catalogItem.price_uzs }
+    const userItem = (userFurniture as UserFurnitureEntry[]).find((f) => f.id === item.furniture_id)
+    if (userItem) return { name: userItem.name, priceUzs: null }
+    return { name: 'Mebel', priceUzs: null }
+  }
+
   // Half-extents of an item's AABB after its yaw rotation — a model authored
   // long along Z and rotated 90° occupies X, and vice versa. Using unrotated
   // extents locked dragging on one axis for rotated large items.
@@ -661,7 +714,10 @@ export function DraggableFurnitureModels({
 
   function activateDrag(item: PlacedFurniture, clientX: number, clientY = 0) {
     onSelectItem(item.id)
-    if (toolMode === 'move') {
+    // 'select' mode reaching here only happens via the already-selected-item
+    // bypass above — there's no rotate/scale affordance in that mode, so a
+    // plain drag always means reposition, exactly like 'move' mode.
+    if (toolMode === 'move' || toolMode === 'select') {
       // Prefer actual geometry footprint; fall back to catalog sizeM
       const fp = footprintsRef.current.get(item.id)
       const entry = resolveEntry(item.furniture_id)
@@ -692,16 +748,24 @@ export function DraggableFurnitureModels({
     if (controlsRef.current) controlsRef.current.enabled = false
   }
 
+  // A press on an already-selected item starts dragging immediately, even in
+  // 'select' mode — no toolbar switch to 'move' needed first. Matches the
+  // same fix already shipped for ceiling lights (LightingComponents.tsx) and
+  // wall openings (WallOpenings.tsx): first press on an unselected item only
+  // selects it (selectedId hasn't updated yet for this render), a
+  // subsequent press on the now-selected item drags it. Non-select tool
+  // modes (move/rotate/scale) are unaffected — they already dragged on the
+  // very first press.
   function startDragFromMesh(item: PlacedFurniture, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
-    if (toolMode === 'select') { onSelectItem(item.id); return }
+    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }
 
   function startDragFromButton(item: PlacedFurniture, e: React.PointerEvent) {
     e.stopPropagation()
     e.preventDefault()
-    if (toolMode === 'select') { onSelectItem(item.id); return }
+    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }
 
@@ -710,7 +774,7 @@ export function DraggableFurnitureModels({
     if (!id) return
     const item = furnitureRef.current.find((f) => f.id === id)
     if (item) {
-      if (toolMode === 'move') {
+      if (toolMode === 'move' || toolMode === 'select') {
         moveFurniture(id, dragPosRef.current.x * 1000, dragPosRef.current.z * 1000, item.rotation)
       } else if (toolMode === 'rotate') {
         moveFurniture(id, item.x, item.y, dragRotRef.current)
@@ -729,7 +793,7 @@ export function DraggableFurnitureModels({
     const canvas = gl.domElement
 
     const handleMove = (e: PointerEvent) => {
-      if (toolMode === 'move') {
+      if (toolMode === 'move' || toolMode === 'select') {
         const rect = canvas.getBoundingClientRect()
         const ndc = new THREE.Vector2(
           ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -792,6 +856,8 @@ export function DraggableFurnitureModels({
             onFootprint={handleFootprint}
             selectedPartKey={selectedPart?.itemId === item.id ? selectedPart.partKey : null}
             onSelectPart={onSelectPart}
+            displayInfo={resolveDisplayInfo(item)}
+            onDelete={onDelete}
           />
         </Suspense>
       ))}

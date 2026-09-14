@@ -79,6 +79,18 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
       desc: "O'lchamlarni kiriting yoki floorplan rasmini yuklang",
       action: () => { onClose(); navigate("/wizard") },
     },
+    {
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="rgb(124, 58, 237)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M18.5 5.5l4 4L10 22H6v-4z"/>
+          <path d="M16.5 7.5l4 4"/>
+        </svg>
+      ),
+      bg: "rgb(245, 240, 255)",
+      title: "Qo'lda chizish",
+      desc: "Xona konturini o'zingiz chizib chiqing",
+      action: () => { onClose(); navigate("/scan/draw") },
+    },
   ]
 
   return (

@@ -18,6 +18,15 @@ export interface WallElement {
   height: number
   sill_height: number
   position: number
+  /** Whether `position` still needs auto-placement (centered/auto-spread by
+   *  resolveElementPositions) rather than being honored as-is.
+   *  `true` = not yet explicitly positioned by the user — auto-place it.
+   *  `false`, or absent on an element with `position > 0` = explicit: honor
+   *  `position` exactly, including a legitimate `0` (e.g. dragged flush into
+   *  a corner). Absent on legacy elements saved before this flag existed —
+   *  see resolveElementPositions in wallPositions.ts for the exact fallback
+   *  rule that keeps their old behavior unchanged. */
+  positionAuto?: boolean
   // ── Door leaf. All optional: openings saved before the 3D door existed
   //    carry none, and fall back to a closed, left-hung, wooden leaf. ──
   /** Hinge jamb, in the wall's own frame. */

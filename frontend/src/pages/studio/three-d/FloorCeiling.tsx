@@ -34,16 +34,21 @@ export const WoodFloor = memo(function WoodFloor({
   useEffect(() => {
     if (!floorTexture) { setCustomTex(null); return; }
     let disposed = false;
-    // Same <img>-vs-WebGL cache collision as the walls — see textureFetchUrl.
-    new THREE.TextureLoader().load(textureFetchUrl(floorTexture), (tex) => {
-      if (disposed) { tex.dispose(); return; }
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.center.set(0.5, 0.5);
-      setCustomTex(tex);
-      invalidate();
-    });
+    new THREE.TextureLoader().load(
+      // Same <img>-vs-WebGL cache collision as the walls — see textureFetchUrl.
+      textureFetchUrl(floorTexture),
+      (tex) => {
+        if (disposed) { tex.dispose(); return; }
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.center.set(0.5, 0.5);
+        setCustomTex(tex);
+        invalidate();
+      },
+      undefined,
+      (err) => { console.warn("[FloorCeiling] floor texture failed to load:", floorTexture, err); },
+    );
     return () => { disposed = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floorTexture]);
@@ -177,11 +182,16 @@ export const WoodFloor = memo(function WoodFloor({
 
   const activeTex = customTex ?? texture;
 
+  // No stopPropagation on the group's onClick below (matches Wall's own
+  // group in WallComponents.tsx) — a plain tap needs to both select the
+  // floor (this onClick) AND bubble up to the holdBind('floor') wrapper in
+  // RoomShell.tsx, which opens the surface radial menu, exactly like a wall
+  // tap already does both at once.
   return (
-    <group onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}>
+    <group onClick={onClick}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
-        {floorConfigured ? (
+        {floorConfigured || floorTexture ? (
           <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
         ) : (
           <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />

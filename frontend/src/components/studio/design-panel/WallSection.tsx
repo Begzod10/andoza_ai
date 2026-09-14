@@ -9,7 +9,7 @@ import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import { useDebounce } from "@/hooks/useDebounce";
-import { WALL_TARGETS, resolveTargetWall, type WallTarget } from "./shared";
+import { getWallTargets, FLOOR_TARGET, CEILING_TARGET, resolveTargetWall, type WallTarget } from "./shared";
 import { CeilingTargetPanel } from "./CeilingTargetPanel";
 import { WallFloorTargetPanel } from "./WallFloorTargetPanel";
 import { WallPanelGenerator } from "./WallPanelGenerator";
@@ -77,6 +77,14 @@ export function WallSection({
 
   const targetWall: WallTarget = resolveTargetWall(selectedWall);
   const setTargetWall = (w: WallTarget) => onWallChange?.(w === 'ALL' ? null : w);
+  // ALL + one entry per actual wall in the room's own geometry, plus the
+  // FLOOR/CEILING sentinels this section also targets — recomputed whenever
+  // the room's walls change (a hand-drawn polygon room's walls aren't a
+  // fixed A/B/C/D set, unlike a legacy rectangle room's).
+  const wallTargets = React.useMemo(
+    () => [...getWallTargets(geometry), FLOOR_TARGET, CEILING_TARGET],
+    [geometry.walls],
+  );
   const [selectedPattern, setSelectedPattern] = React.useState<OboyPatternId>("damask");
   const [baseColor, setBaseColor] = React.useState("#F5F0E8");
   const [accentColor, setAccentColor] = React.useState("#8B6F47");
@@ -198,7 +206,7 @@ export function WallSection({
       <section>
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Devor / Pol</h3>
         <div className="flex flex-wrap gap-1.5">
-          {WALL_TARGETS.map(({ key, label }) => (
+          {wallTargets.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setTargetWall(key)}

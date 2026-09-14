@@ -25,8 +25,9 @@ class WallpaperOut(BaseModel):
 
     id: UUID
     name: str
-    # 'oboy' | 'suvoq' | 'shpaklovka' — which panel it was uploaded from.
-    kind: str
+    # Design-panel scope bucket (oboy|suvoq|shpaklovka|pol); null for legacy
+    # rows predating scoping.
+    kind: str | None
     store_id: UUID | None
     store_name: str | None
     price_uzs: int | None

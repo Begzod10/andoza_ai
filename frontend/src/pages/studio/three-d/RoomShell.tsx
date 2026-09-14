@@ -201,10 +201,24 @@ function NWallRoomShell({
     return filtered.length > 2 ? filtered : centred
   }, [centred])
 
+  // ShapeGeometry builds its vertices flat in the local XY plane (z=0), and
+  // the floor/ceiling meshes below rotate that flat shape -90° about X to
+  // lay it into the XZ plane. That rotation maps local Y to world Z as
+  // -localY (Rx(-90°) sends (x, y, 0) -> (x, 0, -y)) — but the wall boxes
+  // above are positioned directly from the same polygon's raw (x, z), with
+  // no such flip. Feeding the raw z straight into the shape's Y slot (the
+  // previous version of this function) therefore came out mirrored across Z
+  // in world space relative to the wall footprint for any polygon that
+  // isn't symmetric under z -> -z. A centred rectangle's 4 corners happen to
+  // be exactly such a symmetric set (negating z just reorders the same 4
+  // points), which is why this stayed invisible until an L-shaped room's
+  // asymmetric vertex loop exposed it as a real gap between floor and walls.
+  // Negating z here cancels the rotation's own negation, so the shape's
+  // world (x, z) after rotation exactly matches the (x, z) the walls use.
   const buildShape = (verts: [number, number][]) => {
     const shape = new THREE.Shape()
-    shape.moveTo(verts[0][0], verts[0][1])
-    for (let i = 1; i < verts.length; i++) shape.lineTo(verts[i][0], verts[i][1])
+    shape.moveTo(verts[0][0], -verts[0][1])
+    for (let i = 1; i < verts.length; i++) shape.lineTo(verts[i][0], -verts[i][1])
     shape.closePath()
     return new THREE.ShapeGeometry(shape)
   }
@@ -220,6 +234,13 @@ function NWallRoomShell({
         <meshStandardMaterial
           color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
           roughness={0.8}
+          // ShapeGeometry's front-face winding depends on the input polygon's
+          // winding in its own local X-Y space, before this mesh's rotation
+          // is applied — if that ends up facing down post-rotation, the
+          // floor would be invisible from the normal top-down/isometric
+          // camera with the default FrontSide. DoubleSide costs nothing and
+          // removes this whole class of winding-order bugs.
+          side={THREE.DoubleSide}
         />
       </mesh>
 
@@ -273,6 +294,21 @@ function NWallRoomShell({
           : covering.baseColor
         const isSelected = selectedWall === wallId
 
+        // Corner joint fix: a square-cut box running exactly edge-length only
+        // touches its neighbour at a single point at a convex (e.g. rectangle)
+        // corner, which happens to look fine, but at a concave/reflex corner
+        // (an inward notch) it leaves a real gap — the two boxes' end faces
+        // never actually meet, exposing whatever is behind (e.g. another
+        // wall's side face) through the hole. Mirrors the legacy RoomScene's
+        // "B/D own the corners" convention (walls extended by T so they
+        // overlap at the shared thickness instead of only touching at a
+        // point), generalized for arbitrary per-edge angles: every wall
+        // extends by T/2 at each end, so at ANY joint — convex or concave —
+        // both meeting boxes overlap across the corner rather than merely
+        // meeting at a point. At convex corners this only grows an already-
+        // harmless overlap; it does not introduce a gap there.
+        const boxLength = length + T
+
         return (
           <mesh
             key={wallId}
@@ -282,7 +318,7 @@ function NWallRoomShell({
             receiveShadow
             onClick={() => onWallClick?.(wallId)}
           >
-            <boxGeometry args={[length, H, T]} />
+            <boxGeometry args={[boxLength, H, T]} />
             <meshStandardMaterial
               color={isSelected ? '#1E40AF' : baseColor}
               roughness={0.85}

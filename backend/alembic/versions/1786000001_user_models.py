@@ -7,7 +7,7 @@ models/<user_id>/ in media storage) is the durable copy the studio restores
 from.
 
 Revision ID: user_models
-Revises: wp_kind
+Revises: 1785000017
 Create Date: 2026-09-12 01:10:00.000000
 
 """
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'user_models'
-down_revision = 'wp_kind'
+down_revision = '1785000017'
 branch_labels = None
 depends_on = None
 

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   updateRoom, listWallpapers, uploadWallpaper, deleteWallpaper,
 } from "@/lib/api";
-import type { Room, Wallpaper, WallpaperKind } from "@/lib/api";
+import type { Room, Wallpaper } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
 import { useRoomStore, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
@@ -138,25 +138,27 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.is_admin === true;
+
+  // The shared picker below serves the Bo'yoq/Oboy, Suvoq and Shpaklovka
+  // phases, which each keep their OWN image library. Derive the scope bucket
+  // from the active phase so an image uploaded in one never surfaces in another
+  // (floor uploads are scoped to "pol" in FloorSection/WallFloorTargetPanel).
+  const libraryScope: "oboy" | "suvoq" | "shpaklovka" =
+    phase === "suvoq" ? "suvoq" : phase === "shpaklovka" ? "shpaklovka" : "oboy";
+
   const { data: wallpapers = [] } = useQuery<Wallpaper[]>({
-    queryKey: ["wallpapers"],
-    queryFn: () => listWallpapers(),
-    staleTime: 60_000,
-  });
-  // The suvoq/shpaklovka shelf is its own library: a bare-wall photo is no use
-  // in the oboy picker and vice versa, so those phases list only the images
-  // uploaded from them (`kind`-filtered server-side).
-  const surfaceKind: WallpaperKind = phase === 'shpaklovka' ? 'shpaklovka' : 'suvoq';
-  const { data: surfaceTextures = [] } = useQuery<Wallpaper[]>({
-    queryKey: ["wallpapers", surfaceKind],
-    queryFn: () => listWallpapers({ kind: surfaceKind }),
+    queryKey: ["wallpapers", libraryScope],
+    queryFn: () => listWallpapers({ kind: libraryScope }),
     staleTime: 60_000,
   });
   const [wallpaperBusy, setWallpaperBusy] = React.useState(false);
   const [wallpaperError, setWallpaperError] = React.useState<string | null>(null);
 
   function applyWallpaper(url: string) {
-    applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 0.5, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
+    // Default wallpaper UVW map size = 100 cm × 100 cm: repeatX is tiles-per-metre
+    // (see WallComponents), so 1.0 => one tile per metre = 100 cm; repeatY 1.0 keeps
+    // the pattern aspect-preserved (undistorted) at ~100 cm tall.
+    applyWallCovering({ kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 });
   }
 
   // One picker for every phase that uploads a wall image.
@@ -202,9 +204,6 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     intent: 'wallpaper' | 'plaster',
     onPick: (url: string) => void,
     libraryLabel: string,
-    // Which shelf to show — the oboy library by default, the phase's own
-    // kind-filtered one where the caller passes it (Suvoq/Shpaklovka).
-    library: Wallpaper[] = wallpapers,
   ) {
     const active = targetWall === "ALL"
       ? designState.wallCoverings.ALL
@@ -230,14 +229,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
 
         {/* Shared library — uploaded once, stays for everyone */}
-        {library.length > 0 && (
+        {wallpapers.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
-              <span className="text-[10px] text-gray-500">{library.length} ta</span>
+              <span className="text-[10px] text-gray-500">{wallpapers.length} ta</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {library.map((w) => (
+              {wallpapers.map((w) => (
                 <div key={w.id} className="relative">
                   <button
                     onClick={() => onPick(w.url)}
@@ -289,14 +288,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperBusy(true);
     setWallpaperError(null);
     try {
-      // A plaster/shpaklovka photo lands on that phase's shelf; a wallpaper
-      // roll on the shared oboy one.
-      const wallpaper = await uploadWallpaper(file, {
-        kind: intent === 'plaster' ? surfaceKind : 'oboy',
-      });
+      const wallpaper = await uploadWallpaper(file, { kind: libraryScope });
       if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
       else applyWallpaper(wallpaper.url);
-      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+      queryClient.invalidateQueries({ queryKey: ["wallpapers", libraryScope] });
     } catch (err) {
       setWallpaperError(
         err instanceof Error && err.message
@@ -363,10 +358,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             onWallChange={onWallChange}
             applyWallCovering={applyWallCovering}
             handleSetPaintColor={handleSetPaintColor}
-            // Bound to the phase's own kind-filtered shelf, so a suvoq photo
-            // never shows up when picking oboy and vice versa.
-            renderTexturePicker={(intent, onPick, label) =>
-              renderTexturePicker(intent, onPick, label, surfaceTextures)}
+            renderTexturePicker={renderTexturePicker}
             plasterUploadCovering={plasterUploadCovering}
           />
         )}

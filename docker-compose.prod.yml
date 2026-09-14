@@ -44,6 +44,11 @@ services:
         condition: service_started
     ports:
       - "8000:8000"
+    volumes:
+      # Persist uploaded media (furniture GLBs, thumbnails, wallpapers) across
+      # redeploys. Without this, /app/media lives in the container's ephemeral
+      # layer and every `up --build` wipes the catalog's files.
+      - media_data:/app/media
     restart: unless-stopped
 
   worker:
@@ -59,6 +64,9 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+    volumes:
+      # Shared with api — the media queue writes thumbnails/derived files here.
+      - media_data:/app/media
     restart: unless-stopped
 
   beat:
@@ -72,16 +80,19 @@ services:
     depends_on:
       redis:
         condition: service_started
+    volumes:
+      - media_data:/app/media
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://189.74.96.11:8000/api/v1}
+        VITE_API_URL: ${VITE_API_URL:-https://andoza.jumaniyozov.uz/api/v1}
     ports:
       - "5173:80"
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  media_data:

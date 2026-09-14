@@ -2,7 +2,7 @@ import * as React from "react";
 import { useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
@@ -10,6 +10,8 @@ import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
 import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
+import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
+import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
@@ -84,6 +86,38 @@ function wallFrames(W: number, D: number): WallFrame[] {
   ];
 }
 
+/**
+ * Same WallFrame contract as `wallFrames`, but for a polygon room — backs
+ * the rectilinear/N-wall hand-drawing feature (a RoomPlan-drawn layout with
+ * other-than-4 walls, described by `geometry.vertices`). Built on the shared
+ * `wallDefsFromVertices` utility so this file's frames stay in lockstep with
+ * `NWallRoomShell`'s rendered wall boxes (see that function's centering/
+ * rotation convention — read-only reference, not edited here).
+ *
+ * `PolyWallDef` describes each wall by its constant cross-axis `face` and
+ * its along-axis `leftAlong` (position-0) coordinate rather than a centre
+ * point, so the centre this file's frames need is reconstructed here as
+ * `leftAlong + length / 2`.
+ */
+function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
+  const defs = wallDefsFromVertices(vertices, wallIds);
+  const out: WallFrame[] = [];
+  for (const id of wallIds) {
+    const d = defs[id];
+    if (!d) continue; // degenerate edge (near-duplicate vertex) — no frame for it
+    const centreAlong = d.leftAlong + d.length / 2;
+    out.push({
+      id: d.id,
+      yaw: d.ry,
+      cx: d.axis === "X" ? centreAlong : d.face,
+      cz: d.axis === "Z" ? centreAlong : d.face,
+      axis: d.axis,
+      lengthM: d.length,
+    });
+  }
+  return out;
+}
+
 /** World-space centre of a door sitting at `position` mm along its wall. */
 function openingCentre(wf: WallFrame, el: WallElement) {
   const offset = (el.position + el.width / 2 - wf.lengthM * 500) * S;
@@ -141,7 +175,16 @@ export function OpeningLeaves({
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const frames = useMemo(() => wallFrames(wallWidth, wallDepth), [wallWidth, wallDepth]);
+  const wallIds = useMemo(() => geometry.walls.map((w) => w.id), [geometry.walls]);
+
+  // Polygon rooms (rectilinear hand-drawing feature, >4 walls) carry
+  // `geometry.vertices`; the legacy 4-wall ABCD rectangle does not, and MUST
+  // keep taking the exact same hardcoded-4-wall path it always has.
+  const frames = useMemo(() => {
+    return geometry.vertices && geometry.vertices.length >= 3
+      ? wallFramesFromVertices(geometry.vertices, wallIds)
+      : wallFrames(wallWidth, wallDepth);
+  }, [geometry.vertices, wallIds, wallWidth, wallDepth]);
 
   // Every door on every visible wall, already position-resolved
   const doors = useMemo(() => {
@@ -324,11 +367,27 @@ function DoorLeaf({
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";
 
+  // Live-drag override (WallOpenings.tsx's own separate click-to-select-then-
+  // drag gesture, NOT this file's beginDrag/toolMode move|scale|rotate path
+  // below): while this door is the one WallOpenings.tsx is dragging, snap the
+  // whole root group to the live position/sill on every frame instead of
+  // waiting for the single pointerup store commit. sill_height is hoisted
+  // into this group's own Y (see below) so overriding position here also
+  // covers vertical movement, though doors always drag with sill 0.
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    if (!live || !groupRef.current) return;
+    if (live.wallId !== wf.id || live.elId !== el.id) return;
+    const lc = openingCentre(wf, { ...el, position: live.position });
+    groupRef.current.position.set(lc.x, live.sill_height * S, lc.z);
+  });
+
   return (
-    <group position={[c.x, 0, c.z]} rotation={[0, wf.yaw, 0]}>
+    <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
       {/* Hinge pivot — the whole leaf turns about this vertical edge */}
       <group position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
-        <group position={[(dir * leafW) / 2, sill + leafH / 2, 0]}>
+        <group position={[(dir * leafW) / 2, leafH / 2, 0]}>
           <mesh
             castShadow
             receiveShadow
@@ -380,7 +439,7 @@ function DoorLeaf({
 
       {selected && (
         <Html
-          position={[0, sill + h + 0.18, 0.02]}
+          position={[0, h + 0.18, 0.02]}
           center
           zIndexRange={[120, 0]}
           style={{ pointerEvents: "none" }}
@@ -551,7 +610,10 @@ function WindowSash({
   const w = el.width * S;
   const h = el.height * S;
   const sill = el.sill_height * S;
-  const midY = sill + h / 2;
+  // Relative to this component's root group, which now carries `sill` as its
+  // own Y (see below) — the old `sill + h / 2` absolute-from-floor value is
+  // unchanged once the group's Y is added back in.
+  const midY = h / 2;
 
   const style = resolveWindowStyle(el);
   const panes = useMemo(() => layoutPanes(style), [style]);
@@ -569,8 +631,20 @@ function WindowSash({
     : toolMode === "rotate" ? "ew-resize"
     : "ns-resize";
 
+  // Live-drag override — same mechanism as DoorLeaf above. A window's drag
+  // moves both along-wall position AND sill_height, both folded into this
+  // root group's position (X/Z from openingCentre, Y from sill_height).
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const live = liveOpeningDrag.current;
+    if (!live || !groupRef.current) return;
+    if (live.wallId !== wf.id || live.elId !== el.id) return;
+    const lc = openingCentre(wf, { ...el, position: live.position });
+    groupRef.current.position.set(lc.x, live.sill_height * S, lc.z);
+  });
+
   return (
-    <group position={[c.x, 0, c.z]} rotation={[0, wf.yaw, 0]}>
+    <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
       {panes.map((pane, i) => {
         const pw = pane.w * innerW;
         const ph = pane.h * innerH;
@@ -631,7 +705,7 @@ function WindowSash({
       )}
 
       {selected && (
-        <Html position={[0, sill + h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>
+        <Html position={[0, h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>
           <WindowEditor el={el} styleId={style.id} onPatch={onPatch} onDelete={onDelete} />
         </Html>
       )}
@@ -654,7 +728,7 @@ function WindowEditor({
   const angle = el.openAngle ?? 0;
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
+    <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         <NumField label="Eni (mm)" value={el.width} min={lim.minW} max={lim.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
@@ -734,7 +808,7 @@ function DoorEditor({
   const hinge = el.hinge ?? "left";
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
+    <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         <NumField label="Eni (mm)" value={el.width} min={LIMITS.door.minW} max={LIMITS.door.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />

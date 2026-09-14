@@ -43,9 +43,9 @@ _EXT_BY_TYPE = {
 }
 _MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
 
-# The three texture shelves. Each panel uploads and lists under its own kind,
-# so a suvoq photo never shows up in the oboy picker and vice versa.
-_KINDS = {"oboy", "suvoq", "shpaklovka"}
+# Design-panel scope buckets. Each studio panel uploads into and reads from its
+# own bucket, so an image uploaded for the floor never shows up in a wall panel.
+_ALLOWED_KINDS = {"oboy", "suvoq", "shpaklovka", "pol"}
 
 
 def _out(w: Wallpaper, request: Request) -> WallpaperOut:
@@ -81,19 +81,15 @@ async def list_wallpapers(
                     "shop) are always excluded when this is set — use the "
                     "admin catalog's unassigned view for those instead",
     ),
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=50, ge=1, le=100),
     kind: str | None = Query(
         default=None,
-        description="Filter to one shelf: 'oboy', 'suvoq' or 'shpaklovka'. "
-                    "Unset returns every kind (legacy clients).",
+        description="Design-panel scope bucket (oboy|suvoq|shpaklovka|pol). "
+                    "Each studio panel passes its own kind so it only sees the "
+                    "images uploaded from it. Omit to return every bucket.",
     ),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
 ) -> list[WallpaperOut]:
-    if kind is not None and kind not in _KINDS:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"kind quyidagilardan biri bo'lishi kerak: {', '.join(sorted(_KINDS))}",
-        )
     query = select(Wallpaper).options(selectinload(Wallpaper.store))
     if store_id is not None:
         query = query.where(Wallpaper.store_id == store_id)
@@ -118,9 +114,7 @@ async def upload_wallpaper(
     current_user: CurrentUser,
     db: DbSession,
     name: str | None = Form(default=None),
-    # Which shelf this upload belongs to. Not admin-gated: every user uploads
-    # their own textures from the panel they are in.
-    kind: str = Form("oboy"),
+    kind: str | None = Form(default=None),
     store_id: uuid_module.UUID | None = Form(default=None),
     price_uzs: int | None = Form(default=None),
     description: str | None = Form(default=None),
@@ -153,15 +147,18 @@ async def upload_wallpaper(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Faqat administrator oboy nomi/narxi/do'konini belgilashi mumkin",
         )
-    if kind not in _KINDS:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"kind quyidagilardan biri bo'lishi kerak: {', '.join(sorted(_KINDS))}",
-        )
     if price_uzs is not None and price_uzs < 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="price_uzs manfiy bo'lishi mumkin emas",
+        )
+    # `kind` is the design-panel scope, set by every panel (not admin-only
+    # metadata, so it stays out of the is_admin gate above). Reject unknown
+    # buckets so a typo can't silently create an orphan library nobody reads.
+    if kind is not None and kind not in _ALLOWED_KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Noto'g'ri kind — ruxsat etilgan: {', '.join(sorted(_ALLOWED_KINDS))}",
         )
     store: Store | None = None
     if store_id is not None:
@@ -196,17 +193,19 @@ async def upload_wallpaper(
         )
 
     # Same image twice → same entry, so the library doesn't fill up with copies.
+    # Dedup is scoped to `kind`: re-uploading the same bytes into the SAME panel
+    # returns its existing entry, but the same image uploaded into a different
+    # panel (a different `kind`) becomes a separate row so it shows up there too.
     # Still apply any newly-given metadata — a re-upload is a reasonable way
     # for an admin to correct those on an existing entry.
     digest = hashlib.sha256(file_bytes).hexdigest()
     existing = await db.execute(
-        select(Wallpaper).options(selectinload(Wallpaper.store)).where(Wallpaper.sha256 == digest)
+        select(Wallpaper)
+        .options(selectinload(Wallpaper.store))
+        .where(Wallpaper.sha256 == digest, Wallpaper.kind == kind)
     )
     found = existing.scalar_one_or_none()
     if found is not None:
-        # Re-uploading the same image from a different panel moves it to that
-        # shelf — the user's intent is "this texture belongs here".
-        found.kind = kind
         if name:
             found.name = name[:120]
         if store_id is not None:

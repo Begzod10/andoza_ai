@@ -294,7 +294,7 @@ export default function LoginPage() {
       {/* Logo */}
       <div className="mb-8 text-center relative z-10">
         <div className="text-5xl font-bold text-neutral-900 mb-2">👋 Salom</div>
-        <p className="text-lg text-muted">UyTa'mir-ga xush kelibsiz</p>
+        <p className="text-lg text-muted">Andoza AI-ga xush kelibsiz</p>
       </div>
 
       <div className="w-full max-w-sm bg-white/50 backdrop-blur-md rounded-2xl shadow-card p-8 relative z-10">

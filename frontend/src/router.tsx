@@ -72,6 +72,7 @@ const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const SharedRoomPage = lazy(() => import("@/pages/share/SharedRoomPage"));
 const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
+const DrawRoomPage = lazy(() => import("@/pages/scan/DrawRoomPage"));
 
 // ---------- Routes ----------
 
@@ -123,6 +124,10 @@ const routes: RouteObject[] = [
   {
     path: "/scan/360",
     element: withSuspense(<Photo360Page />),
+  },
+  {
+    path: "/scan/draw",
+    element: withSuspense(<DrawRoomPage />),
   },
   {
     path: "/wizard",

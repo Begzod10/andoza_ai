@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
-import { useRoomStore } from "@/store/roomStore";
+import { useRoomStore, type FloorType } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
 import { useDebounce } from "@/hooks/useDebounce";
 import { MaterialSwatch } from "./MaterialSwatch";
+import { FLOOR_TYPES, getWallTargets, type WallTarget } from "./design-panel/shared";
 
-type Section = "wallpaper" | "lyustra" | "furniture";
+type Section = "wallpaper" | "lyustra" | "furniture" | "floor";
+
+// Same do'kon-category mapping WallFloorTargetPanel uses (design-panel's
+// "Pol" target under Rang) — kept in sync there rather than shared, since
+// it's a two-line lookup and this sheet already mirrors that panel's
+// type/product picker deliberately, not by importing its internals.
+const FLOOR_TYPE_TO_MATERIAL_CATEGORY: Record<string, string> = {
+  parquet: "parket",
+  laminate: "laminat",
+  tile: "plitka",
+};
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
-// Same ids and labels as DesignPanel's WALL_TARGETS (minus FLOOR/CEILING —
-// this sheet's "Devor" section is wall paint only) so the two surfaces speak
-// the same language instead of drifting.
-type WallId = "ALL" | "A" | "B" | "C" | "D";
 
 interface AddObjectSheetProps {
   onClose: () => void;
@@ -39,16 +46,9 @@ const CEILING_LIGHT_TYPES = LIGHT_TYPES.filter(
 
 const ROOM_TABS: RoomTab[] = ["Mehmonxona", "Oshxona", "Yotoqxona", "Vanna"];
 
-const WALL_TARGETS: { key: WallId; label: string }[] = [
-  { key: "ALL", label: "Hamma devorlar" },
-  { key: "A",   label: "Devor A" },
-  { key: "B",   label: "Devor B" },
-  { key: "C",   label: "Devor C" },
-  { key: "D",   label: "Devor D" },
-];
-
 const SECTION_TABS: { key: Section; label: string }[] = [
   { key: "wallpaper", label: "Devor" },
+  { key: "floor",     label: "Pol" },
   { key: "lyustra",   label: "Chiroq" },
   { key: "furniture", label: "Mebel" },
 ];
@@ -79,14 +79,28 @@ function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
 export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObjectSheetProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
+  // Mebel: picking an item from the catalog list advances to a size-confirm
+  // step instead of placing it immediately — mirrors the window flow
+  // (NewWindowSheet: type first, then size, then place).
+  const [pendingFurniture, setPendingFurniture] = useState<CatalogFurniture | null>(null);
+  const [furnitureWidthCm, setFurnitureWidthCm] = useState(100);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
   // Defaults to "Hamma devorlar" (matching what this quick action always
   // did before), but is now a real choice — picking a specific wall no
   // longer silently wipes every other wall's color. Setting "ALL" clears
   // per-wall overrides in the store, so applying it here without a picker
   // used to blow away desktop customization with a single tap.
-  const [targetWall, setTargetWall] = useState<WallId>("ALL");
-  const { setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture } = useRoomStore();
+  const [targetWall, setTargetWall] = useState<WallTarget>("ALL");
+  const {
+    setWallCovering, applySurface, addLight, placeFurniture, catalogFurniture, geometry, lights, furniture,
+    designState, setDesignState, setFloorTexture, surfaces,
+  } = useRoomStore();
+  // ALL + one entry per actual wall in the room's own geometry (no
+  // FLOOR/CEILING — this sheet's "Devor" section is wall paint only) —
+  // recomputed whenever the room's walls change, same source WallSection and
+  // SuvoqSection use, so a hand-drawn polygon room's real wall ids show up
+  // here too instead of a stale/nonexistent A/B/C/D set.
+  const wallTargets = useMemo(() => getWallTargets(geometry), [geometry.walls]);
 
   // Focus management: this sheet is only ever mounted while open (the
   // caller conditionally renders it), so on-mount capture of whatever had
@@ -130,6 +144,38 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
     queryFn: () => getMaterials({ category: "boyoq", q: debouncedPaintQuery || undefined, per_page: 20 }),
     enabled: section === "wallpaper",
   });
+
+  // Real do'kon-managed floor covering — same category mapping and query
+  // shape as WallFloorTargetPanel's "Pol" target under Rang, so picking a
+  // floor here and picking one there land on the exact same materials.
+  const [floorQuery, setFloorQuery] = useState("");
+  const debouncedFloorQuery = useDebounce(floorQuery, 300);
+  const floorType = designState.floorType;
+  const floorMaterialCategory = FLOOR_TYPE_TO_MATERIAL_CATEGORY[floorType];
+  const { data: floorProducts = [] } = useQuery({
+    queryKey: ["materials", floorMaterialCategory, debouncedFloorQuery],
+    queryFn: () => getMaterials({ category: floorMaterialCategory!, q: debouncedFloorQuery || undefined, per_page: 20 }),
+    enabled: section === "floor" && !!floorMaterialCategory,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Picking a type is a complete action on its own for "concrete" (no do'kon
+  // category exists for a bare screed — nothing further to pick), so that
+  // one closes the sheet immediately; the other three stay open so a do'kon
+  // product for the new category can be picked right after, same flow as
+  // WallFloorTargetPanel.
+  function handleSetFloorType(type: string) {
+    const ft = type as FloorType;
+    setDesignState({ floorType: ft, floorConfigured: true });
+    setFloorTexture(null);
+    applySurface("floor", "");
+    if (!FLOOR_TYPE_TO_MATERIAL_CATEGORY[ft]) onClose();
+  }
+
+  function applyFloorProduct(materialId: string) {
+    applySurface("floor", materialId);
+    onClose();
+  }
 
   // Real do'kon-managed furniture — filtered per room tab below. Lamps are
   // excluded here so they only show once, under "Chiroq".
@@ -205,7 +251,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           {section === "wallpaper" && (
             <div>
               <div className="flex gap-2 mb-3 overflow-x-auto">
-                {WALL_TARGETS.map((w) => (
+                {wallTargets.map((w) => (
                   <button
                     key={w.key}
                     onClick={() => setTargetWall(w.key)}
@@ -218,7 +264,7 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                 ))}
               </div>
               <p className="text-[13px] text-muted mb-3">
-                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${WALL_TARGETS.find((w) => w.key === targetWall)?.label} uchun rang`}
+                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${wallTargets.find((w) => w.key === targetWall)?.label} uchun rang`}
               </p>
               <input
                 type="text"
@@ -254,6 +300,57 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
             </div>
           )}
 
+          {/* ── Floor section — type picker + real do'kon floor covering ── */}
+          {section === "floor" && (
+            <div>
+              <div className="flex gap-2 mb-3 overflow-x-auto">
+                {FLOOR_TYPES.map((ft) => (
+                  <button
+                    key={ft.key}
+                    onClick={() => handleSetFloorType(ft.key)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                      floorType === ft.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
+                    }`}
+                  >
+                    {ft.label}
+                  </button>
+                ))}
+              </div>
+              {floorMaterialCategory ? (
+                <>
+                  <p className="text-[13px] text-muted mb-3">Do'kondan tanlang</p>
+                  <input
+                    type="text"
+                    value={floorQuery}
+                    onChange={(e) => setFloorQuery(e.target.value)}
+                    placeholder="Qidirish..."
+                    className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
+                  />
+                  {floorProducts.length === 0 ? (
+                    <p className="text-[13px] text-muted py-4 text-center">
+                      {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q"}
+                    </p>
+                  ) : (
+                    <div className="flex gap-3 flex-wrap">
+                      {floorProducts.map((m: Material) => (
+                        <MaterialSwatch
+                          key={m.id}
+                          material={m}
+                          isActive={surfaces.floor === m.id}
+                          onClick={() => applyFloorProduct(m.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-[13px] text-muted py-4 text-center">
+                  Beton pol uchun do'konda material yo'q — smeta bu pol uchun narx hisoblamaydi.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ── Lyustra section — real ceiling-fixture catalog ──────────── */}
           {section === "lyustra" && (
             <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollSnapType: "x mandatory" }}>
@@ -283,7 +380,91 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
           )}
 
           {/* ── Furniture section — real do'kon-managed 3D models ───────── */}
-          {section === "furniture" && (
+          {section === "furniture" && pendingFurniture && (
+            <div>
+              <button
+                onClick={() => setPendingFurniture(null)}
+                className="flex items-center gap-1 text-[13px] font-semibold text-muted mb-3"
+              >
+                ← Orqaga
+              </button>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-16 h-16 bg-[#F7F8FA] rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {pendingFurniture.thumbnail_url ? (
+                    <img src={pendingFurniture.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2"/>
+                      <path d="M16 7V5a2 2 0 00-8 0v2"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[16px] font-bold text-gray-900 truncate">{pendingFurniture.name_uz}</p>
+                  {fmtPrice(pendingFurniture.price_uzs) && (
+                    <p className="text-[12px] text-muted">{fmtPrice(pendingFurniture.price_uzs)}</p>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
+                Razmeri
+              </p>
+              <div className="bg-[#F9FAFB] rounded-2xl px-4">
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-[14px] font-semibold text-gray-800">Kenglik</p>
+                    {pendingFurniture.footprint_w != null && (
+                      <p className="text-[11px] text-muted">
+                        Standart: {(pendingFurniture.footprint_w / 100).toFixed(2)} m
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      onClick={() => setFurnitureWidthCm((v) => Math.max(20, v - 5))}
+                      aria-label="Kenglikni kamaytirish"
+                      className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+                    >
+                      −
+                    </button>
+                    <span className="text-[15px] font-bold text-gray-900 w-16 text-center">
+                      {(furnitureWidthCm / 100).toFixed(2)} m
+                    </span>
+                    <button
+                      onClick={() => setFurnitureWidthCm((v) => Math.min(400, v + 5))}
+                      aria-label="Kenglikni oshirish"
+                      className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted mt-2">
+                Bo'yi va chuqurligi shu nisbatda birga o'zgaradi.
+              </p>
+
+              <button
+                onClick={() => {
+                  const item = pendingFurniture;
+                  const count = furniture.filter((f) => f.furniture_id === item.id).length;
+                  const scaleOverride = item.footprint_w ? furnitureWidthCm / item.footprint_w : 1;
+                  placeFurniture({
+                    id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id,
+                    ...nextFurnitureOffsetMm(count), rotation: 0, scaleOverride,
+                  });
+                  setPendingFurniture(null);
+                  onClose();
+                }}
+                className="mt-6 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
+              >
+                + Qo'shish
+              </button>
+            </div>
+          )}
+
+          {section === "furniture" && !pendingFurniture && (
             <div>
               <div className="flex gap-2 mb-4 overflow-x-auto">
                 {ROOM_TABS.map((tab) => (
@@ -334,9 +515,8 @@ export function AddObjectSheet({ onClose, initialSection = "wallpaper" }: AddObj
                         </div>
                         <button
                           onClick={() => {
-                            const count = furniture.filter((f) => f.furniture_id === item.id).length;
-                            placeFurniture({ id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id, ...nextFurnitureOffsetMm(count), rotation: 0 });
-                            onClose();
+                            setPendingFurniture(item);
+                            setFurnitureWidthCm(item.footprint_w ?? 100);
                           }}
                           aria-label={`${item.name_uz} qo'shish`}
                           className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"

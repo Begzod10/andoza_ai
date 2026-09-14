@@ -91,9 +91,9 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
     setFloorError(null);
     setDesignState({ floorConfigured: true });
     try {
-      const uploaded = await uploadWallpaper(file);
+      const uploaded = await uploadWallpaper(file, { kind: "pol" });
       setFloorTexture(uploaded.url);
-      queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
+      queryClient.invalidateQueries({ queryKey: ["wallpapers", "pol"] });
     } catch (err) {
       const reader = new FileReader();
       reader.onload = (ev) => {

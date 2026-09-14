@@ -538,18 +538,18 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
         <button
-          onClick={() => roomId && navigate(`/smeta/${roomId}`)}
+          onClick={() => roomId && navigate(`/studio/${roomId}`)}
           disabled={!roomId}
           className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
-          Smeta ko'rish
+          Bezashni boshlash
         </button>
         <button
-          onClick={() => roomId && navigate(`/studio/${roomId}`)}
+          onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
           className="w-full border-2 border-brand text-brand rounded-lg py-3 text-sm font-semibold hover:bg-brand/5 transition-colors disabled:opacity-50"
         >
-          Bezashni boshlash
+          Smeta ko'rish
         </button>
         <button
           onClick={onNewRoom}
@@ -565,6 +565,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
 // ─── WizardPage ───────────────────────────────────────────────────────────────
 
 export default function WizardPage() {
+  const navigate = useNavigate()
   const {
     draftId,
     ceilingHeight,
@@ -587,6 +588,12 @@ export default function WizardPage() {
 
   const [searchParams] = useSearchParams()
   const existingApartmentId = searchParams.get('apartmentId') ?? null
+  // Hand-drawn rooms (DrawRoomPage) already have exact wall lengths from the
+  // drawing — asking the user to re-confirm each one is redundant. For this
+  // entry path only, ceiling height is the one remaining real question;
+  // confirming it saves the room and goes straight into its 3D view instead
+  // of stepping through geometry.walls.length wall-review screens + results.
+  const isFromDraw = searchParams.get('from') === 'draw'
 
   const [step, setStep] = React.useState(0)
   const [dir, setDir] = React.useState(1)
@@ -667,8 +674,8 @@ export default function WizardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geometry, ceilingHeight, step])
 
-  async function handleSave() {
-    if (roomId) return  // already saved (local or real)
+  async function handleSave(): Promise<string | null> {
+    if (roomId) return roomId  // already saved (local or real)
     // Assign a local ID immediately so navigation is never blocked.
     // NOTE: crypto.randomUUID() only exists in a secure context (HTTPS or
     // localhost). In a mobile WebView / phone the app is served over plain
@@ -701,6 +708,12 @@ export default function WizardPage() {
               position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
             })),
           })),
+          // Non-rectangular (hand-drawn / N-wall) rooms carry their real
+          // outline here — omitted for the legacy 4-wall case, where it's
+          // unset on the store's own geometry.
+          vertices: geometry.vertices?.length
+            ? geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number])
+            : undefined,
         },
       })
       setRoomId(room.id)  // upgrade to real server ID if save succeeds
@@ -709,8 +722,10 @@ export default function WizardPage() {
         try { await deleteDraftRoom(draftId) } catch { /* ignore */ }
         setDraftId(null)
       }
+      return room.id
     } catch {
       // keep the local ID — studio/smeta work in offline mode
+      return localId
     } finally {
       setSaving(false)
     }
@@ -753,6 +768,13 @@ export default function WizardPage() {
   }
 
   function goNext() {
+    if (step === 0 && isFromDraw) {
+      void handleSave().then((id) => {
+        void persistLayoutPos()
+        if (id) navigate(`/studio/${id}/ichkarida`)
+      })
+      return
+    }
     const nextStep = step + 1
     setDir(1)
     setStep(nextStep)
