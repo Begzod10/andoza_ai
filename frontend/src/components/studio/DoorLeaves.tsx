@@ -12,6 +12,7 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
+import { WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
@@ -19,7 +20,12 @@ const S = 1 / 1000;
 const SNAP_MM = 5;
 const LEAF_T = 0.04; // leaf thickness in metres
 const GAP = 0.006; // clearance between leaf and frame
-const SASH_T = 0.045; // window sash thickness
+const SASH_T = 0.045; // window sash thickness (selection outline only)
+// Visible depth of window sash rails/muntins along the wall normal. Kept at
+// a 2 mm epsilon instead of a true plane: the faces stay flat against the
+// glass (user feedback: any real thickness read as a protruding lip inside
+// the window reveal) while still avoiding z-fighting with the glass plane.
+const SASH_FACE_T = 0.002;
 const BAR = 0.035; // sash rail width
 const MUNTIN = 0.022; // glazing bar inside a pane (grid / arched head)
 
@@ -539,12 +545,12 @@ function Pane({
 
   return (
     <>
-      {/* four sash rails */}
+      {/* four sash rails — flat (SASH_FACE_T deep), full BAR face width */}
       {[
-        { p: [0, h / 2 - BAR / 2, 0], a: [w, BAR, SASH_T] },
-        { p: [0, -h / 2 + BAR / 2, 0], a: [w, BAR, SASH_T] },
-        { p: [-w / 2 + BAR / 2, 0, 0], a: [BAR, h, SASH_T] },
-        { p: [w / 2 - BAR / 2, 0, 0], a: [BAR, h, SASH_T] },
+        { p: [0, h / 2 - BAR / 2, 0], a: [w, BAR, SASH_FACE_T] },
+        { p: [0, -h / 2 + BAR / 2, 0], a: [w, BAR, SASH_FACE_T] },
+        { p: [-w / 2 + BAR / 2, 0, 0], a: [BAR, h, SASH_FACE_T] },
+        { p: [w / 2 - BAR / 2, 0, 0], a: [BAR, h, SASH_FACE_T] },
       ].map((bar, k) => (
         <mesh key={k} castShadow position={bar.p as [number, number, number]} {...barProps}>
           <boxGeometry args={bar.a as [number, number, number]} />
@@ -559,13 +565,13 @@ function Pane({
         <>
           {Array.from({ length: Math.max(0, grid[0] - 1) }, (_, k) => (
             <mesh key={`v${k}`} position={[-glassW / 2 + (glassW / grid[0]) * (k + 1), 0, 0]}>
-              <boxGeometry args={[MUNTIN, glassH, MUNTIN]} />
+              <boxGeometry args={[MUNTIN, glassH, SASH_FACE_T]} />
               <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
             </mesh>
           ))}
           {Array.from({ length: Math.max(0, grid[1] - 1) }, (_, k) => (
             <mesh key={`h${k}`} position={[0, -glassH / 2 + (glassH / grid[1]) * (k + 1), 0]}>
-              <boxGeometry args={[glassW, MUNTIN, MUNTIN]} />
+              <boxGeometry args={[glassW, MUNTIN, SASH_FACE_T]} />
               <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
             </mesh>
           ))}
@@ -575,7 +581,7 @@ function Pane({
       {/* arched head */}
       {fanBars.map((b, k) => (
         <mesh key={`f${k}`} position={b.p} rotation={[0, 0, b.r]}>
-          <boxGeometry args={[b.len, MUNTIN, MUNTIN]} />
+          <boxGeometry args={[b.len, MUNTIN, SASH_FACE_T]} />
           <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
         </mesh>
       ))}
@@ -645,6 +651,13 @@ function WindowSash({
 
   return (
     <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
+      {/* The whole sash assembly sits recessed at the OUTER edge of the
+          window reveal (local +Z points into the room, so outward is −Z):
+          from inside you look down the 200 mm-deep reveal to the glass,
+          flush with the frame ring WallComponents places at the same
+          wall-normal offset. Doors stay at the wall plane — only windows
+          get the reveal. */}
+      <group position={[0, 0, -WINDOW_SASH_RECESS]}>
       {panes.map((pane, i) => {
         const pw = pane.w * innerW;
         const ph = pane.h * innerH;
@@ -681,8 +694,9 @@ function WindowSash({
           <group key={i} position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
             <group position={[(dir * pw) / 2, py, 0]}>
               {body}
-              {/* Handle on the free edge, at mid height */}
-              <group position={[dir * (pw / 2 - 0.045), -ph * 0.05, SASH_T / 2 + 0.012]}>
+              {/* Handle on the free edge, at mid height — offset from the
+                  flat sash face, not the old thick one */}
+              <group position={[dir * (pw / 2 - 0.045), -ph * 0.05, SASH_FACE_T / 2 + 0.012]}>
                 <mesh rotation={[Math.PI / 2, 0, 0]}>
                   <cylinderGeometry args={[0.012, 0.012, 0.024, 12]} />
                   <meshStandardMaterial color="#B8BCC0" roughness={0.3} metalness={0.85} />
@@ -703,6 +717,7 @@ function WindowSash({
           <lineBasicMaterial color="#2563EB" />
         </lineSegments>
       )}
+      </group>
 
       {selected && (
         <Html position={[0, h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>

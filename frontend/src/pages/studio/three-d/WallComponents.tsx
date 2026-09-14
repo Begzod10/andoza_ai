@@ -11,7 +11,7 @@ import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { WALLPAPER_WIDTH_M } from "./constants";
+import { WALLPAPER_WIDTH_M, WINDOW_REVEAL_D } from "./constants";
 import { boardSegments } from "./helpers";
 
 /**
@@ -751,12 +751,23 @@ function useLiveFrameGroup(groupRef: React.RefObject<THREE.Group | null>, wd: Fr
 
 const windowFrameMat = <meshStandardMaterial color="#C0B8A8" roughness={0.6} metalness={0.1} />;
 const windowSillLipMat = <meshStandardMaterial color="#D4C4B4" roughness={0.5} metalness={0.1} />;
+// Reveal (jamb/head) surfaces — painted-plaster white in the same warm trim
+// family as the frame and baseboard, matte so they read as wall, not joinery.
+const windowRevealMat = <meshStandardMaterial color="#E7E1D6" roughness={0.85} metalness={0} envMapIntensity={0.3} />;
 const doorFrameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
 const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} metalness={0.08} envMapIntensity={0.1} />;
 
-/** One window/balcony opening's frame + sill, grouped at the opening's own
- *  origin (see `frameGroupOrigin`) so a live drag can move the whole set with
- *  a single imperative position write instead of updating every mesh. */
+/** One window/balcony opening's reveal + frame + sill, grouped at the
+ *  opening's own origin (see `frameGroupOrigin`) so a live drag can move the
+ *  whole set with a single imperative position write instead of updating
+ *  every mesh.
+ *
+ *  The reveal is what makes the widthless wall plane (WALL_T = 0) read as a
+ *  200 mm-thick wall: four slabs (jambs, head, sill board) line the opening
+ *  and extend WINDOW_REVEAL_D outward — away from the room — from the
+ *  interior wall face. The frame ring sits at the OUTER end of that tunnel
+ *  (flush with the exterior face), so from inside you look down a 200 mm-deep
+ *  niche to the glass. */
 function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const groupRef = useRef<THREE.Group>(null);
   useLiveFrameGroup(groupRef, wd, el);
@@ -765,42 +776,87 @@ function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const elH = el.height * MM;
   const [px, py, pz] = frameGroupOrigin(wd, el);
   const isHorizontal = wd.axis === "X";
-  const fW = isHorizontal ? elW : FRAME_W;
-  const fD = isHorizontal ? FRAME_W : elW;
+
+  // Which way is OUT of the room along this wall's normal (the inverse of the
+  // room-inward faceDir convention documented above `interface Seg`).
+  const out = isHorizontal ? (wd.cz <= 0 ? -1 : 1) : (wd.cx >= 0 ? 1 : -1);
+
+  // Local (along-wall, up, wall-normal) → world-axis-aligned triple. Frames
+  // are never rotated (same as the old inline ternaries): axis-X walls map
+  // along→X / normal→Z, axis-Z walls swap them.
+  const v = (along: number, y: number, nrm: number): [number, number, number] =>
+    isHorizontal ? [along, y, nrm] : [nrm, y, along];
+
+  // Reveal slabs: 20 mm thick, sitting just OUTSIDE the opening rectangle so
+  // their inner faces line it exactly. They start 2 mm inside the room to
+  // cover the joint with the wall plane (no coplanar z-fighting, no sliver
+  // gap at the opening's edge) and run out to the reveal's exterior face.
+  const RT = 0.02;
+  const revLen = WINDOW_REVEAL_D + 0.002;
+  const revC = out * ((WINDOW_REVEAL_D - 0.002) / 2);
+
+  // Frame ring: FLAT trim — full FRAME_W face width but only FRAME_T deep
+  // along the wall normal (user feedback: a 50 mm-deep ring read as a
+  // protruding lip inside the reveal). It spans exactly the opening, so its
+  // outer sides lie against the reveal surfaces (opposite-normal contact,
+  // never a visible gap or z-fight), and sits flush with the reveal's
+  // exterior edge; the sashes hang 2 mm in front of it (WINDOW_SASH_RECESS).
+  const FRAME_T = 0.002;
+  const frC = out * (WINDOW_REVEAL_D - FRAME_T / 2);
   // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
   // offsetting X on side walls pushed them perpendicular out of the wall
   const jamb = elW / 2 - FRAME_W / 2;
 
   return (
     <group ref={groupRef} position={[px, py, pz]}>
+      {/* Reveal — left jamb (castShadow off: the ShadowShell already blocks
+          the sun; extra thin casters here only produce shadow acne) */}
+      <mesh position={v(-elW / 2 - RT / 2, elH / 2, revC)} castShadow={false} receiveShadow>
+        <boxGeometry args={v(RT, elH, revLen)} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Reveal — right jamb */}
+      <mesh position={v(elW / 2 + RT / 2, elH / 2, revC)} castShadow={false} receiveShadow>
+        <boxGeometry args={v(RT, elH, revLen)} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Reveal — head */}
+      <mesh position={v(0, elH + RT / 2, revC)} castShadow={false} receiveShadow>
+        <boxGeometry args={v(elW + 2 * RT, RT, revLen)} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Reveal — sill (flush with the opening bottom, no interior overhang:
+          user feedback rejected any ledge past the reveal's inner edge) */}
+      <mesh position={v(0, -RT / 2, revC)} castShadow={false} receiveShadow>
+        <boxGeometry args={v(elW + 2 * RT, RT, revLen)} />
+        {windowSillLipMat}
+      </mesh>
+
       {/* Left frame */}
-      <mesh position={isHorizontal ? [-jamb, elH / 2, 0] : [0, elH / 2, -jamb]}>
-        <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+      <mesh position={v(-jamb, elH / 2, frC)}>
+        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
         {windowFrameMat}
       </mesh>
 
       {/* Right frame */}
-      <mesh position={isHorizontal ? [jamb, elH / 2, 0] : [0, elH / 2, jamb]}>
-        <boxGeometry args={[FRAME_W, elH + 2 * FRAME_W, FRAME_W]} />
+      <mesh position={v(jamb, elH / 2, frC)}>
+        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
         {windowFrameMat}
       </mesh>
 
       {/* Top frame */}
-      <mesh position={[0, elH + FRAME_W / 2, 0]}>
-        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+      <mesh position={v(0, elH - FRAME_W / 2, frC)}>
+        <boxGeometry args={v(elW, FRAME_W, FRAME_T)} />
         {windowFrameMat}
       </mesh>
 
-      {/* Sill (bottom frame with visible edge and detail) */}
-      <mesh position={[0, -FRAME_W / 2, 0]}>
-        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+      {/* Bottom frame */}
+      <mesh position={v(0, FRAME_W / 2, frC)}>
+        <boxGeometry args={v(elW, FRAME_W, FRAME_T)} />
         {windowFrameMat}
-      </mesh>
-
-      {/* Sill lip detail (slight overhang for visual interest) */}
-      <mesh position={[0, -FRAME_W - 0.005, 0]}>
-        <boxGeometry args={[fW + 2 * FRAME_W + 0.01, 0.005, fD + 0.01]} />
-        {windowSillLipMat}
       </mesh>
     </group>
   );
