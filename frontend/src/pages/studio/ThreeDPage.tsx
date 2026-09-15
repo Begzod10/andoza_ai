@@ -71,6 +71,84 @@ export interface StudioContext {
   toolbarSlotTop?: number;
 }
 
+// ─── Viewport corner controls ─────────────────────────────────────────────────
+
+/** The [3D | Kesma | Diorama] view-mode segmented pill. Extracted (without its
+ *  absolute positioning) because the Mebelirovka tab renders it inside a shared
+ *  top-right control row next to the 2D/3D switch, while every other tab pins
+ *  it to the 3D viewport's own top-right corner. */
+function ViewModeSegment({ cutaway, setCutaway }: {
+  cutaway: CutawayMode;
+  setCutaway: (mode: CutawayMode) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md">
+      {([
+        ['off', '3D', "Ichki ko'rinish — devorlar to'liq"],
+        ['auto', 'Kesma', "Kesma — devorlar kamera tomonda yashirinadi"],
+        ['diorama', 'Diorama', "Diorama — sobit taqdimot ko'rinishi"],
+      ] as const).map(([mode, label, title]) => (
+        <button
+          key={mode}
+          onClick={() => setCutaway(mode)}
+          title={title}
+          aria-label={title}
+          aria-pressed={cutaway === mode}
+          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+            cutaway === mode
+              ? 'bg-brand text-white'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Two-state 2D/3D pill switch for the Mebelirovka viewport: an on/off-style
+ *  toggle whose labels sit inside the pill, with the brand-blue knob sliding
+ *  under the active side. Styled after the ViewModeSegment pill (white/95
+ *  blur, gray border, shadow-md) so the two read as one control family. */
+function MebelViewToggle({ view, onToggle }: {
+  view: '2d' | '3d';
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={view === '2d'}
+      onClick={onToggle}
+      title={view === '3d' ? "2D reja ko'rinishiga o'tish" : "3D ko'rinishga qaytish"}
+      aria-label="2D reja / 3D ko'rinish"
+      className="relative flex items-center p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md"
+    >
+      {/* Sliding knob: the pill has p-1 (4px) padding and two equal-width
+          labels, so a knob of width calc(50% - 4px) anchored at left-1 sits
+          exactly under the first label, and translate-x-full (100% of its own
+          width) lands it exactly under the second. */}
+      <span
+        aria-hidden
+        className={`absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-brand shadow-sm transition-transform duration-200 ease-out ${
+          view === '3d' ? 'translate-x-full' : 'translate-x-0'
+        }`}
+      />
+      {(['2d', '3d'] as const).map((v) => (
+        <span
+          key={v}
+          className={`relative z-10 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+            view === v ? 'text-white' : 'text-gray-600'
+          }`}
+        >
+          {v === '2d' ? '2D' : '3D'}
+        </span>
+      ))}
+    </button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export type { PhaseKey } from "@/lib/phases"
@@ -266,6 +344,13 @@ export default function ThreeDPage() {
   const pathname = location.pathname;
   const isMebelTab = pathname.endsWith('/mebel');
   const isChiroqTab = pathname.endsWith('/chiroqlar');
+  // Mebelirovka shows ONE viewport at a time: '3d' (default on entry) is the
+  // live 3D scene, '2d' swaps it for the full-width top-view plan editor. The
+  // 3D canvas stays mounted (just CSS-hidden) while in '2d', so toggling back
+  // is instant and keeps the camera/scene state; the canvas-aspect
+  // ResizeObserver below already ignores the zero-size updates a hidden box
+  // produces. Other tabs are untouched by this flag.
+  const [mebelView, setMebelView] = useState<'2d' | '3d'>('3d');
   // Optional starting phase from the URL (?phase=…). The mobile wall-condition
   // step sets it so the studio opens on the first renovation stage that still
   // needs doing (an already-plastered wall skips Suvoq, a puttied wall skips
@@ -1269,11 +1354,35 @@ export default function ThreeDPage() {
           </TopDrawer>
         </>
 
-        {/* Canvas area */}
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* Mebelirovka: 2D plan editor beside the live 3D viewport */}
+        {/* Canvas area. relative: anchors the Mebelirovka top-right control
+            row below, which must survive the 2D/3D viewport swap (the 3D box
+            is display:none in 2D mode, so anything pinned inside it would
+            vanish — and the switch itself has to stay put so its knob can
+            animate across the swap). */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative">
+        {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
+            the full-width top-view plan editor ('2d') for the live 3D
+            viewport ('3d', the default). In 3D mode the row wrapper spans
+            exactly the 3D box, so this top-right row lands in the same corner
+            the view-mode pill occupies on other tabs; the Kesma/Diorama
+            segment renders here (to the switch's left) only in 3D mode —
+            cutaway modes are meaningless on the flat plan. z-20 matches the
+            other corner controls: above the canvas and z-10 clusters, below
+            the drop overlay (z-40). */}
         {isMebelTab && (
-          <div className="h-[38%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+            <MebelViewToggle
+              view={mebelView}
+              onToggle={() => setMebelView((v) => (v === '3d' ? '2d' : '3d'))}
+            />
+            {mebelView === '3d' && (
+              <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
+            )}
+          </div>
+        )}
+        {/* Mebelirovka 2D mode: the top-view plan editor takes the whole slot */}
+        {isMebelTab && mebelView === '2d' && (
+          <div className="flex-1 min-w-0 min-h-0 bg-[#F6F4EF]">
             <MebelPlanView />
           </div>
         )}
@@ -1295,7 +1404,13 @@ export default function ThreeDPage() {
             editor claimed half the row — the canvas kept its old width, spilled
             under the design panel, and the centred render ended up off to the
             right. overflow-hidden keeps any future spill inside the slot. */}
-        <div ref={canvasBoxRef} className="flex-1 min-w-0 min-h-0 relative overflow-hidden" {...viewportDropProps}>
+        <div
+          ref={canvasBoxRef}
+          // Mebelirovka 2D mode hides (but keeps mounted) the whole 3D box so
+          // toggling back to 3D is instant and loses no scene state.
+          className={`flex-1 min-w-0 min-h-0 relative overflow-hidden ${isMebelTab && mebelView === '2d' ? 'hidden' : ''}`}
+          {...viewportDropProps}
+        >
 
           {/* Model drag & drop over the viewport */}
           {(modelDropOver || modelDropStatus === 'loading') && (
@@ -1323,29 +1438,15 @@ export default function ThreeDPage() {
               facing the camera hide), Diorama = fixed presentation cutaway
               ('diorama'). The K key still cycles the same states. z-20: above
               the canvas and the z-10 button clusters, below the drop overlay
-              (z-40) and the mobile panel/backdrop tier (z-40/50). */}
-          <div className="absolute top-3 right-3 z-20 flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md">
-            {([
-              ['off', '3D', "Ichki ko'rinish — devorlar to'liq"],
-              ['auto', 'Kesma', "Kesma — devorlar kamera tomonda yashirinadi"],
-              ['diorama', 'Diorama', "Diorama — sobit taqdimot ko'rinishi"],
-            ] as const).map(([mode, label, title]) => (
-              <button
-                key={mode}
-                onClick={() => setCutaway(mode)}
-                title={title}
-                aria-label={title}
-                aria-pressed={cutaway === mode}
-                className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-                  cutaway === mode
-                    ? 'bg-brand text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+              (z-40) and the mobile panel/backdrop tier (z-40/50).
+              On the Mebelirovka tab the segment instead renders in the
+              slot-level top-right control row (next to the 2D/3D switch), so
+              it is skipped here. */}
+          {!isMebelTab && (
+            <div className="absolute top-3 right-3 z-20">
+              <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
+            </div>
+          )}
 
           {/* Navigation help card — top-16 keeps it clear of the view-mode
               segmented control pinned at top-3 in the same corner. */}
