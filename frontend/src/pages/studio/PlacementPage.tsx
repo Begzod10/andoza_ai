@@ -1588,7 +1588,7 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
           <OrbitControls
             target={initTarget}
             enableDamping dampingFactor={0.06}
-            rotateSpeed={-0.45} zoomSpeed={0.8}
+            rotateSpeed={0.45} zoomSpeed={0.8}
             minDistance={0.25}
             maxDistance={Math.max(W, D) * 4}
           />
