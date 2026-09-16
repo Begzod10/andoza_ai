@@ -423,9 +423,23 @@ export function repairDesignState(d: DesignState): DesignState {
 }
 
 export const DEFAULT_DESIGN_STATE: DesignState = {
-  // A brand-new room starts as bare plastered concrete — the real state of a
-  // flat before any finishing work, and the baseline every phase builds on.
-  wallCoverings: { ALL: { kind: 'plaster' } },
+  // A brand-new room starts as bare stretcher-bond brick (user's decision,
+  // 2026-09-16) — the real state of a flat before any finishing work, and the
+  // baseline every phase builds on. The texture ships with the app; the tile
+  // covers ~1 m of wall (14 brick courses), so repeatX 1.0 (tiles-per-metre)
+  // renders bricks at true scale.
+  wallCoverings: {
+    ALL: {
+      kind: 'texture',
+      url: '/textures/brick_stretcher.jpg',
+      color: '#ffffff',
+      repeatX: 1.0,
+      repeatY: 1.0,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+    },
+  },
   floorType: 'parquet',
   floorConfigured: false,
   ceiling: { design: DEFAULT_CEILING_DESIGN },
