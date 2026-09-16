@@ -6,7 +6,13 @@ from celery import Celery
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-app = Celery("uytamir")
+# `include` is what actually registers the task modules. autodiscover_tasks()
+# below looks for a `tasks` submodule inside each package it is given
+# (i.e. app.tasks.tasks), which does not exist here — app/tasks/__init__.py is
+# empty and the tasks live in app/tasks/media.py. Without this list both the
+# worker and the converter start with an empty [tasks] registry and reject
+# every dispatched job as "Received unregistered task of type ...".
+app = Celery("uytamir", include=["app.tasks.media"])
 
 app.conf.update(
     # Transport
