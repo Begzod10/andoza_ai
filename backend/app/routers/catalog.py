@@ -241,6 +241,7 @@ async def list_ustalar(
     db: DbSession,
     category: str | None = Query(default=None),
     district: str | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search by name substring"),
     sort: str | None = Query(default=None, description="rating | price_asc | price_desc"),
 ) -> list[UstaOut]:
     if sort is not None and sort not in _USTA_SORTS:
@@ -249,7 +250,9 @@ async def list_ustalar(
             detail=f"sort {', '.join(sorted(_USTA_SORTS))} dan biri (yoki bo'sh) bo'lishi kerak",
         )
 
-    cache_key = f"ustalar:{category}:{district}:{sort}"
+    # `q` is part of the cache key — otherwise two different name searches
+    # (or a search vs. no search) collide on the same cached result set.
+    cache_key = f"ustalar:{category}:{district}:{q}:{sort}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return [UstaOut.model_validate(u) for u in cached]
@@ -259,6 +262,8 @@ async def list_ustalar(
         query = query.where(Usta.category == category)
     if district:
         query = query.where(Usta.district == district)
+    if q:
+        query = query.where(Usta.name.ilike(f"%{q}%"))
 
     # price_asc/price_desc order by price_min — the "starting from" price a
     # craftsman card actually leads with. NULLS LAST either direction so a
@@ -279,6 +284,21 @@ async def list_ustalar(
         ttl=_CATALOG_CACHE_TTL,
     )
     return payload
+
+
+@router.get(
+    "/ustalar/{usta_id}",
+    response_model=UstaOut,
+    summary="Fetch a single craftsman profile by id",
+)
+async def get_usta(usta_id: UUID, db: DbSession) -> UstaOut:
+    result = await db.execute(
+        select(Usta).where(Usta.id == usta_id, Usta.is_active.is_(True))
+    )
+    usta = result.scalar_one_or_none()
+    if usta is None:
+        raise HTTPException(status_code=404, detail="Usta topilmadi")
+    return UstaOut.model_validate(usta)
 
 
 # ---------------------------------------------------------------------------

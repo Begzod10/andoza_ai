@@ -221,6 +221,9 @@ async def verify_otp_endpoint(
         user = User(phone=body.phone)
         db.add(user)
         await db.flush()
+        # Same reason as register(): populate server defaults (created_at)
+        # so the freshly-created user serialises into a complete LoginResponse.
+        await db.refresh(user)
 
     logger.info("user_authenticated", user_id=str(user.id), phone=body.phone)
 
@@ -347,6 +350,11 @@ async def register(
     )
     db.add(user)
     await db.flush()
+    # Reload so server-side defaults (created_at) are populated before we
+    # serialise UserOut — otherwise the response is an incomplete
+    # LoginResponse (missing created_at) and validation 500s. This makes
+    # register return the SAME fully-loaded user shape as /login.
+    await db.refresh(user)
 
     logger.info("user_registered", user_id=str(user.id), username=body.username)
 
