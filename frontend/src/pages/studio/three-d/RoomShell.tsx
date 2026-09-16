@@ -393,13 +393,14 @@ function NWallRoomShell({
         const resolvedEls = resolveElementPositions(elements, e.length * 1000)
         const baseSegs = boardSegments(e.length, elements)
 
-        // NOTE (merge): master closed concave-corner gaps by drawing each wall
-        // box `length + T` long (84e22852). That fix does not carry over to the
-        // <Wall> path below, which positions openings against the TRUE edge
-        // length — extending it here would shift every opening by T/2. Concave
-        // corners may show a hairline gap again; fixing it needs the overlap to
-        // live in the wall mesh, not the opening coordinate space.
-
+        // Merge note: master's concave-corner fix here drew each wall box
+        // `length + T` long (84e22852), and this path dropped it for the
+        // <Wall> renderer. That costs nothing: T is WALL_T, which was already
+        // 0 when that commit landed — interior walls render as widthless
+        // planes, so the extension was `length + 0` and the "gap" it described
+        // cannot occur. If WALL_T ever becomes non-zero, the overlap has to be
+        // re-added inside the wall mesh, NOT by growing `length` — openings are
+        // positioned against it and would all shift by T/2.
         return (
           <WallFade key={e.wallId} hidden={hiddenEdges.has(e.index)}>
             <group position={[e.mx, 0, e.mz]} rotation={[0, e.yaw, 0]}>
