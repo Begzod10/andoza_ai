@@ -32,7 +32,14 @@ services:
 
   api:
     build: ./backend
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # --proxy-headers: trust nginx's X-Forwarded-Proto so request.base_url —
+    # and therefore every absolute_media_url — says https, not http. Without
+    # it the API hands out http:// media URLs on the https site: <img> gets
+    # auto-upgraded by browsers, but fetch()/WebGL loads (GLB models, wall
+    # textures via CORS) hit the http→https 301, which carries no CORS
+    # headers, and die. forwarded-allow-ips "*" is required because nginx
+    # reaches uvicorn from the docker bridge, not localhost.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     env_file:
       - ./backend/.env
     environment:
