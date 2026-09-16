@@ -67,7 +67,17 @@ interface Seg {
   ry: number;
   pw: number; ph: number;
   uOffset: number; uRepeat: number; vRepeat: number;
-  /** Horizontal start position of this segment within the full wall (mm from left edge) */
+  /**
+   * Horizontal start position of this segment within the full wall, in mm
+   * from the wall's LEFT edge AS SEEN FROM INSIDE THE ROOM — i.e. in the same
+   * direction the plane's local U axis runs. On walls A and B that equals the
+   * world-axis position the element/segment maths use; on walls C and D the
+   * plane is yawed 180°/+90° so local U runs against world +X/+Z, and makeSeg
+   * mirrors the value (wallLen − start − segLen) before storing it here.
+   * Everything UV-related (texture, oboy, plaster) must use THIS value, never
+   * the raw world-axis start, or the pattern breaks/mirrors at segment seams
+   * on walls C/D.
+   */
   startMm: number;
   /** Y coordinate of the bottom edge of this segment in world metres */
   startYm: number;
@@ -80,6 +90,8 @@ function WallSegment({
   baseTexture,
   imageTexture,
   texAspect,
+  wallLengthM,
+  wallHeightM,
   isSelected,
   plaster = false,
 }: {
@@ -89,6 +101,9 @@ function WallSegment({
   imageTexture: THREE.Texture | null;
   /** texW / texH of the uploaded image (1 for unknown / square) */
   texAspect: number;
+  /** Full wall length/height in metres — the UV frame every segment maps into */
+  wallLengthM: number;
+  wallHeightM: number;
   isSelected: boolean;
   /** Suvoq bosqichi: render the photo-real plaster PBR material instead of the covering */
   plaster?: boolean;
@@ -97,12 +112,16 @@ function WallSegment({
     if (covering.kind !== 'oboy' || !baseTexture) return null;
     const t = baseTexture.clone();
     t.repeat.set(seg.uRepeat, seg.vRepeat);
-    t.offset.set(seg.uOffset, 0);
+    // V continues from the FLOOR, not from each segment's own bottom edge —
+    // the strip above a window starts mid-pattern exactly where the full
+    // wall's pattern would be at that height. (Full wall: startYm 0 → 0.)
+    const vOffset = ((seg.startYm / WALLPAPER_WIDTH_M) % 1 + 1) % 1;
+    t.offset.set(seg.uOffset, vOffset);
     t.needsUpdate = true;
     return t;
   // covering.kind guards the early-exit so it must be a dep
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [covering.kind, baseTexture, seg.uOffset, seg.uRepeat, seg.vRepeat]);
+  }, [covering.kind, baseTexture, seg.uOffset, seg.uRepeat, seg.vRepeat, seg.startYm]);
 
   // 3ds-Max-style Planar UVW mapping:
   //   repeatX = tiles per metre (X scale, master scale control)
@@ -120,24 +139,30 @@ function WallSegment({
     const s = covering.repeatX;          // tiles per metre (U axis)
     const sV = s * texAspect * covering.repeatY; // tiles per metre (V axis, aspect-corrected + user stretch)
 
-    // Horizontal: U = (wallPositionM * s + userOffsetX)
-    const uStart = (seg.startMm / 1000) * s + covering.offsetX;
-    const uOffset = ((uStart % 1) + 1) % 1;  // keep positive
-    const uRepeat = seg.pw * s;
-
-    // Vertical: V = (wallBottomM * sV + userOffsetY)
-    const vStart = seg.startYm * sV + covering.offsetY;
-    const vOffset = ((vStart % 1) + 1) % 1;
-    const vRepeat = seg.ph * sV;
-
-    t.repeat.set(uRepeat, vRepeat);
-    t.offset.set(uOffset, vOffset);
-    t.rotation = covering.rotation;
-    t.center.set(0.5, 0.5);
+    // The whole wall's UV transform — byte-for-byte what a single no-opening
+    // segment used to get: offset frac'd positive, repeat = metres × tiles/m,
+    // rotation about the wall centre. Composing it with the segment's rect
+    // (below) instead of re-deriving offset/repeat per segment is what keeps
+    // the pattern continuous across door/window cuts for EVERY rotation and
+    // offset value, not just the axis-aligned zero-rotation case.
+    const uOffset = ((covering.offsetX % 1) + 1) % 1;
+    const vOffset = ((covering.offsetY % 1) + 1) % 1;
+    const wallMat = new THREE.Matrix3().setUvTransform(
+      uOffset, vOffset, wallLengthM * s, wallHeightM * sV, covering.rotation, 0.5, 0.5,
+    );
+    // This segment's rectangle inside the wall, in wall-relative UV
+    // (seg.startMm is already measured along the plane's local U — see Seg).
+    const segMat = new THREE.Matrix3().setUvTransform(
+      (seg.startMm / 1000) / wallLengthM, seg.startYm / wallHeightM,
+      seg.pw / wallLengthM, seg.ph / wallHeightM, 0, 0, 0,
+    );
+    t.matrixAutoUpdate = false;
+    t.matrix.multiplyMatrices(wallMat, segMat);
     t.needsUpdate = true;
     return t;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [covering.kind, imageTexture, texAspect, seg.startMm, seg.startYm, seg.pw, seg.ph,
+  }, [covering.kind, imageTexture, texAspect, wallLengthM, wallHeightM,
+      seg.startMm, seg.startYm, seg.pw, seg.ph,
       covering.kind === 'texture' ? covering.repeatX : 0,
       covering.kind === 'texture' ? covering.repeatY : 0,
       covering.kind === 'texture' ? covering.offsetX : 0,
@@ -393,18 +418,16 @@ function WallPanelGrid({
  */
 function makeCoverSeg(
   axis: "X" | "Z",
+  wallLengthM: number,
   thickness: number,
   posX: number, posY: number, posZ: number,
   sw: number, sh: number, sd: number,
   startMm: number,
 ): Seg {
   const segLenM = axis === 'X' ? sw : sd
-  const startM = startMm / 1000
-  const uOffset = (startM % WALLPAPER_WIDTH_M) / WALLPAPER_WIDTH_M
-  const uRepeat = segLenM / WALLPAPER_WIDTH_M
-  const vRepeat = sh / WALLPAPER_WIDTH_M
 
   let px: number, py: number = posY, pz: number, ry: number, pw: number
+  let mirrored: boolean
   const ph = sh
 
   if (axis === 'X') {
@@ -413,16 +436,25 @@ function makeCoverSeg(
     pz = posZ + faceDir * thickness / 2
     ry = faceDir > 0 ? 0 : Math.PI
     pw = sw
+    mirrored = faceDir < 0   // Wall C: local U runs against world +X
   } else {
     const faceDir = posX >= 0 ? -1 : 1
     px = posX + faceDir * thickness / 2
     pz = posZ
     ry = faceDir > 0 ? Math.PI / 2 : -Math.PI / 2
     pw = sd
+    mirrored = faceDir > 0   // Wall D: local U runs against world +Z
   }
 
+  // Segment start measured along the plane's local U axis (see Seg.startMm)
+  const texStartMm = mirrored ? wallLengthM * 1000 - (startMm + segLenM * 1000) : startMm
+  const startM = texStartMm / 1000
+  const uOffset = (startM % WALLPAPER_WIDTH_M) / WALLPAPER_WIDTH_M
+  const uRepeat = segLenM / WALLPAPER_WIDTH_M
+  const vRepeat = sh / WALLPAPER_WIDTH_M
+
   const startYm = posY - sh / 2
-  return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm, startYm }
+  return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm: texStartMm, startYm }
 }
 
 export const Wall = memo(function Wall({ wallId, length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
@@ -508,8 +540,8 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
     const offset = ((elLeft + elRight) / 2 - length * 500) * s;
     const panW = el.width * s;
     return axis === 'X'
-      ? makeCoverSeg(axis, thickness, cx + offset, patchCY, cz, panW, patchH, thickness, elLeft)
-      : makeCoverSeg(axis, thickness, cx, patchCY, cz + offset, thickness, patchH, panW, elLeft);
+      ? makeCoverSeg(axis, length, thickness, cx + offset, patchCY, cz, panW, patchH, thickness, elLeft)
+      : makeCoverSeg(axis, length, thickness, cx, patchCY, cz + offset, thickness, patchH, panW, elLeft);
   }, [dragPatchElId, resolvedElements, axis, cx, cz, thickness, length]);
 
   const segments = useMemo(() => {
@@ -522,12 +554,9 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
       startMm: number,
     ): Seg {
       const segLenM = axis === 'X' ? sw : sd
-      const startM = startMm / 1000
-      const uOffset = (startM % WALLPAPER_WIDTH_M) / WALLPAPER_WIDTH_M
-      const uRepeat = segLenM / WALLPAPER_WIDTH_M
-      const vRepeat = sh / WALLPAPER_WIDTH_M
 
       let px: number, py: number = posY, pz: number, ry: number, pw: number
+      let mirrored: boolean
       const ph = sh
 
       if (axis === 'X') {
@@ -537,6 +566,7 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
         pz = posZ + faceDir * thickness / 2
         ry = faceDir > 0 ? 0 : Math.PI
         pw = sw
+        mirrored = faceDir < 0   // Wall C: local U runs against world +X
       } else {
         // axis === 'Z': thickness runs in X. Inner face offset ± T/2 along X.
         const faceDir = posX >= 0 ? -1 : 1   // Wall B: cx>0 → −X; Wall D: cx<0 → +X
@@ -544,10 +574,22 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
         pz = posZ
         ry = faceDir > 0 ? Math.PI / 2 : -Math.PI / 2
         pw = sd
+        mirrored = faceDir > 0   // Wall D: local U runs against world +Z
       }
 
+      // Segment start measured along the plane's local U axis (see Seg.startMm).
+      // On walls C/D the plane's yaw flips local U against the world axis the
+      // element/segment positions are measured in, so the start is mirrored —
+      // otherwise every segment maps its texture from the wrong end and the
+      // pattern breaks at each opening's edges.
+      const texStartMm = mirrored ? length * 1000 - (startMm + segLenM * 1000) : startMm
+      const startM = texStartMm / 1000
+      const uOffset = (startM % WALLPAPER_WIDTH_M) / WALLPAPER_WIDTH_M
+      const uRepeat = segLenM / WALLPAPER_WIDTH_M
+      const vRepeat = sh / WALLPAPER_WIDTH_M
+
       const startYm = posY - sh / 2;  // Y of bottom edge of this segment
-      return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm, startYm }
+      return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm: texStartMm, startYm }
     }
 
     if (resolvedElements.length === 0) {
@@ -622,6 +664,8 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
           baseTexture={oboyTexture}
           imageTexture={imageTexture}
           texAspect={texAspect}
+          wallLengthM={length}
+          wallHeightM={height}
           isSelected={isSelected}
           plaster={plaster}
         />
@@ -634,6 +678,8 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
           baseTexture={oboyTexture}
           imageTexture={imageTexture}
           texAspect={texAspect}
+          wallLengthM={length}
+          wallHeightM={height}
           isSelected={isSelected}
           plaster={plaster}
         />
