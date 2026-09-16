@@ -79,6 +79,10 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+      # Only read by vite.config.ts's dev-server proxy when VITE_API_URL
+      # above is switched to a relative path (e.g. /api/v1) — see root
+      # .env.example for how to point local dev at the production backend.
+      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://localhost:8000}
     restart: unless-stopped
 
 volumes:

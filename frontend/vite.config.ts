@@ -118,10 +118,17 @@ export default defineConfig({
       interval: 800,
     },
     proxy: {
+      // Overridable so local dev can point at the production backend
+      // (VITE_API_PROXY_TARGET=https://andoza.jumaniyozov.uz) instead of the
+      // local docker backend. Proxying server-side keeps every request
+      // same-origin from the browser's point of view (still localhost:5173)
+      // — required because the backend's auth cookies are SameSite=Lax and
+      // would never be attached to a direct cross-origin fetch() from
+      // localhost to the prod domain, only to genuinely same-origin ones.
       "/api": {
-        target: "http://localhost:8000",
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:8000",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
     },
   },
