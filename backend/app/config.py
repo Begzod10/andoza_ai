@@ -120,8 +120,16 @@ class Settings(BaseSettings):
         raw = self.CORS_ORIGINS_STR.strip()
         if raw.startswith("["):
             import json
-            return json.loads(raw)
-        return [o.strip() for o in raw.split(",") if o.strip()]
+            origins = json.loads(raw)
+        else:
+            origins = [o.strip() for o in raw.split(",") if o.strip()]
+        # Native mobile app WebView origins (Capacitor / WKWebView) must always
+        # be allowed, independent of the deployment's CORS_ORIGINS_STR — the
+        # browser/WebView enforces CORS on these fixed origins.
+        for origin in ("capacitor://localhost", "http://localhost"):
+            if origin not in origins:
+                origins.append(origin)
+        return origins
 
     # ------------------------------------------------------------------ #
     # Validators
