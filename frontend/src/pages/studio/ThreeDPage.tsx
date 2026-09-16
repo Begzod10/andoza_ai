@@ -1630,6 +1630,15 @@ export default function ThreeDPage() {
               </>
             )}
 
+            {/* No phase-forced wall material: entering Suvoq used to force
+                the photo-real plaster PBR onto every wall (plasterWalls was
+                `activePhase === 'suvoq'`, from the era when the Suvoq panel
+                was a passive info card and the default covering was bare
+                plaster anyway). New rooms now start with the brick baseline,
+                which must stay visible through every phase until the user
+                actually clicks a texture/color — so each wall simply renders
+                its real covering; a 'plaster'-kind covering still gets the
+                plaster PBR via WallSegment's own `covering.kind` check. */}
             <RoomScene
               room={room}
               geometry={geometry}
@@ -1639,7 +1648,6 @@ export default function ThreeDPage() {
               composerActive={useComposer}
               highQuality={highQuality3d}
               lightsOn={lightsOn}
-              plasterWalls={activePhase === 'suvoq'}
               cutaway={topView ? 'off' : cutaway}
               selectedWall={selectedWall}
               onWallClick={(id) => focusSurface(id)}
