@@ -1,240 +1,242 @@
-"""Pure-Python USDZ → GLB converter for room scans.
+"""Parametric room-scan → GLB builder for the studio's reference overlay.
 
-Why there is no Blender here any more
--------------------------------------
-This used to shell out to headless Blender (`bpy.ops.wm.usd_import` +
-`export_scene.gltf`). That is dead on our production hardware: the VPS is a
-QEMU guest whose virtual CPU ("QEMU Virtual CPU version 2.5+") does not expose
-SSE4.2, and every official blender.org build refuses to start with
-``Blender requires a CPU with SSE42 support``. Debian's apt Blender *does*
-start, but is compiled without USD support, so `bpy.ops.wm.usd_import` does not
-exist there. Both Blender routes are therefore unusable, and the conversion is
-done in-process instead: `usd-core` (Pixar's OpenUSD, ships plain baseline
-x86-64 manylinux wheels — no SSE4.2, no AVX) reads the USDZ, and `trimesh`
-writes the GLB.
+Why there is no USD reader here any more
+----------------------------------------
+Three generations of this file tried to read the iPhone's RoomPlan ``.usdz``
+directly. All of them are dead on our production hardware, which is a QEMU
+guest reporting "QEMU Virtual CPU version 2.5+" — a baseline x86-64 vCPU with
+no SSE4.2:
+
+1. Official blender.org builds refuse to even start:
+   ``Blender requires a CPU with SSE42 support``.
+2. Debian's apt Blender starts, but is compiled without USD support, so
+   ``bpy.ops.wm.usd_import`` does not exist.
+3. ``usd-core`` (Pixar's OpenUSD manylinux wheel) was deployed and the
+   conversion child process was killed by **SIGILL**. Production log:
+   ``usdz_to_glb: failed rc=-4`` (rc=-4 = signal 4 = illegal instruction).
+   Reproduced exactly under ``qemu-x86_64 -cpu qemu64``: ``from pxr import
+   Usd`` imports fine, but ``Usd.Stage.Open(<usdz>)`` dies with
+   ``uncaught target signal 4 (Illegal instruction)``. In the same emulated
+   environment ``numpy`` and ``trimesh`` import and work fine.
+
+So: **no USD parsing is possible on this hardware**, and none is attempted.
+Do not reintroduce a USD library here.
+
+What replaced it
+----------------
+The overlay is built from the *parametric* scan data the server already owns.
+``POST /rooms/{id}/room-scan`` re-runs `app.services.room_scan_converter` on the
+RoomPlan JSON and persists the result: the room's floor polygon
+(``room.geometry.vertices``, metres, origin at the bbox min corner), its
+``ceiling_h``, and ``room_scan.objects`` (each with x, y, width, depth, height,
+rotation, category, confidence). That is everything the overlay needs, and it
+is pure ``numpy``/``trimesh`` arithmetic — no native USD code, nothing that can
+SIGILL.
+
+The raw ``.usdz`` is still uploaded and still recorded as
+``room_scan.usdz_path``: we archive the original capture even though we no
+longer parse it (a future host with a modern CPU, or an offline re-processing
+job, may want it). Nothing in this module reads it.
 
 What the output is for
 ----------------------
-The GLB is only ever used as a *translucent reference overlay* in the 3D
-studio — the studio itself builds the real room from the parametric scan data.
-So this converter deliberately carries geometry only: vertex positions,
-triangles, and correct world placement (transforms, stage up-axis and
-metersPerUnit). Materials, textures, UVs and normals are dropped on purpose;
-they would cost size and complexity for something the user sees at low opacity.
+A *translucent reference overlay* in the 3D studio — the studio builds the real
+room from the same parametric data. So the GLB deliberately carries geometry
+only: wall slabs extruded to the ceiling height, plus one ghost box per
+detected object. No materials, textures, UVs or normals; they would cost size
+and complexity for something the user sees at low opacity.
 
-CPU caveat, measured
---------------------
-Disassembling usd-core's manylinux x86-64 .so files turns up zero SSE4.2 and
-zero AVX opcodes, and the whole conversion below was run end-to-end under
-``qemu-x86_64 -cpu qemu64,+rdtscp`` (no SSSE3/SSE4.1/SSE4.2/POPCNT/AVX) with
-correct output. The read path below was then re-run under a *bare* ``-cpu
-qemu64`` (which also lacks **RDTSCP**) and still produced a byte-identical GLB.
-RDTSCP does appear in libusd (OpenUSD's Arch timing code) and a bare qemu64
-vCPU SIGILLs on it — but only when *authoring* a new stage
-(``Usd.Stage.CreateNew``), which this converter never does. The child process
-below is the belt-and-braces for that: SIGILL cannot be caught, so if some
-other USD path ever trips it, only the child dies and the scan just gets no
-overlay instead of the Celery worker going down.
-
-Best-effort, like the old wrapper: `usdz_to_glb` returns False rather than
-raising, and the caller just leaves ``glb_path`` null.
+Best-effort, like every previous version: the builders return ``None`` rather
+than raising, and the caller just leaves ``glb_path`` null.
 """
 from __future__ import annotations
 
 import logging
-import os
-import subprocess
-import sys
+import math
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# The conversion runs in a short-lived child process (`python -m
-# app.core.room_scan_glb <in> <out>`), keeping the same temp-file +
-# bounded-timeout convention the Blender version used. That is not just habit:
-# OpenUSD's timing code uses the RDTSCP instruction, and a bare QEMU `qemu64`
-# vCPU does not expose it, so on such a host libusd dies with SIGILL — a signal
-# no `except` can catch. Isolating it means the worst case is one dead child and
-# a False return, never a killed Celery worker.
-_TIMEOUT_S = int(os.environ.get("USDZ_TO_GLB_TIMEOUT", "180"))
+# Walls are drawn as thin slabs centred on each polygon edge. 10 cm reads as a
+# wall at overlay opacity without hiding the real geometry behind it; it also
+# means the GLB's XZ bounds exceed the room's floor bbox by half that on each
+# side.
+WALL_THICKNESS_M = 0.10
+
+# Sanity clamps — a degenerate scan must not produce a multi-kilometre mesh.
+_MIN_EXTENT_M = 0.01
+_MAX_EXTENT_M = 100.0
+_MIN_CEILING_M = 0.5
+_MAX_CEILING_M = 10.0
 
 
-def _iter_mesh_prims(stage):
-    """Yield every visible, renderable UsdGeom.Mesh prim on the stage.
+def _f(value: Any, default: float = 0.0) -> float:
+    """Coerce JSONB-sourced numbers defensively (never raises)."""
+    if isinstance(value, bool):
+        return default
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return default
+    return default if math.isnan(out) or math.isinf(out) else out
 
-    Instance proxies are traversed too: RoomPlan-style exports (and anything
-    referencing a shared asset) can put real geometry behind instanced prims,
-    and the default predicate would walk straight past it.
+
+def _extent(value: Any) -> float | None:
+    v = _f(value, 0.0)
+    return None if not (_MIN_EXTENT_M <= v <= _MAX_EXTENT_M) else v
+
+
+def _y_rotation(theta: float):
+    """4×4 rotation about glTF's +Y.
+
+    RoomPlan is Y-up metres and the converter stores the floor plane as
+    ``(x, y) = (world x, world z)``, so an app-plane rotation ``r`` (the stored
+    ``rotation``, measured as ``atan2(dz, dx)`` of the object's local X axis)
+    becomes a rotation of ``-r`` about glTF's +Y.
     """
-    from pxr import Usd, UsdGeom
+    import numpy as np
 
-    predicate = Usd.TraverseInstanceProxies(Usd.PrimDefaultPredicate)
-    for prim in Usd.PrimRange.Stage(stage, predicate):
-        if not prim.IsA(UsdGeom.Mesh):
-            continue
-        imageable = UsdGeom.Imageable(prim)
-        if imageable:
-            if imageable.ComputeVisibility() == UsdGeom.Tokens.invisible:
-                continue
-            if imageable.ComputePurpose() == UsdGeom.Tokens.guide:
-                continue
-        yield prim
+    c, s = math.cos(theta), math.sin(theta)
+    return np.array([
+        [c, 0.0, s, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [-s, 0.0, c, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ])
 
 
-def _triangulate(counts, indices):
-    """Fan-triangulate USD ``faceVertexCounts``/``faceVertexIndices``.
-
-    RoomPlan emits quads for walls/floors/openings and triangles for object
-    meshes; a fan is exact for both, and for any convex n-gon. Degenerate faces
-    (<3 corners) and truncated index runs are skipped rather than raising.
-    """
-    tris: list[tuple[int, int, int]] = []
-    cursor = 0
-    total = len(indices)
-    for count in counts:
-        if count < 3 or cursor + count > total:
-            cursor += max(count, 0)
-            continue
-        base = indices[cursor]
-        for k in range(1, count - 1):
-            tris.append((base, indices[cursor + k], indices[cursor + k + 1]))
-        cursor += count
-    return tris
-
-
-def _mesh_to_world(prim, time_code):
-    """Return (world-space vertices, triangles) for one mesh prim, or None."""
-    from pxr import Gf, UsdGeom
-
-    mesh = UsdGeom.Mesh(prim)
-    points = mesh.GetPointsAttr().Get(time_code)
-    counts = mesh.GetFaceVertexCountsAttr().Get(time_code)
-    indices = mesh.GetFaceVertexIndicesAttr().Get(time_code)
-    if not points or not counts or not indices:
-        return None
-
-    tris = _triangulate(list(counts), list(indices))
-    if not tris:
-        return None
-
-    # USD matrices are row-vector (p' = p * M), which is exactly what Gf's
-    # Transform() applies — do not transpose.
-    xform = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(time_code)
-    verts = [tuple(xform.Transform(Gf.Vec3d(p[0], p[1], p[2]))) for p in points]
-
-    # leftHanded meshes wind the other way; flip so glTF's CCW front faces hold.
-    if mesh.GetOrientationAttr().Get(time_code) == UsdGeom.Tokens.leftHanded:
-        tris = [(a, c, b) for (a, b, c) in tris]
-
-    return verts, tris
-
-
-def _stage_to_gltf_axes(verts, up_axis, scale):
-    """Scale to metres and rotate the stage's up-axis onto glTF's +Y."""
-    if up_axis == "Z":
-        # USD Z-up (x, y, z) → glTF Y-up (x, z, -y).
-        return [(x * scale, z * scale, -y * scale) for (x, y, z) in verts]
-    return [(x * scale, y * scale, z * scale) for (x, y, z) in verts]
-
-
-def _convert(in_path: str, out_path: str) -> bool:
+def _box(extents: tuple[float, float, float], centre: tuple[float, float, float], theta: float):
+    """A box of the given extents, rotated about +Y and moved to *centre*."""
     import trimesh
-    from pxr import Usd, UsdGeom
 
-    stage = Usd.Stage.Open(in_path)
-    if stage is None:
-        logger.warning("usdz_to_glb: USD could not open %s", in_path)
-        return False
-
-    time_code = Usd.TimeCode.EarliestTime()
-    up_axis = UsdGeom.GetStageUpAxis(stage)
-    scale = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
-
-    all_verts: list[tuple[float, float, float]] = []
-    all_tris: list[tuple[int, int, int]] = []
-    mesh_count = 0
-    for prim in _iter_mesh_prims(stage):
-        try:
-            got = _mesh_to_world(prim, time_code)
-        except Exception as exc:  # noqa: BLE001 — one bad prim must not kill the scan
-            logger.warning("usdz_to_glb: skipping %s: %s", prim.GetPath(), exc)
-            continue
-        if got is None:
-            continue
-        verts, tris = got
-        offset = len(all_verts)
-        all_verts.extend(_stage_to_gltf_axes(verts, up_axis, scale))
-        all_tris.extend([(a + offset, b + offset, c + offset) for (a, b, c) in tris])
-        mesh_count += 1
-
-    if not all_tris:
-        logger.warning("usdz_to_glb: no mesh geometry found in %s", in_path)
-        return False
-
-    # One merged mesh: the overlay is drawn as a single translucent object, so
-    # per-prim structure buys nothing and a flat mesh keeps the GLB small.
-    merged = trimesh.Trimesh(vertices=all_verts, faces=all_tris, process=False)
-    with open(out_path, "wb") as fh:
-        fh.write(trimesh.Scene(merged).export(file_type="glb"))
-
-    logger.info(
-        "usdz_to_glb: %s → %s (%s meshes, %s verts, %s tris)",
-        in_path, out_path, mesh_count, len(all_verts), len(all_tris),
-    )
-    return True
+    m = _y_rotation(theta)
+    m[0, 3], m[1, 3], m[2, 3] = centre
+    return trimesh.creation.box(extents=extents, transform=m)
 
 
-def usdz_to_glb(in_path: str, out_path: str) -> bool:
-    """Convert *in_path* (.usdz/.usd/.usda/.usdc) → *out_path* (.glb).
+def _vertices_from(geometry: Any) -> list[tuple[float, float]]:
+    """Pull the floor polygon out of a persisted ``room.geometry`` JSONB blob."""
+    if not isinstance(geometry, dict):
+        return []
+    raw = geometry.get("vertices")
+    if not isinstance(raw, list):
+        return []
+    out: list[tuple[float, float]] = []
+    for v in raw:
+        if isinstance(v, (list, tuple)) and len(v) >= 2:
+            out.append((_f(v[0]), _f(v[1])))
+    return out
 
-    Returns True on success (and a non-empty output file), False otherwise —
-    never raises. Signature and semantics are unchanged from the Blender-backed
-    version, so callers (`app.tasks.media`) need no edits.
+
+def _wall_meshes(vertices: list[tuple[float, float]], ceiling_h: float) -> list:
+    """One slab per polygon edge, floor (y=0) up to the ceiling.
+
+    Extruding each edge separately (rather than the outline as a whole) keeps
+    the builder trivial for concave / N-gon rooms, which the converter happily
+    produces — L-shaped RoomPlan rooms are common.
     """
-    # Package root (…/backend) so `-m app.core.room_scan_glb` resolves even when
-    # the child is spawned from an unrelated cwd.
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    env = dict(os.environ)
-    env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    meshes = []
+    n = len(vertices)
+    for i in range(n):
+        ax, az = vertices[i]
+        bx, bz = vertices[(i + 1) % n]
+        dx, dz = bx - ax, bz - az
+        length = math.hypot(dx, dz)
+        if length < _MIN_EXTENT_M or length > _MAX_EXTENT_M:
+            continue
+        # Box local +X must point along the edge; see _y_rotation for the sign.
+        theta = math.atan2(-dz, dx)
+        meshes.append(_box(
+            (length, ceiling_h, WALL_THICKNESS_M),
+            ((ax + bx) / 2.0, ceiling_h / 2.0, (az + bz) / 2.0),
+            theta,
+        ))
+    return meshes
 
+
+def _object_mesh(obj: Any, at_origin: bool = False):
+    """One ghost box for a stored ``room_scan.objects`` entry, or None."""
+    if not isinstance(obj, dict):
+        return None
+    w = _extent(obj.get("width"))
+    d = _extent(obj.get("depth"))
+    h = _extent(obj.get("height"))
+    if w is None or d is None or h is None:
+        return None
+    if at_origin:
+        x = z = theta = 0.0
+    else:
+        x, z, theta = _f(obj.get("x")), _f(obj.get("y")), -_f(obj.get("rotation"))
+    # RoomPlan's object transform carries a centre height, but the converter
+    # only persists the floor-plane position — so sit the box on the floor.
+    return _box((w, h, d), (x, h / 2.0, z), theta)
+
+
+def _export(meshes: list, what: str) -> bytes | None:
+    """Concatenate to a single mesh and serialise as binary glTF."""
+    import trimesh
+
+    if not meshes:
+        logger.warning("room_scan_glb: nothing to build for %s", what)
+        return None
+    merged = trimesh.util.concatenate(meshes)
+    data = trimesh.Scene(merged).export(file_type="glb")
+    if not data:
+        logger.warning("room_scan_glb: empty export for %s", what)
+        return None
+    logger.info(
+        "room_scan_glb: built %s — %s parts, %s verts, %s faces, %s bytes",
+        what, len(meshes), len(merged.vertices), len(merged.faces), len(data),
+    )
+    return bytes(data)
+
+
+def build_room_scan_glb(geometry: Any, ceiling_h: Any, objects: Any = None) -> bytes | None:
+    """Build the room overlay GLB from persisted parametric scan data.
+
+    Args:
+        geometry:  ``room.geometry`` JSONB — needs ``vertices``, the floor
+                   polygon in metres with the origin at its bbox min corner.
+        ceiling_h: ``room.ceiling_h`` in metres.
+        objects:   ``room_scan.objects`` — each a dict with x, y, width, depth,
+                   height, rotation.
+
+    Returns the GLB bytes, or None on any problem. Never raises.
+    """
     try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "app.core.room_scan_glb", in_path, out_path],
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT_S,
-            env=env,
-        )
-    except subprocess.TimeoutExpired:
-        logger.warning("usdz_to_glb: timed out after %ss", _TIMEOUT_S)
-        return False
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("usdz_to_glb: could not start converter: %s", exc)
-        return False
+        vertices = _vertices_from(geometry)
+        if len(vertices) < 3:
+            logger.warning("room_scan_glb: geometry has < 3 vertices, no overlay")
+            return None
+        h = _f(ceiling_h, 0.0)
+        if not (_MIN_CEILING_M <= h <= _MAX_CEILING_M):
+            logger.warning("room_scan_glb: implausible ceiling_h %r, no overlay", ceiling_h)
+            return None
 
-    ok = proc.returncode == 0 and os.path.isfile(out_path) and os.path.getsize(out_path) > 0
-    if not ok:
-        # A negative returncode means the child was killed by a signal — e.g.
-        # -4/SIGILL if this CPU cannot run libusd (see the note on RDTSCP above).
-        logger.warning(
-            "usdz_to_glb: failed rc=%s stderr=%s", proc.returncode, (proc.stderr or "")[-500:]
-        )
-    return ok
+        meshes = _wall_meshes(vertices, h)
+        for obj in objects or []:
+            mesh = _object_mesh(obj)
+            if mesh is not None:
+                meshes.append(mesh)
+        return _export(meshes, "room")
+    except Exception as exc:  # noqa: BLE001 — best-effort; caller leaves glb_path null
+        logger.warning("room_scan_glb: room build failed: %r", exc)
+        return None
 
 
-def _main(argv: list[str]) -> int:
-    if len(argv) < 3:
-        print("usage: python -m app.core.room_scan_glb <in.usdz> <out.glb>", file=sys.stderr)
-        return 2
+def build_object_glb(obj: Any) -> bytes | None:
+    """Build one detected object's ghost-box GLB (the Phase 6 per-object path).
+
+    That endpoint also uploads an Object-Capture ``.usdz``; like the room scan's
+    it is archived, not parsed, for the CPU reason at the top of this module. The
+    placeholder comes from the object's own stored dimensions, in its own local
+    frame (origin at the floor centre, unrotated) — the studio places it.
+
+    Returns the GLB bytes, or None. Never raises.
+    """
     try:
-        return 0 if _convert(argv[1], argv[2]) else 1
-    except ImportError as exc:
-        print(f"usdz_to_glb: USD/trimesh not installed in this image: {exc}", file=sys.stderr)
-        return 1
+        mesh = _object_mesh(obj, at_origin=True)
+        return _export([mesh] if mesh is not None else [], "object")
     except Exception as exc:  # noqa: BLE001
-        print(f"usdz_to_glb: unexpected error: {exc!r}", file=sys.stderr)
-        return 1
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    sys.exit(_main(sys.argv))
+        logger.warning("room_scan_glb: object build failed: %r", exc)
+        return None

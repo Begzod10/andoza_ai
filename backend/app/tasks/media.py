@@ -50,12 +50,17 @@ def process_photo(self, photo_key: str, room_id: str) -> dict:
     queue="converter",
 )
 def convert_room_scan_to_glb(self, room_id: str, usdz_key: str) -> dict:
-    """Convert a room's uploaded USDZ into a GLB for the studio's reference
-    overlay, then record glb_path on the room. Best-effort: any failure just
-    leaves glb_path null and the studio still renders from parametric data.
+    """Build a room's studio reference-overlay GLB and record glb_path on it.
 
-    Runs on the dedicated ``converter`` queue so the CPU-heavy mesh work stays
-    off the worker that handles latency-sensitive media tasks.
+    The GLB is generated from the room's *parametric* scan data (floor polygon,
+    ceiling height, detected-object boxes) — the uploaded ``.usdz`` is archived
+    but never parsed, because no USD reader can run on the production CPU (see
+    `app.core.room_scan_glb`). ``usdz_key`` is still taken: it names the stored
+    capture and the GLB is stored beside it, so the public signature, the queue
+    routing and the storage keys are all unchanged.
+
+    Best-effort: any failure just leaves glb_path null and the studio still
+    renders from the parametric data. Runs on the dedicated ``converter`` queue.
     """
     import asyncio
 
@@ -70,44 +75,45 @@ def convert_room_scan_to_glb(self, room_id: str, usdz_key: str) -> dict:
     queue="converter",
 )
 def convert_room_scan_object_to_glb(self, room_id: str, object_index: int, usdz_key: str) -> dict:
-    """Phase 6: convert an Object-Capture USDZ → GLB and attach it to
-    ``room_scan.objects[object_index].glb_path``. Best-effort, same as the
-    room-level task."""
+    """Phase 6: build a detected object's placeholder GLB and attach it to
+    ``room_scan.objects[object_index].glb_path``. Same story as the room task —
+    the Object-Capture ``.usdz`` is archived, not parsed; the box comes from the
+    object's stored dimensions. Best-effort."""
     import asyncio
 
     return asyncio.run(_convert_room_scan_object_to_glb(room_id, object_index, usdz_key))
 
 
-async def _usdz_to_glb_step(usdz_key: str) -> str | None:
-    """Shared step: download the USDZ, convert it off the event loop, upload the
-    GLB, return its key (or None on any failure)."""
-    import asyncio
-    import os
-    import tempfile
+async def _load_room_scan(room_id: str) -> tuple[dict, dict, float] | None:
+    """Return ``(room_scan, geometry, ceiling_h)`` for *room_id*, or None if the
+    room is gone. This is the whole input to the GLB build — see
+    `app.core.room_scan_glb` for why the archived ``.usdz`` is not read."""
+    async def _read(db, room):
+        return (
+            dict(room.room_scan or {}),
+            dict(room.geometry or {}),
+            float(room.ceiling_h or 0.0),
+        )
 
-    from app.core.room_scan_glb import usdz_to_glb
-    from app.core.storage import download_file, upload_file
+    return await _with_room(room_id, _read)
 
-    data = await download_file(usdz_key)
-    with tempfile.TemporaryDirectory() as td:
-        src = os.path.join(td, "in.usdz")
-        dst = os.path.join(td, "out.glb")
-        with open(src, "wb") as fh:
-            fh.write(data)
-        ok = await asyncio.to_thread(usdz_to_glb, src, dst)  # CPU-bound — off-loop
-        if not ok:
-            return None
-        with open(dst, "rb") as fh:
-            glb = fh.read()
+
+async def _store_glb(glb: bytes, usdz_key: str) -> str:
+    """Upload *glb* next to the archived capture and return its storage key."""
+    from app.core.storage import upload_file
 
     glb_key = usdz_key.rsplit(".", 1)[0] + ".glb"
     await upload_file(glb, glb_key, content_type="model/gltf-binary")
     return glb_key
 
 
-async def _update_room_scan(room_id: str, mutate) -> bool:
-    """Load the room, apply ``mutate(scan_dict)`` to a copy of room_scan,
-    reassign (JSONB change detection) and commit. Returns False if gone."""
+async def _with_room(room_id: str, fn):
+    """Load the room in its own engine/session, hand it to ``fn(db, room)`` and
+    commit. Returns ``fn``'s result, or None if the room no longer exists.
+
+    The task runs in a Celery process with its own event loop, so it cannot
+    share the API's engine.
+    """
     import uuid as _uuid
 
     from sqlalchemy import select
@@ -124,21 +130,46 @@ async def _update_room_scan(room_id: str, mutate) -> bool:
                 await db.execute(select(Room).where(Room.id == _uuid.UUID(room_id)))
             ).scalar_one_or_none()
             if room is None:
-                return False
-            scan = dict(room.room_scan or {})
-            mutate(scan)
-            room.room_scan = scan
+                return None
+            out = await fn(db, room)
             await db.commit()
-            return True
+            return out
     finally:
         await engine.dispose()
 
 
+async def _update_room_scan(room_id: str, mutate) -> bool:
+    """Apply ``mutate(scan_dict)`` to a copy of room_scan, reassign (JSONB change
+    detection) and commit. Returns False if the room is gone."""
+    async def _apply(db, room):
+        scan = dict(room.room_scan or {})
+        mutate(scan)
+        room.room_scan = scan
+        return True
+
+    return bool(await _with_room(room_id, _apply))
+
+
 async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
-    glb_key = await _usdz_to_glb_step(usdz_key)
-    if glb_key is None:
-        logger.warning("convert_room_scan_to_glb: conversion failed room=%s", room_id)
+    import asyncio
+
+    from app.core.room_scan_glb import build_room_scan_glb
+
+    loaded = await _load_room_scan(room_id)
+    if loaded is None:
+        return {"status": "room_gone", "room_id": room_id}
+    scan, geometry, ceiling_h = loaded
+
+    # Pure numpy/trimesh arithmetic — safe to run inline now that no native USD
+    # code is involved; still off the event loop since it is CPU-bound.
+    glb = await asyncio.to_thread(
+        build_room_scan_glb, geometry, ceiling_h, scan.get("objects")
+    )
+    if not glb:
+        logger.warning("convert_room_scan_to_glb: build failed room=%s", room_id)
         return {"status": "failed", "room_id": room_id}
+
+    glb_key = await _store_glb(glb, usdz_key)
 
     def _set(scan: dict) -> None:
         scan["glb_path"] = glb_key
@@ -150,19 +181,35 @@ async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
 
 
 async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz_key: str) -> dict:
-    glb_key = await _usdz_to_glb_step(usdz_key)
-    if glb_key is None:
+    import asyncio
+
+    from app.core.room_scan_glb import build_object_glb
+
+    loaded = await _load_room_scan(room_id)
+    if loaded is None:
+        return {"status": "room_gone", "room_id": room_id}
+    objects = list((loaded[0].get("objects") or []))
+    if not 0 <= object_index < len(objects):
         logger.warning(
-            "convert_room_scan_object_to_glb: conversion failed room=%s idx=%s",
+            "convert_room_scan_object_to_glb: bad index room=%s idx=%s", room_id, object_index
+        )
+        return {"status": "failed", "room_id": room_id}
+
+    glb = await asyncio.to_thread(build_object_glb, objects[object_index])
+    if not glb:
+        logger.warning(
+            "convert_room_scan_object_to_glb: build failed room=%s idx=%s",
             room_id, object_index,
         )
         return {"status": "failed", "room_id": room_id}
 
+    glb_key = await _store_glb(glb, usdz_key)
+
     def _set(scan: dict) -> None:
-        objects = list(scan.get("objects") or [])
-        if 0 <= object_index < len(objects):
-            objects[object_index] = {**objects[object_index], "glb_path": glb_key}
-            scan["objects"] = objects
+        objs = list(scan.get("objects") or [])
+        if 0 <= object_index < len(objs):
+            objs[object_index] = {**objs[object_index], "glb_path": glb_key}
+            scan["objects"] = objs
 
     if not await _update_room_scan(room_id, _set):
         return {"status": "room_gone", "room_id": room_id}

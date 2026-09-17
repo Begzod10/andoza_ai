@@ -56,11 +56,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Consumes only the `converter` queue (USDZ→GLB room scans). Same image as
-  # api/worker: the conversion is pure Python (usd-core + trimesh), so there is
-  # nothing extra to install and no architecture pin. On an Apple-Silicon dev box
-  # usd-core has no linux-arm64 wheel, so conversions there just return False —
-  # prod is x86_64 and unaffected. Optional in dev:
+  # Consumes only the `converter` queue (room-scan GLB overlays). Same image as
+  # api/worker: the build is pure Python (numpy + trimesh) over the parametric
+  # scan data, so there is nothing extra to install and no architecture pin — it
+  # runs identically on an Apple-Silicon dev box and on the prod VPS. Optional in
+  # dev:
   #   docker compose up -d converter
   converter:
     build: ./backend

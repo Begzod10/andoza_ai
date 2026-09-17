@@ -69,11 +69,12 @@ services:
       - media_data:/app/media
     restart: unless-stopped
 
-  # USDZ→GLB conversion on the `converter` queue, in-process via usd-core +
-  # trimesh (no Blender — this VPS's QEMU vCPU has no SSE4.2, so no official
-  # Blender build can even start). Same image as api/worker. Mounts the shared
-  # media volume so it can read the uploaded .usdz and write the .glb back where
-  # the api serves them.
+  # Room-scan GLB overlays on the `converter` queue, built in-process from the
+  # parametric scan data with numpy + trimesh. No USD reader and no Blender:
+  # this VPS's QEMU vCPU has no SSE4.2, Blender refuses to start on it and
+  # usd-core dies with SIGILL (see app/core/room_scan_glb.py). Same image as
+  # api/worker. Mounts the shared media volume so it can read the room's stored
+  # data and write the .glb back where the api serves it.
   converter:
     build: ./backend
     command: celery -A celery_app worker -l info -Q converter -c 2

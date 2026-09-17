@@ -17,17 +17,17 @@ sentry-sdk[fastapi]==2.4.0
 structlog==24.2.0
 python-dotenv==1.0.1
 openai>=1.0.0
-# USDZ -> GLB room-scan conversion (replaces Blender: the prod VPS CPU has no SSE4.2).
-# usd-core's manylinux x86-64 .so files disassemble with zero SSE4.2/AVX opcodes;
-# numpy carries AVX kernels but selects them by runtime CPU dispatch off an SSE2
-# baseline. Verified by running the whole conversion under `qemu-x86_64 -cpu qemu64`
-# (no SSE4.2, same CPU model the VPS reports) -- see the converter's module docstring.
+# Room-scan -> GLB overlay builder (app/core/room_scan_glb.py).
 #
-# The marker skips linux-aarch64 ONLY: usd-core publishes no linux-arm64 wheel, so
-# an Apple-Silicon dev box building the linux/arm64 image would otherwise fail. Prod
-# is x86_64 (wheel installs), and native macOS dev gets the universal2 wheel. Where
-# it is absent, room_scan_glb.usdz_to_glb() just logs and returns False.
-usd-core==25.11; platform_machine != "aarch64"
+# There is deliberately NO USD library here. Pixar's usd-core was deployed and
+# its manylinux binaries are killed by SIGILL on the production VPS (a QEMU
+# guest whose vCPU has no SSE4.2): prod logged `usdz_to_glb: failed rc=-4`, and
+# `Usd.Stage.Open()` reproduces it exactly under `qemu-x86_64 -cpu qemu64`.
+# Blender is equally impossible there (official builds refuse to start without
+# SSE42; Debian's build has no USD support). The uploaded .usdz is therefore
+# archived, never parsed, and the overlay is generated from the parametric scan
+# data instead -- which needs only these two, both verified working under
+# `qemu-x86_64 -cpu qemu64`.
 trimesh==5.1.0
 numpy==2.2.6
 pytest>=8.0
