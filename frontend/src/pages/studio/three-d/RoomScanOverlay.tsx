@@ -268,12 +268,17 @@ function ScanGhostBox({
   object,
   index,
   offset,
+  active,
+  onActivate,
   onReplace,
 }: {
   roomId: string;
   object: RoomScanObject;
   index: number;
   offset: { x: number; z: number };
+  /** True when this is the one ghost whose full label/actions are expanded. */
+  active: boolean;
+  onActivate: (index: number | null) => void;
   onReplace: (req: ScanSwapRequest) => void;
 }) {
   const w = Math.max(object.width, 0.05);
@@ -314,9 +319,47 @@ function ScanGhostBox({
       <lineSegments geometry={edges} position={[0, h / 2, 0]} raycast={noRaycast}>
         <lineBasicMaterial color={GHOST_COLOR} transparent opacity={0.9} />
       </lineSegments>
-      <Html position={[0, h + 0.12, 0]} center zIndexRange={[60, 0]} style={{ pointerEvents: "none" }}>
+      {/* Label. A scanned room routinely carries 15–20 objects, and one
+          always-on category chip PLUS one always-on action button per object
+          buried the room under ~2× that many overlapping DOM chips — the 3D
+          view was unreadable. So only ONE ghost at a time is expanded (the
+          hovered/tapped one, tracked by the parent); every other ghost shows a
+          single small dot. The dot is the hover/tap target, because the ghost
+          meshes themselves stay `noRaycast` so they can never steal a pick
+          from real furniture. */}
+      <Html
+        position={[0, h + 0.12, 0]}
+        center
+        // Expanded chip must paint above every collapsed dot, never under one.
+        zIndexRange={active ? [80, 70] : [60, 0]}
+        style={{ pointerEvents: "none" }}
+      >
+        {!active ? (
+          <button
+            type="button"
+            aria-label={scanCategoryLabel(object.category)}
+            title={scanCategoryLabel(object.category)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerEnter={() => onActivate(index)}
+            onFocus={() => onActivate(index)}
+            onClick={() => onActivate(index)}
+            style={{
+              pointerEvents: "all",
+              width: 16,
+              height: 16,
+              padding: 0,
+              borderRadius: "50%",
+              border: "1.5px solid rgba(255,251,235,0.95)",
+              background: GHOST_COLOR,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+              cursor: "pointer",
+              display: "block",
+            }}
+          />
+        ) : (
         <div
           onPointerDown={(e) => e.stopPropagation()}
+          onPointerLeave={() => onActivate(null)}
           style={{
             pointerEvents: "all",
             display: "flex",
@@ -366,6 +409,7 @@ function ScanGhostBox({
             {uz.studio.skan.katalogdan_almashtirish}
           </button>
         </div>
+        )}
       </Html>
     </group>
   );
@@ -390,6 +434,11 @@ export function RoomScanReference({
   onReplace: (req: ScanSwapRequest) => void;
 }) {
   const offset = useMemo(() => verticesCentroidM(geometry), [geometry]);
+  // Exactly one ghost may be expanded at a time — see ScanGhostBox's label
+  // comment. Hovering (or tapping, for touch) a dot expands that ghost and
+  // collapses whichever was expanded before, so the viewport can never carry
+  // more than one label stack no matter how many objects the scan found.
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   if (!visible || !roomScan) return null;
   return (
     <group>
@@ -402,7 +451,14 @@ export function RoomScanReference({
             object={obj}
             index={i}
             offset={offset}
-            onReplace={onReplace}
+            active={activeIndex === i}
+            onActivate={setActiveIndex}
+            onReplace={(req) => {
+              // The ghost is about to disappear — don't leave the overlay
+              // pointing at a now-hidden index.
+              setActiveIndex(null);
+              onReplace(req);
+            }}
           />
         ),
       )}

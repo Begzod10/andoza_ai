@@ -463,6 +463,22 @@ export default function StudioPage() {
     [localRoom, apiRoom],
   );
 
+  // Header sub-line. `room.length`/`room.width` are the LEGACY rectangle
+  // fields: they are read off walls "A" and "B", which only a 4-wall wizard
+  // room has. A LiDAR-scanned polygon room's walls are numbered ("0".."4"),
+  // so both lookups missed and the header confidently printed the hardcoded
+  // 4.0 × 3.0 fallback for a 5-wall, 37.5 m² room. For a polygon there is no
+  // honest single width × length, so show what actually describes it — the
+  // shoelace floor area (already computed in `room.area`), the wall count and
+  // the ceiling height — and keep the familiar W × L × H line for rectangles.
+  const dimsLabel = useMemo(() => {
+    const h = (room.ceiling_height ?? 0).toFixed(1);
+    const isRect =
+      !!geometry.walls.find((w) => w.id === "A") && !!geometry.walls.find((w) => w.id === "B");
+    if (isRect) return `${room.length?.toFixed(1)} × ${room.width?.toFixed(1)} × ${h} m`;
+    return `${room.area.toFixed(1)} m² · ${geometry.walls.length} devor · shift ${h} m`;
+  }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls]);
+
   // When a saved room loads from API and has a full state blob, restore it into the store.
   useEffect(() => {
     if (!apiRoom) return;
@@ -533,7 +549,7 @@ export default function StudioPage() {
             >
               <p className="text-[16px] lg:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
               <p className="text-[11px] text-muted flex items-center gap-1">
-                {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
+                {dimsLabel}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
                 </svg>
