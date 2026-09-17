@@ -42,9 +42,10 @@ What the output is for
 ----------------------
 A *translucent reference overlay* in the 3D studio — the studio builds the real
 room from the same parametric data. So the GLB deliberately carries geometry
-only: wall slabs extruded to the ceiling height, plus one ghost box per
-detected object. No materials, textures, UVs or normals; they would cost size
-and complexity for something the user sees at low opacity.
+only: wall slabs extruded to the ceiling height with their doors and windows
+cut out, plus one ghost box per detected object. No materials, textures, UVs or
+normals; they would cost size and complexity for something the user sees at low
+opacity.
 
 Best-effort, like every previous version: the builders return ``None`` rather
 than raising, and the caller just leaves ``glb_path`` null.
@@ -68,6 +69,10 @@ _MIN_EXTENT_M = 0.01
 _MAX_EXTENT_M = 100.0
 _MIN_CEILING_M = 0.5
 _MAX_CEILING_M = 10.0
+
+# Panels thinner than this are dropped: a sliver that narrow is scan noise, and
+# emitting it would only add faces the user cannot see.
+_MIN_PANEL_M = 0.005
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -128,12 +133,110 @@ def _vertices_from(geometry: Any) -> list[tuple[float, float]]:
     return out
 
 
-def _wall_meshes(vertices: list[tuple[float, float]], ceiling_h: float) -> list:
-    """One slab per polygon edge, floor (y=0) up to the ceiling.
+def _wall_elements(geometry: Any, edge_count: int) -> list[list[dict]]:
+    """``geometry.walls[i].elements`` per polygon edge, defensively.
+
+    ``app.services.room_scan_converter.convert_captured_room`` builds
+    ``walls[i] = Wall(id=str(i), length=dist(corners[i], corners[i+1]),
+    elements=openings_per_wall[i])`` in the same ``for i in range(n)`` loop that
+    emits ``vertices``, and openings are assigned by ``_nearest_wall``, which
+    tests the segment ``corners[i] → corners[(i + 1) % n]``. So ``walls[i]`` is
+    exactly the edge from vertex *i* to vertex *i+1* — verified, not assumed.
+
+    That correspondence only holds while the two lists stay the same length;
+    ``POST /rooms/{id}/walls`` can append a wall without adding a vertex. If the
+    counts disagree we simply draw unpunched slabs rather than cut holes in the
+    wrong walls.
+    """
+    empty: list[list[dict]] = [[] for _ in range(edge_count)]
+    if not isinstance(geometry, dict):
+        return empty
+    walls = geometry.get("walls")
+    if not isinstance(walls, list) or len(walls) != edge_count:
+        if isinstance(walls, list) and walls:
+            logger.info(
+                "room_scan_glb: %s walls vs %s polygon edges — openings not cut",
+                len(walls), edge_count,
+            )
+        return empty
+    out: list[list[dict]] = []
+    for w in walls:
+        els = w.get("elements") if isinstance(w, dict) else None
+        out.append([e for e in els if isinstance(e, dict)] if isinstance(els, list) else [])
+    return out
+
+
+def _holes_1d(elements: list[dict], length: float, ceiling_h: float) -> list[tuple[float, float, float, float]]:
+    """Openings as ``(u0, u1, v0, v1)`` rectangles in the wall's own 2-D frame.
+
+    ``u`` runs 0..length from the edge's first vertex, ``v`` runs 0..ceiling_h
+    from the floor. ``position`` is the 0..1 fraction of the *centre* along the
+    wall and ``sill_height`` is metres from the floor (doors sit at 0).
+
+    Everything is clamped to the wall: production scans really do produce
+    openings wider than the wall can hold — room
+    ``078ff407-7586-483d-8fdc-7a861b283a80`` has a 3.99 m window at position
+    0.41 of a 4.84 m wall, whose left edge computes to −0.011 m.
+    """
+    holes = []
+    for el in elements:
+        w = _f(el.get("width"), 0.0)
+        h = _f(el.get("height"), 0.0)
+        if w <= 0.0 or h <= 0.0:
+            continue
+        centre = _f(el.get("position"), 0.5) * length
+        u0 = max(0.0, centre - w / 2.0)
+        u1 = min(length, centre + w / 2.0)
+        v0 = max(0.0, _f(el.get("sill_height"), 0.0))
+        v1 = min(ceiling_h, v0 + h)
+        if u1 - u0 > _MIN_PANEL_M and v1 - v0 > _MIN_PANEL_M:
+            holes.append((u0, u1, v0, v1))
+    return holes
+
+
+def _panels(length: float, ceiling_h: float,
+            holes: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
+    """Split one wall face into the solid rectangles left around its openings.
+
+    A vertical-slab decomposition: cut the face at every opening edge in ``u``,
+    then in each slab subtract the ``v`` spans of the openings that cover it.
+    With no openings that yields the whole face back, i.e. the original slab.
+    Overlapping and abutting openings fall out correctly because the spans are
+    merged, so nothing here can produce a doubled or negative-width panel — the
+    reason this is done by splitting rather than by a CSG difference.
+    """
+    if not holes:
+        return [(0.0, length, 0.0, ceiling_h)]
+    cuts = sorted({0.0, length} | {u for h in holes for u in h[:2]})
+    out = []
+    for s0, s1 in zip(cuts, cuts[1:]):
+        if s1 - s0 <= _MIN_PANEL_M:
+            continue
+        mid = (s0 + s1) / 2.0
+        spans = sorted((h[2], h[3]) for h in holes if h[0] <= mid <= h[1])
+        v = 0.0
+        for a, b in spans:
+            if a - v > _MIN_PANEL_M:
+                out.append((s0, s1, v, a))
+            v = max(v, b)
+        if ceiling_h - v > _MIN_PANEL_M:
+            out.append((s0, s1, v, ceiling_h))
+    return out
+
+
+def _wall_meshes(vertices: list[tuple[float, float]], ceiling_h: float,
+                 elements_per_edge: list[list[dict]] | None = None) -> list:
+    """Slabs per polygon edge, floor (y=0) up to the ceiling, openings cut out.
 
     Extruding each edge separately (rather than the outline as a whole) keeps
     the builder trivial for concave / N-gon rooms, which the converter happily
     produces — L-shaped RoomPlan rooms are common.
+
+    A wall with no openings is still a single box, so the overlay is unchanged
+    for scans that found none; a wall with a door or window becomes the two to
+    four panels around each hole (left / right / under the sill / over the
+    lintel). Full thickness is kept on every panel: nothing is unioned, so there
+    is no coplanar overlap to z-fight.
     """
     meshes = []
     n = len(vertices)
@@ -144,13 +247,17 @@ def _wall_meshes(vertices: list[tuple[float, float]], ceiling_h: float) -> list:
         length = math.hypot(dx, dz)
         if length < _MIN_EXTENT_M or length > _MAX_EXTENT_M:
             continue
+        ux, uz = dx / length, dz / length  # unit vector along the edge
         # Box local +X must point along the edge; see _y_rotation for the sign.
         theta = math.atan2(-dz, dx)
-        meshes.append(_box(
-            (length, ceiling_h, WALL_THICKNESS_M),
-            ((ax + bx) / 2.0, ceiling_h / 2.0, (az + bz) / 2.0),
-            theta,
-        ))
+        elements = (elements_per_edge or [[]] * n)[i] if elements_per_edge else []
+        for u0, u1, v0, v1 in _panels(length, ceiling_h, _holes_1d(elements, length, ceiling_h)):
+            u = (u0 + u1) / 2.0
+            meshes.append(_box(
+                (u1 - u0, v1 - v0, WALL_THICKNESS_M),
+                (ax + ux * u, (v0 + v1) / 2.0, az + uz * u),
+                theta,
+            ))
     return meshes
 
 
@@ -197,6 +304,8 @@ def build_room_scan_glb(geometry: Any, ceiling_h: Any, objects: Any = None) -> b
     Args:
         geometry:  ``room.geometry`` JSONB — needs ``vertices``, the floor
                    polygon in metres with the origin at its bbox min corner.
+                   ``walls[i].elements`` (doors/windows on the edge from vertex
+                   *i* to *i+1*) are cut out of that edge's slab when present.
         ceiling_h: ``room.ceiling_h`` in metres.
         objects:   ``room_scan.objects`` — each a dict with x, y, width, depth,
                    height, rotation.
@@ -213,7 +322,7 @@ def build_room_scan_glb(geometry: Any, ceiling_h: Any, objects: Any = None) -> b
             logger.warning("room_scan_glb: implausible ceiling_h %r, no overlay", ceiling_h)
             return None
 
-        meshes = _wall_meshes(vertices, h)
+        meshes = _wall_meshes(vertices, h, _wall_elements(geometry, len(vertices)))
         for obj in objects or []:
             mesh = _object_mesh(obj)
             if mesh is not None:
