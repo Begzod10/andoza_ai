@@ -28,8 +28,8 @@ app.conf.update(
     # Task routing
     task_routes={
         # Specific first (dict order = match order): the USDZ→GLB tasks (room +
-        # per-object) need Blender, so they run on their own queue served only by
-        # the converter service.
+        # per-object) are CPU-heavy mesh work, so they run on their own queue
+        # served only by the converter service.
         "app.tasks.media.convert_room_scan*": {"queue": "converter"},
         "app.tasks.media.*": {"queue": "media"},
         "app.tasks.ai.*": {"queue": "ai-gpu"},

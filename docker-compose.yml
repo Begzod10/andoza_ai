@@ -56,16 +56,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # USDZ→GLB conversion (Blender). Separate image so api/worker stay slim.
-  # Consumes only the `converter` queue. Optional in dev — build on demand:
-  #   docker compose build converter && docker compose up -d converter
+  # Consumes only the `converter` queue (USDZ→GLB room scans). Same image as
+  # api/worker: the conversion is pure Python (usd-core + trimesh), so there is
+  # nothing extra to install and no architecture pin. On an Apple-Silicon dev box
+  # usd-core has no linux-arm64 wheel, so conversions there just return False —
+  # prod is x86_64 and unaffected. Optional in dev:
+  #   docker compose up -d converter
   converter:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.converter
-    # blender.org ships Linux builds for x86-64 only; the image is amd64 and runs
-    # under emulation on arm64 dev machines.
-    platform: linux/amd64
+    build: ./backend
     command: celery -A celery_app worker -l info -Q converter -c 2
     working_dir: /app
     volumes:
@@ -74,7 +72,6 @@ services:
       - ./backend/.env
     environment:
       PYTHONPATH: /app
-      BLENDER_BIN: blender
     depends_on:
       redis:
         condition: service_started

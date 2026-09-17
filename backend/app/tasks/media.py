@@ -54,8 +54,8 @@ def convert_room_scan_to_glb(self, room_id: str, usdz_key: str) -> dict:
     overlay, then record glb_path on the room. Best-effort: any failure just
     leaves glb_path null and the studio still renders from parametric data.
 
-    Runs on the dedicated ``converter`` queue so only the Blender-equipped
-    converter service picks it up (the plain worker has no Blender).
+    Runs on the dedicated ``converter`` queue so the CPU-heavy mesh work stays
+    off the worker that handles latency-sensitive media tasks.
     """
     import asyncio
 
@@ -78,9 +78,9 @@ def convert_room_scan_object_to_glb(self, room_id: str, object_index: int, usdz_
     return asyncio.run(_convert_room_scan_object_to_glb(room_id, object_index, usdz_key))
 
 
-async def _blender_usdz_to_glb(usdz_key: str) -> str | None:
-    """Shared step: download the USDZ, run headless Blender off the event loop,
-    upload the GLB, return its key (or None on any failure)."""
+async def _usdz_to_glb_step(usdz_key: str) -> str | None:
+    """Shared step: download the USDZ, convert it off the event loop, upload the
+    GLB, return its key (or None on any failure)."""
     import asyncio
     import os
     import tempfile
@@ -94,7 +94,7 @@ async def _blender_usdz_to_glb(usdz_key: str) -> str | None:
         dst = os.path.join(td, "out.glb")
         with open(src, "wb") as fh:
             fh.write(data)
-        ok = await asyncio.to_thread(usdz_to_glb, src, dst)  # Blender blocks — off-loop
+        ok = await asyncio.to_thread(usdz_to_glb, src, dst)  # CPU-bound — off-loop
         if not ok:
             return None
         with open(dst, "rb") as fh:
@@ -135,7 +135,7 @@ async def _update_room_scan(room_id: str, mutate) -> bool:
 
 
 async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
-    glb_key = await _blender_usdz_to_glb(usdz_key)
+    glb_key = await _usdz_to_glb_step(usdz_key)
     if glb_key is None:
         logger.warning("convert_room_scan_to_glb: conversion failed room=%s", room_id)
         return {"status": "failed", "room_id": room_id}
@@ -150,7 +150,7 @@ async def _convert_room_scan_to_glb(room_id: str, usdz_key: str) -> dict:
 
 
 async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz_key: str) -> dict:
-    glb_key = await _blender_usdz_to_glb(usdz_key)
+    glb_key = await _usdz_to_glb_step(usdz_key)
     if glb_key is None:
         logger.warning(
             "convert_room_scan_object_to_glb: conversion failed room=%s idx=%s",
