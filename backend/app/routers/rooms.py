@@ -159,6 +159,13 @@ async def upload_room_scan(
         ],
     }
     await db.flush()
+    # Reload before serialising: the flush UPDATEs the row, which expires the
+    # server-side `updated_at`. RoomOut reads it, and a Pydantic attribute read
+    # cannot drive SQLAlchemy's async IO — it raises MissingGreenlet and the
+    # whole request 500s *after* the scan was written, so the transaction rolls
+    # back and the upload silently loses the scan. Same failure shape as the
+    # register()/created_at fix in auth.py.
+    await db.refresh(room)
     logger.info("room_scan_uploaded", room_id=str(room.id), objects=len(conv.objects))
 
     # Best-effort USDZ→GLB (Phase 4c). Never blocks; the studio renders the room
@@ -227,6 +234,9 @@ async def upload_room_scan_object(
     scan["objects"] = objects
     room.room_scan = scan
     await db.flush()
+    # Same expired-`updated_at` trap as upload_room_scan — reload before RoomOut
+    # reads it, or the response 500s and rolls the object upload back.
+    await db.refresh(room)
     logger.info("room_scan_object_uploaded", room_id=str(room.id), index=object_index)
 
     try:

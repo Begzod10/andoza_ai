@@ -100,6 +100,13 @@ def test_happy_path_overwrites_geometry_and_stores_metadata(ctx):
     assert scan["glb_path"] is None
     rooms_mod.upload_file.assert_awaited_once()
     db.flush.assert_awaited()
+    # Regression: the flush UPDATEs the row and expires the server-side
+    # `updated_at`; serialising RoomOut then reads it and SQLAlchemy cannot do
+    # async IO from a Pydantic attribute read, so the request 500s and the whole
+    # scan rolls back. It shipped to production exactly this way — a mocked DB
+    # makes flush() a no-op, so nothing here expires and the happy path passed
+    # while every real upload failed. Assert the reload explicitly.
+    db.refresh.assert_awaited_with(room)
 
 
 def test_rejects_non_usdz_file(ctx):
@@ -160,6 +167,26 @@ def test_object_upload_attaches_usdz_and_pending_glb(ctx):
     assert obj["glb_path"] is None
     rooms_mod.upload_file.assert_awaited()
     db.flush.assert_awaited()
+
+
+def test_object_upload_reloads_room_before_serialising(ctx):
+    """Same expired-`updated_at` trap as the room upload (see the regression
+    note above); the object endpoint flushes and serialises the same way."""
+    client, room, db = ctx
+    room.room_scan = {
+        "source": "lidar",
+        "objects": [{"category": "table", "x": 0, "y": 0, "width": 1,
+                     "depth": 1, "height": 1, "rotation": 0,
+                     "confidence": "high"}],
+        "object_count": 1,
+    }
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan/objects",
+        data={"object_index": "0"},
+        files=_usdz(),
+    )
+    assert resp.status_code == 200, resp.text
+    db.refresh.assert_awaited_with(room)
 
 
 def test_object_upload_bad_index_404(ctx):
