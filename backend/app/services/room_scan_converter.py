@@ -12,8 +12,10 @@ floor is the world XZ plane, so a surface's world position `(tx, ty, tz)` maps t
 app 2-D `(x = tx, y = tz)`. A wall's local X axis (transform column 0) runs along
 its length. Corners are merged wall endpoints, ordered into a loop, normalised so
 the bbox min corner is the origin, then straightened (±3° → square). Ceiling =
-median wall height. Openings → nearest wall, `position` 0..1. Objects ride in a
-separate list.
+median wall height. The world origin sits at *device* height, not on the floor
+(real scans put the floor near y = -1.6), so the floor plane is taken as the
+lowest wall base and window sills are measured from it. Openings → nearest
+wall, `position` 0..1. Objects ride in a separate list.
 """
 from __future__ import annotations
 
@@ -29,6 +31,10 @@ _STRAIGHTEN_TOL_DEG = 3.0
 _WALL_STEP_M = 0.05
 _COLLINEAR_TOL_DEG = 8.0
 _MIN_H, _MAX_H, _DEFAULT_H = 2.0, 5.0, 2.8
+# Sill limits, all measured from the room's own floor plane.
+_MAX_SILL_M = 2.5          # schema cap (RoomGeometry.WallElement)
+_SILL_SLACK_M = 0.25       # tolerate a little noise below the floor
+_FALLBACK_SILL_M = 0.9     # only for missing / absurd data
 
 Point = tuple[float, float]
 
@@ -233,11 +239,41 @@ def _nearest_wall(corners: list[Point], centre: Point) -> tuple[int, float] | No
     return None if best is None else (best, best_t)
 
 
-def _window_sill(s: ScanSurface, height: float) -> float:
-    sill = s.transform.m[13] - height / 2.0
-    if math.isnan(sill) or sill < 0.05 or sill > 2.5:
-        return 0.9
-    return sill
+def _floor_level(walls: list[ScanSurface]) -> float | None:
+    """World Y of the room's floor plane, derived from the walls themselves.
+
+    RoomPlan's world origin sits roughly at device height, *not* on the floor,
+    so floor-level geometry normally has a negative Y (a real scan measured
+    -1.622 m). Every wall runs floor-to-ceiling, so the lowest wall base is the
+    floor. Same wall filter as :func:`_ceiling_height` — the two functions read
+    the same surfaces, one for the top, one for the bottom.
+
+    Returns ``None`` when no usable wall exists (degenerate scan).
+    """
+    bases = [
+        w.transform.m[13] - w.dimensions.y / 2.0
+        for w in walls
+        if w.dimensions.y > 0.1
+        and math.isfinite(w.dimensions.y)
+        and math.isfinite(w.transform.m[13])
+    ]
+    return min(bases) if bases else None
+
+
+def _window_sill(s: ScanSurface, height: float, floor_y: float | None) -> float:
+    """Height of a window's lower edge above the floor, in metres.
+
+    The surface transform's Y is the opening's *centre* in RoomPlan world
+    space; subtracting the floor plane is what makes it a sill. The old code
+    used the absolute world Y, which on every real scan is negative and so hit
+    the fallback every time.
+    """
+    if floor_y is None:
+        return _FALLBACK_SILL_M
+    sill = s.transform.m[13] - height / 2.0 - floor_y
+    if not math.isfinite(sill) or sill < -_SILL_SLACK_M or sill > _MAX_SILL_M:
+        return _FALLBACK_SILL_M
+    return max(0.0, sill)  # a hair below the floor plane is measurement noise
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -253,6 +289,7 @@ def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
     corners = [_sub(c, origin) for c in corners]
 
     ceiling = _ceiling_height(room.walls)
+    floor_y = _floor_level(room.walls)
     n = len(corners)
 
     openings_per_wall: list[list[WallElement]] = [[] for _ in range(n)]
@@ -268,7 +305,8 @@ def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
                 type=el_type,  # type: ignore[arg-type]
                 width=_clamp(s.dimensions.x, 0.3, 5.0),
                 height=height,
-                sill_height=_window_sill(s, height) if el_type == "deraza" else 0.0,
+                sill_height=(_window_sill(s, height, floor_y)
+                             if el_type == "deraza" else 0.0),
                 position=_clamp(pos, 0.0, 1.0),
             ))
 
