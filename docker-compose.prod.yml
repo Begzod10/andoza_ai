@@ -69,6 +69,28 @@ services:
       - media_data:/app/media
     restart: unless-stopped
 
+  # USDZ→GLB conversion (Blender) on the `converter` queue. Separate image keeps
+  # api/worker slim. Mounts the shared media volume so it can read the uploaded
+  # .usdz and write the .glb back where the api serves them.
+  converter:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.converter
+    command: celery -A celery_app worker -l info -Q converter -c 2
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+      BLENDER_BIN: blender
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    restart: unless-stopped
+
   beat:
     build: ./backend
     command: celery -A celery_app beat -l info

@@ -1,4 +1,4 @@
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
+export const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
 
 function handleUnauthorized(): never {
   window.location.href = "/login";
@@ -221,6 +221,45 @@ export interface RoomGeometryData {
   vertices?: [number, number][];
 }
 
+/** One furniture/appliance object detected by the LiDAR RoomPlan scan.
+ *  Coordinates are METRES on the app floor plane (x,y), origin at the room
+ *  bbox min corner — the SAME convention as `room.geometry.vertices`.
+ *  `rotation` is yaw in radians; `width`/`depth`/`height` are the footprint
+ *  and height in metres. */
+export interface RoomScanObject {
+  category:
+    | "table" | "chair" | "sofa" | "bed" | "storage" | "refrigerator"
+    | "stove" | "sink" | "toilet" | "bathtub" | "washer" | "television"
+    | "fireplace" | "stairs" | "other";
+  x: number;
+  y: number;
+  width: number;
+  depth: number;
+  height: number;
+  rotation: number;
+  confidence: string;
+  /** Per-object photogrammetry scan (Phase 6). Null/absent when this object
+   *  was not individually scanned. When `glb_path` is set,
+   *  GET /rooms/{id}/room-scan/objects/{index}/model.glb streams it (auth). */
+  usdz_path?: string | null;
+  glb_path?: string | null;
+}
+
+/** LiDAR room-scan metadata attached to `RoomOut` for scanned (RoomPlan)
+ *  rooms. Absent/null for manually-built rooms. Mirrors the backend's
+ *  `room_scan` field (Phase 4). */
+export interface RoomScan {
+  source: "lidar";
+  roomplan_version: string;
+  scanned_at: string;
+  usdz_path: string;
+  /** Object-storage key for the streamable GLB, or null until it's produced.
+   *  When set, GET /rooms/{id}/room-scan/model.glb streams it (auth cookie). */
+  glb_path: string | null;
+  object_count: number;
+  objects: RoomScanObject[];
+}
+
 export interface Room {
   id: string;
   apartment_id: string;
@@ -250,6 +289,8 @@ export interface Room {
   updated_at?: string | null;
   /** Captured 3D-viewport snapshot, shown as the project-card image. Null until first captured. */
   thumbnail_url?: string | null;
+  /** LiDAR RoomPlan scan data — present only for scanned rooms (Phase 4/5). */
+  room_scan?: RoomScan | null;
 }
 
 export interface CreateRoomData {

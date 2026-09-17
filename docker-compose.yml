@@ -56,6 +56,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # USDZ→GLB conversion (Blender). Separate image so api/worker stay slim.
+  # Consumes only the `converter` queue. Optional in dev — build on demand:
+  #   docker compose build converter && docker compose up -d converter
+  converter:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.converter
+    command: celery -A celery_app worker -l info -Q converter -c 2
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+      BLENDER_BIN: blender
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   beat:
     build: ./backend
     command: celery -A celery_app beat -l info
