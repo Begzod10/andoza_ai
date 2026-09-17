@@ -63,6 +63,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.converter
+    # blender.org ships Linux builds for x86-64 only; the image is amd64 and runs
+    # under emulation on arm64 dev machines.
+    platform: linux/amd64
     command: celery -A celery_app worker -l info -Q converter -c 2
     working_dir: /app
     volumes:
