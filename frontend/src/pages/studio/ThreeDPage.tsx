@@ -1794,13 +1794,15 @@ export default function ThreeDPage() {
               maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              // Positive = head-turn feel: drag left and the room streams
-              // rightward across the view (drag right → it streams left).
-              // This is the direction the user asked for — twice; a stale
-              // tab running the old negative value is what made it look
-              // "still broken" once. Do not flip the sign again without
-              // dragging in the actual browser first.
               rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : 0.45}
+              // Horizontal drag runs opposite to OrbitControls' default
+              // grab-and-turn: dragging right sends the room left, dragging
+              // left sends it right. The user asked for this explicitly
+              // ("sliding viewport should be opposite in 3d view") after
+              // living with the default. Azimuth only — a negative
+              // rotateSpeed would flip the vertical axis too, which they
+              // did not ask for.
+              reverseHorizontalOrbit
               zoomSpeed={0.8}
             />
 
