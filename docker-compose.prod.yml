@@ -32,14 +32,21 @@ services:
 
   api:
     build: ./backend
-    # --proxy-headers: trust nginx's X-Forwarded-Proto so request.base_url —
-    # and therefore every absolute_media_url — says https, not http. Without
-    # it the API hands out http:// media URLs on the https site: <img> gets
-    # auto-upgraded by browsers, but fetch()/WebGL loads (GLB models, wall
-    # textures via CORS) hit the http→https 301, which carries no CORS
-    # headers, and die. forwarded-allow-ips "*" is required because nginx
-    # reaches uvicorn from the docker bridge, not localhost.
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+    # --proxy-headers: nginx terminates TLS on the host and proxies plain HTTP
+    # in, so without this uvicorn sees scheme=http and every media URL the API
+    # builds (glb_url, thumbnail_url, ...) comes back as http:// on an https
+    # site — the browser then blocks them as mixed content.
+    # --forwarded-allow-ips: the proxied request arrives from the Docker bridge
+    # gateway (e.g. 172.18.0.1), never from 127.0.0.1, so uvicorn's default
+    # trusted host would reject nginx's headers. 172.16.0.0/12 is the private
+    # range Docker allocates its bridge networks from — narrow enough that the
+    # published :8000 port cannot be used from the public internet to spoof
+    # X-Forwarded-*, unlike a blanket "*". Override via FORWARDED_ALLOW_IPS if
+    # this host's Docker pool differs.
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-172.16.0.0/12}"
     env_file:
       - ./backend/.env
     environment:
@@ -73,6 +80,28 @@ services:
         condition: service_healthy
     volumes:
       # Shared with api — the media queue writes thumbnails/derived files here.
+      - media_data:/app/media
+    restart: unless-stopped
+
+  # Room-scan GLB overlays on the `converter` queue, built in-process from the
+  # parametric scan data with numpy + trimesh. No USD reader and no Blender:
+  # this VPS's QEMU vCPU has no SSE4.2, Blender refuses to start on it and
+  # usd-core dies with SIGILL (see app/core/room_scan_glb.py). Same image as
+  # api/worker. Mounts the shared media volume so it can read the room's stored
+  # data and write the .glb back where the api serves it.
+  converter:
+    build: ./backend
+    command: celery -A celery_app worker -l info -Q converter -c 2
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
       - media_data:/app/media
     restart: unless-stopped
 

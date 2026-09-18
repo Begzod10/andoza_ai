@@ -23,7 +23,17 @@ services:
 
   api:
     build: ./backend
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    # Same proxy-header handling as docker-compose.prod.yml, kept in sync so a
+    # forwarded-scheme bug can be reproduced (and regression-tested) locally
+    # instead of only in production. See that file for why 172.16.0.0/12.
+    # The extra 192.168.65.0/24 is Docker Desktop's (macOS/Windows) host-side
+    # gateway: requests from the developer's machine arrive from 192.168.65.1,
+    # not from the Linux bridge gateway. Dev-only — prod stays narrow.
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      --proxy-headers
+      --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-172.16.0.0/12,192.168.65.0/24}"
     volumes:
       - ./backend:/app
     env_file:
@@ -42,6 +52,29 @@ services:
   worker:
     build: ./backend
     command: celery -A celery_app worker -l info -Q default,media -c 4
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Consumes only the `converter` queue (room-scan GLB overlays). Same image as
+  # api/worker: the build is pure Python (numpy + trimesh) over the parametric
+  # scan data, so there is nothing extra to install and no architecture pin — it
+  # runs identically on an Apple-Silicon dev box and on the prod VPS. Optional in
+  # dev:
+  #   docker compose up -d converter
+  converter:
+    build: ./backend
+    command: celery -A celery_app worker -l info -Q converter -c 2
     working_dir: /app
     volumes:
       - ./backend:/app

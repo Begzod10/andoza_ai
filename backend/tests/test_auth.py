@@ -121,7 +121,10 @@ class FakeDb:
     """Minimal AsyncSession stand-in: no user ever exists, so register()
     proceeds to create one and login() falls through to 'invalid credentials'.
     flush() fills in the server-side defaults (id, created_at, ...) that a
-    real INSERT would generate, so UserOut.model_validate() has what it needs."""
+    real INSERT would generate, so UserOut.model_validate() has what it needs.
+    refresh() applies the same defaults: register() reloads the user after
+    flush so the response carries created_at, and a stub without refresh()
+    makes every register 500 with AttributeError."""
 
     def __init__(self):
         self._pending: list = []
@@ -132,17 +135,26 @@ class FakeDb:
     def add(self, obj) -> None:
         self._pending.append(obj)
 
+    @staticmethod
+    def _apply_server_defaults(obj) -> None:
+        if getattr(obj, "id", None) is None:
+            obj.id = uuid.uuid4()
+        if getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime.now(timezone.utc)
+        if getattr(obj, "is_active", None) is None:
+            obj.is_active = True
+        if getattr(obj, "is_admin", None) is None:
+            obj.is_admin = False
+
     async def flush(self) -> None:
         for obj in self._pending:
-            if getattr(obj, "id", None) is None:
-                obj.id = uuid.uuid4()
-            if getattr(obj, "created_at", None) is None:
-                obj.created_at = datetime.now(timezone.utc)
-            if getattr(obj, "is_active", None) is None:
-                obj.is_active = True
-            if getattr(obj, "is_admin", None) is None:
-                obj.is_admin = False
+            self._apply_server_defaults(obj)
         self._pending.clear()
+
+    async def refresh(self, obj) -> None:
+        """Stand-in for SELECT-after-INSERT. With no real DB there is nothing
+        to re-read, so just guarantee the server-side defaults are present."""
+        self._apply_server_defaults(obj)
 
 
 # ===========================================================================

@@ -43,16 +43,28 @@ export const FLOOR_TYPES = [
   { key: "concrete", label: "Beton"   },
 ];
 
-/** Legacy A/B/C/D labels, by position, for today's normal 4-wall rectangle
- * room — kept verbatim so existing rooms render exactly as before. A wall
- * beyond the 4th (or one that isn't at a legacy position, e.g. a hand-drawn
- * polygon room's W1/W2/... ids) falls back to a label built from its real
- * id, mirroring how WizardPage's `wallStepLabel` falls back to
- * `${wall.id} devor` for walls past the first 4 — same idea, just matching
- * this module's existing "Devor <X>" word order. */
-function wallLabel(id: string, index: number): string {
-  const legacyLabels = ["Devor A", "Devor B", "Devor C", "Devor D"];
-  return legacyLabels[index] ?? `Devor ${id}`;
+/** The chip label for one wall.
+ *
+ * This used to index a hardcoded ["Devor A".."Devor D"] list BY POSITION, so
+ * a scanned room whose walls are "0".."4" rendered chips reading "Devor A",
+ * "Devor B", "Devor C", "Devor D", "Devor 4" — four labels naming walls that
+ * do not exist, plus one real id, with no way to tell which was which. The
+ * `key` was the real id all along, so selection targeted the right wall; only
+ * the name lied. Worse, the room-settings sheet and its DERAZALAR VA ESHIKLAR
+ * list label those same walls "Devor 0".."Devor 4", so the two panels
+ * disagreed about what a wall is called.
+ *
+ * A wall is now named after its real id — "Devor 0", "Devor W3" — for every
+ * room, exactly like `RoomSettingsSheet`'s `WALL_LABELS` fallback. The one
+ * exception needs no special case: the legacy wizard rectangle that
+ * `roomDims`' `hasAbcdWalls` identifies is exactly the room whose ids ARE
+ * A/B/C/D, so labelling by id keeps rendering "Devor A".."Devor D" for it
+ * byte-for-byte as before — the old position lookup and the id agree on that
+ * one shape and only on that one. Branching on `hasAbcdWalls` here would be
+ * dead code, so the test stays in `roomDims` for the callers (the header, the
+ * settings sheet's steppers) that genuinely have to pick a different layout. */
+function wallLabel(id: string): string {
+  return `Devor ${id}`;
 }
 
 /** Build the "ALL" + one-entry-per-actual-wall target list from the room's
@@ -64,7 +76,7 @@ function wallLabel(id: string, index: number): string {
 export function getWallTargets(geometry: Pick<RoomGeometry, "walls">): WallTargetOption[] {
   return [
     { key: "ALL", label: "Hamma devorlar" },
-    ...geometry.walls.map((w, i) => ({ key: w.id, label: wallLabel(w.id, i) })),
+    ...geometry.walls.map((w) => ({ key: w.id, label: wallLabel(w.id) })),
   ];
 }
 

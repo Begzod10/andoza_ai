@@ -9,6 +9,7 @@ import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
 import type { FloorPatternState } from '@/lib/floorGeometry'
 import { hourOfDay } from '@/lib/sunPosition'
+import { hasAbcdWalls } from '@/lib/roomDims'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 
@@ -574,17 +575,7 @@ export const useRoomStore = create<RoomStore>()(
   setWallLength(wallId, length) {
     set((state) => ({
       isDirty: true,
-      geometry: {
-        // Spread first: RoomGeometry also carries `vertices` (the polygon
-        // outline of a drawn/scanned room). Rebuilding the object with only
-        // `walls` dropped it, so the first opening edit on such a room erased
-        // its shape — NWallRoomShell renders nothing without vertices, and the
-        // 2D plans fall back to a bounding-box rectangle.
-        ...state.geometry,
-        walls: state.geometry.walls.map((w) =>
-          w.id === wallId ? { ...w, length } : w,
-        ),
-      },
+      geometry: resizeWall(state.geometry, wallId, length),
     }))
   },
 
@@ -1091,6 +1082,90 @@ export function useTemporalRoomStore<T>(
   selector: (state: TemporalState<RoomTemporalState>) => T,
 ): T {
   return useStoreWithEqualityFn(useRoomStore.temporal, selector, Object.is)
+}
+
+// ─── Geometry editing ────────────────────────────────────────────────────────
+
+/**
+ * Sets one wall's length, and — for a polygon room — actually MOVES the
+ * outline so the 3D view agrees with the number.
+ *
+ * A legacy ABCD rectangle is rendered from `walls[].length` alone, so writing
+ * the length is the whole edit. A LiDAR-scanned or hand-drawn polygon is
+ * rendered from `geometry.vertices` instead (RoomShell's NWallRoomShell,
+ * wallDefsFromVertices, DoorLeaves, the scan overlay — all of them read the
+ * vertices, none of them read `length`), so writing `length` on its own is a
+ * number that changes on screen while the room does not. Here the edited edge
+ * is stretched along its own direction and the rest of the loop is carried
+ * with it:
+ *
+ *   - vertex `i` (the edge's start) and vertex `i - 1` stay put;
+ *   - vertices `i + 1 … i + n - 2` all translate by the same delta, so every
+ *     edge between them keeps its exact length AND direction;
+ *   - the edge ending at the fixed vertex `i - 1` takes up the slack.
+ *
+ * On a rectilinear outline this is the behaviour a user expects: on a 4-edge
+ * rectangle, lengthening edge 0 lengthens the opposite edge 2 by the same
+ * amount and leaves it a rectangle — the polygon equivalent of the A–C / B–D
+ * pairing the wizard rectangle has always had.
+ *
+ * Every wall length is then recomputed from the moved vertices, so the list
+ * in the settings sheet, the perimeter and the smeta keep telling the truth
+ * about the shape that is actually drawn.
+ */
+export function resizeWall(
+  geometry: RoomGeometry,
+  wallId: string,
+  length: number,
+): RoomGeometry {
+  const idx = geometry.walls.findIndex((w) => w.id === wallId)
+  if (idx === -1) return geometry
+
+  const verts = geometry.vertices
+  const n = geometry.walls.length
+  // Only a real polygon is vertex-driven: an ABCD rectangle keeps the legacy
+  // length-driven path even though it also carries auto-populated vertices.
+  const isVertexDriven =
+    !!verts && verts.length === n && n >= 3 && !hasAbcdWalls(geometry)
+
+  // Length-only write, for a legacy rectangle or a polygon with no usable
+  // vertex loop. An ABCD rectangle drops its (now stale) auto-populated
+  // vertices exactly as this action always has — computeFloorArea and friends
+  // prefer `vertices` when present, so leaving them behind would freeze the
+  // area at the pre-edit shape. Anything else keeps whatever it carries.
+  const lengthOnly = (): RoomGeometry => {
+    const walls = geometry.walls.map((w) => (w.id === wallId ? { ...w, length } : w))
+    return hasAbcdWalls(geometry) ? { walls } : { ...geometry, walls }
+  }
+
+  if (!isVertexDriven) return lengthOnly()
+
+  const [x1, z1] = verts![idx]
+  const [x2, z2] = verts![(idx + 1) % n]
+  const current = Math.hypot(x2 - x1, z2 - z1)
+  // Degenerate edge: no direction to stretch along, so fall back to writing
+  // the number rather than producing NaN vertices.
+  if (!(current > 1)) return lengthOnly()
+
+  const k = (length - current) / current
+  const ox = (x2 - x1) * k
+  const oz = (z2 - z1) * k
+
+  const moved = new Set<number>()
+  for (let step = 1; step <= n - 2; step++) moved.add((idx + step) % n)
+
+  const vertices = verts!.map(([x, z], i) =>
+    moved.has(i) ? ([x + ox, z + oz] as [number, number]) : ([x, z] as [number, number]),
+  )
+
+  return {
+    vertices,
+    walls: geometry.walls.map((w, i) => {
+      const [ax, az] = vertices[i]
+      const [bx, bz] = vertices[(i + 1) % n]
+      return { ...w, length: Math.hypot(bx - ax, bz - az) }
+    }),
+  }
 }
 
 // ─── Pure derived metric functions ───────────────────────────────────────────

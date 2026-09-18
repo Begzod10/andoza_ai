@@ -28,6 +28,17 @@ export interface PolyWallDef {
   face: number
   /** along-axis world coordinate of the wall's LEFT edge (position = 0) */
   leftAlong: number
+  /** TRUE world midpoint of the edge (metres, centroid-centred frame). Unlike
+   *  `face`/`leftAlong` this is exact for a diagonal edge, and matches the
+   *  `mx`/`mz` `NWallRoomShell` positions the drawn wall box at. */
+  midX: number
+  midZ: number
+  /** Unit vector along the edge, from `vertices[i]` (where a wall element's
+   *  `position` is measured from, i.e. position 0) toward `vertices[i + 1]`.
+   *  Same direction `NWallRoomShell`'s wall group maps its local +X to, so a
+   *  world point on the wall is `mid + dir * (alongMetres - length / 2)`. */
+  dirX: number
+  dirZ: number
   length: number
   ry: number
   normal: THREE.Vector3
@@ -121,7 +132,20 @@ export function wallDefsFromVertices(
     const midpoint = new THREE.Vector3((x1 + x2) / 2, 0, (z1 + z2) / 2)
     const plane = new THREE.Plane(normal, -normal.dot(midpoint))
 
-    defs[id] = { id, axis, face, leftAlong, length, ry, normal, plane }
+    defs[id] = {
+      id,
+      axis,
+      face,
+      leftAlong,
+      midX: (x1 + x2) / 2,
+      midZ: (z1 + z2) / 2,
+      dirX: dx / length,
+      dirZ: dz / length,
+      length,
+      ry,
+      normal,
+      plane,
+    }
   }
 
   return defs

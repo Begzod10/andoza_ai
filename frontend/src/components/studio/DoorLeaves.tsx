@@ -73,63 +73,78 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * points INTO the room. Doing the maths once here means the leaf, its hinge
  * and its swing are described in one orientation instead of four.
  */
-interface WallFrame {
+export interface WallFrame {
   id: string;
   yaw: number;
+  /** World centre of the wall (its edge's true midpoint). */
   cx: number;
   cz: number;
-  /** 'X' walls run along world X, 'Z' walls along world Z. */
-  axis: "X" | "Z";
+  /** Unit vector along the wall in world XZ, pointing from the element
+   *  `position` = 0 end toward the `position` = length end. For the legacy
+   *  axis-aligned rectangle this is simply +X or +Z; for a polygon edge it is
+   *  the edge's own direction, which is the whole point — a diagonal wall has
+   *  no single world axis to slide an opening along. */
+  ux: number;
+  uz: number;
   lengthM: number;
 }
 
 function wallFrames(W: number, D: number): WallFrame[] {
   return [
-    { id: "A", yaw: 0, cx: 0, cz: -D / 2, axis: "X", lengthM: W },
-    { id: "C", yaw: Math.PI, cx: 0, cz: D / 2, axis: "X", lengthM: W },
-    { id: "B", yaw: -Math.PI / 2, cx: W / 2, cz: 0, axis: "Z", lengthM: D },
-    { id: "D", yaw: Math.PI / 2, cx: -W / 2, cz: 0, axis: "Z", lengthM: D },
+    { id: "A", yaw: 0, cx: 0, cz: -D / 2, ux: 1, uz: 0, lengthM: W },
+    { id: "C", yaw: Math.PI, cx: 0, cz: D / 2, ux: 1, uz: 0, lengthM: W },
+    { id: "B", yaw: -Math.PI / 2, cx: W / 2, cz: 0, ux: 0, uz: 1, lengthM: D },
+    { id: "D", yaw: Math.PI / 2, cx: -W / 2, cz: 0, ux: 0, uz: 1, lengthM: D },
   ];
 }
 
 /**
  * Same WallFrame contract as `wallFrames`, but for a polygon room — backs
- * the rectilinear/N-wall hand-drawing feature (a RoomPlan-drawn layout with
- * other-than-4 walls, described by `geometry.vertices`). Built on the shared
+ * the rectilinear/N-wall hand-drawing feature and LiDAR-scanned rooms (any
+ * layout described by `geometry.vertices`). Built on the shared
  * `wallDefsFromVertices` utility so this file's frames stay in lockstep with
  * `NWallRoomShell`'s rendered wall boxes (see that function's centering/
  * rotation convention — read-only reference, not edited here).
  *
- * `PolyWallDef` describes each wall by its constant cross-axis `face` and
- * its along-axis `leftAlong` (position-0) coordinate rather than a centre
- * point, so the centre this file's frames need is reconstructed here as
- * `leftAlong + length / 2`.
+ * Uses that util's exact per-edge midpoint and direction (`midX`/`midZ`,
+ * `dirX`/`dirZ`), NOT its `axis`/`face`/`leftAlong` triple. Those three are an
+ * axis-aligned APPROXIMATION — they snap a genuinely diagonal edge to
+ * whichever world axis it is closer to — which is tolerable for click
+ * hit-testing but puts a leaf metres away from its wall on a scanned room,
+ * where no edge is axis-aligned. The midpoint/direction pair is exact for any
+ * edge and reproduces the wall group `NWallRoomShell` draws the opening's
+ * hole in.
  */
-function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
+export function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
   const defs = wallDefsFromVertices(vertices, wallIds);
   const out: WallFrame[] = [];
   for (const id of wallIds) {
     const d = defs[id];
     if (!d) continue; // degenerate edge (near-duplicate vertex) — no frame for it
-    const centreAlong = d.leftAlong + d.length / 2;
     out.push({
       id: d.id,
       yaw: d.ry,
-      cx: d.axis === "X" ? centreAlong : d.face,
-      cz: d.axis === "Z" ? centreAlong : d.face,
-      axis: d.axis,
+      cx: d.midX,
+      cz: d.midZ,
+      ux: d.dirX,
+      uz: d.dirZ,
       lengthM: d.length,
     });
   }
   return out;
 }
 
-/** World-space centre of a door sitting at `position` mm along its wall. */
-function openingCentre(wf: WallFrame, el: WallElement) {
+/** World-space centre of a door sitting at `position` mm along its wall:
+ *  the wall centre displaced along the wall's own direction by how far the
+ *  opening's midpoint sits from that centre. */
+export function openingCentre(
+  wf: WallFrame,
+  el: { position: number; width: number },
+) {
   const offset = (el.position + el.width / 2 - wf.lengthM * 500) * S;
   return {
-    x: wf.axis === "X" ? wf.cx + offset : wf.cx,
-    z: wf.axis === "Z" ? wf.cz + offset : wf.cz,
+    x: wf.cx + wf.ux * offset,
+    z: wf.cz + wf.uz * offset,
   };
 }
 
@@ -258,7 +273,7 @@ export function OpeningLeaves({
     const axisScreenSign = (wallId: string): number => {
       const wf = frames.find((f) => f.id === wallId);
       if (!wf) return 1;
-      const axis = new THREE.Vector3(wf.axis === "X" ? 1 : 0, 0, wf.axis === "Z" ? 1 : 0);
+      const axis = new THREE.Vector3(wf.ux, 0, wf.uz);
       const origin = new THREE.Vector3(wf.cx, 1, wf.cz);
       const a = origin.clone().project(camera);
       const b = origin.clone().add(axis).project(camera);

@@ -32,6 +32,8 @@ import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { DraggableFurnitureModels, type SelectedPart, type ToolMode } from "@/features/studio/StudioFurniture";
 export { FurnitureModels } from "@/features/studio/StudioFurniture";
+import { RoomScanReference, type ScanSwapRequest } from "./three-d/RoomScanOverlay";
+import { uz } from "@/locale/uz";
 import { nanoid } from "nanoid";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
@@ -248,6 +250,14 @@ export default function ThreeDPage() {
   }), [sunHour, today, highQuality3d]);
   const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [showHelp, setShowHelp] = useState(false);
+  // LiDAR scan reference layer (GLB overlay + object ghost boxes). OFF by
+  // default — it is a pure reference aid, never part of the default view.
+  const [showScan, setShowScan] = useState(false);
+  // Ghost indices already swapped for a real catalog model — hidden from then on.
+  const [replacedGhosts, setReplacedGhosts] = useState<Set<number>>(() => new Set());
+  // The scanned-object ghost currently being replaced from the catalog, if any.
+  const [scanSwap, setScanSwap] = useState<ScanSwapRequest | null>(null);
+  const hasScan = !!room.room_scan;
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
   // Project-card thumbnail: grabbed from the live canvas when the user
@@ -1253,7 +1263,31 @@ export default function ThreeDPage() {
                       {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
                     </span>
                   </button>
+                  {/* Scan reference layer — only for LiDAR-scanned rooms.
+                      Overlays the semi-transparent RoomPlan GLB + translucent
+                      ghost boxes for every detected object. Reference only. */}
+                  {hasScan && (
+                    <button
+                      onClick={() => setShowScan(v => !v)}
+                      title={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
+                      aria-label={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
+                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                        showScan
+                          ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
+                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+                        <path d="M3 12h18" />
+                      </svg>
+                      <span>{uz.studio.skan.korinishi}</span>
+                    </button>
+                  )}
                 </div>
+                {hasScan && showScan && (
+                  <p className="mt-2 text-xs text-amber-700">{uz.studio.skan.izoh}</p>
+                )}
               </div>
 
               {/* ── Lighting cluster: day/night, sun clock, room lights ── */}
@@ -1716,6 +1750,16 @@ export default function ThreeDPage() {
             <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
               onDelete={(id) => { useRoomStore.getState().removeFurniture(id); setSelectedFurId(null); }}
               selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
+            {/* LiDAR scan reference: GLB overlay + object ghost boxes. Gated by
+                the "Skan ko'rinishi" toggle; renders nothing for manual rooms. */}
+            <RoomScanReference
+              roomId={room.id}
+              roomScan={room.room_scan}
+              geometry={geometry}
+              visible={showScan}
+              replaced={replacedGhosts}
+              onReplace={setScanSwap}
+            />
             <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
             <OpeningLayer
               geometry={geometry}
@@ -1904,6 +1948,17 @@ export default function ThreeDPage() {
       </div>
 
       {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
+      {/* Scanned-object → catalog swap: the same catalog picker, filtered to the
+          object's category and placed at the ghost's position/rotation. */}
+      {scanSwap && (
+        <AddObjectSheet
+          onClose={() => setScanSwap(null)}
+          initialSection="furniture"
+          initialCategory={scanSwap.category}
+          placementOverride={{ x: scanSwap.x, y: scanSwap.y, rotation: scanSwap.rotation }}
+          onPlaced={() => setReplacedGhosts((prev) => new Set(prev).add(scanSwap.index))}
+        />
+      )}
       <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
       <NewWindowSheet
         isOpen={pendingWindowSpot !== null}

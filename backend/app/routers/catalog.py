@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.cache import cache_get, cache_set
-from app.core.storage import absolute_media_url
+from app.core.storage import absolute_media_url, request_base_url
 from app.core.uz_regions import UZ_REGIONS
 from app.database import get_db
 from app.models.furniture import Furniture
@@ -159,9 +159,15 @@ async def list_furniture(
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
     # glb_url/thumbnail_url are resolved per-request (they embed the request's
-    # host), so the cache stores the already-resolved payload — safe as long
-    # as storage is served from a stable base URL for the TTL window.
-    cache_key = f"furniture:{category}:{room_type}:{page}:{per_page}"
+    # origin), so the cache stores the already-resolved payload. The origin is
+    # therefore part of the key: otherwise whichever scheme/host warmed the
+    # cache first would be served to everyone for the whole TTL — e.g. one
+    # plain-http request could pin http:// URLs on an https site and bring the
+    # mixed-content breakage back for the TTL window.
+    cache_key = (
+        f"furniture:{request_base_url(request)}:"
+        f"{category}:{room_type}:{page}:{per_page}"
+    )
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedFurniture.model_validate(cached)
@@ -241,6 +247,7 @@ async def list_ustalar(
     db: DbSession,
     category: str | None = Query(default=None),
     district: str | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search by name substring"),
     sort: str | None = Query(default=None, description="rating | price_asc | price_desc"),
 ) -> list[UstaOut]:
     if sort is not None and sort not in _USTA_SORTS:
@@ -249,7 +256,9 @@ async def list_ustalar(
             detail=f"sort {', '.join(sorted(_USTA_SORTS))} dan biri (yoki bo'sh) bo'lishi kerak",
         )
 
-    cache_key = f"ustalar:{category}:{district}:{sort}"
+    # `q` is part of the cache key — otherwise two different name searches
+    # (or a search vs. no search) collide on the same cached result set.
+    cache_key = f"ustalar:{category}:{district}:{q}:{sort}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return [UstaOut.model_validate(u) for u in cached]
@@ -259,6 +268,8 @@ async def list_ustalar(
         query = query.where(Usta.category == category)
     if district:
         query = query.where(Usta.district == district)
+    if q:
+        query = query.where(Usta.name.ilike(f"%{q}%"))
 
     # price_asc/price_desc order by price_min — the "starting from" price a
     # craftsman card actually leads with. NULLS LAST either direction so a
@@ -279,6 +290,21 @@ async def list_ustalar(
         ttl=_CATALOG_CACHE_TTL,
     )
     return payload
+
+
+@router.get(
+    "/ustalar/{usta_id}",
+    response_model=UstaOut,
+    summary="Fetch a single craftsman profile by id",
+)
+async def get_usta(usta_id: UUID, db: DbSession) -> UstaOut:
+    result = await db.execute(
+        select(Usta).where(Usta.id == usta_id, Usta.is_active.is_(True))
+    )
+    usta = result.scalar_one_or_none()
+    if usta is None:
+        raise HTTPException(status_code=404, detail="Usta topilmadi")
+    return UstaOut.model_validate(usta)
 
 
 # ---------------------------------------------------------------------------

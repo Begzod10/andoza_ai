@@ -42,6 +42,17 @@ interface WallProps {
   panelSettings?: WallPanelSettings;
   /** Suvoq bosqichi: photo-real plaster PBR material on every segment */
   plaster?: boolean;
+  /**
+   * Force which side each segment's inner (visible, FrontSide) face points to,
+   * overriding the ABCD default derived from cx/cz. +1 = plane normal on local
+   * +Z (axis 'X') / +X-inward; −1 = the opposite face. Only used by the N-wall
+   * polygon shell, which renders every wall as an axis-'X' wall at the origin
+   * wrapped in a rotated <group>: the wall's along-length direction is fixed by
+   * the edge winding (v[i]→v[i+1]), so the room-inward face has to be selected
+   * explicitly per edge instead of inferred from an axis-aligned position.
+   * Undefined on every ABCD call site → behaviour byte-identical there.
+   */
+  innerFaceDir?: 1 | -1;
 }
 
 
@@ -457,7 +468,7 @@ function makeCoverSeg(
   return { px, py, pz, ry, pw, ph, uOffset, uRepeat, vRepeat, startMm: texStartMm, startYm }
 }
 
-export const Wall = memo(function Wall({ wallId, length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false }: WallProps) {
+export const Wall = memo(function Wall({ wallId, length, height, thickness, covering, elements, axis, cx, cz, isSelected = false, onClick, panelSettings, plaster = false, innerFaceDir }: WallProps) {
   const oboyTexture = useMemo(() => {
     if (covering.kind !== 'oboy') return null;
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor);
@@ -561,7 +572,8 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
 
       if (axis === 'X') {
         // Thickness runs in Z. Inner face offset ± T/2 along Z from centre.
-        const faceDir = posZ <= 0 ? 1 : -1   // Wall A: cz<0 → +Z; Wall C: cz>0 → −Z
+        // innerFaceDir (N-wall) overrides the ABCD cz-derived default.
+        const faceDir = innerFaceDir ?? (posZ <= 0 ? 1 : -1)   // Wall A: cz<0 → +Z; Wall C: cz>0 → −Z
         px = posX
         pz = posZ + faceDir * thickness / 2
         ry = faceDir > 0 ? 0 : Math.PI
@@ -569,7 +581,7 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
         mirrored = faceDir < 0   // Wall C: local U runs against world +X
       } else {
         // axis === 'Z': thickness runs in X. Inner face offset ± T/2 along X.
-        const faceDir = posX >= 0 ? -1 : 1   // Wall B: cx>0 → −X; Wall D: cx<0 → +X
+        const faceDir = innerFaceDir ?? (posX >= 0 ? -1 : 1)   // Wall B: cx>0 → −X; Wall D: cx<0 → +X
         px = posX + faceDir * thickness / 2
         pz = posZ
         ry = faceDir > 0 ? Math.PI / 2 : -Math.PI / 2
@@ -652,7 +664,7 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
     }
 
     return segs;
-  }, [resolvedElements, length, height, thickness, axis, cx, cz]);
+  }, [resolvedElements, length, height, thickness, axis, cx, cz, innerFaceDir]);
 
   return (
     <group onClick={onClick}>
@@ -711,7 +723,7 @@ const FRAME_W = 0.05; // 5cm frame width
 // useMemo (a few dozen lines up) to avoid shadowing it.
 const MM = 1 / 1000;
 
-interface FrameWallDef {
+export interface FrameWallDef {
   id: string;
   axis: "X" | "Z";
   cx: number;
@@ -814,7 +826,7 @@ const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} 
  *  from the interior wall face. The flat frame ring sits at the OUTER end of
  *  that tunnel (flush with the exterior face), so from inside you look down
  *  a 200 mm-deep niche to the glass. */
-function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
+export function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const groupRef = useRef<THREE.Group>(null);
   useLiveFrameGroup(groupRef, wd, el);
 
@@ -956,7 +968,7 @@ export function WindowFrames({
  *  ordinarily 0, but the threshold's own Y is still expressed relative to it
  *  (`0.01 - py`) so the rendered result is identical even if that ever
  *  changes. */
-function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
+export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const groupRef = useRef<THREE.Group>(null);
   useLiveFrameGroup(groupRef, wd, el);
 
