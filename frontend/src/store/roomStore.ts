@@ -72,8 +72,9 @@ export interface PlacedLight {
   /** Fixture kind from LIGHT_TYPES. Absent on lights saved before fixture
    *  types existed — those are plain ceiling lights (DEFAULT_LIGHT_TYPE). */
   type?: string
-  /** Wall a wall-mounted fixture is fixed to. */
-  wallId?: 'A' | 'B' | 'C' | 'D'
+  /** Wall a wall-mounted fixture is fixed to. Any wall id, not just A-D: a
+   *  drawn or scanned room's walls are W1..Wn. */
+  wallId?: string
   /** Per-fixture overrides of the catalog defaults. Absent = use the default,
    *  so changing a catalog value still moves every light the user never
    *  touched. */
@@ -574,6 +575,12 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first: RoomGeometry also carries `vertices` (the polygon
+        // outline of a drawn/scanned room). Rebuilding the object with only
+        // `walls` dropped it, so the first opening edit on such a room erased
+        // its shape — NWallRoomShell renders nothing without vertices, and the
+        // 2D plans fall back to a bounding-box rectangle.
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId ? { ...w, length } : w,
         ),
@@ -586,6 +593,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: [...w.elements, newElement] }
@@ -599,6 +608,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: w.elements.filter((e) => e.id !== elementId) }
@@ -612,6 +623,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: w.elements.map((e) => e.id === elementId ? { ...e, ...patch } : e) }
@@ -625,6 +638,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: [...w.elements].reverse().map(e => ({ ...e, position: 0 })) }
@@ -638,6 +653,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) => {
           if (w.id !== wallId) return w;
           const idx1 = w.elements.findIndex((e) => e.id === id1);
