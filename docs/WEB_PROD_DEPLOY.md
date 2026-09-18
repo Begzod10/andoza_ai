@@ -63,6 +63,40 @@ VITE_API_URL=https://andoza.jumaniyozov.uz/api/v1 \
   docker compose -f docker-compose.prod.yml up -d --build frontend
 ```
 
+### The other half: media URLs the API generates
+
+The same mixed-content trap bites from the server side. nginx terminates TLS and
+proxies plain HTTP to the container, so the API only learns the browser's real
+scheme from `X-Forwarded-Proto`. uvicorn ignores that header unless it is started
+with `--proxy-headers`, and it only trusts it from `--forwarded-allow-ips`:
+
+```yaml
+command: >
+  sh -c "alembic upgrade head &&
+  uvicorn app.main:app --host 0.0.0.0 --port 8000
+  --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-172.16.0.0/12}"
+```
+
+`172.16.0.0/12` is the private range Docker allocates bridge networks from — the
+proxied request reaches the container from the bridge *gateway* (e.g.
+`172.18.0.1`), never from `127.0.0.1`, so uvicorn's default would silently reject
+nginx's headers. Set `FORWARDED_ALLOW_IPS` if this host's Docker pool differs.
+Avoid `*`: `:8000` is published on the public interface, so `*` would let anyone
+spoof `X-Forwarded-*`.
+
+Without it every `glb_url`/`thumbnail_url` came back as `http://...` on the HTTPS
+site and the browser blocked all of them — no 3-D furniture model would load.
+`app/core/storage.py::request_base_url` now also upgrades the scheme from
+`X-Forwarded-Proto` itself (one-way, never a downgrade) as a backstop, and honours
+`PUBLIC_BASE_URL` when you want to pin the origin explicitly.
+
+Check it after a deploy:
+
+```bash
+curl -s https://andoza.jumaniyozov.uz/api/v1/furniture | grep -o 'http://[^"]*' | head
+# must print nothing
+```
+
 ---
 
 ## 3. Deploying a change

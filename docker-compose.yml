@@ -23,7 +23,17 @@ services:
 
   api:
     build: ./backend
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    # Same proxy-header handling as docker-compose.prod.yml, kept in sync so a
+    # forwarded-scheme bug can be reproduced (and regression-tested) locally
+    # instead of only in production. See that file for why 172.16.0.0/12.
+    # The extra 192.168.65.0/24 is Docker Desktop's (macOS/Windows) host-side
+    # gateway: requests from the developer's machine arrive from 192.168.65.1,
+    # not from the Linux bridge gateway. Dev-only — prod stays narrow.
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      --proxy-headers
+      --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-172.16.0.0/12,192.168.65.0/24}"
     volumes:
       - ./backend:/app
     env_file:

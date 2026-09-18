@@ -32,7 +32,21 @@ services:
 
   api:
     build: ./backend
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # --proxy-headers: nginx terminates TLS on the host and proxies plain HTTP
+    # in, so without this uvicorn sees scheme=http and every media URL the API
+    # builds (glb_url, thumbnail_url, ...) comes back as http:// on an https
+    # site — the browser then blocks them as mixed content.
+    # --forwarded-allow-ips: the proxied request arrives from the Docker bridge
+    # gateway (e.g. 172.18.0.1), never from 127.0.0.1, so uvicorn's default
+    # trusted host would reject nginx's headers. 172.16.0.0/12 is the private
+    # range Docker allocates its bridge networks from — narrow enough that the
+    # published :8000 port cannot be used from the public internet to spoof
+    # X-Forwarded-*, unlike a blanket "*". Override via FORWARDED_ALLOW_IPS if
+    # this host's Docker pool differs.
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-172.16.0.0/12}"
     env_file:
       - ./backend/.env
     environment:

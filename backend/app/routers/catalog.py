@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.cache import cache_get, cache_set
-from app.core.storage import absolute_media_url
+from app.core.storage import absolute_media_url, request_base_url
 from app.core.uz_regions import UZ_REGIONS
 from app.database import get_db
 from app.models.furniture import Furniture
@@ -159,9 +159,15 @@ async def list_furniture(
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
     # glb_url/thumbnail_url are resolved per-request (they embed the request's
-    # host), so the cache stores the already-resolved payload — safe as long
-    # as storage is served from a stable base URL for the TTL window.
-    cache_key = f"furniture:{category}:{room_type}:{page}:{per_page}"
+    # origin), so the cache stores the already-resolved payload. The origin is
+    # therefore part of the key: otherwise whichever scheme/host warmed the
+    # cache first would be served to everyone for the whole TTL — e.g. one
+    # plain-http request could pin http:// URLs on an https site and bring the
+    # mixed-content breakage back for the TTL window.
+    cache_key = (
+        f"furniture:{request_base_url(request)}:"
+        f"{category}:{room_type}:{page}:{per_page}"
+    )
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedFurniture.model_validate(cached)
