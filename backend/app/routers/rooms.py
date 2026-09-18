@@ -157,6 +157,10 @@ async def upload_room_scan(
             }
             for o in conv.objects
         ],
+        # Pre-tidy measurements kept alongside the processed geometry, so the
+        # rounding/snapping/clamping the converter does stays inspectable and
+        # the true scan numbers are never silently lost. Read-only metadata.
+        "raw": conv.raw,
     }
     await db.flush()
     # Reload before serialising: the flush UPDATEs the row, which expires the

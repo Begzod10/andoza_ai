@@ -176,3 +176,127 @@ def test_nan_and_absurd_sills_still_fall_back():
     assert _window_sill(window_at(-1.0), 1.2, -1.25) == 0.9       # below the floor
     # Slightly-below-floor noise clamps to a floor-level sill, not the fallback.
     assert _window_sill(window_at(-0.7), 1.2, -1.25) == 0.0
+
+
+# ── raw (pre-tidy) capture ────────────────────────────────────────────────
+# `convert_captured_room` deliberately rounds wall lengths to 5 cm, snaps near-
+# square angles, drops <8° corners and clamps ceiling/opening sizes. That stays.
+# These tests pin the *additive* record of what was measured before all that,
+# which rides in `rooms.room_scan.raw`.
+
+def _raw_of(path: Path) -> dict:
+    return _convert(path).raw
+
+
+def test_raw_block_has_the_measurements_the_processing_would_lose():
+    raw = _raw_of(_REAL_2)
+    assert raw["schema"] == 1
+    conv = _convert(_REAL_2)
+    assert len(raw["corners"]) == len(raw["wall_lengths"]) == 5
+    assert raw["wall_heights"] and all(h > 0 for h in raw["wall_heights"])
+    assert raw["ceiling_h"] is not None
+    assert raw["floor_y"] is not None and raw["floor_y"] < 0  # device-height origin
+    # One door + one window, each carrying the confidence the WallElement drops.
+    assert {o["type"] for o in raw["openings"]} == {"eshik", "deraza"}
+    assert all(o["confidence"] in ("high", "medium", "low") for o in raw["openings"])
+    assert all(0 <= o["wall"] < len(conv.geometry.walls) for o in raw["openings"])
+
+
+def test_raw_wall_lengths_are_off_the_5cm_grid_that_processing_snaps_to():
+    raw = _raw_of(_REAL_2)
+    conv = _convert(_REAL_2)
+    proc = [w.length for w in conv.geometry.walls]
+    assert len(proc) == len(raw["wall_lengths"])
+    # Raw values are genuinely different from the processed ones...
+    assert any(abs(p - r) > 1e-6 for p, r in zip(proc, raw["wall_lengths"]))
+    # ...and the recorded per-wall delta matches that difference.
+    for d, p, r in zip(raw["deltas"]["wall_length"], proc, raw["wall_lengths"]):
+        assert abs(d - (p - r)) < 1e-3
+    # The loop-closure gap `_straighten` redistributed is non-zero on a real scan.
+    assert raw["deltas"]["closure_gap_m"] > 0
+    areas = raw["deltas"]["area_m2"]
+    assert areas["raw"] > 30 and areas["processed"] > 30
+    assert abs(areas["delta"] - (areas["processed"] - areas["raw"])) < 1e-3
+
+
+def test_raw_values_are_rounded_not_full_float_repr():
+    raw = _raw_of(_REAL_1)
+    numbers = (
+        [v for c in raw["corners"] for v in c]
+        + raw["wall_lengths"] + raw["wall_heights"] + [raw["ceiling_h"], raw["floor_y"]]
+        + [o["width"] for o in raw["openings"]]
+    )
+    assert numbers and all(round(v, 4) == v for v in numbers)
+
+
+def test_raw_keeps_the_ceiling_and_opening_sizes_the_clamps_trim():
+    """A too-tall room with an over-wide window: processed hits the caps, raw doesn't."""
+    from app.schemas.room_scan import CapturedRoom, ScanSurface, ScanTransform, Vec3
+
+    def transform(tx: float, ty: float, tz: float, along_x: bool = True):
+        m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, tx, ty, tz, 1]
+        if not along_x:
+            m[0], m[2] = 0.0, 1.0                     # wall runs along Z
+        return ScanTransform(m=[float(v) for v in m])
+
+    h = 6.0                                           # above the 5.0 m ceiling cap
+    room = CapturedRoom(
+        walls=[
+            ScanSurface(dimensions=Vec3(x=8.0, y=h, z=0.1), transform=transform(4, 0, 0)),
+            ScanSurface(dimensions=Vec3(x=6.0, y=h, z=0.1), transform=transform(8, 0, 3, False)),
+            ScanSurface(dimensions=Vec3(x=8.0, y=h, z=0.1), transform=transform(4, 0, 6)),
+            ScanSurface(dimensions=Vec3(x=6.0, y=h, z=0.1), transform=transform(0, 0, 3, False)),
+        ],
+        windows=[ScanSurface(
+            dimensions=Vec3(x=6.5, y=4.0, z=0.1),     # wider/taller than the caps
+            transform=transform(4, 0, 0),
+        )],
+    )
+    conv = convert_captured_room(room)
+    raw = conv.raw
+
+    assert conv.ceiling_h == 5.0 and raw["ceiling_h"] == 6.0
+    assert raw["deltas"]["ceiling_h"] == -1.0
+
+    window = next(e for e in _elements(conv) if e.type == "deraza")
+    assert window.width == 5.0 and window.height == 3.5          # clamped
+    raw_window = next(o for o in raw["openings"] if o["type"] == "deraza")
+    assert raw_window["width"] == 6.5 and raw_window["height"] == 4.0
+
+
+def test_raw_corner_count_survives_collinear_removal():
+    """A near-straight corner is dropped by `_remove_collinear`; raw keeps it."""
+    from app.schemas.room_scan import CapturedRoom, ScanSurface, ScanTransform, Vec3
+
+    def wall(x0, z0, x1, z1):
+        cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+        dx, dz = x1 - x0, z1 - z0
+        length = (dx * dx + dz * dz) ** 0.5
+        m = [dx / length, 0, dz / length, 0, 0, 1, 0, 0, 0, 0, 1, 0, cx, 0, cz, 1]
+        return ScanSurface(dimensions=Vec3(x=length, y=2.5, z=0.1),
+                           transform=ScanTransform(m=[float(v) for v in m]))
+
+    # A rectangle whose bottom edge is split in two by an almost-straight corner.
+    room = CapturedRoom(walls=[
+        wall(0, 0, 4, 0.02), wall(4, 0.02, 8, 0), wall(8, 0, 8, 6),
+        wall(8, 6, 0, 6), wall(0, 6, 0, 0),
+    ])
+    conv = convert_captured_room(room)
+    counts = conv.raw["deltas"]["corner_count"]
+    assert counts["raw"] == 5
+    assert counts["processed"] == len(conv.corners) == 4
+    assert len(conv.raw["corners"]) == 5
+    # Wall-by-wall deltas make no sense once a corner is gone, so they're omitted.
+    assert conv.raw["deltas"]["wall_length"] is None
+
+
+def test_raw_capture_does_not_disturb_the_processed_geometry():
+    """The tidy polygon is exactly `_straighten`'s output — raw is bookkeeping."""
+    from app.services.room_scan_converter import (
+        _build_corners, _min_corner, _straighten,
+    )
+    room = parse_captured_room(json.loads(_REAL_2.read_text()))
+    expected = _straighten(_build_corners(room.walls))
+    origin = _min_corner(expected)
+    expected = [(c[0] - origin[0], c[1] - origin[1]) for c in expected]
+    assert convert_captured_room(room).corners == expected

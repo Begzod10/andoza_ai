@@ -20,7 +20,7 @@ wall, `position` 0..1. Objects ride in a separate list.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.schemas.room import RoomGeometry, Wall, WallElement
 from app.schemas.room_scan import CapturedRoom, ScanSurface, ScanTransform
@@ -57,6 +57,9 @@ class RoomScanConversion:
     ceiling_h: float
     geometry: RoomGeometry
     objects: list[ScanObjectPlacement]
+    #: Pre-tidy measurements (see :func:`_raw_capture`), for `room_scan.raw`.
+    #: Purely informational — nothing in the app reads it back into geometry.
+    raw: dict = field(default_factory=dict)
 
 
 # ── vector helpers ────────────────────────────────────────────────────────
@@ -191,10 +194,17 @@ def _remove_collinear(poly: list[Point]) -> list[Point]:
     return keep if len(keep) >= 3 else list(poly)
 
 
-def _straighten(poly: list[Point]) -> list[Point]:
+def _straighten_traced(poly: list[Point]) -> tuple[list[Point], Point]:
+    """:func:`_straighten` plus the loop-closure gap it redistributed.
+
+    The gap is the vector the snapped walk failed to close by; every corner is
+    nudged by a fraction of it. Returned only so the raw-capture layer can
+    record how much the tidying moved things — the polygon itself is identical
+    to what :func:`_straighten` has always produced.
+    """
     n = len(poly)
     if n < 3:
-        return list(poly)
+        return list(poly), (0.0, 0.0)
     lens, dirs = [], []
     for i in range(n):
         e = _sub(poly[(i + 1) % n], poly[i])
@@ -205,7 +215,11 @@ def _straighten(poly: list[Point]) -> list[Point]:
         walk.append(_add(walk[-1], _mul((math.cos(dirs[i]), math.sin(dirs[i])), lens[i])))
     gap = _sub(walk[0], walk[n])
     out = [_add(walk[i], _mul(gap, i / n)) for i in range(n)]
-    return _remove_collinear(out)
+    return _remove_collinear(out), gap
+
+
+def _straighten(poly: list[Point]) -> list[Point]:
+    return _straighten_traced(poly)[0]
 
 
 # ── misc ──────────────────────────────────────────────────────────────────
@@ -214,12 +228,24 @@ def _min_corner(corners: list[Point]) -> Point:
 
 
 def _ceiling_height(walls: list[ScanSurface]) -> float:
+    median = _median_wall_height(walls)
+    if median is None:
+        return _DEFAULT_H
+    return max(_MIN_H, min(_MAX_H, median))
+
+
+def _median_wall_height(walls: list[ScanSurface]) -> float | None:
+    """Median wall height *before* the 2.0–5.0 m clamp — None if no usable wall.
+
+    :func:`_ceiling_height` is this value clamped (or `_DEFAULT_H` when there is
+    nothing to measure); splitting it out is what lets the raw capture show the
+    clamp actually biting.
+    """
     heights = sorted(w.dimensions.y for w in walls if w.dimensions.y > 0.1)
     if not heights:
-        return _DEFAULT_H
+        return None
     mid = len(heights) // 2
-    median = heights[mid] if len(heights) % 2 else (heights[mid - 1] + heights[mid]) / 2
-    return max(_MIN_H, min(_MAX_H, median))
+    return heights[mid] if len(heights) % 2 else (heights[mid - 1] + heights[mid]) / 2
 
 
 def _nearest_wall(corners: list[Point], centre: Point) -> tuple[int, float] | None:
@@ -280,18 +306,121 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
+# ── raw capture ───────────────────────────────────────────────────────────
+# Everything below is *additive bookkeeping*: it records what the scan measured
+# before `_straighten` rounded/snapped/dropped corners and before the clamps
+# trimmed the ceiling and the openings. The processed geometry is untouched by
+# it. The tidying stays (a clean rectilinear polygon estimates better than a
+# wobbly one) — this just makes sure the true numbers are still on file.
+#
+# It rides in every scan's `rooms.room_scan` JSONB, so it stores numbers only,
+# rounded to 0.1 mm (4 dp) rather than full float64 repr.
+_RAW_SCHEMA = 1
+_RAW_DP = 4
+
+
+def _r(v: float | None) -> float | None:
+    if v is None or not math.isfinite(v):
+        return None
+    return round(v, _RAW_DP)
+
+
+def _rp(p: Point) -> list[float]:
+    return [round(p[0], _RAW_DP), round(p[1], _RAW_DP)]
+
+
+def _polygon_area(poly: list[Point]) -> float:
+    """Unsigned shoelace area, m²."""
+    n = len(poly)
+    if n < 3:
+        return 0.0
+    a = 0.0
+    for i in range(n):
+        p1, p2 = poly[i], poly[(i + 1) % n]
+        a += p1[0] * p2[1] - p2[0] * p1[1]
+    return abs(a) / 2.0
+
+
+def _edge_lengths(poly: list[Point]) -> list[float]:
+    n = len(poly)
+    return [_dist(poly[i], poly[(i + 1) % n]) for i in range(n)] if n >= 2 else []
+
+
+def _raw_opening(s: ScanSurface, el_type: str, wall_index: int, position: float,
+                 floor_y: float | None) -> dict:
+    """One opening's measurements *before* the width/height/sill clamps.
+
+    `confidence` is RoomPlan's own per-surface rating, which the processed
+    `WallElement` has no field for and therefore drops.
+    """
+    sill = (None if floor_y is None
+            else s.transform.m[13] - s.dimensions.y / 2.0 - floor_y)
+    return {
+        "type": el_type,
+        "wall": wall_index,
+        "position": _r(position),
+        "width": _r(s.dimensions.x),
+        "height": _r(s.dimensions.y),
+        "sill_height": _r(sill),
+        "confidence": s.confidence.value,
+    }
+
+
+def _raw_capture(room: CapturedRoom, raw_corners: list[Point],
+                 corners: list[Point], walls: list[Wall], ceiling: float,
+                 floor_y: float | None, closure_gap: Point,
+                 raw_openings: list[dict]) -> dict:
+    raw_lengths = _edge_lengths(raw_corners)
+    proc_lengths = [w.length for w in walls]
+    raw_ceiling = _median_wall_height(room.walls)
+    raw_area = _polygon_area(raw_corners)
+    proc_area = _polygon_area(corners)
+
+    deltas: dict = {
+        # How far the axis-snapped walk missed closing the loop by; `_straighten`
+        # spreads this vector across the corners.
+        "closure_gap": _rp(closure_gap),
+        "closure_gap_m": _r(math.hypot(*closure_gap)),
+        "corner_count": {"raw": len(raw_corners), "processed": len(corners)},
+        "area_m2": {"raw": _r(raw_area), "processed": _r(proc_area),
+                    "delta": _r(proc_area - raw_area)},
+        "ceiling_h": (None if raw_ceiling is None else _r(ceiling - raw_ceiling)),
+        # Per-wall processed-minus-raw length. Only meaningful when `_straighten`
+        # kept every corner — once collinear ones are dropped the walls no longer
+        # line up one-to-one, so it is omitted rather than silently misaligned.
+        "wall_length": ([_r(p - r) for p, r in zip(proc_lengths, raw_lengths)]
+                        if len(proc_lengths) == len(raw_lengths) else None),
+    }
+    return {
+        "schema": _RAW_SCHEMA,
+        "corners": [_rp(c) for c in raw_corners],
+        "wall_lengths": [_r(v) for v in raw_lengths],
+        "wall_heights": [_r(w.dimensions.y) for w in room.walls],
+        "ceiling_h": _r(raw_ceiling),
+        "floor_y": _r(floor_y),
+        "openings": raw_openings,
+        "deltas": deltas,
+    }
+
+
 # ── entry point ───────────────────────────────────────────────────────────
 def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
-    corners = _build_corners(room.walls)
-    if len(corners) >= 3:
-        corners = _straighten(corners)
+    raw_corners = _build_corners(room.walls)          # pre-straighten polygon
+    closure_gap: Point = (0.0, 0.0)
+    if len(raw_corners) >= 3:
+        corners, closure_gap = _straighten_traced(raw_corners)
+    else:
+        corners = list(raw_corners)
     origin = _min_corner(corners) if corners else (0.0, 0.0)
     corners = [_sub(c, origin) for c in corners]
+    # Same origin for both polygons so raw and processed are directly comparable.
+    raw_corners = [_sub(c, origin) for c in raw_corners]
 
     ceiling = _ceiling_height(room.walls)
     floor_y = _floor_level(room.walls)
     n = len(corners)
 
+    raw_openings: list[dict] = []
     openings_per_wall: list[list[WallElement]] = [[] for _ in range(n)]
     if n >= 3:
         def assign(s: ScanSurface, el_type: str) -> None:
@@ -309,6 +438,7 @@ def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
                              if el_type == "deraza" else 0.0),
                 position=_clamp(pos, 0.0, 1.0),
             ))
+            raw_openings.append(_raw_opening(s, el_type, idx, pos, floor_y))
 
         for d in room.doors:
             assign(d, "eshik")
@@ -347,7 +477,9 @@ def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
     ]
 
     return RoomScanConversion(
-        corners=corners, ceiling_h=ceiling, geometry=geometry, objects=objects
+        corners=corners, ceiling_h=ceiling, geometry=geometry, objects=objects,
+        raw=_raw_capture(room, raw_corners, corners, walls, ceiling,
+                         floor_y, closure_gap, raw_openings),
     )
 
 

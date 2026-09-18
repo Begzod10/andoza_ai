@@ -109,6 +109,30 @@ def test_happy_path_overwrites_geometry_and_stores_metadata(ctx):
     db.refresh.assert_awaited_with(room)
 
 
+def test_stores_raw_pre_tidy_measurements_next_to_the_processed_geometry(ctx):
+    """`room_scan.raw` is additive: every pre-existing key stays, geometry is
+    still the tidied polygon, and the untidied numbers ride alongside it."""
+    client, room, _ = ctx
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan",
+        data={"room_json": _FIXTURE},
+        files=_usdz(),
+    )
+    assert resp.status_code == 200, resp.text
+    scan = resp.json()["room_scan"]
+    assert {"source", "roomplan_version", "scanned_at", "usdz_path",
+            "glb_path", "object_count", "objects"} <= set(scan)
+
+    raw = scan["raw"]
+    assert raw["schema"] == 1
+    assert len(raw["corners"]) >= 3
+    assert len(raw["wall_lengths"]) == len(raw["corners"])
+    assert raw["ceiling_h"] is not None
+    assert {o["type"] for o in raw["openings"]} == {"eshik", "deraza"}
+    assert all("confidence" in o and "wall" in o for o in raw["openings"])
+    assert "closure_gap" in raw["deltas"] and "area_m2" in raw["deltas"]
+
+
 def test_rejects_non_usdz_file(ctx):
     client, room, _ = ctx
     resp = client.post(
