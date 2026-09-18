@@ -12,6 +12,7 @@ import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
+import { hasAbcdWalls } from "@/lib/roomDims";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
 function StudioNav({ roomId, isDirty, topOffset }: { roomId: string; isDirty: boolean; topOffset: number }) {
@@ -473,8 +474,7 @@ export default function StudioPage() {
   // the ceiling height — and keep the familiar W × L × H line for rectangles.
   const dimsLabel = useMemo(() => {
     const h = (room.ceiling_height ?? 0).toFixed(1);
-    const isRect =
-      !!geometry.walls.find((w) => w.id === "A") && !!geometry.walls.find((w) => w.id === "B");
+    const isRect = hasAbcdWalls(geometry);
     if (isRect) return `${room.length?.toFixed(1)} × ${room.width?.toFixed(1)} × ${h} m`;
     return `${room.area.toFixed(1)} m² · ${geometry.walls.length} devor · shift ${h} m`;
   }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls]);
