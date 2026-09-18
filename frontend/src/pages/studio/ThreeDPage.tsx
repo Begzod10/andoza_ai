@@ -1795,14 +1795,13 @@ export default function ThreeDPage() {
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
               rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : 0.45}
-              // Horizontal drag runs opposite to OrbitControls' default
-              // grab-and-turn: dragging right sends the room left, dragging
-              // left sends it right. The user asked for this explicitly
-              // ("sliding viewport should be opposite in 3d view") after
-              // living with the default. Azimuth only — a negative
-              // rotateSpeed would flip the vertical axis too, which they
-              // did not ask for.
-              reverseHorizontalOrbit
+              // Both drag axes run opposite to OrbitControls' default
+              // grab-and-turn, as the user asked: dragging right sends the
+              // room left, dragging down tilts the view the other way too.
+              // reverseOrbit is the both-axes flag (there are separate
+              // reverseHorizontalOrbit / reverseVerticalOrbit flags if these
+              // ever need to diverge again).
+              reverseOrbit
               zoomSpeed={0.8}
             />
 
