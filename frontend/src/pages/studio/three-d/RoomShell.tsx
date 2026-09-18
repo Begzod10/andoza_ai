@@ -16,7 +16,8 @@ import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 import { shadeCovering } from "./helpers";
-import { WoodFloor, Ceiling } from "./FloorCeiling";
+import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
+import { floorSlabColor } from "@/lib/floorGeometry";
 import { Wall, WindowFrames, DoorFrames, Baseboard } from "./WallComponents";
 import { CeilingLights } from "./LightingComponents";
 
@@ -227,13 +228,26 @@ function NWallRoomShell({
 
   const T = 0.02  // polygon walls stay as boxes — 2cm minimum to avoid degenerate geometry
 
+  // Real-geometry laying pattern (Naqsh) for a drawn/scanned polygon room:
+  // the flat polygon becomes the dark under-slab and the instanced planks
+  // are clipped to this very outline. Same centred frame as the walls.
+  const floorPattern = designState.floorPattern ?? null
+  const floorBase = FLOOR_COLORS[designState.floorType] ?? '#C9AB7E'
+  const patternExtents = useMemo(() => {
+    let mx = 0, mz = 0
+    for (const [x, z] of filteredCentred) { mx = Math.max(mx, Math.abs(x)); mz = Math.max(mz, Math.abs(z)) }
+    return { W: 2 * mx, D: 2 * mz }
+  }, [filteredCentred])
+
   return (
     <group>
       {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
       <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial
-          color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
-          roughness={0.8}
+          color={floorPattern
+            ? floorSlabColor(floorPattern.settings?.baseColor ?? floorBase)
+            : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
+          roughness={floorPattern ? 0.92 : 0.8}
           // ShapeGeometry's front-face winding depends on the input polygon's
           // winding in its own local X-Y space, before this mesh's rotation
           // is applied — if that ends up facing down post-rotation, the
@@ -243,6 +257,15 @@ function NWallRoomShell({
           side={THREE.DoubleSide}
         />
       </mesh>
+      {floorPattern && (
+        <PatternFloor
+          pattern={floorPattern}
+          width={patternExtents.W}
+          depth={patternExtents.D}
+          fallbackColor={floorBase}
+          clipPolygon={filteredCentred}
+        />
+      )}
 
       {/* Ceiling, as a shadow caster only.
           A scanned room is always drawn open-topped, so this never needs to be

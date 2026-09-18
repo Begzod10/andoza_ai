@@ -247,9 +247,15 @@ export const WoodFloor = memo(function WoodFloor({
  * with their bottoms slightly below y=0 so the visible floor surface stays
  * near where the flat plane was (furniture at y=0 doesn't float or sink),
  * while the ~10 mm body still leaves real recessed grooves at the gaps.
+ *
+ * Exported for NWallRoomShell too: with `clipPolygon` (the centred room
+ * outline, metres) the planks are clipped analytically to that outline
+ * instead of the rectangular clipping planes, so drawn/scanned polygon
+ * rooms — including L-shapes — get the same real-geometry floor.
  */
-function PatternFloor({ pattern, width, depth, fallbackColor }: {
+export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon }: {
   pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
+  clipPolygon?: [number, number][];
 }) {
   const { gl, invalidate } = useThree();
 
@@ -259,8 +265,8 @@ function PatternFloor({ pattern, width, depth, fallbackColor }: {
   useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
 
   const built = useMemo(
-    () => buildFloorGroup(pattern, width, depth, fallbackColor),
-    [pattern, width, depth, fallbackColor],
+    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon),
+    [pattern, width, depth, fallbackColor, clipPolygon],
   );
 
   useEffect(() => {
