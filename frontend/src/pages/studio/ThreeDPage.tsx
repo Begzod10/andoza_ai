@@ -352,6 +352,10 @@ export default function ThreeDPage() {
   // ResizeObserver below already ignores the zero-size updates a hidden box
   // produces. Other tabs are untouched by this flag.
   const [mebelView, setMebelView] = useState<'2d' | '3d'>('3d');
+  // Chiroqlar gets the same one-viewport-at-a-time treatment: '3d' (default)
+  // is the live scene, '2d' swaps it for the full-width reflected ceiling
+  // plan. Same mount-and-hide trick as mebelView above.
+  const [chiroqView, setChiroqView] = useState<'2d' | '3d'>('3d');
   // Optional starting phase from the URL (?phase=…). The mobile wall-condition
   // step sets it so the studio opens on the first renovation stage that still
   // needs doing (an already-plastered wall skips Suvoq, a puttied wall skips
@@ -1379,13 +1383,17 @@ export default function ThreeDPage() {
             cutaway modes are meaningless on the flat plan. z-20 matches the
             other corner controls: above the canvas and z-10 clusters, below
             the drop overlay (z-40). */}
-        {isMebelTab && (
+        {(isMebelTab || isChiroqTab) && (
           <div className="absolute top-16 right-3 z-20 flex items-center gap-2">
             <MebelViewToggle
-              view={mebelView}
-              onToggle={() => setMebelView((v) => (v === '3d' ? '2d' : '3d'))}
+              view={isMebelTab ? mebelView : chiroqView}
+              onToggle={() =>
+                isMebelTab
+                  ? setMebelView((v) => (v === '3d' ? '2d' : '3d'))
+                  : setChiroqView((v) => (v === '3d' ? '2d' : '3d'))
+              }
             />
-            {mebelView === '3d' && (
+            {(isMebelTab ? mebelView : chiroqView) === '3d' && (
               <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
             )}
           </div>
@@ -1396,9 +1404,10 @@ export default function ThreeDPage() {
             <MebelPlanView />
           </div>
         )}
-        {/* Chiroqlar: reflected ceiling plan beside the live 3D viewport */}
-        {isChiroqTab && (
-          <div className="h-[38%] lg:h-auto lg:w-1/2 min-h-0 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-[#F6F4EF]">
+        {/* Chiroqlar 2D mode: the reflected ceiling plan takes the whole slot
+            (was a permanent side-by-side split; now toggled like Mebelirovka) */}
+        {isChiroqTab && chiroqView === '2d' && (
+          <div className="flex-1 min-w-0 min-h-0 bg-[#F6F4EF]">
             <ChiroqPlanView
               armedType={armedLightType}
               onPlaced={() => setArmedLightType(null)}
@@ -1418,7 +1427,7 @@ export default function ThreeDPage() {
           ref={canvasBoxRef}
           // Mebelirovka 2D mode hides (but keeps mounted) the whole 3D box so
           // toggling back to 3D is instant and loses no scene state.
-          className={`flex-1 min-w-0 min-h-0 relative overflow-hidden ${isMebelTab && mebelView === '2d' ? 'hidden' : ''}`}
+          className={`flex-1 min-w-0 min-h-0 relative overflow-hidden ${(isMebelTab && mebelView === '2d') || (isChiroqTab && chiroqView === '2d') ? 'hidden' : ''}`}
           {...viewportDropProps}
         >
 
@@ -1452,7 +1461,7 @@ export default function ThreeDPage() {
               On the Mebelirovka tab the segment instead renders in the
               slot-level top-right control row (next to the 2D/3D switch), so
               it is skipped here. */}
-          {!isMebelTab && (
+          {!isMebelTab && !isChiroqTab && (
             <div className="absolute top-16 right-3 z-20">
               <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
             </div>
@@ -1853,7 +1862,7 @@ export default function ThreeDPage() {
         </div>
         <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
           selectedLightId={selectedLightId} onLightChange={selectLight}
-          armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab} />
+          armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab && chiroqView === '2d'} />
       </div>
       </div>
       {/* Docked to the panel's left edge (mirrors the left rail's toggle,
