@@ -20,6 +20,7 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.models import RoomFinish
 from app.schemas.room_finish import FinishCreate, FinishOut, FinishListOut
 from app.services.room_access import get_owned_room
+from app.services.room_finishes import validate_finish_surface
 
 logger = structlog.get_logger(__name__)
 
@@ -41,8 +42,15 @@ async def create_or_update_finish(
 
     If a finish for the same surface already exists, it is updated.
     Otherwise, a new one is created.
+
+    ``surface`` may be ``floor``, ``ceiling``, a legacy ``wall_a``..``wall_d``
+    alias, or — for a scanned/hand-drawn N-wall polygon — the room's own
+    ``geometry.walls[].id``. It is validated against the room's real geometry
+    rather than a hardcoded 4-wall list, so the 5th wall of a LiDAR scan can
+    be finished (and therefore costed) like any other.
     """
     room = await get_owned_room(room_id, current_user.id, db)
+    validate_finish_surface(room, finish.surface, finish.wall_index)
 
     result = await db.execute(
         select(RoomFinish).where(RoomFinish.room_id == room.id, RoomFinish.surface == finish.surface)
