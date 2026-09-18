@@ -55,8 +55,17 @@ export interface FloorPatternSettings {
   gapMm?: number
   /** Top-edge chamfer, mm (0–3). */
   bevelMm?: number
-  /** Wood tone. Default: the floor type's palette colour. */
+  /** Wood tone — with `textureUrl` set it acts as a TINT multiplied over the
+   *  image (undefined = white = the image's own colours). */
   baseColor?: string
+  /** Image laid on the plank tops, one tile per plank. A library pick or an
+   *  upload from the Pol panel (wallpapers `kind: 'pol'`). Lives inside the
+   *  pattern, so pattern + texture coexist — unlike the legacy whole-floor
+   *  DesignState.floorTexture, which still drives the flat no-pattern floor. */
+  textureUrl?: string | null
+  /** Quarter-turn of the image on each plank. 0 (default) runs the image's
+   *  long side down the plank's length, which is how wood photos are shot. */
+  textureRotation?: 0 | 90
   /** Amount of per-plank shade jitter, 0–1. */
   colorVariation?: number
   /** Whole-layout rotation on the floor plane. */
@@ -140,6 +149,21 @@ export function floorSlabColor(baseColor: string): string {
   return shadeColor(baseColor, -0.82)
 }
 
+/** Neutral dark screed, used under a textured floor: the tint there is white
+ *  by default, and a near-white slab would fill the joints with light instead
+ *  of the shadow that makes the planks read as separate boards. */
+const TEXTURED_SLAB_COLOR = '#2A2521'
+
+/** What to paint the under-slab for this pattern state. */
+export function floorSlabColorFor(
+  pattern: { settings?: FloorPatternSettings } | null | undefined,
+  fallbackBaseColor: string,
+): string {
+  const s = pattern?.settings
+  if (s?.textureUrl) return TEXTURED_SLAB_COLOR
+  return floorSlabColor(s?.baseColor ?? fallbackBaseColor)
+}
+
 // ─── 2D polygon helpers ──────────────────────────────────────────────────────
 
 export type Vec2 = [number, number]
@@ -221,7 +245,10 @@ export interface ResolvedFloorPattern {
   wM: number
   gapM: number
   bevelM: number
+  /** Plank colour, or — with `textureUrl` — the tint over the image. */
   baseColor: string
+  textureUrl: string | null
+  textureRotation: 0 | 90
   variation: number
   rotationDeg: 0 | 45 | 90
 }
@@ -244,12 +271,17 @@ export function resolveFloorPattern(
   fallbackBaseColor: string,
 ): ResolvedFloorPattern {
   const s = settings ?? {}
+  const textureUrl = s.textureUrl || null
   return {
     lM: clamp(s.plankLengthCm ?? def.defaultLengthCm, 10, 300) / 100,
     wM: clamp(s.plankWidthCm ?? def.defaultWidthCm, 3, 40) / 100,
     gapM: clamp(s.gapMm ?? DEFAULT_GAP_MM, 0, 8) / 1000,
     bevelM: clamp(s.bevelMm ?? DEFAULT_BEVEL_MM, 0, 3) / 1000,
-    baseColor: s.baseColor ?? fallbackBaseColor,
+    // Untextured: the wood colour itself. Textured: a tint multiplied over
+    // the image, so an unset colour must be white and not the floor type's tan.
+    baseColor: s.baseColor ?? (textureUrl ? '#ffffff' : fallbackBaseColor),
+    textureUrl,
+    textureRotation: s.textureRotation === 90 ? 90 : 0,
     variation: clamp(s.colorVariation ?? 0.5, 0, 1),
     rotationDeg: s.rotationDeg === 45 || s.rotationDeg === 90 ? s.rotationDeg : 0,
   }
@@ -697,7 +729,110 @@ const SHADE_TOP = 1.0
 const SHADE_CHAMFER = 0.78
 const SHADE_SIDE = 0.5
 
-interface PrismArrays { positions: number[]; normals: number[]; colors: number[] }
+interface PrismArrays { positions: number[]; normals: number[]; colors: number[]; uvs: number[] }
+
+/**
+ * How a plank's texture is laid on its own footprint: one tile per plank
+ * ("uvw map size is according to per floor panel size"). `o` is the footprint
+ * corner that maps to (0,0), `u` the unit vector along the plank's length,
+ * and `su`/`sv` the plank's length/width — so u runs along the plank and v
+ * across it, and the grain rotates WITH the plank (herringbone's
+ * perpendicular neighbours get perpendicular grain for free, because a
+ * class's UVs live in its local frame and the instance matrix turns them).
+ *
+ * A boundary plank cut at a wall keeps the frame of its ORIGINAL uncut
+ * footprint, so it shows the matching PART of the texture instead of a
+ * squeezed full copy.
+ */
+export interface UvFrame { ox: number; oz: number; ux: number; uz: number; su: number; sv: number }
+
+/**
+ * The uv frame of a class footprint in its own local coordinates: the
+ * minimum-area box that encloses the piece, with u along its LONG axis.
+ *
+ * It has to be the piece's own box, not an axis-aligned one: the generators
+ * disagree about which local axis a plank's length runs along (herringbone
+ * and the bonds lay it on x, wood strip and mosaic on z), and chevron's
+ * planks are mitred parallelograms whose length runs at 45° to both. Taking
+ * the oriented box means the image's long side always follows the board's
+ * length — wood grain runs down the plank, never across it — and a mitred
+ * chevron board shows the slanted crop a real one cut from that plank would.
+ *
+ * Ties (a square, or a right triangle whose legs and hypotenuse box equally)
+ * go to the direction carrying the most edge length, which keeps a cut
+ * half-piece aligned with the whole pieces beside it.
+ */
+function localUvFrame(poly: Vec2[]): UvFrame {
+  const n = poly.length
+  let best: { dx: number; dz: number; minU: number; minV: number; eu: number; ev: number } | null = null
+  let bestArea = Infinity
+  let bestAligned = -1
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = poly[i]
+    const [bx, bz] = poly[(i + 1) % n]
+    const len = Math.hypot(bx - ax, bz - az)
+    if (len < 1e-9) continue
+    const dx = (bx - ax) / len, dz = (bz - az) / len
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity
+    for (const [x, z] of poly) {
+      const u = x * dx + z * dz
+      const v = -x * dz + z * dx
+      minU = Math.min(minU, u); maxU = Math.max(maxU, u)
+      minV = Math.min(minV, v); maxV = Math.max(maxV, v)
+    }
+    const eu = maxU - minU, ev = maxV - minV
+    const area = eu * ev
+    // Total edge length parallel to this direction — the tie-break.
+    let aligned = 0
+    for (let k = 0; k < n; k++) {
+      const [px, pz] = poly[k]
+      const [qx, qz] = poly[(k + 1) % n]
+      const l = Math.hypot(qx - px, qz - pz)
+      if (l < 1e-9) continue
+      if (Math.abs((qx - px) / l * dz - (qz - pz) / l * dx) < 1e-3) aligned += l
+    }
+    if (area < bestArea * (1 - 1e-3) || (area < bestArea * (1 + 1e-3) && aligned > bestAligned)) {
+      bestArea = Math.min(bestArea, area)
+      bestAligned = aligned
+      best = { dx, dz, minU, minV, eu, ev }
+    }
+  }
+  if (!best) return { ox: 0, oz: 0, ux: 1, uz: 0, su: 1, sv: 1 }
+  const { dx, dz, minU, minV, eu, ev } = best
+  // Box corner (minU, minV) back in local coordinates.
+  const ox = dx * minU - dz * minV
+  const oz = dz * minU + dx * minV
+  // u along the LONG side of the box.
+  return eu >= ev
+    ? { ox, oz, ux: dx, uz: dz, su: Math.max(eu, 1e-6), sv: Math.max(ev, 1e-6) }
+    : { ox, oz, ux: -dz, uz: dx, su: Math.max(ev, 1e-6), sv: Math.max(eu, 1e-6) }
+}
+
+/** Turn a tile a quarter turn on its plank: (u, v) → (v, 1 − u). Lets a
+ *  portrait-shot image be flipped to run along the board without re-cropping. */
+function rotateUvFrame90(f: UvFrame): UvFrame {
+  return {
+    ox: f.ox + f.ux * f.su,
+    oz: f.oz + f.uz * f.su,
+    ux: -f.uz,
+    uz: f.ux,
+    su: f.sv,
+    sv: f.su,
+  }
+}
+
+/** The same frame carried into world space for a placed piece. */
+function placeUvFrame(f: UvFrame, x: number, z: number, rot: number): UvFrame {
+  const cos = Math.cos(rot), sin = Math.sin(rot)
+  return {
+    ox: x + f.ox * cos - f.oz * sin,
+    oz: z + f.ox * sin + f.oz * cos,
+    ux: f.ux * cos - f.uz * sin,
+    uz: f.ux * sin + f.uz * cos,
+    su: f.su,
+    sv: f.sv,
+  }
+}
 
 /** Append one chamfered prism to shared arrays. `tint` multiplies the AO rim
  *  shades — [1,1,1] for instanced geometry (instanceColor carries the tone),
@@ -730,7 +865,7 @@ function cleanPoly(poly: Vec2[]): Vec2[] {
 
 function appendChamferedPrism(
   out: PrismArrays, rawPoly: Vec2[], thickness: number, bevel: number,
-  tint: [number, number, number],
+  tint: [number, number, number], uv: UvFrame,
 ) {
   const poly = cleanPoly(rawPoly)
   if (poly.length < 3) return
@@ -741,10 +876,22 @@ function appendChamferedPrism(
   const top = insetConvexPoly(poly, b)
   const y1 = thickness - b
   const n = poly.length
-  const { positions, normals, colors } = out
+  const { positions, normals, colors, uvs } = out
 
   const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3()
   const AB = new THREE.Vector3(), AC = new THREE.Vector3(), N = new THREE.Vector3()
+
+  // Perpendicular of the u axis, so v runs across the plank.
+  const vx = -uv.uz, vz = uv.ux
+  /** A vertex's (u, v) from its xz — the top face gets the plank's own tile,
+   *  and the chamfer band continues it (its verts sit within a bevel of the
+   *  edge, so the map runs over the chamfer without a seam). The side walls
+   *  reuse their top edge's coordinates; they are a ~10 mm strip inside the
+   *  joint, drawn at SHADE_SIDE, and never read as a surface. */
+  const pushUv = (p: THREE.Vector3) => {
+    const dx = p.x - uv.ox, dz = p.z - uv.oz
+    uvs.push((dx * uv.ux + dz * uv.uz) / uv.su, (dx * vx + dz * vz) / uv.sv)
+  }
 
   /** Push a triangle wound so its face normal agrees with `ref`. */
   function tri(a: number[], bb: number[], c: number[], ref: THREE.Vector3, shade: number) {
@@ -754,6 +901,7 @@ function appendChamferedPrism(
     if (N.dot(ref) < 0) { const t = B.clone(); B.copy(C); C.copy(t); N.negate() }
     N.normalize()
     positions.push(A.x, A.y, A.z, B.x, B.y, B.z, C.x, C.y, C.z)
+    pushUv(A); pushUv(B); pushUv(C)
     for (let i = 0; i < 3; i++) {
       normals.push(N.x, N.y, N.z)
       colors.push(shade * tint[0], shade * tint[1], shade * tint[2])
@@ -793,17 +941,24 @@ function appendChamferedPrism(
   }
 }
 
+function emptyPrismArrays(): PrismArrays {
+  return { positions: [], normals: [], colors: [], uvs: [] }
+}
+
 function arraysToGeometry(a: PrismArrays): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(a.positions, 3))
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(a.normals, 3))
   geo.setAttribute('color', new THREE.Float32BufferAttribute(a.colors, 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(a.uvs, 2))
   return geo
 }
 
-export function chamferedPrismGeometry(poly: Vec2[], thickness: number, bevel: number): THREE.BufferGeometry {
-  const arrays: PrismArrays = { positions: [], normals: [], colors: [] }
-  appendChamferedPrism(arrays, poly, thickness, bevel, [1, 1, 1])
+export function chamferedPrismGeometry(
+  poly: Vec2[], thickness: number, bevel: number, uv?: UvFrame,
+): THREE.BufferGeometry {
+  const arrays = emptyPrismArrays()
+  appendChamferedPrism(arrays, poly, thickness, bevel, [1, 1, 1], uv ?? localUvFrame(poly))
   return arraysToGeometry(arrays)
 }
 
@@ -925,6 +1080,9 @@ export interface BuiltFloor {
   count: number
   /** Distinct InstancedMeshes (one per piece class). */
   classCount: number
+  /** Shared by every mesh — the caller hangs the plank texture on `.map`
+   *  once it has loaded, without rebuilding any geometry. */
+  material: THREE.MeshStandardMaterial
   dispose(): void
 }
 
@@ -993,12 +1151,18 @@ export function buildFloorGroup(
   const one = new THREE.Vector3(1, 1, 1)
   const yAxis = new THREE.Vector3(0, 1, 0)
   const color = new THREE.Color()
-  const merged: PrismArrays = { positions: [], normals: [], colors: [] }
+  const merged = emptyPrismArrays()
   let placed = 0
 
   for (const cls of classes) {
     const footprint = insetConvexPoly(cls.poly, gap / 2)
     const radius = footprint.reduce((m, [x, z]) => Math.max(m, Math.hypot(x, z)), 0)
+    // One texture tile per plank, measured on the NOMINAL footprint (before
+    // the gap inset) so every piece of a class — whole or cut at a wall —
+    // samples the same tile at the same scale.
+    const uvLocal = resolved.textureRotation === 90
+      ? rotateUvFrame90(localUvFrame(cls.poly))
+      : localUvFrame(cls.poly)
 
     let pieces = cls.pieces
     if (outline && reflex) {
@@ -1022,8 +1186,11 @@ export function buildFloorGroup(
         const parts = clipPieceToOutline(ensureCCW(world), outline, reflex)
         if (parts.length === 0) continue
         const c = new THREE.Color(shadeColor(resolved.baseColor, pieceShade(p, resolved)))
+        // The cut parts keep the UNCUT plank's uv frame, so a sawn plank
+        // shows the matching part of the tile, not a squeezed whole one.
+        const uvWorld = placeUvFrame(uvLocal, p.x, p.z, p.rot)
         for (const part of parts) {
-          appendChamferedPrism(merged, ensureCCW(part), PLANK_THICKNESS, resolved.bevelM, [c.r, c.g, c.b])
+          appendChamferedPrism(merged, ensureCCW(part), PLANK_THICKNESS, resolved.bevelM, [c.r, c.g, c.b], uvWorld)
         }
         placed++
       }
@@ -1031,7 +1198,7 @@ export function buildFloorGroup(
     }
 
     if (pieces.length > 0) {
-      const geo = chamferedPrismGeometry(footprint, PLANK_THICKNESS, resolved.bevelM)
+      const geo = chamferedPrismGeometry(footprint, PLANK_THICKNESS, resolved.bevelM, uvLocal)
       geometries.push(geo)
       const mesh = new THREE.InstancedMesh(geo, material, pieces.length)
       pieces.forEach((p, i) => {
@@ -1072,6 +1239,7 @@ export function buildFloorGroup(
     group,
     count: outline ? placed : count,
     classCount: classes.length,
+    material,
     dispose() {
       for (const g of geometries) g.dispose()
       material.dispose()

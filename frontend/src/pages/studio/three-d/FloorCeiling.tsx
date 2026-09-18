@@ -5,9 +5,9 @@ import {
   ceilingDesign, resolveCeilingSettings, buildCeilingParts,
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
-import { buildFloorGroup, floorSlabColor, type FloorPatternState } from "@/lib/floorGeometry";
+import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
 import { kelvinToHex } from "@/lib/lightCatalog";
-import { textureFetchUrl } from "@/lib/sharedWallTexture";
+import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 
 /**
@@ -34,9 +34,11 @@ export const WoodFloor = memo(function WoodFloor({
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
 
-  // An uploaded image still wins if both are somehow set (the UI clears one
-  // when picking the other, but older saves must stay predictable).
-  const activePattern = !floorTexture ? floorPattern : null;
+  // Precedence: a laying pattern wins, and carries its own per-plank image in
+  // floorPattern.settings.textureUrl. With no pattern, the legacy whole-floor
+  // `floorTexture` (one image stretched over a flat plane) behaves exactly as
+  // it always did — so rooms and users on that path are untouched.
+  const activePattern = floorPattern ?? null;
 
   // Custom texture from user upload — loaded async
   const [customTex, setCustomTex] = useState<THREE.Texture | null>(null);
@@ -206,7 +208,7 @@ export const WoodFloor = memo(function WoodFloor({
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.004, 0]} receiveShadow>
           <planeGeometry args={[width + 0.04, depth + 0.04]} />
           <meshStandardMaterial
-            color={floorSlabColor(activePattern.settings?.baseColor ?? floorColor)}
+            color={floorSlabColorFor(activePattern, floorColor)}
             roughness={0.92} metalness={0} envMapIntensity={0.15}
           />
         </mesh>
@@ -273,6 +275,45 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
     invalidate();
     return () => { built.dispose(); };
   }, [built, invalidate]);
+
+  // The plank image, hung on the shared material once loaded — separate from
+  // the geometry build so picking a texture doesn't relay the whole floor
+  // (the UVs are baked per plank and don't depend on which image it is).
+  const textureUrl = pattern.settings?.textureUrl || null;
+  useEffect(() => {
+    const material = built.material;
+    if (!textureUrl) {
+      if (material.map) { material.map.dispose(); material.map = null; material.needsUpdate = true; invalidate(); }
+      return;
+    }
+    let cancelled = false;
+    let mine: THREE.Texture | null = null;
+    // Same shared loader (and textureFetchUrl CORS/cache convention) the walls
+    // use; cloned before use, exactly like Wall does, so our copy owns its
+    // wrap/repeat settings and its disposal.
+    const unsub = requestSharedTexture(
+      textureUrl,
+      ({ tex }) => {
+        if (cancelled) return;
+        const t = tex.clone();
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = gl.capabilities.getMaxAnisotropy();
+        t.needsUpdate = true;
+        mine = t;
+        material.map?.dispose();
+        material.map = t;
+        material.needsUpdate = true;
+        invalidate();
+      },
+      () => { console.warn("[FloorCeiling] plank texture failed to load:", textureUrl); },
+    );
+    return () => {
+      cancelled = true;
+      unsub();
+      if (mine) { if (material.map === mine) { material.map = null; material.needsUpdate = true; } mine.dispose(); }
+    };
+  }, [built, textureUrl, gl, invalidate]);
 
   return <primitive object={built.group} position={[0, -0.004, 0]} />;
 }

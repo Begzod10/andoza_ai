@@ -17,7 +17,7 @@ import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 import { shadeCovering } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
-import { floorSlabColor } from "@/lib/floorGeometry";
+import { floorSlabColorFor } from "@/lib/floorGeometry";
 import { Wall, WindowFrames, DoorFrames, Baseboard } from "./WallComponents";
 import { CeilingLights } from "./LightingComponents";
 
@@ -245,7 +245,7 @@ function NWallRoomShell({
       <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial
           color={floorPattern
-            ? floorSlabColor(floorPattern.settings?.baseColor ?? floorBase)
+            ? floorSlabColorFor(floorPattern, floorBase)
             : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
           roughness={floorPattern ? 0.92 : 0.8}
           // ShapeGeometry's front-face winding depends on the input polygon's
