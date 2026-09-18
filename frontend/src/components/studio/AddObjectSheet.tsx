@@ -5,6 +5,7 @@ import type { Material, CatalogFurniture } from "@/lib/api";
 import { useRoomStore, type FloorType } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
+import { buildFurnitureGroups } from "@/lib/furnitureSwapGroups";
 import { useDebounce } from "@/hooks/useDebounce";
 import { MaterialSwatch } from "./MaterialSwatch";
 import { FLOOR_TYPES, getWallTargets, type WallTarget } from "./design-panel/shared";
@@ -195,16 +196,15 @@ export function AddObjectSheet({
     onClose();
   }
 
-  // Real do'kon-managed furniture — filtered per room tab below. Lamps are
-  // excluded here so they only show once, under "Chiroq".
+  // Real do'kon-managed furniture — filtered per room tab when browsing; in
+  // swap mode grouped as "exact category match" first, then the catch-all
+  // `boshqa` rows (armchairs, rugs, TVs…) an exact-only filter would hide.
+  // Lamps are excluded throughout so they only show once, under "Chiroq".
   const roomTypeKey = ROOM_TAB_TO_ROOM_TYPE[roomTab];
-  const furnitureForRoom: CatalogFurniture[] = catalogFurniture.filter((f) => {
-    if (f.category === "lampa") return false;
-    // Swap mode (from a scanned-object ghost): filter by the object's mapped
-    // category across every room type; a null category shows every model.
-    if (isSwap) return initialCategory ? f.category === initialCategory : true;
-    return f.room_type === null || f.room_type === roomTypeKey;
-  });
+  const furnitureGroups = useMemo(
+    () => buildFurnitureGroups(catalogFurniture, { isSwap, initialCategory, roomTypeKey }),
+    [catalogFurniture, isSwap, initialCategory, roomTypeKey]
+  );
 
   function applyWallpaper() {
     if (!selectedMaterialId) return;
@@ -505,13 +505,27 @@ export function AddObjectSheet({
                   ))}
                 </div>
               )}
-              {furnitureForRoom.length === 0 ? (
+              {furnitureGroups.length === 0 ? (
                 <p className="text-[13px] text-muted py-6 text-center">
-                  Bu xona turi uchun do'konda mebel yo'q
+                  {isSwap
+                    ? "Katalogda mos mebel topilmadi"
+                    : "Bu xona turi uchun do'konda mebel yo'q"}
                 </p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {furnitureForRoom.map((item) => {
+                <div className="flex flex-col gap-4">
+                  {furnitureGroups.map((group) => (
+                  <div key={group.key} className="flex flex-col gap-2">
+                  {/* Heading only when the list is split — it's what tells the
+                      user why a "Kreslo" shows up under a scanned chair. */}
+                  {group.heading && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-[12px] font-bold uppercase tracking-wide text-muted flex-shrink-0">
+                        {group.heading}
+                      </p>
+                      <div className="flex-1 h-px bg-gray-200" />
+                    </div>
+                  )}
+                  {group.items.map((item) => {
                     const wM = item.footprint_w != null ? (item.footprint_w / 100).toFixed(2) : null;
                     const dM = item.footprint_d != null ? (item.footprint_d / 100).toFixed(2) : null;
                     const size = wM && dM ? `${wM} × ${dM} m` : null;
@@ -567,6 +581,8 @@ export function AddObjectSheet({
                       </div>
                     );
                   })}
+                  </div>
+                  ))}
                 </div>
               )}
             </div>
