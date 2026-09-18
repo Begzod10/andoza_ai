@@ -9,6 +9,11 @@ import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
 import { roomExtents } from '@/lib/roomDims'
+import {
+  isAbcdRoom, nearestEdge, offsetPolygon, perimeterCoord, perimeterCorners, perimeterPoint,
+  planPolygon, pointAtWallPosition, pointInPolygon, svgPoints, wallPositionAt,
+  type PlanEdge, type PlanPolygon,
+} from '@/lib/planPolygon'
 import { resolveWindowStyle, mullionCount } from '@/lib/windowStyles'
 import { lightType, kelvinToHex } from '@/lib/lightCatalog'
 import { RoomScene, PlacedLights, FurnitureModels, SceneLighting } from './ThreeDPage'
@@ -136,10 +141,11 @@ function ElectricalIcon({ type }: { type: ElectricalType }) {
 
 // ─── Floor-plan mini symbol (drawn on the SVG plan) ───────────────────────────
 
-function MiniSymbol({ type, wallId }: { type: ElectricalType; wallId: WallId }) {
-  // "Up" = pointing into room from that wall
+function MiniSymbol({ type, wallId, rotDeg }: { type: ElectricalType; wallId: string; rotDeg?: number }) {
+  // The symbol's +x side points into the room: fixed per rectangle side, or
+  // given explicitly for a polygon room's wall (see edgeRotDeg).
   const rotMap: Record<WallId, number> = { A: 90, C: -90, D: 0, B: 180 }
-  const rot = rotMap[wallId]
+  const rot = rotDeg ?? rotMap[wallId as WallId] ?? 0
   const C = NAVY
 
   const inner = (() => {
@@ -240,6 +246,141 @@ function wallDeviceSvgPos(e: PlacedElectrical, W: number, D: number): { x: numbe
   }
 }
 
+// ─── Polygon (N-wall) rooms ───────────────────────────────────────────────────
+// A scanned / hand-drawn room has walls W1..Wn and its outline in
+// geometry.vertices. lib/planPolygon.ts puts that outline in the plan frame
+// the rectangle already uses (mm; world + (W/2, D/2), so the 3D scene agrees),
+// and here it is mapped to px with the polygon's own bounding-box corner at
+// PAD — the SVG stays W×D px plus padding, like the rectangle's. A device sits
+// on a named edge at a wall position measured from that edge's position-0 end
+// (the convention the 3D opening layer, wallDefsFromVertices, uses too), and
+// wires follow the polygon's perimeter coordinate instead of the rectangle's
+// 2(W+D) loop. The rectangle code above is left exactly as it was.
+
+const MM_PX = SCALE / 1000
+
+function polyToPx(poly: PlanPolygon, x: number, z: number): [number, number] {
+  return [PAD + (x - poly.minX) * MM_PX, PAD + (z - poly.minZ) * MM_PX]
+}
+
+function polyFromPx(poly: PlanPolygon, px: number, py: number): { x: number; z: number } {
+  return { x: poly.minX + (px - PAD) / MM_PX, z: poly.minZ + (py - PAD) / MM_PX }
+}
+
+function polyEdge(poly: PlanPolygon, wallId: string): PlanEdge | undefined {
+  return poly.edges.find((e) => e.id === wallId)
+}
+
+/** Symbol rotation so its +x ("into the room") side follows the wall's inward normal. */
+function edgeRotDeg(e: PlanEdge): number {
+  return (Math.atan2(e.nz, e.nx) * 180) / Math.PI
+}
+
+/** Rotation that lays a horizontal shape along the wall. */
+function edgeAngleDeg(e: PlanEdge): number {
+  return (Math.atan2(e.dz, e.dx) * 180) / Math.PI
+}
+
+interface WallHover {
+  wallId: string
+  positionMm: number
+  sx: number
+  sy: number
+  /** Polygon walls only — the rectangle sides derive these from the id. */
+  rotDeg?: number
+  angleDeg?: number
+}
+
+function detectPolyWall(poly: PlanPolygon, x: number, y: number, thresh = 22): WallHover | null {
+  const p = polyFromPx(poly, x, y)
+  const hit = nearestEdge(poly, p.x, p.z)
+  if (!hit || hit.dist * MM_PX > thresh) return null
+  const positionMm = Math.round(Math.max(100, Math.min(hit.edge.len - 100, hit.position)))
+  const q = pointAtWallPosition(hit.edge, positionMm)
+  const [sx, sy] = polyToPx(poly, q.x, q.z)
+  return { wallId: hit.edge.id, positionMm, sx, sy, rotDeg: edgeRotDeg(hit.edge), angleDeg: edgeAngleDeg(hit.edge) }
+}
+
+/** Null when the device's wall is not one of this polygon's edges. */
+function polyDeviceSvgPos(poly: PlanPolygon, e: PlacedElectrical): { x: number; y: number; rotDeg: number } | null {
+  const edge = polyEdge(poly, e.wallId)
+  if (!edge) return null
+  const q = pointAtWallPosition(edge, e.positionMm)
+  const [x, y] = polyToPx(poly, q.x, q.z)
+  return { x, y, rotDeg: edgeRotDeg(edge) }
+}
+
+/** Perimeter coordinate in metres, like wirePerimCoord; null for an unknown wall. */
+function polyPerimCoord(poly: PlanPolygon, wallId: string, posMm: number): number | null {
+  const edge = polyEdge(poly, wallId)
+  return edge ? perimeterCoord(edge, posMm) / 1000 : null
+}
+
+function polyRouteSvgPts(poly: PlanPolygon, dev: PlacedElectrical, panel: PlacedElectrical, cw: boolean): [number, number][] | null {
+  const devC = polyPerimCoord(poly, dev.wallId, dev.positionMm)
+  const panC = polyPerimCoord(poly, panel.wallId, panel.positionMm)
+  if (devC === null || panC === null) return null
+  const insetMm = WIRE_INSET / MM_PX
+  const inner = offsetPolygon(poly, -insetMm) // mitred inset corners, one per edge start
+  const at = (cMm: number): [number, number] => {
+    const q = perimeterPoint(poly, cMm, insetMm)
+    return polyToPx(poly, q.x, q.z)
+  }
+  const corners = perimeterCorners(poly, devC * 1000, panC * 1000, cw).map((c) => {
+    const i = poly.edges.findIndex((e) => Math.abs(e.start - c) < 1e-6)
+    return i >= 0 ? polyToPx(poly, inner[i][0], inner[i][1]) : at(c)
+  })
+  return [at(devC * 1000), ...corners, at(panC * 1000)]
+}
+
+/** Plan mm → 3D world metres (the polygon's centroid is the scene origin). */
+function polyWorld(poly: PlanPolygon, x: number, z: number): [number, number] {
+  return [(x - poly.W / 2) / 1000, (z - poly.D / 2) / 1000]
+}
+
+function polyElecPos3D(poly: PlanPolygon, el: PlacedElectrical): { px: number; py: number; pz: number; ry: number } | null {
+  const edge = polyEdge(poly, el.wallId)
+  if (!edge) return null
+  const dim = ELEC_DIMS_3D[el.type]
+  const depth = el.type === 'panel' ? 0.12 : 0.018
+  const q = pointAtWallPosition(edge, el.positionMm, (depth / 2 + 0.004) * 1000)
+  const [px, pz] = polyWorld(poly, q.x, q.z)
+  return { px, py: el.heightMm / 1000 + dim.h / 2, pz, ry: Math.atan2(edge.nx, edge.nz) }
+}
+
+function polyRouteWire3D(poly: PlanPolygon, dev: PlacedElectrical, panel: PlacedElectrical, wireH: number, cw: boolean): THREE.Vector3[] | null {
+  const devC = polyPerimCoord(poly, dev.wallId, dev.positionMm)
+  const panC = polyPerimCoord(poly, panel.wallId, panel.positionMm)
+  if (devC === null || panC === null) return null
+  const devH = dev.heightMm / 1000 + ELEC_DIMS_3D[dev.type].h / 2
+  const panH = panel.heightMm / 1000 + ELEC_DIMS_3D[panel.type].h / 2
+  const pt = (cMm: number, h: number) => {
+    const q = perimeterPoint(poly, cMm, WIRE_OFS * 1000)
+    const [x, z] = polyWorld(poly, q.x, q.z)
+    return new THREE.Vector3(x, h, z)
+  }
+  const corners = perimeterCorners(poly, devC * 1000, panC * 1000, cw)
+  return [
+    pt(devC * 1000, devH),
+    pt(devC * 1000, wireH),
+    ...corners.map((c) => pt(c, wireH)),
+    pt(panC * 1000, wireH),
+    pt(panC * 1000, panH),
+  ]
+}
+
+/** Opening frames (see WallFrame) for a polygon's walls, in px. */
+function polyFrames(poly: PlanPolygon): WallFrame[] {
+  return poly.edges.map((e) => {
+    const [ox, oy] = polyToPx(poly, e.ox, e.oz)
+    return {
+      id: e.id,
+      wallLenMm: e.len,
+      toSvg: (u, v) => [ox + e.dx * u + e.nx * v, oy + e.dz * u + e.nz * v],
+    }
+  })
+}
+
 
 // ─── Wire routing (wall-surface only) ────────────────────────────────────────
 
@@ -299,8 +440,7 @@ function perimTo3DPt(c: number, W: number, D: number, h: number): THREE.Vector3 
 }
 
 // Is the clockwise direction (increasing coord) the shorter route?
-function shortestCW(devC: number, panC: number, W: number, D: number): boolean {
-  const perim = 2*(W+D)
+function shortestCW(devC: number, panC: number, perim: number): boolean {
   return (panC - devC + perim) % perim <= perim / 2
 }
 
@@ -403,13 +543,13 @@ function doorArcPts(hingeU: number, dirU: 1 | -1, radius: number, segments = 14)
   })
 }
 
-function WallOpenings({ W, D }: OpeningProps) {
+function WallOpenings({ W, D, poly }: OpeningProps & { poly: PlanPolygon | null }) {
   const geometry = useRoomStore((s) => s.geometry)
   const rW = W * SCALE
   const rD = D * SCALE
   const hs = WALL_STROKE / 2   // half stroke — extends this far each side from wall centre
 
-  const frames: WallFrame[] = [
+  const frames: WallFrame[] = poly ? polyFrames(poly) : [
     // top, room below (+y)
     { id: 'A', wallLenMm: W * 1000, toSvg: (u, v) => [PAD + u, PAD + v] },
     // bottom, room above (-y)
@@ -510,7 +650,7 @@ function WallOpenings({ W, D }: OpeningProps) {
 }
 
 // Black mask rects at every door/window opening — clips wires there so they appear to route around them
-function WallOpeningsMask({ W, D, rW, rD }: { W: number; D: number; rW: number; rD: number }) {
+function WallOpeningsMask({ W, D, rW, rD, poly }: { W: number; D: number; rW: number; rD: number; poly: PlanPolygon | null }) {
   const geometry = useRoomStore(s => s.geometry)
   const hs = WALL_STROKE / 2   // 4px
   const WI = WIRE_INSET        // 5px
@@ -518,6 +658,24 @@ function WallOpeningsMask({ W, D, rW, rD }: { W: number; D: number; rW: number; 
   const sc = SCALE / 1000
 
   const rects: React.ReactElement[] = []
+
+  if (poly) {
+    // Same band as the rectangle's rects (wall centre − hs − ext … wire inset + ext),
+    // drawn in each wall's own frame so it follows a slanted wall.
+    for (const frame of polyFrames(poly)) {
+      const wall = geometry.walls.find(w => w.id === frame.id)
+      if (!wall) continue
+      resolveElementPositions(wall.elements, frame.wallLenMm).forEach((el, i) => {
+        const u1 = el.position * sc - 1
+        const u2 = u1 + el.width * sc + 2
+        rects.push(
+          <path key={`${frame.id}-${i}`} fill="black"
+            d={`${svgPath(frame, [[u1, -hs - ext], [u2, -hs - ext], [u2, WI + ext], [u1, WI + ext]])} Z`}/>
+        )
+      })
+    }
+    return <>{rects}</>
+  }
 
   const wallA = geometry.walls.find(w => w.id === 'A')
   if (wallA) resolveElementPositions(wallA.elements, W * 1000).forEach((el, i) => {
@@ -648,6 +806,35 @@ function DimensionOverlay({ electricals, W, D }: { electricals: PlacedElectrical
   return <>{dims}{labels}</>
 }
 
+/**
+ * O'lchamlar for a polygon room: the per-device height callouts only. The
+ * wall-edge dimension chains are laid out per rectangle side (above / below /
+ * left / right) and have no faithful equivalent along an arbitrary outline,
+ * so the plan says so instead of drawing a wrong chain.
+ */
+function PolyDimensionOverlay({ electricals, poly }: { electricals: PlacedElectrical[]; poly: PlanPolygon }) {
+  const INS = 20
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {electricals.map((el, i) => {
+        const edge = polyEdge(poly, el.wallId)
+        const dp = polyDeviceSvgPos(poly, el)
+        if (!edge || !dp) return null
+        return (
+          <text key={`hl-${i}`} x={dp.x + edge.nx * INS} y={dp.y + edge.nz * INS}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize="7" fontFamily="system-ui,sans-serif" fill={DIM_C} fontWeight="700">
+            {`↕${fmtM(el.heightMm)}`}
+          </text>
+        )
+      })}
+      <text x={PAD} y={PAD - 30} fontSize="8" fontFamily="system-ui,sans-serif" fill="#888">
+        Devor bo'ylab o'lcham zanjiri faqat A-B-C-D xonalar uchun — pozitsiyalar jadvalda
+      </text>
+    </g>
+  )
+}
+
 // ─── Floor plan SVG ────────────────────────────────────────────────────────────
 
 interface FloorPlanProps {
@@ -675,14 +862,16 @@ function FloorPlan({
   const svgH = D * SCALE + PAD * 2
   const rW = W * SCALE
   const rD = D * SCALE
+  // Polygon (non A-B-C-D) room: its outline, or null for the legacy rectangle
+  const poly = useMemo(() => (isAbcdRoom(geometry) ? null : planPolygon(geometry)), [geometry])
 
   const svgRef = useRef<SVGSVGElement>(null)
-  const [hover, setHover] = useState<{ wallId: WallId; positionMm: number; sx: number; sy: number } | null>(null)
+  const [hover, setHover] = useState<WallHover | null>(null)
   const [hoverLight, setHoverLight] = useState<{ x: number; y: number } | null>(null)
 
   // ── 2D drag state for placed electricals ──────────────────────────────────
   const [draggingEl, setDraggingEl] = useState<{
-    id: string; wallId: WallId; posMm: number
+    id: string; wallId: string; posMm: number
   } | null>(null)
   const dragStartClient = useRef({ x: 0, y: 0 })
   const dragHasMoved = useRef(false)
@@ -702,10 +891,32 @@ function FloorPlan({
     return () => window.removeEventListener('pointerup', onPointerUp)
   }, [draggingEl, onMoveElectrical])
 
+  /** Wall length in mm for either room shape (0 for a wall that doesn't exist). */
+  const wallLenMm = useCallback((wallId: string): number => {
+    if (poly) return polyEdge(poly, wallId)?.len ?? 0
+    return wallId === 'A' || wallId === 'C' ? W * 1000 : D * 1000
+  }, [poly, W, D])
+
+  /** Device → SVG px (+ symbol rotation); null when its wall is not in this room. */
+  const devicePos = useCallback((el: PlacedElectrical): { x: number; y: number; rotDeg?: number } | null => {
+    if (poly) return polyDeviceSvgPos(poly, el)
+    return wallDeviceSvgPos(el, W, D)
+  }, [poly, W, D])
+
+  /** Is a plan point (px) on the room's floor? */
+  const onFloor = useCallback((x: number, y: number): boolean => {
+    if (poly) {
+      const p = polyFromPx(poly, x, y)
+      return pointInPolygon(p.x, p.z, poly.vertices)
+    }
+    const rx = x - PAD, ry = y - PAD
+    return rx >= 0 && rx <= rW && ry >= 0 && ry <= rD
+  }, [poly, rW, rD])
+
   // Panel is a special one-time device — derive its SVG position from placed electricals
   const panelEl = electricals.find(e => e.type === 'panel')
-  const panelPos = panelEl ? wallDeviceSvgPos(
-    draggingEl?.id === panelEl.id ? { ...panelEl, positionMm: draggingEl.posMm } : panelEl, W, D
+  const panelPos = panelEl ? devicePos(
+    draggingEl?.id === panelEl.id ? { ...panelEl, positionMm: draggingEl.posMm } : panelEl
   ) : null
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -714,12 +925,20 @@ function FloorPlan({
 
     // ── Handle dragging a placed electrical ──
     if (draggingEl) {
-      const isH = draggingEl.wallId === 'A' || draggingEl.wallId === 'C'
-      const wallLenMm = isH ? W * 1000 : D * 1000
-      let newPosMm = isH
-        ? Math.round((x - PAD) / SCALE * 1000)
-        : Math.round((y - PAD) / SCALE * 1000)
-      newPosMm = Math.max(80, Math.min(wallLenMm - 80, newPosMm))
+      const lenMm = wallLenMm(draggingEl.wallId)
+      let newPosMm: number
+      if (poly) {
+        const edge = polyEdge(poly, draggingEl.wallId)
+        if (!edge) return
+        const p = polyFromPx(poly, x, y)
+        newPosMm = Math.round(wallPositionAt(edge, p.x, p.z))
+      } else {
+        const isH = draggingEl.wallId === 'A' || draggingEl.wallId === 'C'
+        newPosMm = isH
+          ? Math.round((x - PAD) / SCALE * 1000)
+          : Math.round((y - PAD) / SCALE * 1000)
+      }
+      newPosMm = Math.max(80, Math.min(lenMm - 80, newPosMm))
       const dx = e.clientX - dragStartClient.current.x
       const dy = e.clientY - dragStartClient.current.y
       if (Math.abs(dx) + Math.abs(dy) > 4) dragHasMoved.current = true
@@ -728,40 +947,35 @@ function FloorPlan({
     }
 
     if (tab === 'elektr' && activeTool) {
-      const hit = detectWall(x, y, W, D)
+      const hit = poly ? detectPolyWall(poly, x, y) : detectWall(x, y, W, D)
       setHover(hit)
       setHoverLight(null)
     } else if (tab === 'chiroq') {
-      const rx = x - PAD, ry = y - PAD
       setHover(null)
-      if (rx >= 0 && rx <= rW && ry >= 0 && ry <= rD) {
-        setHoverLight({ x, y })
-      } else {
-        setHoverLight(null)
-      }
+      setHoverLight(onFloor(x, y) ? { x, y } : null)
     } else {
       setHover(null)
       setHoverLight(null)
     }
-  }, [tab, activeTool, W, D, rW, rD, draggingEl])
+  }, [tab, activeTool, W, D, poly, draggingEl, wallLenMm, onFloor])
 
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (lastGestureWasDrag.current) { lastGestureWasDrag.current = false; return }
     if (!svgRef.current) return
     const { x, y } = svgPt(svgRef.current, e)
     if (tab === 'elektr' && activeTool) {
-      const hit = detectWall(x, y, W, D)
+      const hit = poly ? detectPolyWall(poly, x, y) : detectWall(x, y, W, D)
       if (hit) {
         const cat = CATALOG.find(c => c.type === activeTool)!
         onPlaceElectrical({ id: nanoid(), type: activeTool, wallId: hit.wallId, positionMm: hit.positionMm, heightMm: cat.height })
       }
     } else if (tab === 'chiroq') {
-      const rx = x - PAD, ry = y - PAD
-      if (rx >= 0 && rx <= rW && ry >= 0 && ry <= rD) {
-        onPlaceLight({ id: nanoid(), xMm: Math.round((rx / SCALE) * 1000), zMm: Math.round((ry / SCALE) * 1000) })
+      if (onFloor(x, y)) {
+        const p = poly ? polyFromPx(poly, x, y) : { x: ((x - PAD) / SCALE) * 1000, z: ((y - PAD) / SCALE) * 1000 }
+        onPlaceLight({ id: nanoid(), xMm: Math.round(p.x), zMm: Math.round(p.z) })
       }
     }
-  }, [tab, activeTool, W, D, rW, rD, onPlaceElectrical, onPlaceLight])
+  }, [tab, activeTool, W, D, poly, onFloor, onPlaceElectrical, onPlaceLight])
 
   const cursor = draggingEl
     ? 'grabbing'
@@ -804,61 +1018,97 @@ function FloorPlan({
         {/* Wire mask: white everywhere except door/window openings (black) */}
         <mask id="wireMask">
           <rect x="0" y="0" width={svgW} height={svgH} fill="white"/>
-          <WallOpeningsMask W={W} D={D} rW={rW} rD={rD}/>
+          <WallOpeningsMask W={W} D={D} rW={rW} rD={rD} poly={poly}/>
         </mask>
+        {poly && (
+          <clipPath id="elektrFloorClip">
+            <polygon points={svgPoints(poly.vertices.map(([x, z]) => polyToPx(poly, x, z)))}/>
+          </clipPath>
+        )}
       </defs>
 
       {/* Paper background */}
       <rect x="0" y="0" width={svgW} height={svgH} fill="#F9F7F4"/>
 
       {/* Room floor */}
-      <rect x={PAD} y={PAD} width={rW} height={rD} fill="#F0EBE0" stroke="none"/>
+      {poly ? (
+        <polygon points={svgPoints(poly.vertices.map(([x, z]) => polyToPx(poly, x, z)))} fill="#F0EBE0" stroke="none"/>
+      ) : (
+        <rect x={PAD} y={PAD} width={rW} height={rD} fill="#F0EBE0" stroke="none"/>
+      )}
 
-      {/* Grid (subtle) */}
-      {Array.from({ length: Math.ceil(W) + 1 }).map((_, i) => (
-        <line key={`gx${i}`}
-          x1={PAD + i * SCALE} y1={PAD}
-          x2={PAD + i * SCALE} y2={PAD + rD}
-          stroke="#D8D0C0" strokeWidth="0.5" strokeDasharray="3 4"/>
-      ))}
-      {Array.from({ length: Math.ceil(D) + 1 }).map((_, i) => (
-        <line key={`gz${i}`}
-          x1={PAD} y1={PAD + i * SCALE}
-          x2={PAD + rW} y2={PAD + i * SCALE}
-          stroke="#D8D0C0" strokeWidth="0.5" strokeDasharray="3 4"/>
-      ))}
+      {/* Grid (subtle) — clipped to the floor of a polygon room */}
+      <g clipPath={poly ? 'url(#elektrFloorClip)' : undefined}>
+        {Array.from({ length: Math.ceil(W) + 1 }).map((_, i) => (
+          <line key={`gx${i}`}
+            x1={PAD + i * SCALE} y1={PAD}
+            x2={PAD + i * SCALE} y2={PAD + rD}
+            stroke="#D8D0C0" strokeWidth="0.5" strokeDasharray="3 4"/>
+        ))}
+        {Array.from({ length: Math.ceil(D) + 1 }).map((_, i) => (
+          <line key={`gz${i}`}
+            x1={PAD} y1={PAD + i * SCALE}
+            x2={PAD + rW} y2={PAD + i * SCALE}
+            stroke="#D8D0C0" strokeWidth="0.5" strokeDasharray="3 4"/>
+        ))}
+      </g>
 
-      {/* Dimension labels */}
-      <text x={PAD + rW / 2} y={PAD - 10} textAnchor="middle" fontSize="11" fill="#888" fontFamily="sans-serif">
-        {W.toFixed(1)} m
-      </text>
-      <text x={PAD - 10} y={PAD + rD / 2} textAnchor="middle" fontSize="11" fill="#888"
-        fontFamily="sans-serif" transform={`rotate(-90, ${PAD - 10}, ${PAD + rD / 2})`}>
-        {D.toFixed(1)} m
-      </text>
+      {poly ? (
+        <>
+          {/* Wall lines along the outline */}
+          <polygon points={svgPoints(poly.vertices.map(([x, z]) => polyToPx(poly, x, z)))}
+            fill="none" stroke="#3A3020" strokeWidth="8" strokeLinejoin="miter"/>
 
-      {/* Wall lines */}
-      <rect x={PAD} y={PAD} width={rW} height={rD}
-        fill="none" stroke="#3A3020" strokeWidth="8" strokeLinejoin="miter"/>
+          {/* Doors and windows from room geometry */}
+          <WallOpenings W={W} D={D} poly={poly} />
 
-      {/* Doors and windows from room geometry */}
-      <WallOpenings W={W} D={D} />
+          {/* Wall id + length, just outside each wall's midpoint */}
+          {poly.edges.map(e => {
+            const [mx, my] = polyToPx(poly, (e.x1 + e.x2) / 2, (e.z1 + e.z2) / 2)
+            return (
+              <text key={e.id} x={mx - e.nx * 22} y={my - e.nz * 22} fill="#888" fontFamily="sans-serif"
+                textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="bold">
+                {e.id} · {(e.len / 1000).toFixed(1)} m
+              </text>
+            )
+          })}
+        </>
+      ) : (
+        <>
+          {/* Dimension labels */}
+          <text x={PAD + rW / 2} y={PAD - 10} textAnchor="middle" fontSize="11" fill="#888" fontFamily="sans-serif">
+            {W.toFixed(1)} m
+          </text>
+          <text x={PAD - 10} y={PAD + rD / 2} textAnchor="middle" fontSize="11" fill="#888"
+            fontFamily="sans-serif" transform={`rotate(-90, ${PAD - 10}, ${PAD + rD / 2})`}>
+            {D.toFixed(1)} m
+          </text>
 
-      {/* Wall labels */}
-      {[
-        { label: 'A', x: PAD + rW / 2, y: PAD - 22 },
-        { label: 'C', x: PAD + rW / 2, y: PAD + rD + 22 },
-        { label: 'D', x: PAD - 22, y: PAD + rD / 2 },
-        { label: 'B', x: PAD + rW + 22, y: PAD + rD / 2 },
-      ].map(l => (
-        <text key={l.label} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
-          fontSize="12" fill="#888" fontFamily="sans-serif" fontWeight="bold">{l.label}</text>
-      ))}
+          {/* Wall lines */}
+          <rect x={PAD} y={PAD} width={rW} height={rD}
+            fill="none" stroke="#3A3020" strokeWidth="8" strokeLinejoin="miter"/>
+
+          {/* Doors and windows from room geometry */}
+          <WallOpenings W={W} D={D} poly={null} />
+
+          {/* Wall labels */}
+          {[
+            { label: 'A', x: PAD + rW / 2, y: PAD - 22 },
+            { label: 'C', x: PAD + rW / 2, y: PAD + rD + 22 },
+            { label: 'D', x: PAD - 22, y: PAD + rD / 2 },
+            { label: 'B', x: PAD + rW + 22, y: PAD + rD / 2 },
+          ].map(l => (
+            <text key={l.label} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
+              fontSize="12" fill="#888" fontFamily="sans-serif" fontWeight="bold">{l.label}</text>
+          ))}
+        </>
+      )}
 
       {/* ── LIGHTS (Chiroq tab) ─────────────────────────────────────────────── */}
       {tab === 'chiroq' && lights.map(light => {
-        const lx = PAD + light.xMm / 1000 * SCALE
-        const ly = PAD + light.zMm / 1000 * SCALE
+        const [lx, ly] = poly
+          ? polyToPx(poly, light.xMm, light.zMm)
+          : [PAD + light.xMm / 1000 * SCALE, PAD + light.zMm / 1000 * SCALE]
         // Type, colour temperature and size come from the fixture itself, the
         // way the Chiroqlar plan draws it. A generic dot here made a warm
         // pendant and a cool downlight look like the same thing.
@@ -918,7 +1168,8 @@ function FloorPlan({
             const cfg = wireConfigs[el.id]
             if (!cfg) return null
             const displayEl = draggingEl?.id === el.id ? { ...el, positionMm: draggingEl.posMm } : el
-            const pts = routeSvgPts(displayEl, panelEl, W, D, cfg.cw)
+            const pts = poly ? polyRouteSvgPts(poly, displayEl, panelEl, cfg.cw) : routeSvgPts(displayEl, panelEl, W, D, cfg.cw)
+            if (!pts) return null
             const pointsStr = pts.map(([x, y]) => `${x},${y}`).join(' ')
             return (
               <polyline key={`w-${el.id}`}
@@ -938,13 +1189,14 @@ function FloorPlan({
           {electricals.map(el => {
             const isDragged = draggingEl?.id === el.id
             const displayEl = isDragged ? { ...el, positionMm: draggingEl!.posMm } : el
-            const dp = wallDeviceSvgPos(displayEl, W, D)
+            const dp = devicePos(displayEl)
+            if (!dp) return null // its wall is not part of this room's outline
 
             function startElDrag(e: React.PointerEvent) {
               e.stopPropagation()
               dragStartClient.current = { x: e.clientX, y: e.clientY }
               dragHasMoved.current = false
-              setDraggingEl({ id: el.id, wallId: el.wallId as WallId, posMm: el.positionMm })
+              setDraggingEl({ id: el.id, wallId: el.wallId, posMm: el.positionMm })
             }
 
             // Keyboard equivalent of the pointer drag (move) and the sidebar's
@@ -954,18 +1206,17 @@ function FloorPlan({
             // and Enter/Space is a no-op that matches the item's own (also
             // no-op) click behavior while still preventing Space from scrolling.
             function handleElKeyDown(e: React.KeyboardEvent) {
-              const isH = el.wallId === 'A' || el.wallId === 'C'
-              const wallLenMm = isH ? W * 1000 : D * 1000
+              const lenMm = wallLenMm(el.wallId)
               switch (e.key) {
                 case 'ArrowLeft':
                 case 'ArrowUp':
                   e.preventDefault()
-                  onMoveElectrical(el.id, Math.max(80, Math.min(wallLenMm - 80, el.positionMm - KEYBOARD_NUDGE_MM)))
+                  onMoveElectrical(el.id, Math.max(80, Math.min(lenMm - 80, el.positionMm - KEYBOARD_NUDGE_MM)))
                   break
                 case 'ArrowRight':
                 case 'ArrowDown':
                   e.preventDefault()
-                  onMoveElectrical(el.id, Math.max(80, Math.min(wallLenMm - 80, el.positionMm + KEYBOARD_NUDGE_MM)))
+                  onMoveElectrical(el.id, Math.max(80, Math.min(lenMm - 80, el.positionMm + KEYBOARD_NUDGE_MM)))
                   break
                 case 'Delete':
                 case 'Backspace':
@@ -1022,7 +1273,7 @@ function FloorPlan({
                 onPointerDown={startElDrag}
                 onKeyDown={handleElKeyDown}>
                 <circle r="12" fill="white" opacity={isDragged ? 0.5 : 0.8}/>
-                <MiniSymbol type={el.type} wallId={el.wallId as WallId}/>
+                <MiniSymbol type={el.type} wallId={el.wallId} rotDeg={dp.rotDeg}/>
                 {isDragged && <circle r="14" fill="none" stroke={NAVY} strokeWidth="1" strokeDasharray="3 2" opacity="0.5"/>}
                 <circle r="12" fill="transparent"/>
               </g>
@@ -1033,7 +1284,7 @@ function FloorPlan({
           {hover && activeTool && (
             <g transform={`translate(${hover.sx}, ${hover.sy})`} opacity="0.45" style={{ pointerEvents: 'none' }}>
               <circle r="10" fill="white" opacity="0.8"/>
-              <MiniSymbol type={activeTool} wallId={hover.wallId}/>
+              <MiniSymbol type={activeTool} wallId={hover.wallId} rotDeg={hover.rotDeg}/>
             </g>
           )}
 
@@ -1041,6 +1292,11 @@ function FloorPlan({
           {hover && activeTool && (() => {
             const hw = 6
             const hl = 40
+            if (hover.angleDeg !== undefined) return (
+              <rect x={hover.sx - hl / 2} y={hover.sy - hw / 2}
+                width={hl} height={hw} rx="2" fill={NAVY} opacity="0.2" style={{ pointerEvents: 'none' }}
+                transform={`rotate(${hover.angleDeg}, ${hover.sx}, ${hover.sy})`}/>
+            )
             switch (hover.wallId) {
               case 'A': case 'C': return (
                 <rect x={hover.sx - hl / 2} y={hover.sy - hw / 2}
@@ -1057,7 +1313,9 @@ function FloorPlan({
 
       {/* ── DIMENSION OVERLAY (O'lchamlar tab) ─────────────────────────────── */}
       {tab === 'olchamlar' && (
-        <DimensionOverlay electricals={electricals} W={W} D={D}/>
+        poly
+          ? <PolyDimensionOverlay electricals={electricals} poly={poly}/>
+          : <DimensionOverlay electricals={electricals} W={W} D={D}/>
       )}
     </svg>
   )
@@ -1423,11 +1681,12 @@ function elecPos3D(el: PlacedElectrical, W: number, D: number) {
   }
 }
 
-function StaticElectrical3D({ el, W, D }: { el: PlacedElectrical; W: number; D: number }) {
+function StaticElectrical3D({ el, W, D, poly }: { el: PlacedElectrical; W: number; D: number; poly: PlanPolygon | null }) {
   const isPanel = el.type === 'panel'
   const dim = ELEC_DIMS_3D[el.type]
   const depth = isPanel ? 0.12 : 0.018
-  const p = elecPos3D(el, W, D)!
+  const p = poly ? polyElecPos3D(poly, el) : elecPos3D(el, W, D)
+  if (!p) return null // wall not in this room's outline
   const isSwitch = el.type.startsWith('switch')
   if (isPanel) {
     return (
@@ -1482,19 +1741,22 @@ function StaticElectrical3D({ el, W, D }: { el: PlacedElectrical; W: number; D: 
   )
 }
 
-function WireLine3D({ el, panel, W, D, wireH, cw, color }: {
+function WireLine3D({ el, panel, W, D, wireH, cw, color, poly }: {
   el: PlacedElectrical; panel: PlacedElectrical
   W: number; D: number; wireH: number
   cw: boolean; color: string
+  poly: PlanPolygon | null
 }) {
   const lineObj = useMemo(() => {
-    const pts = routeWire3D(el, panel, W, D, wireH, cw)
+    const pts = poly ? polyRouteWire3D(poly, el, panel, wireH, cw) : routeWire3D(el, panel, W, D, wireH, cw)
+    if (!pts) return null
     const geo = new THREE.BufferGeometry().setFromPoints(pts)
     const mat = new THREE.LineBasicMaterial({ color })
     return new THREE.Line(geo, mat)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [el.id, el.positionMm, el.wallId, panel.positionMm, panel.wallId, W, D, wireH, cw, color])
+  }, [el.id, el.positionMm, el.wallId, panel.positionMm, panel.wallId, W, D, wireH, cw, color, poly])
 
+  if (!lineObj) return null
   return <primitive object={lineObj}/>
 }
 
@@ -1509,6 +1771,7 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7
   const panel = electricals.find(e => e.type === 'panel')
+  const poly = useMemo(() => (isAbcdRoom(geometry) ? null : planPolygon(geometry)), [geometry])
 
   // Wire channel height: 0.22m above the tallest door/window top, minimum 2.25m, max ceiling-10cm
   const maxOpeningTopM = geometry.walls.reduce((acc, wall) =>
@@ -1548,12 +1811,12 @@ function ElektrScene({ room, geometry, designState, electricals, wireConfigs }: 
         highQuality={false}
       />
       {electricals.map(el => (
-        <StaticElectrical3D key={el.id} el={el} W={W} D={D}/>
+        <StaticElectrical3D key={el.id} el={el} W={W} D={D} poly={poly}/>
       ))}
       {panel && electricals.filter(e => e.type !== 'panel').map(el => {
         const cfg = wireConfigs[el.id]
         if (!cfg) return null
-        return <WireLine3D key={el.id} el={el} panel={panel} W={W} D={D} wireH={wireChannelH} cw={cfg.cw} color={cfg.color}/>
+        return <WireLine3D key={el.id} el={el} panel={panel} W={W} D={D} wireH={wireChannelH} cw={cfg.cw} color={cfg.color} poly={poly}/>
       })}
       <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background/>
     </>
@@ -1619,22 +1882,30 @@ export default function PlacementPage() {
   // Fall back to geometry wall lengths (in mm→m) when room metadata is 0/missing
   // X follows wall A, Z follows wall B — the orientation every view shares
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
+  // Polygon (non A-B-C-D) room — wires then run along its own perimeter
+  const poly = useMemo(() => (isAbcdRoom(geometry) ? null : planPolygon(geometry)), [geometry])
+  const perimM = poly ? poly.perimeter / 1000 : 2 * (W + D)
+  const coordOf = useCallback((wallId: string, posMm: number): number | null => (
+    poly ? polyPerimCoord(poly, wallId, posMm) : wirePerimCoord(wallId as WallId, posMm, W, D)
+  ), [poly, W, D])
 
   // Compute effective wire config for each non-panel device
   const wireConfigs = useMemo<Record<string, WireConfig>>(() => {
     if (!panel) return {}
-    const panC = wirePerimCoord(panel.wallId as WallId, panel.positionMm, W, D)
+    const panC = coordOf(panel.wallId, panel.positionMm)
+    if (panC === null) return {}
     const out: Record<string, WireConfig> = {}
     for (const el of electricals) {
       if (el.type === 'panel') continue
-      const devC = wirePerimCoord(el.wallId as WallId, el.positionMm, W, D)
+      const devC = coordOf(el.wallId, el.positionMm)
+      if (devC === null) continue
       out[el.id] = {
         color: wireColors[el.id] ?? WIRE,
-        cw:    wireRoutes[el.id] !== undefined ? wireRoutes[el.id] : shortestCW(devC, panC, W, D),
+        cw:    wireRoutes[el.id] !== undefined ? wireRoutes[el.id] : shortestCW(devC, panC, perimM),
       }
     }
     return out
-  }, [electricals, panel, wireColors, wireRoutes, W, D])
+  }, [electricals, panel, wireColors, wireRoutes, coordOf, perimM])
 
   // Compute wire length (metres) for each non-panel device
   const wireLengths = useMemo<Record<string, number>>(() => {
@@ -1646,8 +1917,9 @@ export default function PlacementPage() {
     const wireChannelH = Math.min(H - 0.1, Math.max(maxOpeningTopM + 0.22, 2.25))
     const pdim = ELEC_DIMS_3D[panel.type]
     const panH = panel.heightMm / 1000 + pdim.h / 2
-    const panC = wirePerimCoord(panel.wallId as WallId, panel.positionMm, W, D)
-    const perim = 2 * (W + D)
+    const panC = coordOf(panel.wallId, panel.positionMm)
+    if (panC === null) return {}
+    const perim = perimM
     const out: Record<string, number> = {}
     for (const el of electricals) {
       if (el.type === 'panel') continue
@@ -1655,7 +1927,8 @@ export default function PlacementPage() {
       if (!cfg) continue
       const dim = ELEC_DIMS_3D[el.type]
       const devH = el.heightMm / 1000 + dim.h / 2
-      const devC = wirePerimCoord(el.wallId as WallId, el.positionMm, W, D)
+      const devC = coordOf(el.wallId, el.positionMm)
+      if (devC === null) continue
       const perimDist = cfg.cw
         ? (panC - devC + perim) % perim
         : (devC - panC + perim) % perim
@@ -1664,7 +1937,7 @@ export default function PlacementPage() {
       out[el.id] = Math.round((vertUp + perimDist + vertDown) * 100) / 100
     }
     return out
-  }, [electricals, panel, wireConfigs, W, D, room.ceiling_height, geometry])
+  }, [electricals, panel, wireConfigs, coordOf, perimM, room.ceiling_height, geometry])
 
   function handleRandomize() {
     const newColors: Record<string, string> = {}
