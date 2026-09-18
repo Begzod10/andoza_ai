@@ -7,6 +7,7 @@ import { useOutletContext } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
 import { RoomScene, SceneLighting, FurnitureModels, PlacedLights, type StudioContext } from "./ThreeDPage";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { DEFAULT_HDRI } from "@/lib/hdri";
 import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
 import { roomExtents } from '@/lib/roomDims';
@@ -199,6 +200,12 @@ export default function WalkthroughPage() {
           />
         </Suspense>
       </Canvas>
+
+      {/* Stories-style tab navigation — z-30, above the z-10 enter overlay,
+          so the arrows stay clickable before pointer lock. While locked the
+          cursor is captured anyway; Esc releases it and the strip is usable
+          again without fighting the lock overlay. */}
+      <StudioTabStrip roomId={room.id} />
 
       {/* Overlay — shown when not locked */}
       {!locked && <EnterOverlay onEnter={handleEnter} />}

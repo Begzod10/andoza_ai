@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { SafeEnvironment } from '@/components/studio/SafeEnvironment'
+import { StudioTabStrip } from '@/components/studio/StudioTabStrip'
 import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
@@ -1594,7 +1595,9 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
           />
         </Suspense>
       </Canvas>
-      <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/40 rounded text-white text-[10px] font-medium pointer-events-none select-none">
+      {/* bottom-left (was top-left) — the stories tab strip's centered title
+          pill now floats along the top edge of the plan+3D area. */}
+      <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/40 rounded text-white text-[10px] font-medium pointer-events-none select-none">
         3D Ko'rinish
       </div>
     </div>
@@ -1743,6 +1746,11 @@ export default function PlacementPage() {
 
       {/* Main area */}
       <div className="flex flex-1 min-h-0">
+        {/* Plan + 3D wrapper — relative so the stories tab strip's corner
+            arrows land at this content area's real corners (right arrow just
+            left of the sidebar), not over the sidebar or the toolbar above. */}
+        <div className="relative flex flex-1 min-w-0 min-h-0">
+        <StudioTabStrip roomId={room.id} titleClassName="hidden sm:block" />
         {/* Left: 2D floor plan */}
         <div className="flex-1 min-h-0 overflow-auto flex items-start justify-center bg-paper p-4">
           <FloorPlan
@@ -1773,6 +1781,7 @@ export default function PlacementPage() {
             electricals={electricals}
             wireConfigs={wireConfigs}
           />
+        </div>
         </div>
 
         {/* Sidebar */}

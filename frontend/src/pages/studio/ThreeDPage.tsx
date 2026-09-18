@@ -21,6 +21,7 @@ import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import NewWindowSheet from "@/components/studio/NewWindowSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { getRooms, deleteRoom, uploadRoomThumbnail, listCatalogFurniture } from "@/lib/api";
@@ -355,7 +356,11 @@ export default function ThreeDPage() {
   // step sets it so the studio opens on the first renovation stage that still
   // needs doing (an already-plastered wall skips Suvoq, a puttied wall skips
   // Suvoq + Shpaklovka). Earlier stages then render as done via the existing
-  // positional check-mark logic. Falls back to the historical 'boyoq' default.
+  // positional check-mark logic. The wizard's post-creation hand-off passes
+  // ?phase=suvoq so a brand-new room opens at the START of the phase flow
+  // (its walls are still bare brick — nothing has been done to them yet).
+  // Falls back to the historical 'boyoq' default, which now only applies to
+  // REOPENING a room (projects list, tab switches, direct links).
   const phaseParam = new URLSearchParams(location.search).get('phase')
   const initialPhase: PhaseKey = isMebelTab
     ? 'mebel'
@@ -1360,6 +1365,11 @@ export default function ThreeDPage() {
             vanish — and the switch itself has to stay put so its knob can
             animate across the swap). */}
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative">
+        {/* Stories-style tab navigation — owns this viewport's top row
+            (arrows at the corners, current tab name centered), which is why
+            the corner control clusters below all start at top-16 instead of
+            top-3: the strip keeps one consistent click spot on every tab. */}
+        <StudioTabStrip roomId={room.id} />
         {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
             the full-width top-view plan editor ('2d') for the live 3D
             viewport ('3d', the default). In 3D mode the row wrapper spans
@@ -1370,7 +1380,7 @@ export default function ThreeDPage() {
             other corner controls: above the canvas and z-10 clusters, below
             the drop overlay (z-40). */}
         {isMebelTab && (
-          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+          <div className="absolute top-16 right-3 z-20 flex items-center gap-2">
             <MebelViewToggle
               view={mebelView}
               onToggle={() => setMebelView((v) => (v === '3d' ? '2d' : '3d'))}
@@ -1425,7 +1435,7 @@ export default function ThreeDPage() {
             </div>
           )}
           {modelDropWarn && (
-            <p className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-[80%] bg-amber-50 border border-amber-200 text-amber-700 text-[11px] px-3 py-1.5 rounded-lg shadow">
+            <p className="absolute top-16 left-1/2 -translate-x-1/2 z-40 max-w-[80%] bg-amber-50 border border-amber-200 text-amber-700 text-[11px] px-3 py-1.5 rounded-lg shadow">
               {modelDropWarn}
             </p>
           )}
@@ -1443,15 +1453,16 @@ export default function ThreeDPage() {
               slot-level top-right control row (next to the 2D/3D switch), so
               it is skipped here. */}
           {!isMebelTab && (
-            <div className="absolute top-3 right-3 z-20">
+            <div className="absolute top-16 right-3 z-20">
               <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
             </div>
           )}
 
-          {/* Navigation help card — top-16 keeps it clear of the view-mode
-              segmented control pinned at top-3 in the same corner. */}
+          {/* Navigation help card — top-32 keeps it clear of the view-mode
+              segmented control pinned at top-16 in the same corner (which in
+              turn sits below the tab strip's top row). */}
           {showHelp && (
-            <div className="absolute top-16 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
+            <div className="absolute top-32 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-bold text-gray-900">Boshqaruv</p>
                 <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
@@ -1483,7 +1494,10 @@ export default function ThreeDPage() {
 
           {/* Mebelirovka quick actions — doors/windows editor + 3D model import */}
           {isMebelTab && (
-            <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+            // top-28 below sm: the ~350px 2D/3D + Kesma/Diorama row (also at
+            // top-16, right-anchored) spans nearly the whole width on phones
+            // and would run over these pills; from sm up both tiers fit.
+            <div className="absolute top-28 sm:top-16 left-3 z-10 flex flex-col gap-2">
               <button
                 onClick={() => setElementsSheetOpen(true)}
                 title="Eshik va derazalarni qo'shish yoki tahrirlash"

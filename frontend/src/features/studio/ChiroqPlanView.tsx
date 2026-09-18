@@ -210,21 +210,6 @@ export function ChiroqPlanView({
 
   return (
     <div className="h-full flex flex-col">
-      {/* ── Status strip: what a click will do right now ─────────── */}
-      <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-white/70">
-        {armedType ? (
-          <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
-            <span>{lightType(armedType).emoji}</span>
-            {lightType(armedType).name} — rejada joyni bosing
-          </p>
-        ) : (
-          <p className="text-[11px] text-gray-400">
-            O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing.
-            Qo'yilgan chiroqni sudrab suring.
-          </p>
-        )}
-      </div>
-
       <svg
         ref={svgRef}
         viewBox={vb}
@@ -312,6 +297,24 @@ export function ChiroqPlanView({
           {(D / 1000).toFixed(1)} m
         </text>
       </svg>
+
+      {/* ── Status strip: what a click will do right now ───────────
+          Below the plan (was above it) — the stories tab strip's left
+          arrow and title now float along the plan's top edge, and this
+          bar's text sat exactly underneath them. */}
+      <div className="shrink-0 px-3 py-2 border-t border-gray-200 bg-white/70">
+        {armedType ? (
+          <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
+            <span>{lightType(armedType).emoji}</span>
+            {lightType(armedType).name} — rejada joyni bosing
+          </p>
+        ) : (
+          <p className="text-[11px] text-gray-400">
+            O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing.
+            Qo'yilgan chiroqni sudrab suring.
+          </p>
+        )}
+      </div>
 
       {/* ── Exact coordinates for the selected fixture ───────────── */}
       {selected && (

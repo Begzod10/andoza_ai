@@ -6,6 +6,7 @@ import { formatUZS, formatUSDFromUZS } from "@/lib/utils";
 import { uz } from "@/locale/uz";
 import type { EstimateResponse } from "@/lib/api";
 import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
+import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -111,6 +112,11 @@ export default function SmetaPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* Stories-style tab navigation — Smeta is a regular scrolling page
+            (a top-level route outside StudioPage's layout), so the strip
+            renders as a normal-flow row here instead of a viewport overlay. */}
+        {roomId && <StudioTabStrip roomId={roomId} variant="inline" />}
+
         {/* Auto-calculates on open (see the effect above) — this only shows
             while that first request is in flight, or as a retry on error. */}
         {!estimate && (
