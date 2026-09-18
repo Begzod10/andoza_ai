@@ -522,6 +522,7 @@ export const RoomScene = memo(function RoomScene({
               width={W} depth={D} floorType={designState.floorType}
               floorTexture={designState.floorTexture}
               floorTextureSettings={designState.floorTextureSettings}
+              floorPattern={designState.floorPattern}
               floorConfigured={designState.floorConfigured}
               isSelected={isFloorSelected}
               onClick={onFloorClick}

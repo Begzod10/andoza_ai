@@ -5,6 +5,7 @@ import {
   ceilingDesign, resolveCeilingSettings, buildCeilingParts,
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
+import { buildFloorGroup, floorSlabColor, type FloorPatternState } from "@/lib/floorGeometry";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
@@ -15,11 +16,15 @@ import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
  */
 
 export const WoodFloor = memo(function WoodFloor({
-  width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
+  width, depth, floorType, floorTexture, floorTextureSettings, floorPattern, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
   floorTexture?: string | null;
   floorTextureSettings?: { repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number } | null;
+  /** Real-geometry laying pattern (Naqsh). When set (and no custom image
+   *  overrides it) the flat textured plane is replaced by instanced plank
+   *  solids — see lib/floorGeometry. Unset = exactly the old flat floor. */
+  floorPattern?: FloorPatternState | null;
   /** False for a room that hasn't visited Pol yet — renders a flat neutral
    *  screed instead of defaulting to a full parquet/tile pattern no one chose. */
   floorConfigured?: boolean;
@@ -28,6 +33,10 @@ export const WoodFloor = memo(function WoodFloor({
 }) {
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
+
+  // An uploaded image still wins if both are somehow set (the UI clears one
+  // when picking the other, but older saves must stay predictable).
+  const activePattern = !floorTexture ? floorPattern : null;
 
   // Custom texture from user upload — loaded async
   const [customTex, setCustomTex] = useState<THREE.Texture | null>(null);
@@ -187,6 +196,31 @@ export const WoodFloor = memo(function WoodFloor({
   // floor (this onClick) AND bubble up to the holdBind('floor') wrapper in
   // RoomShell.tsx, which opens the surface radial menu, exactly like a wall
   // tap already does both at once.
+  if (activePattern) {
+    // Real-geometry floor: dark under-slab (visible through the plank gaps as
+    // recessed grooves) + instanced beveled plank solids on top. The slab
+    // keeps the raycast/onClick role — the planks never intercept picks, so a
+    // tap still selects the floor exactly like before.
+    return (
+      <group onClick={onClick}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.004, 0]} receiveShadow>
+          <planeGeometry args={[width + 0.04, depth + 0.04]} />
+          <meshStandardMaterial
+            color={floorSlabColor(activePattern.settings?.baseColor ?? floorColor)}
+            roughness={0.92} metalness={0} envMapIntensity={0.15}
+          />
+        </mesh>
+        <PatternFloor pattern={activePattern} width={width} depth={depth} fallbackColor={floorColor} />
+        {isSelected && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={1}>
+            <planeGeometry args={[width + 0.04, depth + 0.04]} />
+            <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
   return (
     <group onClick={onClick}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
@@ -206,6 +240,36 @@ export const WoodFloor = memo(function WoodFloor({
     </group>
   );
 });
+
+
+/**
+ * The instanced plank/tile solids of a laying pattern (Naqsh). Planks sit
+ * with their bottoms slightly below y=0 so the visible floor surface stays
+ * near where the flat plane was (furniture at y=0 doesn't float or sink),
+ * while the ~10 mm body still leaves real recessed grooves at the gaps.
+ */
+function PatternFloor({ pattern, width, depth, fallbackColor }: {
+  pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
+}) {
+  const { gl, invalidate } = useThree();
+
+  // Planks overhang the room rect and are trimmed by material clipping
+  // planes at the walls; that path is compiled out unless this flag is on.
+  // Nothing else in the app uses clipping, so leaving it on is inert.
+  useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
+
+  const built = useMemo(
+    () => buildFloorGroup(pattern, width, depth, fallbackColor),
+    [pattern, width, depth, fallbackColor],
+  );
+
+  useEffect(() => {
+    invalidate();
+    return () => { built.dispose(); };
+  }, [built, invalidate]);
+
+  return <primitive object={built.group} position={[0, -0.004, 0]} />;
+}
 
 
 // ─── Ceiling designs ──────────────────────────────────────────────────────────

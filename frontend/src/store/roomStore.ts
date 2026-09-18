@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid'
 import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
 import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
+import type { FloorPatternState } from '@/lib/floorGeometry'
 import { hourOfDay } from '@/lib/sunPosition'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
@@ -190,6 +191,12 @@ export interface DesignState {
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
+  /** Real-geometry laying pattern for the floor (Naqsh — herringbone, chevron,
+   *  Versailles, ...). Optional: rooms designed before the picker existed keep
+   *  rendering the flat textured plane exactly as they always did. Persists
+   *  like floorTexture: inside designState through both the localStorage
+   *  partialize and the Saqlash state blob. */
+  floorPattern?: FloorPatternState | null
   floorState?: FloorState
   ceilingState?: CeilingState
   /** The ceiling profile and the numbers behind it. Optional: rooms designed
