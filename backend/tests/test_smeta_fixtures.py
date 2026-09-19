@@ -1456,12 +1456,12 @@ def test_38_recompute_totals_matches_compute_estimate(boyoq_norm, laminat_norm, 
 # ---------------------------------------------------------------------------
 # Test 31 — the electrical line prefers the MEASURED cable run
 #
-# room_electrical_auto routes a real cable run around the room's actual
-# perimeter from the actual placed devices, and rooms.py stores it on
+# A placed plan carries a real cable run, routed around the room's actual
+# perimeter from the actual placed devices, stored on
 # room_electrical.wiring_meters. The smeta used to ignore it entirely and
-# re-derive a number from points × avg_run × slack, overcharging every
-# scanned room. These tests pin all three branches and — crucially — the
-# slack question: the stored run ALREADY has ELEC_SLACK baked in.
+# re-derive a number from points × avg_run × slack, overcharging every room
+# that had one. These tests pin all three branches and — crucially — the
+# slack question: a stored run ALREADY has its reserve baked in.
 # ---------------------------------------------------------------------------
 
 def _electrical_room(points: int = 0) -> SimpleNamespace:
@@ -1533,11 +1533,10 @@ def test_31b_no_stored_plan_falls_back_to_the_point_estimate():
 
 
 def test_31c_stored_wiring_meters_is_not_slacked_a_second_time():
-    """PINNED DECISION: room_electrical_auto._wiring_meters already
-    multiplies its routed run by ELEC_SLACK before storing it, so the smeta
-    must NOT apply `slack` again. If this ever flips, every scanned room is
-    silently billed 15% extra cable — exactly the class of quiet error the
-    measured-run fix exists to remove.
+    """PINNED DECISION: a stored run is measured cable, reserve included, so
+    the smeta must NOT apply `slack` again. If this ever flips, every room
+    with a placed plan is silently billed 15% extra cable — exactly the class
+    of quiet error the measured-run fix exists to remove.
     """
     est = compute_estimate(
         _electrical_room(points=16), _mats(), _norms(), wiring_meters=Decimal("100.00")
@@ -1546,11 +1545,3 @@ def test_31c_stored_wiring_meters_is_not_slacked_a_second_time():
 
     assert line.qty == 100, "measured run used verbatim (rounded up to the metre)"
     assert line.qty != math.ceil(100 * ELEC_SLACK), "slack must not be double-counted"
-
-    # And the source of truth for that claim: the auto-placer's own output
-    # already carries the slack factor.
-    import inspect
-
-    from app.services import room_electrical_auto
-
-    assert "ELEC_SLACK" in inspect.getsource(room_electrical_auto._wiring_meters)

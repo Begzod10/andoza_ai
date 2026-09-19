@@ -1033,8 +1033,8 @@ def _electrical_line(
     """Electrical cable estimate.
 
     Prefers *wiring_meters* — the real cable run measured off the placed
-    layout by app.services.room_electrical_auto and stored on
-    ``room_electrical.wiring_meters``. Falls back to counting placed points
+    layout and stored on ``room_electrical.wiring_meters``. Falls back to
+    counting placed points
     from room.state (keys: 'electricals' and 'lights', saved by StudioPage)
     and multiplying by an average per-point run, and finally to
     ELEC_POINTS_DEFAULT — the last of which is the only branch that is
@@ -1054,11 +1054,11 @@ def _electrical_line(
         f" {APPROXIMATE_NORM_NOTE}" if elec_norm is None else ""
     )
 
-    # A measured plan beats any per-point average: use it verbatim.
-    # `_wiring_meters` in room_electrical_auto ALREADY multiplied the routed
-    # run by ELEC_SLACK, so the `slack` factor must NOT be applied again here
-    # — that would bill the same reserve twice. Cable is bought by the whole
-    # metre, so the measured run is rounded up exactly like the estimate is.
+    # A measured plan beats any per-point average: use it verbatim. A stored
+    # run is a measurement of the routed cable WITH its reserve already in it,
+    # so the `slack` factor must NOT be applied again here — that would bill
+    # the same reserve twice. Cable is bought by the whole metre, so the
+    # measured run is rounded up exactly like the estimate is.
     measured_m = _float(wiring_meters)
     if measured_m > 0:
         cable_m = math.ceil(measured_m)

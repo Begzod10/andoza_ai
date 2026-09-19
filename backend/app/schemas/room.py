@@ -24,8 +24,6 @@ class WallElement(BaseModel):
     # 900 mm door lands 450 mm from where it was measured, so, explicitly:
     #   * `room_scan_converter.convert_captured_room` writes the scanned
     #     surface's centre;
-    #   * `room_electrical_auto` reads `position * length` back as a centre when
-    #     it keeps sockets out of doorways;
     #   * the studio store (`frontend/src/store/roomStore.ts`) keeps its own
     #     millimetre `position` as the opening's LEFT EDGE and converts at the
     #     API boundary (`apiPositionToStoreMm` / `storeElementToApiPosition` in
