@@ -25,9 +25,12 @@ export function shadeHex(hex: string, factor: number): string {
 export function boardSegments(
   wallLenM: number,
   elements: WallElement[],
+  /** Board height in mm — decides which openings reach it. Defaults to the
+   *  studio's classic 100 mm board for callers that render a fixed one. */
+  boardHeightMm = 100,
 ): Array<{ center: number; len: number }> {
   const wallLenMm = wallLenM * 1000;
-  const BOARD_H_MM = 100; // keep in sync with Baseboard h = 0.1
+  const BOARD_H_MM = boardHeightMm;
   const resolved = resolveElementPositions(elements, wallLenMm);
   // The board must break at ANY opening that reaches the floor: doors,
   // balcony doors, and floor-to-ceiling windows (sill below board height).

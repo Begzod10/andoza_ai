@@ -11,7 +11,8 @@ import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D } from "./constants";
+import { buildTrimGeometry, type ResolvedTrim } from "@/lib/trimProfiles";
+import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast } from "./constants";
 import { boardSegments } from "./helpers";
 
 /**
@@ -1138,12 +1139,92 @@ export function DoorFrames({
  *   Wall B: inward normal (-1,0,0) → face + -1*(...)      =  width/2-t/2+0.006 ✓
  *   Wall D: inward normal (1,0,0)  → face + 1*(...)       = -width/2+t/2-0.006 ✓
  */
-export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: number; depth: number; geometry: RoomGeometry; hiddenWalls?: ReadonlySet<string> }) {
-  const h = 0.1;
-  const t = 0.02;
-  const color = "#E0D8CC";
-  const mat = <meshStandardMaterial color={color} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />;
+/** Trim colour/finish — unchanged from the plain board this replaced. */
+export const trimMat = (
+  <meshStandardMaterial color="#E0D8CC" roughness={0.35} metalness={0.02} envMapIntensity={0.4} />
+);
 
+/**
+ * One extruded run of trim, placed in the canonical wall frame (local +X along
+ * the wall, +Z into the room) — the same frame the opening reveals use, so a
+ * skirting and a cornice both land on the wall plane they belong to by passing
+ * that wall's `yaw`.
+ *
+ * Exported because three shells draw trim: the legacy ABCD `Baseboard` below,
+ * its polygon branch, and `NWallRoomShell`'s per-edge groups in RoomShell.
+ */
+export function TrimRun({
+  trim, lengthM, mitreStart, mitreEnd, position, yaw, flipY, material,
+}: {
+  trim: ResolvedTrim;
+  lengthM: number;
+  mitreStart: boolean;
+  mitreEnd: boolean;
+  /** World (or parent-local) position of the run's CENTRE on the wall face. */
+  position: [number, number, number];
+  yaw: number;
+  /** Hang the profile downward from `position` — what a ceiling cornice wants. */
+  flipY?: boolean;
+  material?: React.ReactElement;
+}) {
+  const geo = useMemo(
+    () => buildTrimGeometry({
+      def: trim.def, heightM: trim.heightM, widthM: trim.widthM,
+      lengthM, mitreStart, mitreEnd, flipY,
+    }),
+    [trim.def, trim.heightM, trim.widthM, lengthM, mitreStart, mitreEnd, flipY],
+  );
+  return (
+    <mesh geometry={geo} position={position} rotation={[0, yaw, 0]} castShadow={false} receiveShadow raycast={noRaycast}>
+      {material ?? trimMat}
+    </mesh>
+  );
+}
+
+/**
+ * Split one wall into the runs of trim it actually carries, with the mitre
+ * flags resolved into the run geometry's own frame.
+ *
+ * `boardSegments` breaks the run at every opening that reaches the trim (a
+ * door, a balcony door, a floor-length window), returning centres measured
+ * along the wall from its midpoint. A run mitres only where it reaches a
+ * corner; an end cut by a doorway stays square. `alongSign` is -1 on the walls
+ * whose geometry-local +X runs against the wall's own position axis (C and D),
+ * where the two mitre flags therefore swap.
+ */
+function trimRuns(
+  wallLenM: number,
+  elements: WallElement[],
+  trim: ResolvedTrim,
+  alongSign: 1 | -1,
+): Array<{ center: number; lengthM: number; mitreStart: boolean; mitreEnd: boolean }> {
+  const segs = boardSegments(wallLenM, elements, trim.heightM * 1000);
+  const EPS = 0.002;
+  return segs.map((s) => {
+    const atLeftEnd = s.center - s.len / 2 <= -wallLenM / 2 + EPS;
+    const atRightEnd = s.center + s.len / 2 >= wallLenM / 2 - EPS;
+    return {
+      center: s.center,
+      lengthM: s.len,
+      mitreStart: alongSign > 0 ? atLeftEnd : atRightEnd,
+      mitreEnd: alongSign > 0 ? atRightEnd : atLeftEnd,
+    };
+  });
+}
+
+/**
+ * Floor skirting (plintus) for the legacy ABCD room, and — through the polygon
+ * branch — for a rectangle that happens to carry vertices.
+ *
+ * `trim` is already resolved from the design state by the caller; rendering is
+ * skipped entirely when the user has taken the skirting off, so nothing is
+ * left behind at the wall/floor junction.
+ */
+export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
+  width: number; depth: number; geometry: RoomGeometry;
+  hiddenWalls?: ReadonlySet<string>;
+  trim: ResolvedTrim;
+}) {
   if (geometry.vertices && geometry.vertices.length >= 3) {
     const wallIds = geometry.walls.map((w) => w.id);
     const polyDefs = wallDefsFromVertices(geometry.vertices, wallIds);
@@ -1152,19 +1233,24 @@ export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: numb
         {geometry.walls.map((wall) => {
           const d = polyDefs[wall.id];
           if (!d || hiddenWalls?.has(wall.id)) return null;
-          const segs = boardSegments(d.length, wall.elements ?? []);
+          // `normal` points INTO the room; yaw is the rotation that sends the
+          // run's local +Z the same way (identical to Wall's own `ry`).
+          const inward = d.axis === "X" ? d.normal.z : d.normal.x;
+          const yaw = d.axis === "X"
+            ? (inward >= 0 ? 0 : Math.PI)
+            : (inward >= 0 ? Math.PI / 2 : -Math.PI / 2);
+          const alongSign: 1 | -1 = d.axis === "X"
+            ? (inward >= 0 ? 1 : -1)
+            : (inward >= 0 ? -1 : 1);
           const wallMid = d.leftAlong + d.length / 2;
-          const perp = d.face + (d.axis === "X" ? d.normal.z : d.normal.x) * (t / 2 - 0.006);
-          return segs.map((s, i) => {
-            const along = wallMid + s.center;
+          return trimRuns(d.length, wall.elements ?? [], trim, alongSign).map((r, i) => {
+            const along = wallMid + r.center;
             const position: [number, number, number] = d.axis === "X"
-              ? [along, h / 2, perp]
-              : [perp, h / 2, along];
-            const args: [number, number, number] = d.axis === "X" ? [s.len, h, t] : [t, h, s.len];
+              ? [along, 0, d.face]
+              : [d.face, 0, along];
             return (
-              <mesh key={`${wall.id}-${i}`} position={position}>
-                <boxGeometry args={args} />{mat}
-              </mesh>
+              <TrimRun key={`${wall.id}-${i}`} trim={trim} lengthM={r.lengthM}
+                mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={position} yaw={yaw} />
             );
           });
         })}
@@ -1172,38 +1258,25 @@ export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: numb
     );
   }
 
-  const wallA = geometry.walls.find(w => w.id === 'A');
-  const wallB = geometry.walls.find(w => w.id === 'B');
-  const wallC = geometry.walls.find(w => w.id === 'C');
-  const wallD = geometry.walls.find(w => w.id === 'D');
-
-  const segsA = boardSegments(width, wallA?.elements ?? []);
-  const segsC = boardSegments(width, wallC?.elements ?? []);
-  const segsB = boardSegments(depth, wallB?.elements ?? []);
-  const segsD = boardSegments(depth, wallD?.elements ?? []);
+  // Legacy ABCD. Each wall's inward normal fixes its yaw, and C/D run their
+  // local +X against the wall's own position axis (see `trimRuns`).
+  const walls = [
+    { id: 'A', lenM: width, yaw: 0, alongSign: 1 as const, at: (c: number): [number, number, number] => [c, 0, -depth / 2] },
+    { id: 'C', lenM: width, yaw: Math.PI, alongSign: -1 as const, at: (c: number): [number, number, number] => [c, 0, depth / 2] },
+    { id: 'B', lenM: depth, yaw: -Math.PI / 2, alongSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, 0, c] },
+    { id: 'D', lenM: depth, yaw: Math.PI / 2, alongSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, 0, c] },
+  ];
 
   return (
     <group>
-      {!hiddenWalls?.has('A') && segsA.map((s, i) => (
-        <mesh key={`A${i}`} position={[s.center, h / 2, -depth / 2 + t / 2 - 0.006]}>
-          <boxGeometry args={[s.len, h, t]} />{mat}
-        </mesh>
-      ))}
-      {!hiddenWalls?.has('C') && segsC.map((s, i) => (
-        <mesh key={`C${i}`} position={[s.center, h / 2, depth / 2 - t / 2 + 0.006]}>
-          <boxGeometry args={[s.len, h, t]} />{mat}
-        </mesh>
-      ))}
-      {!hiddenWalls?.has('B') && segsB.map((s, i) => (
-        <mesh key={`B${i}`} position={[width / 2 - t / 2 + 0.006, h / 2, s.center]}>
-          <boxGeometry args={[t, h, s.len]} />{mat}
-        </mesh>
-      ))}
-      {!hiddenWalls?.has('D') && segsD.map((s, i) => (
-        <mesh key={`D${i}`} position={[-width / 2 + t / 2 - 0.006, h / 2, s.center]}>
-          <boxGeometry args={[t, h, s.len]} />{mat}
-        </mesh>
-      ))}
+      {walls.map((w) => {
+        if (hiddenWalls?.has(w.id)) return null;
+        const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
+        return trimRuns(w.lenM, els, trim, w.alongSign).map((r, i) => (
+          <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM}
+            mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
+        ));
+      })}
     </group>
   );
 }
