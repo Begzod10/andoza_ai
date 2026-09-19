@@ -77,7 +77,7 @@ export interface StudioContext {
 
 // ─── Viewport corner controls ─────────────────────────────────────────────────
 
-/** The [3D | Kesma] view-mode segmented pill. Extracted (without its
+/** The [Ichki | Tashqi] view-mode segmented pill. Extracted (without its
  *  absolute positioning) because the Mebelirovka tab renders it inside a shared
  *  top-right control row next to the 2D/3D switch, while every other tab pins
  *  it to the 3D viewport's own top-right corner. */
@@ -88,8 +88,8 @@ function ViewModeSegment({ cutaway, setCutaway }: {
   return (
     <div className="flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md">
       {([
-        ['off', '3D', "Ichki ko'rinish — devorlar to'liq"],
-        ['auto', 'Kesma', "Kesma — devorlar kamera tomonda yashirinadi"],
+        ['off', 'Ichki', "Ichki ko'rinish — devorlar to'liq"],
+        ['auto', 'Tashqi', "Tashqi ko'rinish — kamera tomondagi devorlar yashirinadi"],
             ] as const).map(([mode, label, title]) => (
         <button
           key={mode}
@@ -1014,7 +1014,7 @@ export default function ThreeDPage() {
 
               {/* The old "Ko'rinish" view-preset chips lived here. "Yuqori"
                   (top view) is gone from this page, and the remaining view
-                  switching (3D / Kesma) moved into the segmented
+                  switching (Ichki / Tashqi) moved into the segmented
                   control floating over the viewport's top-right corner. */}
 
               {/* Tool modes */}
@@ -1371,7 +1371,7 @@ export default function ThreeDPage() {
             the full-width top-view plan editor ('2d') for the live 3D
             viewport ('3d', the default). In 3D mode the row wrapper spans
             exactly the 3D box, so this top-right row lands in the same corner
-            the view-mode pill occupies on other tabs; the Kesma
+            the view-mode pill occupies on other tabs; the Tashqi
             segment renders here (to the switch's left) only in 3D mode —
             cutaway modes are meaningless on the flat plan. z-20 matches the
             other corner controls: above the canvas and z-10 clusters, below
@@ -1446,7 +1446,7 @@ export default function ThreeDPage() {
               "Ko'rinish" chips + cutaway button. One segmented control pinned
               to the viewport's top-right corner, exposing the same three-state
               CutawayMode machine the old cycling button did: 3D = normal
-              interior view ('off'), Kesma = auto cutaway ('auto' — walls
+              interior view ('off'), Tashqi = auto cutaway ('auto' — walls
               facing the camera hide). The K key still toggles the two
               states. z-20: above
               the canvas and the z-10 button clusters, below the drop overlay
@@ -1486,7 +1486,7 @@ export default function ThreeDPage() {
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
                 <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
-                <li><b>K</b> — Kesma / 3D</li>
+                <li><b>K</b> — Ichki / Tashqi</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
                 <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
                 <li><b>Esc</b> — bekor qilish</li>
@@ -1496,7 +1496,7 @@ export default function ThreeDPage() {
 
           {/* Mebelirovka quick actions — doors/windows editor + 3D model import */}
           {isMebelTab && (
-            // top-28 below sm: the 2D/3D + Kesma row (also at
+            // top-28 below sm: the 2D/3D + view-mode row (also at
             // top-16, right-anchored) spans nearly the whole width on phones
             // and would run over these pills; from sm up both tiers fit.
             <div className="absolute top-28 sm:top-16 left-3 z-10 flex flex-col gap-2">
