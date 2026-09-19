@@ -1,8 +1,8 @@
 /**
  * Cutaway building blocks for the 3D studio.
  *
- * Walls facing the camera hide (auto mode) or are fixed-hidden (diorama mode)
- * so the interior reads like an architectural cutaway model.
+ * Walls facing the camera hide (auto mode) so the interior reads like an
+ * architectural cutaway model.
  *
  * The room used to be framed like a museum model — a near-black walnut trim
  * capping every wall top, four posts down the outer corners and a dark slab
@@ -17,13 +17,10 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeBufferGeometries } from 'three-stdlib'
 
-export type CutawayMode = 'off' | 'auto' | 'diorama'
+export type CutawayMode = 'off' | 'auto'
 
 // ─── Style constants (Phase 3 palette will re-export these) ──────────────────
 export const SHELL_PLASTER = '#D8CDBE'   // outer shell / cut faces
-
-// Fixed pair removed in diorama presentation mode (camera lives in +X/+Z quadrant)
-const DIORAMA_HIDDEN: ReadonlySet<string> = new Set(['B', 'C'])
 
 // Outward normals of the four legacy walls
 const WALL_NORMALS: Record<string, [number, number]> = {
@@ -51,9 +48,6 @@ export function useHiddenWalls(mode: CutawayMode): ReadonlySet<string> {
     if (mode === 'off') {
       if (current.current.size === 0) return
       next = new Set()
-    } else if (mode === 'diorama') {
-      if (setsEqual(current.current, DIORAMA_HIDDEN)) return
-      next = new Set(DIORAMA_HIDDEN)
     } else {
       // auto: hide walls whose outward normal points toward the camera
       const vx = camera.position.x

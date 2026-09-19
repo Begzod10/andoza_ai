@@ -95,15 +95,15 @@ export function StudioTabStrip({
 }: {
   roomId: string;
   /**
-   * "overlay": three absolutely-positioned elements (left arrow top-left,
-   * title top-center, right arrow top-right) inside the nearest relative
-   * ancestor — the page's viewport box. "inline": one normal-flow row for
-   * regular document pages (Smeta).
+   * "overlay": one absolutely-positioned centred cluster (arrow, title,
+   * arrow) inside the nearest relative ancestor — the page's viewport box.
+   * "inline": the same row in normal flow, for regular document pages
+   * (Smeta).
    */
   variant?: "overlay" | "inline";
-  /** Extra classes for the overlay title's positioned wrapper — e.g.
-   *  "hidden sm:block" where the host viewport gets too narrow for all
-   *  three pills (PlacementPage's plan+3D area on phones). */
+  /** Extra classes for the overlay title — e.g. "hidden sm:block" where the
+   *  host viewport gets too narrow for all three pills (PlacementPage's
+   *  plan+3D area on phones); the arrows stay usable without it. */
   titleClassName?: string;
 }) {
   const nav = useStudioTabNav(roomId);
@@ -148,14 +148,18 @@ export function StudioTabStrip({
     );
   }
 
+  // One centred cluster: [←] [section name] [→]. The arrows used to sit in
+  // the far corners with the name alone in the middle; keeping all three
+  // together means the eye (and the cursor) only has to find one spot, and
+  // it leaves both corners free for each page's own controls.
   // z-30: above the canvas and the z-10/z-20 corner-control tiers (which the
   // 3D pages drop to top-16 to leave this top row free), below drag-drop
   // overlays (z-40) and mobile panels (z-40/50).
   return (
-    <>
-      <div className="absolute top-3 left-3 z-30">{prevBtn}</div>
-      <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-30 ${titleClassName}`}>{title}</div>
-      <div className="absolute top-3 right-3 z-30">{nextBtn}</div>
-    </>
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+      {prevBtn}
+      <div className={titleClassName}>{title}</div>
+      {nextBtn}
+    </div>
   );
 }

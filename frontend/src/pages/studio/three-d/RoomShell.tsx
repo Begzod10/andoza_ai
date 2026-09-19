@@ -185,10 +185,10 @@ function polyEdgesEqual(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean
 }
 
 /**
- * Camera-facing / diorama hidden-edge tracking for the polygon shell — the
- * N-wall analogue of diorama.useHiddenWalls. Hides any edge whose OUTWARD
- * normal points toward the camera (auto) or toward the fixed +X/+Z quadrant
- * (diorama), with the same hysteresis so it doesn't flicker at the boundary.
+ * Camera-facing hidden-edge tracking for the polygon shell — the N-wall
+ * analogue of diorama.useHiddenWalls. Hides any edge whose OUTWARD normal
+ * points toward the camera, with the same hysteresis so it doesn't flicker
+ * at the boundary.
  */
 function useHiddenPolyEdges(mode: CutawayMode, edges: PolyEdge[]): ReadonlySet<number> {
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
@@ -200,13 +200,8 @@ function useHiddenPolyEdges(mode: CutawayMode, edges: PolyEdge[]): ReadonlySet<n
       if (current.current.size === 0) return;
       next = new Set();
     } else {
-      let dx: number, dz: number;
-      if (mode === 'diorama') {
-        dx = Math.SQRT1_2; dz = Math.SQRT1_2;
-      } else {
-        const len = Math.hypot(camera.position.x, camera.position.z) || 1;
-        dx = camera.position.x / len; dz = camera.position.z / len;
-      }
+      const len = Math.hypot(camera.position.x, camera.position.z) || 1;
+      const dx = camera.position.x / len, dz = camera.position.z / len;
       next = new Set<number>();
       for (const e of edges) {
         const dot = e.ox * dx + e.oz * dz;
@@ -659,7 +654,7 @@ export const RoomScene = memo(function RoomScene({
 
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
-  // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
+  // Cutaway: which walls are currently hidden (camera-facing ones)
   const hiddenWalls = useHiddenWalls(cutaway)
 
   // Skirting: `undefined` is "never touched", which still draws the default
@@ -682,7 +677,7 @@ export const RoomScene = memo(function RoomScene({
   }, [designState.ceiling?.design, designState.ceiling?.settings, H])
   const cutawayOn = cutaway !== 'off'
 
-  // Top view and the cutaway diorama both look into an open-topped box. That is
+  // Top view and the cutaway both look into an open-topped box. That is
   // a viewing convention, not a hole in the building: the room still has a roof,
   // and the sun must still stop at it. Let it through and daylight lands
   // straight on the floor with hard shadows of the walls across it — the
