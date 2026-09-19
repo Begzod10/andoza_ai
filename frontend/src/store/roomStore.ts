@@ -8,6 +8,7 @@ import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatal
 import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
 import type { FloorPatternState } from '@/lib/floorGeometry'
+import type { TrimState } from '@/lib/trimProfiles'
 import { hourOfDay } from '@/lib/sunPosition'
 import { hasAbcdWalls } from '@/lib/roomDims'
 import { apiPositionToStoreMm } from '@/lib/wallPositions'
@@ -212,6 +213,21 @@ export interface DesignState {
    *  like floorTexture: inside designState through both the localStorage
    *  partialize and the Saqlash state blob. */
   floorPattern?: FloorPatternState | null
+  /** Floor skirting (plintus): which milled profile runs along the wall feet,
+   *  and the height/width dialled for it. Three states, like floorPattern but
+   *  with the opposite default:
+   *    undefined — never touched, so the board renders with its default
+   *                profile exactly as every room drew it before this picker
+   *    null      — the user took the skirting off; nothing renders
+   *    {...}     — that profile at those millimetres
+   *  Persists inside designState through both the localStorage partialize and
+   *  the Saqlash state blob. */
+  skirting?: TrimState | null
+  /** Ceiling cornice (galtel) — the moulding at the wall/ceiling junction.
+   *  Same shape as `skirting`, but a plain absence means OFF: a cornice is
+   *  something the user adds, not something every room already had. Only an
+   *  explicit object puts one in the scene. */
+  cornice?: TrimState | null
   floorState?: FloorState
   ceilingState?: CeilingState
   /** The ceiling profile and the numbers behind it. Optional: rooms designed

@@ -19,20 +19,34 @@ export function shadeHex(hex: string, factor: number): string {
 }
 
 
-// ─── Baseboard trim ────────────────────────────────────────────────────────────
+// ─── Trim runs (skirting / cornice) ───────────────────────────────────────────
 
-/** Returns (centerLocal, segLen) pairs in meters, skipping floor-level openings. */
-export function boardSegments(
+/**
+ * Split a wall into the runs a trim actually occupies, breaking wherever an
+ * opening crosses the trim's own vertical band.
+ *
+ * Both bands are measured in mm from the floor: a skirting occupies
+ * [0, height], a cornice [junction - height, junction]. An opening breaks the
+ * run when the two overlap — a door interrupts a skirting, a floor-to-ceiling
+ * window interrupts both, and an ordinary window at sill height interrupts
+ * neither.
+ *
+ * Returns (centerLocal, segLen) pairs in metres, centres measured along the
+ * wall from its midpoint.
+ */
+export function trimSegments(
   wallLenM: number,
   elements: WallElement[],
+  bandBottomMm: number,
+  bandTopMm: number,
 ): Array<{ center: number; len: number }> {
   const wallLenMm = wallLenM * 1000;
-  const BOARD_H_MM = 100; // keep in sync with Baseboard h = 0.1
   const resolved = resolveElementPositions(elements, wallLenMm);
-  // The board must break at ANY opening that reaches the floor: doors,
-  // balcony doors, and floor-to-ceiling windows (sill below board height).
   const cuts = resolved
-    .filter(e => (e.sill_height ?? 0) < BOARD_H_MM)
+    .filter((e) => {
+      const sill = e.sill_height ?? 0;
+      return sill < bandTopMm && sill + e.height > bandBottomMm;
+    })
     .sort((a, b) => a.position - b.position);
 
   if (cuts.length === 0) return [{ center: 0, len: wallLenM }];
@@ -50,6 +64,17 @@ export function boardSegments(
     segs.push({ center: ((cursor + wallLenMm) / 2 - wallLenMm / 2) / 1000, len: (wallLenMm - cursor) / 1000 });
   }
   return segs;
+}
+
+/** The skirting's band: from the floor up to the board's height. */
+export function boardSegments(
+  wallLenM: number,
+  elements: WallElement[],
+  /** Board height in mm — decides which openings reach it. Defaults to the
+   *  studio's classic 100 mm board for callers that render a fixed one. */
+  boardHeightMm = 100,
+): Array<{ center: number; len: number }> {
+  return trimSegments(wallLenM, elements, 0, boardHeightMm);
 }
 
 

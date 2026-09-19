@@ -1794,13 +1794,14 @@ export default function ThreeDPage() {
               maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
               maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              // Positive = head-turn feel: drag left and the room streams
-              // rightward across the view (drag right → it streams left).
-              // This is the direction the user asked for — twice; a stale
-              // tab running the old negative value is what made it look
-              // "still broken" once. Do not flip the sign again without
-              // dragging in the actual browser first.
               rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : 0.45}
+              // Both drag axes run opposite to OrbitControls' default
+              // grab-and-turn, as the user asked: dragging right sends the
+              // room left, dragging down tilts the view the other way too.
+              // reverseOrbit is the both-axes flag (there are separate
+              // reverseHorizontalOrbit / reverseVerticalOrbit flags if these
+              // ever need to diverge again).
+              reverseOrbit
               zoomSpeed={0.8}
             />
 

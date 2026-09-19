@@ -38,20 +38,23 @@ export const UNCONFIGURED_FLOOR_COLOR = "#DCD7CC";
 export const WALLPAPER_WIDTH_M = 1.06 // standard roll width
 
 
-// ─── Window reveal (wall-thickness illusion) ─────────────────────────────────
-// Interior walls render as widthless planes (WALL_T = 0), so a window pasted
-// onto the wall plane reads as paper. Every window opening therefore gets a
-// reveal box — four inner surfaces extending this far OUTWARD (away from the
-// room) from the interior wall face — that fakes a 200 mm-thick wall, with
-// the window frame + sashes sitting flush with the reveal's outer edge.
-export const WINDOW_REVEAL_D = 0.2;   // reveal depth in metres (200 mm)
+// ─── Opening reveal (wall-thickness illusion) ────────────────────────────────
+// Interior walls render as widthless planes (WALL_T = 0), so an opening pasted
+// onto the wall plane reads as paper. EVERY opening — window, balcony door and
+// door alike — therefore gets a reveal: flat surfaces extending this far
+// OUTWARD (away from the room) from the interior wall face, which fakes a
+// 200 mm-thick wall, with the opening's own frame and its sash/leaf sitting at
+// the reveal's outer edge.
+export const OPENING_REVEAL_D = 0.2;   // reveal depth in metres (200 mm)
 
 // Wall-normal offset (from the interior wall plane, outward) at which the
 // window sashes and glass are centred: 5 mm inside the reveal's exterior
 // edge, so the flat sash faces sit just in front of the flat frame ring that
 // WallComponents places flush with that edge (2 mm of clear separation — no
 // coplanar faces). Shared by WallComponents and DoorLeaves so both agree.
-export const WINDOW_SASH_RECESS = WINDOW_REVEAL_D - 0.005;
+// (A door leaf is a real 40 mm slab, so DoorLeaves derives its own recess
+// from LEAF_T instead — see DOOR_LEAF_RECESS there.)
+export const WINDOW_SASH_RECESS = OPENING_REVEAL_D - 0.005;
 
 
 // ─── Wall-mounted electrical devices ─────────────────────────────────────────

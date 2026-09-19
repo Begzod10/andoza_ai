@@ -7,7 +7,7 @@ import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roo
 import type { DesignState, RoomGeometry, WallElement } from "@/store/roomStore";
 import type { Room } from "@/lib/api";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { DEFAULT_CEILING_DESIGN } from "@/lib/ceilingDesigns";
+import { DEFAULT_CEILING_DESIGN, ceilingDesign, resolveCeilingSettings, ceilingPerimeterY } from "@/lib/ceilingDesigns";
 import {
   WallFade,
   useHiddenWalls, type CutawayMode,
@@ -16,10 +16,11 @@ import { ShadowShell } from "@/features/studio/shadowShell";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
-import { shadeCovering, boardSegments } from "./helpers";
+import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
-import { Wall, WindowFrames, DoorFrames, Baseboard, WindowFrameItem, DoorFrameItem, type FrameWallDef } from "./WallComponents";
+import { Wall, WindowFrames, DoorFrames, Baseboard, Cornice, WindowFrameItem, DoorFrameItem, TrimRun, type FrameWallDef } from "./WallComponents";
+import { resolveTrim } from "@/lib/trimProfiles";
 import { CeilingLights } from "./LightingComponents";
 
 /**
@@ -161,9 +162,6 @@ export const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D
 // into place. The along-length direction is fixed by the winding, so the
 // room-inward face is chosen per edge via <Wall innerFaceDir> (see that prop).
 
-const NBASE_H = 0.1;      // baseboard height (matches Baseboard)
-const NBASE_T = 0.02;     // baseboard depth
-const NBASE_COLOR = "#E0D8CC";
 
 interface PolyEdge {
   index: number;
@@ -242,6 +240,12 @@ function NWallRoomShell({
   cutaway?: CutawayMode;
   plasterWalls?: boolean;
 }) {
+  // Skirting: undefined means the user never touched it, which still renders
+  // the default board; only an explicit null takes it off.
+  const trim = designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')
+  // Cornice: opt-in, and this shell always draws the plain slab at H (a
+  // scanned room is rendered open-topped), so the junction is simply H.
+  const cornice = designState.cornice ? resolveTrim(designState.cornice, 'cornice') : null
   const verts = geometry.vertices!
   const n = verts.length
 
@@ -412,13 +416,19 @@ function NWallRoomShell({
           resolveWallCovering(designState.wallCoverings, e.wallId),
           shadeFactor,
         )
-        // `alongSign: 1` — this def lives in the edge's OWN rotated group, whose
-        // local +X already points from vertices[i] to vertices[i+1], i.e. the
-        // direction position grows in. The sign only ever matters to a def
-        // expressed in world axes (see `buildFrameWallDefs`).
-        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, alongSign: 1 }
+        // Two independent signs, both needed (see `FrameWallDef`):
+        //  • `alongSign: 1` — this def lives in the edge's OWN rotated group,
+        //    whose local +X already points from vertices[i] to vertices[i+1],
+        //    i.e. the direction position grows in. The sign only ever matters
+        //    to a def expressed in world axes (see `buildFrameWallDefs`).
+        //  • `faceDir` is mandatory here: these frames render INSIDE that same
+        //    rotated group, where cx/cz are both 0 and so carry no sign for
+        //    the reveal to read — without it every drawn-room opening would
+        //    cut its 200 mm niche toward the same side regardless of which way
+        //    the wall actually faces.
+        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, alongSign: 1, faceDir: e.faceDir }
         const resolvedEls = resolveElementPositions(elements, e.length * 1000)
-        const baseSegs = boardSegments(e.length, elements)
+        const baseSegs = boardSegments(e.length, elements, (trim?.heightM ?? 0.1) * 1000)
 
         // Merge note: master's concave-corner fix here drew each wall box
         // `length + T` long (84e22852), and this path dropped it for the
@@ -454,18 +464,44 @@ function NWallRoomShell({
                   <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />
                 ),
               )}
-              {/* Baseboard: one box per gap segment, offset onto the room-inward
-                  side of the wall plane (faceDir). */}
-              {baseSegs.map((s, si) => (
-                <mesh
-                  key={`base-${si}`}
-                  position={[s.center, NBASE_H / 2, e.faceDir * (NBASE_T / 2)]}
-                  raycast={noRaycast}
-                >
-                  <boxGeometry args={[s.len, NBASE_H, NBASE_T]} />
-                  <meshStandardMaterial color={NBASE_COLOR} roughness={0.35} metalness={0.02} envMapIntensity={0.4} />
-                </mesh>
-              ))}
+              {/* Skirting: one milled run per gap segment. This group is
+                  already rotated onto the edge, so the run only needs to turn
+                  its profile toward the room — yaw 0 when the room is on the
+                  local +Z side, π when it is not (which also reverses local
+                  +X, hence the swapped mitre flags). */}
+              {cornice && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
+                const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
+                const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
+                const fwd = e.faceDir > 0;
+                return (
+                  <TrimRun
+                    key={`cor-${si}`}
+                    trim={cornice}
+                    lengthM={s.len}
+                    flipY
+                    mitreStart={fwd ? atLeft : atRight}
+                    mitreEnd={fwd ? atRight : atLeft}
+                    position={[s.center, H, 0]}
+                    yaw={fwd ? 0 : Math.PI}
+                  />
+                );
+              })}
+              {trim && baseSegs.map((s, si) => {
+                const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
+                const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
+                const fwd = e.faceDir > 0;
+                return (
+                  <TrimRun
+                    key={`base-${si}`}
+                    trim={trim}
+                    lengthM={s.len}
+                    mitreStart={fwd ? atLeft : atRight}
+                    mitreEnd={fwd ? atRight : atLeft}
+                    position={[s.center, 0, 0]}
+                    yaw={fwd ? 0 : Math.PI}
+                  />
+                );
+              })}
             </group>
           </WallFade>
         )
@@ -630,6 +666,25 @@ export const RoomScene = memo(function RoomScene({
 
   // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
   const hiddenWalls = useHiddenWalls(cutaway)
+
+  // Skirting: `undefined` is "never touched", which still draws the default
+  // board so rooms designed before the picker existed are unchanged; only an
+  // explicit `null` removes it from the scene.
+  const skirting = useMemo(
+    () => (designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')),
+    [designState.skirting],
+  )
+  // Cornice: only an explicit choice puts one in the scene.
+  const cornice = useMemo(
+    () => (designState.cornice ? resolveTrim(designState.cornice, 'cornice') : null),
+    [designState.cornice],
+  )
+  // Where the wall actually meets the ceiling, so the moulding follows a
+  // dropped design down instead of floating up at the slab.
+  const corniceY = useMemo(() => {
+    const d = ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN)
+    return ceilingPerimeterY(d, resolveCeilingSettings(d, designState.ceiling?.settings), H)
+  }, [designState.ceiling?.design, designState.ceiling?.settings, H])
   const cutawayOn = cutaway !== 'off'
 
   // Top view and the cutaway diorama both look into an open-topped box. That is
@@ -734,7 +789,13 @@ export const RoomScene = memo(function RoomScene({
 
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
-          <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
+          {skirting && (
+            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting} />
+          )}
+          {cornice && (
+            <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
+              trim={cornice} junctionY={corniceY} />
+          )}
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
 

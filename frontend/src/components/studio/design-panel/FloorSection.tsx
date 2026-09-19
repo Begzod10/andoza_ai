@@ -6,6 +6,10 @@ import {
   pieceShade, shadeColor, floorSlabColor,
   floorPatternDef, type FloorPatternDef, type FloorPatternId, type FloorPatternSettings,
 } from "@/lib/floorGeometry";
+import {
+  trimProfilesOf, trimProfileSvgPath, resolveTrim,
+  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, type TrimProfileDef,
+} from "@/lib/trimProfiles";
 import { FLOOR_COLORS } from "@/pages/studio/three-d/constants";
 import { useRoomStore } from "@/store/roomStore";
 import { uz } from "@/locale/uz";
@@ -182,6 +186,8 @@ export function FloorSection({ onSetFloorType }: {
         )}
       </div>
 
+      <SkirtingGroup />
+
       {/* Floor image: the plank texture when a pattern is laid, otherwise the
           whole-floor image. Same 'pol' library either way. */}
       <div className="mt-5 space-y-2">
@@ -274,6 +280,115 @@ export function FloorSection({ onSetFloorType }: {
         )}
       </div>
     </section>
+  );
+}
+
+
+/**
+ * "Plintus" — the floor skirting: which milled profile runs along the wall
+ * feet, and the only two numbers it takes.
+ *
+ * Three stored states, mirroring how the 3D shell reads them: `undefined` is
+ * "never touched" and still draws the default board, `null` is off, and an
+ * object is an explicit choice. Picking any profile while it is off turns it
+ * back on, so the thumbnails double as the add control.
+ */
+function SkirtingGroup() {
+  const skirting = useRoomStore((s) => s.designState.skirting);
+  const setDesignState = useRoomStore((s) => s.setDesignState);
+
+  const profiles = trimProfilesOf("skirting");
+  const off = skirting === null;
+  const active = resolveTrim(skirting, "skirting");
+  const hRange = TRIM_HEIGHT_RANGE_MM.skirting;
+  const wRange = TRIM_WIDTH_RANGE_MM.skirting;
+
+  /** Switching profile adopts that profile's own catalogue sizes, the same way
+   *  picking a laying pattern resets the plank dimensions above. */
+  function pick(def: TrimProfileDef) {
+    setDesignState({ skirting: { id: def.id, heightMm: def.defaultHeightMm, widthMm: def.defaultWidthMm } });
+  }
+
+  function patch(p: { heightMm?: number; widthMm?: number }) {
+    setDesignState({
+      skirting: {
+        id: active.def.id,
+        heightMm: Math.round(active.heightM * 1000),
+        widthMm: Math.round(active.widthM * 1000),
+        ...p,
+      },
+    });
+  }
+
+  return (
+    <div className="mt-5">
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">Plintus</h3>
+      <div className="grid grid-cols-3 gap-2">
+        {profiles.map((def) => {
+          const on = !off && active.def.id === def.id;
+          return (
+            <button
+              key={def.id}
+              onClick={() => pick(def)}
+              title={def.label}
+              className={`rounded-card border-2 p-1 pb-1.5 text-left transition-colors ${
+                on ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+              }`}
+            >
+              <TrimThumb def={def} />
+              <span className={`block mt-1 text-[10px] leading-tight ${on ? "text-brand font-semibold" : "text-gray-600"}`}>
+                {def.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {off ? (
+        <button
+          onClick={() => setDesignState({ skirting: { id: profiles[0].id } })}
+          className="mt-2 w-full py-2 text-xs font-medium text-brand border border-gray-200 hover:border-brand/50 rounded-card transition-colors"
+        >
+          Plintusni qo'shish
+        </button>
+      ) : (
+        <>
+          <div className="mt-3 space-y-2.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sozlamalar</h3>
+            <SettingSlider
+              label="Balandligi" unit=" mm" min={hRange.min} max={hRange.max} step={5}
+              value={Math.round(active.heightM * 1000)}
+              onChange={(v) => patch({ heightMm: v })}
+            />
+            <SettingSlider
+              label="Eni" unit=" mm" min={wRange.min} max={wRange.max} step={1}
+              value={Math.round(active.widthM * 1000)}
+              onChange={(v) => patch({ widthMm: v })}
+            />
+          </div>
+          <button
+            onClick={() => setDesignState({ skirting: null })}
+            className="mt-2 w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
+          >
+            Plintusni olib tashlash
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The profile's real cross-section, drawn from the same outline the 3D
+ *  extrusion uses — wall on the left, floor along the bottom. */
+function TrimThumb({ def }: { def: TrimProfileDef }) {
+  const d = useMemo(() => trimProfileSvgPath(def), [def]);
+  return (
+    <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
+      {/* the wall face and the floor line the profile sits against */}
+      <path d="M0,-6 L0,106" stroke="#CBD5E1" strokeWidth="3" fill="none" />
+      <path d="M-6,100 L106,100" stroke="#CBD5E1" strokeWidth="3" fill="none" />
+      <path d={d} fill="#D8CEBF" stroke="#8A7F6D" strokeWidth="2.5" strokeLinejoin="round" />
+    </svg>
   );
 }
 

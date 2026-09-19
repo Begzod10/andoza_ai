@@ -11,7 +11,7 @@ import * as THREE from 'three'
  *    rectangle and emits *pieces* grouped into *classes*: a class is one
  *    convex footprint polygon (metres, centred) shared by every piece in it,
  *    a piece is a (x, z, rotation, shade-jitter) placement. Most patterns are
- *    a single class; chevron has two (mirrored parallelograms); Versailles
+ *    a single class; chevron has two (mirrored parallelograms); a panel
  *    has six (frame trapezoid, node square, connector, diamond inset, and the
  *    half-piece triangles at the panel border).
  *  - buildFloorGroup() turns every class into ONE THREE.InstancedMesh of a
@@ -38,16 +38,10 @@ export type FloorPatternId =
   | 'wood_strip'
   | 'brick_bond'
   | 'stake_bond'
-  | 'checker_board'
-  | 'mosaic'
-  | 'chantilly'
-  | 'basket_weave'
-  | 'double_basket_weave'
-  | 'versailles'
 
 export interface FloorPatternSettings {
   /** Plank length, cm. Doubles as the panel/square size for the panel
-   *  patterns (checker board, chantilly, versailles). */
+   *  bond patterns. */
   plankLengthCm?: number
   /** Plank width, cm. Doubles as the border-strip width for panel patterns. */
   plankWidthCm?: number
@@ -81,8 +75,8 @@ export interface FloorPatternDef {
   id: FloorPatternId
   /** Label kept verbatim from the user's reference sheet. */
   label: string
-  /** False when plank length is forced by the pattern (basket weaves, mosaic
-   *  blocks are squares built from the width) — the UI hides the length knob. */
+  /** False when plank length is forced by the pattern rather than chosen —
+   *  the UI hides the length knob for those. */
   usesLength: boolean
   defaultLengthCm: number
   defaultWidthCm: number
@@ -97,12 +91,6 @@ export const FLOOR_PATTERN_DEFS: FloorPatternDef[] = [
   { id: 'wood_strip',          label: 'Wood Strip',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 12, thumbSpanM: 1.6 },
   { id: 'brick_bond',          label: 'Brick Bond',          usesLength: true,  defaultLengthCm: 90,  defaultWidthCm: 15, thumbSpanM: 1.7 },
   { id: 'stake_bond',          label: 'Stake Bond',          usesLength: true,  defaultLengthCm: 60,  defaultWidthCm: 20, thumbSpanM: 1.7 },
-  { id: 'checker_board',       label: 'Checker Board',       usesLength: true,  defaultLengthCm: 40,  defaultWidthCm: 10, thumbSpanM: 1.62 },
-  { id: 'mosaic',              label: 'Mosaic',              usesLength: false, defaultLengthCm: 16,  defaultWidthCm: 4,  thumbSpanM: 0.98 },
-  { id: 'chantilly',           label: 'Chantilly',           usesLength: true,  defaultLengthCm: 60,  defaultWidthCm: 10, thumbSpanM: 1.62 },
-  { id: 'basket_weave',        label: 'Basket Weave',        usesLength: false, defaultLengthCm: 20,  defaultWidthCm: 10, thumbSpanM: 1.22 },
-  { id: 'double_basket_weave', label: 'Double Basket Weave', usesLength: false, defaultLengthCm: 32,  defaultWidthCm: 8,  thumbSpanM: 1.3 },
-  { id: 'versailles',          label: 'Versailles',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 12, thumbSpanM: 1.28 },
 ]
 
 const BY_ID = new Map(FLOOR_PATTERN_DEFS.map((d) => [d.id, d]))
@@ -296,7 +284,7 @@ export interface FloorPiece {
   rot: number
   /** Raw shade jitter in -1..1 (scaled by colorVariation later). */
   shade: number
-  /** Absolute tone offset applied regardless of variation (checker board). */
+  /** Absolute tone offset applied regardless of variation. */
   tone?: number
 }
 
@@ -360,49 +348,7 @@ function genBond(offsetHalf: boolean): Generator {
   }
 }
 
-/** Squares of parallel boards, direction alternating 90° checker-wise, with a
- *  light/dark tone alternation so it reads as the sheet's checkerboard. */
-const genCheckerBoard: Generator = (r, cw, ch, S) => {
-  const s = r.lM
-  const n = clamp(Math.round(s / r.wM), 1, 10)
-  const bw = s / n
-  const polyH = rectPoly(s, bw)
-  const ni = Math.ceil(cw / s / 2) + 1
-  const nj = Math.ceil(ch / s / 2) + 1
-  for (let i = -ni; i <= ni; i++) {
-    for (let j = -nj; j <= nj; j++) {
-      const cx = (i + 0.5) * s, cz = (j + 0.5) * s
-      const horiz = mod(i + j, 2) === 0
-      const tone = horiz ? 0.06 : -0.1
-      for (let k = 0; k < n; k++) {
-        const o = (k - (n - 1) / 2) * bw
-        if (horiz) S.add('sq', polyH, cx, cz + o, 0, i * 3 + k, j * 5, tone)
-        else S.add('sq', polyH, cx + o, cz, Math.PI / 2, i * 3 + k, j * 5 + 1, tone)
-      }
-    }
-  }
-}
 
-/** Finger-block mosaic: squares of nF fingers, direction alternating. */
-const genMosaic: Generator = (r, cw, ch, S) => {
-  const fw = r.wM
-  const nF = clamp(Math.round(r.lM / r.wM), 3, 6)
-  const block = nF * fw
-  const poly = rectPoly(fw, block) // finger along z
-  const ni = Math.ceil(cw / block / 2) + 1
-  const nj = Math.ceil(ch / block / 2) + 1
-  for (let i = -ni; i <= ni; i++) {
-    for (let j = -nj; j <= nj; j++) {
-      const cx = (i + 0.5) * block, cz = (j + 0.5) * block
-      const vertical = mod(i + j, 2) === 0
-      for (let k = 0; k < nF; k++) {
-        const o = (k - (nF - 1) / 2) * fw
-        if (vertical) S.add('f', poly, cx + o, cz, 0, i * 7 + k, j * 3)
-        else S.add('f', poly, cx, cz + o, Math.PI / 2, i * 7 + k, j * 3 + 1)
-      }
-    }
-  }
-}
 
 /**
  * Herringbone lattice (shared by single and double): cells of size `cell`;
@@ -469,169 +415,10 @@ const genChevron: Generator = (r, cw, ch, S) => {
   }
 }
 
-function genBasket(planks: number): Generator {
-  return (r, cw, ch, S) => {
-    const w = r.wM
-    const L = planks * w // blocks must be square for the weave to tile
-    const poly = rectPoly(L, w)
-    const ni = Math.ceil(cw / L / 2) + 1
-    const nj = Math.ceil(ch / L / 2) + 1
-    for (let i = -ni; i <= ni; i++) {
-      for (let j = -nj; j <= nj; j++) {
-        const cx = (i + 0.5) * L, cz = (j + 0.5) * L
-        const horiz = mod(i + j, 2) === 0
-        for (let k = 0; k < planks; k++) {
-          const o = (k - (planks - 1) / 2) * w
-          if (horiz) S.add('bk', poly, cx, cz + o, 0, i * 5 + k, j * 3)
-          else S.add('bk', poly, cx + o, cz, Math.PI / 2, i * 5 + k, j * 3 + 1)
-        }
-      }
-    }
-  }
-}
 
-// ── Diagonal lattice shared by Chantilly and Versailles ──────────────────────
-//
-// A 45°-rotated grid inside a square region of side `side` centred at (cx,cz).
-// Lattice coords (u,v) run along the region's diagonals; the region maps to
-// the diamond |u|+|v| ≤ side/√2. The lattice pitch is chosen as
-// sp = side/(√2·k), so the region boundary passes exactly through lattice
-// nodes — every boundary cell is then cut precisely in half along its
-// diagonal, and the cut pieces are all the same right-isosceles triangle.
-// With sw > 0 the strips weave a Versailles trellis (node squares +
-// connectors + diamond openings); with sw = 0 it degenerates to Chantilly's
-// solid field of squares laid on point.
-function emitDiagLattice(
-  S: Sheet, prefix: string, cx: number, cz: number,
-  side: number, k: number, sw: number, seed: number,
-) {
-  const sp = side / (Math.SQRT2 * k)
-  const SQ = Math.SQRT1_2
-  const uvToWorld = (u: number, v: number): Vec2 => [cx + (u - v) * SQ, cz + (u + v) * SQ]
-  const R45 = Math.PI / 4
-  // Boundary-half triangle: legs along -u/-v from the cell corner, hypotenuse
-  // facing +u+v; canonical poly has the right angle at (-h,-h).
-  const triPoly = (leg: number): Vec2[] => [[-leg / 2, -leg / 2], [leg / 2, -leg / 2], [-leg / 2, leg / 2]]
-  // Extra rotation putting the hypotenuse toward the outside, per uv quadrant.
-  const quadRot = (u: number, v: number) =>
-    u >= 0 && v >= 0 ? 0 : u < 0 && v >= 0 ? Math.PI / 2 : u < 0 && v < 0 ? Math.PI : -Math.PI / 2
 
-  // Node squares + connectors (Versailles trellis only)
-  if (sw > 0) {
-    const nodePoly = rectPoly(sw, sw)
-    const connPoly = rectPoly(sp - sw, sw)
-    for (let i = -k; i <= k; i++) {
-      for (let j = -k; j <= k; j++) {
-        const a = Math.abs(i) + Math.abs(j)
-        const [x, z] = uvToWorld(i * sp, j * sp)
-        if (a < k) {
-          S.add(`${prefix}n`, nodePoly, x, z, R45, seed + i, j * 3)
-        } else if (a === k && i !== 0 && j !== 0) {
-          // Node halved by the boundary (axis nodes are the region corners —
-          // quarter-pieces a few mm across, skipped).
-          S.add(`${prefix}nt`, triPoly(sw), x, z, R45 + quadRot(i, j), seed + i, j * 3 + 1)
-        }
-        // u-direction connector toward node (i+1, j)
-        if (i < k) {
-          const uc = (i + 0.5) * sp, vc = j * sp
-          // fully inside iff the farthest corner stays within the diamond
-          const maxSum = Math.max(
-            Math.abs(uc + (sp - sw) / 2) + Math.abs(vc) + sw / 2,
-            Math.abs(uc - (sp - sw) / 2) + Math.abs(vc) + sw / 2,
-          )
-          if (maxSum <= k * sp + 1e-9) {
-            const [x2, z2] = uvToWorld(uc, vc)
-            S.add(`${prefix}c`, connPoly, x2, z2, R45, seed + i * 7, j * 5)
-          }
-        }
-        // v-direction connector toward node (i, j+1)
-        if (j < k) {
-          const uc = i * sp, vc = (j + 0.5) * sp
-          const maxSum = Math.max(
-            Math.abs(vc + (sp - sw) / 2) + Math.abs(uc) + sw / 2,
-            Math.abs(vc - (sp - sw) / 2) + Math.abs(uc) + sw / 2,
-          )
-          if (maxSum <= k * sp + 1e-9) {
-            const [x2, z2] = uvToWorld(uc, vc)
-            S.add(`${prefix}c`, connPoly, x2, z2, R45 + Math.PI / 2, seed + i * 7, j * 5 + 1)
-          }
-        }
-      }
-    }
-  }
 
-  // Diamond insets (the openings; with sw = 0, the whole field)
-  const d = sp - sw
-  const insetPoly = rectPoly(d, d)
-  for (let i = -k; i < k; i++) {
-    for (let j = -k; j < k; j++) {
-      const uc = (i + 0.5) * sp, vc = (j + 0.5) * sp
-      const a = Math.abs(i + 0.5) + Math.abs(j + 0.5)
-      const [x, z] = uvToWorld(uc, vc)
-      if (a <= k - 1 + sw / sp + 1e-9) {
-        S.add(`${prefix}d`, insetPoly, x, z, R45, seed + i * 11, j * 13)
-      } else if (Math.abs(a - k) < 1e-9) {
-        S.add(`${prefix}dt`, triPoly(d), x, z, R45 + quadRot(uc, vc), seed + i * 11, j * 13 + 1)
-      }
-    }
-  }
-}
 
-/** Mitred border frame of a square panel: four trapezoids with true 45°
- *  corner joints. Canonical poly's outer edge faces −z. */
-function emitPanelFrame(S: Sheet, key: string, x0: number, z0: number, P: number, bw: number, seed: number) {
-  const poly: Vec2[] = [[-P / 2, -bw / 2], [P / 2, -bw / 2], [P / 2 - bw, bw / 2], [-P / 2 + bw, bw / 2]]
-  const c = P / 2
-  S.add(key, poly, x0 + c, z0 + bw / 2, 0, seed, 1)                // bottom (outer −z)
-  S.add(key, poly, x0 + P - bw / 2, z0 + c, Math.PI / 2, seed, 2)  // right  (outer +x)
-  S.add(key, poly, x0 + c, z0 + P - bw / 2, Math.PI, seed, 3)      // top    (outer +z)
-  S.add(key, poly, x0 + bw / 2, z0 + c, -Math.PI / 2, seed, 4)     // left   (outer −x)
-}
-
-/** Chantilly: pinwheel border strips around square fields of diamonds laid on
- *  point — the classic Parquet de Chantilly reading of the sheet. */
-const genChantilly: Generator = (r, cw, ch, S) => {
-  const s = r.lM          // interior square side
-  const bw = r.wM         // border strip width
-  const u = s + 2 * bw    // pinwheel unit pitch (exact tiling: s² + 4·bw(s+bw) = u²)
-  const stripPolyH = rectPoly(s + bw, bw)
-  const ni = Math.ceil(cw / u / 2) + 1
-  const nj = Math.ceil(ch / u / 2) + 1
-  for (let i = -ni; i <= ni; i++) {
-    for (let j = -nj; j <= nj; j++) {
-      const x0 = i * u - u / 2, z0 = j * u - u / 2
-      const seed = i * 31 + j * 17
-      // Pinwheel strips (single strip between neighbouring squares)
-      S.add('st', stripPolyH, x0 + (s + bw) / 2, z0 + u - bw / 2, 0, seed, 1)
-      S.add('st', stripPolyH, x0 + u - bw / 2, z0 + bw + (s + bw) / 2, Math.PI / 2, seed, 2)
-      S.add('st', stripPolyH, x0 + bw + (s + bw) / 2, z0 + bw / 2, 0, seed, 3)
-      S.add('st', stripPolyH, x0 + bw / 2, z0 + (s + bw) / 2, Math.PI / 2, seed, 4)
-      // Field of diamonds
-      emitDiagLattice(S, 'ch', x0 + bw + s / 2, z0 + bw + s / 2, s, 2, 0, seed)
-    }
-  }
-}
-
-/** Versailles: square panels, each a mitred frame around a 45° woven trellis
- *  (node squares + connecting strips) with diamond openings. */
-const genVersailles: Generator = (r, cw, ch, S) => {
-  const P = Math.max(r.lM, 0.6) // panel side
-  const bw = Math.min(r.wM, P / 6)
-  const inner = P - 2 * bw
-  const k = 3
-  const sp = inner / (Math.SQRT2 * k)
-  const sw = 0.3 * sp
-  const ni = Math.ceil(cw / P / 2) + 1
-  const nj = Math.ceil(ch / P / 2) + 1
-  for (let i = -ni; i <= ni; i++) {
-    for (let j = -nj; j <= nj; j++) {
-      const x0 = i * P - P / 2, z0 = j * P - P / 2
-      const seed = i * 29 + j * 41
-      emitPanelFrame(S, 'fr', x0, z0, P, bw, seed)
-      emitDiagLattice(S, 'vs', x0 + P / 2, z0 + P / 2, inner, k, sw, seed)
-    }
-  }
-}
 
 const GENERATORS: Record<FloorPatternId, Generator> = {
   herringbone: genHerringbone,
@@ -640,12 +427,6 @@ const GENERATORS: Record<FloorPatternId, Generator> = {
   wood_strip: genWoodStrip,
   brick_bond: genBond(true),
   stake_bond: genBond(false),
-  checker_board: genCheckerBoard,
-  mosaic: genMosaic,
-  chantilly: genChantilly,
-  basket_weave: genBasket(2),
-  double_basket_weave: genBasket(4),
-  versailles: genVersailles,
 }
 
 // ─── Layout: generate → rotate → cull ────────────────────────────────────────
@@ -656,7 +437,7 @@ export interface FloorPieces {
   resolved: ResolvedFloorPattern
 }
 
-/** Instance-count ceiling — a 6×5 m mosaic lands near 5k; this guards absurd
+/** Instance-count ceiling — a 6×5 m herringbone lands near 1k; this guards absurd
  *  inputs (tiny planks × huge room) by coarsening the planks instead of
  *  freezing the tab. */
 const MAX_PIECES = 24000
@@ -752,7 +533,7 @@ export interface UvFrame { ox: number; oz: number; ux: number; uz: number; su: n
  *
  * It has to be the piece's own box, not an axis-aligned one: the generators
  * disagree about which local axis a plank's length runs along (herringbone
- * and the bonds lay it on x, wood strip and mosaic on z), and chevron's
+ * and the bonds lay it on x, wood strip on z), and chevron's
  * planks are mitred parallelograms whose length runs at 45° to both. Taking
  * the oriented box means the image's long side always follows the board's
  * length — wood grain runs down the plank, never across it — and a mitred

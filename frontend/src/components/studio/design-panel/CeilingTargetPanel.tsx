@@ -6,6 +6,10 @@ import {
   ceilingDesign, resolveCeilingSettings,
   type CeilingDesignId, type CeilingSettings, type CeilingSettingKey,
 } from "@/lib/ceilingDesigns";
+import {
+  trimProfilesOf, trimProfileSvgPath, resolveTrim,
+  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, type TrimProfileDef,
+} from "@/lib/trimProfiles";
 import { lightType } from "@/lib/lightCatalog";
 import { CeilingPreview } from "@/lib/ceilingPreview";
 
@@ -170,6 +174,137 @@ export function CeilingTargetPanel({ syncToApi }: {
           </div>
         </section>
       )}
+
+      <CorniceGroup syncToApi={syncToApi} />
     </>
+  );
+}
+
+
+/**
+ * "Galtel" — the ceiling cornice: which moulding runs round the wall/ceiling
+ * junction, and the two numbers it takes. Unlike the skirting this is opt-in,
+ * so an absent choice means no cornice and the thumbnails double as the add
+ * control.
+ */
+function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => void }) {
+  const designState = useRoomStore((s) => s.designState);
+  const setDesignState = useRoomStore((s) => s.setDesignState);
+
+  const profiles = trimProfilesOf("cornice");
+  const on = !!designState.cornice;
+  const active = resolveTrim(designState.cornice, "cornice");
+  const hRange = TRIM_HEIGHT_RANGE_MM.cornice;
+  const wRange = TRIM_WIDTH_RANGE_MM.cornice;
+
+  function apply(cornice: DesignState["cornice"]) {
+    setDesignState({ cornice });
+    syncToApi({ ...designState, cornice });
+  }
+
+  /** Switching profile adopts that profile's own catalogue sizes. */
+  function pick(def: TrimProfileDef) {
+    apply({ id: def.id, heightMm: def.defaultHeightMm, widthMm: def.defaultWidthMm });
+  }
+
+  function patch(p: { heightMm?: number; widthMm?: number }) {
+    apply({
+      id: active.def.id,
+      heightMm: Math.round(active.heightM * 1000),
+      widthMm: Math.round(active.widthM * 1000),
+      ...p,
+    });
+  }
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">Galtel</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Shift va devor burchagidagi bezak carvog'i.
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {profiles.map((def) => {
+          const sel = on && active.def.id === def.id;
+          return (
+            <button
+              key={def.id}
+              onClick={() => pick(def)}
+              title={def.label}
+              className={`rounded-card border-2 p-1 pb-1.5 text-left transition-colors ${
+                sel ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
+              }`}
+            >
+              <CorniceThumb def={def} />
+              <span className={`block mt-1 text-[10px] leading-tight ${sel ? "text-brand font-semibold" : "text-gray-600"}`}>
+                {def.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {on ? (
+        <>
+          <div className="mt-3 space-y-2.5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sozlamalar</h3>
+            <TrimSlider
+              label="Balandligi" min={hRange.min} max={hRange.max} step={5}
+              value={Math.round(active.heightM * 1000)}
+              onChange={(v) => patch({ heightMm: v })}
+            />
+            <TrimSlider
+              label="Eni" min={wRange.min} max={wRange.max} step={5}
+              value={Math.round(active.widthM * 1000)}
+              onChange={(v) => patch({ widthMm: v })}
+            />
+          </div>
+          <button
+            onClick={() => apply(null)}
+            className="mt-2 w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
+          >
+            Galtelni olib tashlash
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={() => pick(profiles[0])}
+          className="mt-2 w-full py-2 text-xs font-medium text-brand border border-gray-200 hover:border-brand/50 rounded-card transition-colors"
+        >
+          Galtel qo'shish
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** The cornice's real cross-section: ceiling along the top, wall down the left. */
+function CorniceThumb({ def }: { def: TrimProfileDef }) {
+  const d = React.useMemo(() => trimProfileSvgPath(def, true), [def]);
+  return (
+    <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
+      <path d="M-6,0 L106,0" stroke="#CBD5E1" strokeWidth="3" fill="none" />
+      <path d="M0,-6 L0,106" stroke="#CBD5E1" strokeWidth="3" fill="none" />
+      <path d={d} fill="#E8E4DA" stroke="#8A7F6D" strokeWidth="2.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrimSlider({ label, value, min, max, step, onChange }: {
+  label: string; value: number; min: number; max: number; step: number;
+  onChange(v: number): void;
+}) {
+  return (
+    <label className="block">
+      <span className="flex justify-between text-xs text-gray-500 mb-0.5">
+        <span>{label}</span>
+        <span className="tabular-nums text-gray-700">{value} mm</span>
+      </span>
+      <input
+        type="range"
+        min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-brand"
+      />
+    </label>
   );
 }
