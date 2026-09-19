@@ -195,7 +195,14 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   /** Wall-sized tiling for an uploaded plaster/concrete photo. */
   function plasterUploadCovering(url: string): WallCovering {
     const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    // `ceilingHeight` is MILLIMETRES in the store (2700), like every other
+    // length it keeps — the wall length just above is converted for exactly
+    // that reason. Passing it raw made plasterRepeat divide 2700 by a 2.4 m
+    // tile and write repeatY = 1125, so the wall got thousands of vertical
+    // repeats and rendered as flat grey: the "picked texture doesn't show"
+    // report. `repairCovering` in the store already rescues rooms saved with
+    // such a value, but only on load — the wall stayed broken until a reload.
+    const wallH = ceilingHeight > 0 ? ceilingHeight / 1000 : 2.7;
     // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
     // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
     const { repeatX, repeatY } = plasterRepeat(
