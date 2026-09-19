@@ -152,6 +152,7 @@ class TestPreviewEstimateStageGating:
             _Result(one=room),                # _load_room_for_user
             _Result(many=[]),                 # _load_room_for_pricing → room_finishes
             _Result(many=[paint_mat]),        # _load_materials
+            _Result(one=None),                # _load_wiring_meters → no plan
             _Result(many=[_norm()]),          # _load_norms (boyoq)
             _Result(one=None),                # _load_stage → no RoomState row
         )
@@ -178,6 +179,7 @@ class TestPreviewEstimateStageGating:
             _Result(one=room),
             _Result(many=[]),          # room_finishes
             _Result(many=[paint_mat]),
+            _Result(one=None),         # _load_wiring_meters → no plan
             _Result(many=[_norm()]),
             _Result(one=room_state),
         )
@@ -250,6 +252,7 @@ class TestElectricalConfirmedFlag:
             _Result(one=room),
             _Result(many=[]),          # room_finishes
             _Result(many=[paint_mat]),
+            _Result(one=None),         # _load_wiring_meters → no plan
             _Result(many=[_norm()]),
             _Result(one=room_state),
         )
@@ -278,7 +281,8 @@ class TestAiPriceGapBackfillReachesHttp:
         db = _db(
             _Result(one=room),         # _load_room_for_user
             _Result(many=[]),          # _load_room_for_pricing → room_finishes
-            _Result(many=[]),          # _load_materials (surfaces empty)
+            # _load_materials issues no query at all when surfaces is empty.
+            _Result(one=None),         # _load_wiring_meters → no plan
             _Result(many=[]),          # _load_norms
             _Result(one=None),         # _load_stage → defaults to "xom"
         )
@@ -312,9 +316,9 @@ class TestAiPriceGapBackfillReachesHttp:
         db = _db(
             _Result(one=room),
             _Result(many=[]),          # room_finishes
-            _Result(many=[]),
-            _Result(many=[]),
-            _Result(one=None),
+            _Result(one=None),         # _load_wiring_meters → no plan
+            _Result(many=[]),          # _load_norms
+            _Result(one=None),         # _load_stage
         )
         _as(_user(), db)
 
