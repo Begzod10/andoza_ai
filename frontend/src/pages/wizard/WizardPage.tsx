@@ -14,6 +14,7 @@ import { WallElevationPreview } from '@/components/wizard/WallElevationPreview'
 import { MetricCard } from '@/components/ui/MetricCard'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { createApartment, createRoom, createDraftRoom, getDraftRoom, updateDraftRoom, deleteDraftRoom, updateRoom } from '@/lib/api'
+import { wallElementsToApiPositions } from '@/lib/wallPositions'
 import { cn } from '@/lib/utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -709,17 +710,22 @@ export default function WizardPage() {
         name: 'Xona',
         ceiling_h: ceilingHeight / 1000,
         geometry: {
-          walls: geometry.walls.map((w) => ({
-            id: w.id,
-            length: w.length / 1000,
-            elements: w.elements.map((e) => ({
-              type: e.type,
-              width: e.width / 1000,
-              height: e.height / 1000,
-              sill_height: (e.sill_height ?? 0) / 1000,
-              position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
-            })),
-          })),
+          walls: geometry.walls.map((w) => {
+            // Store mm (left edge, possibly an unresolved auto placeholder) →
+            // API centre fractions. See lib/wallPositions.ts.
+            const positions = wallElementsToApiPositions(w.elements, w.length)
+            return {
+              id: w.id,
+              length: w.length / 1000,
+              elements: w.elements.map((e, i) => ({
+                type: e.type,
+                width: e.width / 1000,
+                height: e.height / 1000,
+                sill_height: (e.sill_height ?? 0) / 1000,
+                position: positions[i],
+              })),
+            }
+          }),
           // Non-rectangular (hand-drawn / N-wall) rooms carry their real
           // outline here — omitted for the legacy 4-wall case, where it's
           // unset on the store's own geometry.

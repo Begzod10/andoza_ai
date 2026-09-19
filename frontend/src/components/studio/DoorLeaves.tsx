@@ -107,7 +107,7 @@ function wallFrames(W: number, D: number): WallFrame[] {
  * rotation convention — read-only reference, not edited here).
  *
  * Uses that util's exact per-edge midpoint and direction (`midX`/`midZ`,
- * `dirX`/`dirZ`), NOT its `axis`/`face`/`leftAlong` triple. Those three are an
+ * `dirX`/`dirZ`), NOT its `axis`/`face`/`originAlong` triple. Those three are an
  * axis-aligned APPROXIMATION — they snap a genuinely diagonal edge to
  * whichever world axis it is closer to — which is tolerable for click
  * hit-testing but puts a leaf metres away from its wall on a scanned room,

@@ -729,6 +729,12 @@ export interface FrameWallDef {
   cx: number;
   cz: number;
   length: number;
+  /** Direction of increasing element position along `axis` (+1 or −1). Only
+   *  ever −1 for a polygon edge traversed in the decreasing direction; the
+   *  legacy ABCD rectangle and its auto-filled vertices are always +1. Kept in
+   *  lockstep with `PolyWallDef.alongSign` so the frames cannot drift away
+   *  from the openings they surround. */
+  alongSign: 1 | -1;
 }
 
 /**
@@ -743,7 +749,7 @@ export interface FrameWallDef {
  * When `geometry.vertices` is populated (N-wall / rectilinear polygon rooms,
  * e.g. from the hand-drawing feature), each edge's `FrameWallDef` is derived
  * from `wallDefsFromVertices` (`@/lib/wallDefsFromVertices`): `cx`/`cz` are
- * the edge's along-axis midpoint (`leftAlong + length / 2`) on the wall's own
+ * the edge's along-axis midpoint (`originAlong + alongSign * length / 2`) on its own
  * axis and its constant `face` coordinate on the other axis — exactly what
  * `frameGroupOrigin` below needs. Neither it nor the frame meshes rotate
  * with the wall (frames are always built axis-aligned to world X/Z, same as
@@ -763,16 +769,17 @@ function buildFrameWallDefs(
       .map((d) => ({
         id: d.id,
         axis: d.axis,
-        cx: d.axis === "X" ? d.leftAlong + d.length / 2 : d.face,
-        cz: d.axis === "Z" ? d.leftAlong + d.length / 2 : d.face,
+        cx: d.axis === "X" ? d.originAlong + d.alongSign * (d.length / 2) : d.face,
+        cz: d.axis === "Z" ? d.originAlong + d.alongSign * (d.length / 2) : d.face,
         length: d.length,
+        alongSign: d.alongSign,
       }));
   }
   return [
-    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth, alongSign: 1 },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth, alongSign: 1 },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth, alongSign: 1 },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth, alongSign: 1 },
   ];
 }
 
@@ -790,7 +797,7 @@ function frameGroupOrigin(
   wd: FrameWallDef,
   el: { position: number; width: number; sill_height: number },
 ): [number, number, number] {
-  const offset = (el.position + el.width / 2 - wd.length * 500) * MM;
+  const offset = wd.alongSign * (el.position + el.width / 2 - wd.length * 500) * MM;
   const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
   const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
   const py = el.sill_height * MM;
@@ -1051,8 +1058,8 @@ export function DoorFrames({
  * Per-edge placement in the polygon branch mirrors the legacy math exactly:
  * `boardSegments` still returns centers relative to the wall's OWN midpoint
  * (as if that wall were centered at 0), so the absolute along-wall world
- * coordinate is `wallMid + segment.center` where `wallMid = leftAlong +
- * length / 2`. The perpendicular (across-wall) placement reuses
+ * coordinate is `wallMid + alongSign * segment.center` where
+ * `wallMid = originAlong + alongSign * length / 2`. The perpendicular (across-wall) placement reuses
  * `wallDefsFromVertices`'s `normal` field directly: that normal already
  * points INWARD (matching `Wall`'s own `ry`/normal convention in this same
  * file — see the comment above `interface Seg` — NOT an outward-facing
@@ -1078,10 +1085,10 @@ export function Baseboard({ width, depth, geometry, hiddenWalls }: { width: numb
           const d = polyDefs[wall.id];
           if (!d || hiddenWalls?.has(wall.id)) return null;
           const segs = boardSegments(d.length, wall.elements ?? []);
-          const wallMid = d.leftAlong + d.length / 2;
+          const wallMid = d.originAlong + d.alongSign * (d.length / 2);
           const perp = d.face + (d.axis === "X" ? d.normal.z : d.normal.x) * (t / 2 - 0.006);
           return segs.map((s, i) => {
-            const along = wallMid + s.center;
+            const along = wallMid + d.alongSign * s.center;
             const position: [number, number, number] = d.axis === "X"
               ? [along, h / 2, perp]
               : [perp, h / 2, along];

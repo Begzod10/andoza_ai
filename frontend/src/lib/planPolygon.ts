@@ -18,9 +18,12 @@
  *
  * Wall positions (`WallElement.position`, `PlacedElectrical.positionMm`) are
  * millimetres from the wall's "position 0" end. For a polygon edge that end is
- * the endpoint with the smaller coordinate on the edge's dominant axis — the
- * same `leftAlong` convention `wallDefsFromVertices` gives the 3D opening
- * layer, so a door placed on this plan sits where the 3D wall shows it.
+ * `vertices[i]`, and position grows toward `vertices[i + 1]` — polygon
+ * traversal order, the same direction the server measures from (see the long
+ * comment in `lib/wallDefsFromVertices.ts`, which this file must stay in
+ * lockstep with so the 2D plan and the 3D view agree). This file is only ever
+ * called for a polygon room; a legacy A/B/C/D rectangle takes the rectangle
+ * code paths (`isAbcdRoom`) and keeps its own older convention.
  */
 import type { RoomGeometry } from '@/store/roomStore'
 import { roomExtents } from '@/lib/roomDims'
@@ -40,7 +43,8 @@ export interface PlanEdge {
   /** Unit normal pointing INTO the room. */
   nx: number
   nz: number
-  /** Position-0 end (see file comment) and the unit direction of increasing position. */
+  /** Position-0 end (= p1, see file comment) and the unit direction of
+   *  increasing position (= p1 → p2). */
   ox: number
   oz: number
   dx: number
@@ -109,15 +113,19 @@ export function planPolygon(geometry: RoomGeometry): PlanPolygon | null {
     const uz = ez / len
     const nx = -uz * sign
     const nz = ux * sign
-    const axisX = Math.abs(ex) >= Math.abs(ez)
-    const originIsP1 = axisX ? x1 <= x2 : z1 <= z2
     const id = geometry.walls[i]?.id ?? String(i)
     edges.push({
       id, x1, z1, x2, z2, len, ux, uz, nx, nz,
-      ox: originIsP1 ? x1 : x2,
-      oz: originIsP1 ? z1 : z2,
-      dx: originIsP1 ? ux : -ux,
-      dz: originIsP1 ? uz : -uz,
+      // Position 0 is the edge's own start vertex and position grows along the
+      // traversal direction — so `ox/oz` is just p1 and `dx/dz` just the edge
+      // unit vector. (Until this was fixed these picked whichever endpoint was
+      // smaller on the dominant axis, which mirrors every edge that runs the
+      // decreasing way and put scanned openings and auto-placed sockets at the
+      // wrong end of those walls.)
+      ox: x1,
+      oz: z1,
+      dx: ux,
+      dz: uz,
       start,
     })
     start += len
@@ -193,9 +201,9 @@ export function nearestEdge(poly: PlanPolygon, x: number, z: number): EdgeHit | 
 
 /** Perimeter coordinate (mm from vertex 0, increasing in polygon order) of a wall position. */
 export function perimeterCoord(edge: PlanEdge, pos: number): number {
-  // Position runs from the origin end; the perimeter runs p1 → p2.
-  const along = edge.ox === edge.x1 && edge.oz === edge.z1 ? pos : edge.len - pos
-  return edge.start + along
+  // Position and the perimeter both run p1 → p2, so the position IS the
+  // along-edge offset — no flip for a "backwards" edge any more.
+  return edge.start + pos
 }
 
 /** Plan point at perimeter coordinate `c`, pushed `inset` mm into the room. */

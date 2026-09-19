@@ -14,7 +14,31 @@ class WallElement(BaseModel):
     width: float = Field(ge=0.3, le=5.0)
     height: float = Field(ge=0.3, le=3.5)
     sill_height: float = Field(default=0.0, ge=0.0, le=2.5)
-    # Relative position along the wall: 0.0 = start, 1.0 = end
+    # Where the opening's CENTRE sits along the wall, as a 0..1 fraction of the
+    # wall's length, measured from `vertices[i]` toward `vertices[i + 1]` —
+    # i.e. from `walls[i]`'s own start corner (see RoomGeometry.vertices below).
+    # 0.0 = centred on the start corner, 0.5 = centred on the wall, 1.0 = on the
+    # end corner.
+    #
+    # CENTRE, not left edge. Both ends of the wire have to agree on this or a
+    # 900 mm door lands 450 mm from where it was measured, so, explicitly:
+    #   * `room_scan_converter.convert_captured_room` writes the scanned
+    #     surface's centre;
+    #   * `room_electrical_auto` reads `position * length` back as a centre when
+    #     it keeps sockets out of doorways;
+    #   * the studio store (`frontend/src/store/roomStore.ts`) keeps its own
+    #     millimetre `position` as the opening's LEFT EDGE and converts at the
+    #     API boundary (`apiPositionToStoreMm` / `storeElementToApiPosition` in
+    #     `frontend/src/lib/wallPositions.ts`) — a store value is never a
+    #     `WallElement.position` and vice versa;
+    #   * the Flutter mirror (`lib/features/room_scan/room_scan_converter.dart`)
+    #     writes the centre too.
+    #
+    # Centre rather than left edge because it stays meaningful at the ends of
+    # the range: an opening straddling a corner, or one wider than its wall,
+    # still has exactly one centre, whereas the valid left-edge fractions shrink
+    # to [0, 1 - width/length] and empty out entirely once the opening is wider
+    # than the wall — a stored 1.0 would then mean "wholly off the wall".
     position: float = Field(default=0.5, ge=0.0, le=1.0)
     # Window type picked in the studio (see frontend windowStyles catalog).
     # Free-form on purpose: the catalog grows in the client, and an unknown id

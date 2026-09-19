@@ -10,6 +10,7 @@ import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } fr
 import type { FloorPatternState } from '@/lib/floorGeometry'
 import { hourOfDay } from '@/lib/sunPosition'
 import { hasAbcdWalls } from '@/lib/roomDims'
+import { apiPositionToStoreMm } from '@/lib/wallPositions'
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 
@@ -19,6 +20,18 @@ export interface WallElement {
   width: number
   height: number
   sill_height: number
+  /** Millimetres from the wall's position-0 end to the opening's LEFT EDGE —
+   *  the low-position side, so the opening spans `position … position + width`.
+   *  "Position 0" is `vertices[i]` for a polygon edge (planPolygon.ts), or the
+   *  along-axis minimum for the legacy A/B/C/D rectangle.
+   *
+   *  NOT the same quantity as the API's `WallElement.position`, which is the
+   *  opening's CENTRE as a 0..1 fraction (see backend/app/schemas/room.py).
+   *  Left edge here because every consumer in the studio wants it — drag
+   *  clamping, the panel/plank splitters, the overlap guides — and a centre
+   *  would have them all add `width/2` back. Converted once at the API
+   *  boundary by `apiPositionToStoreMm` / `storeElementToApiPosition`
+   *  (lib/wallPositions.ts); nothing else should convert between the two. */
   position: number
   /** Whether `position` still needs auto-placement (centered/auto-spread by
    *  resolveElementPositions) rather than being honored as-is.
@@ -235,27 +248,50 @@ export function resolveWallColor(
 
 // ─── Payload shape from API ───────────────────────────────────────────────────
 
-interface RoomPayload {
+/**
+ * What `loadRoom` accepts: the room exactly as the API sends it, NOT the
+ * store's own shape. Every distance here is in METRES and every opening
+ * `position` is a 0..1 CENTRE fraction; `loadRoom` is what converts them to
+ * the store's millimetres and left edges.
+ *
+ * The two shapes are structurally identical and differ only in units, so
+ * TypeScript happily accepts a store `RoomGeometry` here — which is how a
+ * hand-drawn room and a LiDAR scan each shipped a 1000× room before their
+ * builders were made to hand over `RoomPayloadGeometry`. Anything building a
+ * room in millimetres must divide on the way in; prefer annotating the value
+ * as `RoomPayloadGeometry` at the point it is built, so the unit is stated
+ * where the numbers are, not only where they are consumed.
+ */
+export interface RoomPayloadGeometry {
+  walls: Array<{
+    id: string
+    /** Wall length in METRES. */
+    length: number
+    elements?: Array<{
+      type: string
+      /** Opening width in METRES. */
+      width: number
+      /** Opening height in METRES. */
+      height: number
+      /** Floor-to-sill distance in METRES. */
+      sill_height?: number | null
+      /** Opening CENTRE as a 0..1 fraction of the wall's length. */
+      position?: number | null
+      style_id?: string | null
+      sashes?: number | null
+    }>
+  }>
+  /** Polygon corners as [x, z] in METRES, counter-clockwise. */
+  vertices?: [number, number][]
+}
+
+export interface RoomPayload {
   id?: string
   apartment_id?: string | null
   name?: string
+  /** Ceiling height in METRES. */
   ceiling_h?: number | null
-  geometry?: {
-    walls: Array<{
-      id: string
-      length: number
-      elements?: Array<{
-        type: string
-        width: number
-        height: number
-        sill_height?: number | null
-        position?: number | null
-        style_id?: string | null
-        sashes?: number | null
-      }>
-    }>
-    vertices?: [number, number][]
-  } | null
+  geometry?: RoomPayloadGeometry | null
   /** Wall/floor → real do'kon Material id links (see applySurface). Restored
    * on load so a room reopened on a different device/browser keeps its
    * paint/wallpaper/floor material pricing instead of starting blank. */
@@ -839,7 +875,8 @@ export const useRoomStore = create<RoomStore>()(
   },
 
   loadRoom(room) {
-    // API geometry is in metres with 0–1 position fractions; the store uses mm.
+    // API geometry is in metres with 0–1 CENTRE fractions; the store uses mm
+    // measured to the opening's left edge (see apiPositionToStoreMm).
     // Sets only identity + authoritative geometry — design state, furniture and
     // lights are per-room data restored separately from the room's state blob.
     const geometry: RoomGeometry = room.geometry?.walls?.length
@@ -849,18 +886,30 @@ export const useRoomStore = create<RoomStore>()(
             return {
               id: w.id,
               length: lengthMm,
-              elements: (w.elements ?? []).map((e) => ({
-                // API elements carry no id — mint one so selection, drag and
-                // removal stay per-element (undefined ids match each other)
-                id: nanoid(),
-                type: e.type as WallElement['type'],
-                width: Math.round(e.width * 1000),
-                height: Math.round(e.height * 1000),
-                sill_height: Math.round((e.sill_height ?? 0) * 1000),
-                position: Math.round((e.position ?? 0.5) * lengthMm),
-                ...(e.style_id ? { styleId: e.style_id } : {}),
-                ...(e.sashes === 1 || e.sashes === 2 ? { sashes: e.sashes as 1 | 2 } : {}),
-              })),
+              elements: (w.elements ?? []).map((e) => {
+                const widthMm = Math.round(e.width * 1000)
+                return {
+                  // API elements carry no id — mint one so selection, drag and
+                  // removal stay per-element (undefined ids match each other)
+                  id: nanoid(),
+                  type: e.type as WallElement['type'],
+                  width: widthMm,
+                  height: Math.round(e.height * 1000),
+                  sill_height: Math.round((e.sill_height ?? 0) * 1000),
+                  // Centre fraction → left-edge mm. This is the one place the
+                  // API's convention is translated on the way in.
+                  position: apiPositionToStoreMm(e.position ?? 0.5, lengthMm, widthMm),
+                  // A saved element is a real placement, never a placeholder.
+                  // Without this, the legacy `position <= 0` fallback would
+                  // re-centre any opening whose centre sits within half its
+                  // width of the start corner — exactly where the conversion
+                  // above legitimately puts a corner door, at a negative
+                  // left edge.
+                  positionAuto: false,
+                  ...(e.style_id ? { styleId: e.style_id } : {}),
+                  ...(e.sashes === 1 || e.sashes === 2 ? { sashes: e.sashes as 1 | 2 } : {}),
+                }
+              }),
             }
           }),
           vertices: room.geometry.vertices?.map(([x, z]: [number, number]) => [

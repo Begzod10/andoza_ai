@@ -7,11 +7,15 @@ y = -1.25) so it matches what RoomPlan really emits; the Dart converter needs
 the same floor-relative sill fix before its copy of this test can pass.
 """
 import json
+import math
 from pathlib import Path
 
 from app.schemas.room_scan import ScanObjectCategory, parse_captured_room
 from app.services.room_scan_converter import (
+    _build_corners,
     _floor_level,
+    _min_corner,
+    _straighten_traced,
     _window_sill,
     convert_captured_room,
 )
@@ -300,3 +304,100 @@ def test_raw_capture_does_not_disturb_the_processed_geometry():
     origin = _min_corner(expected)
     expected = [(c[0] - origin[0], c[1] - origin[1]) for c in expected]
     assert convert_captured_room(room).corners == expected
+
+# ── position-0 end of a wall ──────────────────────────────────────────────
+# `WallElement.position` is a 0..1 fraction from `corners[i]` toward
+# `corners[i + 1]` — polygon traversal order. The studio used to read it from
+# whichever endpoint had the smaller coordinate on the edge's dominant axis,
+# which names the same point only on an edge that happens to run the increasing
+# way; a closed loop must run each axis in both directions, so openings on the
+# other edges rendered at the far end of their wall (0.92 m out on the real
+# scan below, a full metre on the shared fixture). The studio now measures from
+# `vertices[i]` too (frontend/src/lib/wallDefsFromVertices.ts and
+# planPolygon.ts carry the reasoning); these pin this side of that contract, so
+# flipping the converter breaks loudly instead of silently mirroring every
+# scanned room's doors and windows.
+
+def _scan_origin(room) -> tuple[float, float]:
+    """The world→polygon shift `convert_captured_room` applies to everything."""
+    corners = _straighten_traced(_build_corners(room.walls))[0]
+    return _min_corner(corners)
+
+
+def _scanned_openings(room) -> list[tuple[str, tuple[float, float]]]:
+    """(element type, plane centre) for every opening the scan carries."""
+    typed = ([("eshik", d) for d in room.doors]
+             + [("deraza", w) for w in room.windows]
+             + [("eshik", o) for o in room.openings])  # door-less pass-through
+    return [(t, (s.transform.m[12], s.transform.m[14])) for t, s in typed]
+
+
+def _position_point(corners, wall_index: int, position: float) -> tuple[float, float]:
+    """The plane point `position` names, read the way the converter writes it."""
+    n = len(corners)
+    (ax, ay), (bx, by) = corners[wall_index], corners[(wall_index + 1) % n]
+    return (ax + (bx - ax) * position, ay + (by - ay) * position)
+
+
+def test_position_is_measured_from_the_wall_s_first_corner():
+    """Every stored position must name the point the scan actually saw.
+
+    Slop is 0.25 m: `_straighten` rounds wall lengths to 5 cm and snaps near-
+    square angles, so a corner moves a little. A mirrored reading would be out
+    by metres, not centimetres.
+    """
+    for path in (_FIXTURE, _REAL_2, _REAL_1):
+        room = parse_captured_room(json.loads(path.read_text()))
+        conv = convert_captured_room(room)
+        ox, oy = _scan_origin(room)
+        scanned = [(t, (x - ox, y - oy)) for t, (x, y) in _scanned_openings(room)]
+        for wall_index, wall in enumerate(conv.geometry.walls):
+            for el in wall.elements:
+                pt = _position_point(conv.corners, wall_index, el.position)
+                off = min(math.dist(pt, c) for t, c in scanned if t == el.type)
+                assert off < 0.25, f"{path.name} wall {wall_index} {el.type}: {off:.3f} m off"
+
+
+def test_a_decreasing_direction_edge_is_not_mirrored():
+    """The case the old studio reading got wrong, stated as a number.
+
+    Shared fixture: corners (0,0) (4,0) (4,3) (0,3); the window sits at x = 2.5
+    on wall 2, which runs (4,3) → (0,3) — decreasing on X. Position must be
+    0.375 (1.5 m from the x = 4 end), not 0.625 (1.5 m from the x = 0 end).
+    """
+    conv = _load()
+    window_wall = next(i for i, w in enumerate(conv.geometry.walls)
+                       if any(e.type == "deraza" for e in w.elements))
+    assert window_wall == 2
+    window = next(e for e in conv.geometry.walls[2].elements if e.type == "deraza")
+    assert abs(window.position - 0.375) < 1e-6
+    x, y = _position_point(conv.corners, 2, window.position)
+    assert abs(x - 2.5) < 1e-6 and abs(y - 3.0) < 1e-6
+
+
+def test_position_marks_the_opening_s_centre_not_an_edge():
+    """The other half of the convention: WHICH point of the opening it names.
+
+    `test_position_is_measured_from_the_wall_s_first_corner` above allows 0.25 m
+    of straightening slop, which is wider than a narrow window's half-width — so
+    it pins the direction but not the reference point. This one is exact, on the
+    synthetic fixture where straightening is a no-op, and names the wrong answer
+    as well as the right one: reading `position` as the opening's LEFT EDGE (what
+    the studio store's millimetre field means) puts the door's centre half a
+    width — 450 mm — further along the wall. See the comment on
+    `WallElement.position` in app/schemas/room.py.
+    """
+    conv = _load()
+    door = next(e for w in conv.geometry.walls for e in w.elements if e.type == "eshik")
+    door_wall = next(i for i, w in enumerate(conv.geometry.walls)
+                     if any(e.type == "eshik" for e in w.elements))
+
+    # Fixture door: transform translation (−0.8, ·, −1.5); the converter shifts
+    # the polygon so its bbox min corner (−2, −1.5) is the origin, putting the
+    # door's centre 1.2 m along wall 0, which runs (0,0) → (4,0).
+    assert door_wall == 0
+    assert _position_point(conv.corners, door_wall, door.position) == (1.2, 0.0)
+    assert abs(door.position - 0.3) < 1e-9
+
+    left_edge_fraction = (1.2 - door.width / 2) / conv.geometry.walls[0].length
+    assert abs(door.position - left_edge_fraction) > 0.1  # 0.30 vs 0.1875

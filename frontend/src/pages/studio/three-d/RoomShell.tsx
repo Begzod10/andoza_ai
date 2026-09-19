@@ -412,7 +412,11 @@ function NWallRoomShell({
           resolveWallCovering(designState.wallCoverings, e.wallId),
           shadeFactor,
         )
-        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length }
+        // `alongSign: 1` — this def lives in the edge's OWN rotated group, whose
+        // local +X already points from vertices[i] to vertices[i+1], i.e. the
+        // direction position grows in. The sign only ever matters to a def
+        // expressed in world axes (see `buildFrameWallDefs`).
+        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, alongSign: 1 }
         const resolvedEls = resolveElementPositions(elements, e.length * 1000)
         const baseSegs = boardSegments(e.length, elements)
 
