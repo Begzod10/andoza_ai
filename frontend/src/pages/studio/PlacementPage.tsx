@@ -1854,6 +1854,9 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
             target={initTarget}
             enableDamping dampingFactor={0.06}
             rotateSpeed={0.45} zoomSpeed={0.8}
+            // Both drag axes reversed, matching the main 3D view: dragging
+            // right sends the room left, dragging down tilts the other way.
+            reverseOrbit
             minDistance={0.25}
             maxDistance={Math.max(W, D) * 4}
           />

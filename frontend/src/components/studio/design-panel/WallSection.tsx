@@ -17,24 +17,54 @@ import { MaterialSwatch } from "../MaterialSwatch";
 
 type CoveringMode = "paint" | "oboy" | "texture";
 
+// Five interior palettes the user supplied (a dark anchor plus its warm or
+// cool neutrals in each), sampled from their reference sheet and laid out in
+// the same order. The swatches carry no visible labels — the names below are
+// only what a screen reader or a hover tooltip announces.
 const WALL_COLORS = [
-  "#FFFFFF", "#F5F0E8", "#E8D5C4", "#D4E8D4",
-  "#C4D4E8", "#E8C4C4", "#C4C4E8", "#E8E8C4", "#D85A30",
+  // Olive green & warm beige
+  "#6D6A41", "#D5C1A6", "#E7DAC9", "#C3A279",
+  // Dusty blue & soft grey
+  "#677882", "#B9B6AF", "#E8E0D5", "#BEAF9C",
+  // Emerald green & light neutral
+  "#1A4228", "#D6C2A9", "#EAE1D2", "#A6A47D",
+  // Terracotta & warm neutral
+  "#A85F32", "#D7C5AD", "#8F7755",
+  // Navy blue & gold
+  "#1A2835", "#E7DDD1", "#C9C0B7", "#C39243",
 ];
 
 // Uzbek names for the swatches below — without these, screen readers and
-// colorblind users have no way to tell the buttons apart.
+// colorblind users have no way to tell the buttons apart. Never rendered.
 const WALL_COLOR_NAMES: Record<string, string> = {
-  "#FFFFFF": "Oq",
-  "#F5F0E8": "Krem",
-  "#E8D5C4": "Bej",
-  "#D4E8D4": "Pista yashil",
-  "#C4D4E8": "Moviy",
-  "#E8C4C4": "Pushti",
-  "#C4C4E8": "Siren",
-  "#E8E8C4": "Och sariq",
-  "#D85A30": "Terrakota",
+  "#6D6A41": "Zaytun yashil",
+  "#D5C1A6": "Iliq bej",
+  "#E7DAC9": "Krem",
+  "#C3A279": "Sarg'ish jigarrang",
+  "#677882": "Kulrang ko'k",
+  "#B9B6AF": "Yumshoq kulrang",
+  "#E8E0D5": "Oqish",
+  "#BEAF9C": "Och taupe",
+  "#1A4228": "Zumrad yashil",
+  "#D6C2A9": "Och bej",
+  "#EAE1D2": "Fil suyagi",
+  "#A6A47D": "Shuvoq yashil",
+  "#A85F32": "Terrakota",
+  "#D7C5AD": "Qumli bej",
+  "#8F7755": "Mokko",
+  "#1A2835": "To'q ko'k",
+  "#E7DDD1": "Nozik krem",
+  "#C9C0B7": "Och kulrang",
+  "#C39243": "Oltin",
 };
+
+/** Perceived lightness (0–1) of a #rrggbb, for deciding whether a swatch
+ *  needs a white gap inside its selection ring. */
+function swatchLuma(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
 
 interface WallSectionProps {
   room: Room;
@@ -260,12 +290,12 @@ export function WallSection({
           <div className="flex flex-wrap gap-2">
             {WALL_COLORS.map((color) => {
               const isSelected = wallColorForPreview === color;
-              // Terrakota is dark and saturated enough that the brand-blue
-              // ring alone drops to ~2.25:1 against it — every other swatch
-              // passes fine (5.15–8.72:1). A white ring between the swatch
-              // and the blue ring keeps this one legible without touching
-              // the other eight.
-              const isTerrakota = color === "#D85A30";
+              // A dark swatch and the brand-blue ring are too close in
+              // luminance to tell apart (the old Terrakota entry measured
+              // ~2.25:1); the palette now has several such colours, so the
+              // white inner gap is decided by luminance rather than by
+              // naming one swatch.
+              const isDark = swatchLuma(color) < 0.45;
               return (
                 <button
                   key={color}
@@ -278,9 +308,9 @@ export function WallSection({
                     // Brand blue selection ring — was "#D85A30" (the Terrakota
                     // *palette entry* above, reused by mistake as if it were
                     // the brand accent).
-                    borderColor: isSelected ? (isTerrakota ? "#FFFFFF" : "#1E40AF") : "#D1D5DB",
+                    borderColor: isSelected ? (isDark ? "#FFFFFF" : "#1E40AF") : "#D1D5DB",
                     boxShadow: isSelected
-                      ? (isTerrakota ? "0 0 0 4px #1E40AF" : "0 0 0 2px #1E40AF")
+                      ? (isDark ? "0 0 0 4px #1E40AF" : "0 0 0 2px #1E40AF")
                       : undefined,
                   }}
                   aria-pressed={isSelected}
