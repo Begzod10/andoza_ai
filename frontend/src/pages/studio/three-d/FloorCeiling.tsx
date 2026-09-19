@@ -5,8 +5,9 @@ import {
   ceilingDesign, resolveCeilingSettings, buildCeilingParts,
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
+import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
 import { kelvinToHex } from "@/lib/lightCatalog";
-import { textureFetchUrl } from "@/lib/sharedWallTexture";
+import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 
 /**
@@ -15,11 +16,15 @@ import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
  */
 
 export const WoodFloor = memo(function WoodFloor({
-  width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
+  width, depth, floorType, floorTexture, floorTextureSettings, floorPattern, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
   floorTexture?: string | null;
   floorTextureSettings?: { repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number } | null;
+  /** Real-geometry laying pattern (Naqsh). When set (and no custom image
+   *  overrides it) the flat textured plane is replaced by instanced plank
+   *  solids — see lib/floorGeometry. Unset = exactly the old flat floor. */
+  floorPattern?: FloorPatternState | null;
   /** False for a room that hasn't visited Pol yet — renders a flat neutral
    *  screed instead of defaulting to a full parquet/tile pattern no one chose. */
   floorConfigured?: boolean;
@@ -28,6 +33,12 @@ export const WoodFloor = memo(function WoodFloor({
 }) {
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
+
+  // Precedence: a laying pattern wins, and carries its own per-plank image in
+  // floorPattern.settings.textureUrl. With no pattern, the legacy whole-floor
+  // `floorTexture` (one image stretched over a flat plane) behaves exactly as
+  // it always did — so rooms and users on that path are untouched.
+  const activePattern = floorPattern ?? null;
 
   // Custom texture from user upload — loaded async
   const [customTex, setCustomTex] = useState<THREE.Texture | null>(null);
@@ -187,6 +198,31 @@ export const WoodFloor = memo(function WoodFloor({
   // floor (this onClick) AND bubble up to the holdBind('floor') wrapper in
   // RoomShell.tsx, which opens the surface radial menu, exactly like a wall
   // tap already does both at once.
+  if (activePattern) {
+    // Real-geometry floor: dark under-slab (visible through the plank gaps as
+    // recessed grooves) + instanced beveled plank solids on top. The slab
+    // keeps the raycast/onClick role — the planks never intercept picks, so a
+    // tap still selects the floor exactly like before.
+    return (
+      <group onClick={onClick}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.004, 0]} receiveShadow>
+          <planeGeometry args={[width + 0.04, depth + 0.04]} />
+          <meshStandardMaterial
+            color={floorSlabColorFor(activePattern, floorColor)}
+            roughness={0.92} metalness={0} envMapIntensity={0.15}
+          />
+        </mesh>
+        <PatternFloor pattern={activePattern} width={width} depth={depth} fallbackColor={floorColor} />
+        {isSelected && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={1}>
+            <planeGeometry args={[width + 0.04, depth + 0.04]} />
+            <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
   return (
     <group onClick={onClick}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
@@ -206,6 +242,81 @@ export const WoodFloor = memo(function WoodFloor({
     </group>
   );
 });
+
+
+/**
+ * The instanced plank/tile solids of a laying pattern (Naqsh). Planks sit
+ * with their bottoms slightly below y=0 so the visible floor surface stays
+ * near where the flat plane was (furniture at y=0 doesn't float or sink),
+ * while the ~10 mm body still leaves real recessed grooves at the gaps.
+ *
+ * Exported for NWallRoomShell too: with `clipPolygon` (the centred room
+ * outline, metres) the planks are clipped analytically to that outline
+ * instead of the rectangular clipping planes, so drawn/scanned polygon
+ * rooms — including L-shapes — get the same real-geometry floor.
+ */
+export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon }: {
+  pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
+  clipPolygon?: [number, number][];
+}) {
+  const { gl, invalidate } = useThree();
+
+  // Planks overhang the room rect and are trimmed by material clipping
+  // planes at the walls; that path is compiled out unless this flag is on.
+  // Nothing else in the app uses clipping, so leaving it on is inert.
+  useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
+
+  const built = useMemo(
+    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon),
+    [pattern, width, depth, fallbackColor, clipPolygon],
+  );
+
+  useEffect(() => {
+    invalidate();
+    return () => { built.dispose(); };
+  }, [built, invalidate]);
+
+  // The plank image, hung on the shared material once loaded — separate from
+  // the geometry build so picking a texture doesn't relay the whole floor
+  // (the UVs are baked per plank and don't depend on which image it is).
+  const textureUrl = pattern.settings?.textureUrl || null;
+  useEffect(() => {
+    const material = built.material;
+    if (!textureUrl) {
+      if (material.map) { material.map.dispose(); material.map = null; material.needsUpdate = true; invalidate(); }
+      return;
+    }
+    let cancelled = false;
+    let mine: THREE.Texture | null = null;
+    // Same shared loader (and textureFetchUrl CORS/cache convention) the walls
+    // use; cloned before use, exactly like Wall does, so our copy owns its
+    // wrap/repeat settings and its disposal.
+    const unsub = requestSharedTexture(
+      textureUrl,
+      ({ tex }) => {
+        if (cancelled) return;
+        const t = tex.clone();
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = gl.capabilities.getMaxAnisotropy();
+        t.needsUpdate = true;
+        mine = t;
+        material.map?.dispose();
+        material.map = t;
+        material.needsUpdate = true;
+        invalidate();
+      },
+      () => { console.warn("[FloorCeiling] plank texture failed to load:", textureUrl); },
+    );
+    return () => {
+      cancelled = true;
+      unsub();
+      if (mine) { if (material.map === mine) { material.map = null; material.needsUpdate = true; } mine.dispose(); }
+    };
+  }, [built, textureUrl, gl, invalidate]);
+
+  return <primitive object={built.group} position={[0, -0.004, 0]} />;
+}
 
 
 // ─── Ceiling designs ──────────────────────────────────────────────────────────

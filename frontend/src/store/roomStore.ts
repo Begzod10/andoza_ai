@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid'
 import type { FurnitureCategory, FurniturePlacement } from '@/lib/furnitureCatalog'
 import type { CatalogFurniture } from '@/lib/api'
 import { DEFAULT_CEILING_DESIGN, type CeilingDesignId, type CeilingSettings } from '@/lib/ceilingDesigns'
+import type { FloorPatternState } from '@/lib/floorGeometry'
 import { hourOfDay } from '@/lib/sunPosition'
 import { hasAbcdWalls } from '@/lib/roomDims'
 
@@ -72,8 +73,9 @@ export interface PlacedLight {
   /** Fixture kind from LIGHT_TYPES. Absent on lights saved before fixture
    *  types existed — those are plain ceiling lights (DEFAULT_LIGHT_TYPE). */
   type?: string
-  /** Wall a wall-mounted fixture is fixed to. */
-  wallId?: 'A' | 'B' | 'C' | 'D'
+  /** Wall a wall-mounted fixture is fixed to. Any wall id, not just A-D: a
+   *  drawn or scanned room's walls are W1..Wn. */
+  wallId?: string
   /** Per-fixture overrides of the catalog defaults. Absent = use the default,
    *  so changing a catalog value still moves every light the user never
    *  touched. */
@@ -191,6 +193,12 @@ export interface DesignState {
   wallPanels?: Partial<Record<string, WallPanelSettings>>
   floorTexture?: string | null
   floorTextureSettings?: FloorTextureSettings
+  /** Real-geometry laying pattern for the floor (Naqsh — herringbone, chevron,
+   *  Versailles, ...). Optional: rooms designed before the picker existed keep
+   *  rendering the flat textured plane exactly as they always did. Persists
+   *  like floorTexture: inside designState through both the localStorage
+   *  partialize and the Saqlash state blob. */
+  floorPattern?: FloorPatternState | null
   floorState?: FloorState
   ceilingState?: CeilingState
   /** The ceiling profile and the numbers behind it. Optional: rooms designed
@@ -426,9 +434,11 @@ export function repairDesignState(d: DesignState): DesignState {
 export const DEFAULT_DESIGN_STATE: DesignState = {
   // A brand-new room starts as bare stretcher-bond brick (user's decision,
   // 2026-09-16) — the real state of a flat before any finishing work, and the
-  // baseline every phase builds on. The texture ships with the app; the tile
-  // covers ~1 m of wall (14 brick courses), so repeatX 1.0 (tiles-per-metre)
-  // renders bricks at true scale.
+  // baseline every phase builds on. The texture ships with the app; the
+  // Belcrest 500 Stretcher tile maps to 1000 × 1000 mm of wall per the user's
+  // explicit UVW spec (2026-09-19), so repeatX 1.0 (tiles-per-metre, = 1/1.0)
+  // renders bricks at true scale; the image is square, so repeatY 1.0
+  // preserves the 1 m vertical span.
   wallCoverings: {
     ALL: {
       kind: 'texture',
@@ -574,6 +584,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: [...w.elements, newElement] }
@@ -587,6 +599,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: w.elements.filter((e) => e.id !== elementId) }
@@ -600,6 +614,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: w.elements.map((e) => e.id === elementId ? { ...e, ...patch } : e) }
@@ -613,6 +629,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) =>
           w.id === wallId
             ? { ...w, elements: [...w.elements].reverse().map(e => ({ ...e, position: 0 })) }
@@ -626,6 +644,8 @@ export const useRoomStore = create<RoomStore>()(
     set((state) => ({
       isDirty: true,
       geometry: {
+        // Spread first — keeps `vertices` (see setWallLength above).
+        ...state.geometry,
         walls: state.geometry.walls.map((w) => {
           if (w.id !== wallId) return w;
           const idx1 = w.elements.findIndex((e) => e.id === id1);

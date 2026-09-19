@@ -18,6 +18,7 @@ import { hullBounds, type Hull } from '@/lib/modelFootprint'
 import { DEFAULT_WINDOW_STYLE, mullionCount, resolveWindowStyle } from '@/lib/windowStyles'
 import { PlanFurnitureLayer, itemScale, resolveFurnitureEntry } from './PlanFurniture'
 import { WindowStylePicker } from './WindowStylePicker'
+import { isAbcdRoom, offsetPolygon, planPolygon, pointInPolygon, svgPoints } from '@/lib/planPolygon'
 
 type ElType = WallElement['type']
 
@@ -90,8 +91,8 @@ interface WallDef {
   len: number          // interior length mm (u axis)
   /** SVG transform mapping local (u,v) → plan coords; v=0 outer edge, v=T inner */
   transform: string
-  /** which global axis carries u for pointer math */
-  uAxis: 'x' | 'y'
+  /** plan point → local u (mm along the wall from its position-0 end), for pointer math */
+  toU: (x: number, y: number) => number
 }
 
 /**
@@ -189,11 +190,27 @@ function MmInput({ value, onCommit, step = 50, min = 0, max }: {
   )
 }
 
+/**
+ * roomStore's element reducers (addElement / updateElement / removeElement…)
+ * rebuild `geometry` as `{ walls }` and drop `vertices`, so a polygon room
+ * lost its outline — here and in the 3D shell — on its first opening edit.
+ * Until the store keeps it (roomStore.ts is owned by another change right
+ * now), put the outline back after each edit made from this plan.
+ */
+function keepingOutline<A extends unknown[]>(action: (...args: A) => void): (...args: A) => void {
+  return (...args) => {
+    const vertices = useRoomStore.getState().geometry.vertices
+    action(...args)
+    const g = useRoomStore.getState().geometry
+    if (vertices && !g.vertices) useRoomStore.setState({ geometry: { ...g, vertices } })
+  }
+}
+
 export function MebelPlanView() {
   const geometry = useRoomStore((s) => s.geometry)
-  const addElement = useRoomStore((s) => s.addElement)
-  const updateElement = useRoomStore((s) => s.updateElement)
-  const removeElement = useRoomStore((s) => s.removeElement)
+  const addElement = keepingOutline(useRoomStore((s) => s.addElement))
+  const updateElement = keepingOutline(useRoomStore((s) => s.updateElement))
+  const removeElement = keepingOutline(useRoomStore((s) => s.removeElement))
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
@@ -208,7 +225,7 @@ export function MebelPlanView() {
   const [newWindowStyle, setNewWindowStyle] = useState(DEFAULT_WINDOW_STYLE)
   const [selectedFur, setSelectedFur] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const dragRef = useRef<{ wallId: string; id: string; grabOffset: number; uAxis: 'x' | 'y'; len: number; width: number } | null>(null)
+  const dragRef = useRef<{ wallId: string; id: string; grabOffset: number; toU: WallDef['toU']; len: number; width: number } | null>(null)
   // Silhouettes reported by the drawn symbols — the drag clamp uses the real
   // outline, so a round chair is not held off the wall by its square box.
   const hullsRef = useRef<Map<string, Hull>>(new Map())
@@ -220,28 +237,50 @@ export function MebelPlanView() {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const panRef = useRef<{ sx: number; sy: number; ox: number; oy: number; scale: number } | null>(null)
 
+  // Two room shapes share this editor. The legacy rectangle (walls A-B-C-D)
+  // is drawn as [0, W] × [0, Dp]; any other room — a scanned or hand-drawn
+  // polygon with W1..Wn walls — is drawn from `geometry.vertices` in the same
+  // plan frame (see lib/planPolygon.ts), so furniture coordinates, the drag
+  // clamp and the wall-local opening math below work for both.
   const wallA = geometry.walls.find((w) => w.id === 'A')
   const wallB = geometry.walls.find((w) => w.id === 'B')
-  const wallC = geometry.walls.find((w) => w.id === 'C')
-  const wallD = geometry.walls.find((w) => w.id === 'D')
+  const rect = isAbcdRoom(geometry) && wallA && wallB ? { W: wallA.length, Dp: wallB.length } : null
+  const poly = rect ? null : planPolygon(geometry)
 
-  if (!wallA || !wallB || !wallC || !wallD) {
+  if (!rect && !poly) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-gray-500 p-6 text-center">
-        2D plan faqat to'rtburchak (A-B-C-D) xonalar uchun mavjud
+        2D plan uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang
       </div>
     )
   }
 
-  const W = wallA.length   // interior width mm
-  const Dp = wallB.length  // interior depth mm
+  const W = rect?.W ?? poly?.W ?? 0    // interior width mm (bounding box for a polygon)
+  const Dp = rect?.Dp ?? poly?.D ?? 0  // interior depth mm
+  // Plan-space origin of the room's bounding box: (0, 0) for the rectangle,
+  // the polygon's own box corner otherwise.
+  const x0 = poly?.minX ?? 0
+  const z0 = poly?.minZ ?? 0
 
-  const walls: WallDef[] = [
-    { id: 'A', len: W, transform: `translate(0, ${-T})`, uAxis: 'x' },
-    { id: 'C', len: W, transform: `translate(0, ${Dp + T}) scale(1,-1)`, uAxis: 'x' },
-    { id: 'B', len: Dp, transform: `matrix(0,1,-1,0,${W + T},0)`, uAxis: 'y' },
-    { id: 'D', len: Dp, transform: `matrix(0,1,1,0,${-T},0)`, uAxis: 'y' },
-  ]
+  const walls: WallDef[] = rect
+    ? [
+        { id: 'A', len: W, transform: `translate(0, ${-T})`, toU: (x) => x },
+        { id: 'C', len: W, transform: `translate(0, ${Dp + T}) scale(1,-1)`, toU: (x) => x },
+        { id: 'B', len: Dp, transform: `matrix(0,1,-1,0,${W + T},0)`, toU: (_x, y) => y },
+        { id: 'D', len: Dp, transform: `matrix(0,1,1,0,${-T},0)`, toU: (_x, y) => y },
+      ]
+    : poly!.edges.map((e) => ({
+        id: e.id,
+        len: e.len,
+        // Local u runs along the wall from its position-0 end, local v along
+        // the inward normal with v=0 on the OUTER face — the same frame the
+        // rectangle transforms above establish, so the opening symbols and
+        // hit bands below draw unchanged on a slanted wall.
+        transform: `matrix(${e.dx},${e.dz},${e.nx},${e.nz},${e.ox - e.nx * T},${e.oz - e.nz * T})`,
+        toU: (x, y) => (x - e.ox) * e.dx + (y - e.oz) * e.dz,
+      }))
+  // Furniture must stay this far inside the outline (polygon rooms).
+  const innerOutline = poly ? offsetPolygon(poly, -FUR_WALL_GAP) : null
 
   function svgPointFromClient(clientX: number, clientY: number): { x: number; y: number } {
     const svg = svgRef.current
@@ -257,7 +296,7 @@ export function MebelPlanView() {
 
   function wallU(wall: WallDef, clientX: number, clientY: number): number {
     const p = svgPointFromClient(clientX, clientY)
-    return wall.uAxis === 'x' ? p.x : p.y
+    return wall.toU(p.x, p.y)
   }
 
   /** Placed item → its plan-space extents around the model origin, in mm. */
@@ -282,6 +321,25 @@ export function MebelPlanView() {
   /** Keep an item's whole footprint inside the room. */
   function clampFurniture(item: PlacedFurniture, planX: number, planY: number) {
     const b = furExtents(item)
+    if (innerOutline) {
+      // Polygon room: the footprint's box corners must all stay inside the
+      // inset outline. When the wanted spot doesn't fit, try the two
+      // axis-only moves so the item slides along a wall instead of sticking,
+      // and otherwise stay where it is.
+      const fits = (px: number, py: number) =>
+        [[px + b.minX, py + b.minZ], [px + b.maxX, py + b.minZ], [px + b.maxX, py + b.maxZ], [px + b.minX, py + b.maxZ]]
+          .every(([cx, cy]) => pointInPolygon(cx, cy, innerOutline))
+      const curX = item.x + W / 2
+      const curY = item.y + Dp / 2
+      if (fits(planX, planY)) return { x: planX, y: planY }
+      if (fits(planX, curY)) return { x: planX, y: curY }
+      if (fits(curX, planY)) return { x: curX, y: planY }
+      // Already overlapping a wall (placed or resized in 3D, or turned): let
+      // it move while its centre stays on the floor, so it can be pulled
+      // back inside instead of being stuck for good.
+      if (!fits(curX, curY) && pointInPolygon(planX, planY, poly!.vertices)) return { x: planX, y: planY }
+      return { x: curX, y: curY }
+    }
     const x = Math.min(
       Math.max(planX, FUR_WALL_GAP - b.minX),
       Math.max(FUR_WALL_GAP - b.minX, W - FUR_WALL_GAP - b.maxX),
@@ -318,7 +376,7 @@ export function MebelPlanView() {
     const svg = svgRef.current
     if (!svg) return
     const rect = svg.getBoundingClientRect()
-    const vbWidth = W + 2 * T + 2 * MARGIN
+    const vbWidth = W + 2 * T + 2 * (poly ? 900 : MARGIN)
     panRef.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y, scale: vbWidth / rect.width }
     svg.setPointerCapture?.(e.pointerId)
   }
@@ -365,7 +423,7 @@ export function MebelPlanView() {
       wallId: wall.id,
       id: el.id,
       grabOffset: u - el.position,
-      uAxis: wall.uAxis,
+      toU: wall.toU,
       len: wall.len,
       width: el.width,
     }
@@ -398,7 +456,7 @@ export function MebelPlanView() {
     const d = dragRef.current
     if (!d) return
     const p = svgPointFromClient(e.clientX, e.clientY)
-    const u = d.uAxis === 'x' ? p.x : p.y
+    const u = d.toU(p.x, p.y)
     const others = resolvedWallEls(d.wallId, d.len).filter((el) => el.id !== d.id)
     // Snap before clamping: the clamp may still return an off-grid value when
     // the element is pushed flush against a corner pier or a neighbour, and
@@ -440,7 +498,7 @@ export function MebelPlanView() {
 
   // Resolved copy of the selection: auto-centred elements store position 0,
   // but dimensions and edits must use the actual placed position.
-  const selWallLen = selected ? (selected.wallId === 'A' || selected.wallId === 'C' ? W : Dp) : 0
+  const selWallLen = selected ? walls.find((w) => w.id === selected.wallId)?.len ?? 0 : 0
   const selResolved = selected
     ? resolveElementPositions(
         geometry.walls.find((w) => w.id === selected.wallId)?.elements ?? [],
@@ -466,7 +524,10 @@ export function MebelPlanView() {
     updateElement(selected.wallId, selected.id, { width: w, position: pos })
   }
 
-  const vb = `${-T - MARGIN + pan.x} ${-T - MARGIN + pan.y} ${W + 2 * T + 2 * MARGIN} ${Dp + 2 * T + 2 * MARGIN}`
+  // A polygon's side labels run horizontally past a vertical wall, so give
+  // them a wider margin than the rectangle's rotated "3.0 m" needs.
+  const margin = poly ? 900 : MARGIN
+  const vb = `${x0 - T - margin + pan.x} ${z0 - T - margin + pan.y} ${W + 2 * T + 2 * margin} ${Dp + 2 * T + 2 * margin}`
 
   return (
     <div className="h-full flex min-h-0">
@@ -586,22 +647,46 @@ export function MebelPlanView() {
               locally rather than relying silently on the app's global
               :focus-visible outline rule applying to these SVG shapes. */}
           <style>{`.kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1E40AF); outline-offset: 2px; }`}</style>
-          {/* floor */}
-          <rect x={0} y={0} width={W} height={Dp} fill={FLOOR_FILL} />
-          {/* faint grid every metre */}
-          {Array.from({ length: Math.floor(W / 1000) }, (_, i) => (
-            <line key={`gx${i}`} x1={(i + 1) * 1000} y1={0} x2={(i + 1) * 1000} y2={Dp} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
-          ))}
-          {Array.from({ length: Math.floor(Dp / 1000) }, (_, i) => (
-            <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
-          ))}
+          {rect ? (
+            <>
+              {/* floor */}
+              <rect x={0} y={0} width={W} height={Dp} fill={FLOOR_FILL} />
+              {/* faint grid every metre */}
+              {Array.from({ length: Math.floor(W / 1000) }, (_, i) => (
+                <line key={`gx${i}`} x1={(i + 1) * 1000} y1={0} x2={(i + 1) * 1000} y2={Dp} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+              ))}
+              {Array.from({ length: Math.floor(Dp / 1000) }, (_, i) => (
+                <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+              ))}
 
-          {/* walls: all four bars run the FULL outer span and overlap at the
-              corners, so the frame always reads as one welded outline */}
-          <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={WALL_DARK} />
-          <rect x={-T} y={Dp} width={W + 2 * T} height={T} fill={WALL_DARK} />
-          <rect x={-T} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
-          <rect x={W} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
+              {/* walls: all four bars run the FULL outer span and overlap at the
+                  corners, so the frame always reads as one welded outline */}
+              <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={WALL_DARK} />
+              <rect x={-T} y={Dp} width={W + 2 * T} height={T} fill={WALL_DARK} />
+              <rect x={-T} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
+              <rect x={W} y={-T} width={T} height={Dp + 2 * T} fill={WALL_DARK} />
+            </>
+          ) : (
+            <>
+              {/* polygon room: one mitred wall band T outside the outline, the
+                  floor on top of it, and the metre grid clipped to the floor */}
+              <defs>
+                <clipPath id="mebel-floor-clip">
+                  <polygon points={svgPoints(poly!.vertices)} />
+                </clipPath>
+              </defs>
+              <polygon points={svgPoints(offsetPolygon(poly!, T))} fill={WALL_DARK} />
+              <polygon points={svgPoints(poly!.vertices)} fill={FLOOR_FILL} />
+              <g clipPath="url(#mebel-floor-clip)">
+                {Array.from({ length: Math.floor(W / 1000) }, (_, i) => (
+                  <line key={`gx${i}`} x1={x0 + (i + 1) * 1000} y1={z0} x2={x0 + (i + 1) * 1000} y2={z0 + Dp} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+                ))}
+                {Array.from({ length: Math.floor(Dp / 1000) }, (_, i) => (
+                  <line key={`gy${i}`} x1={x0} y1={z0 + (i + 1) * 1000} x2={x0 + W} y2={z0 + (i + 1) * 1000} stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+                ))}
+              </g>
+            </>
+          )}
 
           {/* per-wall hit areas + elements in local (u,v) space */}
           {walls.map((wall) => {
@@ -802,8 +887,10 @@ export function MebelPlanView() {
             )
           })}
 
-          {/* dimension chain for the selected element */}
-          {selected && selResolved && (
+          {/* dimension chain for the selected element — the ruler is laid out
+              per rectangle side; a polygon room shows the same numbers in the
+              inspector row instead */}
+          {rect && selected && selResolved && (
             <DimRuler
               wallId={selected.wallId}
               len={selWallLen}
@@ -815,19 +902,34 @@ export function MebelPlanView() {
           )}
 
           {/* labels + dimensions */}
-          <g fill="#8A857A" fontFamily="ui-sans-serif, system-ui" fontWeight={600}>
-            <text x={W / 2} y={-T - 240} textAnchor="middle" fontSize={260}>A</text>
-            <text x={W / 2} y={-T - 20} textAnchor="middle" fontSize={200}>{(W / 1000).toFixed(1)} m</text>
-            <text x={W / 2} y={Dp + T + 380} textAnchor="middle" fontSize={260}>C</text>
-            <text x={W + T + 240} y={Dp / 2} textAnchor="start" fontSize={260} dominantBaseline="middle">B</text>
-            <text x={-T - 240} y={Dp / 2} textAnchor="end" fontSize={260} dominantBaseline="middle">D</text>
-            <text
-              x={-T - 60} y={Dp / 2} fontSize={200} textAnchor="middle" dominantBaseline="middle"
-              transform={`rotate(-90 ${-T - 60} ${Dp / 2})`}
-            >
-              {(Dp / 1000).toFixed(1)} m
-            </text>
-          </g>
+          {rect ? (
+            <g fill="#8A857A" fontFamily="ui-sans-serif, system-ui" fontWeight={600}>
+              <text x={W / 2} y={-T - 240} textAnchor="middle" fontSize={260}>A</text>
+              <text x={W / 2} y={-T - 20} textAnchor="middle" fontSize={200}>{(W / 1000).toFixed(1)} m</text>
+              <text x={W / 2} y={Dp + T + 380} textAnchor="middle" fontSize={260}>C</text>
+              <text x={W + T + 240} y={Dp / 2} textAnchor="start" fontSize={260} dominantBaseline="middle">B</text>
+              <text x={-T - 240} y={Dp / 2} textAnchor="end" fontSize={260} dominantBaseline="middle">D</text>
+              <text
+                x={-T - 60} y={Dp / 2} fontSize={200} textAnchor="middle" dominantBaseline="middle"
+                transform={`rotate(-90 ${-T - 60} ${Dp / 2})`}
+              >
+                {(Dp / 1000).toFixed(1)} m
+              </text>
+            </g>
+          ) : (
+            <g fill="#8A857A" fontFamily="ui-sans-serif, system-ui" fontWeight={600} style={{ pointerEvents: 'none' }}>
+              {/* each wall's id and length just outside its band, at the midpoint */}
+              {poly!.edges.map((e) => {
+                const mx = (e.x1 + e.x2) / 2
+                const mz = (e.z1 + e.z2) / 2
+                return (
+                  <text key={e.id} x={mx - e.nx * (T + 330)} y={mz - e.nz * (T + 330)} textAnchor="middle" dominantBaseline="middle" fontSize={210}>
+                    {e.id} · {(e.len / 1000).toFixed(1)} m
+                  </text>
+                )
+              })}
+            </g>
+          )}
         </svg>
 
         {/* ── Inspector for the selected element ─────────────────── */}

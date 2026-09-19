@@ -48,6 +48,13 @@ export function fixturePose(
       case 'C': return { x, y: h, z: roomD / 2 - inset, rot: Math.PI }
       case 'B': return { x: roomW / 2 - inset, y: h, z, rot: -Math.PI / 2 }
       case 'D': return { x: -roomW / 2 + inset, y: h, z, rot: Math.PI / 2 }
+      default:
+        // A polygon room's wall (W1..Wn): the Chiroqlar plan already stores
+        // the fixture's point inset from that wall, and the wall's inward
+        // facing in `rotation` (see ChiroqPlanView), so the plan point is
+        // the pose. Before this the fixture silently fell through to the
+        // ceiling branch below.
+        return { x, y: h, z, rot }
     }
   }
 

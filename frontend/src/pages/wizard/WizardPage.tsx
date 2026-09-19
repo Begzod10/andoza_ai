@@ -538,7 +538,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
         <button
-          onClick={() => roomId && navigate(`/studio/${roomId}`)}
+          onClick={() => roomId && navigate(`/studio/${roomId}/ichkarida?phase=suvoq`)}
           disabled={!roomId}
           className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
@@ -584,6 +584,7 @@ export default function WizardPage() {
     setWizardStep,
     loadDraftState,
     resetRoom,
+    resetDesignState,
   } = useRoomStore()
 
   const [searchParams] = useSearchParams()
@@ -614,12 +615,23 @@ export default function WizardPage() {
         setDraftLoaded(true)
         return
       }
+      // roomId is NOT persisted, so after a page reload it is null here even
+      // though the store rehydrated the PREVIOUS room's designState (the paint
+      // or oboi picked in the studio) from localStorage — which then silently
+      // became the "new" room's design, instead of DEFAULT_DESIGN_STATE's bare
+      // brick. A wizard draft's designState is never user-chosen either (the
+      // wizard has no design controls; autosave just snapshots whatever the
+      // store held), so resetting it on every new-room entry loses nothing.
+      resetDesignState()
       if (draftId) {
         try {
           const draft = await getDraftRoom(draftId)
           const s = draft.state as { wizardStep?: number }
           if ((s.wizardStep ?? 0) > 0) {
             loadDraftState(draft.state)
+            // Resume keeps the draft's DIMENSIONS; its designState snapshot is
+            // stale store spillover (see above), so it still starts as brick.
+            resetDesignState()
             setResumePrompt(true)
           } else {
             setStep(0)
@@ -771,7 +783,7 @@ export default function WizardPage() {
     if (step === 0 && isFromDraw) {
       void handleSave().then((id) => {
         void persistLayoutPos()
-        if (id) navigate(`/studio/${id}/ichkarida`)
+        if (id) navigate(`/studio/${id}/ichkarida?phase=suvoq`)
       })
       return
     }
