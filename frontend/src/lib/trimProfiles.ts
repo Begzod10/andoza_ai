@@ -190,7 +190,124 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
   },
 ]
 
-export const TRIM_PROFILES: TrimProfileDef[] = [...SKIRTING_PROFILES]
+/**
+ * Ceiling cornice (galtel), after the O'le de Country sheet. Six of its twenty
+ * spanning the range — a shallow cove, a classic cove over beads, a clean
+ * hollow, a stepped face, a round-scooped ornate one and the deep sweep — each
+ * keeping the catalogue's own code so it can be matched against the page.
+ *
+ * Drawn in the same box, read with `flipY`: x is the projection out along the
+ * ceiling, y is the drop DOWN the wall. So (0,0) is the wall/ceiling corner,
+ * the run to (1,0) lies against the ceiling, the face falls away to (0,1) at
+ * the bottom of the wall leg, and the closing edge back to (0,0) is the wall.
+ */
+const CORNICE_PROFILES: TrimProfileDef[] = [
+  {
+    id: 't37',
+    label: 'T 37',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 25,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.34, 0.62], c1: [1.0, 0.32], c2: [0.66, 0.44] },     // narrow cove
+        { to: [0.34, 0.80] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't140',
+    label: 'T 140',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 65,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.52, 0.44], c1: [0.80, 0.20], c2: [0.72, 0.36] },    // cove
+        { to: [0.62, 0.52] },
+        { to: [0.44, 0.66], c1: [0.70, 0.60], c2: [0.58, 0.66] },    // bead
+        { to: [0.34, 0.72] },
+        { to: [0.40, 0.82] },                                        // step
+        { to: [0.18, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't254',
+    label: 'T 254',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 80,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0, 0.88], c1: [0.42, 0.30], c2: [0.30, 0.62] },       // one clean hollow
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't193',
+    label: 'T 193',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 60,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.86, 0.16] },
+        { to: [0.86, 0.30] },
+        { to: [0.30, 0.74] },                                        // flat diagonal face
+        { to: [0.30, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't169',
+    label: 'T 169',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 105,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.18] },
+        { to: [0.54, 0.30], c1: [0.94, 0.30], c2: [0.74, 0.22] },
+        { to: [0.54, 0.60], c1: [0.22, 0.34], c2: [0.22, 0.56] },    // round scoop
+        { to: [0.32, 0.78], c1: [0.72, 0.64], c2: [0.50, 0.70] },
+        { to: [0.32, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't84',
+    label: 'T 84',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 120,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0, 0.90], c1: [0.55, 0.14], c2: [0.12, 0.44] },       // deep sweep
+        { to: [0, 1] },
+      ],
+    },
+  },
+]
+
+export const TRIM_PROFILES: TrimProfileDef[] = [...SKIRTING_PROFILES, ...CORNICE_PROFILES]
 
 export function trimProfilesOf(kind: TrimKind): TrimProfileDef[] {
   return TRIM_PROFILES.filter((p) => p.kind === kind)

@@ -13,7 +13,7 @@ import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { buildTrimGeometry, type ResolvedTrim } from "@/lib/trimProfiles";
 import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast } from "./constants";
-import { boardSegments } from "./helpers";
+import { trimSegments } from "./helpers";
 
 /**
  * Wall rendering: the wall surface itself (with door/window cutouts and
@@ -1182,6 +1182,39 @@ export function TrimRun({
 }
 
 /**
+ * Ceiling cornice (galtel) for the legacy ABCD room: the same runs as the
+ * skirting, hung from the wall/ceiling junction instead of standing on the
+ * floor. `junctionY` comes from the active ceiling design, so the moulding
+ * follows a dropped ceiling down rather than floating at the slab.
+ */
+export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY }: {
+  width: number; depth: number; geometry: RoomGeometry;
+  hiddenWalls?: ReadonlySet<string>;
+  trim: ResolvedTrim;
+  junctionY: number;
+}) {
+  const band: [number, number] = [(junctionY - trim.heightM) * 1000, junctionY * 1000];
+  const walls = [
+    { id: 'A', lenM: width, yaw: 0, alongSign: 1 as const, at: (c: number): [number, number, number] => [c, junctionY, -depth / 2] },
+    { id: 'C', lenM: width, yaw: Math.PI, alongSign: -1 as const, at: (c: number): [number, number, number] => [c, junctionY, depth / 2] },
+    { id: 'B', lenM: depth, yaw: -Math.PI / 2, alongSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, junctionY, c] },
+    { id: 'D', lenM: depth, yaw: Math.PI / 2, alongSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, junctionY, c] },
+  ];
+  return (
+    <group>
+      {walls.map((w) => {
+        if (hiddenWalls?.has(w.id)) return null;
+        const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
+        return trimRuns(w.lenM, els, trim, w.alongSign, band).map((r, i) => (
+          <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM} flipY
+            mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
+        ));
+      })}
+    </group>
+  );
+}
+
+/**
  * Split one wall into the runs of trim it actually carries, with the mitre
  * flags resolved into the run geometry's own frame.
  *
@@ -1197,8 +1230,12 @@ function trimRuns(
   elements: WallElement[],
   trim: ResolvedTrim,
   alongSign: 1 | -1,
+  /** Vertical band the trim occupies, mm from the floor. Defaults to a
+   *  skirting's band: the floor up to the board's height. */
+  band?: [number, number],
 ): Array<{ center: number; lengthM: number; mitreStart: boolean; mitreEnd: boolean }> {
-  const segs = boardSegments(wallLenM, elements, trim.heightM * 1000);
+  const [bottom, top] = band ?? [0, trim.heightM * 1000];
+  const segs = trimSegments(wallLenM, elements, bottom, top);
   const EPS = 0.002;
   return segs.map((s) => {
     const atLeftEnd = s.center - s.len / 2 <= -wallLenM / 2 + EPS;

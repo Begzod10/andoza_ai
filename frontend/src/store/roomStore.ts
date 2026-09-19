@@ -210,6 +210,11 @@ export interface DesignState {
    *  Persists inside designState through both the localStorage partialize and
    *  the Saqlash state blob. */
   skirting?: TrimState | null
+  /** Ceiling cornice (galtel) — the moulding at the wall/ceiling junction.
+   *  Same shape as `skirting`, but a plain absence means OFF: a cornice is
+   *  something the user adds, not something every room already had. Only an
+   *  explicit object puts one in the scene. */
+  cornice?: TrimState | null
   floorState?: FloorState
   ceilingState?: CeilingState
   /** The ceiling profile and the numbers behind it. Optional: rooms designed
