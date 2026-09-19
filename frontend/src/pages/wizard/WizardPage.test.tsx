@@ -25,18 +25,36 @@ vi.mock('@/lib/api', () => ({
     design_state: {},
     created_at: '',
   }),
+  updateRoom: vi.fn().mockResolvedValue({ id: 'room-1' }),
+  // The wizard opens a server-side draft on mount and autosaves into it.
+  createDraftRoom: vi.fn().mockResolvedValue({ id: 'draft-1', state: {}, created_at: '', updated_at: '' }),
+  getDraftRoom: vi.fn().mockResolvedValue({ id: 'draft-1', state: {}, created_at: '', updated_at: '' }),
+  updateDraftRoom: vi.fn().mockResolvedValue({ id: 'draft-1', state: {}, created_at: '', updated_at: '' }),
+  deleteDraftRoom: vi.fn().mockResolvedValue(undefined),
 }))
 
 // framer-motion: render children immediately without animations
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual<typeof import('framer-motion')>('framer-motion')
+  // A real motion.* component renders a MotionValue child as its current
+  // value; a plain DOM tag throws "Objects are not valid as a React child"
+  // instead (MetricCard's count-up passes one). Unwrap before rendering.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unwrap = (child: any) =>
+    child && typeof child === 'object' && typeof child.get === 'function'
+      ? String(child.get())
+      : child
   return {
     ...actual,
     motion: new Proxy({} as Record<string, unknown>, {
       get: (_t, tag: string) =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ({ children, ...props }: any) => {
-          return React.createElement(tag, props, children)
+          return React.createElement(
+            tag,
+            props,
+            Array.isArray(children) ? children.map(unwrap) : unwrap(children),
+          )
         },
     }),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
@@ -58,6 +76,9 @@ beforeEach(() => {
   useRoomStore.setState({
     roomId: null,
     apartmentId: null,
+    // draftId is persisted, so a draft opened by an earlier test would make
+    // the wizard resume that draft on mount and bounce back to step 0.
+    draftId: null,
     name: 'Xona',
     ceilingHeight: 2700,
     geometry: {
@@ -94,9 +115,10 @@ describe('WizardPage – Step 0', () => {
     const state = useRoomStore.getState()
     expect(state.ceilingHeight).toBe(2700)
 
-    // Should advance to step 1 (wall A)
+    // Should advance to step 1 (wall A). The wall label also appears inside
+    // the elevation preview's SVG, so match the step heading specifically.
     await waitFor(() => {
-      expect(screen.getByText('A devor')).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'A devor' })).toBeTruthy()
     })
   })
 
@@ -117,7 +139,7 @@ describe('WizardPage – Step 1 (Wall A)', () => {
     fireEvent.click(nextBtn)
 
     await waitFor(() => {
-      expect(screen.getByText('A devor')).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'A devor' })).toBeTruthy()
     })
   })
 
@@ -144,9 +166,10 @@ describe('WizardPage – Step 1 (Wall A)', () => {
     await waitFor(() => screen.getByText("Qo'shish"))
     fireEvent.click(screen.getByText("Qo'shish"))
 
-    // Chip should appear
+    // Chip should appear. Match its dimensions too, so the "Eshik / Deraza
+    // qo'shish" button that is still on screen does not also match.
     await waitFor(() => {
-      expect(screen.getByText(/Eshik/)).toBeTruthy()
+      expect(screen.getByText(/Eshik \d/)).toBeTruthy()
     })
 
     // Verify store updated

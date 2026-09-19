@@ -5,9 +5,12 @@ Establishes environment variables before any app module imports.
 Provides reusable mocks for external services (OpenAI, Redis, Meshy).
 """
 import os
+import tempfile
 from unittest.mock import AsyncMock
 
 import pytest
+from fakeredis import FakeServer
+from fakeredis.aioredis import FakeRedis
 
 # ============================================================================
 # CRITICAL: Set test environment variables BEFORE importing app modules
@@ -20,6 +23,48 @@ os.environ.setdefault("AI_FEATURES_ENABLED", "false")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-not-real")
 os.environ.setdefault("MESHY_API_KEY", "meshy-test-key-not-real")
 os.environ.setdefault("ENVIRONMENT", "test")
+
+# MEDIA_ROOT defaults to /app/media — the path inside the Docker image (see
+# app/config.py). On a developer machine that directory is unwritable, and
+# create_app() mkdir()s it at import time, so every test file that imports
+# app.main used to die during collection unless MEDIA_ROOT was exported by
+# hand. Point it at a throwaway directory instead.
+if not os.environ.get("MEDIA_ROOT"):
+    os.environ["MEDIA_ROOT"] = tempfile.mkdtemp(prefix="andoza-test-media-")
+
+
+# ============================================================================
+# In-memory Redis (autouse — no server needed to run the suite)
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def fake_redis(monkeypatch):
+    """Back app.core.cache.get_redis() with an in-memory Redis.
+
+    Rate limiting, OTP storage and the catalog cache invalidation all go
+    through get_redis(), so without this the suite only passes on a machine
+    that happens to have a Redis listening on localhost. Each test gets its
+    own FakeServer, so cached keys and rate-limit counters cannot leak from
+    one test into the next.
+    """
+    from app.core import cache
+
+    server = FakeServer()
+
+    class _FakeRedisFactory:
+        """Stands in for redis.asyncio.Redis inside app.core.cache."""
+
+        @staticmethod
+        def from_url(_url: str, **kwargs):
+            return FakeRedis(server=server, **kwargs)
+
+    monkeypatch.setattr(cache, "Redis", _FakeRedisFactory)
+    # get_redis() caches a client per event loop; drop any client built
+    # against the real Redis (and let monkeypatch put the globals back).
+    monkeypatch.setattr(cache, "_redis_client", None)
+    monkeypatch.setattr(cache, "_redis_client_loop", None)
+    yield
 
 
 # ============================================================================
