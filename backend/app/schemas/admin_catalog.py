@@ -20,7 +20,15 @@ PLACEMENTS = {"pol", "devor", "shift"}
 PARTNER_TIERS = {"standard", "gold", "platinum"}
 
 # Kept in sync with app.models.usta.UstaCategory
-USTA_CATEGORIES = {"elektrik", "santexnik", "malyar", "oboy", "laminat", "brigada"}
+USTA_CATEGORIES = {
+    "elektrik",
+    "elektrik_loyihachi",
+    "santexnik",
+    "malyar",
+    "oboy",
+    "laminat",
+    "brigada",
+}
 
 
 class StoreCreate(BaseModel):

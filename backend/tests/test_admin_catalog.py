@@ -445,6 +445,24 @@ class TestCreateUsta:
         assert body["verified"] is True
         db.add.assert_called_once()
 
+    def test_admin_creates_design_engineer(self, client):
+        """The design engineer is its own category, not a flavour of elektrik."""
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()):
+            response = client.post(
+                "/api/v1/admin/ustalar",
+                json={
+                    "name": "Nodir Loyihachi",
+                    "category": "elektrik_loyihachi",
+                    "district": "Yunusobod",
+                    "phone": "+998901234568",
+                },
+            )
+        assert response.status_code == 201
+        assert response.json()["category"] == "elektrik_loyihachi"
+        db.add.assert_called_once()
+
     def test_rejects_unknown_category(self, client):
         db = _db()
         _as(_user(is_admin=True), db)
