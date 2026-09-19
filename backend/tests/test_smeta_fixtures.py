@@ -18,12 +18,14 @@ Constants used in assertions (mirrors smeta.py):
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 
 from app.services.smeta import (
     APPROXIMATE_NORM_NOTE,
+    ELEC_SLACK,
     ROLL_AREA_M2,
     TILE_WASTE,
     LAMINAT_WASTE_DEFAULT,
@@ -1449,3 +1451,106 @@ def test_38_recompute_totals_matches_compute_estimate(boyoq_norm, laminat_norm, 
     assert recomputed.total_approx_uzs == est.total_approx_uzs
     assert recomputed.total_min == est.total_min
     assert recomputed.total_max == est.total_max
+
+
+# ---------------------------------------------------------------------------
+# Test 31 — the electrical line prefers the MEASURED cable run
+#
+# room_electrical_auto routes a real cable run around the room's actual
+# perimeter from the actual placed devices, and rooms.py stores it on
+# room_electrical.wiring_meters. The smeta used to ignore it entirely and
+# re-derive a number from points × avg_run × slack, overcharging every
+# scanned room. These tests pin all three branches and — crucially — the
+# slack question: the stored run ALREADY has ELEC_SLACK baked in.
+# ---------------------------------------------------------------------------
+
+def _electrical_room(points: int = 0) -> SimpleNamespace:
+    """A bare room whose only priced line is the electrical one."""
+    return _room(
+        geometry={"walls": []},
+        surfaces={},
+        state={"electricals": [{"id": f"e{i}"} for i in range(points)]},
+    )
+
+
+def test_31_measured_wiring_meters_is_used_instead_of_the_point_estimate():
+    """The real production room: 16 placed points, 135.40 m measured.
+
+    Points × avg run would quote 148 m; the measured run is 136 m (135.40
+    rounded up to the whole metre cable is sold in). Quoting the estimate
+    over the measurement overcharged by 12 m of cable.
+    """
+    room = _electrical_room(points=16)
+
+    measured = compute_estimate(
+        room, _mats(), _norms(), wiring_meters=Decimal("135.40")
+    )
+    estimated = compute_estimate(room, _mats(), _norms())
+
+    measured_line = next(ln for ln in measured.lines if ln.category == "elektr")
+    estimated_line = next(ln for ln in estimated.lines if ln.category == "elektr")
+
+    assert measured_line.qty == 136
+    assert measured_line.subtotal_uzs == 1_360_000
+    assert measured_line.is_approximate is False
+    assert measured.electrical_confirmed is True
+    # The label must not carry the "(taxminiy)" suffix — this is a measurement.
+    assert measured_line.label == "Elektr kabel"
+    # The formula has to say WHICH of the two calculations produced the number.
+    assert "o'lchangan" in measured_line.formula
+    assert "135.40" in measured_line.formula
+    assert "nuqta" not in measured_line.formula
+
+    # The point estimate is still what a room with no plan gets, and it is
+    # exactly the number the user was being overcharged against.
+    assert estimated_line.qty == 148
+    assert estimated_line.qty > measured_line.qty
+
+
+def test_31b_no_stored_plan_falls_back_to_the_point_estimate():
+    """No wiring_meters at all → the old points × avg_run × slack estimate,
+    exact when real points are placed and approximate when none are."""
+    with_points = compute_estimate(_electrical_room(points=16), _mats(), _norms())
+    line = next(ln for ln in with_points.lines if ln.category == "elektr")
+    assert line.qty == math.ceil(16 * 8.0 * 1.15) == 148
+    assert "16 nuqta × 8.0 m × 1.15 (zaxira) = 148 m" == line.formula
+    assert line.is_approximate is False
+
+    # No points AND no plan → still a guess, still flagged approximate.
+    no_points = compute_estimate(_electrical_room(points=0), _mats(), _norms())
+    fallback = next(ln for ln in no_points.lines if ln.category == "elektr")
+    assert fallback.is_approximate is True
+    assert fallback.label == "Elektr kabel (taxminiy)"
+    assert no_points.electrical_confirmed is False
+
+    # A plan row that exists but recorded no run (0.0 / None) is not a
+    # measurement — it must not price the room at zero metres of cable.
+    for empty in (None, Decimal("0.00"), 0.0):
+        est = compute_estimate(
+            _electrical_room(points=16), _mats(), _norms(), wiring_meters=empty
+        )
+        assert next(ln for ln in est.lines if ln.category == "elektr").qty == 148
+
+
+def test_31c_stored_wiring_meters_is_not_slacked_a_second_time():
+    """PINNED DECISION: room_electrical_auto._wiring_meters already
+    multiplies its routed run by ELEC_SLACK before storing it, so the smeta
+    must NOT apply `slack` again. If this ever flips, every scanned room is
+    silently billed 15% extra cable — exactly the class of quiet error the
+    measured-run fix exists to remove.
+    """
+    est = compute_estimate(
+        _electrical_room(points=16), _mats(), _norms(), wiring_meters=Decimal("100.00")
+    )
+    line = next(ln for ln in est.lines if ln.category == "elektr")
+
+    assert line.qty == 100, "measured run used verbatim (rounded up to the metre)"
+    assert line.qty != math.ceil(100 * ELEC_SLACK), "slack must not be double-counted"
+
+    # And the source of truth for that claim: the auto-placer's own output
+    # already carries the slack factor.
+    import inspect
+
+    from app.services import room_electrical_auto
+
+    assert "ELEC_SLACK" in inspect.getsource(room_electrical_auto._wiring_meters)

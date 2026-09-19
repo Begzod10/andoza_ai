@@ -1028,12 +1028,21 @@ def _light_lines(room: "Room") -> list[ComputedLine]:
 def _electrical_line(
     room: "Room",
     norms_map: "dict[str, Norm]",
+    wiring_meters: float | None = None,
 ) -> ComputedLine:
     """Electrical cable estimate.
 
-    Uses actual placed electrical point counts from room.state when available
-    (keys: 'electricals' and 'lights', saved by StudioPage).  Falls back to
-    ELEC_POINTS_DEFAULT and marks the line as approximate when no count is found.
+    Prefers *wiring_meters* — the real cable run measured off the placed
+    layout by app.services.room_electrical_auto and stored on
+    ``room_electrical.wiring_meters``. Falls back to counting placed points
+    from room.state (keys: 'electricals' and 'lights', saved by StudioPage)
+    and multiplying by an average per-point run, and finally to
+    ELEC_POINTS_DEFAULT — the last of which is the only branch that is
+    genuinely a guess, and the only one marked approximate.
+
+    The callers hand ``wiring_meters`` in rather than reading it off the
+    ORM here on purpose: this module is sync and pure, and a lazy-loaded
+    relationship inside it raises MissingGreenlet under the async session.
     """
     elec_norm = norms_map.get("elektr_kabel")
     elec_params = elec_norm.params if elec_norm and elec_norm.params else {}
@@ -1044,6 +1053,32 @@ def _electrical_line(
     norm_warning_suffix = (
         f" {APPROXIMATE_NORM_NOTE}" if elec_norm is None else ""
     )
+
+    # A measured plan beats any per-point average: use it verbatim.
+    # `_wiring_meters` in room_electrical_auto ALREADY multiplied the routed
+    # run by ELEC_SLACK, so the `slack` factor must NOT be applied again here
+    # — that would bill the same reserve twice. Cable is bought by the whole
+    # metre, so the measured run is rounded up exactly like the estimate is.
+    measured_m = _float(wiring_meters)
+    if measured_m > 0:
+        cable_m = math.ceil(measured_m)
+        return _make_line(
+            label="Elektr kabel",
+            formula=(
+                f"Joylashtirilgan sxema bo'yicha o'lchangan "
+                f"({measured_m:.2f} m, zaxira bilan) = {cable_m} m"
+            ),
+            qty=cable_m,
+            unit="m",
+            price_uzs=price_per_m,
+            category="elektr",
+            is_approximate=False,
+            warning=(
+                "Kabel uzunligi joylashtirilgan elektr sxemasi bo'yicha "
+                "o'lchangan. Elektrik sxemasini elektrik ustasi bilan "
+                f"tasdiqlang.{norm_warning_suffix}"
+            ),
+        )
 
     # Derive point count from user-placed electricals and ceiling lights.
     state: dict = room.state or {}
@@ -1232,6 +1267,7 @@ def compute_estimate(
     current_state: str | None = None,
     floor_state: str | None = None,
     ceiling_state: str | None = None,
+    wiring_meters: float | None = None,
 ) -> ComputedEstimate:
     """Compute a full smeta for *room*.
 
@@ -1257,6 +1293,12 @@ def compute_estimate(
         Optional per-surface overrides. When a surface's stage is already
         "tayyor" (finished), its material line is skipped entirely — the
         surface already exists and needs no further material spend.
+    wiring_meters:
+        The cable run measured off the room's placed electrical layout
+        (``room_electrical.wiring_meters``, a Numeric that arrives as
+        Decimal). Callers must load it eagerly and pass it in — this
+        function is sync and pure and never touches the DB. Omitting it
+        falls back to the per-point average estimate.
 
     Returns
     -------
@@ -1409,9 +1451,10 @@ def compute_estimate(
     lines.extend(_light_lines(room))
 
     # ------------------------------------------------------------------ #
-    # 5. Electrical — uses actual point counts from state when available   #
+    # 5. Electrical — measured cable run when the room has a placed plan,  #
+    #    otherwise actual point counts from state, otherwise a guess.      #
     # ------------------------------------------------------------------ #
-    elec_line = _electrical_line(room, norms_map)
+    elec_line = _electrical_line(room, norms_map, wiring_meters)
     lines.append(elec_line)
 
     # Totals — total_uzs is the FULL expected spend (exact + approximate).
