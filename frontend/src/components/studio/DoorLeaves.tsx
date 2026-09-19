@@ -12,13 +12,23 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
+import { OPENING_REVEAL_D, WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
 const S = 1 / 1000;
 const SNAP_MM = 5;
 const LEAF_T = 0.04; // leaf thickness in metres
+/**
+ * How far OUT of the room (along the wall normal) the door leaf — and with it
+ * its hinge axis — is pushed, so the leaf hangs at the outer edge of the
+ * 200 mm reveal WallComponents cuts around the opening, exactly as the window
+ * glass hangs at the outer edge of its own reveal. Derived from LEAF_T so the
+ * leaf's OUTER face lands flush with the reveal's exterior face and nothing
+ * pokes out the far side of the wall; a door leaf is a real slab, so unlike a
+ * window sash it keeps its thickness and cannot use WINDOW_SASH_RECESS.
+ */
+const DOOR_LEAF_RECESS = OPENING_REVEAL_D - LEAF_T / 2;
 const GAP = 0.006; // clearance between leaf and frame
 const SASH_T = 0.045; // window sash thickness (selection outline only)
 // Visible depth of window sash rails/muntins along the wall normal. Kept at
@@ -406,8 +416,14 @@ function DoorLeaf({
 
   return (
     <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
-      {/* Hinge pivot — the whole leaf turns about this vertical edge */}
-      <group position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
+      {/* Hinge pivot — the whole leaf turns about this vertical edge. The
+          pivot itself carries the reveal recess (local +Z points into the
+          room, so outward is −Z): the hinge axis moves out to the reveal's
+          outer edge WITH the leaf, rather than leaving the leaf swinging
+          about the old wall-plane axis, which would have swept it through
+          the jamb. From inside you now look down the 200 mm niche at the
+          leaf, and it still opens about the jamb it is hung on. */}
+      <group position={[hingeX, 0, -DOOR_LEAF_RECESS]} rotation={[0, swing, 0]}>
         <group position={[(dir * leafW) / 2, leafH / 2, 0]}>
           <mesh
             castShadow

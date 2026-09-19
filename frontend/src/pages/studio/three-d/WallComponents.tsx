@@ -11,7 +11,7 @@ import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { WALLPAPER_WIDTH_M, WINDOW_REVEAL_D } from "./constants";
+import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D } from "./constants";
 import { boardSegments } from "./helpers";
 
 /**
@@ -719,6 +719,11 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
 // ─── Window / door frames ───────────────────────────────────────────────────
 
 const FRAME_W = 0.05; // 5cm frame width
+// Depth of a frame member along the wall normal. Deliberately a 2 mm epsilon
+// rather than a real section: trim with any thickness reads as a lip standing
+// proud of the reveal (reported on the window, then on the door). Not zero
+// only so the ring never goes coplanar with the reveal's exterior edge.
+const FRAME_T = 0.002;
 // Named distinctly from the `s` used locally inside Wall's segment-building
 // useMemo (a few dozen lines up) to avoid shadowing it.
 const MM = 1 / 1000;
@@ -729,6 +734,21 @@ export interface FrameWallDef {
   cx: number;
   cz: number;
   length: number;
+  /**
+   * Which side of this wall's plane the ROOM is on, in the same convention as
+   * `Wall`'s `innerFaceDir`: +1 means room-inward is +Z for an axis-X wall
+   * (+X for an axis-Z wall), -1 the opposite. The reveal extends the other
+   * way, so this is what decides which side of the wall the 200 mm niche is
+   * cut into.
+   *
+   * Optional: for the legacy ABCD rectangle it is implied by the sign of
+   * `cx`/`cz` (a wall at cz < 0 faces +Z into the room), and `openingAxes`
+   * falls back to exactly that. It must be passed explicitly whenever the
+   * frame is rendered inside an already-rotated group — the polygon/drawn-room
+   * path in RoomShell does that with `cx`/`cz` both 0, where the sign carries
+   * no information and the fallback would put every reveal on the same side.
+   */
+  faceDir?: 1 | -1;
 }
 
 /**
@@ -766,13 +786,16 @@ function buildFrameWallDefs(
         cx: d.axis === "X" ? d.leftAlong + d.length / 2 : d.face,
         cz: d.axis === "Z" ? d.leftAlong + d.length / 2 : d.face,
         length: d.length,
+        // `normal` already points INWARD (see Baseboard's comment below), which
+        // is exactly the faceDir convention.
+        faceDir: ((d.axis === "X" ? d.normal.z : d.normal.x) >= 0 ? 1 : -1) as 1 | -1,
       }));
   }
   return [
-    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth },
-    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth },
-    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth },
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth, faceDir: 1 },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth, faceDir: -1 },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth, faceDir: -1 },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth, faceDir: 1 },
   ];
 }
 
@@ -811,9 +834,101 @@ const windowFrameMat = <meshStandardMaterial color="#C0B8A8" roughness={0.6} met
 const windowSillLipMat = <meshStandardMaterial color="#D4C4B4" roughness={0.5} metalness={0.1} />;
 // Reveal (jamb/head) surfaces — painted-plaster white in the same warm trim
 // family as the frame and baseboard, matte so they read as wall, not joinery.
+// Shared by windows and doors so both openings read as the same wall.
 const windowRevealMat = <meshStandardMaterial color="#E7E1D6" roughness={0.85} metalness={0} envMapIntensity={0.3} />;
 const doorFrameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
 const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} metalness={0.08} envMapIntensity={0.1} />;
+
+/**
+ * The three directions every framed opening needs, derived once from its wall.
+ *
+ * `out`        — sign along the wall's normal axis pointing OUT of the room,
+ *                i.e. the way the reveal and the frame/leaf are pushed.
+ * `revealYaw`  — Y-rotation that maps the canonical reveal frame (local +X
+ *                along the wall, +Z into the room — the same frame
+ *                DoorLeaves' `wallFrames` uses) onto this wall. Identical by
+ *                construction to `Wall`'s own `ry`, so the reveal always lands
+ *                on the wall plane it belongs to.
+ * `v`          — (along-wall, up, wall-normal) → a world-axis-aligned triple,
+ *                for the frame meshes, which are built axis-aligned rather
+ *                than rotated.
+ */
+function openingAxes(wd: FrameWallDef) {
+  const isHorizontal = wd.axis === "X";
+  const faceDir: 1 | -1 = wd.faceDir
+    ?? (isHorizontal ? (wd.cz <= 0 ? 1 : -1) : (wd.cx >= 0 ? -1 : 1));
+  return {
+    isHorizontal,
+    out: -faceDir,
+    revealYaw: isHorizontal
+      ? (faceDir > 0 ? 0 : Math.PI)
+      : (faceDir > 0 ? Math.PI / 2 : -Math.PI / 2),
+    v: (along: number, y: number, nrm: number): [number, number, number] =>
+      isHorizontal ? [along, y, nrm] : [nrm, y, along],
+  };
+}
+
+/**
+ * The reveal itself: the flat surfaces that make a widthless wall plane
+ * (WALL_T = 0) read as a 200 mm-thick wall around an opening.
+ *
+ * Every surface is a ZERO-THICKNESS plane. Slabs with any real thickness show
+ * their room-facing edge as a strip on the wall face right at the opening
+ * (reported twice on the window); a plane has no such edge, so the wall face
+ * ends exactly at the opening and the reveal turns a clean 90° into the depth.
+ * Each plane starts flush at the interior wall surface and runs to the
+ * exterior edge, normal facing INTO the opening so it lights correctly from
+ * inside and backface-culls from outside — exactly like the wall planes.
+ *
+ * Rendered in the canonical frame; the caller supplies `revealYaw`. Nothing
+ * here casts: the ShadowShell already blocks the sun, and extra thin casters
+ * only produce shadow acne.
+ */
+function OpeningReveal({
+  w,
+  h,
+  yaw,
+  floorMat,
+}: {
+  /** opening width / height in metres */
+  w: number;
+  h: number;
+  yaw: number;
+  /** Bottom surface: a windowsill for a window, the doorway floor for a door.
+   *  Both close the bottom of the niche — without one you see straight through
+   *  the 200 mm gap, since the room's floor stops at the wall plane. */
+  floorMat: React.ReactElement;
+}) {
+  const R = OPENING_REVEAL_D;
+  return (
+    <group rotation={[0, yaw, 0]}>
+      {/* Left jamb — perpendicular to the wall, normal into the opening */}
+      <mesh position={[-w / 2, h / 2, -R / 2]} rotation={[0, Math.PI / 2, 0]} castShadow={false} receiveShadow>
+        <planeGeometry args={[R, h]} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Right jamb */}
+      <mesh position={[w / 2, h / 2, -R / 2]} rotation={[0, -Math.PI / 2, 0]} castShadow={false} receiveShadow>
+        <planeGeometry args={[R, h]} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Head — faces down into the opening */}
+      <mesh position={[0, h, -R / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
+        <planeGeometry args={[w, R]} />
+        {windowRevealMat}
+      </mesh>
+
+      {/* Bottom — faces up, flush with the opening's own bottom (no ledge past
+          the reveal's inner edge: that overhang was rejected on the window) */}
+      <mesh position={[0, 0, -R / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
+        <planeGeometry args={[w, R]} />
+        {floorMat}
+      </mesh>
+    </group>
+  );
+}
 
 /** One window/balcony opening's reveal + frame + sill, grouped at the
  *  opening's own origin (see `frameGroupOrigin`) so a live drag can move the
@@ -833,33 +948,7 @@ export function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement 
   const elW = el.width * MM;
   const elH = el.height * MM;
   const [px, py, pz] = frameGroupOrigin(wd, el);
-  const isHorizontal = wd.axis === "X";
-
-  // Which way is OUT of the room along this wall's normal (the inverse of the
-  // room-inward faceDir convention documented above `interface Seg`).
-  const out = isHorizontal ? (wd.cz <= 0 ? -1 : 1) : (wd.cx >= 0 ? 1 : -1);
-
-  // Local (along-wall, up, wall-normal) → world-axis-aligned triple. Frames
-  // are never rotated (same as the old inline ternaries): axis-X walls map
-  // along→X / normal→Z, axis-Z walls swap them.
-  const v = (along: number, y: number, nrm: number): [number, number, number] =>
-    isHorizontal ? [along, y, nrm] : [nrm, y, along];
-
-  // Reveal surfaces: ZERO-thickness planes. Slabs with any real thickness
-  // showed their room-facing edge as a strip on the wall face right at the
-  // opening (user feedback) — a plane has no such edge, so the wall face
-  // ends exactly at the opening and the reveal turns a clean 90° into the
-  // 200 mm depth. Each plane starts flush at the interior wall surface and
-  // runs to the exterior edge, normal facing INTO the opening so it lights
-  // correctly from inside (and backface-culls from outside, exactly like
-  // the wall planes themselves).
-  const R = WINDOW_REVEAL_D;
-  // Canonical reveal frame: local +X along the wall, +Z pointing into the
-  // room (same convention as DoorLeaves' wallFrames) — the four planes are
-  // described once and this yaw maps them onto the wall.
-  const revealYaw = isHorizontal
-    ? (wd.cz <= 0 ? 0 : Math.PI)
-    : (wd.cx >= 0 ? -Math.PI / 2 : Math.PI / 2);
+  const { out, revealYaw, v } = openingAxes(wd);
 
   // Frame ring: FLAT trim — full FRAME_W face width but only FRAME_T deep
   // along the wall normal (user feedback: a 50 mm-deep ring read as a
@@ -867,43 +956,14 @@ export function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement 
   // outer sides lie against the reveal surfaces (opposite-normal contact,
   // never a visible gap or z-fight), and sits flush with the reveal's
   // exterior edge; the sashes hang 2 mm in front of it (WINDOW_SASH_RECESS).
-  const FRAME_T = 0.002;
-  const frC = out * (WINDOW_REVEAL_D - FRAME_T / 2);
+  const frC = out * (OPENING_REVEAL_D - FRAME_T / 2);
   // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
   // offsetting X on side walls pushed them perpendicular out of the wall
   const jamb = elW / 2 - FRAME_W / 2;
 
   return (
     <group ref={groupRef} position={[px, py, pz]}>
-      {/* Reveal planes, in the canonical frame mapped by revealYaw. The
-          reveal never casts (castShadow off: the ShadowShell already blocks
-          the sun; extra thin casters here only produce shadow acne). */}
-      <group rotation={[0, revealYaw, 0]}>
-        {/* Left jamb — perpendicular to the wall, normal into the opening */}
-        <mesh position={[-elW / 2, elH / 2, -R / 2]} rotation={[0, Math.PI / 2, 0]} castShadow={false} receiveShadow>
-          <planeGeometry args={[R, elH]} />
-          {windowRevealMat}
-        </mesh>
-
-        {/* Right jamb */}
-        <mesh position={[elW / 2, elH / 2, -R / 2]} rotation={[0, -Math.PI / 2, 0]} castShadow={false} receiveShadow>
-          <planeGeometry args={[R, elH]} />
-          {windowRevealMat}
-        </mesh>
-
-        {/* Head — faces down into the opening */}
-        <mesh position={[0, elH, -R / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
-          <planeGeometry args={[elW, R]} />
-          {windowRevealMat}
-        </mesh>
-
-        {/* Sill — faces up, flush with the opening bottom (no ledge past the
-            reveal's inner edge: user feedback rejected any overhang) */}
-        <mesh position={[0, 0, -R / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
-          <planeGeometry args={[elW, R]} />
-          {windowSillLipMat}
-        </mesh>
-      </group>
+      <OpeningReveal w={elW} h={elH} yaw={revealYaw} floorMat={windowSillLipMat} />
 
       {/* Left frame */}
       <mesh position={v(-jamb, elH / 2, frC)}>
@@ -962,12 +1022,16 @@ export function WindowFrames({
 }
 
 
-/** One door opening's frame + threshold, grouped at the opening's own origin
- *  (see `frameGroupOrigin`) — mirrors WindowFrameItem. Doors always carry
- *  sill_height 0 (see DoorLeaves.tsx's LIMITS), so the group's Y origin is
- *  ordinarily 0, but the threshold's own Y is still expressed relative to it
- *  (`0.01 - py`) so the rendered result is identical even if that ever
- *  changes. */
+/** One door opening's reveal + frame + threshold, grouped at the opening's own
+ *  origin (see `frameGroupOrigin`) — the exact treatment WindowFrameItem
+ *  gives a window, so a door and a window side by side read as the same wall:
+ *  a 200 mm reveal of zero-thickness planes, flat trim at its outer edge, and
+ *  (in DoorLeaves) the leaf hung at that outer edge.
+ *
+ *  Doors always carry sill_height 0 (see DoorLeaves.tsx's LIMITS), so the
+ *  group's Y origin is ordinarily 0, but the threshold's own Y is still
+ *  expressed relative to it (`0.01 - py`) so the rendered result is identical
+ *  even if that ever changes. */
 export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement }) {
   const groupRef = useRef<THREE.Group>(null);
   useLiveFrameGroup(groupRef, wd, el);
@@ -975,36 +1039,47 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   const elW = el.width * MM;
   const elH = el.height * MM;
   const [px, py, pz] = frameGroupOrigin(wd, el);
-  const isHorizontal = wd.axis === "X";
-  const fW = isHorizontal ? elW : FRAME_W;
-  const fD = isHorizontal ? FRAME_W : elW;
+  const { out, revealYaw, v } = openingAxes(wd);
+
+  // Flat trim ring at the reveal's outer edge — same construction as the
+  // window's, so neither shows a lip inside the niche. Spanning exactly the
+  // opening puts its outer sides against the reveal planes.
+  const frC = out * (OPENING_REVEAL_D - FRAME_T / 2);
   const jamb = elW / 2 - FRAME_W / 2;
 
   return (
     <group ref={groupRef} position={[px, py, pz]}>
+      {/* A door's niche is floored by the doorway itself, not a sill: the
+          room's floor plane stops at the wall, so without this you would see
+          straight through the 200 mm gap under the leaf. Threshold tone, flush
+          with floor level — a plate to walk over, never a step up. */}
+      <OpeningReveal w={elW} h={elH} yaw={revealYaw} floorMat={doorThresholdMat} />
+
       {/* Left frame */}
-      <mesh position={isHorizontal ? [-jamb, elH / 2, 0] : [0, elH / 2, -jamb]}>
-        <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+      <mesh position={v(-jamb, elH / 2, frC)}>
+        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
         {doorFrameMat}
       </mesh>
 
       {/* Right frame */}
-      <mesh position={isHorizontal ? [jamb, elH / 2, 0] : [0, elH / 2, jamb]}>
-        <boxGeometry args={[FRAME_W, elH + FRAME_W, FRAME_W]} />
+      <mesh position={v(jamb, elH / 2, frC)}>
+        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
         {doorFrameMat}
       </mesh>
 
-      {/* Top frame */}
-      <mesh position={[0, elH + FRAME_W / 2, 0]}>
-        <boxGeometry args={[fW + 2 * FRAME_W, FRAME_W, fD]} />
+      {/* Head frame */}
+      <mesh position={v(0, elH - FRAME_W / 2, frC)}>
+        <boxGeometry args={v(elW, FRAME_W, FRAME_T)} />
         {doorFrameMat}
       </mesh>
 
       {/* Threshold (door sill at floor level) with wear finish — always at
           absolute world Y=0.01 regardless of the group's own Y, same as the
-          old hardcoded absolute position. */}
+          old hardcoded absolute position. It sits ON the reveal's floor plane
+          (different Y, so no z-fighting) and still breaks the line between
+          room floor and doorway. */}
       <mesh position={[0, 0.01 - py, 0]}>
-        <boxGeometry args={[fW + 2 * FRAME_W, 0.01, fD]} />
+        <boxGeometry args={v(elW, 0.01, FRAME_W)} />
         {doorThresholdMat}
       </mesh>
     </group>
