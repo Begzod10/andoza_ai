@@ -5,8 +5,6 @@ import type { Room, Material } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { useRoomStore, resolveWallColor } from "@/store/roomStore";
 import type { WallCovering, DesignState } from "@/store/roomStore";
-import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
-import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getWallTargets, FLOOR_TARGET, CEILING_TARGET, resolveTargetWall, type WallTarget } from "./shared";
@@ -15,7 +13,9 @@ import { WallFloorTargetPanel } from "./WallFloorTargetPanel";
 import { WallPanelGenerator } from "./WallPanelGenerator";
 import { MaterialSwatch } from "../MaterialSwatch";
 
-type CoveringMode = "paint" | "oboy" | "texture";
+/** The Bo'yoq panel's two tabs. "texture" is labelled Oboy — an
+ *  uploaded/library wallpaper image. */
+type CoveringMode = "paint" | "texture";
 
 // Five interior palettes the user supplied (a dark anchor plus its warm or
 // cool neutrals in each), sampled from their reference sheet and laid out in
@@ -95,7 +95,6 @@ export function WallSection({
   room, selectedWall, onWallChange, syncToApi, applyWallCovering,
   handleSetPaintColor, handleSetFloorType, renderTexturePicker, applyWallpaper,
 }: WallSectionProps) {
-  const oboyColorIdBase = React.useId();
   const textureUvwIdBase = React.useId();
   const designState = useRoomStore((s) => s.designState);
   const geometry = useRoomStore((s) => s.geometry);
@@ -115,23 +114,11 @@ export function WallSection({
     () => [...getWallTargets(geometry), FLOOR_TARGET, CEILING_TARGET],
     [geometry.walls],
   );
-  const [selectedPattern, setSelectedPattern] = React.useState<OboyPatternId>("damask");
-  const [baseColor, setBaseColor] = React.useState("#F5F0E8");
-  const [accentColor, setAccentColor] = React.useState("#8B6F47");
-  const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
 
-  // Search-by-name over each do'kon strip below — debounced so typing
+  // Search-by-name over the do'kon strip below — debounced so typing
   // doesn't fire a request (and a React Query cache entry) per keystroke.
-  const [oboyQuery, setOboyQuery] = React.useState("");
-  const debouncedOboyQuery = useDebounce(oboyQuery, 300);
   const [boyoqQuery, setBoyoqQuery] = React.useState("");
   const debouncedBoyoqQuery = useDebounce(boyoqQuery, 300);
-
-  const { data: oboyProducts = [] } = useQuery({
-    queryKey: ["materials", "oboy", debouncedOboyQuery],
-    queryFn: () => getMaterials({ category: "oboy", q: debouncedOboyQuery || undefined, per_page: 20 }),
-    staleTime: 10 * 60 * 1000,
-  });
 
   // Real do'kon-managed paint products, same category ("boyoq") the smeta
   // engine prices wall paint against. Picking one (below) links the wall to
@@ -153,15 +140,13 @@ export function WallSection({
       // Bare plaster is the pre-finish state — offer the paint tab, which is
       // the first thing a user does to it.
       setCoveringMode("paint");
-    } else if (c.kind === "texture") {
-      setCoveringMode("texture");
     } else {
-      setCoveringMode("oboy");
-      setSelectedPattern(c.patternId as OboyPatternId);
-      setBaseColor(c.baseColor);
-      setAccentColor(c.accentColor);
+      // 'texture' (an uploaded image — the Oboy tab), and also the legacy
+      // generated-pattern coverings: those rooms keep rendering, but the
+      // pattern editor they were made with is gone, so the image tab is the
+      // closest place to land.
+      setCoveringMode("texture");
     }
-    setSelectedProductId(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetWall]);
 
@@ -173,17 +158,6 @@ export function WallSection({
     applySurface(targetWall, material.id);
   }
 
-  function handleSetOboy(
-    patch: Partial<{ patternId: OboyPatternId; baseColor: string; accentColor: string }>,
-  ) {
-    const newPattern = patch.patternId ?? selectedPattern;
-    const newBase = patch.baseColor ?? baseColor;
-    const newAccent = patch.accentColor ?? accentColor;
-    if (patch.patternId) setSelectedPattern(newPattern);
-    if (patch.baseColor) setBaseColor(newBase);
-    if (patch.accentColor) setAccentColor(newAccent);
-    applyWallCovering({ kind: "oboy", patternId: newPattern, baseColor: newBase, accentColor: newAccent });
-  }
 
   function handleSetCoveringMode(mode: CoveringMode) {
     setCoveringMode(mode);
@@ -193,11 +167,8 @@ export function WallSection({
         targetWall === "ALL" ? undefined : targetWall,
       );
       applyWallCovering({ kind: "paint", color: currentColor });
-    } else if (mode === "texture") {
-      // Don't auto-apply; wait for image upload
-    } else {
-      applyWallCovering({ kind: "oboy", patternId: selectedPattern, baseColor, accentColor });
     }
+    // "texture": don't auto-apply; wait for the user to pick or upload one.
   }
 
   function updateTextureProp(patch: Partial<{ repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }>) {
@@ -267,7 +238,7 @@ export function WallSection({
       {targetWall !== 'FLOOR' && targetWall !== 'CEILING' && (<>
       <section className="pt-5 border-t border-gray-100">
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
-          {(["paint", "oboy", "texture"] as const).map((mode) => (
+          {(["paint", "texture"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => handleSetCoveringMode(mode)}
@@ -277,7 +248,7 @@ export function WallSection({
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {mode === "paint" ? "Bo'yoq" : mode === "oboy" ? "Oboy" : "Rasm"}
+              {mode === "paint" ? "Bo'yoq" : "Oboy"}
             </button>
           ))}
         </div>
@@ -350,82 +321,6 @@ export function WallSection({
               )}
             </div>
           )}
-        </section>
-      )}
-
-      {/* Wallpaper patterns */}
-      {coveringMode === "oboy" && (
-        <section className="space-y-4 pt-5 border-t border-gray-100">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {OBOY_PATTERNS.map((p) => {
-                const isSelected = selectedPattern === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSetOboy({ patternId: p.id })}
-                    className="flex flex-col items-center gap-1"
-                    title={p.label}
-                    aria-pressed={isSelected}
-                  >
-                    <svg
-                      width="60"
-                      height="60"
-                      className="rounded-md overflow-hidden"
-                      style={{ border: isSelected ? "2px solid #1E40AF" : "2px solid #E5E7EB" }}
-                    >
-                      <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />
-                      <rect width="60" height="60" fill={`url(#thumb-${p.id})`} />
-                    </svg>
-                    <span className="text-xs text-gray-600">{p.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {(oboyProducts.length > 0 || oboyQuery) && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
-              <input
-                type="text"
-                value={oboyQuery}
-                onChange={(e) => setOboyQuery(e.target.value)}
-                placeholder="Qidirish..."
-                className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
-              />
-              {oboyProducts.length === 0 ? (
-                <p className="text-xs text-gray-500">Hech narsa topilmadi</p>
-              ) : (
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                  {oboyProducts.map((product: Material) => (
-                    <MaterialSwatch
-                      key={product.id}
-                      material={product}
-                      isActive={selectedProductId === product.id}
-                      onClick={() => {
-                        setSelectedProductId(product.id);
-                        handleSetOboy({ baseColor: product.color_hex ?? "#E5E7EB" });
-                        applySurface(targetWall, product.id);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2.5">
-            <div>
-              <label htmlFor={`${oboyColorIdBase}-base`} className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
-              <input id={`${oboyColorIdBase}-base`} type="color" value={baseColor} onChange={(e) => { setSelectedProductId(null); handleSetOboy({ baseColor: e.target.value }); applySurface(targetWall, ""); }} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
-            </div>
-            <div>
-              <label htmlFor={`${oboyColorIdBase}-accent`} className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>
-              <input id={`${oboyColorIdBase}-accent`} type="color" value={accentColor} onChange={(e) => handleSetOboy({ accentColor: e.target.value })} className="w-full h-8 rounded border border-gray-200 cursor-pointer" />
-            </div>
-          </div>
         </section>
       )}
 
