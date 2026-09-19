@@ -1,5 +1,5 @@
 import * as React from "react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -193,11 +193,50 @@ function WallSegment({
 
   const paintColor = covering.kind === 'paint' ? covering.color : '#ffffff';
 
+  /*
+   * Why this material has to be told when its maps change.
+   *
+   * three only recompiles a material's shader program when `material.version`
+   * changes, or when one of a fixed list of scene-level conditions does
+   * (lights-state version, envMap, fog, clipping, tone mapping, …). Swapping
+   * `map` from `undefined` to a Texture is NOT on that list, and React Three
+   * Fiber's `applyProps` assigns the prop straight onto the instance without
+   * ever touching `needsUpdate`.
+   *
+   * That matters here because a wall segment's material is ALWAYS born without
+   * its map: `imageTexture` starts as `null` and is only filled in from an
+   * effect, so the map lands on the second commit at the earliest — even when
+   * the texture is already sitting in the shared cache and `peekSharedTexture`
+   * returns it synchronously. Without the bump below, the segment keeps the
+   * program it compiled with no USE_MAP define and renders flat `#ffffff`
+   * forever, however correct its `map` looks in React.
+   *
+   * On a cold page load the bug hid behind the HDRI: `SafeEnvironment` resolves
+   * later and sets `scene.environment`, which trips the `envMap` branch of that
+   * list and recompiles every material after the texture has landed. Navigating
+   * between studio sections remounts the whole Canvas with the HDRI already
+   * cached, so that accidental rescue never fires — which is why the walls went
+   * blank in Chiroqlar/Elektr/Aylanish but never in the section you opened
+   * first, and why WHICH segments survived varied per view (each view trips a
+   * different subset of the other recompile conditions).
+   */
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  const { invalidate } = useThree();
+  useLayoutEffect(() => {
+    const m = matRef.current;
+    if (!m) return;
+    m.needsUpdate = true;
+    // The Elektr preview runs `frameloop="demand"` — a material that only
+    // became correct outside a render pass needs a frame asking for it.
+    invalidate();
+  }, [covering.kind, showPlaster, plasterMaps, imgMat, mat, invalidate]);
+
   return (
     <mesh position={[seg.px, seg.py, seg.pz]} rotation={[0, seg.ry, 0]} castShadow receiveShadow>
       <planeGeometry args={[seg.pw, seg.ph]} />
       {showPlaster && plasterMaps ? (
         <meshStandardMaterial
+          ref={matRef}
           map={plasterMaps.map}
           normalMap={plasterMaps.normalMap}
           normalScale={PLASTER_NORMAL_SCALE}
@@ -216,13 +255,13 @@ function WallSegment({
           emissiveIntensity={isSelected ? 0.15 : 0}
         />
       ) : covering.kind === 'paint' ? (
-        <meshStandardMaterial color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
+        <meshStandardMaterial ref={matRef} color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
-        <meshStandardMaterial map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3}
+        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : (
-        <meshStandardMaterial map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2}
+        <meshStandardMaterial ref={matRef} map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       )}
     </mesh>
@@ -396,15 +435,23 @@ function WallPanelGrid({
         const matProps = panelTex
           ? { map: panelTex, color: '#ffffff', roughness: 0.65, metalness: 0 }
           : { color: settings.color, roughness: 0.45, metalness: 0.05 };
+        // The panel materials carry the same "map appears on a later commit"
+        // hazard as the wall segments above (see the long note in
+        // WallSegment): the shared texture only lands after the first render,
+        // and three will not recompile a program just because `map` went from
+        // undefined to a Texture. Folding the map's presence into the key
+        // rebuilds the panel's material once, when the texture arrives, so it
+        // is compiled WITH the map instead of staying flat `settings.color`.
+        const key = `${i}-${panelTex ? 'tex' : 'flat'}`;
         if (radius > 0.0004) {
           return (
-            <RoundedBox key={i} position={[p.x, p.y, p.z]} args={[bw, p.ah, bd]} radius={radius} smoothness={3} castShadow receiveShadow>
+            <RoundedBox key={key} position={[p.x, p.y, p.z]} args={[bw, p.ah, bd]} radius={radius} smoothness={3} castShadow receiveShadow>
               <meshStandardMaterial {...matProps} />
             </RoundedBox>
           );
         }
         return (
-          <mesh key={i} position={[p.x, p.y, p.z]} castShadow receiveShadow>
+          <mesh key={key} position={[p.x, p.y, p.z]} castShadow receiveShadow>
             <boxGeometry args={[bw, p.ah, bd]} />
             <meshStandardMaterial {...matProps} />
           </mesh>
