@@ -166,9 +166,8 @@ async def _load_room_for_pricing(
 async def _load_wiring_meters(room_id: uuid.UUID, db: Any) -> float | None:
     """The cable run measured off the room's placed electrical layout.
 
-    ``room_electrical.wiring_meters`` is written by the scan/auto-placement
-    flow (app.services.room_electrical_auto via app.routers.rooms) and can be
-    edited through the electrical API. It is Numeric(8,2), so it comes back
+    ``room_electrical.wiring_meters`` is written through the electrical API
+    when the user places a plan by hand. It is Numeric(8,2), so it comes back
     as Decimal — coerced to float here so the pure pricing engine only ever
     sees plain numbers. Returns None when the room has no plan yet (or has
     one with no run recorded), which makes the smeta fall back to its

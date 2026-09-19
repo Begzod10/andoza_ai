@@ -8,19 +8,14 @@ from uuid import UUID
 import structlog
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
-from sqlalchemy import delete, func, select
+from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, download_file, upload_file
 from app.models.apartment import Apartment
-from app.models.electrical import ElectricalDevice, RoomElectrical
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
 from app.schemas.room_scan import parse_captured_room
-from app.services.room_electrical_auto import (
-    AutoElectricalPlan,
-    generate_electrical_plan,
-)
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
 from app.services.room_scan_converter import convert_captured_room
 
@@ -101,89 +96,6 @@ async def create_room(apt_id: UUID, body: RoomCreate, db: DbSession, current_use
 _MAX_USDZ_BYTES = 50 * 1024 * 1024
 
 
-# ---------------------------------------------------------------------------
-# Auto-generated electrical plan (see app.services.room_electrical_auto)
-# ---------------------------------------------------------------------------
-
-async def _electrical_is_ours_to_replace(room: Room, db: DbSession) -> bool:
-    """True when regenerating the room's electrical plan destroys nothing.
-
-    Two stores hold electricals and they are not connected: ``room.state``
-    (what the studio edits and what ``_electrical_line`` prices) and the
-    ``electrical_devices`` table (what the mobile app edits). A re-scan may
-    only touch either one when BOTH are empty, or when both are still the
-    previous auto-generated plan — every generated entry carries ``auto: true``
-    and each generation stamps ``room_scan["electrical_auto"]``. Anything
-    without those markers is the user's own work and is left exactly alone.
-
-    Called *before* ``room.room_scan`` is overwritten, so the stamp it reads is
-    the previous scan's.
-    """
-    state: dict = room.state or {}
-    for key in ("electricals", "lights"):
-        for entry in state.get(key) or []:
-            if not (isinstance(entry, dict) and entry.get("auto")):
-                return False
-
-    result = await db.execute(
-        select(func.count())
-        .select_from(ElectricalDevice)
-        .where(ElectricalDevice.room_id == room.id)
-    )
-    if not (result.scalar_one() or 0):
-        return True
-    return bool((room.room_scan or {}).get("electrical_auto"))
-
-
-async def _persist_electrical_plan(room: Room, plan: AutoElectricalPlan, db: DbSession) -> None:
-    """Mirror the generated plan into the ``electrical_devices`` /
-    ``room_electrical`` tables the mobile client reads.
-
-    Unit note: nothing had ever written ``x``/``y`` before (the router only
-    echoes what a client sends, and no client sends any yet), so the convention
-    is pinned here — **metres**, matching NUMERIC(8,4)'s 0.1 mm resolution and
-    every other length the backend stores. ``x`` is the distance along the wall
-    from its position-0 end, ``y`` the mounting height above the floor.
-    ``variant`` keeps the studio's finer-grained type ('socket2',
-    'socket_media', …) that the five-value DB enum cannot express.
-    """
-    await db.execute(delete(ElectricalDevice).where(ElectricalDevice.room_id == room.id))
-    db.add_all([
-        ElectricalDevice(
-            room_id=room.id,
-            type=device.db_type,
-            variant=device.type,
-            wall_index=device.wall_index,
-            x=round(device.position_mm / 1000.0, 4),
-            y=round(device.height_mm / 1000.0, 4),
-        )
-        for device in plan.devices
-    ] + [
-        # A ceiling fixture has no wall of its own; it is stored against the
-        # nearest one at ceiling height. Its true 2-D position lives in
-        # room.state['lights'], which is the only store shaped for it.
-        ElectricalDevice(
-            room_id=room.id,
-            type="light",
-            variant="ceiling",
-            wall_index=light.wall_index,
-            x=round(light.position_mm / 1000.0, 4),
-            y=round(light.height_mm / 1000.0, 4),
-        )
-        for light in plan.light_points
-    ])
-
-    result = await db.execute(select(RoomElectrical).where(RoomElectrical.room_id == room.id))
-    header = result.scalar_one_or_none()
-    if header is None:
-        header = RoomElectrical(room_id=room.id)
-        db.add(header)
-    header.wiring_meters = plan.wiring_meters
-    # Flush inside the caller's SAVEPOINT so a constraint violation is raised
-    # here, where it can be contained, rather than at the next arbitrary flush.
-    await db.flush()
-
-
 @router.post(
     "/rooms/{room_id}/room-scan",
     response_model=RoomOut,
@@ -222,19 +134,6 @@ async def upload_room_scan(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "Xona aniqlanmadi — kamida 3 ta burchak kerak")
 
-    # Auto electrical plan, part 1 of 2 — decide and compute. Both steps run
-    # BEFORE the room is touched: the only DB access is a read, and the
-    # generation itself is pure, so a failure here cannot leave a half-written
-    # room behind. The scan is the thing that must survive, so as with the GLB
-    # dispatch below, any failure is logged and the upload carries on.
-    auto_plan: AutoElectricalPlan | None = None
-    try:
-        if await _electrical_is_ours_to_replace(room, db):
-            auto_plan = generate_electrical_plan(conv) or None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("room_scan_electrical_auto_failed",
-                       room_id=str(room.id), error=str(exc))
-
     usdz_key = f"scans/{current_user.id}/{uuid_module.uuid4()}.usdz"
     await upload_file(data, usdz_key, content_type="model/vnd.usdz+zip")
 
@@ -263,39 +162,8 @@ async def upload_room_scan(
         # the true scan numbers are never silently lost. Read-only metadata.
         "raw": conv.raw,
     }
-    if auto_plan is not None:
-        # Reassign, never mutate in place: a JSONB column only goes dirty on
-        # assignment. Every other key the studio owns (designState, furniture,
-        # …) is carried over untouched.
-        room.state = {
-            **(room.state or {}),
-            "electricals": auto_plan.electricals,
-            "lights": auto_plan.lights,
-        }
-        room.room_scan = {
-            **room.room_scan,
-            "electrical_auto": {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "device_count": len(auto_plan.devices),
-                "light_count": len(auto_plan.light_points),
-                "wiring_meters": auto_plan.wiring_meters,
-            },
-        }
     await db.flush()
 
-    # Auto electrical plan, part 2 of 2 — mirror it into the device tables.
-    # This one does write, and a failed statement aborts the whole transaction,
-    # which would take the scan down with it. A SAVEPOINT contains that: rolling
-    # it back leaves the session usable and the scan still commits, just without
-    # its copy in the mobile-facing store (room.state, which the smeta reads,
-    # is already flushed by then).
-    if auto_plan is not None:
-        try:
-            async with db.begin_nested():
-                await _persist_electrical_plan(room, auto_plan, db)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("room_scan_electrical_persist_failed",
-                           room_id=str(room.id), error=str(exc))
     # Reload before serialising: the flush UPDATEs the row, which expires the
     # server-side `updated_at`. RoomOut reads it, and a Pydantic attribute read
     # cannot drive SQLAlchemy's async IO — it raises MissingGreenlet and the
