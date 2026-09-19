@@ -41,6 +41,7 @@ Coordinate conventions (the fiddly part)
 """
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 
@@ -51,6 +52,8 @@ from app.services.room_scan_converter import RoomScanConversion
 # per-point fallback for rooms with no layout, and the whole point here is that
 # we can measure the real run along the real perimeter.
 from app.services.smeta import ELEC_SLACK
+
+logger = logging.getLogger(__name__)
 
 Point = tuple[float, float]
 
@@ -69,6 +72,17 @@ MIN_SEPARATION_MM = 250.0      # two devices never share the same spot
 MERGE_SAME_TYPE_MM = 400.0     # same type, same wall, this close → one device
 NUDGE_STEPS_MM = (300.0, -300.0, 600.0, -600.0)  # tried, in order, when blocked
 BED_SIDE_OFFSET_MM = 700.0     # a bedside socket either side of the headboard
+# A panel pushed onto a neighbouring wall keeps this far from the shared
+# corner, so that the switch the same narrow wall is about to displace still
+# finds the spot right beside the door frame (corner clearance + separation).
+PANEL_CORNER_OFFSET_MM = 600.0
+_EPS_MM = 1e-6
+
+# Types the same-type merge must never collapse. A dedicated appliance socket
+# *is* the statement "this appliance needs its own circuit", so two of them
+# close together are two requirements, not one detection seen twice — which is
+# the only thing the merge exists to fix (two boxes for the same television).
+NO_MERGE_TYPES = frozenset({"socket1"})
 
 SOCKET_SPACING_M = 3.5         # one extra baseline socket per this much wall
 LIGHT_AREA_PER_FIXTURE_M2 = 12.0
@@ -204,7 +218,13 @@ class _Wall:
         """The span a device may occupy, corners kept clear.
 
         Degenerately short walls collapse to their midpoint rather than to an
-        empty range, so "at least one socket per wall" still holds.
+        empty range, so a notch of wall still takes a device instead of
+        turning the arithmetic inside out.
+
+        This span knows nothing about doors, and "one socket per wall" is the
+        aim rather than a guarantee: a wall an opening fills end to end has a
+        perfectly good usable span and still nowhere legal to put a socket.
+        `_place_baseline_sockets` says so in the log when it happens.
         """
         lo, hi = WALL_END_CLEAR_MM, self.length_mm - WALL_END_CLEAR_MM
         if lo >= hi:
@@ -343,19 +363,35 @@ class _Placer:
     def __init__(self) -> None:
         self.devices: list[AutoDevice] = []
         self._by_wall: dict[int, list[AutoDevice]] = {}
+        # Ids are handed out from a counter rather than from `len(devices)`,
+        # because `remove` can take a device back out and the id of a device
+        # that stayed must never be reused by the one that replaces it.
+        self._next_id = 0
 
-    def add(self, wall: _Wall, kind: str, position_mm: float) -> AutoDevice | None:
+    def add(
+        self,
+        wall: _Wall,
+        kind: str,
+        position_mm: float,
+        *,
+        clear_of_doors: bool | None = None,
+    ) -> AutoDevice | None:
+        # A socket in a doorway is simply wrong, so the keep-out survives both
+        # the nudging and the clamp to `usable`. The panel is exempt — it is
+        # deliberately placed beside a jamb and `_place_panel` polices its own,
+        # larger clearance. Switches are exempt by *type* for the same reason,
+        # but `_place_one_switch` asks for the keep-out explicitly, because a
+        # wall no wider than its door can otherwise clamp-and-nudge a switch
+        # into the opening itself.
+        if clear_of_doors is None:
+            clear_of_doors = kind.startswith("socket")
         lo, hi = wall.usable
         for offset in (0.0, *NUDGE_STEPS_MM):
             pos = min(hi, max(lo, position_mm + offset))
-            # A socket in a doorway is simply wrong, so the keep-out survives
-            # both the nudging and the clamp to `usable`. Panels and switches
-            # are exempt: they are deliberately placed beside a jamb, and the
-            # caller has already put them on the door's clear side.
-            if kind.startswith("socket") and wall.blocked_by_door(pos):
+            if clear_of_doors and wall.blocked_by_door(pos):
                 continue
             existing = self._by_wall.get(wall.index, ())
-            if any(
+            if kind not in NO_MERGE_TYPES and any(
                 d.type == kind and abs(d.position_mm - pos) < MERGE_SAME_TYPE_MM
                 for d in existing
             ):
@@ -363,17 +399,35 @@ class _Placer:
             if any(abs(d.position_mm - pos) < MIN_SEPARATION_MM for d in existing):
                 continue     # too close to something else — try the next nudge
             device = AutoDevice(
-                id=f"auto-e{len(self.devices)}",
+                id=f"auto-e{self._next_id}",
                 type=kind,
                 wall_id=wall.id,
                 wall_index=wall.index,
                 position_mm=pos,
                 height_mm=_HEIGHT_BY_TYPE[kind],
             )
+            self._next_id += 1
             self.devices.append(device)
             self._by_wall.setdefault(wall.index, []).append(device)
             return device
         return None  # every candidate spot on this wall was taken
+
+    def remove(self, device: AutoDevice) -> None:
+        """Take a placed device back out so a more constrained one can have
+        its spot. Only the fallbacks below use it, and each of them either
+        puts the device somewhere else or `restore`s it in the same breath."""
+        self.devices.remove(device)
+        on_wall = self._by_wall.get(device.wall_index)
+        if on_wall and device in on_wall:
+            on_wall.remove(device)
+
+    def restore(self, device: AutoDevice) -> None:
+        """Undo a :meth:`remove`; the device keeps the id it was given."""
+        self.devices.append(device)
+        self._by_wall.setdefault(device.wall_index, []).append(device)
+
+    def first(self, kind: str) -> AutoDevice | None:
+        return next((d for d in self.devices if d.type == kind), None)
 
 
 def _entrance_door(walls: list[_Wall]) -> tuple[_Wall, tuple[float, float]] | None:
@@ -398,21 +452,166 @@ def _beside_door(wall: _Wall, door: tuple[float, float], clearance: float) -> fl
     return start - clearance if left_free >= right_free else end + clearance
 
 
+def _door_clearance(wall: _Wall, position_mm: float) -> float:
+    """Distance from `position_mm` to the nearest jamb on this wall: 0 inside
+    an opening, +inf on a wall with no door at all."""
+    best = math.inf
+    for start, end in wall.doors:
+        if start <= position_mm <= end:
+            return 0.0
+        best = min(best, abs(position_mm - start), abs(position_mm - end))
+    return best
+
+
+def _adjoining_walls(
+    walls: list[_Wall], wall: _Wall, door: tuple[float, float]
+) -> list[tuple[_Wall, float, float]]:
+    """The two walls meeting `wall`, best side first, each as
+    ``(neighbour, corner_position_mm, direction)``.
+
+    `corner_position_mm` is the neighbour's own usable spot closest to the
+    corner the door stands by; `direction` is +1 when positions on the
+    neighbour run away from that corner and -1 when they run towards it, so a
+    caller can offset along it.
+
+    RoomPlan tells us nothing about which way a door swings, so the hung side
+    is inferred from how a door is actually built in: it is set against the
+    nearer corner, so the side with the shorter strip of wall left over is the
+    hinge side — the side the switch belongs on. A door centred on its wall
+    leaves no asymmetry to read; the tie then goes to the wall the edge runs
+    into, purely so the result is deterministic.
+    """
+    n = len(walls)
+    start, end = door
+    previous = walls[(wall.index - 1) % n]   # meets `wall` at its `a` end
+    following = walls[(wall.index + 1) % n]  # meets `wall` at its `b` end
+    sides = [
+        # (strip of wall left on that side, tie-break rank, neighbour, …)
+        (start, 1, previous, previous.usable[1], -1.0),
+        (wall.length_mm - end, 0, following, following.usable[0], +1.0),
+    ]
+    sides.sort(key=lambda side: (side[0], side[1]))
+    return [(neighbour, pos, sign) for _, _, neighbour, pos, sign in sides]
+
+
 def _place_panel(placer: _Placer, walls: list[_Wall]) -> AutoDevice | None:
     entrance = _entrance_door(walls)
-    if entrance is not None:
-        wall, door = entrance
-        return placer.add(wall, "panel", _beside_door(wall, door, PANEL_DOOR_CLEAR_MM))
-    # No door detected (RoomPlan misses door-less openings in some scans):
-    # the longest wall near its first corner is the conventional fallback.
-    wall = max(walls, key=lambda w: w.length_mm)
-    return placer.add(wall, "panel", wall.usable[0])
+    if entrance is None:
+        # No door detected (RoomPlan misses door-less openings in some scans):
+        # the longest wall near its first corner is the conventional fallback.
+        wall = max(walls, key=lambda w: w.length_mm)
+        return placer.add(wall, "panel", wall.usable[0])
+
+    wall, door = entrance
+    panel = placer.add(wall, "panel", _beside_door(wall, door, PANEL_DOOR_CLEAR_MM))
+    if panel is not None and _door_clearance(wall, panel.position_mm) >= PANEL_DOOR_CLEAR_MM - _EPS_MM:
+        return panel
+
+    # The entrance wall is too narrow to keep the panel 400 mm off the jamb:
+    # `usable` clamped the aim point back towards the door. A consumer unit is
+    # the least constrained device in the room — it wants a reachable patch of
+    # wall and nothing else — so it moves to a wall that fits rather than
+    # quietly settling for a fraction of its clearance.
+    if panel is not None:
+        placer.remove(panel)
+    moved = _relocate_panel(placer, walls, wall, door)
+    if moved is not None:
+        return moved
+    if panel is not None:
+        placer.restore(panel)
+        logger.warning(
+            "electrical auto-plan: no wall holds the panel's %.0f mm door "
+            "clearance; leaving it on wall %s at %.0f mm, %.0f mm from the jamb",
+            PANEL_DOOR_CLEAR_MM, wall.id, panel.position_mm,
+            _door_clearance(wall, panel.position_mm),
+        )
+    return panel
+
+
+def _relocate_panel(
+    placer: _Placer, walls: list[_Wall], entrance_wall: _Wall, door: tuple[float, float]
+) -> AutoDevice | None:
+    """A wall that can actually hold the panel's door clearance, or None.
+
+    The two walls meeting the entrance are tried first — the consumer unit
+    belongs by the way in — and only then the rest of the room, longest wall
+    first, since a long wall is the likeliest to have room to spare.
+    """
+    candidates: list[tuple[_Wall, float]] = []
+    for neighbour, corner_mm, sign in _adjoining_walls(walls, entrance_wall, door):
+        candidates.append((neighbour, corner_mm + sign * PANEL_CORNER_OFFSET_MM))
+    taken = {id(entrance_wall), *(id(w) for w, _ in candidates)}
+    candidates.extend(
+        (w, w.usable[0]) for w in sorted(walls, key=lambda w: -w.length_mm)
+        if id(w) not in taken
+    )
+
+    for candidate, position_mm in candidates:
+        placed = placer.add(candidate, "panel", position_mm)
+        if placed is None:
+            continue
+        if _door_clearance(candidate, placed.position_mm) >= PANEL_DOOR_CLEAR_MM - _EPS_MM:
+            return placed
+        placer.remove(placed)   # that wall has a door of its own in the way
+    return None
 
 
 def _place_door_switches(placer: _Placer, walls: list[_Wall]) -> None:
     for wall in walls:
         for door in wall.doors:
-            placer.add(wall, "switch1", _beside_door(wall, door, SWITCH_DOOR_CLEAR_MM))
+            _place_one_switch(placer, walls, wall, door)
+
+
+def _place_one_switch(
+    placer: _Placer, walls: list[_Wall], wall: _Wall, door: tuple[float, float]
+) -> AutoDevice | None:
+    """A switch beside the door — and, unlike before, never *in* it.
+
+    The aim point is 150 mm clear of the jamb, which is right whenever the
+    wall has 150 mm to give. On a wall barely wider than its door it does not:
+    `usable` clamps the aim into the corner clearance and the nudge grid can
+    then walk it straight through the opening. So the door keep-out applies to
+    switches too, and when that leaves the wall with no legal spot at all we
+    fall back the way it is done on site, in this order:
+
+    1. the adjoining wall on the side the door is hung, right beside the frame
+       — which is where the switch in a narrow hallway actually lives;
+    2. failing that, the door wall again with the panel giving up its spot: a
+       consumer unit can hang anywhere sensible, a light switch cannot;
+    3. failing that, no switch, and a warning — a missing switch the user adds
+       in the editor beats one buried in the doorway.
+    """
+    aim = _beside_door(wall, door, SWITCH_DOOR_CLEAR_MM)
+    switch = placer.add(wall, "switch1", aim, clear_of_doors=True)
+    if switch is not None:
+        return switch
+
+    for neighbour, corner_mm, _sign in _adjoining_walls(walls, wall, door):
+        switch = placer.add(neighbour, "switch1", corner_mm, clear_of_doors=True)
+        if switch is not None:
+            return switch
+
+    # The panel is the only device with a claim to this wall that is weaker
+    # than the switch's, so it is the only one asked to move. It is offered a
+    # new home first: a plan with a switch but no panel is not a plan.
+    panel = placer.first("panel")
+    if panel is not None and panel.wall_index == wall.index:
+        placer.remove(panel)
+        moved = _relocate_panel(placer, walls, wall, door)
+        switch = placer.add(wall, "switch1", aim, clear_of_doors=True) if moved else None
+        if switch is not None:
+            return switch
+        if moved is not None:
+            placer.remove(moved)
+        placer.restore(panel)
+
+    logger.warning(
+        "electrical auto-plan: no legal position for the switch of the "
+        "%.0f mm door on wall %s (%.0f mm) or either wall beside it; "
+        "leaving it out rather than placing it in the opening",
+        door[1] - door[0], wall.id, wall.length_mm,
+    )
+    return None
 
 
 def _place_object_sockets(placer: _Placer, walls: list[_Wall], objects) -> None:
@@ -448,8 +647,22 @@ def _place_baseline_sockets(placer: _Placer, walls: list[_Wall]) -> None:
                 # doorway. Shift clear of the door rather than losing the point.
                 position_mm = _clear_of_doors(wall, position_mm)
                 if position_mm is None:
+                    _log_skipped_socket(wall, "the door leaves no clear span")
                     continue
-            placer.add(wall, "socket2", position_mm)
+            if placer.add(wall, "socket2", position_mm) is None:
+                _log_skipped_socket(wall, "every clear spot on it is taken")
+
+
+def _log_skipped_socket(wall: _Wall, why: str) -> None:
+    """A wall that ends up with no socket is a real gap in the plan, even when
+    it is the unavoidable one (see `_Wall.usable`) — so it is said out loud
+    rather than dropped on the floor. This module is pure and has no room id
+    to log; the caller (`rooms.upload_room_scan`) is the one that has it.
+    """
+    logger.warning(
+        "electrical auto-plan: wall %s (%.0f mm) gets no baseline socket — %s",
+        wall.id, wall.length_mm, why,
+    )
 
 
 def _clear_of_doors(wall: _Wall, position_mm: float) -> float | None:
