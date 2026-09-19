@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { SafeEnvironment } from '@/components/studio/SafeEnvironment'
 import { StudioTabStrip } from '@/components/studio/StudioTabStrip'
+import { PlanViewToggle } from '@/components/studio/PlanViewToggle'
 import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
@@ -1874,6 +1875,10 @@ export default function PlacementPage() {
   const { electricals, lights, geometry, designState, addElectrical, moveElectrical, removeElectrical, addLight, removeLight, clearLights } = useRoomStore()
 
   const [tab, setTab] = useState<TabId>('elektr')
+  // Elektr shows ONE viewport at a time, like Mebelirovka and Chiroqlar:
+  // '3d' (default on entry) is the live scene, '2d' the full-width floor
+  // plan. The hidden side stays mounted so toggling back keeps its state.
+  const [planView, setPlanView] = useState<'2d' | '3d'>('3d')
   const [activeTool, setActiveTool] = useState<ElectricalType | null>(null)
   const [wireColors, setWireColors] = useState<Record<string, string>>({})
   const [wireRoutes, setWireRoutes] = useState<Record<string, boolean>>({})
@@ -2024,8 +2029,15 @@ export default function PlacementPage() {
             left of the sidebar), not over the sidebar or the toolbar above. */}
         <div className="relative flex flex-1 min-w-0 min-h-0">
         <StudioTabStrip roomId={room.id} titleClassName="hidden sm:block" />
-        {/* Left: 2D floor plan */}
-        <div className="flex-1 min-h-0 overflow-auto flex items-start justify-center bg-paper p-4">
+        {/* 2D/3D switch — same control and corner as the other sections. */}
+        <div className="absolute top-16 right-3 z-20">
+          <PlanViewToggle
+            view={planView}
+            onToggle={() => setPlanView((v) => (v === '3d' ? '2d' : '3d'))}
+          />
+        </div>
+        {/* 2D floor plan */}
+        <div className={`flex-1 min-h-0 overflow-auto flex items-start justify-center bg-paper p-4 ${planView === '2d' ? '' : 'hidden'}`}>
           <FloorPlan
             room={room}
             geometry={geometry}
@@ -2042,11 +2054,8 @@ export default function PlacementPage() {
           />
         </div>
 
-        {/* Divider */}
-        <div className="w-px bg-gray-200 shrink-0"/>
-
-        {/* Right: 3D view */}
-        <div className="flex-1 min-h-0">
+        {/* 3D view */}
+        <div className={`flex-1 min-h-0 ${planView === '3d' ? '' : 'hidden'}`}>
           <ElektrThreeDView
             room={room}
             geometry={geometry}
