@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { startNativeScan, isNativeScanAvailable, type RoomScanErrorCode } from '@/lib/native/roomScan'
-import { scanToStoreGeometry } from '@/lib/roomScanImport'
+import { scanToApiGeometry } from '@/lib/roomScanImport'
 import { useRoomStore } from '@/store/roomStore'
 
 type Phase = 'idle' | 'scanning' | 'error'
@@ -66,14 +66,16 @@ export default function LidarPage() {
       // building the CapturedRoom model — this typically takes 3–10 seconds.
       const scanned = await startNativeScan()
 
-      // Convert to store-compatible geometry (all values in mm, 4-wall rectangle).
+      // Convert to the payload shape loadRoom takes — the API's units, metres
+      // and 0..1 centre fractions, NOT the store's millimetres (see
+      // RoomPayloadGeometry; DrawRoomPage.tsx converts at the same boundary).
       // Note: this snap-to-rectangle step will be replaced when N-wall polygon
       // support lands (Phase 3 of the N-wall roadmap).
-      const { geometry, ceilingMm } = scanToStoreGeometry(scanned)
+      const { geometry, ceilingM } = scanToApiGeometry(scanned)
 
       // Load into store WITHOUT saving to the API yet — the user edits and
       // confirms in the wizard, and the wizard's "Save" button writes to the backend.
-      loadRoom({ geometry, ceiling_h: ceilingMm / 1000 })
+      loadRoom({ geometry, ceiling_h: ceilingM })
 
       navigate('/wizard')
     } catch (err: unknown) {

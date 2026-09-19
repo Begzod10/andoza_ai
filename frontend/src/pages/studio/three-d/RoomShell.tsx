@@ -411,12 +411,17 @@ function NWallRoomShell({
           resolveWallCovering(designState.wallCoverings, e.wallId),
           shadeFactor,
         )
-        // `faceDir` is mandatory here: these frames render INSIDE the rotated
-        // per-edge group below, where cx/cz are both 0 and so carry no sign for
-        // the reveal to read — without it every drawn-room opening would cut
-        // its 200 mm niche toward the same side regardless of which way the
-        // wall actually faces.
-        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, faceDir: e.faceDir }
+        // Two independent signs, both needed (see `FrameWallDef`):
+        //  • `alongSign: 1` — this def lives in the edge's OWN rotated group,
+        //    whose local +X already points from vertices[i] to vertices[i+1],
+        //    i.e. the direction position grows in. The sign only ever matters
+        //    to a def expressed in world axes (see `buildFrameWallDefs`).
+        //  • `faceDir` is mandatory here: these frames render INSIDE that same
+        //    rotated group, where cx/cz are both 0 and so carry no sign for
+        //    the reveal to read — without it every drawn-room opening would
+        //    cut its 200 mm niche toward the same side regardless of which way
+        //    the wall actually faces.
+        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, alongSign: 1, faceDir: e.faceDir }
         const resolvedEls = resolveElementPositions(elements, e.length * 1000)
         const baseSegs = boardSegments(e.length, elements, (trim?.heightM ?? 0.1) * 1000)
 
