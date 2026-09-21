@@ -13,19 +13,18 @@ export interface LandingCopy {
     disclaimer: string;
   };
   heroMock: {
-    roomName: string;
     ready3d: string;
-    area: string;
-    walls: string;
     estimateLabel: string;
-    estimateValue: string;
     estimateNote: string;
     badge: string;
+    // Cycled every 8s in HeroMock.tsx. Price is pre-converted per locale
+    // (so'm for uz, rubles for ru, dollars for en) — this is illustrative
+    // marketing content, not a live currency feed.
+    rooms: { name: string; area: string; walls: string; price: string }[];
   };
   problem: {
     eyebrow: string;
     heading: string;
-    moreLabel: string;
     pains: { title: string; desc: string }[];
   };
   solution: {
@@ -78,19 +77,21 @@ const uz: LandingCopy = {
     disclaimer: "Ro'yxatdan o'tish bepul · Karta talab qilinmaydi",
   },
   heroMock: {
-    roomName: "Mehmonxona",
     ready3d: "3D tayyor",
-    area: "18.4 m²",
-    walls: "4 devor",
     estimateLabel: "Taxminiy smeta",
-    estimateValue: "12 480 000 so'm",
     estimateNote: "Faqat kerakli materiallar",
     badge: "Avtomatik hisob-kitob",
+    rooms: [
+      { name: "Mehmonxona", area: "18.4 m²", walls: "4 devor", price: "12 480 000 so'm" },
+      { name: "Yotoqxona", area: "14.2 m²", walls: "4 devor", price: "8 650 000 so'm" },
+      { name: "Oshxona", area: "10.6 m²", walls: "4 devor", price: "9 920 000 so'm" },
+      { name: "Hammom", area: "5.8 m²", walls: "4 devor", price: "6 340 000 so'm" },
+      { name: "Dahliz", area: "7.2 m²", walls: "3 devor", price: "4 150 000 so'm" },
+    ],
   },
   problem: {
     eyebrow: "Muammo",
     heading: "Ta'mir — bu doim noaniqlik",
-    moreLabel: "Batafsil →",
     pains: [
       {
         title: "Ko'rmay turib to'laysiz",
@@ -223,19 +224,21 @@ const ru: LandingCopy = {
     disclaimer: "Регистрация бесплатна · Карта не требуется",
   },
   heroMock: {
-    roomName: "Гостиная",
     ready3d: "3D готово",
-    area: "18.4 m²",
-    walls: "4 стены",
     estimateLabel: "Примерная смета",
-    estimateValue: "12 480 000 сум",
     estimateNote: "Только нужные материалы",
     badge: "Автоматический расчёт",
+    rooms: [
+      { name: "Гостиная", area: "18.4 m²", walls: "4 стены", price: "96 000 ₽" },
+      { name: "Спальня", area: "14.2 m²", walls: "4 стены", price: "66 500 ₽" },
+      { name: "Кухня", area: "10.6 m²", walls: "4 стены", price: "76 300 ₽" },
+      { name: "Ванная", area: "5.8 m²", walls: "4 стены", price: "48 800 ₽" },
+      { name: "Коридор", area: "7.2 m²", walls: "3 стены", price: "31 900 ₽" },
+    ],
   },
   problem: {
     eyebrow: "Проблема",
     heading: "Ремонт — это всегда неопределённость",
-    moreLabel: "Подробнее →",
     pains: [
       {
         title: "Платите, не видя результата",
@@ -368,19 +371,21 @@ const en: LandingCopy = {
     disclaimer: "Free to sign up · No card required",
   },
   heroMock: {
-    roomName: "Living room",
     ready3d: "3D ready",
-    area: "18.4 m²",
-    walls: "4 walls",
     estimateLabel: "Estimated cost",
-    estimateValue: "12,480,000 so'm",
     estimateNote: "Only what you actually need",
     badge: "Automatic calculation",
+    rooms: [
+      { name: "Living room", area: "18.4 m²", walls: "4 walls", price: "$980" },
+      { name: "Bedroom", area: "14.2 m²", walls: "4 walls", price: "$680" },
+      { name: "Kitchen", area: "10.6 m²", walls: "4 walls", price: "$780" },
+      { name: "Bathroom", area: "5.8 m²", walls: "4 walls", price: "$500" },
+      { name: "Hallway", area: "7.2 m²", walls: "3 walls", price: "$325" },
+    ],
   },
   problem: {
     eyebrow: "The problem",
     heading: "Renovation is always uncertain",
-    moreLabel: "Details →",
     pains: [
       {
         title: "You pay before you can see it",

@@ -25,16 +25,24 @@ export function ProblemSection() {
             const Icon = PAIN_ICONS[i];
             return (
               <Reveal key={title} delayMs={i * 80} className="h-52">
-                <button type="button" className="flip-card landing-focus-ring-dark rounded-2xl">
+                <button
+                  type="button"
+                  className="flip-card landing-focus-ring-dark rounded-2xl"
+                  aria-label={`${title} — ${desc}`}
+                >
                   <div className="flip-card-inner">
-                    <div className="flip-card-front rounded-2xl bg-white border border-border p-5 shadow-sm flex flex-col items-start">
-                      <div className="w-11 h-11 rounded-xl bg-primary-tint flex items-center justify-center mb-4">
-                        <Icon className="w-5 h-5 text-primary" />
+                    <div
+                      aria-hidden="true"
+                      className="flip-card-front rounded-2xl bg-white border border-border shadow-sm flex items-center justify-center"
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-primary-tint flex items-center justify-center">
+                        <Icon className="w-8 h-8 text-primary" />
                       </div>
-                      <h3 className="font-bold text-neutral-900">{title}</h3>
-                      <span className="mt-auto text-xs text-subtle">{t.problem.moreLabel}</span>
                     </div>
-                    <div className="flip-card-back rounded-2xl bg-primary p-5 shadow-sm flex flex-col justify-center">
+                    <div
+                      aria-hidden="true"
+                      className="flip-card-back rounded-2xl bg-primary p-5 shadow-sm flex flex-col justify-center"
+                    >
                       <h3 className="font-bold text-white text-sm">{title}</h3>
                       <p className="mt-2 text-sm text-white/80">{desc}</p>
                     </div>

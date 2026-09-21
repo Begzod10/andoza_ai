@@ -65,6 +65,11 @@
 .landing-hero-in {
   animation: landing-fade-up-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+/* Re-mounted (via a changing `key`) each time HeroMock cycles to a new
+   room preset, so this replays on every swap. */
+.landing-fade-swap {
+  animation: landing-fade-up-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 .landing-hero-in-delayed {
   animation: landing-fade-up-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.15s;
@@ -136,7 +141,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 1.1s cubic-bezier(0.25, 1, 0.5, 1);
   transform-style: preserve-3d;
 }
 .flip-card:hover .flip-card-inner,
@@ -215,6 +220,7 @@
   .landing-blob-drift,
   .landing-hero-in,
   .landing-hero-in-delayed,
+  .landing-fade-swap,
   .landing-shimmer-sweep::after {
     animation: none !important;
     opacity: 1 !important;
