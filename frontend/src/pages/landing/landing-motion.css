@@ -22,16 +22,6 @@
   }
 }
 
-@keyframes landing-glow-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 14px rgba(249, 115, 22, 0);
-  }
-}
-
 @keyframes landing-blob-drift {
   0%,
   100% {
@@ -85,17 +75,6 @@
 .landing-grid-drift {
   animation: landing-grid-drift 16s linear infinite;
 }
-.landing-glow-pulse {
-  animation: landing-glow-pulse 2.6s ease-out infinite;
-}
-/* The pulse animates box-shadow directly, which silently overrides
-   whatever box-shadow the button's own focus ring would otherwise show —
-   verified in-browser: tabbing to a glow-pulse button produced no visible
-   focus indicator at all. Stop the pulse while focused so the ring wins. */
-.landing-glow-pulse:focus-visible {
-  animation: none;
-}
-
 /* Forced, unambiguous focus indicator for every interactive element on
    this page. All of them sit on a navy background (or, for the pricing
    cards, mixed navy/white), so this can't rely on the app's default
@@ -117,6 +96,122 @@
   outline: 3px solid #1e3a8a !important;
   outline-offset: 3px !important;
   box-shadow: none !important;
+}
+
+/* "Liquid glass" skeuomorphic keycap — every button on this page. Frosted
+   translucent fill (backdrop-filter blurs whatever's behind it) plus a
+   bright top bevel / dark inner-bottom shadow read as a physically curved
+   glass surface, and a flat "step" shadow underneath (0 Npx 0, no blur)
+   reads as the key's solid side wall lifting it off the page — the classic
+   skeuomorphic keycap trick. Pressing it drops the step height and flips
+   the bevel, like the key sinking into the surface. */
+.landing-keycap {
+  position: relative;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition:
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(0);
+}
+.landing-keycap:hover {
+  transform: translateY(-2px);
+}
+.landing-keycap:active {
+  transform: translateY(3px) !important;
+  transition-duration: 0.05s;
+}
+
+.landing-keycap--orange {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 178, 122, 0.7) 0%,
+    rgba(249, 115, 22, 0.55) 55%,
+    rgba(194, 65, 12, 0.6) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -4px 6px rgba(120, 40, 5, 0.35),
+    0 5px 0 rgba(146, 64, 14, 0.85),
+    0 10px 16px rgba(120, 40, 5, 0.35);
+}
+.landing-keycap--orange:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 3px rgba(120, 40, 5, 0.35),
+    0 1px 0 rgba(146, 64, 14, 0.85);
+}
+
+.landing-keycap--navy {
+  background: linear-gradient(
+    180deg,
+    rgba(96, 130, 220, 0.55) 0%,
+    rgba(30, 58, 138, 0.6) 55%,
+    rgba(15, 28, 74, 0.65) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -4px 6px rgba(5, 10, 35, 0.4),
+    0 5px 0 rgba(12, 22, 60, 0.9),
+    0 10px 16px rgba(5, 10, 35, 0.35);
+}
+.landing-keycap--navy:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -2px 3px rgba(5, 10, 35, 0.4),
+    0 1px 0 rgba(12, 22, 60, 0.9);
+}
+
+.landing-keycap--white {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.55) 55%,
+    rgba(225, 230, 240, 0.6) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -4px 6px rgba(150, 160, 180, 0.35),
+    0 5px 0 rgba(180, 188, 204, 0.9),
+    0 10px 16px rgba(100, 110, 130, 0.25);
+}
+.landing-keycap--white:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 3px rgba(150, 160, 180, 0.35),
+    0 1px 0 rgba(180, 188, 204, 0.9);
+}
+
+/* Smaller step height for compact controls (the language switcher pills)
+   so the 3D effect reads as a key, not a slab, at that size. */
+.landing-keycap--sm {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.15),
+    0 2px 0 rgba(0, 0, 0, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.2);
+}
+.landing-keycap--sm:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+    0 0.5px 0 rgba(0, 0, 0, 0.2);
+}
+.landing-keycap--sm:hover {
+  transform: translateY(-1px);
+}
+.landing-keycap--sm:active {
+  transform: translateY(1.5px) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-keycap,
+  .landing-keycap:hover,
+  .landing-keycap:active {
+    transition: none;
+    transform: none !important;
+  }
 }
 
 /* Flip cards (Problem section). Fixed-height front/back faces fix the old
@@ -216,7 +311,6 @@
   .landing-float,
   .landing-float-delayed,
   .landing-grid-drift,
-  .landing-glow-pulse,
   .landing-blob-drift,
   .landing-hero-in,
   .landing-hero-in-delayed,

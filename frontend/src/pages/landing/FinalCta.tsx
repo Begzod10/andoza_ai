@@ -23,7 +23,8 @@ export function FinalCta() {
         <div className="mt-8">
           <Button
             size="lg"
-            className="landing-glow-pulse landing-focus-ring-dark hover:scale-105 transition-transform"
+            className="landing-keycap landing-keycap--navy landing-focus-ring-dark !text-white"
+            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
             rightIcon={<ArrowRight className="w-5 h-5" />}
             onClick={() => navigate("/projects")}
           >

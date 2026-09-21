@@ -21,7 +21,7 @@ export function LanguageSwitcher({ className = "", variant = "on-navy" }: Langua
     <div
       role="group"
       aria-label="Til / Язык / Language"
-      className={`inline-flex items-center rounded-full p-0.5 gap-0.5 ${
+      className={`inline-flex items-center rounded-full p-1 gap-1 ${
         onNavy ? "bg-white/10" : "bg-paper"
       } ${className}`}
     >
@@ -33,16 +33,14 @@ export function LanguageSwitcher({ className = "", variant = "on-navy" }: Langua
             type="button"
             onClick={() => setLocale(code)}
             aria-pressed={active}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
+            className={`landing-keycap landing-keycap--sm rounded-full px-2.5 py-1 text-xs font-bold ${
               onNavy ? "landing-focus-ring" : "landing-focus-ring-dark"
             } ${
               active
-                ? onNavy
-                  ? "bg-white text-primary"
-                  : "bg-primary text-white"
+                ? "landing-keycap--white text-primary"
                 : onNavy
-                  ? "text-white/70 hover:text-white"
-                  : "text-muted hover:text-neutral-900"
+                  ? "landing-keycap--navy text-white/80"
+                  : "landing-keycap--white text-muted"
             }`}
           >
             {label}

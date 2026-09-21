@@ -39,7 +39,7 @@ export function Hero() {
             <Button
               variant="secondary"
               size="sm"
-              className="landing-focus-ring !border-white !text-white hover:!bg-white/10"
+              className="landing-keycap landing-keycap--white landing-keycap--sm landing-focus-ring !text-primary"
               onClick={() => navigate("/login")}
             >
               {t.hero.kirish}
@@ -61,7 +61,8 @@ export function Hero() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button
                 size="lg"
-                className="landing-glow-pulse landing-focus-ring !bg-orange-cta !text-white hover:!bg-orange-cta/90 hover:scale-105 shadow-lg shadow-orange/30 transition-transform"
+                className="landing-keycap landing-keycap--orange landing-focus-ring !text-white"
+                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
                 rightIcon={<ArrowRight className="w-5 h-5" />}
                 onClick={() => navigate("/projects")}
               >

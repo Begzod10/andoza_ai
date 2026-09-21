@@ -76,11 +76,12 @@ export function PricingSection() {
                   </ul>
                   <Button
                     size="lg"
-                    className={`mt-6 w-full hover:scale-[1.03] transition-transform ${
+                    className={`landing-keycap mt-6 w-full ${
                       highlight
-                        ? "landing-focus-ring-dark !bg-orange-cta !text-white hover:!bg-orange-cta/90"
-                        : "landing-focus-ring !bg-white !text-primary hover:!bg-white/90"
+                        ? "landing-keycap--orange landing-focus-ring-dark !text-white"
+                        : "landing-keycap--white landing-focus-ring !text-primary"
                     }`}
+                    style={highlight ? { textShadow: "0 1px 2px rgba(0,0,0,0.35)" } : undefined}
                     onClick={() => navigate("/projects")}
                   >
                     {tier.cta}
