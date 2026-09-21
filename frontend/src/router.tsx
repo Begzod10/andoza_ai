@@ -73,13 +73,14 @@ const SharedRoomPage = lazy(() => import("@/pages/share/SharedRoomPage"));
 const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
 const DrawRoomPage = lazy(() => import("@/pages/scan/DrawRoomPage"));
+const LandingPage = lazy(() => import("@/pages/landing/LandingPage"));
 
 // ---------- Routes ----------
 
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: <Navigate to="/projects" replace />,
+    element: withSuspense(<LandingPage />),
   },
   {
     path: "/login",
