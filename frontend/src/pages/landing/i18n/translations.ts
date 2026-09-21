@@ -229,11 +229,11 @@ const ru: LandingCopy = {
     estimateNote: "Только нужные материалы",
     badge: "Автоматический расчёт",
     rooms: [
-      { name: "Гостиная", area: "18.4 m²", walls: "4 стены", price: "96 000 ₽" },
-      { name: "Спальня", area: "14.2 m²", walls: "4 стены", price: "66 500 ₽" },
-      { name: "Кухня", area: "10.6 m²", walls: "4 стены", price: "76 300 ₽" },
-      { name: "Ванная", area: "5.8 m²", walls: "4 стены", price: "48 800 ₽" },
-      { name: "Коридор", area: "7.2 m²", walls: "3 стены", price: "31 900 ₽" },
+      { name: "Гостиная", area: "18.4 m²", walls: "4 стены", price: "12 480 000 сум" },
+      { name: "Спальня", area: "14.2 m²", walls: "4 стены", price: "8 650 000 сум" },
+      { name: "Кухня", area: "10.6 m²", walls: "4 стены", price: "9 920 000 сум" },
+      { name: "Ванная", area: "5.8 m²", walls: "4 стены", price: "6 340 000 сум" },
+      { name: "Коридор", area: "7.2 m²", walls: "3 стены", price: "4 150 000 сум" },
     ],
   },
   problem: {
@@ -376,11 +376,11 @@ const en: LandingCopy = {
     estimateNote: "Only what you actually need",
     badge: "Automatic calculation",
     rooms: [
-      { name: "Living room", area: "18.4 m²", walls: "4 walls", price: "$980" },
-      { name: "Bedroom", area: "14.2 m²", walls: "4 walls", price: "$680" },
-      { name: "Kitchen", area: "10.6 m²", walls: "4 walls", price: "$780" },
-      { name: "Bathroom", area: "5.8 m²", walls: "4 walls", price: "$500" },
-      { name: "Hallway", area: "7.2 m²", walls: "3 walls", price: "$325" },
+      { name: "Living room", area: "18.4 m²", walls: "4 walls", price: "12,480,000 so'm" },
+      { name: "Bedroom", area: "14.2 m²", walls: "4 walls", price: "8,650,000 so'm" },
+      { name: "Kitchen", area: "10.6 m²", walls: "4 walls", price: "9,920,000 so'm" },
+      { name: "Bathroom", area: "5.8 m²", walls: "4 walls", price: "6,340,000 so'm" },
+      { name: "Hallway", area: "7.2 m²", walls: "3 walls", price: "4,150,000 so'm" },
     ],
   },
   problem: {
