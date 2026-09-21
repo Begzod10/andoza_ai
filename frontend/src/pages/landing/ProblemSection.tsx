@@ -1,59 +1,48 @@
 import { EyeOff, Calculator, ShoppingCart, HardHat, PackageX } from "lucide-react";
 import { Reveal } from "./Reveal";
+import { useLanguage } from "./i18n/LanguageContext";
 
-const PAINS = [
-  {
-    icon: EyeOff,
-    title: "Ko'rmay turib to'laysiz",
-    desc: "Pulini to'lashdan oldin natijani ko'ra olmaysiz.",
-  },
-  {
-    icon: Calculator,
-    title: "Byudjet — taxmin",
-    desc: "Necha pul ketishini hech kim aniq aytolmaydi.",
-  },
-  {
-    icon: ShoppingCart,
-    title: "Xarid tarqoq",
-    desc: "Har bir material uchun alohida do'kon, alohida narx.",
-  },
-  {
-    icon: HardHat,
-    title: "Usta shaffof emas",
-    desc: "Qancha ish, qancha material ketganini bilmaysiz.",
-  },
-  {
-    icon: PackageX,
-    title: "Isrofgarchilik",
-    desc: "Noto'g'ri hisoblangan miqdor — ortiqcha xarajat.",
-  },
-];
+// Order matches t.problem.pains in every locale — icons aren't translated.
+const PAIN_ICONS = [EyeOff, Calculator, ShoppingCart, HardHat, PackageX];
 
 export function ProblemSection() {
+  const { t } = useLanguage();
+
   return (
     <section className="py-20 sm:py-28 bg-paper">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Reveal className="max-w-2xl">
           <span className="text-orange font-bold text-sm uppercase tracking-wide">
-            Muammo
+            {t.problem.eyebrow}
           </span>
           <h2 className="mt-2 text-3xl sm:text-h2 font-extrabold text-neutral-900">
-            Ta'mir — bu doim noaniqlik
+            {t.problem.heading}
           </h2>
         </Reveal>
 
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {PAINS.map(({ icon: Icon, title, desc }, i) => (
-            <Reveal key={title} delayMs={i * 80}>
-              <div className="rounded-2xl bg-white border border-border p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-normal">
-                <div className="w-11 h-11 rounded-xl bg-primary-tint flex items-center justify-center mb-4">
-                  <Icon className="w-5 h-5 text-primary" />
-                </div>
-                <h3 className="font-bold text-neutral-900">{title}</h3>
-                <p className="mt-1.5 text-sm text-muted">{desc}</p>
-              </div>
-            </Reveal>
-          ))}
+          {t.problem.pains.map(({ title, desc }, i) => {
+            const Icon = PAIN_ICONS[i];
+            return (
+              <Reveal key={title} delayMs={i * 80} className="h-52">
+                <button type="button" className="flip-card landing-focus-ring-dark rounded-2xl">
+                  <div className="flip-card-inner">
+                    <div className="flip-card-front rounded-2xl bg-white border border-border p-5 shadow-sm flex flex-col items-start">
+                      <div className="w-11 h-11 rounded-xl bg-primary-tint flex items-center justify-center mb-4">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <h3 className="font-bold text-neutral-900">{title}</h3>
+                      <span className="mt-auto text-xs text-subtle">{t.problem.moreLabel}</span>
+                    </div>
+                    <div className="flip-card-back rounded-2xl bg-primary p-5 shadow-sm flex flex-col justify-center">
+                      <h3 className="font-bold text-white text-sm">{title}</h3>
+                      <p className="mt-2 text-sm text-white/80">{desc}</p>
+                    </div>
+                  </div>
+                </button>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>

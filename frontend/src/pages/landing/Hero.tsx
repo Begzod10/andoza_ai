@@ -5,10 +5,13 @@ import { Logo } from "@/components/branding/Logo";
 import { GridBackdrop } from "./GridBackdrop";
 import { HeroMock } from "./HeroMock";
 import { useSpotlight } from "./hooks/useSpotlight";
+import { useLanguage } from "./i18n/LanguageContext";
+import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
 
 export function Hero() {
   const navigate = useNavigate();
   const { ref: spotlightRef, onMouseMove } = useSpotlight<HTMLElement>();
+  const { t } = useLanguage();
 
   return (
     <section
@@ -29,31 +32,32 @@ export function Hero() {
       />
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-20 sm:pt-10 sm:pb-28">
-        <header className="flex items-center justify-between mb-16 sm:mb-24">
+        <header className="flex items-center justify-between mb-16 sm:mb-24 gap-3">
           <Logo variant="horizontal" theme="dark" width={140} height={46} />
-          <Button
-            variant="secondary"
-            size="sm"
-            className="landing-focus-ring !border-white !text-white hover:!bg-white/10"
-            onClick={() => navigate("/login")}
-          >
-            Kirish
-          </Button>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="landing-focus-ring !border-white !text-white hover:!bg-white/10"
+              onClick={() => navigate("/login")}
+            >
+              {t.hero.kirish}
+            </Button>
+          </div>
         </header>
 
         <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
           <div className="landing-hero-in">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase text-warning-bright">
-              Ta'mir uchun raqamli yordamchi
+              {t.hero.eyebrow}
             </span>
             <h1 className="mt-5 text-4xl sm:text-5xl lg:text-h1 font-extrabold leading-[1.08]">
-              Kvartirangizni <span className="text-warning-bright">3D'da ko'ring</span> —
-              to'lashdan oldin
+              {t.hero.headlinePre}
+              <span className="text-warning-bright">{t.hero.headlineHighlight}</span>
+              {t.hero.headlinePost}
             </h1>
-            <p className="mt-5 text-lg text-white/80 max-w-xl">
-              Xonangizni skanerlang, dizaynini soling, aniq smetasini oling va kerakli
-              materiallarni bir joydan sotib oling — hammasi bitta ilovada.
-            </p>
+            <p className="mt-5 text-lg text-white/80 max-w-xl">{t.hero.subheadline}</p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button
                 size="lg"
@@ -61,18 +65,16 @@ export function Hero() {
                 rightIcon={<ArrowRight className="w-5 h-5" />}
                 onClick={() => navigate("/projects")}
               >
-                Bepul boshlash
+                {t.hero.ctaPrimary}
               </Button>
               <a
                 href="#qanday-ishlaydi"
                 className="landing-focus-ring rounded-md inline-flex items-center gap-2 text-white/90 font-semibold hover:text-white transition-colors"
               >
-                <PlayCircle className="w-5 h-5" /> Qanday ishlaydi?
+                <PlayCircle className="w-5 h-5" /> {t.hero.ctaSecondary}
               </a>
             </div>
-            <p className="mt-4 text-sm text-white/60">
-              Ro'yxatdan o'tish bepul · Karta talab qilinmaydi
-            </p>
+            <p className="mt-4 text-sm text-white/60">{t.hero.disclaimer}</p>
           </div>
 
           <div className="landing-hero-in-delayed">

@@ -1,12 +1,15 @@
 import { Logo } from "@/components/branding/Logo";
+import { useLanguage } from "./i18n/LanguageContext";
 
 export function LandingFooter() {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-paper border-t border-border py-10">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <Logo variant="horizontal" width={120} height={40} />
         <p className="text-sm text-muted text-center sm:text-right">
-          © {new Date().getFullYear()} AndozaAI. Barcha huquqlar himoyalangan.
+          © {new Date().getFullYear()} AndozaAI. {t.footer.rights}
         </p>
       </div>
     </footer>
