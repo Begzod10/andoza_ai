@@ -34,7 +34,7 @@ export function Hero() {
           <Button
             variant="secondary"
             size="sm"
-            className="!border-white !text-white hover:!bg-white/10"
+            className="landing-focus-ring !border-white !text-white hover:!bg-white/10"
             onClick={() => navigate("/login")}
           >
             Kirish
@@ -57,7 +57,7 @@ export function Hero() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button
                 size="lg"
-                className="landing-glow-pulse !bg-orange !text-white hover:!bg-orange/90 hover:scale-105 shadow-lg shadow-orange/30 transition-transform"
+                className="landing-glow-pulse landing-focus-ring !bg-orange-cta !text-white hover:!bg-orange-cta/90 hover:scale-105 shadow-lg shadow-orange/30 transition-transform"
                 rightIcon={<ArrowRight className="w-5 h-5" />}
                 onClick={() => navigate("/projects")}
               >
@@ -65,7 +65,7 @@ export function Hero() {
               </Button>
               <a
                 href="#qanday-ishlaydi"
-                className="inline-flex items-center gap-2 text-white/90 font-semibold hover:text-white transition-colors"
+                className="landing-focus-ring rounded-md inline-flex items-center gap-2 text-white/90 font-semibold hover:text-white transition-colors"
               >
                 <PlayCircle className="w-5 h-5" /> Qanday ishlaydi?
               </a>

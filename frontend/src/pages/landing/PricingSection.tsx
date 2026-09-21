@@ -73,7 +73,7 @@ export function PricingSection() {
               >
                 {t.highlight && <div aria-hidden="true" className="landing-shimmer-sweep" />}
                 {t.badge && (
-                  <span className="landing-float absolute -top-3 right-6 bg-orange text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-orange/40">
+                  <span className="landing-float absolute -top-3 right-6 bg-orange-cta text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-orange/40">
                     {t.badge}
                   </span>
                 )}
@@ -112,8 +112,8 @@ export function PricingSection() {
                   size="lg"
                   className={`mt-6 w-full hover:scale-[1.03] transition-transform ${
                     t.highlight
-                      ? "!bg-orange !text-white hover:!bg-orange/90"
-                      : "!bg-white !text-primary hover:!bg-white/90"
+                      ? "landing-focus-ring-dark !bg-orange-cta !text-white hover:!bg-orange-cta/90"
+                      : "landing-focus-ring !bg-white !text-primary hover:!bg-white/90"
                   }`}
                   onClick={() => navigate("/projects")}
                 >

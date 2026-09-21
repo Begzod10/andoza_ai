@@ -41,7 +41,7 @@ export function HeroMock() {
         </p>
       </div>
 
-      <div className="landing-float-delayed absolute -top-4 -right-2 rotate-[6deg] rounded-xl bg-orange text-white shadow-xl px-3 py-2 text-xs font-bold">
+      <div className="landing-float-delayed absolute -top-4 -right-2 rotate-[6deg] rounded-xl bg-orange-cta text-white shadow-xl px-3 py-2 text-xs font-bold">
         Avtomatik hisob-kitob
       </div>
     </div>

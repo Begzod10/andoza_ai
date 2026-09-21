@@ -59,6 +59,11 @@ const config: Config = {
         "brand-tint": "#EEF2FF",
         orange: "#F97316",
         "orange-tint": "#FFF1E7",
+        // Same hue as `orange`, darkened until white text on top clears
+        // WCAG AA (4.5:1) — `orange` itself only reaches 2.8:1 with white
+        // text, so it stays as an accent/icon/border color while any
+        // orange surface carrying white text uses this instead.
+        "orange-cta": "#C2410C",
         muted: "#6B7280",
         subtle: "#9CA3AF",
 

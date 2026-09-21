@@ -83,6 +83,36 @@
 .landing-glow-pulse {
   animation: landing-glow-pulse 2.6s ease-out infinite;
 }
+/* The pulse animates box-shadow directly, which silently overrides
+   whatever box-shadow the button's own focus ring would otherwise show —
+   verified in-browser: tabbing to a glow-pulse button produced no visible
+   focus indicator at all. Stop the pulse while focused so the ring wins. */
+.landing-glow-pulse:focus-visible {
+  animation: none;
+}
+
+/* Forced, unambiguous focus indicator for every interactive element on
+   this page. All of them sit on a navy background (or, for the pricing
+   cards, mixed navy/white), so this can't rely on the app's default
+   focus ring (ring-brand ~= the page background color itself, and the
+   default outline on this button resolves to currentColor — verified
+   in-browser to be literally invisible against this button's own white
+   border). Uses warning-bright (#FB923C), already part of this page's
+   palette, which measures >=4.5:1 against both navy and white. */
+.landing-focus-ring:focus-visible {
+  outline: 3px solid #fb923c !important;
+  outline-offset: 3px !important;
+  box-shadow: none !important;
+}
+/* Same idea, for elements sitting on a white/light surface (the PRO
+   pricing card, the final-CTA section) — warning-bright only measures
+   2.3:1 against white, so those use the dark brand navy instead
+   (10.4:1 against white). */
+.landing-focus-ring-dark:focus-visible {
+  outline: 3px solid #1e3a8a !important;
+  outline-offset: 3px !important;
+  box-shadow: none !important;
+}
 .landing-blob-drift {
   animation: landing-blob-drift 11s ease-in-out infinite;
 }
