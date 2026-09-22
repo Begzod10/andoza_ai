@@ -5,6 +5,13 @@ import { useLanguage } from "./i18n/LanguageContext";
 // Order matches t.problem.pains in every locale — icons aren't translated.
 const PAIN_ICONS = [EyeOff, Calculator, ShoppingCart, HardHat, PackageX];
 
+// Bento layout instead of 5 uniform tiles: the core tension ("you pay
+// before you can see it") gets a wider, taller anchor tile; the other 4
+// pair up into two even half-width tiles per row. Grid-span/height only —
+// the flip-card mechanic itself doesn't care about its box's dimensions.
+const SPAN_CLASSES = ["lg:col-span-2", "", "", "lg:col-span-2", "lg:col-span-2"];
+const HEIGHT_CLASSES = ["h-64", "h-52", "h-52", "h-52", "h-52"];
+
 export function ProblemSection() {
   const { t } = useLanguage();
 
@@ -20,11 +27,16 @@ export function ProblemSection() {
           </h2>
         </Reveal>
 
-        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {t.problem.pains.map(({ title, desc }, i) => {
             const Icon = PAIN_ICONS[i];
+            const big = i === 0;
             return (
-              <Reveal key={title} delayMs={i * 80} className="h-52">
+              <Reveal
+                key={title}
+                delayMs={i * 80}
+                className={`${HEIGHT_CLASSES[i]} ${SPAN_CLASSES[i]}`}
+              >
                 <button
                   type="button"
                   className="flip-card landing-focus-ring-dark rounded-2xl"
@@ -35,16 +47,24 @@ export function ProblemSection() {
                       aria-hidden="true"
                       className="flip-card-front rounded-2xl bg-white border border-border shadow-sm flex items-center justify-center"
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-primary-tint flex items-center justify-center">
-                        <Icon className="w-8 h-8 text-primary" />
+                      <div
+                        className={`rounded-2xl bg-primary-tint flex items-center justify-center ${
+                          big ? "w-20 h-20" : "w-16 h-16"
+                        }`}
+                      >
+                        <Icon className={big ? "w-10 h-10 text-primary" : "w-8 h-8 text-primary"} />
                       </div>
                     </div>
                     <div
                       aria-hidden="true"
                       className="flip-card-back rounded-2xl bg-primary p-5 shadow-sm flex flex-col justify-center"
                     >
-                      <h3 className="font-bold text-white text-sm">{title}</h3>
-                      <p className="mt-2 text-sm text-white/80">{desc}</p>
+                      <h3 className={`font-bold text-white ${big ? "text-lg" : "text-sm"}`}>
+                        {title}
+                      </h3>
+                      <p className={`mt-2 text-white/80 ${big ? "text-base max-w-xs" : "text-sm"}`}>
+                        {desc}
+                      </p>
                     </div>
                   </div>
                 </button>

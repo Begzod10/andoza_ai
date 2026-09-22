@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { useLanguage } from "./i18n/LanguageContext";
 
@@ -5,6 +6,7 @@ const STEP_NUMBERS = ["01", "02", "03", "04"];
 
 export function HowItWorks() {
   const { t } = useLanguage();
+  const lastIndex = t.howItWorks.steps.length - 1;
 
   return (
     <section id="qanday-ishlaydi" className="py-20 sm:py-28 bg-paper">
@@ -26,6 +28,15 @@ export function HowItWorks() {
               </span>
               <h3 className="mt-2 font-bold text-neutral-900">{title}</h3>
               <p className="mt-1.5 text-sm text-muted">{desc}</p>
+              {/* Connects the steps into one flow rather than 4 disconnected
+                  tiles — only at the single-row lg breakpoint, where the
+                  gap between columns has room for it. */}
+              {i !== lastIndex && (
+                <ArrowRight
+                  aria-hidden="true"
+                  className="hidden lg:block absolute top-3 -right-7 w-5 h-5 text-primary/25"
+                />
+              )}
             </Reveal>
           ))}
         </ol>
