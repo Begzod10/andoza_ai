@@ -5,6 +5,17 @@ import { requestOTP, verifyOTP, loginWithPassword, registerUser } from "@/lib/ap
 import { useAuthStore } from "@/store/authStore";
 import { Logo } from "@/components/branding/Logo";
 import { uz } from "@/locale/uz";
+// Reuses the landing page's "liquid glass" keycap system (buttons) and
+// stage-transition fade — same CSS module, so Vite dedupes it into one
+// shared chunk instead of shipping it twice, and this page never has to
+// duplicate or diverge from those rules.
+import "@/pages/landing/landing-motion.css";
+
+const KEYCAP_PRIMARY =
+  "landing-keycap landing-keycap--orange landing-focus-ring-dark !text-white";
+const KEYCAP_SECONDARY =
+  "landing-keycap landing-keycap--white landing-focus-ring-dark !text-neutral-800";
+const KEYCAP_TEXT_SHADOW = { textShadow: "0 1px 2px rgba(0,0,0,0.3)" };
 
 // Desktop/tablet only — the 3D scene's real cost (a ~250KB gzipped
 // three.js/r3f chunk, a continuous WebGL render loop with real shadows, and
@@ -300,10 +311,10 @@ export default function LoginPage() {
         <p className="mt-2 text-lg text-muted">Uyingiz ta'miri shu yerdan boshlanadi</p>
       </div>
 
-      <div className="w-full max-w-sm bg-white/50 backdrop-blur-md rounded-2xl shadow-card p-8 relative z-10">
+      <div className="w-full max-w-sm bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl shadow-card p-8 relative z-10">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
-          <>
+          <div className="landing-fade-swap">
             <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-success" /> Kod yuborildi
             </h2>
@@ -321,7 +332,7 @@ export default function LoginPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="w-11 h-12 text-center text-lg font-bold border border-neutral-300 bg-neutral-50 focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                  className="landing-keycap landing-keycap--white landing-keycap--sm landing-focus-ring-dark w-11 h-12 text-center text-lg font-bold rounded-lg text-primary"
                 />
               ))}
             </div>
@@ -329,7 +340,8 @@ export default function LoginPage() {
             <button
               onClick={handleVerifyOTP}
               disabled={loading || otp.some((d) => !d)}
-              className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              style={KEYCAP_TEXT_SHADOW}
+              className={`w-full py-3 text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed ${KEYCAP_PRIMARY}`}
             >
               {loading ? uz.common.yuklanmoqda : uz.auth.otp_tasdiqlash}
             </button>
@@ -340,12 +352,12 @@ export default function LoginPage() {
             >
               {cooldown > 0 ? `${uz.auth.qayta_yuborish} (${cooldown}s)` : uz.auth.qayta_yuborish}
             </button>
-          </>
+          </div>
         ) : (
           <>
             {/* ── Login tab ── */}
             {mode === "login" && (
-              <>
+              <div className="landing-fade-swap">
                 <button
                   onClick={() => switchMode("otp-phone")}
                   className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
@@ -384,7 +396,8 @@ export default function LoginPage() {
                 <button
                   onClick={handleLogin}
                   disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={KEYCAP_TEXT_SHADOW}
+                  className={`mt-6 w-full py-3 text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed ${KEYCAP_PRIMARY}`}
                 >
                   {loading ? uz.common.yuklanmoqda : "Kirish"}
                 </button>
@@ -400,12 +413,12 @@ export default function LoginPage() {
                     </button>
                   </p>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── Register tab ── */}
             {mode === "register" && (
-              <>
+              <div className="landing-fade-swap">
                 <button
                   onClick={() => switchMode("otp-phone")}
                   className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
@@ -463,7 +476,8 @@ export default function LoginPage() {
                 <button
                   onClick={handleRegister}
                   disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={KEYCAP_TEXT_SHADOW}
+                  className={`mt-6 w-full py-3 text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed ${KEYCAP_PRIMARY}`}
                 >
                   {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
                 </button>
@@ -479,12 +493,12 @@ export default function LoginPage() {
                     </button>
                   </p>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── OTP phone step ── */}
             {mode === "otp-phone" && (
-              <>
+              <div className="landing-fade-swap">
                 <h2 className="text-lg font-semibold text-neutral-900 mb-1">Telefon raqam</h2>
                 <p className="text-sm text-muted mb-6">Loginiga uchun telefon raqam talab qilinadi</p>
 
@@ -512,9 +526,8 @@ export default function LoginPage() {
                 <button
                   onClick={handleRequestOTP}
                   disabled={loading || !phone}
-                  className={`w-full rounded-lg py-4 font-bold text-white transition-colors ${
-                    loading || !phone ? 'bg-neutral-300 cursor-not-allowed' : 'bg-brand hover:bg-brand/90'
-                  }`}
+                  style={KEYCAP_TEXT_SHADOW}
+                  className={`w-full rounded-lg py-4 font-bold disabled:opacity-60 disabled:cursor-not-allowed ${KEYCAP_PRIMARY}`}
                 >
                   {loading ? uz.common.yuklanmoqda : "OTP Yuborish"}
                 </button>
@@ -534,11 +547,11 @@ export default function LoginPage() {
                 </div>
                 <button
                   onClick={() => switchMode("login")}
-                  className="w-full mt-4 border border-neutral-200 text-neutral-700 rounded-lg py-3 text-sm font-medium hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
+                  className={`w-full mt-4 py-3 text-sm font-medium rounded-lg flex items-center justify-center gap-2 ${KEYCAP_SECONDARY}`}
                 >
                   <KeyRound className="w-4 h-4" /> Username bilan kirish
                 </button>
-              </>
+              </div>
             )}
           </>
         )}
