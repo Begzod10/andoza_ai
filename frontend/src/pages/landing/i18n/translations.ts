@@ -69,7 +69,7 @@ const uz: LandingCopy = {
     eyebrow: "Ta'mir uchun raqamli yordamchi",
     headlinePre: "Kvartirangizni ",
     headlineHighlight: "3D'da ko'ring",
-    headlinePost: " — to'lashdan oldin",
+    headlinePost: " — ta'mirni boshlashdan oldin",
     subheadline:
       "Xonangizni skanerlang, dizaynini soling, aniq smetasini oling va kerakli materiallarni bir joydan sotib oling — hammasi bitta ilovada.",
     ctaPrimary: "Bepul boshlash",
@@ -216,7 +216,7 @@ const ru: LandingCopy = {
     eyebrow: "Цифровой помощник для ремонта",
     headlinePre: "Увидьте квартиру ",
     headlineHighlight: "в 3D",
-    headlinePost: " — ещё до того, как заплатите",
+    headlinePost: " — до начала ремонта",
     subheadline:
       "Отсканируйте комнату, создайте дизайн, получите точную смету и купите нужные материалы — всё в одном приложении.",
     ctaPrimary: "Начать бесплатно",
@@ -363,7 +363,7 @@ const en: LandingCopy = {
     eyebrow: "A digital assistant for renovation",
     headlinePre: "See your apartment in ",
     headlineHighlight: "3D",
-    headlinePost: " — before you pay",
+    headlinePost: " — before the renovation starts",
     subheadline:
       "Scan your room, design it, get an accurate estimate, and buy the materials you need — all in one app.",
     ctaPrimary: "Start for free",

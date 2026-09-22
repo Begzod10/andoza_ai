@@ -1,9 +1,10 @@
-import { ArrowRight, PlayCircle } from "lucide-react";
+import { ArrowRight, PlayCircle, LayoutGrid, Truck, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/branding/Logo";
 import { GridBackdrop } from "./GridBackdrop";
 import { HeroMock } from "./HeroMock";
+import { FloatingObject } from "./FloatingObject";
 import { useSpotlight } from "./hooks/useSpotlight";
 import { useLanguage } from "./i18n/LanguageContext";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
@@ -29,6 +30,21 @@ export function Hero() {
         aria-hidden="true"
         className="landing-blob-drift absolute bottom-0 left-1/3 w-72 h-72 rounded-full bg-orange/10 blur-3xl"
         style={{ animationDelay: "3s" }}
+      />
+
+      {/* Feature illustrations filling the otherwise-empty background —
+          floor plan, order delivery, before/after transformation. */}
+      <FloatingObject icon={LayoutGrid} tint="primary" className="w-12 h-12 top-24 right-[40%] hidden xl:flex" />
+      <FloatingObject
+        icon={Truck}
+        tint="orange"
+        floatDelayed
+        className="w-14 h-14 bottom-10 right-[8%] hidden lg:flex"
+      />
+      <FloatingObject
+        icon={Sparkles}
+        tint="primary"
+        className="w-11 h-11 bottom-1/3 left-[3%] hidden xl:flex"
       />
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-20 sm:pt-10 sm:pb-28">
