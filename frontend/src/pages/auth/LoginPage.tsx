@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { MessageSquare, KeyRound, CheckCircle2, ArrowLeft } from "lucide-react";
 import { requestOTP, verifyOTP, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { Logo } from "@/components/branding/Logo";
 import { uz } from "@/locale/uz";
 
 // Desktop/tablet only — the 3D scene's real cost (a ~250KB gzipped
@@ -291,17 +293,20 @@ export default function LoginPage() {
         }}
       />
 
-      {/* Logo */}
-      <div className="mb-8 text-center relative z-10">
-        <div className="text-5xl font-extrabold text-neutral-900 mb-2">Andoza AI</div>
-        <p className="text-lg text-muted">Uyingiz ta'miri shu yerdan boshlanadi</p>
+      {/* Logo — same wordmark/icon mark as the public landing page, not a
+       * plain text substitute, so this screen reads as the same product. */}
+      <div className="mb-8 text-center relative z-10 flex flex-col items-center">
+        <Logo variant="vertical" width={72} height={108} />
+        <p className="mt-2 text-lg text-muted">Uyingiz ta'miri shu yerdan boshlanadi</p>
       </div>
 
       <div className="w-full max-w-sm bg-white/50 backdrop-blur-md rounded-2xl shadow-card p-8 relative z-10">
         {/* ── OTP code step ── */}
         {mode === "otp-code" ? (
           <>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">✓ Kod yuborildi</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-success" /> Kod yuborildi
+            </h2>
             <p className="text-sm text-muted mb-6">
               <span className="font-medium text-gray-900">{phone}</span> raqamiga 6 xonali kod yuboramiz
             </p>
@@ -345,7 +350,7 @@ export default function LoginPage() {
                   onClick={() => switchMode("otp-phone")}
                   className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
                 >
-                  ← {uz.auth.orqaga}
+                  <ArrowLeft className="w-4 h-4" /> {uz.auth.orqaga}
                 </button>
                 <h2 className="text-lg font-semibold text-neutral-900 mb-4">Kirish</h2>
                 <div className="space-y-4">
@@ -405,7 +410,7 @@ export default function LoginPage() {
                   onClick={() => switchMode("otp-phone")}
                   className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
                 >
-                  ← {uz.auth.orqaga}
+                  <ArrowLeft className="w-4 h-4" /> {uz.auth.orqaga}
                 </button>
                 <h2 className="text-lg font-semibold text-neutral-900 mb-4">Ro'yxatdan o'tish</h2>
                 <div className="space-y-4">
@@ -514,9 +519,10 @@ export default function LoginPage() {
                   {loading ? uz.common.yuklanmoqda : "OTP Yuborish"}
                 </button>
 
-                <div className="mt-8 bg-primary-tint p-4 rounded-lg">
+                <div className="mt-8 bg-primary-tint p-4 rounded-lg flex items-start gap-2.5">
+                  <MessageSquare className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-neutral-700">
-                    📱 Siz kiritgan raqamga 6 xonali kod yuboriladi. Agar SMS kelmaydigan bo'lsa, 2-3 minutdan keyin qayta urinib ko'ring.
+                    Siz kiritgan raqamga 6 xonali kod yuboriladi. Agar SMS kelmaydigan bo'lsa, 2-3 minutdan keyin qayta urinib ko'ring.
                   </p>
                 </div>
 
@@ -528,9 +534,9 @@ export default function LoginPage() {
                 </div>
                 <button
                   onClick={() => switchMode("login")}
-                  className="w-full mt-4 border border-neutral-200 text-neutral-700 rounded-lg py-3 text-sm font-medium hover:bg-neutral-50 transition-colors"
+                  className="w-full mt-4 border border-neutral-200 text-neutral-700 rounded-lg py-3 text-sm font-medium hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  🔐 Username bilan kirish
+                  <KeyRound className="w-4 h-4" /> Username bilan kirish
                 </button>
               </>
             )}
