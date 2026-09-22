@@ -705,7 +705,7 @@ export default function WizardPage() {
     setRoomId(localId)
     setSaving(true)
     try {
-      const aptId = existingApartmentId ?? (await createApartment({ name: 'Mening kvartiram' })).id
+      const aptId = existingApartmentId ?? (await createApartment({ name: 'Mening xonadonim' })).id
       const room = await createRoom(aptId, {
         name: 'Xona',
         ceiling_h: ceilingHeight / 1000,

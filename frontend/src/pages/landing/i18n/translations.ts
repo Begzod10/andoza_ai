@@ -67,7 +67,7 @@ const uz: LandingCopy = {
   hero: {
     kirish: "Kirish",
     eyebrow: "Ta'mir uchun raqamli yordamchi",
-    headlinePre: "Kvartirangizni ",
+    headlinePre: "Xonadoningizni ",
     headlineHighlight: "3D'da ko'ring",
     headlinePost: " — ta'mirni boshlashdan oldin",
     subheadline:

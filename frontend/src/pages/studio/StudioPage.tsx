@@ -355,7 +355,7 @@ export default function StudioPage() {
       // Room not in DB — create apartment + room
       let aptId = s.apartmentId;
       if (!aptId) {
-        const apt = await createApartment({ name: s.name || 'Kvartira' });
+        const apt = await createApartment({ name: s.name || 'Xonadon' });
         aptId = apt.id;
       }
       const newRoom = await createRoom(aptId, {
