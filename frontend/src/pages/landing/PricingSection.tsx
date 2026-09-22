@@ -25,7 +25,10 @@ export function PricingSection() {
           <h2 className="mt-2 text-3xl sm:text-h2 font-extrabold">{t.pricing.heading}</h2>
         </Reveal>
 
-        <div className="mt-12 grid sm:grid-cols-3 gap-6">
+        {/* Podium stagger instead of a flat row of 3 equal cards — the
+            featured tier lifts up, the flanking two sit a touch lower, so
+            the hierarchy is structural, not just a border/shadow swap. */}
+        <div className="mt-16 grid sm:grid-cols-3 gap-6 sm:items-start">
           {t.pricing.tiers.map((tier, i) => {
             const highlight = i === HIGHLIGHT_INDEX;
             return (
@@ -33,8 +36,8 @@ export function PricingSection() {
                 <div
                   className={`relative rounded-3xl p-7 flex flex-col transition-transform duration-normal hover:-translate-y-1.5 ${
                     highlight
-                      ? "bg-white text-neutral-900 shadow-2xl sm:scale-[1.03]"
-                      : "bg-white/5 border border-white/15"
+                      ? "bg-white text-neutral-900 shadow-2xl sm:scale-[1.03] sm:-translate-y-5"
+                      : "bg-white/5 border border-white/15 sm:translate-y-3"
                   }`}
                 >
                   {highlight && <div aria-hidden="true" className="landing-shimmer-sweep" />}
