@@ -72,18 +72,24 @@ async def cache_delete_prefix(prefix: str) -> None:
     under the entity's prefix rather than guessing the exact key(s) touched.
     Call this after any admin write to an entity whose public list caches.
 
-    Deliberately NOT wrapped in a try/except: a Redis failure here must
-    propagate. Callers run inside a request whose session has only been
-    flushed — get_db() commits after the handler returns — so an exception
-    raised from this function rolls the pending write back, and the resulting
-    500 truthfully means "nothing changed; retry once Redis is back". Swallow
-    it instead and a transient SCAN/DEL blip (the realistic failure: a full
-    outage already 500s the public catalog through cache_get) would commit the
-    write while leaving the public list serving pre-write data for the whole
-    _CATALOG_CACHE_TTL of 10 minutes, with the admin told it succeeded.
-    Because that rollback is what keeps the 500 honest, callers must not
-    perform irreversible non-transactional work (deleting stored files,
-    sending mail) before calling this — do it after, or not in this request.
+    Call it POST-commit, via database.run_after_commit(), never inline in a
+    handler: handlers only flush and get_db() commits after they return, so an
+    inline invalidation leaves a window in which a concurrent read repopulates
+    the cache from pre-write data — and that stale entry then survives the
+    full _CATALOG_CACHE_TTL of 10 minutes.
+
+    Still deliberately NOT wrapped in a try/except: this function stays honest
+    about failing, and the policy lives at the seam that owns it. Earlier this
+    was argued the other way — a raise here rolled the pending write back, so
+    the 500 truthfully meant "nothing changed" — but that argument depended on
+    running pre-commit and no longer holds. Running after the commit, a raise
+    cannot un-write anything, so _run_after_commit_hooks() logs it
+    (`after_commit_hook_failed`) and lets the request succeed: the write is
+    durable, and the public list may serve pre-write data until the entry's
+    TTL expires. The corresponding invariant is now the mirror of the old one:
+    since the commit has already happened, irreversible non-transactional work
+    (deleting stored files) belongs in the same post-commit phase, not in the
+    handler body where a failed commit would strand it.
     """
     redis = get_redis()
     keys = [key async for key in redis.scan_iter(match=f"{prefix}*")]

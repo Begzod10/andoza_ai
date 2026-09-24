@@ -5,6 +5,7 @@ Every write here is admin-only: creating a shop, uploading a model with its
 category and target room, and deleting either. Storage and the DB session are
 stubbed — these cover the router's contract, not Postgres.
 """
+import asyncio
 import io
 import uuid
 from datetime import datetime, timezone
@@ -51,6 +52,9 @@ class _Result:
 
 def _db(execute_result=None):
     db = AsyncMock()
+    # A real AsyncSession.info is a plain dict, and run_after_commit() queues
+    # post-commit hooks in it; AsyncMock would hand back a coroutine instead.
+    db.info = {}
     db.execute = AsyncMock(return_value=execute_result or _Result())
     db.flush = AsyncMock()
     db.delete = AsyncMock()
@@ -72,6 +76,19 @@ def _db(execute_result=None):
 def client():
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def _run_post_commit(db):
+    """Run the hooks get_db() would have run after committing.
+
+    These tests replace get_db() with a mock session, so its commit-then-hooks
+    teardown never happens. Anything a handler defers with run_after_commit()
+    (cache invalidation, storage deletes) therefore has to be drained by hand
+    before asserting on it.
+    """
+    from app import database
+
+    asyncio.run(database._run_after_commit_hooks(db))
 
 
 def _as(user, db):
@@ -190,6 +207,9 @@ class TestDeleteStore:
 
         with patch("app.routers.admin_catalog.delete_file") as removed:
             response = client.delete(f"/api/v1/admin/stores/{store.id}")
+            # Files are only removed once the row deletion is committed.
+            assert removed.call_count == 0
+            _run_post_commit(db)
 
         assert response.status_code == 204
         db.delete.assert_awaited_once_with(store)
@@ -350,6 +370,9 @@ class TestDeleteFurniture:
 
         with patch("app.routers.admin_catalog.delete_file") as removed:
             response = client.delete(f"/api/v1/admin/furniture/{furniture.id}")
+            # Files are only removed once the row deletion is committed.
+            assert removed.call_count == 0
+            _run_post_commit(db)
 
         assert response.status_code == 204
         db.delete.assert_awaited_once_with(furniture)
@@ -587,22 +610,30 @@ class TestDeleteUsta:
 
 
 class TestCacheInvalidationFailure:
-    """Pin the deliberate fail-closed contract of cache_delete_prefix().
+    """Pin that admin writes invalidate AFTER the commit, and fail open.
 
-    Admin writes only flush their session; get_db() commits after the handler
-    returns. So a Redis failure raised from cache_delete_prefix() rolls the
-    write back and the 500 honestly means "nothing changed" — better than
-    committing and letting the public catalog serve pre-write data for the
-    full 10-minute TTL. See app/core/cache.py for the full reasoning.
+    This used to pin the opposite contract: cache_delete_prefix() ran inline
+    in the handler, so a Redis outage raised, get_db() rolled the write back,
+    and the 500 honestly meant "nothing changed". That was sound only because
+    invalidation ran pre-commit — which is exactly the race it was buying at:
+    a read landing between the inline invalidation and get_db()'s commit
+    refilled the cache from pre-write rows for the full 10-minute TTL.
+
+    Invalidation is now queued with run_after_commit() and runs on the far
+    side of the commit, where it can no longer un-write anything. So the
+    handler must NOT touch Redis (nor storage) itself, and a post-commit
+    failure is logged (`after_commit_hook_failed`) rather than turned into a
+    500 that would lie about a committed row. The ordering itself is pinned in
+    tests/test_database_session.py.
     """
 
     @staticmethod
     def _client():
-        # The 500 is the behaviour under test, so let it come back as a
-        # response instead of being re-raised into the test.
+        # Kept from the fail-closed version: if anything here did still raise,
+        # we want the 500 as a response rather than re-raised into the test.
         return TestClient(app, raise_server_exceptions=False)
 
-    def test_create_500s_rather_than_committing_uninvalidated(self, fake_redis):
+    def test_create_succeeds_and_defers_invalidation_when_redis_is_down(self, fake_redis):
         db = _db()
         _as(_user(is_admin=True), db)
         fake_redis.connected = False
@@ -620,12 +651,13 @@ class TestCacheInvalidationFailure:
             fake_redis.connected = True
             app.dependency_overrides.clear()
 
-        assert response.status_code == 500
-        # The row was staged, never committed: get_db() rolls back on the
-        # exception this raised.
+        # An unreachable Redis cannot fail the request any more: with get_db
+        # overridden here the queued hook never runs at all, which is the
+        # point — the handler itself never talks to Redis.
+        assert response.status_code == 201
         db.add.assert_called_once()
 
-    def test_furniture_delete_keeps_files_when_invalidation_fails(self, fake_redis):
+    def test_furniture_delete_touches_no_files_inside_the_handler(self, fake_redis):
         furniture = Furniture(
             id=uuid.uuid4(),
             store_id=None,
@@ -644,7 +676,42 @@ class TestCacheInvalidationFailure:
             fake_redis.connected = True
             app.dependency_overrides.clear()
 
-        assert response.status_code == 500
-        # The DB delete is rolled back, so the files it pointed at must still
-        # be there — deleting them before invalidating would orphan a live row.
+        assert response.status_code == 204
+        # Same invariant as before, relocated: the row deletion is only
+        # flushed while the handler runs, so destroying its files there would
+        # orphan a live row if the commit failed. Both the invalidation and
+        # the file deletes are queued for post-commit instead.
         removed.assert_not_called()
+
+
+class TestAdminWritesDeferInvalidation:
+    """Every admin catalog write queues its invalidation; none runs it."""
+
+    @pytest.mark.parametrize(
+        "method,path,kwargs,prefix",
+        [
+            (
+                "post",
+                "/api/v1/admin/ustalar",
+                {"json": {"name": "A", "category": "elektrik", "phone": "+998901234567"}},
+                "ustalar:",
+            ),
+            ("post", "/api/v1/admin/stores", {"json": {"name": "Do'kon"}}, "stores:"),
+        ],
+    )
+    def test_write_queues_invalidation_without_running_it(self, method, path, kwargs, prefix):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        try:
+            with patch(
+                "app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()
+            ) as invalidate:
+                response = getattr(TestClient(app), method)(path, **kwargs)
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        # Awaiting it here — inside the handler, pre-commit — is the race.
+        invalidate.assert_not_awaited()
+        hooks = db.info["after_commit_hooks"]
+        assert [hook.args[0] for hook in hooks] == [prefix]
