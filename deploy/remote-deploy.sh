@@ -6,6 +6,32 @@
 # them untouched — they live only on the server.
 set -euo pipefail
 
+# THE STDIN TRAP — read this before adding any `docker compose exec` below.
+#
+# `docker compose exec` (even with -T) reads STDIN and streams it into the
+# container until EOF. This script used to be invoked as
+#   ssh host "APP_DIR=... bash -s" < deploy/remote-deploy.sh
+# so STDIN *was the rest of this file*. The first exec therefore swallowed
+# every line after itself and bash simply ran out of script — silently, and
+# with exit 0. Deploys "succeeded" for months while seed_partners, seed_norms,
+# the materials cache flush, `docker image prune` and the closing failure
+# summary never ran once (that is why `norms` sat empty in production).
+#
+# Two guards, so that the next person cannot reintroduce this just by adding
+# another command:
+#   1. refuse to run at all when piped into bash, and
+#   2. point STDIN at /dev/null for the whole script, so every command —
+#      including ones added later — gets EOF instead of the deploy's own text.
+# The workflow now scp's this file over and runs it as a file with ssh -n
+# (see .github/workflows/deploy.yml); keep it that way.
+if [ ! -f "${BASH_SOURCE[0]:-}" ]; then
+  echo "!! remote-deploy.sh must be run as a FILE (bash /path/to/remote-deploy.sh)," >&2
+  echo "!! never piped into bash (bash -s < ...): 'docker compose exec' would eat" >&2
+  echo "!! the rest of this script as its stdin and silently truncate the deploy." >&2
+  exit 1
+fi
+exec </dev/null
+
 APP_DIR="${APP_DIR:-/opt/andoza_ai}"
 COMPOSE_FILE="docker-compose.prod.yml"
 
