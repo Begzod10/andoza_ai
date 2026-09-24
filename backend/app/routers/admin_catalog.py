@@ -416,6 +416,16 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
     await db.delete(furniture)
     await db.flush()
 
+    # Invalidate BEFORE touching storage, never after. The session is only
+    # flushed here — get_db() commits once this handler has returned — so
+    # anything that raises in between rolls the row deletion back, and
+    # cache_delete_prefix() can raise whenever Redis is unreachable. With the
+    # files deleted first, that rollback would leave a live Furniture row
+    # pointing at a GLB that no longer exists; invalidating first costs only a
+    # retryable 500 with nothing yet destroyed. delete_store() below already
+    # orders it this way — keep the two in step.
+    await cache_delete_prefix("furniture:")
+
     for key in (glb_key, thumbnail_key):
         if not key:
             continue
@@ -424,7 +434,6 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
         except Exception as exc:  # the row is gone; a stray file is not worth a 500
             logger.warning("furniture_file_delete_failed", key=key, error=str(exc))
 
-    await cache_delete_prefix("furniture:")
     logger.info("furniture_deleted", id=str(furniture_id), admin_id=str(admin.id))
 
 

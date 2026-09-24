@@ -71,6 +71,19 @@ async def cache_delete_prefix(prefix: str) -> None:
     invalidate them (an admin create/update/delete) scans for every key
     under the entity's prefix rather than guessing the exact key(s) touched.
     Call this after any admin write to an entity whose public list caches.
+
+    Deliberately NOT wrapped in a try/except: a Redis failure here must
+    propagate. Callers run inside a request whose session has only been
+    flushed — get_db() commits after the handler returns — so an exception
+    raised from this function rolls the pending write back, and the resulting
+    500 truthfully means "nothing changed; retry once Redis is back". Swallow
+    it instead and a transient SCAN/DEL blip (the realistic failure: a full
+    outage already 500s the public catalog through cache_get) would commit the
+    write while leaving the public list serving pre-write data for the whole
+    _CATALOG_CACHE_TTL of 10 minutes, with the admin told it succeeded.
+    Because that rollback is what keeps the 500 honest, callers must not
+    perform irreversible non-transactional work (deleting stored files,
+    sending mail) before calling this — do it after, or not in this request.
     """
     redis = get_redis()
     keys = [key async for key in redis.scan_iter(match=f"{prefix}*")]

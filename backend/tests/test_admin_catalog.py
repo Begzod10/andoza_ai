@@ -579,3 +579,72 @@ class TestDeleteUsta:
         _as(_user(is_admin=True), db)
         response = client.delete(f"/api/v1/admin/ustalar/{uuid.uuid4()}")
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Cache invalidation when Redis is unreachable
+# ---------------------------------------------------------------------------
+
+
+class TestCacheInvalidationFailure:
+    """Pin the deliberate fail-closed contract of cache_delete_prefix().
+
+    Admin writes only flush their session; get_db() commits after the handler
+    returns. So a Redis failure raised from cache_delete_prefix() rolls the
+    write back and the 500 honestly means "nothing changed" — better than
+    committing and letting the public catalog serve pre-write data for the
+    full 10-minute TTL. See app/core/cache.py for the full reasoning.
+    """
+
+    @staticmethod
+    def _client():
+        # The 500 is the behaviour under test, so let it come back as a
+        # response instead of being re-raised into the test.
+        return TestClient(app, raise_server_exceptions=False)
+
+    def test_create_500s_rather_than_committing_uninvalidated(self, fake_redis):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        fake_redis.connected = False
+        try:
+            response = self._client().post(
+                "/api/v1/admin/ustalar",
+                json={
+                    "name": "Aziz Elektrik",
+                    "category": "elektrik",
+                    "district": "Chilonzor",
+                    "phone": "+998901234567",
+                },
+            )
+        finally:
+            fake_redis.connected = True
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 500
+        # The row was staged, never committed: get_db() rolls back on the
+        # exception this raised.
+        db.add.assert_called_once()
+
+    def test_furniture_delete_keeps_files_when_invalidation_fails(self, fake_redis):
+        furniture = Furniture(
+            id=uuid.uuid4(),
+            store_id=None,
+            category="divan",
+            name_uz="Divan",
+            glb_key="furniture/a.glb",
+            thumbnail_key="furniture/a_thumb.jpg",
+        )
+        db = _db(_Result(one=furniture))
+        _as(_user(is_admin=True), db)
+        fake_redis.connected = False
+        try:
+            with patch("app.routers.admin_catalog.delete_file") as removed:
+                response = self._client().delete(f"/api/v1/admin/furniture/{furniture.id}")
+        finally:
+            fake_redis.connected = True
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 500
+        # The DB delete is rolled back, so the files it pointed at must still
+        # be there — deleting them before invalidating would orphan a live row.
+        removed.assert_not_called()
