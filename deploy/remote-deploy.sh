@@ -48,11 +48,19 @@ run_seed() {
 echo "==> Seeding (idempotent) + clearing materials cache"
 # Give the api a moment to finish `alembic upgrade head` on boot before seeding.
 sleep 10
+# Two separate real catalogs, seeded months apart and both live: this one is
+# Qurilish Bozori / Stroy Master / Leroy Merlin Tashkent (+ dealer offers)...
 run_seed app.seed_catalog "stores/materials/ustalar catalog"
+# ...and this one is Hamkor Qurilish / Unitile Toshkent / LaminatShop, which
+# used to be seeded only by hand — so app/seeds.py was edit-it-and-nothing-
+# happens. Both seeders insert only what is missing, keyed on store name /
+# (name_uz, store_id) / usta phone, and neither touches the other's rows.
+run_seed app.seed_partners "partner stores/materials/ustalar"
 # Norms are what every smeta line prices against; without them the engine
 # silently falls back to hardcoded constants and flags every line approximate.
-# Deliberately NOT `app.seeds`, which would add a second demo catalog beside
-# the one above — see app/seed_norms.py for the full reasoning.
+# Deliberately NOT folded into `app.seeds` with the catalog above: that runs
+# both in one transaction, so a bad material row would take the norms with
+# it — see app/seed_norms.py for the full reasoning.
 run_seed app.seed_norms "smeta norms"
 # The /materials response is cached 10 min; drop those keys so freshly seeded
 # rows appear immediately.

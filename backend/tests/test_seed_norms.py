@@ -8,10 +8,10 @@ therefore priced off hardcoded fallback constants with an "aniq norma
 topilmadi" warning attached.
 
 `app/seed_norms.py` is the norms-only entry point added for the deploy. It
-is deliberately NOT `app.seeds`, and test_seeds_catalogs_are_disjoint below
-is the reason: the two seeders' demo catalogs share no natural key, so
-running `app.seeds` on production would add a second catalog beside the
-live one rather than updating it.
+is deliberately NOT `app.seeds`: that module seeds its catalog in the same
+transaction, and norms must not be able to fail because of a material row.
+The catalog half now has its own entry point too (`app.seed_partners`) —
+see tests/test_seed_catalogs.py for the cross-catalog properties.
 
 No database is required — `_seed_norms` only ever issues one
 `select(Norm).where(Norm.material_key == ...)` per row, so a tiny in-memory
@@ -98,28 +98,46 @@ def test_norms_cover_the_keys_the_smeta_engine_looks_up():
         assert key in keys
 
 
-def test_seeds_catalogs_are_disjoint_from_seed_catalog():
-    """Why the deploy calls `app.seed_norms` and not `app.seeds`.
+def test_both_catalogs_are_seeded_and_neither_clobbers_the_other():
+    """The two seeders describe two different sets of real suppliers.
 
-    Each seeder is idempotent against its OWN rows (seeds.py guards on
-    store name / (name_uz, store_id) / phone), but the two define entirely
-    different demo catalogs. Running app.seeds on production would not
-    update the catalog seed_catalog already wrote — it would insert a
-    second one beside it, visible in the Do'kon and Ustalar tabs. If these
-    ever genuinely converge, revisit that decision deliberately rather than
-    by accident.
+    This used to assert disjointness as a *hazard* — the reason the deploy
+    ran only one of them. Both catalogs are confirmed real and both are now
+    seeded on every deploy, so what is worth pinning is that they stay
+    addressable as two: distinct natural keys, so neither seeder's guard
+    can match the other's row and silently rewrite or skip it.
+
+    Convergence is allowed, but it has to be deliberate — if a store name
+    or an usta phone is ever shared, the two files must first agree on who
+    owns that row, because both will then be looking at it on every deploy.
     """
-    from app import seed_catalog, seeds
+    from app import seed_catalog, seed_partners, seeds
 
-    assert not ({s["name"] for s in seeds.STORES}
-                & {s["name"] for s in seed_catalog.STORES})
-    assert not ({u["phone"] for u in seeds.USTALAR}
-                & {u["phone"] for u in seed_catalog.USTALAR})
+    # Both halves of app/seeds.py have an automated entry point; neither can
+    # go back to being edit-it-and-nothing-happens.
+    assert callable(seed_partners.seed_partners)
+
+    shared_stores = {s["name"] for s in seeds.STORES} & {
+        s["name"] for s in seed_catalog.STORES
+    }
+    assert not shared_stores, f"both seeders now own store(s) {shared_stores}"
+
+    shared_phones = {u["phone"] for u in seeds.USTALAR} & {
+        u["phone"] for u in seed_catalog.USTALAR
+    }
+    assert not shared_phones, f"both seeders now own usta phone(s) {shared_phones}"
+
+    # Materials key on (name_uz, store); with store names disjoint the pairs
+    # cannot collide, but pin the names too — they are what a reader compares.
+    shared_materials = {m["name_uz"] for m in seeds.MATERIALS} & {
+        m["name_uz"] for m in seed_catalog.MATERIALS
+    }
+    assert not shared_materials, f"both seeders now own material(s) {shared_materials}"
 
 
 def test_seed_norms_entry_point_touches_norms_only():
     """`python -m app.seed_norms` must not pull in the store/material/usta
-    seeders — that is the entire safety property it exists to provide."""
+    seeders — norms stay runnable no matter what the catalog is doing."""
     import ast
     import inspect
 

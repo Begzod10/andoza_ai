@@ -47,6 +47,10 @@ def fake_redis(monkeypatch):
     that happens to have a Redis listening on localhost. Each test gets its
     own FakeServer, so cached keys and rate-limit counters cannot leak from
     one test into the next.
+
+    Yields the FakeServer so that a test needing an unreachable Redis can set
+    `fake_redis.connected = False`; every command then raises
+    redis.exceptions.ConnectionError, just as a real outage would.
     """
     from app.core import cache
 
@@ -64,7 +68,7 @@ def fake_redis(monkeypatch):
     # against the real Redis (and let monkeypatch put the globals back).
     monkeypatch.setattr(cache, "_redis_client", None)
     monkeypatch.setattr(cache, "_redis_client_loop", None)
-    yield
+    yield server
 
 
 # ============================================================================

@@ -6,20 +6,18 @@ Run inside the backend container (this is what deploy/remote-deploy.sh calls)::
 
 Why this exists instead of ``python -m app.seeds``
 --------------------------------------------------
-``app.seeds`` seeds norms *and* a second, entirely separate demo catalog:
-its STORES / MATERIALS / USTALAR share no natural key with the ones
-``app.seed_catalog`` already seeded on production ("Hamkor Qurilish" vs
-"Qurilish Bozori", and so on). Each of those seeders is idempotent against
-its *own* rows, so re-running either one is safe — but running ``app.seeds``
-on production would not update the existing catalog, it would add a second
-one beside it: 3 more stores, 9 more materials and 5 more ustalar, all of
-them visible in the Do'kon and Ustalar tabs.
+``app.seeds.seed()`` seeds norms *and* its store/material/usta catalog, in
+one transaction. That catalog is real and is now seeded on every deploy too
+— by ``app.seed_partners`` — but it is kept on its own entry point so that
+a bad catalog row can never roll the norms back with it. Norms are what
+every smeta line prices against: until this module existed nothing anywhere
+called ``_seed_norms``, and production ran every line on hardcoded fallback
+constants with an "aniq norma topilmadi" warning attached. That must not
+become possible again as a side effect of a catalog edit.
 
-Norms have no such overlap (nothing else writes the table, and
-``_seed_norms`` upserts by ``material_key``), so this module exposes just
-that half. Until it existed nothing anywhere called ``_seed_norms``, which
-is why production ran every smeta line on hardcoded fallback constants with
-an "aniq norma topilmadi" warning attached.
+Norms are also the only table here that is a pure upsert (nothing else
+writes them, and ``_seed_norms`` keys on ``material_key``), so correcting a
+coverage figure in ``NORMS`` reaches production on the next deploy.
 """
 from __future__ import annotations
 
