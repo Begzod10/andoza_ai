@@ -17,6 +17,9 @@ ROOM_TYPES = {"mehmonxona", "oshxona", "yotoqxona", "hammom", "balkon"}
 # frontend/src/locale/uz.ts already uses for wall/floor/ceiling design.
 PLACEMENTS = {"pol", "devor", "shift"}
 
+# Kept in sync with app.models.store.PARTNER_TIERS, which is also what the
+# `ck_stores_partner_tier` CHECK is built from — tests/test_partner_tier.py
+# fails if the two ever drift.
 PARTNER_TIERS = {"standard", "gold", "platinum"}
 
 # Kept in sync with app.models.usta.UstaCategory
