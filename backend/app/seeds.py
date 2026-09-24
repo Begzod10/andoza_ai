@@ -1,19 +1,38 @@
-"""One-time async seed script for UyTa'mir.
+"""Seed data and seed functions for UyTa'mir.
 
-Populates:
-  - Norms (upsert by material_key)
-  - Sample Stores (3 partner stores)
-  - Sample Materials (9 realistic Tashkent 2024 prices)
-  - Sample Ustalar (5 verified craftsmen)
+Defines:
+  - NORMS (upsert by material_key)
+  - STORES — Hamkor Qurilish, Unitile Toshkent, LaminatShop
+  - MATERIALS — 9 rows, realistic Tashkent 2024 prices
+  - USTALAR — 5 craftsmen
 
-Run once after migrations::
+This module is the *data*; the deploy runs it through two single-purpose
+entry points, so editing the lists below does reach production:
+
+  - ``python -m app.seed_norms``    -> NORMS
+  - ``python -m app.seed_partners`` -> STORES / MATERIALS / USTALAR
+
+``app.seed_catalog`` seeds a second, entirely separate real catalog
+(Qurilish Bozori, Stroy Master, Leroy Merlin Tashkent). The two share no
+store name, no material and no usta phone; both are seeded on every deploy
+and neither touches the other's rows — see tests/test_seed_catalogs.py.
+
+``seed()`` below still runs everything at once for a local/first-time
+database::
 
     cd backend
     python -m app.seeds
 
-or::
+On a live database prefer the two entry points: they are independent, so a
+catalog problem cannot roll the norms back with it.
 
-    python app/seeds.py
+Every function here is insert-guarded on a natural key (store ``name``,
+material ``(name_uz, store_id)``, usta ``phone``), and an existing row is
+left exactly as it is — admins edit stores and ustalar through
+/admin/catalog, and a deploy-time reseed must not revert those edits.
+Norms are the one exception: nothing but this file writes them, so they are
+upserted and a corrected coverage figure reaches production on the next
+deploy.
 """
 from __future__ import annotations
 
@@ -377,7 +396,10 @@ async def _seed_norms(session) -> None:
 
 
 async def _seed_stores(session) -> dict[str, Store]:
-    """Insert stores that don't exist yet. Return name→Store map."""
+    """Insert stores that don't exist yet (matched by name). Return name→Store map.
+
+    An existing store is returned untouched — see the module docstring.
+    """
     store_map: dict[str, Store] = {}
     for data in STORES:
         result = await session.execute(
@@ -402,7 +424,10 @@ async def _seed_stores(session) -> dict[str, Store]:
 
 
 async def _seed_materials(session, store_map: dict[str, Store]) -> None:
-    """Insert materials that don't exist (matched by name_uz + store)."""
+    """Insert materials that don't exist (matched by name_uz + store).
+
+    An existing material is left alone, price included.
+    """
     for data in MATERIALS:
         store = store_map.get(data["store_ref"])
         if store is None:
@@ -431,15 +456,16 @@ async def _seed_materials(session, store_map: dict[str, Store]) -> None:
             session.add(material)
             log.info("Material created: %s (%s)", data["name_uz"], data["category"])
         else:
-            material.price_uzs = data["price_uzs"]
-            material.pbr_roughness = data["pbr_roughness"]
-            material.texture_key = data.get("texture_key")
-            log.info("Material updated: %s", data["name_uz"])
+            log.info("Material already exists: %s", data["name_uz"])
     await session.flush()
 
 
 async def _seed_ustalar(session) -> None:
-    """Insert ustalar that don't exist (matched by phone)."""
+    """Insert ustalar that don't exist (matched by phone).
+
+    An existing usta is left alone: rating/jobs_count/verified are admin- and
+    app-maintained, not ours to reset.
+    """
     for data in USTALAR:
         result = await session.execute(
             select(Usta).where(Usta.phone == data["phone"])
@@ -461,9 +487,6 @@ async def _seed_ustalar(session) -> None:
             session.add(usta)
             log.info("Usta created: %s (%s)", data["name"], data["category"])
         else:
-            usta.verified = data["verified"]
-            usta.rating = data["rating"]
-            usta.jobs_count = data["jobs_count"]
             log.info("Usta already exists: %s", data["name"])
     await session.flush()
 
@@ -473,7 +496,12 @@ async def _seed_ustalar(session) -> None:
 # ---------------------------------------------------------------------------
 
 async def seed() -> None:
-    """Run all seed operations in a single transaction."""
+    """Run every seed operation in a single transaction.
+
+    Convenient for a fresh local database. The deploy uses the split entry
+    points instead (app.seed_norms + app.seed_partners), so that a failure
+    in one half cannot roll back the other.
+    """
     async with AsyncSessionLocal() as session:
         async with session.begin():
             log.info("=== UyTa'mir seed started ===")
