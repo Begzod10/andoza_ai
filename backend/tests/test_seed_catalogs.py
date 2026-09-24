@@ -239,3 +239,50 @@ async def test_seeding_does_not_overwrite_an_edited_row(session):
     assert usta.rating == 3.0
     assert usta.jobs_count == 999
     assert material.price_uzs == 1
+
+
+# ---------------------------------------------------------------------------
+# Completeness of what each seeder writes
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("module", (seed_catalog, seeds), ids=("seed_catalog", "seeds"))
+def test_every_seeded_usta_has_map_coordinates_and_an_avatar(module):
+    """An usta without lat/lng is listed in U3 but has no pin on the U1 map,
+    and one without an avatar_url renders as a bare placeholder circle.
+
+    Driven off the module data, not a hand-written list, so a row added to
+    either USTALAR without these fields fails here instead of on a deploy.
+    """
+    for row in module.USTALAR:
+        for field in ("lat", "lng", "avatar_url"):
+            assert row.get(field) is not None, (
+                f"{module.__name__}: usta {row['name']!r} has no {field}"
+            )
+        # Tashkent, loosely — catches a swapped lat/lng or a stray decimal.
+        assert 41.0 <= row["lat"] <= 41.6, row["name"]
+        assert 69.0 <= row["lng"] <= 69.6, row["name"]
+
+
+@pytest.mark.parametrize("module", (seed_catalog, seeds), ids=("seed_catalog", "seeds"))
+def test_every_seeded_material_has_an_image(module):
+    """image_url is what the S1 grid and S3 detail page show; without it the
+    product card falls back to a bare icon."""
+    for row in module.MATERIALS:
+        assert row.get("image_url"), (
+            f"{module.__name__}: material {row['name_uz']!r} has no image_url"
+        )
+
+
+@pytest.mark.asyncio
+async def test_inserted_rows_carry_those_fields_through_to_the_database(session):
+    """The data lists above are only half of it — the seeder must actually
+    pass the columns to the model. Every usta/material either seeder inserts
+    comes back with them set."""
+    await _run_every_seeder()
+
+    for usta in session.of(Usta):
+        assert usta.lat is not None, usta.name
+        assert usta.lng is not None, usta.name
+        assert usta.avatar_url, usta.name
+    for material in session.of(Material):
+        assert material.image_url, material.name_uz
