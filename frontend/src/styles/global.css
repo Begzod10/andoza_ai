@@ -40,6 +40,11 @@
     --color-surface: #ffffff;
     --color-paper: #f9f9f9;
     --color-background: #f3f4f6;
+
+    /* App background — the ONLY thing the day/night ThemeToggle changes.
+       Cards, text and controls keep their own colors. Day is the default
+       until JS applies data-app-theme (from the system clock or the toggle). */
+    --color-app-bg: #ede3fc; /* day */
     --color-border: #e5e7eb;
     --color-divider: #f3f4f6;
     --color-overlay: rgba(0, 0, 0, 0.5);
@@ -116,12 +121,21 @@
 
   body {
     font-family: var(--font-family-sans);
-    background-color: var(--color-background);
+    background-color: var(--color-app-bg);
     color: var(--color-text-primary);
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Day / night app-background themes, toggled via the ThemeToggle button.
+     data-app-theme is set on <html> by AppShell (default follows the clock). */
+  :root[data-app-theme='day'] {
+    --color-app-bg: #ede3fc;
+  }
+  :root[data-app-theme='night'] {
+    --color-app-bg: #2a2438;
   }
 
   /* Focus states for accessibility */
@@ -356,4 +370,14 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Day/night app background ─────────────────────────────────────────────
+   Page surfaces use the `bg-paper` utility as the visible app background.
+   Drive it from --color-app-bg (set by the ThemeToggle via data-app-theme on
+   <html>) so the toggle recolors the whole app background. Cards
+   (bg-white/bg-surface) and text keep their own colors. Unlayered so it wins
+   over Tailwind's @layer utilities `.bg-paper`. */
+.bg-paper {
+  background-color: var(--color-app-bg);
 }
