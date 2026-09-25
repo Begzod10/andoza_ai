@@ -371,3 +371,13 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Day/night app background ─────────────────────────────────────────────
+   Page surfaces use the `bg-paper` utility as the visible app background.
+   Drive it from --color-app-bg (set by the ThemeToggle via data-app-theme on
+   <html>) so the toggle recolors the whole app background. Cards
+   (bg-white/bg-surface) and text keep their own colors. Unlayered so it wins
+   over Tailwind's @layer utilities `.bg-paper`. */
+.bg-paper {
+  background-color: var(--color-app-bg);
+}
