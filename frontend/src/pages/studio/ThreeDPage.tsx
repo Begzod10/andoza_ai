@@ -52,6 +52,7 @@ import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./three-d/SiblingRoo
 import { RealismEffects, BrandedSky, SceneLighting } from "./three-d/SceneEnvironment";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
+import { applyUniformZoom } from "@/lib/orbitZoom";
 import { DEFAULT_HDRI } from "@/lib/hdri";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./three-d/CameraControls";
 import { SwapButtons, RoomScene } from "./three-d/RoomShell";
@@ -448,6 +449,11 @@ export default function ThreeDPage() {
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  // Seed the same tuning on mount, so the very first wheel notch already
+  // travels the intended distance instead of three's default speed.
+  useEffect(() => {
+    applyUniformZoom(controlsRef.current, Math.max(W, D));
+  }, [W, D]);
 
   // ── Long-press detection on 3D surfaces ─────────────────────────────
   // R3F pointer events bubble from the surface meshes up to the wrapping
@@ -1692,7 +1698,13 @@ export default function ThreeDPage() {
               // reverseHorizontalOrbit / reverseVerticalOrbit flags if these
               // ever need to diverge again).
               reverseOrbit
-              zoomSpeed={0.8}
+              // zoomSpeed is NOT passed as a prop on purpose: it is retuned
+              // from the live distance on every change (see applyUniformZoom),
+              // and a prop would overwrite that on the next React render.
+              onChange={(e) => applyUniformZoom(
+                (e?.target ?? controlsRef.current) as unknown as { getDistance(): number; zoomSpeed: number },
+                Math.max(W, D),
+              )}
             />
 
             <CameraAnimator

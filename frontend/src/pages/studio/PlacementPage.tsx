@@ -6,6 +6,7 @@ import { OrbitControls } from '@react-three/drei'
 import { SafeEnvironment } from '@/components/studio/SafeEnvironment'
 import { StudioTabStrip } from '@/components/studio/StudioTabStrip'
 import { PlanViewToggle } from '@/components/studio/PlanViewToggle'
+import { applyUniformZoom } from '@/lib/orbitZoom'
 import { useRoomStore } from '@/store/roomStore'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry, DesignState } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
@@ -1853,7 +1854,13 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
           <OrbitControls
             target={initTarget}
             enableDamping dampingFactor={0.06}
-            rotateSpeed={0.45} zoomSpeed={0.8}
+            rotateSpeed={0.45}
+            // Distance-independent zoom, same as the main 3D view — see
+            // applyUniformZoom for why zoomSpeed is set here, not passed.
+            onChange={(e) => applyUniformZoom(
+              e?.target as unknown as { getDistance(): number; zoomSpeed: number },
+              Math.max(W, D),
+            )}
             // Both drag axes reversed, matching the main 3D view: dragging
             // right sends the room left, dragging down tilts the other way.
             reverseOrbit
