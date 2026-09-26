@@ -332,13 +332,21 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
  * either way, which is the one part that must not depend on the view.
  */
 export const Ceiling = memo(function Ceiling({
-  W, D, H, T, designId, settings, hidden, meshRef,
+  W, D, H, T, designId, settings, hidden, meshRef, isSelected, onClick,
 }: {
   W: number; D: number; H: number; T: number
   designId: CeilingDesignId
   settings?: Partial<CeilingSettings>
   hidden: boolean
   meshRef: MutableRefObject<THREE.Mesh | null>
+  /** Tinted the same blue a selected wall/floor gets, so the ceiling reads as
+   *  the active surface while the panel edits it. */
+  isSelected?: boolean
+  /** Selects the ceiling. No stopPropagation on the group below (same as the
+   *  floor's and the walls' own groups) — one tap has to both select and
+   *  bubble to RoomShell's holdBind('ceiling') wrapper, which is what opens
+   *  the radial menu. */
+  onClick?: () => void
 }) {
   const design = ceilingDesign(designId)
   const resolved = useMemo(() => resolveCeilingSettings(design, settings), [design, settings])
@@ -347,8 +355,13 @@ export const Ceiling = memo(function Ceiling({
     [design, resolved, W, D, H],
   )
 
+  // Hidden means the slab draws nothing and (via RoomScene's raycast switch)
+  // cannot be picked, so the highlight has to go with it — a tint glowing in
+  // an open-topped top view would be painting a ceiling that isn't shown.
+  const showSelected = !!isSelected && !hidden
+
   return (
-    <group>
+    <group onClick={onClick}>
       <mesh ref={meshRef} position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <planeGeometry args={[W + 2 * T, D + 2 * T]} />
         <meshStandardMaterial
@@ -357,10 +370,22 @@ export const Ceiling = memo(function Ceiling({
           side={THREE.FrontSide}
           colorWrite={!hidden}
           depthWrite={!hidden}
+          // Emissive rather than the floor's overlay plane: a dropped design
+          // hangs its panels BELOW this slab, so an overlay would end up
+          // behind them and the tint would vanish on exactly the ceilings
+          // that have something to select. Tinting the materials instead
+          // colours the slab and the panels wherever they happen to sit.
+          emissive={showSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={showSelected ? 0.25 : 0}
         />
       </mesh>
       {!hidden && parts.length > 0 && (
-        <CeilingProfile parts={parts} color={resolved.color} stripK={resolved.stripK} />
+        <CeilingProfile
+          parts={parts}
+          color={resolved.color}
+          stripK={resolved.stripK}
+          selected={showSelected}
+        />
       )}
     </group>
   )
@@ -375,11 +400,15 @@ export const Ceiling = memo(function Ceiling({
  * in the room that should not respond to the room's own lighting.
  */
 function CeilingProfile({
-  parts, color, stripK,
+  parts, color, stripK, selected = false,
 }: {
   parts: CeilingPart[]
   color: string
   stripK: number
+  /** Selection tint, carried down so a dropped ceiling highlights as one
+   *  surface instead of just its slab. The LED strips stay untouched — they
+   *  are a light source, not a face of the ceiling. */
+  selected?: boolean
 }) {
   const stripColor = kelvinToHex(stripK)
   return (
@@ -396,7 +425,11 @@ function CeilingProfile({
           {part.kind === 'strip' ? (
             <meshBasicMaterial color={stripColor} toneMapped={false} />
           ) : (
-            <meshStandardMaterial color={color} roughness={0.92} metalness={0} />
+            <meshStandardMaterial
+              color={color} roughness={0.92} metalness={0}
+              emissive={selected ? '#1E40AF' : '#000000'}
+              emissiveIntensity={selected ? 0.25 : 0}
+            />
           )}
         </mesh>
       ))}

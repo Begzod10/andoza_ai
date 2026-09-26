@@ -226,6 +226,8 @@ function NWallRoomShell({
   onWallClick,
   isFloorSelected,
   onFloorClick,
+  isCeilingSelected,
+  onCeilingClick,
   holdBind,
   cutaway = 'off',
   plasterWalls = false,
@@ -237,6 +239,8 @@ function NWallRoomShell({
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
   onFloorClick?: () => void;
+  isCeilingSelected?: boolean;
+  onCeilingClick?: () => void;
   /** Opens the surface radial menu (add door/window, wall image, ...). The
    *  ABCD shell has always spread this onto its surfaces; without it here a
    *  drawn room could select a wall but never act on it. */
@@ -310,20 +314,18 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
-  // Which face of the ceiling slab points DOWN into the room. buildShape
-  // feeds (x, -z) into the shape, so a positive signed area there means the
-  // loop is counter-clockwise in the shape's own plane and ShapeGeometry's
-  // front face ends up pointing +Y once the mesh is rotated flat — the wrong
-  // way for a ceiling, so the back face is the one to keep.
-  const ceilingSide = useMemo(() => {
-    let a = 0
-    for (let i = 0; i < filteredCentred.length; i++) {
-      const [x1, z1] = filteredCentred[i]
-      const [x2, z2] = filteredCentred[(i + 1) % filteredCentred.length]
-      a += x1 * -z2 - x2 * -z1
-    }
-    return a > 0 ? THREE.BackSide : THREE.FrontSide
-  }, [filteredCentred])
+  // Which face of the ceiling slab points DOWN into the room: always the back
+  // one. This used to be derived from the polygon's signed area, on the theory
+  // that a clockwise loop flips ShapeGeometry's front face — it does not.
+  // ShapeUtils.triangulateShape normalizes the contour's winding before
+  // triangulating, so ShapeGeometry emits +Z normals for EITHER winding, and
+  // `rotation={[-PI/2, 0, 0]}` turns that +Z into +Y (up, out of the room)
+  // every time. A room whose outline happened to be drawn clockwise therefore
+  // got FrontSide, i.e. a ceiling facing away from the people under it: it
+  // vanished from inside (sky overhead, lights hanging off nothing) and,
+  // now that the slab is pickable, could not be clicked either, since a
+  // FrontSide material culls exactly the face a ray from below arrives at.
+  const ceilingSide = THREE.BackSide
 
   // Per-edge transforms + inward/outward normals. `centred` (not the filtered
   // set) is used so edge i still lines up with geometry.walls[i]; the room is
@@ -418,15 +420,21 @@ function NWallRoomShell({
           sky overhead and the ceiling lights hanging off nothing.
           Single-sided like the ABCD shell's ceiling: seen from inside, gone
           from above, so pulling the camera out of the room still looks in
-          rather than at a lid. Which face that is depends on the polygon's
-          winding (see the floor's note) — hence ceilingSide rather than a
-          fixed FrontSide. */}
+          rather than at a lid — see `ceilingSide` for which face that is.
+
+          Wrapped and pickable like the floor above it: the slab used to be
+          noRaycast, so a drawn room's ceiling was the one surface that could
+          neither be selected nor long-pressed. Being single-sided also keeps
+          it out of the way of any view that looks down at the room — a ray
+          from above meets the culled face and passes straight through to the
+          floor plan, so the slab can never swallow a pick there. */}
+      <group {...(holdBind?.('ceiling') ?? {})}>
       <mesh
         geometry={polyGeo}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, H, 0]}
         castShadow
-        raycast={noRaycast}
+        onClick={onCeilingClick}
       >
         <meshStandardMaterial
           // The room's own ceiling colour, same source and same near-white
@@ -434,10 +442,13 @@ function NWallRoomShell({
           // greyer slab tone that made drawn rooms read dirtier than
           // rectangular ones side by side.
           color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
+          emissive={isCeilingSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={isCeilingSelected ? 0.25 : 0}
           roughness={0.95}
           side={ceilingSide}
         />
       </mesh>
+      </group>
 
       {/* One carved wall + frames + baseboard per polygon edge, rotated into place */}
       {edges.map((e) => {
@@ -561,6 +572,8 @@ export const RoomScene = memo(function RoomScene({
   onWallClick,
   isFloorSelected,
   onFloorClick,
+  isCeilingSelected,
+  onCeilingClick,
   holdBind,
   plasterWalls = false,
 }: {
@@ -577,6 +590,10 @@ export const RoomScene = memo(function RoomScene({
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
   onFloorClick?: () => void;
+  /** The ceiling is selectable exactly like a wall or the floor — one tap
+   *  highlights it and points the design panel's "Shift" target at it. */
+  isCeilingSelected?: boolean;
+  onCeilingClick?: () => void;
   /** Long-press handler bundles per surface — spread onto wrapping groups so a
    *  press-and-hold on a wall/ceiling/floor opens the radial context menu. */
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
@@ -777,6 +794,8 @@ export const RoomScene = memo(function RoomScene({
               settings={designState.ceiling?.settings}
               hidden={ceilingHidden}
               meshRef={ceilingRef}
+              isSelected={isCeilingSelected}
+              onClick={onCeilingClick}
             />
           </group>
 
@@ -853,6 +872,8 @@ export const RoomScene = memo(function RoomScene({
             onWallClick={onWallClick}
             isFloorSelected={isFloorSelected}
             onFloorClick={onFloorClick}
+            isCeilingSelected={isCeilingSelected}
+            onCeilingClick={onCeilingClick}
             holdBind={holdBind}
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}
