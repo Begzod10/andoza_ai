@@ -224,6 +224,9 @@ function NWallRoomShell({
   designState,
   selectedWall,
   onWallClick,
+  isFloorSelected,
+  onFloorClick,
+  holdBind,
   cutaway = 'off',
   plasterWalls = false,
 }: {
@@ -232,6 +235,12 @@ function NWallRoomShell({
   designState: DesignState;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
+  isFloorSelected?: boolean;
+  onFloorClick?: () => void;
+  /** Opens the surface radial menu (add door/window, wall image, ...). The
+   *  ABCD shell has always spread this onto its surfaces; without it here a
+   *  drawn room could select a wall but never act on it. */
+  holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
   cutaway?: CutawayMode;
   plasterWalls?: boolean;
 }) {
@@ -365,12 +374,22 @@ function NWallRoomShell({
 
   return (
     <group>
-      {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
-      <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0. Wrapped
+          like the ABCD shell's floor so tapping it selects the floor and
+          opens the same radial menu. */}
+      <group {...(holdBind?.('floor') ?? {})}>
+      <mesh
+        geometry={polyGeo}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+        onClick={onFloorClick}
+      >
         <meshStandardMaterial
           color={floorPattern
             ? floorSlabColorFor(floorPattern, floorBase)
             : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
+          emissive={isFloorSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={isFloorSelected ? 0.25 : 0}
           roughness={floorPattern ? 0.92 : 0.8}
           // ShapeGeometry's front-face winding depends on the input polygon's
           // winding in its own local X-Y space, before this mesh's rotation
@@ -390,6 +409,7 @@ function NWallRoomShell({
           clipPolygon={filteredCentred}
         />
       )}
+      </group>
 
       {/* Ceiling — a plain white slab, and the roof the sun stops at.
           It used to draw nothing (colourWrite off, shadow caster only) on the
@@ -449,7 +469,7 @@ function NWallRoomShell({
         // positioned against it and would all shift by T/2.
         return (
           <WallFade key={e.wallId} hidden={hiddenEdges.has(e.index)}>
-            <group position={[e.mx, 0, e.mz]} rotation={[0, e.yaw, 0]}>
+            <group position={[e.mx, 0, e.mz]} rotation={[0, e.yaw, 0]} {...(holdBind?.('wall', e.wallId) ?? {})}>
               <Wall
                 plaster={plasterWalls}
                 wallId={e.wallId}
@@ -826,6 +846,9 @@ export const RoomScene = memo(function RoomScene({
             designState={designState}
             selectedWall={selectedWall}
             onWallClick={onWallClick}
+            isFloorSelected={isFloorSelected}
+            onFloorClick={onFloorClick}
+            holdBind={holdBind}
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}
           />

@@ -1,12 +1,12 @@
+import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
- * Stories-style navigation between the studio's view tabs: the PREVIOUS
- * section's name, the CURRENT one in the middle, and the NEXT one — each
- * neighbour a button that goes there, wrapping around at both ends
- * (Smeta → 3D). Naming the neighbours instead of drawing bare arrows means
- * you can see where a tap leads before taking it.
+ * Stories-style navigation between the studio's view tabs: one rounded bar
+ * carrying the PREVIOUS section's name, the CURRENT one, and the NEXT one,
+ * wrapping around at both ends (Smeta → 3D). Tap a neighbour to go there, or
+ * hold the bar and slide horizontally — the side you lean toward arms, and
+ * releasing switches to it.
  *
  * This is the primary way to shift between sections; the hamburger
  * TopDrawer in the studio header (StudioNav) stays as-is as secondary
@@ -81,22 +81,24 @@ export function useStudioTabNav(roomId: string): TabNav | null {
   };
 }
 
-// Same floating-pill family as the other viewport controls: bg-white/95 +
-// backdrop-blur, gray-200 border, shadow-md, rounded-full.
-//
-// The neighbours are NAMED rather than drawn as chevrons — you can see where
-// a tap will take you before taking it. They are deliberately quieter than
-// the current section (lighter weight, muted text, translucent) so the
-// middle pill still reads as "you are here", and they truncate instead of
-// pushing the row wider than a phone viewport.
-const NEIGHBOUR_CLS =
-  "h-10 px-3 max-w-[34vw] sm:max-w-[10rem] rounded-full bg-white/80 backdrop-blur border border-gray-200 " +
-  "shadow-md flex items-center gap-1 text-[12px] font-medium text-gray-500 " +
-  "hover:bg-white hover:text-gray-900 transition-colors";
-const NEIGHBOUR_LABEL_CLS = "truncate";
-const TITLE_CLS =
-  "h-10 px-4 flex items-center rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md " +
-  "text-[13px] font-bold text-gray-900 whitespace-nowrap select-none";
+// One rounded bar holding all three names. The current section is opaque
+// and bold; its neighbours sit at 80% opacity so "you are here" reads at a
+// glance without a second pill or a chevron to decode.
+const BAR_CLS =
+  "inline-flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 " +
+  "shadow-md select-none touch-none";
+const SIDE_CLS =
+  "h-8 px-3 max-w-[28vw] sm:max-w-[9rem] truncate rounded-full text-[12px] font-medium " +
+  "text-gray-600 opacity-80 hover:opacity-100 hover:bg-gray-100 transition";
+const SIDE_ARMED_CLS = "opacity-100 bg-gray-100 text-gray-900";
+const CURRENT_CLS =
+  "h-8 px-4 rounded-full bg-gray-100 text-[13px] font-bold text-gray-900 whitespace-nowrap " +
+  "flex items-center";
+
+/** Past this many pixels a horizontal drag counts as "switch to that side". */
+const SWITCH_PX = 28;
+/** Past this, the gesture was a drag and the click it ends with is ignored. */
+const DRAG_SLOP = 6;
 
 export function StudioTabStrip({
   roomId,
@@ -105,73 +107,109 @@ export function StudioTabStrip({
 }: {
   roomId: string;
   /**
-   * "overlay": one absolutely-positioned centred cluster (arrow, title,
-   * arrow) inside the nearest relative ancestor — the page's viewport box.
-   * "inline": the same row in normal flow, for regular document pages
-   * (Smeta).
+   * "overlay": the bar absolutely positioned, centred at the top of the
+   * nearest relative ancestor — the page's viewport box. "inline": the same
+   * bar in normal flow, for regular document pages (Smeta).
    */
   variant?: "overlay" | "inline";
-  /** Extra classes for the overlay title — e.g. "hidden sm:block" where the
-   *  host viewport gets too narrow for all three pills (PlacementPage's
-   *  plan+3D area on phones); the arrows stay usable without it. */
+  /** Extra classes for the bar's positioned wrapper. */
   titleClassName?: string;
 }) {
   const nav = useStudioTabNav(roomId);
+  // Which side a drag is currently pointing at, and how far it has travelled
+  // (the bar leans that way, so the gesture feels connected to the names).
+  const [armed, setArmed] = useState<"prev" | "next" | null>(null);
+  const [dx, setDx] = useState(0);
+  // The gesture's own state lives in a ref, not just in `armed`: pointermove
+  // and pointerup can land in the same task (a quick flick, or a synthetic
+  // sequence), and React would then batch the setState so the release read a
+  // stale side and switched to nothing. `armed` exists only to paint it.
+  const dragRef = useRef<{ x: number; moved: boolean; side: "prev" | "next" | null } | null>(null);
+  // A drag that ends over a name would otherwise fire that name's click too.
+  const draggedRef = useRef(false);
+
   if (!nav) return null;
 
-  const prevBtn = (
-    <button
-      type="button"
-      onClick={nav.goPrev}
-      title={`Oldingi bo'lim — ${nav.prev.label}`}
-      aria-label={`Oldingi bo'lim — ${nav.prev.label}`}
-      className={NEIGHBOUR_CLS}
+  const commit = (side: "prev" | "next" | null) => {
+    if (side === "prev") nav.goPrev();
+    else if (side === "next") nav.goNext();
+  };
+
+  // Hold anywhere on the bar and slide: past SWITCH_PX the section on that
+  // side arms, and releasing goes there. Dragging right reaches back for the
+  // previous section, matching how the names are laid out.
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragRef.current = { x: e.clientX, moved: false, side: null };
+    // Clear the swallow flag HERE, at the start of the next gesture, not in
+    // the click handler: a drag that ends off a name fires no click at all,
+    // and the flag would otherwise survive to eat the next genuine tap.
+    draggedRef.current = false;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const moved = e.clientX - d.x;
+    if (Math.abs(moved) > DRAG_SLOP) d.moved = true;
+    d.side = moved > SWITCH_PX ? "prev" : moved < -SWITCH_PX ? "next" : null;
+    setDx(Math.max(-40, Math.min(40, moved)));
+    setArmed(d.side);
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    setDx(0);
+    setArmed(null);
+    if (e.currentTarget instanceof HTMLElement && e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (d?.moved) {
+      draggedRef.current = true;
+      commit(d.side);
+    }
+  };
+  const swallowClickAfterDrag = (e: React.MouseEvent) => {
+    if (draggedRef.current) e.preventDefault();
+  };
+
+  const bar = (
+    <div
+      className={BAR_CLS}
+      style={{ transform: dx ? `translateX(${dx * 0.35}px)` : undefined, transition: dx ? "none" : "transform 150ms ease-out" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     >
-      <ChevronLeft size={14} aria-hidden="true" className="shrink-0" />
-      <span className={NEIGHBOUR_LABEL_CLS}>{nav.prev.label}</span>
-    </button>
-  );
-  const nextBtn = (
-    <button
-      type="button"
-      onClick={nav.goNext}
-      title={`Keyingi bo'lim — ${nav.next.label}`}
-      aria-label={`Keyingi bo'lim — ${nav.next.label}`}
-      className={NEIGHBOUR_CLS}
-    >
-      <span className={NEIGHBOUR_LABEL_CLS}>{nav.next.label}</span>
-      <ChevronRight size={14} aria-hidden="true" className="shrink-0" />
-    </button>
-  );
-  const title = (
-    // aria-live so screen readers hear the section change as the arrows cycle.
-    <div className={TITLE_CLS} aria-live="polite">
-      {nav.current.label}
+      <button
+        type="button"
+        onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) nav.goPrev(); }}
+        title={`Oldingi bo'lim — ${nav.prev.label}`}
+        aria-label={`Oldingi bo'lim — ${nav.prev.label}`}
+        className={`${SIDE_CLS} ${armed === "prev" ? SIDE_ARMED_CLS : ""}`}
+      >
+        {nav.prev.label}
+      </button>
+      {/* aria-live so a screen reader hears the section change. */}
+      <div className={CURRENT_CLS} aria-live="polite">{nav.current.label}</div>
+      <button
+        type="button"
+        onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) nav.goNext(); }}
+        title={`Keyingi bo'lim — ${nav.next.label}`}
+        aria-label={`Keyingi bo'lim — ${nav.next.label}`}
+        className={`${SIDE_CLS} ${armed === "next" ? SIDE_ARMED_CLS : ""}`}
+      >
+        {nav.next.label}
+      </button>
     </div>
   );
 
-  if (variant === "inline") {
-    return (
-      <div className="flex items-center justify-between gap-3">
-        {prevBtn}
-        {title}
-        {nextBtn}
-      </div>
-    );
-  }
+  if (variant === "inline") return <div className="flex justify-center">{bar}</div>;
 
-  // One centred cluster: [←] [section name] [→]. The arrows used to sit in
-  // the far corners with the name alone in the middle; keeping all three
-  // together means the eye (and the cursor) only has to find one spot, and
-  // it leaves both corners free for each page's own controls.
   // z-30: above the canvas and the z-10/z-20 corner-control tiers (which the
   // 3D pages drop to top-16 to leave this top row free), below drag-drop
   // overlays (z-40) and mobile panels (z-40/50).
   return (
-    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-      {prevBtn}
-      <div className={titleClassName}>{title}</div>
-      {nextBtn}
-    </div>
+    <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-30 ${titleClassName}`}>{bar}</div>
   );
 }
