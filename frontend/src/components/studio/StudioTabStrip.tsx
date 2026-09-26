@@ -50,6 +50,10 @@ interface TabNav {
   current: TabDef;
   prev: TabDef;
   next: TabDef;
+  /** One further out on each side. The strip slides a whole slot while you
+   *  drag, so without these the leading edge would open onto blank pill. */
+  prev2: TabDef;
+  next2: TabDef;
   goPrev: () => void;
   goNext: () => void;
 }
@@ -70,37 +74,42 @@ export function useStudioTabNav(roomId: string): TabNav | null {
   const n = tabs.length;
   const prev = tabs[(idx - 1 + n) % n];
   const next = tabs[(idx + 1) % n];
+  const prev2 = tabs[(idx - 2 + n) % n];
+  const next2 = tabs[(idx + 2) % n];
   // location.search carried along so any phase/query params survive the hop.
   const go = (t: TabDef) => navigate(t.to + location.search);
   return {
     current: tabs[idx],
     prev,
     next,
+    prev2,
+    next2,
     goPrev: () => go(prev),
     goNext: () => go(next),
   };
 }
 
-// One rounded bar holding all three names. The current section is opaque
-// and bold; its neighbours sit at 80% opacity so "you are here" reads at a
-// glance without a second pill or a chevron to decode.
+// One rounded bar holding three names at a time. The frame stays put; the
+// names ride a track inside it, so a drag slides the sections past a fixed
+// window rather than dragging the control itself around the screen.
+//
+// The geometry is in pixels rather than Tailwind classes because the track's
+// transform has to be computed from the same numbers.
+const SLOT_W = 96;
+const GAP = 4;
+const STEP = SLOT_W + GAP;
+
 const BAR_CLS =
-  "inline-flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 " +
-  "shadow-md select-none touch-none";
-// Every slot is the SAME fixed width, so the bar keeps its size and the
-// current name stays put as you move between sections — "Mebelirovka" and
-// "3D" must not make the whole control jump. Wide enough for the longest
-// label at this size; anything longer ellipsises rather than stretching.
-const SLOT_CLS = "h-8 w-[5.5rem] sm:w-[7rem] px-1 rounded-full flex items-center justify-center";
-const SIDE_CLS =
-  `${SLOT_CLS} text-[12px] font-medium text-gray-600 opacity-80 ` +
-  "hover:opacity-100 hover:bg-gray-100 transition";
-const SIDE_ARMED_CLS = "opacity-100 bg-gray-100 text-gray-900";
-const CURRENT_CLS = `${SLOT_CLS} bg-gray-100 text-[13px] font-bold text-gray-900`;
+  "inline-flex p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 " +
+  "shadow-md select-none touch-none overflow-hidden";
+const SLOT_CLS = "shrink-0 h-8 px-1 rounded-full flex items-center justify-center";
+const SIDE_CLS = `${SLOT_CLS} text-[12px] font-medium text-gray-600 opacity-80 transition-[opacity,background-color]`;
+const CURRENT_CLS = `${SLOT_CLS} bg-gray-100 text-[13px] font-bold text-gray-900 transition-[opacity,background-color]`;
 const LABEL_CLS = "truncate";
 
-/** Past this many pixels a horizontal drag counts as "switch to that side". */
-const SWITCH_PX = 28;
+/** Half a slot of travel commits the switch — by then the incoming name is
+ *  closer to the centre than the outgoing one. */
+const SWITCH_PX = Math.round(STEP / 2);
 /** Past this, the gesture was a drag and the click it ends with is ignored. */
 const DRAG_SLOP = 6;
 
@@ -156,7 +165,7 @@ export function StudioTabStrip({
     const moved = e.clientX - d.x;
     if (Math.abs(moved) > DRAG_SLOP) d.moved = true;
     d.side = moved > SWITCH_PX ? "prev" : moved < -SWITCH_PX ? "next" : null;
-    setDx(Math.max(-40, Math.min(40, moved)));
+    setDx(Math.max(-STEP, Math.min(STEP, moved)));
     setArmed(d.side);
   };
   const endDrag = (e: React.PointerEvent) => {
@@ -176,35 +185,53 @@ export function StudioTabStrip({
     if (draggedRef.current) e.preventDefault();
   };
 
+  // Five slots so both edges stay filled through a full slot of travel; the
+  // middle one is the current section, and the track is offset so it sits in
+  // the frame's centre. Dragging moves the track, not the frame.
+  const slots = [nav.prev2, nav.prev, nav.current, nav.next, nav.next2];
+  // Which slot currently reads as "selected": the one the drag is pulling in,
+  // so the emphasis travels with the names instead of staying behind.
+  const activeIdx = armed === "next" ? 3 : armed === "prev" ? 1 : 2;
+
   const bar = (
     <div
       className={BAR_CLS}
-      style={{ transform: dx ? `translateX(${dx * 0.35}px)` : undefined, transition: dx ? "none" : "transform 150ms ease-out" }}
+      style={{ width: STEP * 3 - GAP + 8 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      <button
-        type="button"
-        onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) nav.goPrev(); }}
-        title={`Oldingi bo'lim — ${nav.prev.label}`}
-        aria-label={`Oldingi bo'lim — ${nav.prev.label}`}
-        className={`${SIDE_CLS} ${armed === "prev" ? SIDE_ARMED_CLS : ""}`}
+      <div
+        className="flex"
+        style={{
+          gap: GAP,
+          transform: `translateX(${-STEP + dx}px)`,
+          transition: dx ? "none" : "transform 180ms ease-out",
+        }}
       >
-        <span className={LABEL_CLS}>{nav.prev.label}</span>
-      </button>
-      {/* aria-live so a screen reader hears the section change. */}
-      <div className={CURRENT_CLS} aria-live="polite"><span className={LABEL_CLS}>{nav.current.label}</span></div>
-      <button
-        type="button"
-        onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) nav.goNext(); }}
-        title={`Keyingi bo'lim — ${nav.next.label}`}
-        aria-label={`Keyingi bo'lim — ${nav.next.label}`}
-        className={`${SIDE_CLS} ${armed === "next" ? SIDE_ARMED_CLS : ""}`}
-      >
-        <span className={LABEL_CLS}>{nav.next.label}</span>
-      </button>
+        {slots.map((t, i) => {
+          const isActive = i === activeIdx;
+          const onSide = i === 1 ? nav.goPrev : i === 3 ? nav.goNext : undefined;
+          return (
+            <button
+              key={`${t.seg}-${i}`}
+              type="button"
+              // Only the immediate neighbours are tappable; the outer two are
+              // there to fill the edges mid-drag.
+              disabled={!onSide}
+              onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) onSide?.(); }}
+              title={onSide ? `${i === 1 ? "Oldingi" : "Keyingi"} bo'lim — ${t.label}` : undefined}
+              aria-hidden={i === 0 || i === 4}
+              aria-current={i === 2 ? "page" : undefined}
+              className={`${isActive ? CURRENT_CLS : SIDE_CLS} ${onSide ? "hover:opacity-100 hover:bg-gray-100" : ""}`}
+              style={{ width: SLOT_W }}
+            >
+              <span className={LABEL_CLS}>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
