@@ -2,9 +2,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
- * Instagram-stories-style navigation between the studio's view tabs:
- * a LEFT arrow (previous tab), the CURRENT tab's name centered, and a
- * RIGHT arrow (next tab), wrapping around at both ends (Smeta → 3D).
+ * Stories-style navigation between the studio's view tabs: the PREVIOUS
+ * section's name, the CURRENT one in the middle, and the NEXT one — each
+ * neighbour a button that goes there, wrapping around at both ends
+ * (Smeta → 3D). Naming the neighbours instead of drawing bare arrows means
+ * you can see where a tap leads before taking it.
  *
  * This is the primary way to shift between sections; the hamburger
  * TopDrawer in the studio header (StudioNav) stays as-is as secondary
@@ -79,11 +81,19 @@ export function useStudioTabNav(roomId: string): TabNav | null {
   };
 }
 
-// Same floating-pill family as ViewModeSegment / the Eshik-Deraza chip:
-// bg-white/95 + backdrop-blur, gray-200 border, shadow-md, rounded-full.
-const ARROW_CLS =
-  "w-10 h-10 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md " +
-  "flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 transition-colors";
+// Same floating-pill family as the other viewport controls: bg-white/95 +
+// backdrop-blur, gray-200 border, shadow-md, rounded-full.
+//
+// The neighbours are NAMED rather than drawn as chevrons — you can see where
+// a tap will take you before taking it. They are deliberately quieter than
+// the current section (lighter weight, muted text, translucent) so the
+// middle pill still reads as "you are here", and they truncate instead of
+// pushing the row wider than a phone viewport.
+const NEIGHBOUR_CLS =
+  "h-10 px-3 max-w-[34vw] sm:max-w-[10rem] rounded-full bg-white/80 backdrop-blur border border-gray-200 " +
+  "shadow-md flex items-center gap-1 text-[12px] font-medium text-gray-500 " +
+  "hover:bg-white hover:text-gray-900 transition-colors";
+const NEIGHBOUR_LABEL_CLS = "truncate";
 const TITLE_CLS =
   "h-10 px-4 flex items-center rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md " +
   "text-[13px] font-bold text-gray-900 whitespace-nowrap select-none";
@@ -115,9 +125,10 @@ export function StudioTabStrip({
       onClick={nav.goPrev}
       title={`Oldingi bo'lim — ${nav.prev.label}`}
       aria-label={`Oldingi bo'lim — ${nav.prev.label}`}
-      className={ARROW_CLS}
+      className={NEIGHBOUR_CLS}
     >
-      <ChevronLeft size={20} aria-hidden="true" />
+      <ChevronLeft size={14} aria-hidden="true" className="shrink-0" />
+      <span className={NEIGHBOUR_LABEL_CLS}>{nav.prev.label}</span>
     </button>
   );
   const nextBtn = (
@@ -126,9 +137,10 @@ export function StudioTabStrip({
       onClick={nav.goNext}
       title={`Keyingi bo'lim — ${nav.next.label}`}
       aria-label={`Keyingi bo'lim — ${nav.next.label}`}
-      className={ARROW_CLS}
+      className={NEIGHBOUR_CLS}
     >
-      <ChevronRight size={20} aria-hidden="true" />
+      <span className={NEIGHBOUR_LABEL_CLS}>{nav.next.label}</span>
+      <ChevronRight size={14} aria-hidden="true" className="shrink-0" />
     </button>
   );
   const title = (
