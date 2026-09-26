@@ -10,7 +10,7 @@
 /** Button diameters and ring radii, px. */
 export const ARC_FAB = 52
 export const ARC_ITEM = 54
-export const ARC_RADIUS = 104
+export const ARC_RADIUS = 130
 export const ARC_ITEM_OUTER = 50
 export const ARC_RADIUS_OUTER = 190
 
@@ -120,4 +120,21 @@ export function angleAt(cx: number, cy: number, x: number, y: number, near = 225
  */
 export function slotsFromAngleDelta(deltaDeg: number, capacity: number): number {
   return -deltaDeg / arcSlotStep(capacity)
+}
+
+
+/**
+ * Which ring a touch belongs to, by how far from the corner button it landed.
+ * The two rings scroll independently, so a drag has to commit to one at the
+ * moment the finger goes down — and the fair boundary is halfway between them,
+ * not the nearer button, which would hand a press in the empty gap to whatever
+ * happened to be closest.
+ */
+export function ringAtDistance(distance: number, inner = ARC_RADIUS, outer = ARC_RADIUS_OUTER): 'inner' | 'outer' {
+  return distance < (inner + outer) / 2 ? 'inner' : 'outer'
+}
+
+/** Distance from the arc's centre to a point, px. */
+export function distanceFrom(cx: number, cy: number, x: number, y: number): number {
+  return Math.hypot(x - cx, y - cy)
 }

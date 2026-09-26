@@ -17,8 +17,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ARC_FAB, ARC_ITEM, ARC_ITEM_OUTER, ARC_RADIUS, ARC_RADIUS_OUTER,
-  angleAt, arcCapacity, arcOffsets, arcSlots, clampArcOffset, maxArcOffset,
-  slotsFromAngleDelta,
+  angleAt, arcCapacity, arcOffsets, arcSlots, clampArcOffset, distanceFrom,
+  maxArcOffset, ringAtDistance, slotsFromAngleDelta,
 } from '@/lib/arcMenu'
 
 export interface ArcItem {
@@ -28,6 +28,10 @@ export interface ArcItem {
   icon?: ReactNode
   /** A real thumbnail: a model's render, a wallpaper swatch. Fills the button. */
   imageUrl?: string
+  /** A drawn thumbnail — a milled profile, a laying pattern — filling the
+   *  button the way `imageUrl` does, for the pickers whose preview is the
+   *  real geometry rather than a photo. */
+  fill?: ReactNode
   onSelect: () => void
 }
 
@@ -61,10 +65,15 @@ export function QuarterArcMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
-  const [offset, setOffset] = useState(0)
+  // One scroll position per ring: six categories no more fit the inner arc
+  // than 87 wallpapers fit the outer one, and they scroll independently.
+  const [offset, setOffset] = useState({ inner: 0, outer: 0 })
   const fabRef = useRef<HTMLButtonElement | null>(null)
-  /** Live gesture: where it started and whether it has become a drag yet. */
-  const drag = useRef<{ startAngle: number; startOffset: number; moved: boolean } | null>(null)
+  /** Live gesture: which ring it grabbed, where it started, and whether it has
+   *  become a drag yet. */
+  const drag = useRef<
+    { ring: 'inner' | 'outer'; startAngle: number; startOffset: number; moved: boolean } | null
+  >(null)
   /** Whether the gesture that just ended was a scroll. Separate from `drag`,
    *  which is already cleared by the time the click lands: the click fires
    *  AFTER pointerup, so a guard reading the live gesture always saw null and
@@ -88,23 +97,36 @@ export function QuarterArcMenu({
   function closeAll() {
     setOpen(false)
     setActiveKey(null)
-    setOffset(0)
+    setOffset({ inner: 0, outer: 0 })
   }
 
   useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
 
   const active = categories.find((c) => c.key === activeKey) ?? null
-  const capacity = arcCapacity(ARC_RADIUS_OUTER, ARC_ITEM_OUTER)
   const outer: ArcItem[] = active
     ? (active.items.length === 0 ? (active.emptyItem ? [active.emptyItem] : []) : active.items)
     : []
-  const scrollable = maxArcOffset(outer.length, capacity) > 0
 
-  // When everything fits, spread it across the whole quarter so it sits
-  // balanced; once it doesn't, the slots have to keep a fixed pitch or the
-  // buttons would slide around under the finger as the list advanced.
-  const evenOffsets = scrollable ? null : arcOffsets(outer.length, ARC_RADIUS_OUTER)
-  const slots = scrollable ? arcSlots(outer.length, capacity, offset, ARC_RADIUS_OUTER) : null
+  /**
+   * How a ring is laid out. When everything fits it is spread across the whole
+   * quarter so it sits balanced; once it doesn't, the slots keep a fixed pitch
+   * — a spread-to-fit layout would slide every button around under the finger
+   * as the list advanced — and the ring scrolls.
+   */
+  function ringLayout(count: number, radius: number, size: number, off: number) {
+    const capacity = arcCapacity(radius, size)
+    const scrollable = maxArcOffset(count, capacity) > 0
+    return {
+      capacity,
+      scrollable,
+      slots: scrollable ? arcSlots(count, capacity, off, radius) : null,
+      even: scrollable ? null : arcOffsets(count, radius),
+    }
+  }
+
+  const innerRing = ringLayout(categories.length, ARC_RADIUS, ARC_ITEM, offset.inner)
+  const outerRing = ringLayout(outer.length, ARC_RADIUS_OUTER, ARC_ITEM_OUTER, offset.outer)
+  const scrollable = innerRing.scrollable || outerRing.scrollable
 
   /** The arc's centre in client coordinates — the corner button's own centre. */
   function centre() {
@@ -113,21 +135,38 @@ export function QuarterArcMenu({
     return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 }
   }
 
+  /** The ring a gesture is steering, and how far it may be pushed. */
+  function ringOf(which: 'inner' | 'outer') {
+    return which === 'inner'
+      ? { count: categories.length, capacity: innerRing.capacity }
+      : { count: outer.length, capacity: outerRing.capacity }
+  }
+
   function onDragStart(e: React.PointerEvent) {
     didDrag.current = false
     if (!scrollable) return
     const c = centre()
     if (!c) return
-    drag.current = { startAngle: angleAt(c.cx, c.cy, e.clientX, e.clientY), startOffset: offset, moved: false }
+    // Commit to one ring now: they scroll independently, and a finger that
+    // drifted between them mid-sweep would otherwise hand the gesture over
+    // halfway through.
+    const ring = ringAtDistance(distanceFrom(c.cx, c.cy, e.clientX, e.clientY))
+    drag.current = {
+      ring,
+      startAngle: angleAt(c.cx, c.cy, e.clientX, e.clientY),
+      startOffset: offset[ring],
+      moved: false,
+    }
   }
 
   function onDragMove(e: React.PointerEvent) {
     const d = drag.current
     const c = centre()
     if (!d || !c) return
+    const { count, capacity } = ringOf(d.ring)
     const delta = slotsFromAngleDelta(angleAt(c.cx, c.cy, e.clientX, e.clientY) - d.startAngle, capacity)
     if (Math.abs(delta) > DRAG_SLOP_SLOTS) d.moved = true
-    setOffset(clampArcOffset(d.startOffset + delta, outer.length, capacity))
+    setOffset((o) => ({ ...o, [d.ring]: clampArcOffset(d.startOffset + delta, count, capacity) }))
   }
 
   function onDragEnd() {
@@ -137,7 +176,8 @@ export function QuarterArcMenu({
     didDrag.current = d.moved
     // Settle on a whole slot so the ring always comes to rest with buttons on
     // their marks rather than halfway between two.
-    if (d.moved) setOffset((o) => clampArcOffset(Math.round(o), outer.length, capacity))
+    const { count, capacity } = ringOf(d.ring)
+    if (d.moved) setOffset((o) => ({ ...o, [d.ring]: clampArcOffset(Math.round(o[d.ring]), count, capacity) }))
     return d.moved
   }
 
@@ -177,9 +217,11 @@ export function QuarterArcMenu({
           touchAction: 'none',
         }}
       >
-        {item.imageUrl ? (
+        {item.imageUrl || item.fill ? (
           <>
-            <img src={item.imageUrl} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
+            {item.imageUrl
+              ? <img src={item.imageUrl} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
+              : <span className="absolute inset-0 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">{item.fill}</span>}
             {/* The label rides a scrim at the foot of the thumbnail — a name
                 over a busy wallpaper is unreadable otherwise. */}
             <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[7px] font-semibold leading-tight truncate">
@@ -222,24 +264,31 @@ export function QuarterArcMenu({
       <div className={`absolute z-30 ${className}`}>
         {/* Outer ring — the active category's own things. Rendered first so
             the category buttons paint over it where the rings crowd. */}
-        {open && slots
-          ? slots.map((s) => renderOuterButton(outer[s.index], s, s.opacity, s.index))
-          : open && evenOffsets
-            ? outer.map((item, i) => renderOuterButton(item, evenOffsets[i], 1, i))
+        {open && outerRing.slots
+          ? outerRing.slots.map((s) => renderOuterButton(outer[s.index], s, s.opacity, s.index))
+          : open && outerRing.even
+            ? outer.map((item, i) => renderOuterButton(item, outerRing.even![i], 1, i))
             : null}
 
         {/* Inner ring — the categories. Tapping one swaps the outer ring
             instead of closing, so the three stay reachable from each other. */}
-        {open && categories.map((cat, i) => {
-          const { dx, dy } = arcOffsets(categories.length, ARC_RADIUS)[i]
+        {open && (innerRing.slots
+          ? innerRing.slots.map((s) => ({ cat: categories[s.index], pos: s, i: s.index, opacity: s.opacity }))
+          : categories.map((cat, i) => ({ cat, pos: innerRing.even![i], i, opacity: 1 }))
+        ).map(({ cat, pos, i, opacity }) => {
+          const { dx, dy } = pos
           const isActive = cat.key === activeKey
           return (
             <button
               key={cat.key}
-              onPointerDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
+              onPointerMove={onDragMove}
+              onPointerUp={() => onDragEnd()}
               onClick={(e) => {
                 e.stopPropagation()
-                setOffset(0)
+                if (didDrag.current) return
+                // A different category starts its own ring at the beginning.
+                setOffset((o) => ({ ...o, outer: 0 }))
                 setActiveKey((k) => (k === cat.key ? null : cat.key))
               }}
               aria-pressed={isActive}
@@ -252,9 +301,11 @@ export function QuarterArcMenu({
                 width: ARC_ITEM,
                 height: ARC_ITEM,
                 transform: 'translate(-50%, -50%)',
+                opacity,
                 // Staggered along the arc, so the fan reads as one motion out
-                // of the corner rather than three buttons appearing at once.
-                animation: `arcpop 160ms ease-out ${i * 45}ms backwards`,
+                // of the corner rather than every button appearing at once.
+                animation: innerRing.scrollable ? undefined : `arcpop 160ms ease-out ${i * 45}ms backwards`,
+                touchAction: 'none',
               }}
             >
               <span className="w-5 h-5 flex items-center justify-center">{cat.icon}</span>
@@ -267,18 +318,26 @@ export function QuarterArcMenu({
 
         {/* How far along a long list the ring is sitting — without it a
             scrolling arc gives no clue there is more either way. */}
-        {open && scrollable && (
-          <div
-            className="absolute rounded-full bg-white/85 text-[9px] font-bold text-gray-600 px-1.5 py-0.5 shadow pointer-events-none"
-            style={{
-              left: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
-              top: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            {Math.min(outer.length, Math.round(offset) + capacity)}/{outer.length}
-          </div>
-        )}
+        {open && (outerRing.scrollable || innerRing.scrollable) && (() => {
+          // The items ring is the one being worked through, so it gets the
+          // counter whenever it scrolls; the categories only claim it when
+          // there is no item ring open to speak for.
+          const r = outerRing.scrollable
+            ? { off: offset.outer, cap: outerRing.capacity, total: outer.length }
+            : { off: offset.inner, cap: innerRing.capacity, total: categories.length }
+          return (
+            <div
+              className="absolute rounded-full bg-white/85 text-[9px] font-bold text-gray-600 px-1.5 py-0.5 shadow pointer-events-none"
+              style={{
+                left: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
+                top: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {Math.min(r.total, Math.round(r.off) + r.cap)}/{r.total}
+            </div>
+          )
+        })()}
 
         {/* The corner button. One arrow that turns 180° instead of swapping to
             an X: it points up the arc to open, and back down into the corner

@@ -211,7 +211,7 @@ export function SkirtingGroup() {
 
 /** The profile's real cross-section, drawn from the same outline the 3D
  *  extrusion uses — wall on the left, floor along the bottom. */
-function TrimThumb({ def }: { def: TrimProfileDef }) {
+export function TrimThumb({ def }: { def: TrimProfileDef }) {
   const d = useMemo(() => trimProfileSvgPath(def), [def]);
   return (
     <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
@@ -229,7 +229,7 @@ function TrimThumb({ def }: { def: TrimProfileDef }) {
  * SVG over a small patch of "floor", so the preview is the real arrangement
  * (mitred chevron, Versailles trellis, ...) rather than an icon of it.
  */
-function PatternThumb({ def, color, textureUrl }: {
+export function PatternThumb({ def, color, textureUrl }: {
   def: FloorPatternDef; color: string; textureUrl?: string | null;
 }) {
   const patId = useId();

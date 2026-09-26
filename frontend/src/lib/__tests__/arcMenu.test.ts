@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   arcOffsets, arcCapacity, arcSlots, arcSlotStep, arcPoint,
-  clampArcOffset, maxArcOffset, angleAt, slotsFromAngleDelta,
+  clampArcOffset, maxArcOffset, angleAt, slotsFromAngleDelta, ringAtDistance,
   ARC_RADIUS, ARC_RADIUS_OUTER, ARC_ITEM_OUTER, ARC_START_DEG, ARC_SWEEP_DEG,
 } from '../arcMenu'
 
@@ -178,5 +178,61 @@ describe('arcPoint', () => {
     const [first, , last] = arcOffsets(3, ARC_RADIUS_OUTER)
     expect(arcPoint(ARC_START_DEG, ARC_RADIUS_OUTER).dx).toBeCloseTo(first.dx, 6)
     expect(arcPoint(ARC_START_DEG + ARC_SWEEP_DEG, ARC_RADIUS_OUTER).dy).toBeCloseTo(last.dy, 6)
+  })
+})
+
+describe('ringAtDistance', () => {
+  it('claims a touch on the inner ring for the categories', () => {
+    expect(ringAtDistance(ARC_RADIUS)).toBe('inner')
+  })
+
+  it('claims a touch on the outer ring for the items', () => {
+    expect(ringAtDistance(ARC_RADIUS_OUTER)).toBe('outer')
+  })
+
+  it('splits the empty gap down the middle rather than by the nearer button', () => {
+    const mid = (ARC_RADIUS + ARC_RADIUS_OUTER) / 2
+    expect(ringAtDistance(mid - 1)).toBe('inner')
+    expect(ringAtDistance(mid + 1)).toBe('outer')
+  })
+
+  it('gives a press inside the corner button to the inner ring', () => {
+    expect(ringAtDistance(0)).toBe('inner')
+  })
+
+  it('gives a press beyond the outer ring to the items', () => {
+    expect(ringAtDistance(ARC_RADIUS_OUTER + 200)).toBe('outer')
+  })
+})
+
+describe('both rings scroll', () => {
+  it('holds four categories on the inner arc and scrolls the rest', () => {
+    const cap = arcCapacity(ARC_RADIUS, 52)
+    expect(cap).toBe(4)
+    // Six categories: Mebel, Rang, Chiroq, Pol, Plintus, Karniz.
+    expect(maxArcOffset(6, cap)).toBe(2)
+    const end = arcSlots(6, cap, 2, ARC_RADIUS)
+    expect(Math.max(...end.map((s) => s.index))).toBe(5)
+  })
+
+  it('leaves the rings far enough apart not to touch', () => {
+    const gap = ARC_RADIUS_OUTER - ARC_RADIUS
+    expect(gap).toBeGreaterThanOrEqual((52 + ARC_ITEM_OUTER) / 2)
+  })
+
+  it('keeps the inner buttons from overlapping each other', () => {
+    const cap = arcCapacity(ARC_RADIUS, 52)
+    const pts = arcOffsets(cap, ARC_RADIUS)
+    const gap = Math.hypot(pts[1].dx - pts[0].dx, pts[1].dy - pts[0].dy)
+    expect(gap).toBeGreaterThanOrEqual(52)
+  })
+
+  it('scrolls the two rings by the same gesture maths', () => {
+    // Same sweep, different ring: each advances by its own slot pitch, so
+    // neither feels heavier to push than the other.
+    const innerCap = arcCapacity(ARC_RADIUS, 52)
+    const outerCap = arcCapacity(ARC_RADIUS_OUTER, ARC_ITEM_OUTER)
+    expect(slotsFromAngleDelta(-ARC_SWEEP_DEG, innerCap)).toBeCloseTo(innerCap - 1, 6)
+    expect(slotsFromAngleDelta(-ARC_SWEEP_DEG, outerCap)).toBeCloseTo(outerCap - 1, 6)
   })
 })
