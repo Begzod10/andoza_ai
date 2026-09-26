@@ -10,7 +10,6 @@ import { useRoomStore, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { WallCovering, FloorType, DesignState } from "@/store/roomStore";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
-import { PLASTER_FINISHES, plasterRepeat } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
 import type { PhaseKey } from "@/lib/phases";
@@ -42,8 +41,6 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const setWallCovering = useRoomStore((s) => s.setWallCovering);
   const setFloorTexture = useRoomStore((s) => s.setFloorTexture);
   const resetDesignState = useRoomStore((s) => s.resetDesignState);
-  const geometry = useRoomStore((s) => s.geometry);
-  const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const surfaces = useRoomStore((s) => s.surfaces);
   const applySurface = useRoomStore((s) => s.applySurface);
 
@@ -192,25 +189,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     textureFileRef.current?.click();
   }
 
-  /** Wall-sized tiling for an uploaded plaster/concrete photo. */
+  /** Covering for a plaster/shpaklovka photo. Same 100 cm x 100 cm UVW map
+   *  the Bo'yoq/Oboy images use (repeatX is tiles-per-metre — see
+   *  applyWallpaper): the user asked for one mapping across the phases
+   *  instead of the 2.4 m "plaster patch" tile this used to apply, which
+   *  rendered the same image at a visibly different scale in each phase. */
   function plasterUploadCovering(url: string): WallCovering {
-    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    // `ceilingHeight` is MILLIMETRES in the store (2700), like every other
-    // length it keeps — the wall length just above is converted for exactly
-    // that reason. Passing it raw made plasterRepeat divide 2700 by a 2.4 m
-    // tile and write repeatY = 1125, so the wall got thousands of vertical
-    // repeats and rendered as flat grey: the "picked texture doesn't show"
-    // report. `repairCovering` in the store already rescues rooms saved with
-    // such a value, but only on load — the wall stayed broken until a reload.
-    const wallH = ceilingHeight > 0 ? ceilingHeight / 1000 : 2.7;
-    // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
-    // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
-    const { repeatX, repeatY } = plasterRepeat(
-      { ...PLASTER_FINISHES[0], tileM: 2.4 },
-      wallW,
-      wallH,
-    );
-    return { kind: 'texture', url, color: '#ffffff', repeatX, repeatY, offsetX: 0, offsetY: 0, rotation: 0 };
+    return { kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 };
   }
 
   /**
