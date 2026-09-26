@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   arcOffsets, arcCapacity, arcSlots, arcSlotStep, arcPoint,
-  clampArcOffset, maxArcOffset, angleAt, slotsFromAngleDelta, ringAtDistance,
+  wrapArcOffset, maxArcOffset, angleAt, slotsFromAngleDelta, ringAtDistance,
   ARC_RADIUS, ARC_RADIUS_OUTER, ARC_ITEM_OUTER, ARC_START_DEG, ARC_SWEEP_DEG,
 } from '../arcMenu'
 
@@ -86,7 +86,6 @@ describe('arcSlots', () => {
     const at0 = arcSlots(87, CAP, 0, ARC_RADIUS_OUTER).map((s) => s.index)
     const at10 = arcSlots(87, CAP, 10, ARC_RADIUS_OUTER).map((s) => s.index)
     expect(at0).not.toEqual(at10)
-    expect(Math.min(...at10)).toBeGreaterThan(Math.max(...at0) - CAP)
     expect(at10).toContain(10)
   })
 
@@ -110,7 +109,7 @@ describe('arcSlots', () => {
   })
 
   it('keeps every visible item on the quarter, however far it is scrolled', () => {
-    for (const offset of [0, 7.5, 81]) {
+    for (const offset of [0, 7.5, 81, 500, -20]) {
       for (const { dx, dy, opacity } of arcSlots(87, CAP, offset, ARC_RADIUS_OUTER)) {
         if (opacity === 0) continue
         // One slot of overshoot is allowed at each end for the fade, which is
@@ -124,22 +123,72 @@ describe('arcSlots', () => {
   })
 })
 
-describe('offset limits', () => {
+describe('the ring is endless', () => {
   it('does not scroll at all when everything already fits', () => {
     expect(maxArcOffset(4, 6)).toBe(0)
-    expect(clampArcOffset(3, 4, 6)).toBe(0)
   })
 
-  it('stops with the last item on the arc, never past it', () => {
-    expect(maxArcOffset(87, 6)).toBe(81)
-    expect(clampArcOffset(999, 87, 6)).toBe(81)
-    // Scrolled all the way, the final item is the last one in the list.
-    const end = arcSlots(87, 6, 81, ARC_RADIUS_OUTER)
-    expect(Math.max(...end.map((s) => s.index))).toBe(86)
+  it('comes back round to the first item instead of stopping at the last', () => {
+    const CAP = 6
+    // Parked exactly on the last item of an 87-long list, the slots after it
+    // are the start of the list again — not empty space, and not a dead stop.
+    const atEnd = arcSlots(87, CAP, 86, ARC_RADIUS_OUTER)
+    const indices = atEnd.map((s) => s.index)
+    expect(indices).toContain(86)
+    expect(indices).toContain(0)
+    expect(indices).toContain(1)
   })
 
-  it('does not scroll back past the start', () => {
-    expect(clampArcOffset(-5, 87, 6)).toBe(0)
+  it('keeps going however far it is swept, forwards or backwards', () => {
+    for (const off of [-500, -3.5, 0, 12, 87, 200.25, 10_000]) {
+      const slots = arcSlots(87, 6, off, ARC_RADIUS_OUTER)
+      expect(slots.length).toBeGreaterThan(0)
+      for (const s of slots) {
+        // Always a real item, never off the end of the array.
+        expect(s.index).toBeGreaterThanOrEqual(0)
+        expect(s.index).toBeLessThan(87)
+      }
+    }
+  })
+
+  it('scrolls backwards past the start into the end of the list', () => {
+    const slots = arcSlots(87, 6, -1, ARC_RADIUS_OUTER)
+    expect(slots.map((s) => s.index)).toContain(86)
+  })
+
+  it('gives each visible button its own identity even when one comes round twice', () => {
+    // A short list on a long arc shows an item at both ends at once; keying by
+    // the item would collapse the two into one.
+    const slots = arcSlots(5, 6, 0, ARC_RADIUS_OUTER)
+    const keys = new Set(slots.map((s) => s.key))
+    expect(keys.size).toBe(slots.length)
+    const repeated = slots.filter((s) => s.index === 0)
+    expect(repeated.length).toBeGreaterThan(1)
+  })
+})
+
+describe('wrapArcOffset', () => {
+  it('folds a long run of sweeps back into one lap', () => {
+    expect(wrapArcOffset(87, 87)).toBe(0)
+    expect(wrapArcOffset(90, 87)).toBe(3)
+    expect(wrapArcOffset(10_000, 87)).toBe(10_000 % 87)
+  })
+
+  it('folds backwards sweeps round to the end', () => {
+    expect(wrapArcOffset(-1, 87)).toBe(86)
+    expect(wrapArcOffset(-88, 87)).toBe(86)
+  })
+
+  it('never reports a position outside the list', () => {
+    for (const off of [-1000, -1, 0, 1, 86, 87, 5000]) {
+      const w = wrapArcOffset(off, 87)
+      expect(w).toBeGreaterThanOrEqual(0)
+      expect(w).toBeLessThan(87)
+    }
+  })
+
+  it('copes with an empty list', () => {
+    expect(wrapArcOffset(5, 0)).toBe(0)
   })
 })
 
@@ -206,13 +255,16 @@ describe('ringAtDistance', () => {
 })
 
 describe('both rings scroll', () => {
-  it('holds four categories on the inner arc and scrolls the rest', () => {
+  it('holds four categories on the inner arc and turns through the rest', () => {
     const cap = arcCapacity(ARC_RADIUS, 52)
     expect(cap).toBe(4)
-    // Six categories: Mebel, Rang, Chiroq, Pol, Plintus, Karniz.
-    expect(maxArcOffset(6, cap)).toBe(2)
-    const end = arcSlots(6, cap, 2, ARC_RADIUS)
-    expect(Math.max(...end.map((s) => s.index))).toBe(5)
+    // Six categories: Mebel, Rang, Chiroq, Pol, Plintus, Karniz. Every one of
+    // them must be reachable by turning the ring, and it keeps turning.
+    const seen = new Set<number>()
+    for (let off = 0; off < 6; off++) {
+      for (const s of arcSlots(6, cap, off, ARC_RADIUS)) seen.add(s.index)
+    }
+    expect([...seen].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5])
   })
 
   it('leaves the rings far enough apart not to touch', () => {

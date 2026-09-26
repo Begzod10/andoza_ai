@@ -59,6 +59,13 @@ export interface ArcSlot extends ArcPoint {
   /** Where it sits in slot units: 0 is the arc's left end, `capacity - 1` its
    *  top end. Fractional while a drag is in flight. */
   slot: number
+  /**
+   * The absolute turn-count position, which is what identifies a button while
+   * the ring turns. The item index cannot: on a ring that wraps, one item can
+   * occupy two places at once as the list comes back round, and keying by it
+   * would collapse them into one.
+   */
+  key: number
   /** 1 in the middle of the arc, tapering to 0 just past either end, so items
    *  scrolling off fade instead of vanishing mid-stride. */
   opacity: number
@@ -67,22 +74,31 @@ export interface ArcSlot extends ArcPoint {
 /**
  * The items visible on a scrolling ring, given how far it has been dragged.
  *
+ * The ring is endless: past the last item the list comes back round to the
+ * first, so a sweep never runs into a dead stop and there is no "you are at
+ * the end" to discover. Walking the SLOTS rather than the items is what makes
+ * that work — each slot asks the list for whoever is at that position modulo
+ * its length, so the list can be passed as many times as the finger likes.
+ *
  * `offset` is in slot units — 1.0 means the list has advanced by one button.
  * Only the slots on the arc (plus a hair past each end, which is what fades)
- * are returned, so a 87-item library costs the same to draw as a 6-item one.
+ * are returned, so an 87-item library costs the same to draw as a 6-item one.
  */
 export function arcSlots(count: number, capacity: number, offset: number, radius: number): ArcSlot[] {
+  if (count <= 0) return []
   const step = arcSlotStep(capacity)
   const out: ArcSlot[] = []
-  for (let index = 0; index < count; index++) {
-    const slot = index - offset
+  const first = Math.floor(offset) - 1
+  for (let key = first; key <= first + capacity + 1; key++) {
+    const slot = key - offset
     if (slot < -1 || slot > capacity) continue
     // Past either end the button is on its way out: fade it over the last
     // slot's worth of travel rather than popping it off.
     const overshoot = slot < 0 ? -slot : slot > capacity - 1 ? slot - (capacity - 1) : 0
     out.push({
-      index,
+      index: ((key % count) + count) % count,
       slot,
+      key,
       opacity: Math.max(0, 1 - overshoot),
       ...arcPoint(ARC_START_DEG + slot * step, radius),
     })
@@ -90,13 +106,19 @@ export function arcSlots(count: number, capacity: number, offset: number, radius
   return out
 }
 
-/** How far the ring may be dragged: 0 when everything already fits. */
+/** Whether a ring has more than it can show, and so scrolls at all. */
 export function maxArcOffset(count: number, capacity: number): number {
   return Math.max(0, count - capacity)
 }
 
-export function clampArcOffset(offset: number, count: number, capacity: number): number {
-  return Math.min(maxArcOffset(count, capacity), Math.max(0, offset))
+/**
+ * Keep the offset inside one lap of the list. Nothing is clamped — the ring
+ * has no ends — this only stops a long run of sweeps growing the number
+ * without bound, which would eventually cost it its precision.
+ */
+export function wrapArcOffset(offset: number, count: number): number {
+  if (count <= 0) return 0
+  return ((offset % count) + count) % count
 }
 
 /**

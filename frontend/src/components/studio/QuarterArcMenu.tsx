@@ -17,8 +17,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ARC_FAB, ARC_ITEM, ARC_ITEM_OUTER, ARC_RADIUS, ARC_RADIUS_OUTER,
-  angleAt, arcCapacity, arcOffsets, arcSlots, clampArcOffset, distanceFrom,
-  maxArcOffset, ringAtDistance, slotsFromAngleDelta,
+  angleAt, arcCapacity, arcOffsets, arcSlots, distanceFrom,
+  maxArcOffset, ringAtDistance, slotsFromAngleDelta, wrapArcOffset,
 } from '@/lib/arcMenu'
 
 export interface ArcItem {
@@ -163,10 +163,12 @@ export function QuarterArcMenu({
     const d = drag.current
     const c = centre()
     if (!d || !c) return
-    const { count, capacity } = ringOf(d.ring)
+    const { capacity } = ringOf(d.ring)
     const delta = slotsFromAngleDelta(angleAt(c.cx, c.cy, e.clientX, e.clientY) - d.startAngle, capacity)
     if (Math.abs(delta) > DRAG_SLOP_SLOTS) d.moved = true
-    setOffset((o) => ({ ...o, [d.ring]: clampArcOffset(d.startOffset + delta, count, capacity) }))
+    // Nothing is clamped: the ring is endless, so the sweep just keeps going
+    // and the list comes back round.
+    setOffset((o) => ({ ...o, [d.ring]: d.startOffset + delta }))
   }
 
   function onDragEnd() {
@@ -174,10 +176,11 @@ export function QuarterArcMenu({
     drag.current = null
     if (!d) return false
     didDrag.current = d.moved
-    // Settle on a whole slot so the ring always comes to rest with buttons on
-    // their marks rather than halfway between two.
-    const { count, capacity } = ringOf(d.ring)
-    if (d.moved) setOffset((o) => ({ ...o, [d.ring]: clampArcOffset(Math.round(o[d.ring]), count, capacity) }))
+    // Settle on a whole slot so the ring comes to rest with buttons on their
+    // marks rather than halfway between two, then fold back into one lap so a
+    // long run of sweeps can't grow the number without bound.
+    const { count } = ringOf(d.ring)
+    if (d.moved) setOffset((o) => ({ ...o, [d.ring]: wrapArcOffset(Math.round(o[d.ring]), count) }))
     return d.moved
   }
 
@@ -194,10 +197,10 @@ export function QuarterArcMenu({
     item.onSelect()
   }
 
-  function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number) {
+  function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number, slotKey: number | string) {
     return (
       <button
-        key={`${activeKey}:${item.key}`}
+        key={`${activeKey}:${slotKey}`}
         onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
         onPointerMove={onDragMove}
         onPointerUp={() => onDragEnd()}
@@ -265,22 +268,22 @@ export function QuarterArcMenu({
         {/* Outer ring — the active category's own things. Rendered first so
             the category buttons paint over it where the rings crowd. */}
         {open && outerRing.slots
-          ? outerRing.slots.map((s) => renderOuterButton(outer[s.index], s, s.opacity, s.index))
+          ? outerRing.slots.map((s) => renderOuterButton(outer[s.index], s, s.opacity, s.index, s.key))
           : open && outerRing.even
-            ? outer.map((item, i) => renderOuterButton(item, outerRing.even![i], 1, i))
+            ? outer.map((item, i) => renderOuterButton(item, outerRing.even![i], 1, i, item.key))
             : null}
 
         {/* Inner ring — the categories. Tapping one swaps the outer ring
             instead of closing, so the three stay reachable from each other. */}
         {open && (innerRing.slots
-          ? innerRing.slots.map((s) => ({ cat: categories[s.index], pos: s, i: s.index, opacity: s.opacity }))
-          : categories.map((cat, i) => ({ cat, pos: innerRing.even![i], i, opacity: 1 }))
-        ).map(({ cat, pos, i, opacity }) => {
+          ? innerRing.slots.map((s) => ({ cat: categories[s.index], pos: s, i: s.index, opacity: s.opacity, slotKey: s.key as number | string }))
+          : categories.map((cat, i) => ({ cat, pos: innerRing.even![i], i, opacity: 1, slotKey: cat.key as number | string }))
+        ).map(({ cat, pos, i, opacity, slotKey }) => {
           const { dx, dy } = pos
           const isActive = cat.key === activeKey
           return (
             <button
-              key={cat.key}
+              key={slotKey}
               onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
               onPointerMove={onDragMove}
               onPointerUp={() => onDragEnd()}
@@ -323,8 +326,8 @@ export function QuarterArcMenu({
           // counter whenever it scrolls; the categories only claim it when
           // there is no item ring open to speak for.
           const r = outerRing.scrollable
-            ? { off: offset.outer, cap: outerRing.capacity, total: outer.length }
-            : { off: offset.inner, cap: innerRing.capacity, total: categories.length }
+            ? { off: offset.outer, total: outer.length }
+            : { off: offset.inner, total: categories.length }
           return (
             <div
               className="absolute rounded-full bg-white/85 text-[9px] font-bold text-gray-600 px-1.5 py-0.5 shadow pointer-events-none"
@@ -334,7 +337,9 @@ export function QuarterArcMenu({
                 transform: 'translate(-50%, -50%)',
               }}
             >
-              {Math.min(r.total, Math.round(r.off) + r.cap)}/{r.total}
+              {/* Where the ring is sitting, not how far is left: on an
+                  endless ring there is no "left". */}
+              {wrapArcOffset(Math.round(r.off), r.total) + 1}/{r.total}
             </div>
           )
         })()}
