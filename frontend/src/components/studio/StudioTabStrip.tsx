@@ -87,13 +87,17 @@ export function useStudioTabNav(roomId: string): TabNav | null {
 const BAR_CLS =
   "inline-flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 " +
   "shadow-md select-none touch-none";
+// Every slot is the SAME fixed width, so the bar keeps its size and the
+// current name stays put as you move between sections — "Mebelirovka" and
+// "3D" must not make the whole control jump. Wide enough for the longest
+// label at this size; anything longer ellipsises rather than stretching.
+const SLOT_CLS = "h-8 w-[5.5rem] sm:w-[7rem] px-1 rounded-full flex items-center justify-center";
 const SIDE_CLS =
-  "h-8 px-3 max-w-[28vw] sm:max-w-[9rem] truncate rounded-full text-[12px] font-medium " +
-  "text-gray-600 opacity-80 hover:opacity-100 hover:bg-gray-100 transition";
+  `${SLOT_CLS} text-[12px] font-medium text-gray-600 opacity-80 ` +
+  "hover:opacity-100 hover:bg-gray-100 transition";
 const SIDE_ARMED_CLS = "opacity-100 bg-gray-100 text-gray-900";
-const CURRENT_CLS =
-  "h-8 px-4 rounded-full bg-gray-100 text-[13px] font-bold text-gray-900 whitespace-nowrap " +
-  "flex items-center";
+const CURRENT_CLS = `${SLOT_CLS} bg-gray-100 text-[13px] font-bold text-gray-900`;
+const LABEL_CLS = "truncate";
 
 /** Past this many pixels a horizontal drag counts as "switch to that side". */
 const SWITCH_PX = 28;
@@ -188,10 +192,10 @@ export function StudioTabStrip({
         aria-label={`Oldingi bo'lim — ${nav.prev.label}`}
         className={`${SIDE_CLS} ${armed === "prev" ? SIDE_ARMED_CLS : ""}`}
       >
-        {nav.prev.label}
+        <span className={LABEL_CLS}>{nav.prev.label}</span>
       </button>
       {/* aria-live so a screen reader hears the section change. */}
-      <div className={CURRENT_CLS} aria-live="polite">{nav.current.label}</div>
+      <div className={CURRENT_CLS} aria-live="polite"><span className={LABEL_CLS}>{nav.current.label}</span></div>
       <button
         type="button"
         onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) nav.goNext(); }}
@@ -199,7 +203,7 @@ export function StudioTabStrip({
         aria-label={`Keyingi bo'lim — ${nav.next.label}`}
         className={`${SIDE_CLS} ${armed === "next" ? SIDE_ARMED_CLS : ""}`}
       >
-        {nav.next.label}
+        <span className={LABEL_CLS}>{nav.next.label}</span>
       </button>
     </div>
   );
