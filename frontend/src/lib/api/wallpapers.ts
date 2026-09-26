@@ -37,10 +37,25 @@ export interface Wallpaper {
  * (oboy|suvoq|shpaklovka|pol) so each studio panel only sees its own images.
  * Omit both to get the whole library. */
 export async function listWallpapers(params: { store_id?: string; kind?: string } = {}): Promise<Wallpaper[]> {
-  const query = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) as Record<string, string>,
-  ).toString();
-  return apiClient<Wallpaper[]>(`/wallpapers${query ? `?${query}` : ""}`);
+  // The endpoint paginates (per_page max 100, default 50), so a single request
+  // silently truncated the library once a bucket passed 50 images — the oldest
+  // ones simply stopped appearing in the design panel. Walk the pages instead
+  // and hand back the whole bucket, which is what every caller assumes.
+  const PER_PAGE = 100;
+  const base = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined),
+  ) as Record<string, string>;
+
+  const all: Wallpaper[] = [];
+  for (let page = 1; ; page += 1) {
+    const query = new URLSearchParams({ ...base, page: String(page), per_page: String(PER_PAGE) }).toString();
+    const batch = await apiClient<Wallpaper[]>(`/wallpapers?${query}`);
+    all.push(...batch);
+    // A short page is the last one. The guard stops a runaway loop if the
+    // server ever ignores per_page and keeps returning full pages.
+    if (batch.length < PER_PAGE || page >= 50) break;
+  }
+  return all;
 }
 
 /** Upload an image to the shared library. Re-uploading one returns the existing entry. */
