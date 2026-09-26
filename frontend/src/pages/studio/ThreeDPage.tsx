@@ -53,6 +53,15 @@ import { RealismEffects, BrandedSky, SceneLighting } from "./three-d/SceneEnviro
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { applyUniformZoom } from "@/lib/orbitZoom";
+import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
+
+/** A wall reduced to what placing an opening needs: how long it is, and how
+ *  far along it a world point falls (metres from the wall's position-0 end).
+ *  Axis-aligned and arbitrary-angle walls both collapse to this. */
+interface WallFrame {
+  length: number;
+  alongM: (p: { x: number; z: number }) => number;
+}
 import { DEFAULT_HDRI } from "@/lib/hdri";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./three-d/CameraControls";
 import { SwapButtons, RoomScene } from "./three-d/RoomShell";
@@ -448,6 +457,14 @@ export default function ThreeDPage() {
   }
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
+  // Per-edge frames for a drawn/scanned room, keyed by wall id. Empty for a
+  // legacy ABCD room, which takes the axis-aligned branch below instead.
+  const polyWallDefs = useMemo(
+    () => (geometry.vertices && geometry.vertices.length >= 3
+      ? wallDefsFromVertices(geometry.vertices, geometry.walls.map((w) => w.id))
+      : {}),
+    [geometry],
+  );
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   // Seed the same tuning on mount, so the very first wheel notch already
   // travels the intended distance instead of three's default speed.
@@ -510,20 +527,32 @@ export default function ThreeDPage() {
   }
 
   /**
-   * The four rectangular walls in the room's own frame. Each wall runs along
+   * The walls in the room's own frame. Each wall runs along
    * one world axis; its "left edge" (where local `position` = 0) is at
    * `centerAlong − length/2` on that axis. This is the single source of truth
    * for converting a world raycast hit into a wall-local (u = along, v = up)
    * coordinate — so a created opening is pinned to the clicked wall and can
    * never be computed against another wall.
    */
-  function wallGeom(wallId: string): { axis: 'X' | 'Z'; length: number; leftAlong: number } | null {
+  function wallGeom(wallId: string): WallFrame | null {
     switch (wallId) {
-      case 'A': return { axis: 'X', length: W, leftAlong: -W / 2 };
-      case 'C': return { axis: 'X', length: W, leftAlong: -W / 2 };
-      case 'B': return { axis: 'Z', length: D, leftAlong: -D / 2 };
-      case 'D': return { axis: 'Z', length: D, leftAlong: -D / 2 };
-      default: return null;
+      // Legacy ABCD: axis-aligned, so "along" is just the world coordinate
+      // measured from the wall's left edge at -W/2 (or -D/2).
+      case 'A': case 'C': return { length: W, alongM: (p) => p.x + W / 2 };
+      case 'B': case 'D': return { length: D, alongM: (p) => p.z + D / 2 };
+      // A drawn or scanned room's walls (W1..Wn) run at arbitrary angles, so
+      // the hit is projected onto the edge's own direction. The frames come
+      // from the same helper the interactive opening layer uses, which mirrors
+      // how NWallRoomShell places each wall — otherwise an opening would land
+      // somewhere other than where it was tapped.
+      default: {
+        const d = polyWallDefs[wallId];
+        if (!d) return null;
+        return {
+          length: d.length,
+          alongM: (p) => (p.x - d.midX) * d.dirX + (p.z - d.midZ) * d.dirZ + d.length / 2,
+        };
+      }
     }
   }
 
@@ -541,7 +570,7 @@ export default function ThreeDPage() {
    *  below and the deferred window-confirm handler, so both use the exact
    *  same centring math regardless of when the final width/height is known. */
   function computeOpeningRect(
-    g: { axis: 'X' | 'Z'; leftAlong: number; length: number },
+    g: WallFrame,
     point: { x: number; y: number; z: number },
     widthMm: number, heightMm: number, isDoor: boolean,
   ): { position: number; sill_height: number } {
@@ -549,8 +578,7 @@ export default function ThreeDPage() {
     const wallHMm = H * 1000;
 
     // Along-wall hit → left-edge offset, centred on the click.
-    const along = g.axis === 'X' ? point.x : point.z;      // metres, world
-    const uMm = (along - g.leftAlong) * 1000;              // mm from left edge
+    const uMm = g.alongM(point) * 1000;                    // mm from left edge
     const position = Math.max(0, Math.min(wallLenMm - widthMm, uMm - widthMm / 2));
 
     // Vertical: doors sit on the floor; windows centre on the hit height.
