@@ -7,7 +7,7 @@ import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roo
 import type { DesignState, RoomGeometry, WallElement } from "@/store/roomStore";
 import type { Room } from "@/lib/api";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { DEFAULT_CEILING_DESIGN, ceilingDesign, resolveCeilingSettings, ceilingPerimeterY } from "@/lib/ceilingDesigns";
+import { DEFAULT_CEILING_DESIGN, CEILING_SETTING_DEFAULTS, ceilingDesign, resolveCeilingSettings, ceilingPerimeterY } from "@/lib/ceilingDesigns";
 import {
   WallFade,
   useHiddenWalls, type CutawayMode,
@@ -15,7 +15,7 @@ import {
 import { ShadowShell } from "@/features/studio/shadowShell";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
-import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
+import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
@@ -301,6 +301,21 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
+  // Which face of the ceiling slab points DOWN into the room. buildShape
+  // feeds (x, -z) into the shape, so a positive signed area there means the
+  // loop is counter-clockwise in the shape's own plane and ShapeGeometry's
+  // front face ends up pointing +Y once the mesh is rotated flat — the wrong
+  // way for a ceiling, so the back face is the one to keep.
+  const ceilingSide = useMemo(() => {
+    let a = 0
+    for (let i = 0; i < filteredCentred.length; i++) {
+      const [x1, z1] = filteredCentred[i]
+      const [x2, z2] = filteredCentred[(i + 1) % filteredCentred.length]
+      a += x1 * -z2 - x2 * -z1
+    }
+    return a > 0 ? THREE.BackSide : THREE.FrontSide
+  }, [filteredCentred])
+
   // Per-edge transforms + inward/outward normals. `centred` (not the filtered
   // set) is used so edge i still lines up with geometry.walls[i]; the room is
   // centred at the origin, so "toward centroid" is simply "toward (0,0)".
@@ -376,14 +391,16 @@ function NWallRoomShell({
         />
       )}
 
-      {/* Ceiling, as a shadow caster only.
-          A scanned room is always drawn open-topped, so this never needs to be
-          seen — but without it the sun falls straight through the roof onto the
-          floor, which is what gave the ABCD rooms away. Writing neither colour
-          nor depth keeps it in the shadow map while drawing nothing, so it also
-          cannot bring back the bright sliver this mesh was switched off to
-          diagnose (that turned out to be a mis-rotated plane in the other room
-          shell, fixed there). */}
+      {/* Ceiling — a plain white slab, and the roof the sun stops at.
+          It used to draw nothing (colourWrite off, shadow caster only) on the
+          assumption that a scanned room is always shown open-topped. Drawn
+          rooms are ordinary rooms people work inside, so that left them with
+          sky overhead and the ceiling lights hanging off nothing.
+          Single-sided like the ABCD shell's ceiling: seen from inside, gone
+          from above, so pulling the camera out of the room still looks in
+          rather than at a lid. Which face that is depends on the polygon's
+          winding (see the floor's note) — hence ceilingSide rather than a
+          fixed FrontSide. */}
       <mesh
         geometry={polyGeo}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -392,11 +409,13 @@ function NWallRoomShell({
         raycast={noRaycast}
       >
         <meshStandardMaterial
-          color={CEILING_DEFAULT}
+          // The room's own ceiling colour, same source and same near-white
+          // default (#F4F1EA) the ABCD shell paints — CEILING_DEFAULT is a
+          // greyer slab tone that made drawn rooms read dirtier than
+          // rectangular ones side by side.
+          color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
           roughness={0.95}
-          side={THREE.DoubleSide}
-          colorWrite={false}
-          depthWrite={false}
+          side={ceilingSide}
         />
       </mesh>
 
