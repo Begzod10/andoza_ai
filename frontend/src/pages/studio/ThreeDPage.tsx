@@ -6,7 +6,7 @@ import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
-import { useArcCategories, ARC_CATEGORY_PHASE } from "@/features/studio/useArcCategories";
+import { useArcCategories } from "@/features/studio/useArcCategories";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { getRooms, deleteRoom, listCatalogFurniture } from "@/lib/api";
@@ -637,12 +637,6 @@ export default function ThreeDPage() {
               className="bottom-5 right-4"
               label="Qo'shish menyusi"
               categories={arcCategories}
-              makeMoreItem={(cat) => ({
-                key: `${cat.key}:more`,
-                label: 'Yana',
-                icon: '\u22EF',
-                onSelect: () => openPanelAt(ARC_CATEGORY_PHASE[cat.key] ?? 'boyoq'),
-              })}
             />
           </div>
 

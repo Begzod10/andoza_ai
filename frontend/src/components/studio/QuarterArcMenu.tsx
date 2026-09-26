@@ -4,12 +4,22 @@
  * categories on the inner arc, and the chosen category's own items on an outer
  * one beyond them.
  *
+ * The outer ring scrolls ALONG the arc. A library of 87 wallpapers will never
+ * fit on a quarter circle, and a "more" button that dumped the user into a
+ * panel was a dead end rather than a way through them — so the ring is dragged
+ * round its own curve instead, like beads on a wire.
+ *
  * Mobile's answer to a toolbar: the corner is the one spot a thumb reaches
  * without crossing the viewport, and the quarter arc is the slice of screen
  * that thumb sweeps through. Purely presentational — the caller supplies the
  * categories, their items and what picking one does.
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  ARC_FAB, ARC_ITEM, ARC_ITEM_OUTER, ARC_RADIUS, ARC_RADIUS_OUTER,
+  angleAt, arcCapacity, arcOffsets, arcSlots, clampArcOffset, maxArcOffset,
+  slotsFromAngleDelta,
+} from '@/lib/arcMenu'
 
 export interface ArcItem {
   key: string
@@ -31,74 +41,32 @@ export interface ArcCategory {
   emptyItem?: ArcItem
 }
 
-/** Button diameters and ring radii, px. */
-export const ARC_FAB = 52
-export const ARC_ITEM = 54
-export const ARC_RADIUS = 104
-export const ARC_ITEM_OUTER = 50
-export const ARC_RADIUS_OUTER = 190
-
-/**
- * How many buttons fit on the quarter arc at a given radius without touching.
- * The arc's length grows with the radius, so the outer ring holds more than
- * the inner one; anything past this has to live behind a "more" button rather
- * than be crammed in at overlapping spacing.
- */
-export function arcCapacity(radius: number, buttonSize: number, gap = 6): number {
-  const arcLength = (radius * Math.PI) / 2
-  return Math.max(1, Math.floor(arcLength / (buttonSize + gap)) + 1)
-}
-
-/**
- * Where each item sits relative to the corner button's centre, in px, with y
- * growing downward like the screen does.
- *
- * The arc runs from due left (180°) to straight up (270°) — the quarter that
- * stays on screen from a bottom-right anchor. A lone item goes at the 225°
- * midpoint rather than at one end, so it reads as deliberate instead of as the
- * first of a row that never arrived.
- */
-export function arcOffsets(n: number, radius = ARC_RADIUS): { dx: number; dy: number }[] {
-  if (n <= 0) return []
-  const START = 180
-  const SWEEP = 90
-  return Array.from({ length: n }, (_, i) => {
-    const deg = n === 1 ? START + SWEEP / 2 : START + (SWEEP * i) / (n - 1)
-    const rad = (deg * Math.PI) / 180
-    return { dx: radius * Math.cos(rad), dy: radius * Math.sin(rad) }
-  })
-}
-
-/**
- * The outer ring's contents for one category: as many of its items as the arc
- * holds, and — only when some are left over — a final button standing in for
- * the rest. The "more" button costs one slot, so it is added before the slice
- * is taken, never after; otherwise it would push an item off the end and the
- * count would quietly be one short.
- */
-export function outerRing(items: ArcItem[], more: ArcItem | null, capacity: number): ArcItem[] {
-  if (items.length <= capacity) return items
-  if (!more) return items.slice(0, capacity)
-  return [...items.slice(0, capacity - 1), more]
-}
+/** Finger travel, in slot units, past which a drag stops counting as a tap. */
+const DRAG_SLOP_SLOTS = 0.18
 
 export function QuarterArcMenu({
   categories,
   label = 'Qo‘shish',
   className = '',
-  makeMoreItem,
 }: {
   categories: ArcCategory[]
   /** Accessible name for the corner button itself. */
   label?: string
   /** Positioning for the anchor — defaults to the bottom-right corner. */
   className?: string
-  /** Builds the "everything else" button for a category whose items overflow
-   *  the arc. Returning null just truncates instead. */
-  makeMoreItem?: (category: ArcCategory) => ArcItem | null
 }) {
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [offset, setOffset] = useState(0)
+  const fabRef = useRef<HTMLButtonElement | null>(null)
+  /** Live gesture: where it started and whether it has become a drag yet. */
+  const drag = useRef<{ startAngle: number; startOffset: number; moved: boolean } | null>(null)
+  /** Whether the gesture that just ended was a scroll. Separate from `drag`,
+   *  which is already cleared by the time the click lands: the click fires
+   *  AFTER pointerup, so a guard reading the live gesture always saw null and
+   *  let a scroll that happened to start on a button apply it as well. Cleared
+   *  on the next press, so the tap after a scroll still counts. */
+  const didDrag = useRef(false)
 
   // Escape backs out one level at a time — the items first, then the whole
   // menu — which is what a user reaching for it after a mis-tap expects.
@@ -116,29 +84,125 @@ export function QuarterArcMenu({
   function closeAll() {
     setOpen(false)
     setActiveKey(null)
+    setOffset(0)
   }
 
   const active = categories.find((c) => c.key === activeKey) ?? null
   const capacity = arcCapacity(ARC_RADIUS_OUTER, ARC_ITEM_OUTER)
-  const outer = active
-    ? (active.items.length === 0
-        ? (active.emptyItem ? [active.emptyItem] : [])
-        : outerRing(active.items, makeMoreItem?.(active) ?? null, capacity))
+  const outer: ArcItem[] = active
+    ? (active.items.length === 0 ? (active.emptyItem ? [active.emptyItem] : []) : active.items)
     : []
+  const scrollable = maxArcOffset(outer.length, capacity) > 0
 
-  const innerOffsets = arcOffsets(categories.length, ARC_RADIUS)
-  const outerOffsets = arcOffsets(outer.length, ARC_RADIUS_OUTER)
+  // When everything fits, spread it across the whole quarter so it sits
+  // balanced; once it doesn't, the slots have to keep a fixed pitch or the
+  // buttons would slide around under the finger as the list advanced.
+  const evenOffsets = scrollable ? null : arcOffsets(outer.length, ARC_RADIUS_OUTER)
+  const slots = scrollable ? arcSlots(outer.length, capacity, offset, ARC_RADIUS_OUTER) : null
+
+  /** The arc's centre in client coordinates — the corner button's own centre. */
+  function centre() {
+    const r = fabRef.current?.getBoundingClientRect()
+    if (!r) return null
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 }
+  }
+
+  function onDragStart(e: React.PointerEvent) {
+    didDrag.current = false
+    if (!scrollable) return
+    const c = centre()
+    if (!c) return
+    drag.current = { startAngle: angleAt(c.cx, c.cy, e.clientX, e.clientY), startOffset: offset, moved: false }
+  }
+
+  function onDragMove(e: React.PointerEvent) {
+    const d = drag.current
+    const c = centre()
+    if (!d || !c) return
+    const delta = slotsFromAngleDelta(angleAt(c.cx, c.cy, e.clientX, e.clientY) - d.startAngle, capacity)
+    if (Math.abs(delta) > DRAG_SLOP_SLOTS) d.moved = true
+    setOffset(clampArcOffset(d.startOffset + delta, outer.length, capacity))
+  }
+
+  function onDragEnd() {
+    const d = drag.current
+    drag.current = null
+    if (!d) return false
+    didDrag.current = d.moved
+    // Settle on a whole slot so the ring always comes to rest with buttons on
+    // their marks rather than halfway between two.
+    if (d.moved) setOffset((o) => clampArcOffset(Math.round(o), outer.length, capacity))
+    return d.moved
+  }
+
+  /** A pick only counts if the gesture that ended on it was not a scroll. */
+  function pick(item: ArcItem) {
+    if (didDrag.current) return
+    item.onSelect()
+    closeAll()
+  }
+
+  function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number) {
+    return (
+      <button
+        key={`${activeKey}:${item.key}`}
+        onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
+        onPointerMove={onDragMove}
+        onPointerUp={() => onDragEnd()}
+        onClick={(e) => { e.stopPropagation(); pick(item) }}
+        title={item.label}
+        className="absolute flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 overflow-hidden active:scale-95"
+        style={{
+          left: ARC_FAB / 2 + pos.dx,
+          top: ARC_FAB / 2 + pos.dy,
+          width: ARC_ITEM_OUTER,
+          height: ARC_ITEM_OUTER,
+          transform: 'translate(-50%, -50%)',
+          opacity,
+          // Only the first fan-out is animated: re-running it on every scroll
+          // frame would fight the drag it is supposed to follow.
+          animation: scrollable ? undefined : `arcpop 160ms ease-out ${i * 35}ms backwards`,
+          touchAction: 'none',
+        }}
+      >
+        {item.imageUrl ? (
+          <>
+            <img src={item.imageUrl} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
+            {/* The label rides a scrim at the foot of the thumbnail — a name
+                over a busy wallpaper is unreadable otherwise. */}
+            <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[7px] font-semibold leading-tight truncate">
+              {item.label}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-base leading-none flex items-center justify-center">{item.icon}</span>
+            <span className="text-[7px] font-semibold leading-none text-gray-600 px-0.5 truncate max-w-full">
+              {item.label}
+            </span>
+          </>
+        )}
+      </button>
+    )
+  }
 
   return (
     <>
-      {/* Scrim: catches the tap that dismisses, and drops the 3D view back so
-          the fanned buttons read as a layer above it rather than as objects
-          floating in the room. pointerdown, not click, so it also cancels an
-          in-progress camera gesture instead of waiting for the release. */}
+      {/* Scrim: carries the drag when it starts off a button (most of the arc
+          is empty space), catches the tap that dismisses, and drops the 3D
+          view back so the fanned buttons read as a layer above it. */}
       {open && (
         <div
           className="absolute inset-0 z-30 bg-black/25 animate-[arcfade_140ms_ease-out]"
-          onPointerDown={(e) => { e.stopPropagation(); closeAll() }}
+          style={{ touchAction: 'none' }}
+          onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
+          onPointerMove={onDragMove}
+          onPointerUp={(e) => {
+            e.stopPropagation()
+            // A drag that happened to start on the backdrop must not also
+            // dismiss the menu when the finger lifts.
+            if (!onDragEnd()) closeAll()
+          }}
           aria-hidden="true"
         />
       )}
@@ -146,49 +210,16 @@ export function QuarterArcMenu({
       <div className={`absolute z-30 ${className}`}>
         {/* Outer ring — the active category's own things. Rendered first so
             the category buttons paint over it where the rings crowd. */}
-        {open && outer.map((item, i) => {
-          const { dx, dy } = outerOffsets[i]
-          return (
-            <button
-              key={`${activeKey}:${item.key}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); item.onSelect(); closeAll() }}
-              title={item.label}
-              className="absolute flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 overflow-hidden active:scale-95"
-              style={{
-                left: ARC_FAB / 2 + dx,
-                top: ARC_FAB / 2 + dy,
-                width: ARC_ITEM_OUTER,
-                height: ARC_ITEM_OUTER,
-                transform: 'translate(-50%, -50%)',
-                animation: `arcpop 160ms ease-out ${i * 35}ms backwards`,
-              }}
-            >
-              {item.imageUrl ? (
-                <>
-                  <img src={item.imageUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-                  {/* The label rides a scrim at the foot of the thumbnail —
-                      a name over a busy wallpaper is unreadable otherwise. */}
-                  <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[7px] font-semibold leading-tight truncate">
-                    {item.label}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-base leading-none flex items-center justify-center">{item.icon}</span>
-                  <span className="text-[7px] font-semibold leading-none text-gray-600 px-0.5 truncate max-w-full">
-                    {item.label}
-                  </span>
-                </>
-              )}
-            </button>
-          )
-        })}
+        {open && slots
+          ? slots.map((s) => renderOuterButton(outer[s.index], s, s.opacity, s.index))
+          : open && evenOffsets
+            ? outer.map((item, i) => renderOuterButton(item, evenOffsets[i], 1, i))
+            : null}
 
         {/* Inner ring — the categories. Tapping one swaps the outer ring
             instead of closing, so the three stay reachable from each other. */}
         {open && categories.map((cat, i) => {
-          const { dx, dy } = innerOffsets[i]
+          const { dx, dy } = arcOffsets(categories.length, ARC_RADIUS)[i]
           const isActive = cat.key === activeKey
           return (
             <button
@@ -196,6 +227,7 @@ export function QuarterArcMenu({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
+                setOffset(0)
                 setActiveKey((k) => (k === cat.key ? null : cat.key))
               }}
               aria-pressed={isActive}
@@ -221,10 +253,26 @@ export function QuarterArcMenu({
           )
         })}
 
+        {/* How far along a long list the ring is sitting — without it a
+            scrolling arc gives no clue there is more either way. */}
+        {open && scrollable && (
+          <div
+            className="absolute rounded-full bg-white/85 text-[9px] font-bold text-gray-600 px-1.5 py-0.5 shadow pointer-events-none"
+            style={{
+              left: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
+              top: ARC_FAB / 2 - ARC_RADIUS_OUTER - 6,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            {Math.min(outer.length, Math.round(offset) + capacity)}/{outer.length}
+          </div>
+        )}
+
         {/* The corner button. One arrow that turns 180° instead of swapping to
             an X: it points up the arc to open, and back down into the corner
             to put it away. */}
         <button
+          ref={fabRef}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); open ? closeAll() : setOpen(true) }}
           aria-label={label}

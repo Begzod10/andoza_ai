@@ -132,10 +132,3 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
     placeFurniture, addLight, setWallCovering, selectedWall, openPanelAt,
   ])
 }
-
-/** Which phase's panel a category opens when its items overflow the arc. */
-export const ARC_CATEGORY_PHASE: Record<string, 'boyoq' | 'chiroq' | 'mebel'> = {
-  mebel: 'mebel',
-  rang: 'boyoq',
-  chiroq: 'chiroq',
-}
