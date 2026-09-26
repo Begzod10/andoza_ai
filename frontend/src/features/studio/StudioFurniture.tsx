@@ -13,6 +13,12 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
+import { planPolygon, offsetPolygon } from "@/lib/planPolygon";
+import { roomExtents } from "@/lib/roomDims";
+import {
+  clampFootprintToRoom, halfExtentsToBounds, rotatedHalfExtents, FUR_WALL_GAP,
+  worldToPlan, planToWorld, type RoomBounds,
+} from "@/lib/furnitureBounds";
 import { extractSceneInfo } from "@/lib/modelConverter";
 import {
   partKeyFor, resolvePartKey, resolvePartFromMesh, partLabel,
@@ -651,6 +657,29 @@ export function DraggableFurnitureModels({
   const scaleStartYRef = useRef(0)
   const scaleStartValueRef = useRef(1)
   const rotateStartAngleRef = useRef(0)
+  const geometry = useRoomStore((s) => s.geometry)
+  // The walls the drag actually has to respect. `roomW`/`roomD` are the room's
+  // BOUNDING extents, which for a drawn or scanned room describe a rectangle
+  // the room merely fits inside — clamping to it let a model be pushed into
+  // the notch of an L, through two walls. The outline (inset by the wall gap)
+  // is the room itself; a legacy A-B-C-D rectangle has none and keeps the
+  // plain per-axis clamp.
+  const roomBounds = useMemo<RoomBounds>(() => {
+    const poly = planPolygon(geometry)
+    // For a polygon the extents must come from the same call planPolygon
+    // makes, or the plan frame this converts into would be offset from the
+    // one the outline is expressed in and the clamp would fence off the
+    // wrong strip of floor. The roomW/roomD props carry a caller's fallback
+    // and are only right for the legacy rectangle, which needs no outline.
+    const ext = poly ? roomExtents(geometry) : { W: roomW, D: roomD }
+    return {
+      W: ext.W * 1000,
+      D: ext.D * 1000,
+      inner: poly ? offsetPolygon(poly, -FUR_WALL_GAP) : null,
+      outline: poly ? poly.vertices : null,
+    }
+  }, [geometry, roomW, roomD])
+
   const { camera, gl } = useThree()
   const floorPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -682,29 +711,20 @@ export function DraggableFurnitureModels({
     return { name: 'Mebel', priceUzs: null }
   }
 
-  // Half-extents of an item's AABB after its yaw rotation — a model authored
-  // long along Z and rotated 90° occupies X, and vice versa. Using unrotated
-  // extents locked dragging on one axis for rotated large items.
-  function rotatedHalf(hw: number, hd: number, rot: number): { hw: number; hd: number } {
-    const c = Math.abs(Math.cos(rot))
-    const s = Math.abs(Math.sin(rot))
-    return { hw: hw * c + hd * s, hd: hw * s + hd * c }
-  }
-
   // AABB overlap test using actual geometry footprints, not catalog sizeM
   function wouldCollide(draggingId: string, nx: number, nz: number): boolean {
     const all = furnitureRef.current
     const aFP0 = footprintsRef.current.get(draggingId)
     if (!aFP0) return false
     const dragItem = all.find((f) => f.id === draggingId)
-    const aFP = rotatedHalf(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
+    const aFP = rotatedHalfExtents(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
     const GAP = 0.03 // 3 cm minimum clearance
 
     for (const f of all) {
       if (f.id === draggingId) continue
       const bFP0 = footprintsRef.current.get(f.id)
       if (!bFP0) continue
-      const bFP = rotatedHalf(bFP0.hw, bFP0.hd, f.rotation)
+      const bFP = rotatedHalfExtents(bFP0.hw, bFP0.hd, f.rotation)
       const dx = Math.abs(nx - f.x / 1000)
       const dz = Math.abs(nz - f.y / 1000)
       if (dx < aFP.hw + bFP.hw + GAP && dz < aFP.hd + bFP.hd + GAP) return true
@@ -725,10 +745,10 @@ export function DraggableFurnitureModels({
       const hw0 = fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2
       const hd0 = fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2
       // Wall clamping must use the ROTATED extents, or a long model turned
-      // 90° gets its free axis locked against the walls
-      const { hw, hd } = rotatedHalf(hw0, hd0, item.rotation)
-      const WALL_MARGIN = 0.05 // 5 cm clearance from wall inner face
-      dragHalfRef.current = { w: hw + WALL_MARGIN, d: hd + WALL_MARGIN }
+      // 90° gets its free axis locked against the walls. The wall gap is the
+      // clamp's own business, so these stay the bare half-extents.
+      const { hw, hd } = rotatedHalfExtents(hw0, hd0, item.rotation)
+      dragHalfRef.current = { w: hw, d: hd }
       dragPosRef.current.set(item.x / 1000, 0, item.y / 1000)
       document.body.style.cursor = 'grabbing'
     } else if (toolMode === 'rotate') {
@@ -802,13 +822,20 @@ export function DraggableFurnitureModels({
         raycaster.setFromCamera(ndc, camera)
         if (!raycaster.ray.intersectPlane(floorPlane, hitPoint.current)) return
         const { w, d } = dragHalfRef.current
-        const halfW = roomW / 2
-        const halfD = roomD / 2
         const snap = 0.05
-        const rawX = Math.max(-halfW + w, Math.min(halfW - w, hitPoint.current.x))
-        const rawZ = Math.max(-halfD + d, Math.min(halfD - d, hitPoint.current.z))
-        const x = Math.round(rawX / snap) * snap
-        const z = Math.round(rawZ / snap) * snap
+        // Snap first, then clamp: snapping afterwards could nudge the model
+        // back out through the wall the clamp had just pulled it inside of.
+        const wantX = Math.round(hitPoint.current.x / snap) * snap
+        const wantZ = Math.round(hitPoint.current.z / snap) * snap
+        // The clamp works in the plan's frame (mm from the room's corner);
+        // the drag works in world metres about the room's centre.
+        const fitted = clampFootprintToRoom(
+          worldToPlan({ x: wantX, z: wantZ }, roomBounds),
+          worldToPlan({ x: dragPosRef.current.x, z: dragPosRef.current.z }, roomBounds),
+          halfExtentsToBounds(w * 1000, d * 1000),
+          roomBounds,
+        )
+        const { x, z } = planToWorld(fitted, roomBounds)
         // Only update position if it doesn't overlap another item
         if (!wouldCollide(draggingIdRef.current!, x, z)) {
           dragPosRef.current.set(x, 0, z)
@@ -833,7 +860,7 @@ export function DraggableFurnitureModels({
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId, toolMode, roomW, roomD])
+  }, [draggingId, toolMode, roomBounds])
 
   return (
     <>

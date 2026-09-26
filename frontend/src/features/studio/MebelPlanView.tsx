@@ -18,7 +18,8 @@ import { hullBounds, type Hull } from '@/lib/modelFootprint'
 import { DEFAULT_WINDOW_STYLE, mullionCount, resolveWindowStyle } from '@/lib/windowStyles'
 import { PlanFurnitureLayer, itemScale, resolveFurnitureEntry } from './PlanFurniture'
 import { WindowStylePicker } from './WindowStylePicker'
-import { isAbcdRoom, offsetPolygon, planPolygon, pointInPolygon, svgPoints } from '@/lib/planPolygon'
+import { isAbcdRoom, offsetPolygon, planPolygon, svgPoints } from '@/lib/planPolygon'
+import { clampFootprintToRoom, FUR_WALL_GAP } from '@/lib/furnitureBounds'
 
 type ElType = WallElement['type']
 
@@ -35,7 +36,6 @@ const DRAG_STEP = 5
 // Furniture drags on a coarser grid than wall openings, and keeps a small
 // clearance from the wall faces (same 50mm the 3D viewport uses).
 const FUR_STEP = 10
-const FUR_WALL_GAP = 50
 
 /**
  * Nearest collision-free position for an element of `width` on a wall.
@@ -318,37 +318,17 @@ export function MebelPlanView() {
     return { minX: -rw, maxX: rw, minZ: -rd, maxZ: rd }
   }
 
-  /** Keep an item's whole footprint inside the room. */
+  /** Keep an item's whole footprint inside the room — the same rule the 3D
+   *  viewport's drag applies, so the two editors stop it at the same walls. */
   function clampFurniture(item: PlacedFurniture, planX: number, planY: number) {
-    const b = furExtents(item)
-    if (innerOutline) {
-      // Polygon room: the footprint's box corners must all stay inside the
-      // inset outline. When the wanted spot doesn't fit, try the two
-      // axis-only moves so the item slides along a wall instead of sticking,
-      // and otherwise stay where it is.
-      const fits = (px: number, py: number) =>
-        [[px + b.minX, py + b.minZ], [px + b.maxX, py + b.minZ], [px + b.maxX, py + b.maxZ], [px + b.minX, py + b.maxZ]]
-          .every(([cx, cy]) => pointInPolygon(cx, cy, innerOutline))
-      const curX = item.x + W / 2
-      const curY = item.y + Dp / 2
-      if (fits(planX, planY)) return { x: planX, y: planY }
-      if (fits(planX, curY)) return { x: planX, y: curY }
-      if (fits(curX, planY)) return { x: curX, y: planY }
-      // Already overlapping a wall (placed or resized in 3D, or turned): let
-      // it move while its centre stays on the floor, so it can be pulled
-      // back inside instead of being stuck for good.
-      if (!fits(curX, curY) && pointInPolygon(planX, planY, poly!.vertices)) return { x: planX, y: planY }
-      return { x: curX, y: curY }
-    }
-    const x = Math.min(
-      Math.max(planX, FUR_WALL_GAP - b.minX),
-      Math.max(FUR_WALL_GAP - b.minX, W - FUR_WALL_GAP - b.maxX),
+    const fitted = clampFootprintToRoom(
+      { x: planX, z: planY },
+      { x: item.x + W / 2, z: item.y + Dp / 2 },
+      furExtents(item),
+      { W, D: Dp, inner: innerOutline, outline: poly ? poly.vertices : null },
+      FUR_WALL_GAP,
     )
-    const y = Math.min(
-      Math.max(planY, FUR_WALL_GAP - b.minZ),
-      Math.max(FUR_WALL_GAP - b.minZ, Dp - FUR_WALL_GAP - b.maxZ),
-    )
-    return { x, y }
+    return { x: fitted.x, y: fitted.z }
   }
 
   function startFurnitureDrag(item: PlacedFurniture, e: React.PointerEvent) {
