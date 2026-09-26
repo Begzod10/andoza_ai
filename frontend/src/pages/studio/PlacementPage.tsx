@@ -1857,8 +1857,10 @@ function ElektrThreeDView({ room, geometry, designState, electricals, wireConfig
             // Both drag axes reversed, matching the main 3D view: dragging
             // right sends the room left, dragging down tilts the other way.
             reverseOrbit
+            // Same orbit range as the main 3D view, so the Elektr preview
+            // pulls outside the room as far as that one does.
             minDistance={0.25}
-            maxDistance={Math.max(W, D) * 4}
+            maxDistance={Math.max(W, D) * 4 + 6}
           />
         </Suspense>
       </Canvas>

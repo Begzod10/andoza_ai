@@ -27,7 +27,6 @@ import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { getRooms, deleteRoom, uploadRoomThumbnail, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CutawayMode } from "@/features/studio/diorama";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { DraggableFurnitureModels, type SelectedPart, type ToolMode } from "@/features/studio/StudioFurniture";
@@ -77,38 +76,6 @@ export interface StudioContext {
 
 // ─── Viewport corner controls ─────────────────────────────────────────────────
 
-/** The [Ichki | Tashqi] view-mode segmented pill. Extracted (without its
- *  absolute positioning) because the Mebelirovka tab renders it inside a shared
- *  top-right control row next to the 2D/3D switch, while every other tab pins
- *  it to the 3D viewport's own top-right corner. */
-function ViewModeSegment({ cutaway, setCutaway }: {
-  cutaway: CutawayMode;
-  setCutaway: (mode: CutawayMode) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md">
-      {([
-        ['off', 'Ichki', "Ichki ko'rinish — devorlar to'liq"],
-        ['auto', 'Tashqi', "Tashqi ko'rinish — kamera tomondagi devorlar yashirinadi"],
-            ] as const).map(([mode, label, title]) => (
-        <button
-          key={mode}
-          onClick={() => setCutaway(mode)}
-          title={title}
-          aria-label={title}
-          aria-pressed={cutaway === mode}
-          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-            cutaway === mode
-              ? 'bg-brand text-white'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -207,7 +174,6 @@ export default function ThreeDPage() {
     dayOfYear: today,
     peakIntensity: highQuality3d ? 1.3 : 1.0,
   }), [sunHour, today, highQuality3d]);
-  const [cutaway, setCutaway] = useState<CutawayMode>('off');
   const [showHelp, setShowHelp] = useState(false);
   // LiDAR scan reference layer (GLB overlay + object ghost boxes). OFF by
   // default — it is a pure reference aid, never part of the default view.
@@ -732,13 +698,6 @@ export default function ThreeDPage() {
   }, [aptRooms, room.id]);
 
   const cam = useMemo(() => {
-    // Cutaway modes view the room from OUTSIDE as a three-quarter product shot
-    if (cutaway !== 'off' && preset !== 'top') {
-      return fitFramingToAspect({
-        position: [W * 0.9 + 2.5, H * 1.8, D * 0.9 + 2.5] as [number, number, number],
-        target: [0, H * 0.32, 0] as [number, number, number],
-      }, fitScale, Math.max(W, D) * 4 + 6);
-    }
     const base = getCamera(preset, W, D, H);
     // Only the aerial framing is re-fitted: the corner/front/back presets stand
     // the camera inside the room, where pulling back would push it through a
@@ -746,7 +705,7 @@ export default function ThreeDPage() {
     return preset === 'top'
       ? fitFramingToAspect(base, fitScale, Math.max(W, D) * 4)
       : base;
-  }, [preset, cutaway, W, D, H, fitScale]);
+  }, [preset, W, D, H, fitScale]);
 
   // Keyboard shortcuts — desktop power-user navigation
   const selectedFurIdRef = useRef<string | null>(null);
@@ -764,7 +723,6 @@ export default function ThreeDPage() {
         case '3': setToolMode('rotate'); break;
         case '4': setToolMode('scale'); break;
         case '5': setToolMode('part'); break;
-        case 'k': setCutaway((m) => (m === 'off' ? 'auto' : 'off')); break;
         case 'n': setSceneLightOn((v) => !v); break;
         case 'l': setLightsOn((v) => !v); break;
         case 'f':
@@ -799,23 +757,17 @@ export default function ThreeDPage() {
   }, [toolMode]);
   useEffect(() => { setSelectedPart(null); }, [room.id]);
 
-  // Recenter the camera on the room's centre when the cutaway mode changes or
-  // a DIFFERENT room loads (switching rooms only changes the :roomId param —
-  // the page does not remount, so pan/orbit drift would otherwise carry over).
-  // Skips the mount pass: the initial framing comes from initCam, not an
-  // animation.
-  const camKeyRef = useRef<{ roomId: string; cutaway: CutawayMode } | null>(null);
+  // Recenter the camera on the room's centre when a DIFFERENT room loads
+  // (switching rooms only changes the :roomId param — the page does not
+  // remount, so pan/orbit drift would otherwise carry over). Skips the mount
+  // pass: the initial framing comes from initCam, not an animation.
+  const camKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = camKeyRef.current;
-    camKeyRef.current = { roomId: room.id, cutaway };
-    if (!prev) return;
-    if (prev.roomId !== room.id || prev.cutaway !== cutaway) {
-      setPresetVersion((n) => n + 1);
-    }
-  }, [room.id, cutaway]);
+    camKeyRef.current = room.id;
+    if (prev && prev !== room.id) setPresetVersion((n) => n + 1);
+  }, [room.id]);
 
-  // Limit orbit radius to shorter room dimension so camera stays inside
-  const interiorMaxDist = Math.min(W, D) * 0.85;
   // Top view: keep camera above ceiling — ceiling is hidden so user can scroll "through" it
   const topMinDist = H * 2.4;
   const maxPolarAngle = Math.PI * 0.88;
@@ -1158,9 +1110,7 @@ export default function ThreeDPage() {
                 </div>
               </div>
 
-              {/* View controls: help, recenter, screenshot. The cutaway
-                  toggle moved to the segmented control over the viewport's
-                  top-right corner. */}
+              {/* View controls: help, recenter, screenshot. */}
               <div className="px-4 py-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rish</p>
                 <div className="flex flex-wrap gap-2">
@@ -1369,13 +1319,9 @@ export default function ThreeDPage() {
         <StudioTabStrip roomId={room.id} />
         {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
             the full-width top-view plan editor ('2d') for the live 3D
-            viewport ('3d', the default). In 3D mode the row wrapper spans
-            exactly the 3D box, so this top-right row lands in the same corner
-            the view-mode pill occupies on other tabs; the Tashqi
-            segment renders here (to the switch's left) only in 3D mode —
-            cutaway modes are meaningless on the flat plan. z-20 matches the
-            other corner controls: above the canvas and z-10 clusters, below
-            the drop overlay (z-40). */}
+            viewport ('3d', the default). z-20 matches the other corner
+            controls: above the canvas and z-10 clusters, below the drop
+            overlay (z-40). */}
         {(isMebelTab || isChiroqTab) && (
           <div className="absolute top-16 right-3 z-20 flex items-center gap-2">
             <PlanViewToggle
@@ -1386,9 +1332,6 @@ export default function ThreeDPage() {
                   : setChiroqView((v) => (v === '3d' ? '2d' : '3d'))
               }
             />
-            {(isMebelTab ? mebelView : chiroqView) === '3d' && (
-              <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
-            )}
           </div>
         )}
         {/* Mebelirovka 2D mode: the top-view plan editor takes the whole slot */}
@@ -1442,23 +1385,6 @@ export default function ThreeDPage() {
             </p>
           )}
 
-          {/* View mode — relocated here from the tools drawer's old
-              "Ko'rinish" chips + cutaway button. One segmented control pinned
-              to the viewport's top-right corner, exposing the same three-state
-              CutawayMode machine the old cycling button did: 3D = normal
-              interior view ('off'), Tashqi = auto cutaway ('auto' — walls
-              facing the camera hide). The K key still toggles the two
-              states. z-20: above
-              the canvas and the z-10 button clusters, below the drop overlay
-              (z-40) and the mobile panel/backdrop tier (z-40/50).
-              On the Mebelirovka tab the segment instead renders in the
-              slot-level top-right control row (next to the 2D/3D switch), so
-              it is skipped here. */}
-          {!isMebelTab && !isChiroqTab && (
-            <div className="absolute top-16 right-3 z-20">
-              <ViewModeSegment cutaway={cutaway} setCutaway={setCutaway} />
-            </div>
-          )}
 
           {/* Navigation help card — top-32 keeps it clear of the view-mode
               segmented control pinned at top-16 in the same corner (which in
@@ -1486,7 +1412,6 @@ export default function ThreeDPage() {
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
                 <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
-                <li><b>K</b> — Ichki / Tashqi</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
                 <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
                 <li><b>Esc</b> — bekor qilish</li>
@@ -1664,7 +1589,7 @@ export default function ThreeDPage() {
               composerActive={useComposer}
               highQuality={highQuality3d}
               lightsOn={lightsOn}
-              cutaway={topView ? 'off' : cutaway}
+              cutaway="off"
               selectedWall={selectedWall}
               onWallClick={(id) => focusSurface(id)}
               isFloorSelected={selectedWall === 'FLOOR'}
@@ -1724,7 +1649,7 @@ export default function ThreeDPage() {
               geometry={geometry}
               W={W}
               D={D}
-              cutaway={topView ? 'off' : cutaway}
+              cutaway="off"
               toolMode={toolMode}
               controlsRef={controlsRef}
               selectedId={selectedDoorId}
@@ -1749,11 +1674,17 @@ export default function ThreeDPage() {
                 MIDDLE: THREE.MOUSE.PAN,
                 RIGHT: THREE.MOUSE.PAN,
               }}
-              minDistance={topView ? topMinDist : cutaway !== 'off' ? 2 : 0.25}
-              maxDistance={topView ? Math.max(W, D) * 4 : cutaway !== 'off' ? Math.max(W, D) * 4 + 6 : interiorMaxDist}
-              maxPolarAngle={topView ? Math.PI * 0.3 : cutaway !== 'off' ? Math.PI * 0.46 : maxPolarAngle}
+              // One orbit range everywhere: close enough to inspect a
+              // skirting joint, far enough to pull right outside the room.
+              // The walls are single-sided planes and the shadow shell draws
+              // no colour, so from outside you simply look in — which is what
+              // the old Tashqi mode staged with a fixed camera and hidden
+              // walls.
+              minDistance={topView ? topMinDist : 0.25}
+              maxDistance={topView ? Math.max(W, D) * 4 : Math.max(W, D) * 4 + 6}
+              maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
               minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : cutaway !== 'off' ? 0.5 : 0.45}
+              rotateSpeed={topView ? 0.6 : 0.45}
               // Both drag axes run opposite to OrbitControls' default
               // grab-and-turn, as the user asked: dragging right sends the
               // room left, dragging down tilts the view the other way too.
