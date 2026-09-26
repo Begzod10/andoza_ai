@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore, useTemporalRoomStore } from "@/store/roomStore";
@@ -6,7 +6,7 @@ import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
-import { Sofa, Lightbulb, Wallpaper } from "lucide-react";
+import { useArcCategories, ARC_CATEGORY_PHASE } from "@/features/studio/useArcCategories";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { getRooms, deleteRoom, listCatalogFurniture } from "@/lib/api";
@@ -329,23 +329,17 @@ export default function ThreeDPage() {
     setSelectedWall(id);
   }
 
-  // Which tab the "add object" sheet opens on. The phase the user is in is
-  // the sensible default, but the corner arc menu names a section outright —
-  // that choice wins for the open it triggered, then clears, so the next open
-  // from anywhere else follows the phase again.
-  const [addSheetPick, setAddSheetPick] = useState<'wallpaper' | 'lyustra' | 'furniture' | null>(null);
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
-    addSheetPick ??
-    (activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture');
+    activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
 
-  /** Corner arc menu → open the add sheet straight onto one section. */
-  function openAddSheetAt(section: 'wallpaper' | 'lyustra' | 'furniture') {
-    setAddSheetPick(section);
-    setShowAddSheet(true);
-  }
-  // Drop the pick once the sheet is gone, so a later open from the bottom CTA
-  // or the radial menu isn't still pinned to whatever the arc chose last.
-  useEffect(() => { if (!showAddSheet) setAddSheetPick(null); }, [showAddSheet]);
+  /** The corner arc's categories, read from the same sources the design panel
+   *  uses. `openPanelAt` is its escape hatch: a category with more items than
+   *  the arc holds ends in a button that opens the full panel instead. */
+  const openPanelAt = useCallback((phase: 'boyoq' | 'chiroq' | 'mebel') => {
+    setActivePhase(phase);
+    setShowPanel(true);
+  }, [setActivePhase]);
+  const arcCategories = useArcCategories({ selectedWall, openPanelAt });
 
   const { wallGeom, computeOpeningRect, createOpening } = useOpeningCreation({
     W, D, H, geometry, addElement, setPendingWindowSpot, setSelectedWall,
@@ -642,11 +636,13 @@ export default function ThreeDPage() {
             <QuarterArcMenu
               className="bottom-5 right-4"
               label="Qo'shish menyusi"
-              items={[
-                { key: 'oboy', label: "Oboy", icon: <Wallpaper size={19} strokeWidth={1.8} />, onSelect: () => openAddSheetAt('wallpaper') },
-                { key: 'chiroq', label: 'Chiroq', icon: <Lightbulb size={19} strokeWidth={1.8} />, onSelect: () => openAddSheetAt('lyustra') },
-                { key: 'mebel', label: 'Mebel', icon: <Sofa size={19} strokeWidth={1.8} />, onSelect: () => openAddSheetAt('furniture') },
-              ]}
+              categories={arcCategories}
+              makeMoreItem={(cat) => ({
+                key: `${cat.key}:more`,
+                label: 'Yana',
+                icon: '\u22EF',
+                onSelect: () => openPanelAt(ARC_CATEGORY_PHASE[cat.key] ?? 'boyoq'),
+              })}
             />
           </div>
 
