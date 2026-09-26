@@ -15,6 +15,9 @@ from app.database import Base
 
 UstaCategory = Enum(
     "elektrik",
+    # Design engineer, not an installer: works from the written norms and
+    # stamps project documentation, before any cable is pulled.
+    "elektrik_loyihachi",
     "santexnik",
     "malyar",
     "oboy",

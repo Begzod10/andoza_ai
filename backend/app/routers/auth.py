@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import bcrypt as _bcrypt
 
 from app.api.v1.deps import CurrentUser
-from app.config import settings
+from app.config import NATIVE_APP_ORIGINS, settings
 from app.core.cache import get_redis
 from app.core.security import create_access_token, create_refresh_token, verify_refresh_token
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
@@ -53,6 +53,36 @@ _REGISTER_IP_RATE_WINDOW = 3600  # 1 hour
 _IS_DEV = settings.ENVIRONMENT == "development"
 _COOKIE_MAX_AGE = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 _REFRESH_COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
+
+# Header the native app clients (Flutter, and the legacy Capacitor app) send
+# on every request so the backend can tell them apart from a browser. This is
+# the PRIMARY signal — the Origin fallback below only covers WebView-based
+# native shells that set it automatically; Flutter's HTTP client does not.
+_NATIVE_CLIENT_HEADER = "x-client-type"
+_NATIVE_CLIENT_HEADER_VALUE = "mobile"
+
+
+def _is_native_client(request: Request) -> bool:
+    """True when the request came from a native app client (Flutter or the
+    Capacitor/WebView shell) rather than a browser.
+
+    Native clients don't get a browser cookie jar the way a web page does,
+    so they read the access/refresh JWTs straight out of the JSON response
+    body and manage them as Bearer tokens themselves. Web requests must NOT
+    get tokens in the body — only in the HttpOnly cookies — so an XSS bug
+    can't read them out of a fetch()/axios response.
+
+    Two independent signals, either is sufficient:
+    - `X-Client-Type: mobile` header — set explicitly by the Flutter app's
+      HTTP client (see tamir_uy_mobile_flutter/lib/services/api_client.dart).
+    - `Origin` header matching one of the fixed native WebView origins that
+      CORS always allow-lists (settings.NATIVE_APP_ORIGINS) — covers the
+      legacy Capacitor/React-Native shell, whose WebView sets Origin
+      automatically and never sends the custom header above.
+    """
+    if request.headers.get(_NATIVE_CLIENT_HEADER, "").strip().lower() == _NATIVE_CLIENT_HEADER_VALUE:
+        return True
+    return request.headers.get("origin") in NATIVE_APP_ORIGINS
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
@@ -185,11 +215,13 @@ async def request_otp(body: OTPRequest, request: Request) -> dict[str, str]:
 )
 async def verify_otp_endpoint(
     body: OTPVerify,
+    request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> LoginResponse:
     """Brute-force guarded (max 5 attempts per 5-min window).
-    On success: sets HttpOnly JWT cookies; JWTs are NOT in the response body."""
+    On success: sets HttpOnly JWT cookies. JWTs are also echoed in the
+    response body, but only for native app clients — see _is_native_client()."""
     redis = get_redis()
 
     attempts_key = f"otp_attempts:{body.phone}"
@@ -233,10 +265,11 @@ async def verify_otp_endpoint(
     _set_auth_cookie(response, access_token)
     _set_refresh_cookie(response, refresh_token)
 
+    is_native = _is_native_client(request)
     return LoginResponse(
         user=UserOut.model_validate(user),
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=access_token if is_native else None,
+        refresh_token=refresh_token if is_native else None,
     )
 
 
@@ -256,6 +289,7 @@ async def get_me(current_user: CurrentUser) -> UserOut:
     summary="Rotate access + refresh tokens using the refresh cookie",
 )
 async def refresh_tokens(
+    request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
     refresh_token: Annotated[str | None, Cookie()] = None,
@@ -292,10 +326,11 @@ async def refresh_tokens(
     _set_auth_cookie(response, access_token)
     _set_refresh_cookie(response, refresh_token_new)
 
+    is_native = _is_native_client(request)
     return LoginResponse(
         user=UserOut.model_validate(user),
-        access_token=access_token,
-        refresh_token=refresh_token_new,
+        access_token=access_token if is_native else None,
+        refresh_token=refresh_token_new if is_native else None,
     )
 
 
@@ -364,10 +399,11 @@ async def register(
     _set_auth_cookie(response, access_token)
     _set_refresh_cookie(response, refresh_token)
 
+    is_native = _is_native_client(request)
     return LoginResponse(
         user=UserOut.model_validate(user),
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=access_token if is_native else None,
+        refresh_token=refresh_token if is_native else None,
     )
 
 
@@ -419,8 +455,9 @@ async def login_with_password(
     _set_auth_cookie(response, access_token)
     _set_refresh_cookie(response, refresh_token)
 
+    is_native = _is_native_client(request)
     return LoginResponse(
         user=UserOut.model_validate(user),
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=access_token if is_native else None,
+        refresh_token=refresh_token if is_native else None,
     )

@@ -8,11 +8,15 @@ Tests:
   - POST /api/v1/auth/logout → requires auth
 """
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch, MagicMock
+
+from app.database import get_db
 from app.main import app
+from app.models.user import User
 
 
 @pytest.fixture
@@ -23,11 +27,10 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
-    """This file talks to the REAL Redis (no mocking, unlike test_auth.py's
-    FakeRedis) — TestClient always reports the same fake IP ("testclient"),
-    so repeated runs of this file accumulate real register/login rate-limit
-    counters against that one key until they trip for real, failing a test
-    that has nothing to do with rate limiting. Clear them before every test."""
+    """TestClient always reports the same fake IP ("testclient"), so the
+    register/login rate-limit counters all pile up on one key. conftest's
+    fake_redis already gives each test its own store; clear the counters too,
+    so this file stays correct if that ever changes."""
     import asyncio
 
     from app.core.cache import get_redis
@@ -42,6 +45,57 @@ def _reset_rate_limits():
 
     asyncio.run(_flush())
     yield
+
+
+class _Result:
+    def __init__(self, scalar=None):
+        self._scalar = scalar
+
+    def scalar_one_or_none(self):
+        return self._scalar
+
+
+class _FakeUserDb:
+    """In-memory stand-in for the users table.
+
+    register() and login_with_password() each look a user up by username, and
+    register() inserts one — a dict keyed by username is enough to exercise
+    the real register → login round-trip without a live Postgres.
+    """
+
+    def __init__(self):
+        self._users: dict[str, User] = {}
+
+    async def execute(self, stmt):
+        # The only query these endpoints run is
+        # select(User).where(User.username == ...).
+        params = stmt.compile().params
+        username = next(iter(params.values()), None)
+        return _Result(scalar=self._users.get(username))
+
+    def add(self, obj):
+        self._users[obj.username] = obj
+
+    async def flush(self):
+        pass
+
+    async def refresh(self, obj):
+        # Stand in for the server-side defaults Postgres would fill in.
+        if getattr(obj, "id", None) is None:
+            obj.id = uuid.uuid4()
+        if getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime.now(timezone.utc)
+        if getattr(obj, "is_admin", None) is None:
+            obj.is_admin = False
+
+
+@pytest.fixture
+def db_client():
+    """TestClient whose get_db yields one shared in-memory user store."""
+    db = _FakeUserDb()
+    app.dependency_overrides[get_db] = lambda: db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 class TestOTPRequest:
@@ -159,15 +213,13 @@ class TestAuthValidation:
         )
         assert response.status_code == 422
 
-    def test_register_with_valid_data(self, client):
+    def test_register_with_valid_data(self, db_client):
         """POST /api/v1/auth/register with valid data."""
-        # A hardcoded username/phone here collides with whatever an earlier
-        # run already left in a persistent dev DB (a fresh CI DB never hits
-        # this, but a real dev database does) — register()ing a 409 on
-        # someone else's leftover row isn't this test's concern either way,
-        # so give every run its own identity instead.
+        # Give every run its own identity: a hardcoded username would collide
+        # with whatever an earlier run left behind, and register()ing a 409 on
+        # someone else's leftover row isn't this test's concern.
         suffix = uuid.uuid4().hex[:10]
-        response = client.post(
+        response = db_client.post(
             '/api/v1/auth/register',
             json={
                 'username': f'testuser_{suffix}',
@@ -178,7 +230,7 @@ class TestAuthValidation:
         # Should succeed or fail with 400, not 404
         assert response.status_code in [200, 201, 400, 422]
 
-    def test_login_with_password(self, client):
+    def test_login_with_password(self, db_client):
         """POST /api/v1/auth/login with credentials."""
         # Self-contained: register the exact user being logged into, rather
         # than assuming test_register_with_valid_data already created one —
@@ -187,7 +239,7 @@ class TestAuthValidation:
         suffix = uuid.uuid4().hex[:10]
         username = f'testuser_{suffix}'
         password = 'TestPassword123'
-        register_response = client.post(
+        register_response = db_client.post(
             '/api/v1/auth/register',
             json={
                 'username': username,
@@ -197,7 +249,7 @@ class TestAuthValidation:
         )
         assert register_response.status_code in [200, 201]
 
-        response = client.post(
+        response = db_client.post(
             '/api/v1/auth/login',
             json={
                 'username': username,

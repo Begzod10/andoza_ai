@@ -13,6 +13,7 @@ import { uz } from "@/locale/uz";
 import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
+import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
 function StudioNav({ roomId, isDirty, topOffset }: { roomId: string; isDirty: boolean; topOffset: number }) {
@@ -294,21 +295,28 @@ export default function StudioPage() {
 
       // Geometry in backend format: lengths in metres, positions 0-1 fraction
       const geometryPayload = {
-        walls: s.geometry.walls.map(w => ({
-          id: w.id,
-          length: w.length / 1000,
-          elements: w.elements.map(e => ({
-            type: e.type,
-            width: e.width / 1000,
-            height: e.height / 1000,
-            sill_height: (e.sill_height ?? 0) / 1000,
-            position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
-            // Window type — the API geometry is authoritative on reload, so
-            // without this the picked style would be lost on every refresh
-            style_id: e.styleId ?? null,
-            sashes: e.sashes ?? null,
-          })),
-        })),
+        walls: s.geometry.walls.map(w => {
+          // Store mm (left edge, possibly an unresolved auto placeholder) →
+          // API centre fractions — the single conversion point on the way out,
+          // mirroring apiPositionToStoreMm on the way in. Resolving first means
+          // what we save is what the studio was drawing.
+          const positions = wallElementsToApiPositions(w.elements, w.length)
+          return {
+            id: w.id,
+            length: w.length / 1000,
+            elements: w.elements.map((e, i) => ({
+              type: e.type,
+              width: e.width / 1000,
+              height: e.height / 1000,
+              sill_height: (e.sill_height ?? 0) / 1000,
+              position: positions[i],
+              // Window type — the API geometry is authoritative on reload, so
+              // without this the picked style would be lost on every refresh
+              style_id: e.styleId ?? null,
+              sashes: e.sashes ?? null,
+            })),
+          }
+        }),
         // Polygon (N-wall) rooms carry their outline in `vertices` (mm in the
         // store). Without re-emitting it here the save drops the polygon and
         // the backend rebuilds a rectangle / rejects the room (422). Same
@@ -347,7 +355,7 @@ export default function StudioPage() {
       // Room not in DB — create apartment + room
       let aptId = s.apartmentId;
       if (!aptId) {
-        const apt = await createApartment({ name: s.name || 'Kvartira' });
+        const apt = await createApartment({ name: s.name || 'Xonadon' });
         aptId = apt.id;
       }
       const newRoom = await createRoom(aptId, {

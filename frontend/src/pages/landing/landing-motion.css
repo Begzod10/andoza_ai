@@ -1,0 +1,337 @@
+/* Motion for the public marketing landing page only — code-split with it,
+   never loaded by the rest of the app. Every animation here touches only
+   transform/opacity/box-shadow/background-position (compositor-friendly),
+   and everything is neutralized under prefers-reduced-motion below. */
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes landing-grid-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 40px;
+  }
+}
+
+@keyframes landing-blob-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-24px, 20px) scale(1.08);
+  }
+}
+
+@keyframes landing-fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.landing-hero-in {
+  animation: landing-fade-up-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* Re-mounted (via a changing `key`) each time HeroMock cycles to a new
+   room preset, so this replays on every swap. */
+.landing-fade-swap {
+  animation: landing-fade-up-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.landing-hero-in-delayed {
+  animation: landing-fade-up-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.15s;
+}
+
+.landing-float {
+  animation: landing-float 4s ease-in-out infinite;
+}
+.landing-float-delayed {
+  animation: landing-float 4.4s ease-in-out infinite;
+  animation-delay: 1.1s;
+}
+.landing-grid-drift {
+  animation: landing-grid-drift 16s linear infinite;
+}
+/* Forced, unambiguous focus indicator for every interactive element on
+   this page. All of them sit on a navy background (or, for the pricing
+   cards, mixed navy/white), so this can't rely on the app's default
+   focus ring (ring-brand ~= the page background color itself, and the
+   default outline on this button resolves to currentColor — verified
+   in-browser to be literally invisible against this button's own white
+   border). Uses warning-bright (#FB923C), already part of this page's
+   palette, which measures >=4.5:1 against both navy and white. */
+.landing-focus-ring:focus-visible {
+  outline: 3px solid #fb923c !important;
+  outline-offset: 3px !important;
+  box-shadow: none !important;
+}
+/* Same idea, for elements sitting on a white/light surface (the PRO
+   pricing card, the final-CTA section) — warning-bright only measures
+   2.3:1 against white, so those use the dark brand navy instead
+   (10.4:1 against white). */
+.landing-focus-ring-dark:focus-visible {
+  outline: 3px solid #1e3a8a !important;
+  outline-offset: 3px !important;
+  box-shadow: none !important;
+}
+
+/* "Liquid glass" skeuomorphic keycap — every button on this page. Frosted
+   translucent fill (backdrop-filter blurs whatever's behind it) plus a
+   bright top bevel / dark inner-bottom shadow read as a physically curved
+   glass surface, and a flat "step" shadow underneath (0 Npx 0, no blur)
+   reads as the key's solid side wall lifting it off the page — the classic
+   skeuomorphic keycap trick. Pressing it drops the step height and flips
+   the bevel, like the key sinking into the surface. */
+.landing-keycap {
+  position: relative;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition:
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(0);
+}
+.landing-keycap:hover {
+  transform: translateY(-2px);
+}
+.landing-keycap:active {
+  transform: translateY(3px) !important;
+  transition-duration: 0.05s;
+}
+
+.landing-keycap--orange {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 178, 122, 0.7) 0%,
+    rgba(249, 115, 22, 0.55) 55%,
+    rgba(194, 65, 12, 0.6) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -4px 6px rgba(120, 40, 5, 0.35),
+    0 5px 0 rgba(146, 64, 14, 0.85),
+    0 10px 16px rgba(120, 40, 5, 0.35);
+}
+.landing-keycap--orange:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 3px rgba(120, 40, 5, 0.35),
+    0 1px 0 rgba(146, 64, 14, 0.85);
+}
+
+.landing-keycap--navy {
+  background: linear-gradient(
+    180deg,
+    rgba(96, 130, 220, 0.55) 0%,
+    rgba(30, 58, 138, 0.6) 55%,
+    rgba(15, 28, 74, 0.65) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -4px 6px rgba(5, 10, 35, 0.4),
+    0 5px 0 rgba(12, 22, 60, 0.9),
+    0 10px 16px rgba(5, 10, 35, 0.35);
+}
+.landing-keycap--navy:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -2px 3px rgba(5, 10, 35, 0.4),
+    0 1px 0 rgba(12, 22, 60, 0.9);
+}
+
+.landing-keycap--white {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.55) 55%,
+    rgba(225, 230, 240, 0.6) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -4px 6px rgba(150, 160, 180, 0.35),
+    0 5px 0 rgba(180, 188, 204, 0.9),
+    0 10px 16px rgba(100, 110, 130, 0.25);
+}
+.landing-keycap--white:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 3px rgba(150, 160, 180, 0.35),
+    0 1px 0 rgba(180, 188, 204, 0.9);
+}
+
+/* Smaller step height for compact controls (the language switcher pills)
+   so the 3D effect reads as a key, not a slab, at that size. */
+.landing-keycap--sm {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.15),
+    0 2px 0 rgba(0, 0, 0, 0.2),
+    0 4px 6px rgba(0, 0, 0, 0.2);
+}
+.landing-keycap--sm:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+    0 0.5px 0 rgba(0, 0, 0, 0.2);
+}
+.landing-keycap--sm:hover {
+  transform: translateY(-1px);
+}
+.landing-keycap--sm:active {
+  transform: translateY(1.5px) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-keycap,
+  .landing-keycap:hover,
+  .landing-keycap:active {
+    transition: none;
+    transform: none !important;
+  }
+}
+
+/* Flip cards (Problem section). Fixed-height front/back faces fix the old
+   bug where each card's visible box sized to its own content instead of
+   stretching to match its row — short cards (e.g. one-line titles) looked
+   cut short/"leaking" next to taller siblings. */
+.flip-card {
+  perspective: 1200px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 1.1s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-style: preserve-3d;
+}
+.flip-card:hover .flip-card-inner,
+.flip-card:focus .flip-card-inner,
+.flip-card.is-flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: inherit;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner {
+    transition: none;
+  }
+}
+.landing-blob-drift {
+  animation: landing-blob-drift 11s ease-in-out infinite;
+}
+
+.landing-tilt {
+  transition: transform 0.2s ease-out;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.landing-magnetic {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-spotlight {
+  background: radial-gradient(
+    600px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    rgba(255, 255, 255, 0.1),
+    transparent 60%
+  );
+}
+
+.landing-shimmer-sweep {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.landing-shimmer-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: landing-shimmer 3.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-float,
+  .landing-float-delayed,
+  .landing-grid-drift,
+  .landing-blob-drift,
+  .landing-hero-in,
+  .landing-hero-in-delayed,
+  .landing-fade-swap,
+  .landing-shimmer-sweep::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .landing-tilt,
+  .landing-magnetic {
+    transition: none !important;
+    transform: none !important;
+  }
+  .landing-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

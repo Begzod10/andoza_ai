@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.models.electrical import RoomElectrical
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room_state import RoomState
@@ -71,6 +72,20 @@ async def _load_materials_for_room(room, db: DbSession) -> dict[str, Material]:
 async def _load_norms(db: DbSession) -> dict[str, Norm]:
     result = await db.execute(select(Norm))
     return {n.material_key: n for n in result.scalars().all()}
+
+
+async def _load_wiring_meters(room_id: UUID, db: DbSession) -> float | None:
+    """Measured cable run from the room's electrical plan, or None.
+
+    Loaded eagerly here (Numeric(8,2) → Decimal → float) because compute_delta
+    and the smeta engine under it are sync and pure — see
+    app.routers.estimate._load_wiring_meters.
+    """
+    result = await db.execute(
+        select(RoomElectrical.wiring_meters).where(RoomElectrical.room_id == room_id)
+    )
+    value = result.scalar_one_or_none()
+    return float(value) if value is not None else None
 
 
 def _to_estimate_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
@@ -165,7 +180,9 @@ async def get_room_delta(room_id: UUID, db: DbSession, current_user: CurrentUser
     materials_map = await _load_materials_for_room(room, db)
     norms_map = await _load_norms(db)
 
-    result = compute_delta(room, state, materials_map, norms_map)
+    wiring_meters = await _load_wiring_meters(room.id, db)
+
+    result = compute_delta(room, state, materials_map, norms_map, wiring_meters)
 
     return DeltaResponse(
         room_id=room.id,

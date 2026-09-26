@@ -163,6 +163,7 @@ async def upload_room_scan(
         "raw": conv.raw,
     }
     await db.flush()
+
     # Reload before serialising: the flush UPDATEs the row, which expires the
     # server-side `updated_at`. RoomOut reads it, and a Pydantic attribute read
     # cannot drive SQLAlchemy's async IO — it raises MissingGreenlet and the

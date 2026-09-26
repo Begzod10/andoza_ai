@@ -1,71 +1,72 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { Layers, Wrench } from "lucide-react";
-import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
-import { Canvas } from "@react-three/fiber";
-import {
-  OrbitControls,
-  PerformanceMonitor,
-  AdaptiveDpr,
-  AdaptiveEvents,
-  Grid,
-} from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore, useTemporalRoomStore } from "@/store/roomStore";
-import { DesignPanel } from "@/components/studio/DesignPanel";
-import { AddObjectSheet } from "@/components/studio/AddObjectSheet";
-import SurfaceRadialMenu, { RadialIcons, type RadialSurface, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
-import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
-import { AiBuilderSheet } from "@/components/studio/AiBuilderSheet";
-import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
-import NewWindowSheet from "@/components/studio/NewWindowSheet";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
+import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { useModelImport } from "@/hooks/useModelImport";
 import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
-import { getRooms, deleteRoom, uploadRoomThumbnail, listCatalogFurniture } from "@/lib/api";
+import { getRooms, deleteRoom, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
-import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
-import { DraggableFurnitureModels, type SelectedPart, type ToolMode } from "@/features/studio/StudioFurniture";
+import type { ToolMode } from "@/features/studio/StudioFurniture";
 export { FurnitureModels } from "@/features/studio/StudioFurniture";
-import { RoomScanReference, type ScanSwapRequest } from "./three-d/RoomScanOverlay";
-import { uz } from "@/locale/uz";
+import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
-import { skyFogColor } from "@/lib/skyEnvironment";
 import { sunPosition, dayOfYear } from "@/lib/sunPosition";
 import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
 import type { LightTypeId } from "@/lib/lightCatalog";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
-import { type ViewPreset, type RoomSide } from "./three-d/constants";
-import {
-  formatClock, slugifyFileName, computeAbsolutePositions, computeOccupiedSides,
-  getCamera, fitFramingToAspect,
-} from "./three-d/helpers";
-import { DraggableLightModels, PlacedLights } from "./three-d/LightingComponents";
-import { DraggableElectricalModels } from "./three-d/ElectricalComponents";
-import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./three-d/SiblingRoomLayout";
-import { RealismEffects, BrandedSky, SceneLighting } from "./three-d/SceneEnvironment";
-import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
-import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
-import { applyUniformZoom } from "@/lib/orbitZoom";
-import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-
-/** A wall reduced to what placing an opening needs: how long it is, and how
- *  far along it a world point falls (metres from the wall's position-0 end).
- *  Axis-aligned and arbitrary-angle walls both collapse to this. */
-interface WallFrame {
-  length: number;
-  alongM: (p: { x: number; z: number }) => number;
-}
-import { DEFAULT_HDRI } from "@/lib/hdri";
-import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./three-d/CameraControls";
-import { SwapButtons, RoomScene } from "./three-d/RoomShell";
+import { type ViewPreset } from "./three-d/constants";
+import { computeAbsolutePositions } from "./three-d/helpers";
+import { PlacedLights } from "./three-d/LightingComponents";
+import { SceneLighting, BrandedSky } from "./three-d/SceneEnvironment";
+import { RoomScene } from "./three-d/RoomShell";
+import { useExclusiveSelection } from "./three-d/useExclusiveSelection";
+import { useSurfaceRadialMenu } from "./three-d/useSurfaceRadialMenu";
+import { buildRadialItems } from "./three-d/radialMenuItems";
+import { useOpeningCreation } from "./three-d/useOpeningCreation";
+import { useRoomThumbnailCapture, useScreenshotExport } from "./three-d/useCanvasCapture";
+import { useCanvasFraming } from "./three-d/useCanvasFraming";
+import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts";
+import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
+import { PhaseStageNav } from "./three-d/PhaseStageNav";
+import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
+import { DesignPanelDock } from "./three-d/DesignPanelDock";
+import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
+import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
+
+/**
+ * The 3D studio page: renovation-phase navigation, the toolbar drawer, the
+ * live 3D viewport (R3F canvas + surface radial menu + contextual sheets),
+ * and the design panel dock. Most of the page's actual R3F rendering code,
+ * pure helpers, and self-contained interaction logic live in ./three-d/*,
+ * split out for file-size and cohesion — every file there that says "Split
+ * out of ThreeDPage.tsx" is referring to this comment. Notably:
+ *   - constants.ts, helpers.ts        — shared types/constants, pure math
+ *   - openingGeometry.ts, useOpeningCreation.ts — window/door placement math
+ *   - useExclusiveSelection.ts        — mutually-exclusive object selection
+ *   - useSurfaceRadialMenu.ts, radialMenuItems.ts — the "aylana" context menu
+ *   - useCanvasFraming.ts             — camera framing / canvas aspect
+ *   - useCanvasCapture.ts             — screenshot + thumbnail capture
+ *   - useThreeDKeyboardShortcuts.ts   — desktop keyboard shortcuts
+ *   - useAddRoomNavigation.ts         — "+ add room" wizard hand-off
+ *   - PhaseStageNav.tsx, ToolsDrawerPanel.tsx,
+ *     DesignPanelDock.tsx, ThreeDOverlaySheets.tsx — page chrome components
+ *   - ThreeDCanvasScene.tsx (plus RoomShell.tsx, SceneEnvironment.tsx,
+ *     CameraControls.tsx, LightingComponents.tsx, ElectricalComponents.tsx,
+ *     SiblingRoomLayout.tsx, WallComponents.tsx, FloorCeiling.tsx,
+ *     RoomScanOverlay.tsx) — the R3F scene tree itself
+ * This file stays the single default-exported page component — plus the
+ * legacy named re-exports below, which PlacementPage/WalkthroughPage/
+ * SharedRoomPage still import from this exact path — so it must keep
+ * living at pages/studio/ThreeDPage.tsx.
+ */
 
 // Explicit (default-on since three r152, but pinned here so a future three
 // upgrade can't silently regress the color pipeline)
@@ -84,10 +85,6 @@ export interface StudioContext {
   toolbarSlotTop?: number;
 }
 
-// ─── Viewport corner controls ─────────────────────────────────────────────────
-
-
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export type { PhaseKey } from "@/lib/phases"
@@ -103,7 +100,6 @@ export default function ThreeDPage() {
   const updateElement = useRoomStore((s) => s.updateElement);
   const removeElement = useRoomStore((s) => s.removeElement);
   const navigate = useNavigate();
-  const [addingRoom, setAddingRoom] = useState(false);
 
   // Do'kon-managed 3D models (admin catalog) — fetched once per studio
   // session and mirrored into the room store so the "3D Modellar" panel and
@@ -120,36 +116,11 @@ export default function ThreeDPage() {
     if (catalogFurniturePage) setCatalogFurniture(catalogFurniturePage.items);
   }, [catalogFurniturePage, setCatalogFurniture]);
 
-  async function handleAddRoom(side: RoomSide) {
-    if (addingRoom) return;
-    setAddingRoom(true);
-    try { await onSave(); } catch { /* continue even if save fails (offline mode) */ }
-    setAddingRoom(false);
-    const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
-    // Anchor info for directional placement — captured before resetRoom clears it
-    const myPos = useRoomStore.getState().layoutPos ?? { x: 0, z: 0 };
-    // Clear the current room from the store (roomId, draftId, geometry, …).
-    // The wizard's handleSave() bails out when roomId is already set, so a
-    // stale roomId means the new room is never created via createRoom().
-    resetRoom();
-    if (aptId) {
-      const q = new URLSearchParams({
-        apartmentId: aptId,
-        side,
-        ax: String(myPos.x),
-        az: String(myPos.z),
-        aw: String(W),
-        ad: String(D),
-      });
-      navigate(`/wizard?${q.toString()}`);
-    } else {
-      navigate('/wizard');
-    }
-  }
-
   // Same orientation the scene uses: X is wall A, Z is wall B
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width });
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7;
+
+  const { addingRoom, handleAddRoom } = useAddRoomNavigation({ room, onSave, resetRoom, navigate, W, D });
 
   // The top-down "Yuqori" preset was removed from this page — the 3D framing
   // is the only view now, so `preset` never changes. Kept as ViewPreset state
@@ -195,66 +166,26 @@ export default function ThreeDPage() {
   const hasScan = !!room.room_scan;
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
+
   // Project-card thumbnail: grabbed from the live canvas when the user
   // leaves this room's 3D view, so the pixels shown are what they last saw.
   const glCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const roomIdRef = useRef(room.id);
-  roomIdRef.current = room.id;
-  // Fires on unmount — i.e. whenever the user leaves this room's 3D view,
-  // regardless of how (back button, sidebar nav, tab switch away from the
-  // studio). Fire-and-forget: a failed capture should never surface as a
-  // user-facing error mid-navigation, and the next capture just replaces it.
-  useEffect(() => {
-    return () => {
-      const canvas = glCanvasRef.current;
-      if (!canvas) return;
-      const capturedRoomId = roomIdRef.current;
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        uploadRoomThumbnail(capturedRoomId, blob).catch(() => {});
-      }, 'image/jpeg', 0.8);
-    };
-  }, []);
+  useRoomThumbnailCapture(glCanvasRef, room.id);
   // Manual "Skrinshot" export — same glCanvasRef/preserveDrawingBuffer setup
   // as the thumbnail capture above, but PNG (lossless) and downloaded to the
   // user's device rather than uploaded. Purely client-side: no server call,
   // no shareable link — just the smallest useful export.
-  const [screenshotStatus, setScreenshotStatus] = useState<'idle' | 'saved' | 'error'>('idle');
-  const screenshotResetRef = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (screenshotResetRef.current != null) window.clearTimeout(screenshotResetRef.current);
-  }, []);
-  function flashScreenshotStatus(status: 'saved' | 'error') {
-    setScreenshotStatus(status);
-    if (screenshotResetRef.current != null) window.clearTimeout(screenshotResetRef.current);
-    screenshotResetRef.current = window.setTimeout(() => setScreenshotStatus('idle'), 1500);
-  }
-  function handleScreenshot() {
-    const canvas = glCanvasRef.current;
-    if (!canvas) {
-      flashScreenshotStatus('error');
-      return;
-    }
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        flashScreenshotStatus('error');
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `xona-${slugifyFileName(room.name)}-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      flashScreenshotStatus('saved');
-    }, 'image/png');
-  }
-  const [selectedFurId, setSelectedFurId] = useState<string | null>(null);
-  const [selectedPart, setSelectedPart] = useState<SelectedPart | null>(null);
-  const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
-  const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  const { screenshotStatus, handleScreenshot } = useScreenshotExport(glCanvasRef, room.name);
+
+  const {
+    selectedFurId, setSelectedFurId, selectedFurIdRef,
+    selectedPart, setSelectedPart, selectedPartRef,
+    selectedDoorId, setSelectedDoorId,
+    selectedLightId,
+    selOpening, setSelOpening,
+    selectFurniture, selectFurniturePart, selectDoor, selectLight, selectOpening,
+    clearAll: clearAllSelections,
+  } = useExclusiveSelection();
   // The door/window editor panel (DoorLeaves.tsx) is a floating <Html> overlay
   // whose visibility is driven by selectedDoorId. onPointerMissed on the
   // <Canvas> below only clears it for clicks that land inside the canvas and
@@ -277,7 +208,7 @@ export default function ThreeDPage() {
     return () => {
       document.removeEventListener('pointerdown', onPointerDownCapture, { capture: true });
     };
-  }, [selectedDoorId]);
+  }, [selectedDoorId, setSelectedDoorId]);
   // Fixture armed in the palette; the next click in the 2D plan places it.
   const [armedLightType, setArmedLightType] = useState<LightTypeId | null>(null);
   const [angleInputDeg, setAngleInputDeg] = useState('');
@@ -294,8 +225,8 @@ export default function ThreeDPage() {
   // live 3D scene, '2d' swaps it for the full-width top-view plan editor. The
   // 3D canvas stays mounted (just CSS-hidden) while in '2d', so toggling back
   // is instant and keeps the camera/scene state; the canvas-aspect
-  // ResizeObserver below already ignores the zero-size updates a hidden box
-  // produces. Other tabs are untouched by this flag.
+  // ResizeObserver in useCanvasFraming already ignores the zero-size updates
+  // a hidden box produces. Other tabs are untouched by this flag.
   const [mebelView, setMebelView] = useState<'2d' | '3d'>('3d');
   // Chiroqlar gets the same one-viewport-at-a-time treatment: '3d' (default)
   // is the live scene, '2d' swaps it for the full-width reflected ceiling
@@ -320,11 +251,11 @@ export default function ThreeDPage() {
         : 'boyoq'
   const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
   // The mobile stage picker and the toolbar are each collapsed into a single
-  // round TopDrawerButton, portaled (below) into StudioPage's header row so
-  // both sit in one row alongside the section-switcher button instead of
-  // stacking as separate rows. topOffset for both drawers comes straight
-  // from the header's own measured height (toolbarSlotTop), since that's
-  // now the only fixed chrome either one opens beneath.
+  // round TopDrawerButton, portaled into StudioPage's header row so both sit
+  // in one row alongside the section-switcher button instead of stacking as
+  // separate rows. topOffset for both drawers comes straight from the
+  // header's own measured height (toolbarSlotTop), since that's now the only
+  // fixed chrome either one opens beneath.
   const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
   const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
@@ -347,55 +278,13 @@ export default function ThreeDPage() {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
 
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+
   // ── Surface radial menu (tap/press "aylana" on a wall/ceiling/floor) ──
   // A fast path alongside the phase-stepper rail (SHOW_PHASE_STEPPER), not a
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
-  const [radial, setRadial] = useState<
-    { surface: RadialSurface; wallId?: string; x: number; y: number; point?: { x: number; y: number; z: number } } | null
-  >(null);
-  // World-space hit point of the press, captured from the raycast so a created
-  // window/door lands exactly where the wall was touched.
-  const holdPoint = useRef<{ x: number; y: number; z: number } | null>(null);
-  // Currently-selected window/door (for the move/edit/delete toolbar).
-  const [selOpening, setSelOpening] = useState<OpeningSel | null>(null);
-  const holdTimer = useRef<number | null>(null);
-  const holdStart = useRef<{ x: number; y: number } | null>(null);
-  // True from the moment a long-press fires until the next surface click, so
-  // the click that ends the hold doesn't ALSO run the tap-select behaviour.
-  const heldRef = useRef(false);
-
-  // ── Mutually-exclusive selection across object types ────────────────
-  // Five independent selection states exist above: furniture, a furniture
-  // sub-part, a wall opening (door/window editor layer), a ceiling light,
-  // and a wall opening (separate WallOpenings drag layer). They used to be
-  // set independently, so selecting one never cleared the others — e.g. a
-  // ceiling light's live wall-distance dimension labels stayed on screen
-  // after the user went on to select an unrelated piece of furniture.
-  // These wrappers make a real (non-null) selection of one type clear all
-  // the others. Deselecting (passing null) intentionally does NOT touch
-  // sibling state — e.g. a delete button calling onSelect(null) shouldn't
-  // also wipe an unrelated selection.
-  function selectFurniture(id: string | null) {
-    setSelectedFurId(id);
-    if (id !== null) { setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }
-  }
-  function selectFurniturePart(part: SelectedPart | null) {
-    setSelectedPart(part);
-    if (part !== null) { setSelectedFurId(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }
-  }
-  function selectDoor(id: string | null) {
-    setSelectedDoorId(id);
-    if (id !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedLightId(null); setSelOpening(null); }
-  }
-  function selectLight(id: string | null) {
-    setSelectedLightId(id);
-    if (id !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelOpening(null); }
-  }
-  function selectOpening(sel: OpeningSel | null) {
-    setSelOpening(sel);
-    if (sel !== null) { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); }
-  }
+  const { radial, holdBind, closeRadial } = useSurfaceRadialMenu(controlsRef);
 
   // ── Drop a model file straight into the room ────────────────────────
   // Imported like a picked file, then placed immediately and the Mebel phase
@@ -438,263 +327,18 @@ export default function ThreeDPage() {
     setSelectedWall(id);
   }
 
-  /**
-   * Open the surface radial ("aylana") menu at the tap/click point. This is the
-   * PRIMARY trigger now (works with a single mouse click on desktop and a tap
-   * on touch); the long-press path below still works as an alternative. The
-   * click carries the R3F world hit (`e.point`) so a created window/door lands
-   * exactly where the surface was tapped.
-   */
-  function openSurfaceMenu(surface: RadialSurface, wallId: string | undefined, e: any) {
-    // If a long-press already opened the menu, its trailing click must not
-    // reopen/replace it.
-    if (heldRef.current) { heldRef.current = false; return; }
-    const x = e?.nativeEvent?.clientX ?? e?.clientX ?? 0;
-    const y = e?.nativeEvent?.clientY ?? e?.clientY ?? 0;
-    const point = e?.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : (holdPoint.current ?? undefined);
-    if (controlsRef.current) controlsRef.current.enabled = false;
-    setRadial({ surface, wallId, x, y, point });
-  }
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
     activePhase === 'boyoq' ? 'wallpaper' : activePhase === 'montaj' ? 'lyustra' : 'furniture';
-  // Per-edge frames for a drawn/scanned room, keyed by wall id. Empty for a
-  // legacy ABCD room, which takes the axis-aligned branch below instead.
-  const polyWallDefs = useMemo(
-    () => (geometry.vertices && geometry.vertices.length >= 3
-      ? wallDefsFromVertices(geometry.vertices, geometry.walls.map((w) => w.id))
-      : {}),
-    [geometry],
-  );
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  // Seed the same tuning on mount, so the very first wheel notch already
-  // travels the intended distance instead of three's default speed.
-  useEffect(() => {
-    applyUniformZoom(controlsRef.current, Math.max(W, D));
-  }, [W, D]);
 
-  // ── Long-press detection on 3D surfaces ─────────────────────────────
-  // R3F pointer events bubble from the surface meshes up to the wrapping
-  // <group>s that spread these handlers. A ~460ms hold that doesn't drift
-  // opens the radial menu at the press point; any real drag (camera orbit)
-  // cancels it first.
-  const HOLD_MS = 460;
-  const HOLD_MOVE_TOL = 12; // px of finger travel that still counts as a hold
-  function clearHold() {
-    if (holdTimer.current != null) { window.clearTimeout(holdTimer.current); holdTimer.current = null; }
-    holdStart.current = null;
-  }
-  function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }) {
-    const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
-    const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
-    // The R3F event's world intersection point — where on the wall it was hit.
-    holdPoint.current = e.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : null;
-    holdStart.current = { x: cx, y: cy };
-    clearHoldTimerOnly();
-    holdTimer.current = window.setTimeout(() => {
-      heldRef.current = true;
-      // Freeze the camera so menu taps don't orbit the room, and drop any
-      // active selection highlight noise.
-      if (controlsRef.current) controlsRef.current.enabled = false;
-      setRadial({ surface, wallId, x: cx, y: cy, point: holdPoint.current ?? undefined });
-    }, HOLD_MS);
-  }
-  function clearHoldTimerOnly() {
-    if (holdTimer.current != null) { window.clearTimeout(holdTimer.current); holdTimer.current = null; }
-  }
-  function moveHold(e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number }) {
-    if (!holdStart.current) return;
-    const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
-    const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
-    if (Math.hypot(cx - holdStart.current.x, cy - holdStart.current.y) > HOLD_MOVE_TOL) clearHold();
-  }
-  function closeRadial() {
-    setRadial(null);
-    if (controlsRef.current) controlsRef.current.enabled = true;
-    // Safety net: if the trailing click never arrived, don't leave the guard
-    // armed or the next genuine tap would be swallowed.
-    heldRef.current = false;
-  }
-  /** Pointer handlers to spread onto a surface's wrapping <group>. */
-  function holdBind(surface: RadialSurface, wallId?: string) {
-    return {
-      onClick: (e: any) => openSurfaceMenu(surface, wallId, e),
-      onPointerDown: (e: any) => startHold(surface, wallId, e),
-      onPointerMove: (e: any) => moveHold(e),
-      onPointerUp: () => clearHold(),
-      onPointerLeave: () => clearHold(),
-      onPointerCancel: () => clearHold(),
-    };
-  }
+  const { wallGeom, computeOpeningRect, createOpening } = useOpeningCreation({
+    W, D, H, geometry, addElement, setPendingWindowSpot, setSelectedWall,
+  });
 
-  /**
-   * The walls in the room's own frame. Each wall runs along
-   * one world axis; its "left edge" (where local `position` = 0) is at
-   * `centerAlong − length/2` on that axis. This is the single source of truth
-   * for converting a world raycast hit into a wall-local (u = along, v = up)
-   * coordinate — so a created opening is pinned to the clicked wall and can
-   * never be computed against another wall.
-   */
-  function wallGeom(wallId: string): WallFrame | null {
-    switch (wallId) {
-      // Legacy ABCD: axis-aligned, so "along" is just the world coordinate
-      // measured from the wall's left edge at -W/2 (or -D/2).
-      case 'A': case 'C': return { length: W, alongM: (p) => p.x + W / 2 };
-      case 'B': case 'D': return { length: D, alongM: (p) => p.z + D / 2 };
-      // A drawn or scanned room's walls (W1..Wn) run at arbitrary angles, so
-      // the hit is projected onto the edge's own direction. The frames come
-      // from the same helper the interactive opening layer uses, which mirrors
-      // how NWallRoomShell places each wall — otherwise an opening would land
-      // somewhere other than where it was tapped.
-      default: {
-        const d = polyWallDefs[wallId];
-        if (!d) return null;
-        return {
-          length: d.length,
-          alongM: (p) => (p.x - d.midX) * d.dirX + (p.z - d.midZ) * d.dirZ + d.length / 2,
-        };
-      }
-    }
-  }
-
-  /**
-   * Create a window ('deraza') or door ('eshik') ON the given wall, centred on
-   * the world hit `point`, in the wall's LOCAL coordinate system:
-   *   position    = mm from the wall's left edge to the opening's left edge
-   *   sill_height = mm from the floor to the opening's bottom (doors: always 0)
-   * Both are clamped so the opening stays fully within the wall. Because we key
-   * `addElement(wallId, …)` and store only wall-local numbers, the opening is
-   * bound to this wall and cannot jump to another.
-   */
-  /** Wall-local position/sill_height for an opening of the given size,
-   *  centred on a world-space hit point. Shared by the immediate door path
-   *  below and the deferred window-confirm handler, so both use the exact
-   *  same centring math regardless of when the final width/height is known. */
-  function computeOpeningRect(
-    g: WallFrame,
-    point: { x: number; y: number; z: number },
-    widthMm: number, heightMm: number, isDoor: boolean,
-  ): { position: number; sill_height: number } {
-    const wallLenMm = g.length * 1000;
-    const wallHMm = H * 1000;
-
-    // Along-wall hit → left-edge offset, centred on the click.
-    const uMm = g.alongM(point) * 1000;                    // mm from left edge
-    const position = Math.max(0, Math.min(wallLenMm - widthMm, uMm - widthMm / 2));
-
-    // Vertical: doors sit on the floor; windows centre on the hit height.
-    let sill_height = 0;
-    if (!isDoor) {
-      const vMm = point.y * 1000;
-      sill_height = Math.max(0, Math.min(wallHMm - heightMm, vMm - heightMm / 2));
-    }
-    return { position, sill_height };
-  }
-
-  /** Doors are added immediately at the tapped spot with a fixed size (no
-   *  type/size to choose). Windows instead open pendingWindowSpot below —
-   *  createOpening('deraza', ...) only remembers WHERE it was tapped; the
-   *  actual addElement call happens once NewWindowSheet's onConfirm fires,
-   *  using the user's chosen width/height/style/color, re-centred on this
-   *  same point exactly like a door's fixed size already is. */
-  function createOpening(wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') {
-    const g = wallGeom(wallId);
-    if (!g || !point) return;
-    if (type === 'deraza') {
-      // Pre-fill the sheet's "Poldan balandlik" stepper with the height
-      // actually tapped (using the sheet's own default 900×1200 to compute
-      // it, since the real width/height aren't chosen yet) — a sensible
-      // starting point, not a value that gets silently overridden later if
-      // the user leaves it alone or adjusts it further.
-      const { sill_height } = computeOpeningRect(g, point, 900, 1200, false);
-      setPendingWindowSpot({ wallId, point, initialSillHeight: sill_height });
-      return;
-    }
-    const { position, sill_height } = computeOpeningRect(g, point, 900, 2100, true);
-    addElement(wallId, { type, width: 900, height: 2100, sill_height, position });
-    setSelectedWall(wallId);
-  }
-
-  /** The context actions offered for each surface. Each opens the matching
-   *  existing panel/sheet — the exact wiring is easy to retarget later. */
-  function buildRadialItems(r: { surface: RadialSurface; wallId?: string; point?: { x: number; y: number; z: number } }): RadialItem[] {
-    if (r.surface === 'wall') {
-      return [
-        {
-          key: 'paint', label: 'Rang', icon: RadialIcons.paint,
-          onSelect: () => { setSelectedWall(r.wallId ?? 'ALL'); setActivePhase('boyoq'); setShowPanel(true); },
-        },
-        {
-          key: 'window', label: 'Oyna', icon: RadialIcons.window,
-          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
-        },
-        {
-          key: 'door', label: 'Eshik', icon: RadialIcons.door,
-          onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
-        },
-      ];
-    }
-    if (r.surface === 'ceiling') {
-      return [
-        {
-          key: 'light', label: 'Chiroq', icon: RadialIcons.light,
-          onSelect: () => { setActivePhase('chiroq'); setShowPanel(true); },
-        },
-        {
-          key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,
-          onSelect: () => { setSelectedWall('CEILING'); setActivePhase('boyoq'); setShowPanel(true); },
-        },
-      ];
-    }
-    // floor
-    return [
-      {
-        key: 'object', label: 'Narsa', icon: RadialIcons.add,
-        onSelect: () => setShowAddSheet(true),
-      },
-      {
-        // Mirrors the wall/ceiling "Rang" item — routes into WallSection's
-        // richer WallFloorTargetPanel (type picker + do'kon material search
-        // + image upload), not the plain 4-way FloorSection picker the old
-        // 'pol' phase opened.
-        key: 'floor', label: 'Rang', icon: RadialIcons.floor,
-        onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('boyoq'); setShowPanel(true); },
-      },
-    ];
-  }
-
-  // Live aspect ratio of the 3D canvas. The Mebelirovka tab hands the viewport
-  // only half the width, so the framing has to be recomputed per tab instead of
-  // being derived from the room dimensions alone.
-  const canvasBoxRef = useRef<HTMLDivElement | null>(null);
-  const [canvasAspect, setCanvasAspect] = useState(16 / 9);
-  const lastCanvasWidth = useRef(0);
-  useEffect(() => {
-    const el = canvasBoxRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      if (width <= 0 || height <= 0) return;
-      setCanvasAspect(width / height);
-      // Any tab switch resizes this slot under a camera that keeps its old
-      // pose, so the room ends up off to one side. Re-run the framing whenever
-      // the width really changes — keyed on size rather than on which tab is
-      // open, so it covers both directions and survives a remount.
-      const prev = lastCanvasWidth.current;
-      lastCanvasWidth.current = width;
-      if (prev > 0 && Math.abs(width - prev) / prev > 0.05) {
-        setPresetVersion((n) => n + 1);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // 1 on a comfortably wide canvas, growing as it narrows. Capped so a very
-  // slim viewport doesn't fling the camera into the far plane.
-  const fitScale = useMemo(() => {
-    const REF_ASPECT = 1.6;
-    return canvasAspect >= REF_ASPECT ? 1 : Math.min(REF_ASPECT / canvasAspect, 2.2);
-  }, [canvasAspect]);
+  // Live aspect ratio of the 3D canvas, the camera framing it drives, and the
+  // resulting orbit-distance limits — see useCanvasFraming for the full story.
+  const { canvasBoxRef, cam, initCam, topMinDist, maxPolarAngle } = useCanvasFraming({
+    preset, W, D, H, roomId: room.id, setPresetVersion,
+  });
 
   const topView = preset === "top";
 
@@ -731,93 +375,23 @@ export default function ThreeDPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aptRooms, room.id]);
 
-  const cam = useMemo(() => {
-    const base = getCamera(preset, W, D, H);
-    // Only the aerial framing is re-fitted: the corner/front/back presets stand
-    // the camera inside the room, where pulling back would push it through a
-    // wall rather than reveal more of the floor.
-    return preset === 'top'
-      ? fitFramingToAspect(base, fitScale, Math.max(W, D) * 4)
-      : base;
-  }, [preset, W, D, H, fitScale]);
-
   // Keyboard shortcuts — desktop power-user navigation
-  const selectedFurIdRef = useRef<string | null>(null);
-  selectedFurIdRef.current = selectedFurId;
-  const selectedPartRef = useRef<SelectedPart | null>(null);
-  selectedPartRef.current = selectedPart;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      switch (e.key.toLowerCase()) {
-        case '1': setToolMode('select'); break;
-        case '2': setToolMode('move'); break;
-        case '3': setToolMode('rotate'); break;
-        case '4': setToolMode('scale'); break;
-        case '5': setToolMode('part'); break;
-        case 'n': setSceneLightOn((v) => !v); break;
-        case 'l': setLightsOn((v) => !v); break;
-        case 'f':
-        case 'home': setPresetVersion((n) => n + 1); break;
-        case 'delete':
-        case 'backspace': {
-          // A selected part takes precedence over the whole item
-          const part = selectedPartRef.current;
-          if (part) {
-            useRoomStore.getState().hideFurniturePart(part.itemId, part.partKey);
-            setSelectedPart(null);
-            break;
-          }
-          const id = selectedFurIdRef.current;
-          if (id) {
-            useRoomStore.getState().removeFurniture(id);
-            setSelectedFurId(null);
-          }
-          break;
-        }
-        case 'escape': setSelectedPart(null); setSelectedFurId(null); setSelectedWall(null); setShowHelp(false); break;
-        case '?': setShowHelp((v) => !v); break;
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  useThreeDKeyboardShortcuts({
+    setToolMode, setSceneLightOn, setLightsOn, setPresetVersion,
+    selectedFurIdRef, selectedPartRef, setSelectedPart, setSelectedFurId, setSelectedWall, setShowHelp,
+  });
 
   // Leaving part mode (or switching rooms) drops any live part selection
   useEffect(() => {
     if (toolMode !== 'part') setSelectedPart(null);
-  }, [toolMode]);
-  useEffect(() => { setSelectedPart(null); }, [room.id]);
-
-  // Recenter the camera on the room's centre when a DIFFERENT room loads
-  // (switching rooms only changes the :roomId param — the page does not
-  // remount, so pan/orbit drift would otherwise carry over). Skips the mount
-  // pass: the initial framing comes from initCam, not an animation.
-  const camKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    const prev = camKeyRef.current;
-    camKeyRef.current = room.id;
-    if (prev && prev !== room.id) setPresetVersion((n) => n + 1);
-  }, [room.id]);
-
-  // Top view: keep camera above ceiling — ceiling is hidden so user can scroll "through" it
-  const topMinDist = H * 2.4;
-  const maxPolarAngle = Math.PI * 0.88;
-
-  // Initial camera position — only used on first mount
-  const initCam = useMemo(
-    () => getCamera("corner", W, D, H),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  }, [toolMode, setSelectedPart]);
+  useEffect(() => { setSelectedPart(null); }, [room.id, setSelectedPart]);
 
   const activeIdx = RENO_STAGES.findIndex(s => s.key === activePhase);
 
   // Kept visible: the studio's responsive layout (collapsible edge rail,
   // bottom-sheet panel on tablet/mobile) is built around this stepper being
-  // the primary phase-navigation surface. The new long-press radial menu on
+  // the primary phase-navigation surface. The long-press radial menu on
   // walls/ceiling/floor is an additional, faster path for surface edits —
   // not a replacement for the stepper.
   const SHOW_PHASE_STEPPER = true;
@@ -825,142 +399,17 @@ export default function ThreeDPage() {
   return (
     <div className="flex flex-col lg:flex-row h-full">
 
-      {/* ── Mobile: stage strip collapsed into a round drawer trigger,
-          portaled into StudioPage's header so it sits in that one row
-          alongside the section-switcher and the tools-drawer trigger below,
-          instead of a separate row of its own. ── */}
-      {SHOW_PHASE_STEPPER && toolbarSlot && createPortal(
-        <div className="lg:hidden">
-          <TopDrawerButton active={stageDrawerOpen} onClick={() => setStageDrawerOpen((v) => !v)} label="Bosqichlar">
-            <Layers size={18} strokeWidth={2} />
-          </TopDrawerButton>
-        </div>,
-        toolbarSlot,
-      )}
       {SHOW_PHASE_STEPPER && (
-        <TopDrawer open={stageDrawerOpen} onOpenChange={setStageDrawerOpen} title="Bosqichlar" topOffset={toolbarSlotTop ?? 0}>
-          <div className="py-2">
-            {RENO_STAGES.map((stage, i) => {
-              const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
-              return (
-                <button
-                  key={stage.key}
-                  onClick={() => { setActivePhase(stage.key); setStageDrawerOpen(false); }}
-                  title={stage.label}
-                  aria-label={stage.label}
-                  aria-current={status === 'current' ? 'step' : undefined}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-left transition-colors ${
-                    status === 'current' ? 'bg-brand text-white' :
-                    status === 'done'    ? 'text-emerald-700 hover:bg-gray-50' :
-                                           'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  {status === 'done' && (
-                    <svg width="14" height="14" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <path d="M1.5 5.5l3 3 5-5"/>
-                    </svg>
-                  )}
-                  {status === 'current' && <span className="w-2 h-2 rounded-full bg-white/90 inline-block shrink-0" />}
-                  {status === 'pending' && <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />}
-                  <span>{stage.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </TopDrawer>
-      )}
-
-      {/* ── Desktop: left phase stepper sidebar, collapsible ── */}
-      {SHOW_PHASE_STEPPER && (
-      <div className="relative hidden lg:block shrink-0">
-      <nav
-        aria-hidden={!leftOpen}
-        className="hidden lg:flex bg-surface border-r border-gray-200 flex-col pt-3 select-none overflow-hidden"
-        style={{
-          width: leftOpen ? 144 : 0,
-          // `visibility` (not just width/overflow) so the collapsed rail's
-          // buttons drop out of the Tab order and the AT tree — width:0 +
-          // overflow:hidden alone still leaves them focusable-by-Tab while
-          // invisible. Delayed only on the way to hidden so the width
-          // animation still visibly plays first; instant on the way back to
-          // visible so content reappears in step with the width growing.
-          visibility: leftOpen ? 'visible' : 'hidden',
-          transition: leftOpen
-            ? 'width 0.2s ease, visibility 0s linear 0s'
-            : 'width 0.2s ease, visibility 0s linear 0.2s',
-        }}
-      >
-        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
-        {RENO_STAGES.map((stage, i) => {
-          const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
-          return (
-            <button
-              key={stage.key}
-              onClick={() => setActivePhase(stage.key)}
-              title={stage.label}
-              aria-label={stage.label}
-              aria-current={status === 'current' ? 'step' : undefined}
-              className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
-                status === 'current'
-                  ? 'bg-brand text-white'
-                  : status === 'done'
-                  ? 'text-emerald-700 hover:bg-gray-50'
-                  : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              {status === 'done' && (
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <path d="M1.5 5.5l3 3 5-5"/>
-                </svg>
-              )}
-              {status === 'current' && (
-                <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block shrink-0" />
-              )}
-              {status === 'pending' && (
-                <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />
-              )}
-              <span className="leading-tight">{stage.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-      {/* Docked to the rail's visible edge — left offset tracks leftOpen so
-          it always sits flush against wherever the rail's edge currently is,
-          mid-transition included. */}
-      <button
-        onClick={() => setLeftOpen(v => !v)}
-        title={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
-        aria-label={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
-        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: leftOpen ? 144 : 0,
-          // Open: straddle the rail's edge (plenty of room at x=144). Closed:
-          // the rail is flush against the true page edge (x=0), so the usual
-          // -50% centering would push half the button past x=0 — clipped by
-          // the viewport with no way to see or click it back open. Anchor
-          // flush instead, extending inward, so it's always fully visible.
-          transform: leftOpen ? 'translate(-50%, -50%)' : 'translate(0, -50%)',
-          width: 22,
-          height: 40,
-          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
-          // a different part of the tree, so a low z-index here didn't
-          // reliably out-rank it — confirmed via elementFromPoint returning
-          // the canvas, not this button). Same z-tier as the mobile panel
-          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
-          zIndex: 60,
-          transition: 'left 0.2s ease',
-        }}
-      >
-        <svg
-          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: leftOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease' }}
-        >
-          <path d="M6.5 1L2.5 5l4 4" />
-        </svg>
-      </button>
-      </div>
+        <PhaseStageNav
+          toolbarSlot={toolbarSlot}
+          toolbarSlotTop={toolbarSlotTop}
+          stageDrawerOpen={stageDrawerOpen}
+          setStageDrawerOpen={setStageDrawerOpen}
+          leftOpen={leftOpen}
+          setLeftOpen={setLeftOpen}
+          activeIdx={activeIdx}
+          setActivePhase={setActivePhase}
+        />
       )}
 
       {/* ── Center: toolbar + canvas ─────────────────────────────── */}
@@ -969,376 +418,38 @@ export default function ThreeDPage() {
         {/* Toolbar — current phase, then view preset, transform tools, view
             controls, lighting, AI, each cluster separated by a divider. This
             is the studio's only toolbar row now that the header absorbed the
-            old separate tab-nav row (see StudioPage.tsx).
-
-            Wrapped in `relative` for the right-edge fade hint below: with
-            this many clusters the row overflows on narrower screens, and
-            scrollbar-width:none (previously set here) suppressed the native
-            scrollbar in Chromium too — not just Firefox — leaving zero
-            visual cue that content like the AI button was one scroll away
-            rather than actually missing. Now shows the app's thin global
-            scrollbar (styles/global.css) AND a fade gradient, so it reads as
-            "scroll for more" instead of "cut off". */}
-        {toolbarSlot && createPortal(
-          <TopDrawerButton active={toolsDrawerOpen} onClick={() => setToolsDrawerOpen((v) => !v)} label="Asboblar">
-            <Wrench size={18} strokeWidth={2} />
-          </TopDrawerButton>,
-          toolbarSlot,
-        )}
-        <>
-          <TopDrawer open={toolsDrawerOpen} onOpenChange={setToolsDrawerOpen} title="Asboblar" topOffset={toolbarSlotTop ?? 0}>
-            <div className="flex flex-col divide-y divide-gray-100 pb-2">
-
-              {/* Current stage label */}
-              {activeIdx >= 0 && (
-                <div className="px-4 py-3">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Bosqich: {RENO_STAGES[activeIdx].label}
-                  </span>
-                </div>
-              )}
-
-              {/* The old "Ko'rinish" view-preset chips lived here. "Yuqori"
-                  (top view) is gone from this page, and the remaining view
-                  switching (Ichki / Tashqi) moved into the segmented
-                  control floating over the viewport's top-right corner. */}
-
-              {/* Tool modes */}
-              <div className="px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Asbob rejimi</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setToolMode('select')}
-                    title="Tanlash"
-                    aria-pressed={toolMode === 'select'}
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      toolMode === 'select' ? 'bg-white shadow text-gray-800 border-gray-300' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z"/>
-                    </svg>
-                    <span>Tanlash</span>
-                  </button>
-                  <button
-                    onClick={() => setToolMode('move')}
-                    title="Siljitish"
-                    aria-pressed={toolMode === 'move'}
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      toolMode === 'move' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z"/>
-                    </svg>
-                    <span>Siljitish</span>
-                  </button>
-                  <button
-                    onClick={() => setToolMode('rotate')}
-                    title="Aylantirish"
-                    aria-pressed={toolMode === 'rotate'}
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      toolMode === 'rotate' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                      <path d="M3 3v5h5"/>
-                    </svg>
-                    <span>Aylantirish</span>
-                  </button>
-                  <button
-                    onClick={() => setToolMode('scale')}
-                    title="O'lcham"
-                    aria-pressed={toolMode === 'scale'}
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      toolMode === 'scale' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 21H3M21 3H3M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3"/>
-                    </svg>
-                    <span>O'lcham</span>
-                  </button>
-                  <button
-                    onClick={() => setToolMode('part')}
-                    title="Qismlar — model ichidagi qismni tanlash, ajratish yoki o'chirish"
-                    aria-pressed={toolMode === 'part'}
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      toolMode === 'part' ? 'bg-brand text-white shadow border-brand' : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
-                      <path d="M12 11l8-4.5M12 11v9M12 11L4 6.5"/>
-                      <path d="M16 3.5l-8 4.5"/>
-                    </svg>
-                    <span>Qismlar</span>
-                  </button>
-                </div>
-                {/* Rotation angle input — only while an object is selected in rotate mode */}
-                {toolMode === 'rotate' && selectedFurId && (() => {
-                  const item = furniture.find(f => f.id === selectedFurId)
-                  if (!item) return null
-                  const currentDeg = Math.round(item.rotation * (180 / Math.PI))
-                  return (
-                    <form
-                      className="flex items-center gap-2 mt-3"
-                      onSubmit={e => {
-                        e.preventDefault()
-                        const deg = parseFloat(angleInputDeg)
-                        if (!isNaN(deg)) {
-                          moveFurniture(item.id, item.x, item.y, deg * (Math.PI / 180))
-                          setAngleInputDeg('')
-                        }
-                      }}
-                    >
-                      <input
-                        key={selectedFurId + currentDeg}
-                        type="number"
-                        defaultValue={currentDeg}
-                        onChange={e => setAngleInputDeg(e.target.value)}
-                        placeholder={`${currentDeg}°`}
-                        className="w-20 text-sm border border-gray-300 rounded px-2 py-1.5 text-center focus:outline-none focus:border-brand"
-                        title="Burchakni darajada kiriting va Enter bosing"
-                      />
-                      <span className="text-gray-500 text-sm">°</span>
-                      <button type="submit" className="text-sm px-3 py-1.5 bg-brand text-white rounded font-medium">✓</button>
-                    </form>
-                  )
-                })()}
-              </div>
-
-              {/* Undo/redo — Ctrl+Z / Ctrl+Y work from any studio tab (see
-                  StudioPage.tsx), these buttons are the discoverable,
-                  touch-friendly equivalent for this tab specifically. */}
-              <div className="px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tarix</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => useRoomStore.temporal.getState().undo()}
-                    disabled={!canUndo}
-                    title="Bekor qilish (Ctrl+Z)"
-                    aria-label="Bekor qilish (Ctrl+Z)"
-                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-gray-100 text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 14L4 9l5-5"/>
-                      <path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
-                    </svg>
-                    <span>Bekor qilish</span>
-                  </button>
-                  <button
-                    onClick={() => useRoomStore.temporal.getState().redo()}
-                    disabled={!canRedo}
-                    title="Qaytarish (Ctrl+Y)"
-                    aria-label="Qaytarish (Ctrl+Y)"
-                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-gray-100 text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M15 14l5-5-5-5"/>
-                      <path d="M20 9H9a5 5 0 0 0 0 10h1"/>
-                    </svg>
-                    <span>Qaytarish</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* View controls: help, recenter, screenshot. */}
-              <div className="px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ko'rish</p>
-                <div className="flex flex-wrap gap-2">
-                  {/* Navigation help */}
-                  <button
-                    onClick={() => setShowHelp(v => !v)}
-                    title="Boshqaruv bo'yicha yordam"
-                    aria-label="Boshqaruv bo'yicha yordam"
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-full text-sm font-bold transition-colors border bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-                  >
-                    ?
-                  </button>
-                  {/* Recenter: snap the orbit pivot back to the room centre */}
-                  <button
-                    onClick={() => setPresetVersion(n => n + 1)}
-                    title="Markazlash — kamerani xona markaziga qaytarish"
-                    aria-label="Markazlash — kamerani xona markaziga qaytarish"
-                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-                    </svg>
-                    <span>Markaz</span>
-                  </button>
-                  {/* Skrinshot: grabs the live canvas (same glCanvasRef +
-                      preserveDrawingBuffer setup as the project-card thumbnail
-                      above) as a lossless PNG and downloads it — no server call,
-                      no shareable link, just the smallest useful export. */}
-                  <button
-                    onClick={handleScreenshot}
-                    title="Skrinshot — dizaynni rasm sifatida saqlash"
-                    aria-label="Skrinshot — dizaynni rasm sifatida saqlash"
-                    className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                      screenshotStatus === 'saved'
-                        ? 'bg-success text-white border-success'
-                        : screenshotStatus === 'error'
-                        ? 'bg-red-100 text-red-600 border-red-300'
-                        : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                    }`}
-                  >
-                    {screenshotStatus === 'saved' ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    ) : screenshotStatus === 'error' ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 8v5M12 16h.01" />
-                      </svg>
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 8V6a1 1 0 0 1 1-1h2l1.5-2h7L17 5h2a1 1 0 0 1 1 1v2" />
-                        <path d="M3 8h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-                        <circle cx="12" cy="13.5" r="3.5" />
-                      </svg>
-                    )}
-                    <span aria-live="polite">
-                      {screenshotStatus === 'saved' ? 'Saqlandi' : screenshotStatus === 'error' ? 'Xato' : 'Skrinshot'}
-                    </span>
-                  </button>
-                  {/* Scan reference layer — only for LiDAR-scanned rooms.
-                      Overlays the semi-transparent RoomPlan GLB + translucent
-                      ghost boxes for every detected object. Reference only. */}
-                  {hasScan && (
-                    <button
-                      onClick={() => setShowScan(v => !v)}
-                      title={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
-                      aria-label={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
-                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                        showScan
-                          ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
-                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                      }`}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
-                        <path d="M3 12h18" />
-                      </svg>
-                      <span>{uz.studio.skan.korinishi}</span>
-                    </button>
-                  )}
-                </div>
-                {hasScan && showScan && (
-                  <p className="mt-2 text-xs text-amber-700">{uz.studio.skan.izoh}</p>
-                )}
-              </div>
-
-              {/* ── Lighting cluster: day/night, sun clock, room lights ── */}
-              <div className="px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Yoritish</p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Scene light (sun + environment) toggle */}
-                    <button
-                      onClick={() => setSceneLightOn(v => !v)}
-                      title={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-                      aria-label={sceneLightOn ? "Sahna yorug'ligini o'chirish" : "Sahna yorug'ligini yoqish"}
-                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                        sceneLightOn
-                          ? 'bg-brand text-white border-brand hover:bg-brand/90'
-                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                      }`}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="4" />
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                      </svg>
-                      <span>{sceneLightOn ? 'Kunduz' : 'Tun'}</span>
-                    </button>
-                    <button
-                      onClick={() => setLightsOn(v => !v)}
-                      title={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-                      aria-label={lightsOn ? "Chiroqni o'chirish" : "Chiroqni yoqish"}
-                      className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                        lightsOn
-                          ? 'bg-brand text-white border-brand hover:bg-brand/90'
-                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                      }`}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 8.7 19 7c0-3.3-2.7-6-6-6S7 3.7 7 7c0 1.7 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/>
-                        <path d="M9 18h6M10 22h4"/>
-                      </svg>
-                      <span>{lightsOn ? 'Yoqilgan' : "O'chirilgan"}</span>
-                    </button>
-                  </div>
-                  {/* Sun clock. Only meaningful while the sun is the light source, so
-                      it rides with the day/night toggle. */}
-                  {sceneLightOn && (
-                    <div
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50"
-                      title="Quyosh vaqti — Toshkent bo'yicha"
-                    >
-                      <span className="text-xs font-medium text-gray-500 shrink-0">Vaqt:</span>
-                      <span className="text-sm font-semibold text-amber-800 tabular-nums w-10 text-right">
-                        {formatClock(sunHour)}
-                      </span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={23.75}
-                        step={0.25}
-                        value={sunHour}
-                        onChange={(e) => setSunHour(parseFloat(e.target.value))}
-                        aria-label="Quyosh vaqti"
-                        className="flex-1 accent-amber-500 cursor-pointer"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* AI builder button — stays visually distinct from the Kunduz/
-                  Yoqilgan brand-blue toggles (it's a one-shot special action,
-                  not a peer toggle), but now via the app's own warning/orange
-                  accent token (same family as the "Buyum qo'shish" CTA) rather
-                  than an unrelated purple with no other usage on the page. */}
-              <div className="px-4 py-3">
-                <button
-                  onClick={() => setShowAiSheet(true)}
-                  title="AI bilan qurish"
-                  aria-label="AI bilan qurish"
-                  className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
-                  </svg>
-                  <span>AI bilan qurish</span>
-                </button>
-              </div>
-
-              {/* Mobile: design panel toggle. Closes the help card too — two
-                  overlays open at once is never useful, even though the
-                  z-index stack (backdrop z-40 over help card z-30) already
-                  keeps them from visually colliding. */}
-              <div className="lg:hidden px-4 py-3">
-                <button
-                  onClick={() => { setShowPanel(v => !v); setShowHelp(false); }}
-                  title="Dizayn paneli"
-                  aria-label="Dizayn paneli"
-                  className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-brand text-white"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
-                    <path d="M13.5 9v3.5M19 14.5V11l-5.5-2M6 14.5V11l5.5-2"/>
-                  </svg>
-                  <span>Dizayn paneli</span>
-                </button>
-              </div>
-
-            </div>
-          </TopDrawer>
-        </>
+            old separate tab-nav row (see StudioPage.tsx). */}
+        <ToolsDrawerPanel
+          toolbarSlot={toolbarSlot}
+          toolbarSlotTop={toolbarSlotTop}
+          toolsDrawerOpen={toolsDrawerOpen}
+          setToolsDrawerOpen={setToolsDrawerOpen}
+          activeIdx={activeIdx}
+          toolMode={toolMode}
+          setToolMode={setToolMode}
+          selectedFurId={selectedFurId}
+          furniture={furniture}
+          angleInputDeg={angleInputDeg}
+          setAngleInputDeg={setAngleInputDeg}
+          moveFurniture={moveFurniture}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          setShowHelp={setShowHelp}
+          setPresetVersion={setPresetVersion}
+          screenshotStatus={screenshotStatus}
+          handleScreenshot={handleScreenshot}
+          hasScan={hasScan}
+          showScan={showScan}
+          setShowScan={setShowScan}
+          sceneLightOn={sceneLightOn}
+          setSceneLightOn={setSceneLightOn}
+          lightsOn={lightsOn}
+          setLightsOn={setLightsOn}
+          sunHour={sunHour}
+          setSunHour={setSunHour}
+          setShowAiSheet={setShowAiSheet}
+          setShowPanel={setShowPanel}
+        />
 
         {/* Canvas area. relative: anchors the Mebelirovka top-right control
             row below, which must survive the 2D/3D viewport swap (the 3D box
@@ -1419,6 +530,18 @@ export default function ThreeDPage() {
             </p>
           )}
 
+          {/* View mode — relocated here from the tools drawer's old
+              "Ko'rinish" chips + cutaway button. One segmented control pinned
+              to the viewport's top-right corner, exposing the same three-state
+              CutawayMode machine the old cycling button did: 3D = normal
+              interior view ('off'), Tashqi = auto cutaway ('auto' — walls
+              facing the camera hide). The K key still toggles the two
+              states. z-20: above
+              the canvas and the z-10 button clusters, below the drop overlay
+              (z-40) and the mobile panel/backdrop tier (z-40/50).
+              On the Mebelirovka tab the segment instead renders in the
+              slot-level top-right control row (next to the 2D/3D switch), so
+              it is skipped here. */}
 
           {/* Navigation help card — top-32 keeps it clear of the view-mode
               segmented control pinned at top-16 in the same corner (which in
@@ -1446,6 +569,7 @@ export default function ThreeDPage() {
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
                 <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
+                <li><b>K</b> — Ichki / Tashqi</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
                 <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
                 <li><b>Esc</b> — bekor qilish</li>
@@ -1492,438 +616,107 @@ export default function ThreeDPage() {
             </button>
           </div>
 
-        <CanvasErrorBoundary
-          key={glAttempt}
-          onError={() => {
-            // One automatic retry with safer GL settings — pressured iGPUs
-            // often accept a modest context after refusing the fancy one
-            if (glAttempt === 0) setTimeout(() => setGlAttempt(1), 150);
-          }}
-        >
-        <Canvas
-          shadows="soft"
-          camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
-          // Absolute, so the canvas is out of flow and its pixel width can
-          // never feed back into the layout that sizes it. In flow, R3F's
-          // width/height attributes act as the element's intrinsic size, and
-          // the flex column then refuses to shrink past the size the canvas
-          // already had — the viewport and the canvas disagree, and the
-          // centred render drifts out of the visible slot on every tab switch.
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-          gl={{
-            antialias: glAttempt === 0,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.15,
-            outputColorSpace: THREE.SRGBColorSpace,
-            powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
-            // Without this, the drawing buffer can already be cleared by the
-            // time the unmount-triggered toBlob() capture below runs, which
-            // would silently produce a blank thumbnail instead of an error.
-            preserveDrawingBuffer: true,
-          }}
-          onCreated={({ gl }) => { glCanvasRef.current = gl.domElement; }}
-          onPointerMissed={() => { setSelectedFurId(null); setSelectedPart(null); setSelectedDoorId(null); setSelectedLightId(null); setSelOpening(null); }}
-          dpr={glAttempt === 0 ? dpr : 1}
-        >
-          {/* Drop resolution during interaction, restore at rest */}
-          <AdaptiveDpr />
-          <AdaptiveEvents />
-          <KeepAutoClear />
-          <DevSceneHandle />
-          {/* Return the WebGL context slot immediately on tab switches */}
-          <ReleaseGLOnUnmount />
-          {/* Daylight shows the Kloofendal sky photo (SafeEnvironment below
-              owns scene.background); a flat colour here would simply paint
-              over it. With the scene light switched off there is no sky, so
-              the solid fill is still what stands in for one. */}
-          {!sceneLightOn && <color attach="background" args={["#14171F"]} />}
-          {/* Fog matches the background (night fog was beige on a dark scene)
-              and relaxes in top view where the camera legitimately sits far */}
-          <fog
-            attach="fog"
-            args={[sceneLightOn ? skyFogColor(sun) : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+          <ThreeDCanvasScene
+            glAttempt={glAttempt}
+            setGlAttempt={setGlAttempt}
+            initCam={initCam}
+            dpr={dpr}
+            glCanvasRef={glCanvasRef}
+            onPointerMissed={clearAllSelections}
+            topView={topView}
+            sceneLightOn={sceneLightOn}
+            sun={sun}
+            W={W}
+            D={D}
+            H={H}
+            highQuality3d={highQuality3d}
+            room={room}
+            geometry={geometry}
+            designState={designState}
+            showContactShadows={showContactShadows}
+            useComposer={useComposer}
+            lightsOn={lightsOn}
+            cutaway="off"
+            selectedWall={selectedWall}
+            focusSurface={focusSurface}
+            holdBind={holdBind}
+            selOpening={selOpening}
+            selectOpening={selectOpening}
+            updateElement={updateElement}
+            removeElement={removeElement}
+            controlsRef={controlsRef}
+            addingRoom={addingRoom}
+            handleAddRoom={handleAddRoom}
+            aptRooms={aptRooms}
+            activeLayoutPos={activeLayoutPos}
+            onSave={onSave}
+            navigate={navigate}
+            handleDeleteSibling={handleDeleteSibling}
+            toolMode={toolMode}
+            selectedFurId={selectedFurId}
+            selectFurniture={selectFurniture}
+            selectedPart={selectedPart}
+            selectFurniturePart={selectFurniturePart}
+            showScan={showScan}
+            replacedGhosts={replacedGhosts}
+            setScanSwap={setScanSwap}
+            selectedDoorId={selectedDoorId}
+            selectDoor={selectDoor}
+            selectedLightId={selectedLightId}
+            selectLight={selectLight}
+            cam={cam}
+            presetVersion={presetVersion}
+            setPresetVersion={setPresetVersion}
+            topMinDist={topMinDist}
+            maxPolarAngle={maxPolarAngle}
+            setDpr={setDpr}
+            setDeclineCount={setDeclineCount}
           />
-
-          {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
-          {topView && (
-            <>
-              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]}>
-                <planeGeometry args={[200, 200]} />
-                <meshBasicMaterial color="#888888" />
-              </mesh>
-              <Grid
-                position={[0, -0.002, 0]}
-                infiniteGrid
-                cellSize={0.1}
-                cellThickness={0.4}
-                cellColor="#ffffff"
-                sectionSize={1}
-                sectionThickness={0.8}
-                sectionColor="#ffffff"
-                fadeDistance={28}
-                fadeStrength={1.4}
-              />
-            </>
-          )}
-
-          <PerformanceMonitor
-            onDecline={() => {
-              setDpr(1);
-              setDeclineCount(n => n + 1);
-            }}
-            onIncline={() => {
-              // Quality recovers after transient hitches (texture uploads etc.)
-              setDpr([1, 2]);
-              setDeclineCount(n => Math.max(0, n - 1));
-            }}
-          />
-
-          <Suspense fallback={null}>
-            {sceneLightOn && (
-              <>
-                <SceneLighting
-                  width={W}
-                  depth={D}
-                  height={H}
-                  highQuality={highQuality3d}
-                  sun={sun}
-                />
-                {/* Real sky photo (Kloofendal, Poly Haven) — the product default
-                    for every room. It owns scene.background and doubles as
-                    image-based fill light; the sun clock keeps driving the
-                    directional light and shadows above it. */}
-                <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background />
-              </>
-            )}
-            {/* Scene light off: soft ambient + hemisphere fill keep the floor,
-                walls and door frame readable even before any room lamp is on;
-                the room's own lamps (lightsOn) still read as the dominant source */}
-            {!sceneLightOn && (
-              <>
-                <ambientLight intensity={0.22} color="#8090B0" />
-                <hemisphereLight args={["#4a5570", "#0c0e14", 0.35]} />
-              </>
-            )}
-
-            {/* No phase-forced wall material: entering Suvoq used to force
-                the photo-real plaster PBR onto every wall (plasterWalls was
-                `activePhase === 'suvoq'`, from the era when the Suvoq panel
-                was a passive info card and the default covering was bare
-                plaster anyway). New rooms now start with the brick baseline,
-                which must stay visible through every phase until the user
-                actually clicks a texture/color — so each wall simply renders
-                its real covering; a 'plaster'-kind covering still gets the
-                plaster PBR via WallSegment's own `covering.kind` check. */}
-            <RoomScene
-              room={room}
-              geometry={geometry}
-              topView={topView}
-              designState={designState}
-              showContactShadows={showContactShadows}
-              composerActive={useComposer}
-              highQuality={highQuality3d}
-              lightsOn={lightsOn}
-              cutaway="off"
-              selectedWall={selectedWall}
-              onWallClick={(id) => focusSurface(id)}
-              isFloorSelected={selectedWall === 'FLOOR'}
-              onFloorClick={() => focusSurface('FLOOR')}
-              holdBind={holdBind}
-            />
-            {/* Interactive window/door editing layer (select → toolbar → drag
-                with live meter labels + Canva-style snap guides). */}
-            <WallOpenings
-              geometry={geometry}
-              W={W}
-              D={D}
-              H={H}
-              selected={selOpening}
-              onSelect={selectOpening}
-              updateElement={updateElement}
-              removeElement={removeElement}
-              onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
-            />
-            <SwapButtons W={W} D={D} H={H} />
-            {topView && (
-              <AddRoomButtons
-                W={W} D={D} H={H} onAdd={handleAddRoom} disabled={addingRoom}
-                occupiedSides={aptRooms ? computeOccupiedSides(aptRooms, room.id, W, D, activeLayoutPos) : undefined}
-              />
-            )}
-            {topView && aptRooms && (
-              <SiblingRooms
-                rooms={aptRooms}
-                activeId={room.id}
-                activeW={W}
-                activeD={D}
-                activePos={activeLayoutPos}
-                onOpen={async (id) => {
-                  // Persist the current room before switching so edits survive
-                  try { await onSave(); } catch { /* offline — switch anyway */ }
-                  navigate(`/studio/${id}`);
-                }}
-                onDelete={handleDeleteSibling}
-              />
-            )}
-            <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
-              onDelete={(id) => { useRoomStore.getState().removeFurniture(id); setSelectedFurId(null); }}
-              selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
-            {/* LiDAR scan reference: GLB overlay + object ghost boxes. Gated by
-                the "Skan ko'rinishi" toggle; renders nothing for manual rooms. */}
-            <RoomScanReference
-              roomId={room.id}
-              roomScan={room.room_scan}
-              geometry={geometry}
-              visible={showScan}
-              replaced={replacedGhosts}
-              onReplace={setScanSwap}
-            />
-            <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
-            <OpeningLayer
-              geometry={geometry}
-              W={W}
-              D={D}
-              cutaway="off"
-              toolMode={toolMode}
-              controlsRef={controlsRef}
-              selectedId={selectedDoorId}
-              onSelect={selectDoor}
-            />
-            <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
-
-            <RealismEffects enabled={useComposer} />
-
-            <OrbitControls
-              ref={controlsRef}
-              makeDefault
-              target={initCam.target}
-              enableDamping
-              dampingFactor={0.06}
-              enablePan
-              panSpeed={0.9}
-              screenSpacePanning
-              zoomToCursor
-              mouseButtons={{
-                LEFT: THREE.MOUSE.ROTATE,
-                MIDDLE: THREE.MOUSE.PAN,
-                RIGHT: THREE.MOUSE.PAN,
-              }}
-              // One orbit range everywhere: close enough to inspect a
-              // skirting joint, far enough to pull right outside the room.
-              // The walls are single-sided planes and the shadow shell draws
-              // no colour, so from outside you simply look in — which is what
-              // the old Tashqi mode staged with a fixed camera and hidden
-              // walls.
-              minDistance={topView ? topMinDist : 0.25}
-              maxDistance={topView ? Math.max(W, D) * 4 : Math.max(W, D) * 4 + 6}
-              maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
-              minPolarAngle={topView ? 0 : 0.08}
-              rotateSpeed={topView ? 0.6 : 0.45}
-              // Both drag axes run opposite to OrbitControls' default
-              // grab-and-turn, as the user asked: dragging right sends the
-              // room left, dragging down tilts the view the other way too.
-              // reverseOrbit is the both-axes flag (there are separate
-              // reverseHorizontalOrbit / reverseVerticalOrbit flags if these
-              // ever need to diverge again).
-              reverseOrbit
-              // zoomSpeed is NOT passed as a prop on purpose: it is retuned
-              // from the live distance on every change (see applyUniformZoom),
-              // and a prop would overwrite that on the next React render.
-              onChange={(e) => applyUniformZoom(
-                (e?.target ?? controlsRef.current) as unknown as { getDistance(): number; zoomSpeed: number },
-                Math.max(W, D),
-              )}
-            />
-
-            <CameraAnimator
-              position={cam.position}
-              target={cam.target}
-              controlsRef={controlsRef}
-              version={presetVersion}
-            />
-
-            {/* Double-click to focus; empty double-click recenters the room */}
-            <DoubleClickFocus
-              controlsRef={controlsRef}
-              onEmpty={() => setPresetVersion((n) => n + 1)}
-            />
-          </Suspense>
-        </Canvas>
-        </CanvasErrorBoundary>
         </div>
         </div>
       </div>
 
       {/* ── Right: contextual design panel ───────────────────────── */}
-
-      {/* Mobile backdrop — transparent, not dimmed: the panel now docks to
-          the right half instead of covering the screen as a bottom sheet,
-          specifically so the 3D view stays fully visible on the left half
-          while it's open (the whole point is watching a material apply to
-          the wall live). Still catches a tap on that left half to close. */}
-      {showPanel && (
-        <div
-          className="lg:hidden fixed inset-0 z-40"
-          onClick={() => setShowPanel(false)}
-        />
-      )}
-
-      {/* Outer wrapper: stable positioning context for the toggle button,
-          rendered on every breakpoint (unlike the left rail's wrapper, this
-          can't be `hidden` below lg — the mobile bottom-sheet panel lives in
-          the same subtree). The toggle button is a SIBLING of the collapse
-          wrapper below, not a child of it: nesting it inside was the actual
-          bug — that wrapper's own `overflow:hidden` (needed so the panel
-          clips instead of reflowing while collapsing) clipped the button
-          along with it once width hit 0, even though position:absolute
-          normally escapes a parent's normal flow. overflow:hidden clips
-          ALL descendants that visually extend past its box, absolutely
-          positioned or not. */}
-      <div className="relative shrink-0 lg:h-full">
-      {/* Desktop-only collapse wrapper. Harmless on mobile: the panel below
-          stays `fixed` there (escapes normal flow, ignores an ancestor's
-          width/overflow entirely), so this only actually clips/resizes
-          anything once `lg:static` below turns the panel into a normal-flow
-          box that respects it. */}
-      <div
-        aria-hidden={!rightOpen}
-        // lg:h-full bounds this collapse wrapper to the docked area's height so
-        // the panel below (lg:h-full lg:overflow-auto) and the DesignPanel
-        // aside (lg:max-h-full + overflow-y-auto) resolve against a real height
-        // and actually scroll — without it they sized to content and tall
-        // stages (image library, Suvoq, etc.) were cut off with no scroll.
-        className="lg:shrink-0 lg:h-full"
-        style={{
-          width: rightOpen ? 288 : 0,
-          overflow: rightOpen ? 'auto' : 'hidden',
-          // Same fix as the left rail's toggle: width:0 + overflow:hidden
-          // alone still leaves the design panel's controls focusable-by-Tab
-          // while invisible. `visibility` removes them from the Tab order
-          // and the AT tree; delayed only when collapsing so the width
-          // animation still plays first, instant when expanding so content
-          // reappears in step with the width growing.
-          visibility: rightOpen ? 'visible' : 'hidden',
-          transition: rightOpen
-            ? 'width 0.2s ease, visibility 0s linear 0s'
-            : 'width 0.2s ease, visibility 0s linear 0.2s',
-        }}
-      >
-      {/* Panel — desktop: static sidebar | mobile: right-half slide-in panel
-          (was a bottom sheet covering ~72vh; docked to the right half
-          instead so the 3D canvas on the left stays visible and live while
-          picking a material — the actual point of this panel). */}
-      <div
-        className={[
-          /* mobile base */
-          'fixed top-0 right-0 bottom-0 z-50 w-1/2 shadow-2xl transition-transform duration-300 ease-in-out overflow-y-auto bg-surface',
-          showPanel ? 'translate-x-0' : 'translate-x-full',
-          /* desktop override */
-          'lg:static lg:translate-x-0 lg:w-auto lg:h-full lg:shadow-none lg:z-auto lg:overflow-auto',
-        ].join(' ')}
-      >
-        {/* Mobile close button — replaces the old drag-to-dismiss handle,
-            which doesn't make sense for a side panel. Tapping the now-
-            transparent backdrop on the left half also closes it. */}
-        <div className="lg:hidden flex justify-end p-2">
-          <button
-            onClick={() => setShowPanel(false)}
-            aria-label="Yopish"
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
-          >
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M1 1l12 12M13 1L1 13"/>
-            </svg>
-          </button>
-        </div>
-        <DesignPanel room={room} phase={activePhase} selectedWall={selectedWall} onWallChange={setSelectedWall}
-          selectedLightId={selectedLightId} onLightChange={selectLight}
-          armedLightType={armedLightType} onArmLight={setArmedLightType} planMode={isChiroqTab && chiroqView === '2d'} />
-      </div>
-      </div>
-      {/* Docked to the panel's left edge (mirrors the left rail's toggle,
-          chevron pointing the opposite way). Sibling of the collapse
-          wrapper above, not nested in it — see the comment on the outer
-          wrapper for why. */}
-      <button
-        onClick={() => setRightOpen(v => !v)}
-        title={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
-        aria-label={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
-        className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          right: rightOpen ? 288 : 0,
-          // Same fix as the left rail's toggle: closed means flush against
-          // the true page edge, where +50% centering would push half the
-          // button past the viewport — visible only as a sliver, unclickable
-          // in practice. Anchor flush and extend inward instead when closed.
-          transform: rightOpen ? 'translate(50%, -50%)' : 'translate(0, -50%)',
-          width: 22,
-          height: 40,
-          // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
-          // a different part of the tree, so a low z-index here didn't
-          // reliably out-rank it — confirmed via elementFromPoint returning
-          // the canvas, not this button). Same z-tier as the mobile panel
-          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
-          zIndex: 60,
-          transition: 'right 0.2s ease',
-        }}
-      >
-        <svg
-          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: rightOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-        >
-          <path d="M6.5 1L2.5 5l4 4" />
-        </svg>
-      </button>
-      </div>
-
-      {showAddSheet && <AddObjectSheet onClose={() => setShowAddSheet(false)} initialSection={addSheetSection} />}
-      {/* Scanned-object → catalog swap: the same catalog picker, filtered to the
-          object's category and placed at the ghost's position/rotation. */}
-      {scanSwap && (
-        <AddObjectSheet
-          onClose={() => setScanSwap(null)}
-          initialSection="furniture"
-          initialCategory={scanSwap.category}
-          placementOverride={{ x: scanSwap.x, y: scanSwap.y, rotation: scanSwap.rotation }}
-          onPlaced={() => setReplacedGhosts((prev) => new Set(prev).add(scanSwap.index))}
-        />
-      )}
-      <RoomSettingsSheet open={elementsSheetOpen} onClose={() => setElementsSheetOpen(false)} />
-      <NewWindowSheet
-        isOpen={pendingWindowSpot !== null}
-        onClose={() => setPendingWindowSpot(null)}
-        initialSillHeight={pendingWindowSpot?.initialSillHeight}
-        onConfirm={(values) => {
-          if (!pendingWindowSpot) return;
-          const { wallId, point } = pendingWindowSpot;
-          const g = wallGeom(wallId);
-          if (g) {
-            // Only the horizontal position gets recomputed here (there's no
-            // stepper for it — width is the only thing that affects it) —
-            // values.sill_height is used exactly as the sheet reports it,
-            // whether that's the tap-based default above or the user's own
-            // adjustment, never silently overridden.
-            const { position } = computeOpeningRect(g, point, values.width, values.height, false);
-            addElement(wallId, { type: 'deraza', ...values, position });
-            setSelectedWall(wallId);
-          }
-          setPendingWindowSpot(null);
-        }}
+      <DesignPanelDock
+        showPanel={showPanel}
+        setShowPanel={setShowPanel}
+        rightOpen={rightOpen}
+        setRightOpen={setRightOpen}
+        room={room}
+        activePhase={activePhase}
+        selectedWall={selectedWall}
+        setSelectedWall={setSelectedWall}
+        selectedLightId={selectedLightId}
+        selectLight={selectLight}
+        armedLightType={armedLightType}
+        setArmedLightType={setArmedLightType}
+        planMode={isChiroqTab && chiroqView === '2d'}
       />
-      <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={room.id} />
 
-      {/* Surface long-press radial menu ("aylana") */}
-      {radial && (
-        <SurfaceRadialMenu
-          x={radial.x}
-          y={radial.y}
-          surface={radial.surface}
-          items={buildRadialItems(radial)}
-          onClose={closeRadial}
-        />
-      )}
+      <ThreeDOverlaySheets
+        showAddSheet={showAddSheet}
+        setShowAddSheet={setShowAddSheet}
+        addSheetSection={addSheetSection}
+        scanSwap={scanSwap}
+        setScanSwap={setScanSwap}
+        setReplacedGhosts={setReplacedGhosts}
+        elementsSheetOpen={elementsSheetOpen}
+        setElementsSheetOpen={setElementsSheetOpen}
+        pendingWindowSpot={pendingWindowSpot}
+        setPendingWindowSpot={setPendingWindowSpot}
+        wallGeom={wallGeom}
+        computeOpeningRect={computeOpeningRect}
+        addElement={addElement}
+        setSelectedWall={setSelectedWall}
+        showAiSheet={showAiSheet}
+        setShowAiSheet={setShowAiSheet}
+        roomId={room.id}
+        radial={radial}
+        radialItems={(r) => buildRadialItems(r, {
+          setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
+        })}
+        closeRadial={closeRadial}
+      />
     </div>
   );
 }

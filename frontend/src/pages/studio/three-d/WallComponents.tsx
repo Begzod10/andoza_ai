@@ -782,12 +782,22 @@ export interface FrameWallDef {
   cx: number;
   cz: number;
   length: number;
+  /** Direction of increasing element position along `axis` (+1 or −1). Only
+   *  ever −1 for a polygon edge traversed in the decreasing direction; the
+   *  legacy ABCD rectangle and its auto-filled vertices are always +1. Kept in
+   *  lockstep with `PolyWallDef.alongSign` so the frames cannot drift away
+   *  from the openings they surround. */
+  alongSign: 1 | -1;
   /**
    * Which side of this wall's plane the ROOM is on, in the same convention as
    * `Wall`'s `innerFaceDir`: +1 means room-inward is +Z for an axis-X wall
    * (+X for an axis-Z wall), -1 the opposite. The reveal extends the other
    * way, so this is what decides which side of the wall the 200 mm niche is
    * cut into.
+   *
+   * Orthogonal to `alongSign` above: that one says which way position GROWS
+   * along the wall, this one says which side of it the room is on. A wall can
+   * need either sign independently of the other.
    *
    * Optional: for the legacy ABCD rectangle it is implied by the sign of
    * `cx`/`cz` (a wall at cz < 0 faces +Z into the room), and `openingAxes`
@@ -811,7 +821,7 @@ export interface FrameWallDef {
  * When `geometry.vertices` is populated (N-wall / rectilinear polygon rooms,
  * e.g. from the hand-drawing feature), each edge's `FrameWallDef` is derived
  * from `wallDefsFromVertices` (`@/lib/wallDefsFromVertices`): `cx`/`cz` are
- * the edge's along-axis midpoint (`leftAlong + length / 2`) on the wall's own
+ * the edge's along-axis midpoint (`originAlong + alongSign * length / 2`) on its own
  * axis and its constant `face` coordinate on the other axis — exactly what
  * `frameGroupOrigin` below needs. Neither it nor the frame meshes rotate
  * with the wall (frames are always built axis-aligned to world X/Z, same as
@@ -831,19 +841,20 @@ function buildFrameWallDefs(
       .map((d) => ({
         id: d.id,
         axis: d.axis,
-        cx: d.axis === "X" ? d.leftAlong + d.length / 2 : d.face,
-        cz: d.axis === "Z" ? d.leftAlong + d.length / 2 : d.face,
+        cx: d.axis === "X" ? d.originAlong + d.alongSign * (d.length / 2) : d.face,
+        cz: d.axis === "Z" ? d.originAlong + d.alongSign * (d.length / 2) : d.face,
         length: d.length,
+        alongSign: d.alongSign,
         // `normal` already points INWARD (see Baseboard's comment below), which
         // is exactly the faceDir convention.
         faceDir: ((d.axis === "X" ? d.normal.z : d.normal.x) >= 0 ? 1 : -1) as 1 | -1,
       }));
   }
   return [
-    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth, faceDir: 1 },
-    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth, faceDir: -1 },
-    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth, faceDir: -1 },
-    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth, faceDir: 1 },
+    { id: "A", axis: "X", cz: -wallDepth / 2, cx: 0, length: wallWidth, alongSign: 1, faceDir: 1 },
+    { id: "C", axis: "X", cz: wallDepth / 2, cx: 0, length: wallWidth, alongSign: 1, faceDir: -1 },
+    { id: "B", axis: "Z", cx: wallWidth / 2, cz: 0, length: wallDepth, alongSign: 1, faceDir: -1 },
+    { id: "D", axis: "Z", cx: -wallWidth / 2, cz: 0, length: wallDepth, alongSign: 1, faceDir: 1 },
   ];
 }
 
@@ -861,7 +872,7 @@ function frameGroupOrigin(
   wd: FrameWallDef,
   el: { position: number; width: number; sill_height: number },
 ): [number, number, number] {
-  const offset = (el.position + el.width / 2 - wd.length * 500) * MM;
+  const offset = wd.alongSign * (el.position + el.width / 2 - wd.length * 500) * MM;
   const px = wd.axis === "X" ? wd.cx + offset : wd.cx;
   const pz = wd.axis === "Z" ? wd.cz + offset : wd.cz;
   const py = el.sill_height * MM;
@@ -1174,17 +1185,20 @@ export function DoorFrames({
  * Per-edge placement in the polygon branch mirrors the legacy math exactly:
  * `boardSegments` still returns centers relative to the wall's OWN midpoint
  * (as if that wall were centered at 0), so the absolute along-wall world
- * coordinate is `wallMid + segment.center` where `wallMid = leftAlong +
- * length / 2`. The perpendicular (across-wall) placement reuses
- * `wallDefsFromVertices`'s `normal` field directly: that normal already
- * points INWARD (matching `Wall`'s own `ry`/normal convention in this same
- * file — see the comment above `interface Seg` — NOT an outward-facing
- * normal), so `face + normalComponent * (t / 2 - 0.006)` reproduces the
- * legacy A/B/C/D offsets exactly:
- *   Wall A: inward normal (0,0,1)  → face + 1*(t/2-0.006) = -depth/2+t/2-0.006 ✓
- *   Wall C: inward normal (0,0,-1) → face + -1*(...)      =  depth/2-t/2+0.006 ✓
- *   Wall B: inward normal (-1,0,0) → face + -1*(...)      =  width/2-t/2+0.006 ✓
- *   Wall D: inward normal (1,0,0)  → face + 1*(...)       = -width/2+t/2-0.006 ✓
+ * coordinate is `wallMid + alongSign * segment.center` where
+ * `wallMid = originAlong + alongSign * length / 2`. The perpendicular
+ * (across-wall) placement is simply the wall's own `face`: a milled `TrimRun`
+ * stands on the wall plane and turns its profile toward the room via `yaw`,
+ * rather than being a box that has to be nudged in by half its thickness the
+ * way the flat board this replaced was. `yaw` reuses `wallDefsFromVertices`'s
+ * `normal` field directly: that normal already points INWARD (matching
+ * `Wall`'s own `ry`/normal convention in this same file — see the comment
+ * above `interface Seg` — NOT an outward-facing normal), so it reproduces the
+ * legacy A/B/C/D orientations exactly:
+ *   Wall A: inward normal (0,0,1)  → yaw 0     ✓
+ *   Wall C: inward normal (0,0,-1) → yaw π     ✓
+ *   Wall B: inward normal (-1,0,0) → yaw -π/2  ✓
+ *   Wall D: inward normal (1,0,0)  → yaw π/2   ✓
  */
 /** Trim colour/finish — unchanged from the plain board this replaced. */
 export const trimMat = (
@@ -1242,17 +1256,17 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY }
 }) {
   const band: [number, number] = [(junctionY - trim.heightM) * 1000, junctionY * 1000];
   const walls = [
-    { id: 'A', lenM: width, yaw: 0, alongSign: 1 as const, at: (c: number): [number, number, number] => [c, junctionY, -depth / 2] },
-    { id: 'C', lenM: width, yaw: Math.PI, alongSign: -1 as const, at: (c: number): [number, number, number] => [c, junctionY, depth / 2] },
-    { id: 'B', lenM: depth, yaw: -Math.PI / 2, alongSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, junctionY, c] },
-    { id: 'D', lenM: depth, yaw: Math.PI / 2, alongSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, junctionY, c] },
+    { id: 'A', lenM: width, yaw: 0, runSign: 1 as const, at: (c: number): [number, number, number] => [c, junctionY, -depth / 2] },
+    { id: 'C', lenM: width, yaw: Math.PI, runSign: -1 as const, at: (c: number): [number, number, number] => [c, junctionY, depth / 2] },
+    { id: 'B', lenM: depth, yaw: -Math.PI / 2, runSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, junctionY, c] },
+    { id: 'D', lenM: depth, yaw: Math.PI / 2, runSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, junctionY, c] },
   ];
   return (
     <group>
       {walls.map((w) => {
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
-        return trimRuns(w.lenM, els, trim, w.alongSign, band).map((r, i) => (
+        return trimRuns(w.lenM, els, trim, w.runSign, band).map((r, i) => (
           <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM} flipY
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));
@@ -1268,15 +1282,19 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY }
  * `boardSegments` breaks the run at every opening that reaches the trim (a
  * door, a balcony door, a floor-length window), returning centres measured
  * along the wall from its midpoint. A run mitres only where it reaches a
- * corner; an end cut by a doorway stays square. `alongSign` is -1 on the walls
- * whose geometry-local +X runs against the wall's own position axis (C and D),
- * where the two mitre flags therefore swap.
+ * corner; an end cut by a doorway stays square. `runSign` is -1 on the walls
+ * whose geometry-local +X runs against the direction element position grows in
+ * (C and D on the legacy rectangle), where the two mitre flags therefore swap.
+ * Deliberately NOT called `alongSign`: `PolyWallDef.alongSign` is only one of
+ * the two factors that make it up — see the Baseboard polygon branch below.
  */
 function trimRuns(
   wallLenM: number,
   elements: WallElement[],
   trim: ResolvedTrim,
-  alongSign: 1 | -1,
+  /** +1 when the run geometry's local +X points the same way element position
+   *  grows on this wall, -1 when it runs against it. */
+  runSign: 1 | -1,
   /** Vertical band the trim occupies, mm from the floor. Defaults to a
    *  skirting's band: the floor up to the board's height. */
   band?: [number, number],
@@ -1290,8 +1308,8 @@ function trimRuns(
     return {
       center: s.center,
       lengthM: s.len,
-      mitreStart: alongSign > 0 ? atLeftEnd : atRightEnd,
-      mitreEnd: alongSign > 0 ? atRightEnd : atLeftEnd,
+      mitreStart: runSign > 0 ? atLeftEnd : atRightEnd,
+      mitreEnd: runSign > 0 ? atRightEnd : atLeftEnd,
     };
   });
 }
@@ -1323,12 +1341,28 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
           const yaw = d.axis === "X"
             ? (inward >= 0 ? 0 : Math.PI)
             : (inward >= 0 ? Math.PI / 2 : -Math.PI / 2);
-          const alongSign: 1 | -1 = d.axis === "X"
+          // Two DIFFERENT signs meet on this wall, and conflating them is what
+          // puts skirting on the wrong part of it:
+          //   • `runDirSign` — which way the run geometry's own local +X points
+          //     in WORLD space. Fixed by `yaw` alone, i.e. by which side of the
+          //     wall the room is on.
+          //   • `d.alongSign` — which way element POSITION grows in world
+          //     space: vertices[i] → vertices[i + 1], polygon traversal order.
+          // `trimRuns` wants neither on its own but the sign RELATING them —
+          // +1 when the run's local +X runs the same way position does — which
+          // is their product. On a legacy ABCD rectangle `d.alongSign` is
+          // always +1, so it collapses to the bare `runDirSign` the hardcoded
+          // walls further down pass.
+          const runDirSign: 1 | -1 = d.axis === "X"
             ? (inward >= 0 ? 1 : -1)
             : (inward >= 0 ? -1 : 1);
-          const wallMid = d.leftAlong + d.length / 2;
-          return trimRuns(d.length, wall.elements ?? [], trim, alongSign).map((r, i) => {
-            const along = wallMid + r.center;
+          const runSign: 1 | -1 = runDirSign * d.alongSign > 0 ? 1 : -1;
+          // `trimRuns` centres are position-space offsets from the wall's
+          // midpoint, so turning them into world coordinates needs the wall's
+          // TRUE midpoint and the direction position actually grows in.
+          const wallMid = d.originAlong + d.alongSign * (d.length / 2);
+          return trimRuns(d.length, wall.elements ?? [], trim, runSign).map((r, i) => {
+            const along = wallMid + d.alongSign * r.center;
             const position: [number, number, number] = d.axis === "X"
               ? [along, 0, d.face]
               : [d.face, 0, along];
@@ -1343,12 +1377,14 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
   }
 
   // Legacy ABCD. Each wall's inward normal fixes its yaw, and C/D run their
-  // local +X against the wall's own position axis (see `trimRuns`).
+  // local +X against the wall's own position axis (see `trimRuns`). This shape
+  // always measures position from the along-axis minimum, so `runSign` here is
+  // purely the local-+X direction.
   const walls = [
-    { id: 'A', lenM: width, yaw: 0, alongSign: 1 as const, at: (c: number): [number, number, number] => [c, 0, -depth / 2] },
-    { id: 'C', lenM: width, yaw: Math.PI, alongSign: -1 as const, at: (c: number): [number, number, number] => [c, 0, depth / 2] },
-    { id: 'B', lenM: depth, yaw: -Math.PI / 2, alongSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, 0, c] },
-    { id: 'D', lenM: depth, yaw: Math.PI / 2, alongSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, 0, c] },
+    { id: 'A', lenM: width, yaw: 0, runSign: 1 as const, at: (c: number): [number, number, number] => [c, 0, -depth / 2] },
+    { id: 'C', lenM: width, yaw: Math.PI, runSign: -1 as const, at: (c: number): [number, number, number] => [c, 0, depth / 2] },
+    { id: 'B', lenM: depth, yaw: -Math.PI / 2, runSign: 1 as const, at: (c: number): [number, number, number] => [width / 2, 0, c] },
+    { id: 'D', lenM: depth, yaw: Math.PI / 2, runSign: -1 as const, at: (c: number): [number, number, number] => [-width / 2, 0, c] },
   ];
 
   return (
@@ -1356,7 +1392,7 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
       {walls.map((w) => {
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
-        return trimRuns(w.lenM, els, trim, w.alongSign).map((r, i) => (
+        return trimRuns(w.lenM, els, trim, w.runSign).map((r, i) => (
           <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM}
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));

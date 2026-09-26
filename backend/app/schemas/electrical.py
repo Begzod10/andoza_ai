@@ -12,7 +12,10 @@ DeviceType = Literal["socket", "switch", "light", "panel", "box"]
 class DeviceCreate(BaseModel):
     type: DeviceType
     variant: str | None = Field(default=None, max_length=50)
-    wall_index: int = Field(ge=0, le=3)
+    # Any wall the room has: scanned rooms are N-wall polygons whose wall
+    # ids are "0".."n-1", so an upper bound of 3 made the 5th wall of every
+    # real scan unstorable.
+    wall_index: int = Field(ge=0)
     x: float
     y: float
     count: int = Field(default=1, ge=1, le=100)
@@ -21,7 +24,7 @@ class DeviceCreate(BaseModel):
 class DeviceUpdate(BaseModel):
     type: DeviceType | None = None
     variant: str | None = Field(default=None, max_length=50)
-    wall_index: int | None = Field(default=None, ge=0, le=3)
+    wall_index: int | None = Field(default=None, ge=0)
     x: float | None = None
     y: float | None = None
     count: int | None = Field(default=None, ge=1, le=100)

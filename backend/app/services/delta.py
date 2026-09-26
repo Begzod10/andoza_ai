@@ -72,6 +72,7 @@ def compute_delta(
     room_state: "RoomState",
     materials_map: dict[str, "Material"],
     norms_map: dict[str, "Norm"],
+    wiring_meters: float | None = None,
 ) -> DeltaResult:
     """Compute the material DIFFERENCE between the room's current state and
     a fully-finished room.
@@ -88,6 +89,10 @@ def compute_delta(
                             i.e. how much the user saves by not having to
                             redo stages that are already complete. Never
                             negative.
+    ``wiring_meters``    – the room's measured cable run, loaded by the
+                            caller and handed straight to compute_estimate;
+                            see smeta._electrical_line for why it cannot be
+                            read off the ORM in here.
     """
     full = compute_estimate(
         room,
@@ -96,6 +101,7 @@ def compute_delta(
         current_state="xom",
         floor_state="xom",
         ceiling_state="xom",
+        wiring_meters=wiring_meters,
     )
     delta = compute_estimate(
         room,
@@ -104,6 +110,7 @@ def compute_delta(
         current_state=room_state.current_state,
         floor_state=room_state.floor_state or room_state.current_state,
         ceiling_state=room_state.ceiling_state or room_state.current_state,
+        wiring_meters=wiring_meters,
     )
 
     savings = max(0, full.total_uzs - delta.total_uzs)

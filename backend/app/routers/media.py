@@ -5,10 +5,12 @@ import uuid as uuid_module
 import structlog
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException, UploadFile, status
+from sqlalchemy import select
 
-from app.api.v1.deps import CurrentUser
+from app.api.v1.deps import CurrentUser, DbSession
 from celery_app import app as celery_app
 from app.core.storage import upload_file
+from app.models.media_job import MediaJob
 from app.tasks.media import process_photo
 
 logger = structlog.get_logger(__name__)
@@ -27,6 +29,7 @@ _MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 async def upload_photo(
     file: UploadFile,
     current_user: CurrentUser,
+    db: DbSession,
 ) -> dict:
     """Accept a multipart image upload, validate it, store it in S3, and
     enqueue the ``process_photo`` Celery task.  Returns the Celery job ID and
@@ -64,6 +67,10 @@ async def upload_photo(
 
     task = process_photo.delay(photo_key, str(current_user.id))
 
+    # Record ownership so GET /jobs/{job_id} can verify the caller actually
+    # owns this task before returning its status/result (see MediaJob).
+    db.add(MediaJob(id=task.id, user_id=current_user.id))
+
     logger.info("photo_uploaded", key=photo_key, task_id=task.id, user_id=str(current_user.id))
     return {"job_id": task.id, "photo_url": photo_url}
 
@@ -75,8 +82,24 @@ async def upload_photo(
 async def get_job_status(
     job_id: str,
     current_user: CurrentUser,
+    db: DbSession,
 ) -> dict:
-    """Return the current state of a background Celery task."""
+    """Return the current state of a background Celery task.
+
+    Ownership is enforced via the ``media_jobs`` row written at enqueue
+    time: a job that doesn't exist and a job that belongs to someone else
+    both come back as 404, so this endpoint can't be used to confirm
+    another user's job id exists (matches the "not found" convention used
+    by /orders/{order_id} etc.).
+    """
+    job_row = await db.execute(select(MediaJob).where(MediaJob.id == job_id))
+    job = job_row.scalar_one_or_none()
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+
     result = AsyncResult(job_id, app=celery_app)
     return {
         "job_id": job_id,
