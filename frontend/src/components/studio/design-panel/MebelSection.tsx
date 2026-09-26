@@ -10,7 +10,7 @@ import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl 
 import { useGLTF } from "@react-three/drei";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
-import { nextFurnitureOffsetMm } from "@/lib/placement";
+import { furniturePlacementMm } from "@/lib/placement";
 import { deleteUserModel, updateUserModel } from "@/lib/api";
 
 /**
@@ -249,6 +249,7 @@ export function MebelSection() {
   const setUserFurniturePlacement = useRoomStore((s) => s.setUserFurniturePlacement);
   const setUserFurniturePrice = useRoomStore((s) => s.setUserFurniturePrice);
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture);
+  const geometry = useRoomStore((s) => s.geometry);
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
   const [furnitureCat, setFurnitureCat] = React.useState<FurnitureCategory | 'barchasi' | 'mening'>('barchasi');
@@ -446,7 +447,10 @@ export function MebelSection() {
               }}
               count={count}
               busy={texBusy === entry.id}
-              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, ...nextFurnitureOffsetMm(count), rotation: 0 })}
+              onPlace={() => placeFurniture({
+                id: nanoid(), furniture_id: entry.id, rotation: 0,
+                ...furniturePlacementMm(geometry, count, entry.sizeM),
+              })}
               onOpenTexEditor={() => openTexEditor(entry.id)}
               onRemove={() => {
                 // Drop the stored GLB too — otherwise deleted models keep

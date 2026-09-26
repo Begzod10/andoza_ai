@@ -12,7 +12,9 @@
  * room's top-left corner — what `planPolygon` produces), so the two editors
  * share one answer instead of each having their own.
  */
-import { pointInPolygon } from '@/lib/planPolygon'
+import { offsetPolygon, planPolygon, pointInPolygon } from '@/lib/planPolygon'
+import { roomExtents } from '@/lib/roomDims'
+import type { RoomGeometry } from '@/store/roomStore'
 
 /** Clearance kept between a model and the wall it is pushed against, mm. */
 export const FUR_WALL_GAP = 50
@@ -123,4 +125,68 @@ export function clampFootprintToRoom(
     x: Math.min(Math.max(want.x, gap - b.minX), Math.max(gap - b.minX, room.W - gap - b.maxX)),
     z: Math.min(Math.max(want.z, gap - b.minZ), Math.max(gap - b.minZ, room.D - gap - b.maxZ)),
   }
+}
+
+
+/**
+ * The walls a room actually has, ready to clamp against. A drawn or scanned
+ * room gets its real outline; a legacy A-B-C-D rectangle has none and falls
+ * back to the plain per-axis clamp.
+ *
+ * The extents come from the same `roomExtents` call `planPolygon` makes, so
+ * the frame this describes is the frame the outline is expressed in.
+ */
+export function roomBoundsFromGeometry(geometry: RoomGeometry, fallback?: { W: number; D: number }): RoomBounds {
+  const poly = planPolygon(geometry)
+  const ext = poly ? roomExtents(geometry) : roomExtents(geometry, fallback)
+  return {
+    W: ext.W * 1000,
+    D: ext.D * 1000,
+    inner: poly ? offsetPolygon(poly, -FUR_WALL_GAP) : null,
+    outline: poly ? poly.vertices : null,
+  }
+}
+
+/**
+ * Somewhere in the room a new model can actually stand.
+ *
+ * The middle of the bounding box is the obvious answer and the wrong one: for
+ * an L-shaped room that point can be in the cut-away corner, outside the room
+ * entirely, so a model dropped there starts life inside a wall. Search instead
+ * for the spot nearest the middle where the whole footprint fits.
+ */
+export function interiorAnchor(room: RoomBounds, b: FootprintBounds): PlanPoint {
+  const centre = { x: room.W / 2, z: room.D / 2 }
+  if (!room.inner) return centre
+  if (footprintFits(centre, b, room.inner)) return centre
+
+  const STEPS = 40
+  const stepX = room.W / STEPS
+  const stepZ = room.D / STEPS
+  let best: PlanPoint | null = null
+  let bestDist = Infinity
+  for (let i = 0; i <= STEPS; i++) {
+    for (let j = 0; j <= STEPS; j++) {
+      const p = { x: i * stepX, z: j * stepZ }
+      if (!footprintFits(p, b, room.inner)) continue
+      const dist = (p.x - centre.x) ** 2 + (p.z - centre.z) ** 2
+      if (dist < bestDist) { bestDist = dist; best = p }
+    }
+  }
+  // Nothing fits — a model bigger than the room. Leave it at the middle so it
+  // is at least visible and can be scaled down, rather than flung somewhere.
+  return best ?? centre
+}
+
+/**
+ * Where the *n*th model of its kind should land, in plan millimetres.
+ *
+ * Staggered off the ones before it so a run of the same item doesn't stack
+ * into a single invisible pile, then clamped, so the stagger can't walk the
+ * model into a wall in a small or awkwardly shaped room.
+ */
+export function placementSpot(room: RoomBounds, b: FootprintBounds, existingCount: number): PlanPoint {
+  const anchor = interiorAnchor(room, b)
+  const stagger = (existingCount * 300) % 1000
+  return clampFootprintToRoom({ x: anchor.x + stagger, z: anchor.z + stagger }, anchor, b, room)
 }

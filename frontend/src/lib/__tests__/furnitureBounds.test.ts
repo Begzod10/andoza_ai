@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   clampFootprintToRoom, halfExtentsToBounds, rotatedHalfExtents, FUR_WALL_GAP,
-  worldToPlan, planToWorld, type RoomBounds,
+  worldToPlan, planToWorld, placementSpot, interiorAnchor, type RoomBounds,
 } from '../furnitureBounds'
 import { pointInPolygon } from '../planPolygon'
 
@@ -235,5 +235,67 @@ describe('world <-> plan frames', () => {
     const got = planToWorld(fitted, L_ROOM)
     const plan = worldToPlan(got, L_ROOM)
     expect(plan.x > 2500 && plan.z > 2000).toBe(false)
+  })
+})
+
+describe('placement', () => {
+  it('will not drop the first model in the notch of an L', () => {
+    // The middle of the bounding box IS the notch here, which is what the
+    // plain centre-plus-stagger placement used to pick.
+    const centre = { x: L_ROOM.W / 2, z: L_ROOM.D / 2 }
+    expect(inside(centre, SMALL)).toBe(false)
+    const spot = placementSpot(L_ROOM, SMALL, 0)
+    expect(inside(spot, SMALL)).toBe(true)
+  })
+
+  it('keeps a whole run of the same model inside the room', () => {
+    for (let n = 0; n < 12; n++) {
+      expect(inside(placementSpot(L_ROOM, SMALL, n), SMALL)).toBe(true)
+    }
+  })
+
+  it('staggers them so they do not land in one invisible pile', () => {
+    const spots = [0, 1, 2].map((n) => placementSpot(L_ROOM, SMALL, n))
+    const keys = new Set(spots.map((s) => `${s.x},${s.z}`))
+    expect(keys.size).toBe(3)
+  })
+
+  it('keeps a big model inside a small room rather than half through a wall', () => {
+    const small: RoomBounds = { W: 2000, D: 2000, inner: null, outline: null }
+    const big = halfExtentsToBounds(700, 700)
+    for (let n = 0; n < 6; n++) {
+      const spot = placementSpot(small, big, n)
+      expect(spot.x + big.minX).toBeGreaterThanOrEqual(FUR_WALL_GAP - 1e-6)
+      expect(spot.x + big.maxX).toBeLessThanOrEqual(small.W - FUR_WALL_GAP + 1e-6)
+      expect(spot.z + big.minZ).toBeGreaterThanOrEqual(FUR_WALL_GAP - 1e-6)
+      expect(spot.z + big.maxZ).toBeLessThanOrEqual(small.D - FUR_WALL_GAP + 1e-6)
+    }
+  })
+
+  it('still starts in the middle of a plain rectangle', () => {
+    const spot = placementSpot(RECT_ROOM, SMALL, 0)
+    expect(spot).toEqual({ x: RECT_ROOM.W / 2, z: RECT_ROOM.D / 2 })
+  })
+
+  it('does not throw for a model larger than the room', () => {
+    const tiny: RoomBounds = { W: 1000, D: 1000, inner: null, outline: null }
+    const huge = halfExtentsToBounds(5000, 5000)
+    const spot = placementSpot(tiny, huge, 0)
+    expect(Number.isFinite(spot.x) && Number.isFinite(spot.z)).toBe(true)
+  })
+})
+
+describe('interiorAnchor', () => {
+  it('uses the middle when the middle is usable', () => {
+    expect(interiorAnchor(RECT_ROOM, SMALL)).toEqual({ x: RECT_ROOM.W / 2, z: RECT_ROOM.D / 2 })
+  })
+
+  it('finds the nearest usable spot when the middle is a wall', () => {
+    const a = interiorAnchor(L_ROOM, SMALL)
+    expect(inside(a, SMALL)).toBe(true)
+    // "Nearest" matters: an anchor in a far corner would drop every model
+    // across the room from where the camera is looking.
+    const centre = { x: L_ROOM.W / 2, z: L_ROOM.D / 2 }
+    expect(Math.hypot(a.x - centre.x, a.z - centre.z)).toBeLessThan(1200)
   })
 })

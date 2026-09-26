@@ -48,12 +48,16 @@ export function QuarterArcMenu({
   categories,
   label = 'Qo‘shish',
   className = '',
+  onOpenChange,
 }: {
   categories: ArcCategory[]
   /** Accessible name for the corner button itself. */
   label?: string
   /** Positioning for the anchor — defaults to the bottom-right corner. */
   className?: string
+  /** Fires as the menu opens and closes, so the page can clear whatever the
+   *  fanned-out ring would otherwise land on top of. */
+  onOpenChange?: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -86,6 +90,8 @@ export function QuarterArcMenu({
     setActiveKey(null)
     setOffset(0)
   }
+
+  useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
 
   const active = categories.find((c) => c.key === activeKey) ?? null
   const capacity = arcCapacity(ARC_RADIUS_OUTER, ARC_ITEM_OUTER)
@@ -135,11 +141,17 @@ export function QuarterArcMenu({
     return d.moved
   }
 
-  /** A pick only counts if the gesture that ended on it was not a scroll. */
+  /**
+   * A pick only counts if the gesture that ended on it was not a scroll.
+   *
+   * Picking deliberately leaves the menu open. Adding things comes in runs —
+   * three downlights, a few wallpapers to compare — and closing after each one
+   * meant reopening and scrolling back to the same place every time. It closes
+   * when the user says so: the corner arrow, a tap on the backdrop, or Escape.
+   */
   function pick(item: ArcItem) {
     if (didDrag.current) return
     item.onSelect()
-    closeAll()
   }
 
   function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number) {

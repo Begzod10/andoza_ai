@@ -4,7 +4,7 @@ import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
 import { useRoomStore, type FloorType } from "@/store/roomStore";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
-import { nextFurnitureOffsetMm, nextLightPositionMm } from "@/lib/placement";
+import { furniturePlacementMm, nextLightPositionMm } from "@/lib/placement";
 import { buildFurnitureGroups } from "@/lib/furnitureSwapGroups";
 import { useDebounce } from "@/hooks/useDebounce";
 import { MaterialSwatch } from "./MaterialSwatch";
@@ -474,7 +474,10 @@ export function AddObjectSheet({
                   const scaleOverride = item.footprint_w ? furnitureWidthCm / item.footprint_w : 1;
                   placeFurniture({
                     id: `furn_${item.id}_${Date.now()}`, furniture_id: item.id,
-                    ...nextFurnitureOffsetMm(count), rotation: 0, scaleOverride,
+                    ...furniturePlacementMm(geometry, count, {
+                      w: ((item.footprint_w ?? 0) / 100) * scaleOverride,
+                      d: ((item.footprint_d ?? 0) / 100) * scaleOverride,
+                    }), rotation: 0, scaleOverride,
                   });
                   setPendingFurniture(null);
                   onClose();

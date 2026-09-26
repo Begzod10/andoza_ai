@@ -19,7 +19,7 @@ import { Sofa, Lightbulb, Wallpaper } from 'lucide-react'
 import { useRoomStore } from '@/store/roomStore'
 import { listWallpapers, type Wallpaper as WallpaperEntry } from '@/lib/api'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
-import { nextFurnitureOffsetMm, nextLightPositionMm } from '@/lib/placement'
+import { furniturePlacementMm, nextLightPositionMm } from '@/lib/placement'
 import { resolveTargetWall } from '@/components/studio/design-panel/shared'
 import type { ArcCategory, ArcItem } from '@/components/studio/QuarterArcMenu'
 
@@ -60,7 +60,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         onSelect: () => placeFurniture({
           id: nanoid(),
           furniture_id: e.id,
-          ...nextFurnitureOffsetMm(furniture.filter((f) => f.furniture_id === e.id).length),
+          ...furniturePlacementMm(geometry, furniture.filter((f) => f.furniture_id === e.id).length, e.sizeM),
           rotation: 0,
         }),
       })),
@@ -72,7 +72,8 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         onSelect: () => placeFurniture({
           id: nanoid(),
           furniture_id: f.id,
-          ...nextFurnitureOffsetMm(furniture.filter((x) => x.furniture_id === f.id).length),
+          ...furniturePlacementMm(geometry, furniture.filter((x) => x.furniture_id === f.id).length,
+            { w: (f.footprint_w ?? 0) / 100, d: (f.footprint_d ?? 0) / 100 }),
           rotation: 0,
         }),
       })),

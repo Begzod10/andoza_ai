@@ -11,6 +11,7 @@
  */
 import type { RoomGeometry } from '@/store/roomStore'
 import { roomExtents } from '@/lib/roomDims'
+import { halfExtentsToBounds, placementSpot, roomBoundsFromGeometry } from '@/lib/furnitureBounds'
 
 /**
  * Stagger offset (mm) for the *n*th piece of a given furniture item already
@@ -44,4 +45,31 @@ export function nextLightPositionMm(
     xMm: Math.round((W * 1000) / 2 + jitter - 375),
     zMm: Math.round((D * 1000) / 2 + (existingCount % 3) * 250 - 250),
   }
+}
+
+
+/**
+ * Drop point (store millimetres) for the next piece of furniture — the
+ * stagger above, but kept inside the room's walls.
+ *
+ * `nextFurnitureOffsetMm` measures from the room's centre and asks nothing
+ * about the room, which is fine until the room is small (the stagger walks
+ * the model into a wall) or L-shaped (its bounding-box centre can be in the
+ * cut-away corner, so the very first model starts life outside the room).
+ *
+ * @param sizeM the model's footprint in metres, when the catalog knows it. A
+ *        conservative box is assumed otherwise — better a slightly cautious
+ *        placement than one that clips a wall.
+ */
+export function furniturePlacementMm(
+  geometry: RoomGeometry,
+  existingCount: number,
+  sizeM?: { w: number; d: number },
+): { x: number; y: number } {
+  const room = roomBoundsFromGeometry(geometry)
+  const bounds = halfExtentsToBounds(((sizeM?.w ?? 0.6) * 1000) / 2, ((sizeM?.d ?? 0.6) * 1000) / 2)
+  const spot = placementSpot(room, bounds, existingCount)
+  // Plan millimetres (from the room's corner) back to the store's own frame,
+  // which measures from the room's centre.
+  return { x: spot.x - room.W / 2, y: spot.z - room.D / 2 }
 }

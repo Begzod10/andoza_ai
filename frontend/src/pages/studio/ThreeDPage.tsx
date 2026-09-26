@@ -17,6 +17,7 @@ import type { ToolMode } from "@/features/studio/StudioFurniture";
 export { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
+import { furniturePlacementMm } from "@/lib/placement";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
 import { sunPosition, dayOfYear } from "@/lib/sunPosition";
@@ -303,8 +304,7 @@ export default function ThreeDPage() {
         placeFurniture({
           id: nanoid(),
           furniture_id: entryId,
-          x: (placed * 300) % 1000,
-          y: (placed * 300) % 1000,
+          ...furniturePlacementMm(useRoomStore.getState().geometry, placed),
           rotation: 0,
         });
         setActivePhase('mebel');
@@ -340,6 +340,7 @@ export default function ThreeDPage() {
     setShowPanel(true);
   }, [setActivePhase]);
   const arcCategories = useArcCategories({ selectedWall, openPanelAt });
+  const [arcOpen, setArcOpen] = useState(false);
 
   const { wallGeom, computeOpeningRect, createOpening } = useOpeningCreation({
     W, D, H, geometry, addElement, setPendingWindowSpot, setSelectedWall,
@@ -613,8 +614,21 @@ export default function ThreeDPage() {
             </div>
           )}
 
-          {/* Bottom CTA */}
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+          {/* Bottom CTA. Hidden while the corner arc is open: the arc's own
+              ring reaches across this spot, and the two stacked read as one
+              jumble — the arc offers the same three things anyway. */}
+          <div
+            className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+            // Inline rather than opacity utilities, so the fade does not
+            // depend on which of them the build happens to emit. `visibility`
+            // is what actually takes it out of reach: a fully transparent
+            // button still catches the tap meant for the ring above it.
+            style={{
+              opacity: arcOpen ? 0 : 1,
+              visibility: arcOpen ? 'hidden' : 'visible',
+              transition: 'opacity 150ms ease',
+            }}
+          >
             <button
               onClick={() => setShowAddSheet(true)}
               className="pointer-events-auto flex items-center gap-2 px-6 py-3 text-white rounded-[20px] font-bold text-[15px] active:scale-[0.97] transition-transform"
@@ -637,6 +651,7 @@ export default function ThreeDPage() {
               className="bottom-5 right-4"
               label="Qo'shish menyusi"
               categories={arcCategories}
+              onOpenChange={setArcOpen}
             />
           </div>
 
