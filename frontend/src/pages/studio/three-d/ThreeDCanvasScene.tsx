@@ -8,6 +8,7 @@ import {
   Grid,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { MultiTouchPan } from "./MultiTouchPan";
 import * as THREE from "three";
 import type { Room } from "@/lib/api";
 import { useRoomStore, type DesignState, type RoomGeometry, type WallElement } from "@/store/roomStore";
@@ -330,6 +331,12 @@ export function ThreeDCanvasScene({
             MIDDLE: THREE.MOUSE.PAN,
             RIGHT: THREE.MOUSE.PAN,
           }}
+          // Touch, spelled out rather than left to the library default so the
+          // gesture set is readable here: one finger turns the room, two
+          // pinch-zoom AND drag it (DOLLY_PAN does both at once), and three
+          // drag it — that last one is MultiTouchPan below, since
+          // OrbitControls itself stops at two pointers.
+          touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
           // One orbit range everywhere: close enough to inspect a skirting
           // joint, far enough to pull right outside the room. Nothing has to
           // hide for that — the walls are single-sided planes and the shadow
@@ -354,6 +361,8 @@ export function ThreeDCanvasScene({
             Math.max(W, D),
           )}
         />
+        {/* Three-finger drag pans, matching the two-finger pan's speed. */}
+        <MultiTouchPan panSpeed={0.9} />
 
         <CameraAnimator
           position={cam.position}

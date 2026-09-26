@@ -1,6 +1,8 @@
 import { Suspense, useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import * as THREE from 'three'
+import { MultiTouchPan } from '../three-d/MultiTouchPan'
 import { SafeEnvironment } from '@/components/studio/SafeEnvironment'
 import { DoorLeaves, WindowSashes } from '@/components/studio/DoorLeaves'
 import type { PlacedElectrical, RoomGeometry, DesignState } from '@/store/roomStore'
@@ -105,9 +107,13 @@ export function ElektrThreeDView({ room, geometry, designState, electricals, wir
             electricals={electricals} wireConfigs={wireConfigs}
           />
           <OrbitControls
+            makeDefault
             target={initTarget}
             enableDamping dampingFactor={0.06}
             rotateSpeed={0.45}
+            // Same touch gestures as the main 3D view: one finger turns, two
+            // pinch-zoom and drag, three drag (MultiTouchPan below).
+            touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
             // Distance-independent zoom, same as the main 3D view — see
             // applyUniformZoom for why zoomSpeed is set here, not passed.
             onChange={(e) => applyUniformZoom(
@@ -121,6 +127,8 @@ export function ElektrThreeDView({ room, geometry, designState, electricals, wir
             // Same reach as the main 3D view, so the preview can pull outside.
             maxDistance={Math.max(W, D) * 4 + 6}
           />
+          {/* Three-finger drag pans, at these controls' own pan speed. */}
+          <MultiTouchPan />
         </Suspense>
       </Canvas>
       {/* bottom-left (was top-left) — the stories tab strip's centered title
