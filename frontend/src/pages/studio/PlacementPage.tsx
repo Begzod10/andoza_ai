@@ -2036,11 +2036,10 @@ export default function PlacementPage() {
 
       {/* Main area */}
       <div className="flex flex-1 min-h-0">
-        {/* Plan + 3D wrapper — relative so the stories tab strip's corner
-            arrows land at this content area's real corners (right arrow just
-            left of the sidebar), not over the sidebar or the toolbar above. */}
+        {/* Plan + 3D wrapper — relative so the section bar centres over this
+            content area rather than over the sidebar or the toolbar above. */}
         <div className="relative flex flex-1 min-w-0 min-h-0">
-        <StudioTabStrip roomId={room.id} titleClassName="hidden sm:block" />
+        <StudioTabStrip roomId={room.id} />
         {/* 2D/3D switch — same control and corner as the other sections. */}
         <div className="absolute top-16 right-3 z-20">
           <PlanViewToggle

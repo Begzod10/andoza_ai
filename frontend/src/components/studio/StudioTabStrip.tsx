@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 /**
@@ -95,9 +95,14 @@ export function useStudioTabNav(roomId: string): TabNav | null {
 //
 // The geometry is in pixels rather than Tailwind classes because the track's
 // transform has to be computed from the same numbers.
-const SLOT_W = 96;
+const SLOT_MAX = 96;
+// Narrow hosts exist: Elektr's plan+3D area is the page minus a 256px
+// sidebar, which on a phone leaves barely 250px. The slots shrink to fit
+// rather than the control hanging off the edge (or being hidden, which is
+// how it went missing there).
+const SLOT_MIN = 64;
 const GAP = 4;
-const STEP = SLOT_W + GAP;
+const PAD = 8; // the frame's p-1, both sides
 
 const BAR_CLS =
   "inline-flex p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 " +
@@ -109,7 +114,7 @@ const LABEL_CLS = "truncate";
 
 /** Half a slot of travel commits the switch — by then the incoming name is
  *  closer to the centre than the outgoing one. */
-const SWITCH_PX = Math.round(STEP / 2);
+const SWITCH_FRACTION = 0.5;
 /** Past this, the gesture was a drag and the click it ends with is ignored. */
 const DRAG_SLOP = 6;
 
@@ -125,7 +130,10 @@ export function StudioTabStrip({
    * bar in normal flow, for regular document pages (Smeta).
    */
   variant?: "overlay" | "inline";
-  /** Extra classes for the bar's positioned wrapper. */
+  /** Extra classes for the bar's positioned wrapper. NOTE: this wraps the
+   *  WHOLE control now, not just the section name it was named for — passing
+   *  "hidden sm:block" here removes the navigation entirely on phones, which
+   *  is exactly how it went missing from Elektr. */
   titleClassName?: string;
 }) {
   const nav = useStudioTabNav(roomId);
@@ -138,6 +146,32 @@ export function StudioTabStrip({
   // sequence), and React would then batch the setState so the release read a
   // stale side and switched to nothing. `armed` exists only to paint it.
   const dragRef = useRef<{ x: number; moved: boolean; side: "prev" | "next" | null } | null>(null);
+  // Slot width, sized to whatever box the bar was mounted in.
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [slotW, setSlotW] = useState(SLOT_MAX);
+  useLayoutEffect(() => {
+    // Not the bar's own wrapper: in the overlay variant that wrapper is
+    // absolutely positioned and shrink-wraps the bar, so measuring it (or the
+    // bar's offsetParent, which IS that wrapper) just reports the bar's width
+    // back. One level further out is the page's viewport box — the space
+    // actually available.
+    const wrapper = hostRef.current?.parentElement;
+    const host = (wrapper?.offsetParent as HTMLElement | null) ?? wrapper?.parentElement;
+    if (!host) return;
+    const fit = () => {
+      const avail = host.clientWidth;
+      if (!avail) return;
+      const w = Math.floor((avail - PAD - 2 * GAP) / 3);
+      setSlotW(Math.max(SLOT_MIN, Math.min(SLOT_MAX, w)));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(host);
+    // Belt and braces: a ResizeObserver only fires with a frame, and these
+    // pages can be mid-transition (rails animating open) when the bar mounts.
+    window.addEventListener("resize", fit);
+    return () => { ro.disconnect(); window.removeEventListener("resize", fit); };
+  }, []);
   // A drag that ends over a name would otherwise fire that name's click too.
   const draggedRef = useRef(false);
 
@@ -164,8 +198,10 @@ export function StudioTabStrip({
     if (!d) return;
     const moved = e.clientX - d.x;
     if (Math.abs(moved) > DRAG_SLOP) d.moved = true;
-    d.side = moved > SWITCH_PX ? "prev" : moved < -SWITCH_PX ? "next" : null;
-    setDx(Math.max(-STEP, Math.min(STEP, moved)));
+    const step = slotW + GAP;
+    const commitAt = step * SWITCH_FRACTION;
+    d.side = moved > commitAt ? "prev" : moved < -commitAt ? "next" : null;
+    setDx(Math.max(-step, Math.min(step, moved)));
     setArmed(d.side);
   };
   const endDrag = (e: React.PointerEvent) => {
@@ -196,7 +232,10 @@ export function StudioTabStrip({
   const bar = (
     <div
       className={BAR_CLS}
-      style={{ width: STEP * 3 - GAP + 8 }}
+      ref={hostRef}
+      // maxWidth is the guarantee: if the measurement ever lags the layout,
+      // the bar crops itself rather than hanging off the side of its host.
+      style={{ width: slotW * 3 + GAP * 2 + PAD, maxWidth: "100%" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -206,7 +245,7 @@ export function StudioTabStrip({
         className="flex"
         style={{
           gap: GAP,
-          transform: `translateX(${-STEP + dx}px)`,
+          transform: `translateX(${-(slotW + GAP) + dx}px)`,
           transition: dx ? "none" : "transform 180ms ease-out",
         }}
       >
@@ -225,7 +264,7 @@ export function StudioTabStrip({
               aria-hidden={i === 0 || i === 4}
               aria-current={i === 2 ? "page" : undefined}
               className={`${isActive ? CURRENT_CLS : SIDE_CLS} ${onSide ? "hover:opacity-100 hover:bg-gray-100" : ""}`}
-              style={{ width: SLOT_W }}
+              style={{ width: slotW }}
             >
               <span className={LABEL_CLS}>{t.label}</span>
             </button>
