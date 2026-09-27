@@ -1,42 +1,23 @@
-import { useState, useRef, useEffect, lazy, Suspense } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { requestOTP, verifyOTP, loginWithPassword, registerUser } from "@/lib/api";
+import { loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
 
-// Desktop/tablet only — the 3D scene's real cost (a ~250KB gzipped
-// three.js/r3f chunk, a continuous WebGL render loop with real shadows, and
-// on iOS a motion-permission prompt on first tap) isn't worth it on a phone,
-// where the card also covers most of the available width anyway. Lazy so
-// the chunk is never even fetched below the breakpoint.
-const LoginBackground = lazy(() =>
-  import("./LoginBackground").then((m) => ({ default: m.LoginBackground })),
-);
-
-function useIsDesktop(breakpointPx = 768): boolean {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mql = window.matchMedia(`(min-width: ${breakpointPx}px)`);
-    setIsDesktop(mql.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, [breakpointPx]);
-  return isDesktop;
-}
-
-// Contrast fix: a plain neutral-200 border on a white field on a white card
-// was nearly invisible at rest. neutral-300 + a subtle neutral-50 tint at
-// rest (switching to white on focus) gives every field a visible affordance
-// without a JS focus-state per field — the tint is opacity, not layout, so
-// it composes with each input's own extra classes below.
+// Inset "pressed" neumorphic field, matched to the login card surface.
 const FIELD_BASE =
-  "w-full border border-neutral-300 bg-neutral-50 focus:bg-white rounded-lg px-4 py-3 text-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors";
+  "w-full rounded-xl px-4 py-3 text-sm bg-[#e9eaf0] text-neutral-800 placeholder:text-neutral-400 " +
+  "shadow-[inset_3px_3px_7px_#c7c8d1,inset_-3px_-3px_7px_#ffffff] " +
+  "focus:outline-none focus:shadow-[inset_4px_4px_9px_#c7c8d1,inset_-4px_-4px_9px_#ffffff] transition-shadow";
 
-type AuthMode = "login" | "register" | "otp-phone" | "otp-code";
+// Raised tactile button; depresses (inset) on press.
+const BTN =
+  "mt-6 w-full rounded-xl py-3 text-sm font-bold text-brand bg-[#e9eaf0] transition-all " +
+  "shadow-[5px_5px_11px_#c7c8d1,-5px_-5px_11px_#ffffff] hover:shadow-[6px_6px_13px_#c7c8d1,-6px_-6px_13px_#ffffff] " +
+  "active:shadow-[inset_4px_4px_9px_#c7c8d1,inset_-4px_-4px_9px_#ffffff] " +
+  "disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none";
 
-const RESEND_COOLDOWN = 60;
+type AuthMode = "login" | "register";
 
 // ── Password field with show/hide toggle ──────────────────────
 function PasswordInput({
@@ -101,52 +82,23 @@ function EyeOffIcon() {
   );
 }
 
-function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("998")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+998${digits.slice(1)}`;
-  return `+998${digits}`;
-}
-
-function isValidPhone(phone: string): boolean {
-  return /^\+998\d{9}$/.test(phone);
-}
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
-  const isDesktop = useIsDesktop();
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
 
-  const [mode, setMode] = useState<AuthMode>("otp-phone");
-
-  // Username/password fields
+  const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  // OTP fields
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [cooldown, setCooldown] = useState(0);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
-
   function resetError() { setError(null); }
-
-  function switchMode(m: AuthMode) {
-    setMode(m);
-    resetError();
-  }
+  function switchMode(m: AuthMode) { setMode(m); resetError(); }
 
   // ── Username/password login ──────────────────────────────────
   async function handleLogin() {
@@ -189,356 +141,133 @@ export default function LoginPage() {
     }
   }
 
-  // ── OTP ──────────────────────────────────────────────────────
-  function startCooldown() {
-    setCooldown(RESEND_COOLDOWN);
-    timerRef.current = setInterval(() => {
-      setCooldown((c) => {
-        if (c <= 1) { clearInterval(timerRef.current!); return 0; }
-        return c - 1;
-      });
-    }, 1000);
-  }
-
-  async function handleRequestOTP() {
-    resetError();
-    const normalized = formatPhone(phone);
-    if (!isValidPhone(normalized)) { setError(uz.errors.telefon_format); return; }
-    setLoading(true);
-    try {
-      await requestOTP(normalized);
-      setPhone(normalized);
-      setMode("otp-code");
-      startCooldown();
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    } catch {
-      setError(uz.errors.server_xato);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyOTPWithCode(code: string) {
-    resetError();
-    setLoading(true);
-    try {
-      const res = await verifyOTP(phone, code);
-      setAuthenticated(res.user);
-      navigate(from, { replace: true });
-    } catch {
-      setError(uz.errors.otp_xato);
-      setOtp(["", "", "", "", "", ""]);
-      otpRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyOTP() {
-    const code = otp.join("");
-    if (code.length < 6) { setError(uz.errors.otp_xato); return; }
-    await handleVerifyOTPWithCode(code);
-  }
-
-  async function handleResend() {
-    if (cooldown > 0) return;
-    resetError();
-    setLoading(true);
-    try {
-      await requestOTP(phone);
-      setOtp(["", "", "", "", "", ""]);
-      startCooldown();
-      otpRefs.current[0]?.focus();
-    } catch {
-      setError(uz.errors.server_xato);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleOtpChange(index: number, value: string) {
-    const digit = value.replace(/\D/g, "").slice(-1);
-    const next = [...otp];
-    next[index] = digit;
-    setOtp(next);
-    if (digit && index < 5) otpRefs.current[index + 1]?.focus();
-    if (next.every((d) => d !== "") && digit) {
-      const code = next.join("");
-      if (code.length === 6) setTimeout(() => handleVerifyOTPWithCode(code), 50);
-    }
-  }
-
-  function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
-  }
-
   // ── Render ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5 relative overflow-hidden">
-      {isDesktop && (
-        <Suspense fallback={null}>
-          <LoginBackground />
-        </Suspense>
-      )}
-      {/* Legibility scrim: nearly transparent behind the card, opaque toward
-       * the edges — the 3D room stays visible around the corners without
-       * ever competing with the card/headline for contrast. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 42%, rgba(249,249,249,0.15) 0%, rgba(249,249,249,0.55) 55%, rgba(249,249,249,0.8) 100%)",
-        }}
-      />
-
-      {/* Logo */}
-      <div className="mb-8 text-center relative z-10">
-        <div className="text-5xl font-bold text-neutral-900 mb-2">👋 Salom</div>
-        <p className="text-lg text-muted">Andoza AI-ga xush kelibsiz</p>
+    <div className="min-h-screen bg-[#e6e7ee] flex flex-col items-center justify-center px-5">
+      {/* Brand */}
+      <div className="mb-8 flex flex-col items-center">
+        <img src="/icon.svg" alt="AndozaAI" className="w-14 h-14 mb-3" />
+        <span className="text-xl font-bold tracking-tight text-neutral-800">AndozaAI</span>
       </div>
 
-      <div className="w-full max-w-sm bg-white/50 backdrop-blur-md rounded-2xl shadow-card p-8 relative z-10">
-        {/* ── OTP code step ── */}
-        {mode === "otp-code" ? (
+      <div className="w-full max-w-sm bg-[#e9eaf0] rounded-3xl p-8 shadow-[10px_10px_28px_#c7c8d1,-10px_-10px_28px_#ffffff]">
+        {mode === "login" ? (
           <>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">✓ Kod yuborildi</h2>
-            <p className="text-sm text-muted mb-6">
-              <span className="font-medium text-gray-900">{phone}</span> raqamiga 6 xonali kod yuboramiz
-            </p>
-            <div className="flex gap-2 justify-center mb-5">
-              {otp.map((digit, i) => (
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Kirish</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
                 <input
-                  key={i}
-                  ref={(el) => { otpRefs.current[i] = el; }}
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleOtpChange(i, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="w-11 h-12 text-center text-lg font-bold border border-neutral-300 bg-neutral-50 focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                  placeholder="username"
+                  autoComplete="username"
+                  autoFocus
+                  className={FIELD_BASE}
                 />
-              ))}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
+                <PasswordInput
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+              </div>
             </div>
-            {error && <p className="text-xs text-red-500 text-center mb-3">{error}</p>}
-            <button
-              onClick={handleVerifyOTP}
-              disabled={loading || otp.some((d) => !d)}
-              className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? uz.common.yuklanmoqda : uz.auth.otp_tasdiqlash}
+
+            {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+
+            <button onClick={handleLogin} disabled={loading} className={BTN}>
+              {loading ? uz.common.yuklanmoqda : "Kirish"}
             </button>
-            <button
-              onClick={handleResend}
-              disabled={cooldown > 0 || loading}
-              className="mt-3 w-full text-sm text-muted hover:text-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {cooldown > 0 ? `${uz.auth.qayta_yuborish} (${cooldown}s)` : uz.auth.qayta_yuborish}
-            </button>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted">
+                Akkauntingiz yo'qmi?{' '}
+                <button
+                  onClick={() => switchMode("register")}
+                  className="text-brand font-medium hover:underline transition-colors"
+                >
+                  Ro'yxatdan o'tish
+                </button>
+              </p>
+            </div>
           </>
         ) : (
           <>
-            {/* ── Login tab ── */}
-            {mode === "login" && (
-              <>
-                <button
-                  onClick={() => switchMode("otp-phone")}
-                  className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
-                >
-                  ← {uz.auth.orqaga}
-                </button>
-                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Kirish</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                      placeholder="username"
-                      autoComplete="username"
-                      autoFocus
-                      className={FIELD_BASE}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
-                    <PasswordInput
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                    />
-                  </div>
-                </div>
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Ro'yxatdan o'tish</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Ism (ixtiyoriy)</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ismingiz"
+                  autoComplete="name"
+                  autoFocus
+                  className={FIELD_BASE}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="username"
+                  autoComplete="username"
+                  className={FIELD_BASE}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
+                <PasswordInput
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parolni tasdiqlang</label>
+                <PasswordInput
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
 
-                {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+            {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
 
-                <button
-                  onClick={handleLogin}
-                  disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {loading ? uz.common.yuklanmoqda : "Kirish"}
-                </button>
+            <button onClick={handleRegister} disabled={loading} className={BTN}>
+              {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
+            </button>
 
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-muted">
-                    Akkauntingiz yo'qmi?{' '}
-                    <button
-                      onClick={() => switchMode("register")}
-                      className="text-brand font-medium hover:underline transition-colors"
-                    >
-                      Ro'yxatdan o'tish
-                    </button>
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* ── Register tab ── */}
-            {mode === "register" && (
-              <>
-                <button
-                  onClick={() => switchMode("otp-phone")}
-                  className="flex items-center gap-1.5 text-sm text-muted hover:text-neutral-900 transition-colors mb-6"
-                >
-                  ← {uz.auth.orqaga}
-                </button>
-                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Ro'yxatdan o'tish</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Ism (ixtiyoriy)</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ismingiz"
-                      autoComplete="name"
-                      autoFocus
-                      className={FIELD_BASE}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Username</label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="username"
-                      autoComplete="username"
-                      className={FIELD_BASE}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parol</label>
-                    <PasswordInput
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1.5">Parolni tasdiqlang</label>
-                    <PasswordInput
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleRegister()}
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                    />
-                  </div>
-                </div>
-
-                {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
-
-                <button
-                  onClick={handleRegister}
-                  disabled={loading}
-                  className="mt-6 w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
-                </button>
-
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-muted">
-                    Allaqachon akkauntingiz bormi?{' '}
-                    <button
-                      onClick={() => switchMode("login")}
-                      className="text-brand font-medium hover:underline transition-colors"
-                    >
-                      Kirish
-                    </button>
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* ── OTP phone step ── */}
-            {mode === "otp-phone" && (
-              <>
-                <h2 className="text-lg font-semibold text-neutral-900 mb-1">Telefon raqam</h2>
-                <p className="text-sm text-muted mb-6">Loginiga uchun telefon raqam talab qilinadi</p>
-
-                <div className="mb-6">
-                  <label className="block text-xs font-medium text-neutral-600 mb-2">Telefon raqam</label>
-                  <div className="flex items-center border-2 border-brand rounded-lg px-4 py-3 bg-primary-tint focus-within:ring-2 focus-within:ring-brand/40">
-                    <span className="text-neutral-600 font-medium">+998</span>
-                    <input
-                      type="tel"
-                      value={phone.replace(/\+998/, '')}
-                      onChange={(e) => setPhone(`+998${e.target.value.replace(/[^\d]/g, '')}`)}
-                      onKeyDown={(e) => e.key === "Enter" && handleRequestOTP()}
-                      placeholder="90 123 45 67"
-                      autoFocus
-                      autoComplete="tel"
-                      disabled={loading}
-                      className="flex-1 ml-2 bg-transparent text-neutral-900 font-medium text-base placeholder-neutral-400 focus:outline-none"
-                    />
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-2">Sms kod shu raqamga yuboriladi</p>
-                </div>
-
-                {error && <p className="text-xs text-red-500 mb-4 text-center">{error}</p>}
-
-                <button
-                  onClick={handleRequestOTP}
-                  disabled={loading || !phone}
-                  className={`w-full rounded-lg py-4 font-bold text-white transition-colors ${
-                    loading || !phone ? 'bg-neutral-300 cursor-not-allowed' : 'bg-brand hover:bg-brand/90'
-                  }`}
-                >
-                  {loading ? uz.common.yuklanmoqda : "OTP Yuborish"}
-                </button>
-
-                <div className="mt-8 bg-primary-tint p-4 rounded-lg">
-                  <p className="text-sm text-neutral-700">
-                    📱 Siz kiritgan raqamga 6 xonali kod yuboriladi. Agar SMS kelmaydigan bo'lsa, 2-3 minutdan keyin qayta urinib ko'ring.
-                  </p>
-                </div>
-
-                {/* Option to use username/password */}
-                <div className="flex items-center gap-3 mt-8">
-                  <div className="flex-1 h-px bg-neutral-200" />
-                  <span className="text-xs text-muted">yoki</span>
-                  <div className="flex-1 h-px bg-neutral-200" />
-                </div>
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted">
+                Allaqachon akkauntingiz bormi?{' '}
                 <button
                   onClick={() => switchMode("login")}
-                  className="w-full mt-4 border border-neutral-200 text-neutral-700 rounded-lg py-3 text-sm font-medium hover:bg-neutral-50 transition-colors"
+                  className="text-brand font-medium hover:underline transition-colors"
                 >
-                  🔐 Username bilan kirish
+                  Kirish
                 </button>
-              </>
-            )}
+              </p>
+            </div>
           </>
         )}
       </div>
 
-      <p className="text-xs text-muted mt-6 text-center opacity-60 relative z-10">AndozaAI v1.0.0</p>
+      <p className="text-xs text-muted mt-6 text-center opacity-60">AndozaAI v1.0.0</p>
     </div>
   );
 }
