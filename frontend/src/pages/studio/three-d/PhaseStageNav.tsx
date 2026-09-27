@@ -1,25 +1,21 @@
-import { createPortal } from "react-dom";
 import type { Dispatch, SetStateAction } from "react";
-import { Layers } from "lucide-react";
-import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
 
 /**
- * Renovation-phase navigation: the mobile stage strip (collapsed into a
- * round drawer trigger, portaled into StudioPage's header) and the
- * desktop-only collapsible left phase-stepper sidebar. Split out of
- * ThreeDPage.tsx — see that file's header comment for the full picture.
+ * Renovation-phase navigation: the desktop-only collapsible left phase-stepper
+ * sidebar. Split out of ThreeDPage.tsx — see that file's header comment for
+ * the full picture.
+ *
+ * There was a mobile counterpart — the stage list behind a Layers button
+ * portaled into the header — removed at the user's request (2026-09-28), like
+ * the section menu and the placement tabs before it. On a phone the phases are
+ * reached by tapping the surface itself, and the header row is worth more than
+ * a second way in.
  */
 export function PhaseStageNav({
-  toolbarSlot, toolbarSlotTop,
-  stageDrawerOpen, setStageDrawerOpen,
   leftOpen, setLeftOpen,
   activeIdx, setActivePhase,
 }: {
-  toolbarSlot?: HTMLDivElement | null;
-  toolbarSlotTop?: number;
-  stageDrawerOpen: boolean;
-  setStageDrawerOpen: Dispatch<SetStateAction<boolean>>;
   leftOpen: boolean;
   setLeftOpen: Dispatch<SetStateAction<boolean>>;
   activeIdx: number;
@@ -27,49 +23,6 @@ export function PhaseStageNav({
 }) {
   return (
     <>
-      {/* ── Mobile: stage strip collapsed into a round drawer trigger,
-          portaled into StudioPage's header so it sits in that one row
-          alongside the section-switcher and the tools-drawer trigger below,
-          instead of a separate row of its own. ── */}
-      {toolbarSlot && createPortal(
-        <div className="lg:hidden">
-          <TopDrawerButton active={stageDrawerOpen} onClick={() => setStageDrawerOpen((v) => !v)} label="Bosqichlar">
-            <Layers size={18} strokeWidth={2} />
-          </TopDrawerButton>
-        </div>,
-        toolbarSlot,
-      )}
-      <TopDrawer open={stageDrawerOpen} onOpenChange={setStageDrawerOpen} title="Bosqichlar" topOffset={toolbarSlotTop ?? 0}>
-        <div className="py-2">
-          {RENO_STAGES.map((stage, i) => {
-            const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
-            return (
-              <button
-                key={stage.key}
-                onClick={() => { setActivePhase(stage.key); setStageDrawerOpen(false); }}
-                title={stage.label}
-                aria-label={stage.label}
-                aria-current={status === 'current' ? 'step' : undefined}
-                className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-left transition-colors ${
-                  status === 'current' ? 'bg-brand text-white' :
-                  status === 'done'    ? 'text-emerald-700 hover:bg-gray-50' :
-                                         'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {status === 'done' && (
-                  <svg width="14" height="14" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <path d="M1.5 5.5l3 3 5-5"/>
-                  </svg>
-                )}
-                {status === 'current' && <span className="w-2 h-2 rounded-full bg-white/90 inline-block shrink-0" />}
-                {status === 'pending' && <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />}
-                <span>{stage.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </TopDrawer>
-
       {/* ── Desktop: left phase stepper sidebar, collapsible ── */}
       <div className="relative hidden lg:block shrink-0">
       <nav

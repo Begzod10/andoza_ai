@@ -273,13 +273,11 @@ export default function ThreeDPage() {
         ? (phaseParam as PhaseKey)
         : 'boyoq'
   const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
-  // The mobile stage picker and the toolbar are each collapsed into a single
-  // round TopDrawerButton, portaled into StudioPage's header row so both sit
-  // in one row alongside the section-switcher button instead of stacking as
-  // separate rows. topOffset for both drawers comes straight from the
-  // header's own measured height (toolbarSlotTop), since that's now the only
-  // fixed chrome either one opens beneath.
-  const [stageDrawerOpen, setStageDrawerOpen] = useState(false);
+  // The toolbar is collapsed into a single round TopDrawerButton, portaled
+  // into StudioPage's header row rather than stacking as a row of its own.
+  // Its topOffset comes straight from the header's own measured height
+  // (toolbarSlotTop), since that's the only fixed chrome it opens beneath.
+  // (The stage picker sat beside it until it was removed — see PhaseStageNav.)
   const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
@@ -496,10 +494,6 @@ export default function ThreeDPage() {
 
       {SHOW_PHASE_STEPPER && (
         <PhaseStageNav
-          toolbarSlot={toolbarSlot}
-          toolbarSlotTop={toolbarSlotTop}
-          stageDrawerOpen={stageDrawerOpen}
-          setStageDrawerOpen={setStageDrawerOpen}
           leftOpen={leftOpen}
           setLeftOpen={setLeftOpen}
           activeIdx={activeIdx}
