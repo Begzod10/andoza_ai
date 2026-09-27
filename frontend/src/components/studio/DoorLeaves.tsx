@@ -488,10 +488,20 @@ function DoorLeaf({
   );
 }
 
-/** Glass pane — shared by every sash so the look stays uniform. */
-function Glass({ w, h }: { w: number; h: number }) {
+/**
+ * Glass pane — shared by every sash so the look stays uniform.
+ *
+ * It takes the sash's own pointer handlers and IS pickable, deliberately: as
+ * an unpickable pane a tap on the glass went straight through the window and
+ * hit whatever lay beyond, which from inside the room meant selecting the
+ * ceiling from the outside — tapping a window opened the ceiling menu.
+ */
+function Glass({ w, h, handlers }: {
+  w: number; h: number;
+  handlers?: Record<string, unknown>;
+}) {
   return (
-    <mesh raycast={() => null}>
+    <mesh {...handlers}>
       <planeGeometry args={[Math.max(0.02, w), Math.max(0.02, h)]} />
       <meshPhysicalMaterial
         color="#B8D4EC"
@@ -589,7 +599,7 @@ function Pane({
         </mesh>
       ))}
 
-      <Glass w={glassW} h={glassH} />
+      <Glass w={glassW} h={glassH} handlers={barProps} />
 
       {/* muntin grid */}
       {grid && !fan && (

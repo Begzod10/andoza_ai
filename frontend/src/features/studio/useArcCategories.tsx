@@ -4,9 +4,9 @@
  *
  *   Mebel  → the model picker's inventory: your uploads + the do'kon catalog
  *            (MebelSection's `allCatalogEntries`), followed by the same four
- *            rooms the "Buyum qo'shish" sheet offers as chips — the whole
- *            catalog in one arc is a long scroll when the user knows they
- *            want a bed
+ *            grouped into the same four rooms the "Buyum qo'shish" sheet
+ *            offers as chips, plus your own uploads — the whole catalog in
+ *            one arc is a long scroll when the user knows they want a bed
  *   Rang   → the shared wallpaper library (DesignPanel's `listWallpapers`)
  *   Chiroq → the fixture palette (LightPanel's `LIGHT_TYPES`)
  *
@@ -18,7 +18,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
-import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, BedDouble, ChefHat, Bath } from 'lucide-react'
+import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, BedDouble, ChefHat, Bath, Upload } from 'lucide-react'
 import { useRoomStore } from '@/store/roomStore'
 import { listWallpapers, type Wallpaper as WallpaperEntry } from '@/lib/api'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
@@ -62,7 +62,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
   })
 
   return useMemo(() => {
-    const models: ArcItem[] = [
+    const uploads: ArcItem[] = [
       ...userFurniture.map((e) => ({
         key: `user:${e.id}`,
         label: e.name,
@@ -72,19 +72,6 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
           id: nanoid(),
           furniture_id: e.id,
           ...furniturePlacementMm(geometry, furniture.filter((f) => f.furniture_id === e.id).length, e.sizeM),
-          rotation: 0,
-        }),
-      })),
-      ...catalogFurniture.map((f) => ({
-        key: `shop:${f.id}`,
-        label: f.name_uz,
-        icon: '🏪',
-        imageUrl: f.thumbnail_url ?? undefined,
-        onSelect: () => placeFurniture({
-          id: nanoid(),
-          furniture_id: f.id,
-          ...furniturePlacementMm(geometry, furniture.filter((x) => x.furniture_id === f.id).length,
-            { w: (f.footprint_w ?? 0) / 100, d: (f.footprint_d ?? 0) / 100 }),
           rotation: 0,
         }),
       })),
@@ -175,43 +162,50 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
 
     return [
       {
+        // Mebel opens the rooms first, and a room opens its models: the whole
+        // catalog in one arc was a long scroll when the user knows they want
+        // a bed. Uploads keep a room of their own, since they have no room
+        // type in the catalog and would otherwise have nowhere to appear.
         key: 'mebel',
         label: 'Mebel',
         icon: <Sofa size={19} strokeWidth={1.8} />,
-        items: models,
+        items: [
+          {
+            key: 'room:mehmonxona', label: 'Mehmonxona',
+            icon: <Sofa size={19} strokeWidth={1.8} />,
+            items: modelsForRoom('mehmonxona'),
+            onSelect: () => {},
+          },
+          {
+            key: 'room:oshxona', label: 'Oshxona',
+            icon: <ChefHat size={19} strokeWidth={1.8} />,
+            items: modelsForRoom('oshxona'),
+            onSelect: () => {},
+          },
+          {
+            key: 'room:yotoqxona', label: 'Yotoqxona',
+            icon: <BedDouble size={19} strokeWidth={1.8} />,
+            items: modelsForRoom('yotoqxona'),
+            onSelect: () => {},
+          },
+          {
+            key: 'room:vanna', label: 'Vanna',
+            icon: <Bath size={19} strokeWidth={1.8} />,
+            items: modelsForRoom('hammom'),
+            onSelect: () => {},
+          },
+          ...(uploads.length
+            ? [{
+                key: 'room:yuklangan', label: 'Yuklangan',
+                icon: <Upload size={19} strokeWidth={1.8} />,
+                items: uploads,
+                onSelect: () => {},
+              }]
+            : []),
+        ],
         // Nothing uploaded yet: the panel is where you add one, so send them
         // there rather than showing an arc with nothing on it.
         emptyItem: { key: 'mebel:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
-      },
-      // The sheet's four room chips, as their own categories. "Vanna" is the
-      // label users know; the catalog stores it as `hammom`.
-      {
-        key: 'mehmonxona',
-        label: 'Mehmonxona',
-        icon: <Sofa size={19} strokeWidth={1.8} />,
-        items: modelsForRoom('mehmonxona'),
-        emptyItem: { key: 'mehmonxona:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
-      },
-      {
-        key: 'oshxona',
-        label: 'Oshxona',
-        icon: <ChefHat size={19} strokeWidth={1.8} />,
-        items: modelsForRoom('oshxona'),
-        emptyItem: { key: 'oshxona:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
-      },
-      {
-        key: 'yotoqxona',
-        label: 'Yotoqxona',
-        icon: <BedDouble size={19} strokeWidth={1.8} />,
-        items: modelsForRoom('yotoqxona'),
-        emptyItem: { key: 'yotoqxona:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
-      },
-      {
-        key: 'vanna',
-        label: 'Vanna',
-        icon: <Bath size={19} strokeWidth={1.8} />,
-        items: modelsForRoom('hammom'),
-        emptyItem: { key: 'vanna:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
       },
       {
         key: 'rang',

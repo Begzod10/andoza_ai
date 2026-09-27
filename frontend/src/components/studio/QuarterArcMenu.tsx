@@ -32,6 +32,9 @@ export interface ArcItem {
    *  button the way `imageUrl` does, for the pickers whose preview is the
    *  real geometry rather than a photo. */
   fill?: ReactNode
+  /** A further ring this item opens in place of acting — the rooms under
+   *  Mebel. Tapping the category again comes back out. */
+  items?: ArcItem[]
   onSelect: () => void
 }
 
@@ -65,6 +68,8 @@ export function QuarterArcMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
+  /** The item within the active category whose own ring is showing. */
+  const [drillKey, setDrillKey] = useState<string | null>(null)
   // One scroll position per ring: six categories no more fit the inner arc
   // than 87 wallpapers fit the outer one, and they scroll independently.
   const [offset, setOffset] = useState({ inner: 0, outer: 0 })
@@ -87,24 +92,28 @@ export function QuarterArcMenu({
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (activeKey) setActiveKey(null)
+      if (drillKey) setDrillKey(null)
+      else if (activeKey) setActiveKey(null)
       else setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, activeKey])
+  }, [open, activeKey, drillKey])
 
   function closeAll() {
     setOpen(false)
     setActiveKey(null)
+    setDrillKey(null)
     setOffset({ inner: 0, outer: 0 })
   }
 
   useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
 
   const active = categories.find((c) => c.key === activeKey) ?? null
+  const drilled = drillKey ? active?.items.find((i) => i.key === drillKey) ?? null : null
+  const shown = drilled?.items ?? active?.items ?? []
   const outer: ArcItem[] = active
-    ? (active.items.length === 0 ? (active.emptyItem ? [active.emptyItem] : []) : active.items)
+    ? (shown.length === 0 ? (active.emptyItem ? [active.emptyItem] : []) : shown)
     : []
 
   /**
@@ -194,13 +203,20 @@ export function QuarterArcMenu({
    */
   function pick(item: ArcItem) {
     if (didDrag.current) return
+    // An item that carries its own ring opens it instead of acting: the rooms
+    // under Mebel, where the whole catalog in one arc was a long scroll.
+    if (item.items?.length) {
+      setOffset((o) => ({ ...o, outer: 0 }))
+      setDrillKey(item.key)
+      return
+    }
     item.onSelect()
   }
 
   function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number, slotKey: number | string) {
     return (
       <button
-        key={`${activeKey}:${slotKey}`}
+        key={`${activeKey}:${drillKey ?? ''}:${slotKey}`}
         onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
         onPointerMove={onDragMove}
         onPointerUp={() => onDragEnd()}
@@ -292,6 +308,11 @@ export function QuarterArcMenu({
                 if (didDrag.current) return
                 // A different category starts its own ring at the beginning.
                 setOffset((o) => ({ ...o, outer: 0 }))
+                // Tapping the live category backs out of a sub-ring first, so
+                // the way back from a room's models is the button that opened
+                // it — the same place the finger already is.
+                if (cat.key === activeKey && drillKey) { setDrillKey(null); return }
+                setDrillKey(null)
                 setActiveKey((k) => (k === cat.key ? null : cat.key))
               }}
               aria-pressed={isActive}
