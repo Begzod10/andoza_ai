@@ -84,9 +84,19 @@ export interface ArcSlot extends ArcPoint {
  * Only the slots on the arc (plus a hair past each end, which is what fades)
  * are returned, so an 87-item library costs the same to draw as a 6-item one.
  */
-export function arcSlots(count: number, capacity: number, offset: number, radius: number): ArcSlot[] {
+export function arcSlots(
+  count: number,
+  capacity: number,
+  offset: number,
+  radius: number,
+  /** Where the arc starts and how far it runs, degrees. Defaults to the corner
+   *  menu's quarter; the surface radial passes its own fan, which is centred
+   *  on straight-up and opens both ways. */
+  startDeg = ARC_START_DEG,
+  sweepDeg = ARC_SWEEP_DEG,
+): ArcSlot[] {
   if (count <= 0) return []
-  const step = arcSlotStep(capacity)
+  const step = capacity <= 1 ? sweepDeg : sweepDeg / (capacity - 1)
   const out: ArcSlot[] = []
   const first = Math.floor(offset) - 1
   for (let key = first; key <= first + capacity + 1; key++) {
@@ -100,7 +110,7 @@ export function arcSlots(count: number, capacity: number, offset: number, radius
       slot,
       key,
       opacity: Math.max(0, 1 - overshoot),
-      ...arcPoint(ARC_START_DEG + slot * step, radius),
+      ...arcPoint(startDeg + slot * step, radius),
     })
   }
   return out

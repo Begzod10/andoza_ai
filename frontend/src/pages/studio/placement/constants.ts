@@ -22,11 +22,15 @@ export const CATALOG: CatalogEntry[] = [
   { type: 'socket1',      label: 'Bitta rozetka',        height: 300 },
   { type: 'socket2',      label: 'Ikkita rozetka',       height: 300 },
   { type: 'socket_media', label: 'TV + Ethernet + Ant.', height: 1200 },
+  // Mounted high on the wall, just under the ceiling line, the way a
+  // split unit's indoor half actually hangs.
+  { type: 'ac',           label: 'Konditsioner',         height: 2400 },
 ]
 
 export const TYPE_LABEL: Record<ElectricalType, string> = {
   panel: 'Elektr qutisi', switch1: 'Bitta kalit', switch2: 'Ikkita kalit',
   socket1: 'Bitta rozetka', socket2: 'Ikkita rozetka', socket_media: 'TV+ETH+ANT',
+  ac: 'Konditsioner',
 }
 
 export const SOCKET_TYPES = new Set<ElectricalType>(['socket1', 'socket2', 'socket_media'])
@@ -62,4 +66,5 @@ export const ELEC_DIMS_3D: Record<ElectricalType, { w: number; h: number }> = {
   socket2:      { w: 0.14, h: 0.08 },
   socket_media: { w: 0.18, h: 0.08 },
   panel:        { w: 0.40, h: 0.50 },
+  ac:           { w: 0.90, h: 0.30 },
 }

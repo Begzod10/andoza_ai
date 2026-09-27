@@ -28,8 +28,11 @@ function DraggableElectricalItem({
 }) {
   const groupRef = useRef<THREE.Group>(null)
   const isPanel = el.type === 'panel'
+  const isAc = el.type === 'ac'
   const dim = ELECTRICAL_DIMS[el.type] ?? { w: 0.08, h: 0.08 }
-  const depth = isPanel ? 0.12 : 0.018
+  // A faceplate is flush; a consumer unit is a cabinet; a split unit's indoor
+  // half is a long shallow box hung off the wall.
+  const depth = isPanel ? 0.12 : isAc ? 0.2 : 0.018
   const T = 0.004
   const isSwitch = el.type.startsWith('switch')
   const frame = useMemo(
@@ -53,6 +56,32 @@ function DraggableElectricalItem({
     groupRef.current.position.x = live.x
     groupRef.current.position.z = live.z
   })
+
+  if (isAc) {
+    return (
+      <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}>
+        {/* Body — rounded-looking white case standing off the wall. */}
+        <mesh castShadow receiveShadow
+          onPointerDown={onPointerDown}
+          onPointerEnter={() => { document.body.style.cursor = 'grab' }}
+          onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+          <boxGeometry args={[dim.w, dim.h, depth]} />
+          <meshStandardMaterial color="#F5F5F2" roughness={0.45} metalness={0.05}
+            emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.08 : 0} />
+        </mesh>
+        {/* Louvre across the underside, where the air actually comes out. */}
+        <mesh position={[0, -dim.h / 2 + 0.03, depth / 2 - 0.02]} rotation={[-0.5, 0, 0]}>
+          <boxGeometry args={[dim.w * 0.86, 0.05, 0.012]} />
+          <meshStandardMaterial color="#D8D8D4" roughness={0.6} />
+        </mesh>
+        {/* Front seam, so it reads as a case rather than a blank slab. */}
+        <mesh position={[0, dim.h * 0.12, depth / 2 + 0.001]}>
+          <boxGeometry args={[dim.w * 0.94, 0.006, 0.004]} />
+          <meshStandardMaterial color="#E2E2DE" roughness={0.6} />
+        </mesh>
+      </group>
+    )
+  }
 
   if (isPanel) {
     return (

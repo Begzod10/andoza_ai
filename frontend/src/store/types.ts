@@ -64,7 +64,7 @@ export interface RoomGeometry {
 
 export type AppliedSurfaces = Record<string, string>
 
-export type ElectricalType = 'switch1' | 'switch2' | 'socket1' | 'socket2' | 'socket_media' | 'panel'
+export type ElectricalType = 'switch1' | 'switch2' | 'socket1' | 'socket2' | 'socket_media' | 'panel' | 'ac'
 
 export interface PlacedElectrical {
   id: string

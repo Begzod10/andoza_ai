@@ -67,6 +67,8 @@ export const ELECTRICAL_DIMS: Record<string, { w: number; h: number }> = {
   socket_media: { w: 0.18, h: 0.08 },
   // panel is a cabinet, not a thin faceplate
   panel:        { w: 0.40, h: 0.50 },
+  // a split unit's indoor half — a long shallow box, not a faceplate
+  ac:           { w: 0.90, h: 0.30 },
 }
 
 

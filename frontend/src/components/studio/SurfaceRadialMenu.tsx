@@ -8,7 +8,8 @@
  * anchors to a screen coordinate (clientX/clientY captured from the R3F pointer
  * event) via a fixed-position overlay, and a full-screen backdrop dismisses it.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { angleAt, arcSlots, slotsFromAngleDelta, wrapArcOffset } from '@/lib/arcMenu'
 
 export type RadialSurface = 'wall' | 'ceiling' | 'floor'
 
@@ -43,16 +44,38 @@ const SURFACE_LABEL: Record<RadialSurface, string> = {
 const RADIUS = 82
 const BTN = 56
 
+/**
+ * How many buttons the ring shows at once once it has to scroll: three sitting
+ * square in the middle, plus one either side half-faded so it is obvious there
+ * is more round the curve.
+ *
+ * Six devices fanned across the old ±75° at this radius were 42px apart with
+ * 56px buttons — they overlapped, and their labels ran into each other. Three
+ * abreast is what actually fits.
+ */
+const WINDOW_FULL = 3
+const WINDOW_SLOTS = WINDOW_FULL + 2
+/** Degrees between neighbouring slots — wide enough that 56px never touches. */
+const SLOT_DEG = 40
+/** The peeking pair: small and faint, a hint rather than a target. */
+const EDGE_OPACITY = 0.45
+const EDGE_SCALE = 0.66
+
 export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Props) {
   /** The item whose children are showing, if any. */
   const [drill, setDrill] = useState<RadialItem | null>(null)
+  /** How far the ring has been turned, in slots. */
+  const [offset, setOffset] = useState(0)
+  /** Live turn gesture; `moved` is what stops a scroll also picking something. */
+  const drag = useRef<{ startAngle: number; startOffset: number; moved: boolean } | null>(null)
+  const didDrag = useRef(false)
 
   // Escape backs out one level at a time — the submenu first, then the whole
   // menu — so a mis-tap into "Elektr" doesn't cost the whole gesture.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (drill) setDrill(null)
+      if (drill) { setDrill(null); setOffset(0) }
       else onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -61,10 +84,34 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
 
   const shown = drill?.children ?? items
   const n = shown.length
-  // Spread items across an arc centred on straight-up (−90°). One item → dead
-  // centre top; more items → fan out ±48° per step, clamped to a half-circle.
-  const step = Math.min(52, 150 / Math.max(1, n - 1))
-  const startDeg = -90 - (step * (n - 1)) / 2
+  // Past what fits, the ring scrolls instead of cramming: a fixed window of
+  // slots that the list turns through, endlessly, like the corner menu's.
+  const scrolls = n > WINDOW_SLOTS
+  const slotCount = scrolls ? WINDOW_SLOTS : n
+  const step = scrolls ? SLOT_DEG : Math.min(52, 150 / Math.max(1, n - 1))
+  const startDeg = -90 - (step * (slotCount - 1)) / 2
+
+  // Which item sits in each slot, and how solid it looks there.
+  const placed = scrolls
+    ? arcSlots(n, WINDOW_SLOTS, offset, RADIUS, startDeg, step * (WINDOW_SLOTS - 1))
+        .map((sl) => {
+          // Only the middle three are real targets; the pair either side is a
+          // hint. `sl.opacity` is what takes the slots BEYOND the window to
+          // nothing — without multiplying through it they showed at the edge
+          // fade too, so seven buttons appeared where five were meant to.
+          const edge = sl.slot < 0.5 || sl.slot > WINDOW_SLOTS - 1.5
+          return {
+            item: shown[sl.index],
+            key: `${drill?.key ?? 'root'}:${sl.key}`,
+            deg: startDeg + sl.slot * step,
+            edge,
+            opacity: (edge ? EDGE_OPACITY : 1) * sl.opacity,
+            scale: edge ? EDGE_SCALE : 1,
+          }
+        })
+    : shown.map((item, i) => ({
+        item, key: item.key, deg: startDeg + step * i, edge: false, opacity: 1, scale: 1,
+      }))
 
   // Keep the ring on-screen: nudge the anchor away from viewport edges so the
   // fanned buttons (which reach up and sideways) don't clip.
@@ -73,16 +120,52 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
   const ax = Math.max(RADIUS + BTN / 2, Math.min(vw - RADIUS - BTN / 2, x))
   const ay = Math.max(RADIUS + BTN + 24, Math.min(vh - BTN, y))
 
+  function onTurnStart(e: React.PointerEvent) {
+    didDrag.current = false
+    if (!scrolls) return
+    drag.current = {
+      startAngle: angleAt(ax, ay, e.clientX, e.clientY, -90),
+      startOffset: offset,
+      moved: false,
+    }
+  }
+
+  function onTurnMove(e: React.PointerEvent) {
+    const d = drag.current
+    if (!d) return
+    const delta = slotsFromAngleDelta(
+      angleAt(ax, ay, e.clientX, e.clientY, -90) - d.startAngle,
+      WINDOW_SLOTS,
+    )
+    if (Math.abs(delta) > 0.18) d.moved = true
+    setOffset(d.startOffset + delta)
+  }
+
+  /** @returns whether that gesture turned the ring rather than tapped it. */
+  function onTurnEnd() {
+    const d = drag.current
+    drag.current = null
+    if (!d) return false
+    didDrag.current = d.moved
+    // Settle on a whole slot, then fold back into one lap.
+    if (d.moved) setOffset((o) => wrapArcOffset(Math.round(o), n))
+    return d.moved
+  }
+
   return (
     <div
       className="fixed inset-0 z-[300]"
       // Backdrop: any tap outside the buttons dismisses. Pointerdown (not click)
       // so it also cancels an in-progress camera gesture cleanly.
-      onPointerDown={(e) => {
+      onPointerDown={(e) => { e.stopPropagation(); onTurnStart(e) }}
+      onPointerMove={onTurnMove}
+      onPointerUp={(e) => {
         e.stopPropagation()
-        onClose()
+        // A turn that happened to start on the backdrop must not also dismiss.
+        if (!onTurnEnd()) onClose()
       }}
       onContextMenu={(e) => e.preventDefault()}
+      style={{ touchAction: 'none' }}
     >
       {/* Faint focus ring at the press point */}
       <div
@@ -109,24 +192,33 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
         {drill?.childLabel ?? drill?.label ?? SURFACE_LABEL[surface]}
       </div>
 
-      {shown.map((item, i) => {
-        const deg = startDeg + step * i
+      {placed.map(({ item, key, deg, edge, opacity, scale }) => {
+        if (!item) return null
         const rad = (deg * Math.PI) / 180
         const bx = ax + RADIUS * Math.cos(rad)
         const by = ay + RADIUS * Math.sin(rad)
         return (
           <button
-            key={item.key}
+            key={key}
             onPointerDown={(e) => {
               // Swallow the event so the backdrop's onPointerDown doesn't also
-              // fire (it would close before the click registers).
+              // fire (it would close before the click registers) — but still
+              // start a turn, so the ring can be dragged from a button.
               e.stopPropagation()
+              onTurnStart(e)
             }}
+            onPointerMove={onTurnMove}
+            onPointerUp={() => onTurnEnd()}
             onClick={(e) => {
               e.stopPropagation()
+              // A turn that ended here is not a pick.
+              if (didDrag.current) return
+              // The faded pair is a hint, not a target: tapping one brings it
+              // round to the middle rather than choosing something half-hidden.
+              if (edge) { setOffset((o) => wrapArcOffset(Math.round(o + (deg < -90 ? -1 : 1)), n)); return }
               // An item with children opens them in place; only a leaf acts
               // and dismisses.
-              if (item.children?.length) { setDrill(item); return }
+              if (item.children?.length) { setOffset(0); setDrill(item); return }
               item.onSelect()
               onClose()
             }}
@@ -136,7 +228,11 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               top: by,
               width: BTN,
               height: BTN,
-              transform: 'translate(-50%, -50%)',
+              opacity,
+              // Nothing to aim at once it has faded out entirely.
+              pointerEvents: opacity < 0.05 ? 'none' : undefined,
+              transform: `translate(-50%, -50%) scale(${scale})`,
+              touchAction: 'none',
             }}
           >
             <span className="w-5 h-5 flex items-center justify-center">{item.icon}</span>

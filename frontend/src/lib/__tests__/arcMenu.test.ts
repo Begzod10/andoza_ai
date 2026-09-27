@@ -288,3 +288,47 @@ describe('both rings scroll', () => {
     expect(slotsFromAngleDelta(-ARC_SWEEP_DEG, outerCap)).toBeCloseTo(outerCap - 1, 6)
   })
 })
+
+/**
+ * The surface radial menu reuses this maths on its own fan — centred on
+ * straight-up rather than opening from a corner — to show three buttons square
+ * in the middle with one either side half-faded. Six devices crammed into the
+ * old fixed fan overlapped each other; a window that turns is what fits.
+ */
+describe('a fan centred on straight-up', () => {
+  const SLOTS = 5
+  const SLOT_DEG = 40
+  const SWEEP = SLOT_DEG * (SLOTS - 1)
+  const START = -90 - SWEEP / 2
+  const R = 82
+
+  it('centres the window on straight-up', () => {
+    const slots = arcSlots(7, SLOTS, 0, R, START, SWEEP)
+    const middle = slots.find((s) => s.slot === (SLOTS - 1) / 2)!
+    // Straight up from the press point: x at the centre, y above it.
+    expect(middle.dx).toBeCloseTo(0, 6)
+    expect(middle.dy).toBeCloseTo(-R, 6)
+  })
+
+  it('spaces the buttons far enough apart not to overlap', () => {
+    const slots = arcSlots(7, SLOTS, 0, R, START, SWEEP).filter((s) => s.slot >= 0 && s.slot <= SLOTS - 1)
+    const gaps = slots.slice(1).map((s, i) => Math.hypot(s.dx - slots[i].dx, s.dy - slots[i].dy))
+    // 56px buttons; the old fan put six of them 42px apart.
+    for (const g of gaps) expect(g).toBeGreaterThan(56)
+  })
+
+  it('shows every device by turning, and keeps turning', () => {
+    const seen = new Set<number>()
+    for (let off = 0; off < 7; off++) {
+      for (const s of arcSlots(7, SLOTS, off, R, START, SWEEP)) seen.add(s.index)
+    }
+    expect([...seen].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6])
+  })
+
+  it('leaves the corner menu untouched', () => {
+    // Same call without the fan arguments must still describe the quarter.
+    const [first] = arcSlots(10, 6, 0, 100)
+    const deg = (Math.atan2(first.dy, first.dx) * 180) / Math.PI
+    expect(deg < 0 ? deg + 360 : deg).toBeGreaterThanOrEqual(ARC_START_DEG - 20)
+  })
+})
