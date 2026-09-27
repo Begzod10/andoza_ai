@@ -102,6 +102,13 @@ describe('tapping a wall', () => {
     }
   })
 
+  it('draws every window style, rather than one grid icon eighteen times', () => {
+    const { deps } = harness()
+    const oyna = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'window')!
+    const styles = oyna.children!.filter((c) => c.key !== 'win:custom')
+    expect(styles.every((c) => c.fill != null)).toBe(true)
+  })
+
   it('offers the window styles, and puts the picked one on the tapped wall', () => {
     const { calls, deps } = harness()
     const oyna = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'window')!
@@ -190,12 +197,20 @@ describe('tapping the ceiling', () => {
     expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 
+  it('gives every fixture its own drawing, not one lamp icon repeated', () => {
+    const { deps } = harness()
+    const chiroq = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'light')!
+    expect(chiroq.children!.every((c) => c.fill != null)).toBe(true)
+  })
+
   it('fans the ceiling profiles out too, drawings only', () => {
     const { calls, deps } = harness()
     const shift = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'ceiling')!
     expect(shift.label).toBe('Shift turi')
-    const profiles = shift.children!.filter((c) => c.key.startsWith('ceil:') && c.key !== 'ceil:panel')
+    const profiles = shift.children!
     expect(profiles.length).toBe(CEILING_DESIGNS.length)
+    // No panel escape: the shape is the whole choice here.
+    expect(profiles.some((c) => c.key === 'ceil:panel')).toBe(false)
     // Picked by eye: the drawing carries it, a name under each is noise.
     expect(profiles.every((c) => c.hideLabel && c.fill != null)).toBe(true)
     profiles.find((c) => c.key === 'ceil:floating')!.onSelect()
@@ -205,10 +220,10 @@ describe('tapping the ceiling', () => {
 })
 
 describe('tapping the floor', () => {
-  it('offers an object, the two floor materials and the finish panel', () => {
+  it('offers the two materials a floor is, and nothing else', () => {
     const { deps } = harness()
     expect(buildRadialItems(FLOOR!, deps as never).map((i) => i.key))
-      .toEqual(['object', 'parket', 'kafel', 'floor'])
+      .toEqual(['parket', 'kafel'])
   })
 
   it('lays the picked parquet pattern at its own plank size', () => {
@@ -288,12 +303,10 @@ describe('staying open', () => {
   it('closes for the ones that open a panel or a sheet behind it', () => {
     const { deps } = harness()
     const wall = buildRadialItems(WALL!, deps as never)
-    const floor = buildRadialItems(FLOOR!, deps as never)
     const panels = [
       wall.find((i) => i.key === 'paint')!.children!.find((c) => c.key === 'color:panel')!,
       wall.find((i) => i.key === 'oboy')!.children!.find((c) => c.key === 'wp:panel')!,
-      floor.find((i) => i.key === 'object')!,
-      floor.find((i) => i.key === 'floor')!,
+      wall.find((i) => i.key === 'window')!.children!.find((c) => c.key === 'win:custom')!,
     ]
     expect(panels.every((c) => c.closesMenu)).toBe(true)
   })

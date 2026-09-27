@@ -886,7 +886,7 @@ export default function ThreeDPage() {
         roomId={room.id}
         radial={radial}
         radialItems={(r) => buildRadialItems(r, {
-          setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
+          setSelectedWall, setActivePhase, setShowPanel, createOpening,
           placeElectrical: placeElectricalAt,
           placeLight: placeLightAt,
           setCornice: (trim) => useRoomStore.getState().setDesignState({ cornice: trim }),

@@ -34,6 +34,16 @@ import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
 
 /**
+ * Vertical field of view, degrees.
+ *
+ * 45 was too tight to see a room from inside it — the user asked for the view
+ * a 0.6x zoom gives, and a zoom factor is a ratio of tangents:
+ * 2 * atan(tan(45/2) / 0.6) = 68. Wide enough to take in a wall and both its
+ * corners from across a small room, without the bulge a phone-camera 90 has.
+ */
+const CAMERA_FOV = 68
+
+/**
  * The 3D studio's R3F <Canvas> tree: lighting/environment, the room shell
  * (walls/floor/ceiling), every draggable overlay layer (furniture, lights,
  * electrical, openings, scan reference, sibling rooms), camera controls, and
@@ -129,7 +139,7 @@ export function ThreeDCanvasScene({
     >
     <Canvas
       shadows="soft"
-      camera={{ position: initCam.position, fov: 45, near: 0.1, far: 60 }}
+      camera={{ position: initCam.position, fov: CAMERA_FOV, near: 0.1, far: 60 }}
       // Absolute, so the canvas is out of flow and its pixel width can
       // never feed back into the layout that sizes it. In flow, R3F's
       // width/height attributes act as the element's intrinsic size, and

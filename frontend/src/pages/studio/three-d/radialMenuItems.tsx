@@ -5,6 +5,7 @@ import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constant
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { trimProfilesOf } from "@/lib/trimProfiles";
 import { WINDOW_STYLES } from "@/lib/windowStyles";
+import { WindowPreview } from "@/lib/windowPreview";
 import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorControls";
 import { TileThumb } from "@/components/studio/TileThumb";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
@@ -12,6 +13,7 @@ import { FLOOR_COLORS } from "./constants";
 import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
 import { CEILING_DESIGNS, type CeilingDesignId } from "@/lib/ceilingDesigns";
 import { CeilingPreview } from "@/lib/ceilingPreview";
+import { LightPreview } from "@/lib/lightPreview";
 
 /** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
  *  the default, and the one most floors are laid in. */
@@ -44,7 +46,6 @@ export function buildRadialItems(
     setActivePhase: (phase: PhaseKey) => void;
     setShowPanel: (show: boolean) => void;
     createOpening: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') => void;
-    setShowAddSheet: (show: boolean) => void;
     /** Drops a wall device at the tapped spot. Returns nothing — the menu
      *  closes either way. */
     placeElectrical: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: string, heightMm: number) => void;
@@ -71,7 +72,7 @@ export function buildRadialItems(
   },
 ): RadialItem[] {
   const {
-    setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
+    setSelectedWall, setActivePhase, setShowPanel, createOpening,
     placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled,
     setFloorPattern, setSkirting, setCeilingDesign,
   } = deps;
@@ -142,6 +143,10 @@ export function buildRadialItems(
             key: `win:${st.id}`,
             label: st.label,
             icon: RadialIcons.window,
+            // The layout IS the style, so the preview draws it: frame,
+            // mullions, glass, and a handle on the sashes that open. One grid
+            // icon against all eighteen told the user nothing.
+            fill: <WindowPreview style={st} />,
             onSelect: () => { if (r.wallId) createWindowStyled(r.wallId, r.point, st.id); },
           })),
           {
@@ -202,6 +207,9 @@ export function buildRadialItems(
           key: `light:${t.id}`,
           label: t.name,
           icon: RadialIcons.light,
+          // Drawn in elevation: the catalogue's emoji were labels, not
+          // pictures, and three of them read as the same blob at this size.
+          fill: <LightPreview typeId={t.id} />,
           onSelect: () => placeLight(r.point, t.id),
         })),
       },
@@ -235,6 +243,9 @@ export function buildRadialItems(
         key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,
         childLabel: 'Shift turi',
         onSelect: () => {},
+        // No panel escape here: the shape is the whole choice, and the drop,
+        // border and cove light are still reachable from the design panel
+        // itself.
         children: [
           ...CEILING_DESIGNS.map((cd) => ({
             key: `ceil:${cd.id}`,
@@ -244,24 +255,15 @@ export function buildRadialItems(
             hideLabel: true,
             onSelect: () => setCeilingDesign(cd.id),
           })),
-          {
-            // The drop, the border, the cove light and the colour live in the
-            // panel; the ring picks the shape.
-            key: 'ceil:panel', label: 'Panel', icon: RadialIcons.add,
-            closesMenu: true,
-            onSelect: () => { setSelectedWall('CEILING'); setActivePhase('boyoq'); setShowPanel(true); },
-          },
         ],
       },
     ];
   }
-  // floor
+  // floor — the two materials a floor is, and nothing else. "Narsa" (the add
+  // sheet) and "Rang" (the finish panel) were removed at the user's request:
+  // furniture comes from the corner menu's Mebel, and the panel is still in
+  // the drawer.
   return [
-    {
-      key: 'object', label: 'Narsa', icon: RadialIcons.add,
-      closesMenu: true,
-      onSelect: () => setShowAddSheet(true),
-    },
     {
       // The laying patterns, previewed with the real geometry the floor is
       // built from — the same drawings the design panel and the corner menu
@@ -317,15 +319,6 @@ export function buildRadialItems(
           }),
         })),
       })),
-    },
-    {
-      // Mirrors the wall/ceiling "Rang" item — routes into WallSection's
-      // richer WallFloorTargetPanel (type picker + do'kon material search
-      // + image upload), not the plain 4-way FloorSection picker the old
-      // 'pol' phase opened.
-      key: 'floor', label: 'Rang', icon: RadialIcons.floor,
-      closesMenu: true,
-      onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('boyoq'); setShowPanel(true); },
     },
   ];
 }
