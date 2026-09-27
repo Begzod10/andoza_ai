@@ -191,33 +191,20 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
 ]
 
 /**
- * Ceiling cornice (galtel), after the O'le de Country sheet. Six of its twenty
- * spanning the range — a shallow cove, a classic cove over beads, a clean
- * hollow, a stepped face, a round-scooped ornate one and the deep sweep — each
- * keeping the catalogue's own code so it can be matched against the page.
+ * Ceiling cornice, after the T-series millwork sheet: a corner section with a
+ * flat ceiling face along the top and a flat wall face down the left, with the
+ * moulded profile sweeping between them — coves, ogees, quarter-rounds and
+ * stepped faces.
  *
- * Drawn in the same box, read with `flipY`: x is the projection out along the
- * ceiling, y is the drop DOWN the wall. So (0,0) is the wall/ceiling corner,
- * the run to (1,0) lies against the ceiling, the face falls away to (0,1) at
- * the bottom of the wall leg, and the closing edge back to (0,0) is the wall.
+ * Every code and both dimensions come from the sheet. The curves are drawn in
+ * its style and to each profile's character (which are cove, which ogee, which
+ * stepped) rather than traced off it, so a printed T 272 and this one agree on
+ * size and family but not on every millimetre of the moulding.
+ *
+ * Listed in the sheet's own reading order, so the picker matches the page
+ * someone is choosing from.
  */
 const CORNICE_PROFILES: TrimProfileDef[] = [
-  {
-    id: 't37',
-    label: 'T 37',
-    kind: 'cornice',
-    defaultHeightMm: 100,
-    defaultWidthMm: 25,
-    path: {
-      start: [0, 0],
-      steps: [
-        { to: [1, 0] },
-        { to: [0.34, 0.62], c1: [1.0, 0.32], c2: [0.66, 0.44] },     // narrow cove
-        { to: [0.34, 0.80] },
-        { to: [0, 1] },
-      ],
-    },
-  },
   {
     id: 't140',
     label: 'T 140',
@@ -239,6 +226,40 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     },
   },
   {
+    id: 't56',
+    label: 'T 56',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 65,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.44, 0.50], c1: [0.86, 0.24], c2: [0.64, 0.40] },    // cove
+        { to: [0.52, 0.72], c1: [0.28, 0.58], c2: [0.34, 0.70] },    // roll below it
+        { to: [0.26, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't139',
+    label: 'T 139',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 80,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.24, 0.54], c1: [0.66, 0.04], c2: [0.30, 0.20] },    // big quarter-round
+        { to: [0.34, 0.66] },
+        { to: [0.16, 0.76] },                                        // fillet
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
     id: 't254',
     label: 'T 254',
     kind: 'cornice',
@@ -254,10 +275,59 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     },
   },
   {
+    id: 't279',
+    label: 'T 279',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 90,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.30, 0.62], c1: [0.72, 0.34], c2: [0.64, 0.50] },    // long shallow ogee
+        { to: [0.14, 0.86], c1: [0.10, 0.68], c2: [0.24, 0.80] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't272',
+    label: 'T 272',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 95,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.12, 0.82], c1: [0.46, 0.26], c2: [0.20, 0.56] },    // deep smooth hollow
+        { to: [0.12, 0.92] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't276',
+    label: 'T 276',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 98,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.22, 0.70], c1: [0.52, 0.24], c2: [0.30, 0.50] },    // hollow
+        { to: [0.30, 0.80] },                                        // step
+        { to: [0.12, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
     id: 't193',
     label: 'T 193',
     kind: 'cornice',
-    defaultHeightMm: 100,
+    defaultHeightMm: 101,
     defaultWidthMm: 60,
     path: {
       start: [0, 0],
@@ -267,6 +337,125 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
         { to: [0.86, 0.30] },
         { to: [0.30, 0.74] },                                        // flat diagonal face
         { to: [0.30, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't37',
+    label: 'T 37',
+    kind: 'cornice',
+    defaultHeightMm: 102,
+    defaultWidthMm: 25,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.34, 0.62], c1: [1.0, 0.32], c2: [0.66, 0.44] },     // narrow cove
+        { to: [0.34, 0.80] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't112',
+    label: 'T 112',
+    kind: 'cornice',
+    defaultHeightMm: 102,
+    defaultWidthMm: 72,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.34, 0.58], c1: [0.74, 0.28], c2: [0.50, 0.44] },    // cove
+        { to: [0.42, 0.70] },                                        // stepped foot
+        { to: [0.20, 0.78] },
+        { to: [0.20, 0.90] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't339',
+    label: 'T 339',
+    kind: 'cornice',
+    defaultHeightMm: 103,
+    defaultWidthMm: 113,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.40, 0.50], c1: [0.80, 0.18], c2: [0.58, 0.36] },    // wide shallow sweep
+        { to: [0.50, 0.68], c1: [0.24, 0.54], c2: [0.32, 0.64] },    // bead
+        { to: [0.22, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't58',
+    label: 'T 58',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 50,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.16] },                                           // fillet
+        { to: [0.30, 0.62], c1: [0.72, 0.34], c2: [0.46, 0.46] },    // cove
+        { to: [0.30, 0.84] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't371',
+    label: 'T 371',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 73,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.46, 0.40], c1: [0.92, 0.16], c2: [0.70, 0.26] },    // strong ogee
+        { to: [0.16, 0.78], c1: [0.22, 0.54], c2: [0.34, 0.70] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't160',
+    label: 'T 160',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 88,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.44, 0.46], c1: [0.84, 0.20], c2: [0.60, 0.34] },    // cove
+        { to: [0.52, 0.58] },                                        // two steps under it
+        { to: [0.28, 0.66] },
+        { to: [0.34, 0.80] },
+        { to: [0.14, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't267',
+    label: 'T 267',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 102,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.14, 0.78], c1: [0.50, 0.24], c2: [0.22, 0.52] },    // large hollow
+        { to: [0.22, 0.90] },
         { to: [0, 1] },
       ],
     },
@@ -301,6 +490,57 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
       steps: [
         { to: [1, 0] },
         { to: [0, 0.90], c1: [0.55, 0.14], c2: [0.12, 0.44] },       // deep sweep
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't324',
+    label: 'T 324',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 120,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.06, 0.70], c1: [0.54, 0.08], c2: [0.12, 0.34] },    // slender crescent
+        { to: [0.18, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't192',
+    label: 'T 192',
+    kind: 'cornice',
+    defaultHeightMm: 106,
+    defaultWidthMm: 98,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.88, 0.14] },                                        // stepped top
+        { to: [0.26, 0.66], c1: [0.66, 0.30], c2: [0.40, 0.48] },    // hollow
+        { to: [0.26, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't255',
+    label: 'T 255',
+    kind: 'cornice',
+    defaultHeightMm: 110,
+    defaultWidthMm: 70,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.12] },                                           // fillet
+        { to: [0.36, 0.56], c1: [0.72, 0.30], c2: [0.50, 0.40] },    // quarter round
+        { to: [0.36, 0.76] },
+        { to: [0.16, 0.82] },                                        // fillet
         { to: [0, 1] },
       ],
     },
