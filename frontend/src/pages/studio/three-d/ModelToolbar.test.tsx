@@ -14,10 +14,11 @@ describe('ModelToolbar', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('offers the four transform tools once a model is picked', () => {
+  it('offers the transform tools once a model is picked', () => {
+    // Siljitish is not among them: dragging a selected model already moves it.
     render(<ModelToolbar selectedId="fur-1" toolMode="select" setToolMode={vi.fn()} />)
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label')))
-      .toEqual(['Tanlash', 'Siljitish', 'Aylantirish', "O'lcham"])
+      .toEqual(['Tanlash', 'Aylantirish', "O'lcham"])
   })
 
   it('does not offer a delete — that is the press and hold on the model', () => {
@@ -33,8 +34,8 @@ describe('ModelToolbar', () => {
   })
 
   it('marks the live tool, so it is clear which one is in hand', () => {
-    render(<ModelToolbar selectedId="fur-1" toolMode="move" setToolMode={vi.fn()} />)
-    expect(screen.getByLabelText('Siljitish').getAttribute('aria-pressed')).toBe('true')
+    render(<ModelToolbar selectedId="fur-1" toolMode="rotate" setToolMode={vi.fn()} />)
+    expect(screen.getByLabelText('Aylantirish').getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByLabelText('Tanlash').getAttribute('aria-pressed')).toBe('false')
   })
 
@@ -42,7 +43,7 @@ describe('ModelToolbar', () => {
     const { rerender, container } = render(
       <ModelToolbar selectedId="fur-1" toolMode="select" setToolMode={vi.fn()} />,
     )
-    expect(screen.getAllByRole('button')).toHaveLength(4)
+    expect(screen.getAllByRole('button')).toHaveLength(3)
     rerender(<ModelToolbar selectedId={null} toolMode="select" setToolMode={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
   })

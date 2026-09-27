@@ -22,6 +22,7 @@ import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { clearOfOpenings } from "@/lib/electricalClearance";
+import { windowSpotKey, restylesExisting, type StyledWindow } from "@/lib/windowSpot";
 import type { FloorPatternId } from "@/lib/floorGeometry";
 import { listWallpapers, type Wallpaper as WallpaperEntry } from "@/lib/api";
 import { resolveTargetWall } from "@/components/studio/design-panel/shared";
@@ -394,6 +395,10 @@ export default function ThreeDPage() {
     setActivePhase('montaj');
   }
 
+  /** The window the ring last made, so picking another style changes that one
+   *  instead of adding a second window on top of it. */
+  const lastStyledWindow = useRef<StyledWindow | null>(null);
+
   /** Papers the tapped wall — or every wall, when the tap carried none. */
   function applyWallpaperTo(wallId: string | undefined, url: string) {
     useRoomStore.getState().setWallCovering(resolveTargetWall(wallId ?? null), {
@@ -420,8 +425,26 @@ export default function ThreeDPage() {
   ) {
     const g = wallGeom(wallId);
     if (!g || !point) return;
+
+    // The ring stays open, so a second style is the user reconsidering the
+    // window they just made, not asking for another one beside it. Same spot,
+    // same window: restyle it. A new window means tapping a new spot.
+    const spot = windowSpotKey(wallId, point);
+    const last = lastStyledWindow.current;
+    const wallNow = useRoomStore.getState().geometry.walls.find((w) => w.id === last?.wallId);
+    // ...unless it has since been deleted, in which case make a new one.
+    if (restylesExisting(last, spot, wallNow?.elements)) {
+      updateElement(last.wallId, last.id, { styleId });
+      return;
+    }
+
     const { position, sill_height } = computeOpeningRect(g, point, 900, 1200, false);
     addElement(wallId, { type: 'deraza', width: 900, height: 1200, sill_height, position, styleId });
+    // addElement mints the id itself, and appends, so the new opening is the
+    // last one on that wall.
+    const wall = useRoomStore.getState().geometry.walls.find((w) => w.id === wallId);
+    const added = wall?.elements?.[wall.elements.length - 1];
+    lastStyledWindow.current = added ? { spot, wallId, id: added.id } : null;
     setSelectedWall(wallId);
   }
 
@@ -461,7 +484,6 @@ export default function ThreeDPage() {
     setShowPanel(true);
   }, [setActivePhase]);
   const arcCategories = useArcCategories({ selectedWall, openPanelAt });
-  const [arcOpen, setArcOpen] = useState(false);
 
   // The same query key and scope the design panel's Oboy tab uses, so the ring
   // and the panel share one cache entry and an upload in either shows in both.
@@ -730,32 +752,9 @@ export default function ThreeDPage() {
               ModelToolbar. */}
           <ModelToolbar selectedId={selectedFurId} toolMode={toolMode} setToolMode={setToolMode} />
 
-          {/* Bottom CTA. Hidden while the corner arc is open: the arc's own
-              ring reaches across this spot, and the two stacked read as one
-              jumble — the arc offers the same three things anyway. */}
-          <div
-            className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
-            // Inline rather than opacity utilities, so the fade does not
-            // depend on which of them the build happens to emit. `visibility`
-            // is what actually takes it out of reach: a fully transparent
-            // button still catches the tap meant for the ring above it.
-            style={{
-              opacity: arcOpen ? 0 : 1,
-              visibility: arcOpen ? 'hidden' : 'visible',
-              transition: 'opacity 150ms ease',
-            }}
-          >
-            <button
-              onClick={() => setShowAddSheet(true)}
-              className="pointer-events-auto flex items-center gap-2 px-6 py-3 text-white rounded-[20px] font-bold text-[15px] active:scale-[0.97] transition-transform"
-              style={{ background: "linear-gradient(135deg,#F97316 0%,#EA580C 100%)", boxShadow: "0 12px 28px -8px rgba(249,115,22,.65)" }}
-            >
-              <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                <path d="M8.5 2.5v12M2.5 8.5h12"/>
-              </svg>
-              Buyum qo'shish
-            </button>
-          </div>
+          {/* The orange "Buyum qo'shish" CTA stood here until the user asked
+              for it to go (2026-09-28). The corner arc offers the same things
+              and the sheet is still reachable from the design panel. */}
 
           {/* Bottom-right corner: the arc menu, mobile only — desktop reaches
               all of this from the design panel and the tools drawer, neither
@@ -767,7 +766,6 @@ export default function ThreeDPage() {
               className="bottom-5 right-4"
               label="Qo'shish menyusi"
               categories={arcCategories}
-              onOpenChange={setArcOpen}
             />
           </div>
 

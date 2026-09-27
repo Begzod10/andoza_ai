@@ -2,8 +2,12 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ToolMode } from "@/features/studio/StudioFurniture";
 
 /**
- * The transform tools for a placed model — select, move, rotate, scale — as a
- * column down the left edge of the viewport.
+ * The transform tools for a placed model — select, rotate, scale — as a column
+ * down the left edge of the viewport.
+ *
+ * There was a Siljitish (move) button too, removed at the user's request
+ * (2026-09-28). Nothing is lost: dragging a selected model in Tanlash mode
+ * already repositions it, which is the same gesture that button armed.
  *
  * They used to live only in the Asboblar drawer, two taps away and with no
  * relation to what was selected. They belong to the model: the column appears
@@ -21,15 +25,6 @@ const TOOLS: { mode: ToolMode; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z" />
-      </svg>
-    ),
-  },
-  {
-    mode: 'move',
-    label: 'Siljitish',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M11 3l-4 4h3v3H7V7l-4 4 4 4v-3h3v3H7l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3V7h3l-4-4z" />
       </svg>
     ),
   },
