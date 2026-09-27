@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { buildRadialItems } from './radialMenuItems'
 import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
+import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import type { RadialState } from './useSurfaceRadialMenu'
 
 type Call = [string, ...unknown[]]
@@ -33,6 +34,9 @@ function harness() {
       applyWallpaper: (url: string) => calls.push(['paper', url]),
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
+      setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
+      setFloorPattern: (floorType: string, patternId: string, st: { plankLengthCm?: number; plankWidthCm?: number }) =>
+        calls.push(['floor', floorType, patternId, st.plankLengthCm, st.plankWidthCm]),
     },
   }
 }
@@ -160,8 +164,63 @@ describe('tapping the ceiling', () => {
 })
 
 describe('tapping the floor', () => {
-  it('offers an object and the floor finish', () => {
+  it('offers an object, the two floor materials and the finish panel', () => {
     const { deps } = harness()
-    expect(buildRadialItems(FLOOR!, deps as never).map((i) => i.key)).toEqual(['object', 'floor'])
+    expect(buildRadialItems(FLOOR!, deps as never).map((i) => i.key))
+      .toEqual(['object', 'parket', 'kafel', 'floor'])
+  })
+
+  it('lays the picked parquet pattern at its own plank size', () => {
+    const { calls, deps } = harness()
+    const parket = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'parket')!
+    const def = FLOOR_PATTERN_DEFS.find((d) => d.id === 'chevron')!
+    parket.children!.find((c) => c.key === 'parket:chevron')!.onSelect()
+    expect(calls).toContainEqual(['floor', 'parquet', 'chevron', def.defaultLengthCm, def.defaultWidthCm])
+  })
+
+  it('offers the tile sizes, 600x600 first', () => {
+    const { calls, deps } = harness()
+    const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
+    expect(kafel.children!.map((c) => c.label))
+      .toEqual(['600×600', '300×600', '1200×600', '400×400'])
+    kafel.children![0].onSelect()
+    // Tile is always the same stack bond; the size is what is being chosen.
+    expect(calls).toContainEqual(['floor', 'tile', 'stake_bond', 60, 60])
+  })
+
+  it('lays a 300x600 tile the long way along the floor', () => {
+    const { calls, deps } = harness()
+    const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
+    kafel.children!.find((c) => c.label === '300×600')!.onSelect()
+    expect(calls).toContainEqual(['floor', 'tile', 'stake_bond', 60, 30])
+  })
+})
+
+describe('tapping a trim run', () => {
+  const SKIRTING: RadialState = { surface: 'skirting', point: { x: 0.4, y: 0.05, z: -1.5 } }
+  const CORNICE: RadialState = { surface: 'cornice', point: { x: 0.4, y: 2.5, z: -1.5 } }
+
+  it('goes straight to the boards — the tap already said which run', () => {
+    const { deps } = harness()
+    const items = buildRadialItems(SKIRTING!, deps as never)
+    expect(items.length).toBe(trimProfilesOf('skirting').length)
+    // No drilling: these ARE the choices.
+    expect(items.every((i) => i.children == null)).toBe(true)
+  })
+
+  it('changes the skirting to the board that was picked', () => {
+    const { calls, deps } = harness()
+    const def = trimProfilesOf('skirting')[1]
+    buildRadialItems(SKIRTING!, deps as never).find((i) => i.key === `skirting:${def.id}`)!.onSelect()
+    expect(calls).toContainEqual(['skirting', def.id])
+  })
+
+  it('offers cornice profiles for the cornice, not skirting boards', () => {
+    const { calls, deps } = harness()
+    const items = buildRadialItems(CORNICE!, deps as never)
+    expect(items.map((i) => i.label)).toContain('T 140')
+    items[0].onSelect()
+    expect(calls.some((c) => c[0] === 'cornice')).toBe(true)
+    expect(calls.some((c) => c[0] === 'skirting')).toBe(false)
   })
 })

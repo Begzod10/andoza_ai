@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { useRoomStore, useTemporalRoomStore } from "@/store/roomStore";
+import { useRoomStore } from "@/store/roomStore";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
@@ -21,6 +21,7 @@ import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { clearOfOpenings } from "@/lib/electricalClearance";
+import type { FloorPatternId } from "@/lib/floorGeometry";
 import { listWallpapers, type Wallpaper as WallpaperEntry } from "@/lib/api";
 import { resolveTargetWall } from "@/components/studio/design-panel/shared";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
@@ -40,7 +41,7 @@ import { useExclusiveSelection } from "./three-d/useExclusiveSelection";
 import { useSurfaceRadialMenu } from "./three-d/useSurfaceRadialMenu";
 import { buildRadialItems } from "./three-d/radialMenuItems";
 import { useOpeningCreation } from "./three-d/useOpeningCreation";
-import { useRoomThumbnailCapture, useScreenshotExport } from "./three-d/useCanvasCapture";
+import { useRoomThumbnailCapture } from "./three-d/useCanvasCapture";
 import { useCanvasFraming } from "./three-d/useCanvasFraming";
 import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts";
 import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
@@ -149,8 +150,6 @@ export default function ThreeDPage() {
   const showContactShadows = declineCount < 2;
   const useComposer = highQuality3d && declineCount < 2;
   const [toolMode, setToolMode] = useState<ToolMode>('select');
-  const canUndo = useTemporalRoomStore((s) => s.pastStates.length > 0);
-  const canRedo = useTemporalRoomStore((s) => s.futureStates.length > 0);
   const [lightsOn, setLightsOn] = useState(true);
   const [sceneLightOn, setSceneLightOn] = useState(true);
   // Shared with the walkthrough — see the note on `sunHour` in the store.
@@ -200,9 +199,6 @@ export default function ThreeDPage() {
   useRoomThumbnailCapture(glCanvasRef, room.id);
   // Manual "Skrinshot" export — same glCanvasRef/preserveDrawingBuffer setup
   // as the thumbnail capture above, but PNG (lossless) and downloaded to the
-  // user's device rather than uploaded. Purely client-side: no server call,
-  // no shareable link — just the smallest useful export.
-  const { screenshotStatus, handleScreenshot } = useScreenshotExport(glCanvasRef, room.name);
 
   const {
     selectedFurId, setSelectedFurId, selectedFurIdRef,
@@ -238,9 +234,6 @@ export default function ThreeDPage() {
   }, [selectedDoorId, setSelectedDoorId]);
   // Fixture armed in the palette; the next click in the 2D plan places it.
   const [armedLightType, setArmedLightType] = useState<LightTypeId | null>(null);
-  const [angleInputDeg, setAngleInputDeg] = useState('');
-  const furniture = useRoomStore((s) => s.furniture);
-  const moveFurniture = useRoomStore((s) => s.moveFurniture);
   const activeLayoutPos = useRoomStore((s) => s.layoutPos);
   // The Mebelirovka and Chiroqlar tabs open the same editor, pre-set to the
   // furnishing / lighting phase
@@ -574,27 +567,10 @@ export default function ThreeDPage() {
           toolbarSlotTop={toolbarSlotTop}
           toolsDrawerOpen={toolsDrawerOpen}
           setToolsDrawerOpen={setToolsDrawerOpen}
-          activeIdx={activeIdx}
-          toolMode={toolMode}
-          setToolMode={setToolMode}
-          selectedFurId={selectedFurId}
-          furniture={furniture}
-          angleInputDeg={angleInputDeg}
-          setAngleInputDeg={setAngleInputDeg}
-          moveFurniture={moveFurniture}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          setShowHelp={setShowHelp}
-          setPresetVersion={setPresetVersion}
-          screenshotStatus={screenshotStatus}
-          handleScreenshot={handleScreenshot}
           hasScan={hasScan}
           showScan={showScan}
           setShowScan={setShowScan}
           sceneLightOn={sceneLightOn}
-          setSceneLightOn={setSceneLightOn}
-          lightsOn={lightsOn}
-          setLightsOn={setLightsOn}
           sunHour={sunHour}
           setSunHour={setSunHour}
           setShowAiSheet={setShowAiSheet}
@@ -903,9 +879,18 @@ export default function ThreeDPage() {
           placeElectrical: placeElectricalAt,
           placeLight: placeLightAt,
           setCornice: (trim) => useRoomStore.getState().setDesignState({ cornice: trim }),
+          setSkirting: (trim) => useRoomStore.getState().setDesignState({ skirting: trim }),
           wallpapers,
           applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
           createWindowStyled,
+          setFloorPattern: (floorType, patternId, settings) =>
+            useRoomStore.getState().setDesignState({
+              floorType,
+              floorPattern: { id: patternId as FloorPatternId, settings },
+              // The same flag the panel sets: the bare-screed placeholder is
+              // only for a floor nobody has chosen yet.
+              floorConfigured: true,
+            }),
         })}
         closeRadial={closeRadial}
       />

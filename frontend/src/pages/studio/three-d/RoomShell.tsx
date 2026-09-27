@@ -1,6 +1,6 @@
 import * as React from "react";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
@@ -247,9 +247,9 @@ function NWallRoomShell({
   isCeilingSelected?: boolean;
   onCeilingClick?: () => void;
   isSkirtingSelected?: boolean;
-  onSkirtingClick?: () => void;
+  onSkirtingClick?: (e: ThreeEvent<MouseEvent>) => void;
   isCorniceSelected?: boolean;
-  onCorniceClick?: () => void;
+  onCorniceClick?: (e: ThreeEvent<MouseEvent>) => void;
   /** Opens the surface radial menu (add door/window, wall image, ...). The
    *  ABCD shell has always spread this onto its surfaces; without it here a
    *  drawn room could select a wall but never act on it. */
@@ -614,9 +614,9 @@ export const RoomScene = memo(function RoomScene({
   /** The skirting and the cornice are each one thing to the user, however
    *  many runs they are made of — picking any run selects the lot. */
   isSkirtingSelected?: boolean;
-  onSkirtingClick?: () => void;
+  onSkirtingClick?: (e: ThreeEvent<MouseEvent>) => void;
   isCorniceSelected?: boolean;
-  onCorniceClick?: () => void;
+  onCorniceClick?: (e: ThreeEvent<MouseEvent>) => void;
   /** Long-press handler bundles per surface — spread onto wrapping groups so a
    *  press-and-hold on a wall/ceiling/floor opens the radial context menu. */
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;

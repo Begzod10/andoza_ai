@@ -5,7 +5,19 @@ import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constant
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { trimProfilesOf } from "@/lib/trimProfiles";
 import { WINDOW_STYLES } from "@/lib/windowStyles";
-import { TrimThumb } from "@/components/studio/design-panel/FloorControls";
+import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorControls";
+import { TileThumb } from "@/components/studio/TileThumb";
+import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
+import { FLOOR_COLORS } from "./constants";
+
+/** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
+ *  the default, and the one most floors are laid in. */
+const TILE_SIZES = [
+  { label: '600×600', lengthCm: 60, widthCm: 60 },
+  { label: '300×600', lengthCm: 60, widthCm: 30 },
+  { label: '1200×600', lengthCm: 120, widthCm: 60 },
+  { label: '400×400', lengthCm: 40, widthCm: 40 },
+]
 
 /**
  * The context actions offered by the surface radial ("aylana") menu for
@@ -28,6 +40,8 @@ export function buildRadialItems(
     placeLight: (point: { x: number; y: number; z: number } | undefined, type: string) => void;
     /** Runs a cornice profile round the whole room. */
     setCornice: (trim: { id: string; heightMm: number; widthMm: number }) => void;
+    /** Same, for the skirting. */
+    setSkirting: (trim: { id: string; heightMm: number; widthMm: number }) => void;
     /** The wallpapers the design panel's Oboy tab lists — the same query, so
      *  one upload shows up in both. */
     wallpapers: { id: string | number; name: string; url: string }[];
@@ -36,11 +50,14 @@ export function buildRadialItems(
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
+    /** Lays the floor: a material and the pattern it is laid in. */
+    setFloorPattern: (floorType: 'parquet' | 'tile', patternId: string, settings: FloorPatternSettings) => void;
   },
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
     placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, createWindowStyled,
+    setFloorPattern, setSkirting,
   } = deps;
 
   /** Sends the user to the full panel — what a ring with nothing in it can
@@ -117,6 +134,24 @@ export function buildRadialItems(
       },
     ];
   }
+  // A trim run tapped in the room offers the profiles it could be. There is
+  // no submenu: the user already said which run they mean by tapping it, so
+  // the ring goes straight to the choice, scrolling through the whole sheet.
+  if (r.surface === 'skirting' || r.surface === 'cornice') {
+    const kind = r.surface
+    return trimProfilesOf(kind).map((def) => ({
+      key: `${kind}:${def.id}`,
+      label: def.label,
+      icon: kind === 'cornice' ? RadialIcons.cornice : RadialIcons.floor,
+      fill: <TrimThumb def={def} />,
+      onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)({
+        id: def.id,
+        heightMm: def.defaultHeightMm,
+        widthMm: def.defaultWidthMm,
+      }),
+    }))
+  }
+
   if (r.surface === 'ceiling') {
     return [
       {
@@ -167,6 +202,42 @@ export function buildRadialItems(
     {
       key: 'object', label: 'Narsa', icon: RadialIcons.add,
       onSelect: () => setShowAddSheet(true),
+    },
+    {
+      // The laying patterns, previewed with the real geometry the floor is
+      // built from — the same drawings the design panel and the corner menu
+      // show, so a pattern is recognisable wherever it is picked.
+      key: 'parket', label: 'Parket', icon: RadialIcons.floor,
+      childLabel: 'Parket',
+      onSelect: () => {},
+      children: FLOOR_PATTERN_DEFS.map((def) => ({
+        key: `parket:${def.id}`,
+        label: def.label,
+        icon: RadialIcons.floor,
+        fill: <PatternThumb def={def} color={FLOOR_COLORS.parquet} />,
+        onSelect: () => setFloorPattern('parquet', def.id, {
+          plankLengthCm: def.defaultLengthCm,
+          plankWidthCm: def.defaultWidthCm,
+        }),
+      })),
+    },
+    {
+      // Tile is the same stack bond every time — what is actually being
+      // chosen is the tile, so these are sizes rather than patterns, and each
+      // previews the same square of floor so a bigger tile reads as bigger.
+      key: 'kafel', label: 'Kafel', icon: RadialIcons.floor,
+      childLabel: 'Kafel',
+      onSelect: () => {},
+      children: TILE_SIZES.map((t) => ({
+        key: `kafel:${t.label}`,
+        label: t.label,
+        icon: RadialIcons.floor,
+        fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
+        onSelect: () => setFloorPattern('tile', 'stake_bond', {
+          plankLengthCm: t.lengthCm,
+          plankWidthCm: t.widthCm,
+        }),
+      })),
     },
     {
       // Mirrors the wall/ceiling "Rang" item — routes into WallSection's

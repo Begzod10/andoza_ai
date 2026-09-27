@@ -1,5 +1,5 @@
 import { Suspense, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
   PerformanceMonitor,
@@ -112,6 +112,12 @@ export function ThreeDCanvasScene({
   setDpr: Dispatch<SetStateAction<number | [number, number]>>;
   setDeclineCount: Dispatch<SetStateAction<number>>;
 }) {
+  /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
+   *  because it is normally spread onto a <group>; here one handler is called
+   *  directly, from the run's own click. */
+  const trimTap = (surface: RadialSurface) =>
+    holdBind(surface) as unknown as { onClick: (e: ThreeEvent<MouseEvent>) => void };
+
   return (
     <CanvasErrorBoundary
       key={glAttempt}
@@ -251,9 +257,12 @@ export function ThreeDCanvasScene({
           isCeilingSelected={selectedWall === 'CEILING'}
           onCeilingClick={() => focusSurface('CEILING')}
           isSkirtingSelected={selectedWall === 'SKIRTING'}
-          onSkirtingClick={() => focusSurface('SKIRTING')}
+          // Touching a run opens its own ring of profiles where it was
+          // touched, rather than sending the user to the design panel: the
+          // tap already said which run is meant.
+          onSkirtingClick={(e) => trimTap('skirting').onClick(e)}
           isCorniceSelected={selectedWall === 'CORNICE'}
-          onCorniceClick={() => focusSurface('CORNICE')}
+          onCorniceClick={(e) => trimTap('cornice').onClick(e)}
           holdBind={holdBind}
         />
         {/* Interactive window/door editing layer (select → toolbar → drag

@@ -1236,10 +1236,11 @@ export function TrimRun({
   /** Hang the profile downward from `position` — what a ceiling cornice wants. */
   flipY?: boolean;
   material?: React.ReactElement;
-  /** Selects this run. A run without one stays unpickable, as they all were:
-   *  these are slender things lying against the wall, and a raycast target on
-   *  every one of them would sit in front of the wall behind it. */
-  onClick?: () => void;
+  /** Opens the run's own menu, at the point it was touched. A run without one
+   *  stays unpickable, as they all were: these are slender things lying
+   *  against the wall, and a raycast target on every one of them would sit in
+   *  front of the wall behind it. */
+  onClick?: (e: ThreeEvent<MouseEvent>) => void;
   /** Tinted like a selected wall or floor, so it is clear which run is live. */
   isSelected?: boolean;
   /** Starts the press-and-hold that offers to delete the run. */
@@ -1266,7 +1267,7 @@ export function TrimRun({
       // was meant for the skirting. Stopping it here keeps the nearest thing
       // the thing that was touched, for the press as well as the click: a
       // hold on the trim offers to delete it rather than opening that menu.
-      onClick={onClick ? (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(); } : undefined}
+      onClick={onClick ? (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(e); } : undefined}
       onPointerDown={onHoldDown ? (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHoldDown(e); } : undefined}
     >
       {material ?? (isSelected ? trimSelectedMat : trimMat)}
@@ -1285,9 +1286,9 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, 
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
   junctionY: number;
-  /** Selects the whole cornice — every run round the room is one thing to
-   *  the user, so picking any of them selects all of them. */
-  onClick?: () => void;
+  /** Opens the cornice's menu — every run round the room is one thing to the
+   *  user, so touching any of them speaks for all of them. */
+  onClick?: (e: ThreeEvent<MouseEvent>) => void;
   isSelected?: boolean;
   onHoldDown?: (e: { clientX: number; clientY: number }) => void;
 }) {
@@ -1363,8 +1364,8 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, 
   width: number; depth: number; geometry: RoomGeometry;
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
-  /** Selects the whole skirting, for the same reason the cornice does. */
-  onClick?: () => void;
+  /** Opens the skirting's menu, for the same reason the cornice does. */
+  onClick?: (e: ThreeEvent<MouseEvent>) => void;
   isSelected?: boolean;
   onHoldDown?: (e: { clientX: number; clientY: number }) => void;
 }) {
