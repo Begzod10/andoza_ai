@@ -169,12 +169,24 @@ export default function ThreeDPage() {
   // of landing on what looks like an empty room — previously this required
   // manually finding and toggling "Skan ko'rinishi" with no visible cue
   // anything had been detected.
-  const [showScan, setShowScan] = useState(() => !!room.room_scan);
+  //
+  // room.room_scan is folded in from an async fetch (StudioPage's apiRoom
+  // query) and is still undefined on this component's first render, so a
+  // useState lazy initializer here would freeze at false. Sync it in an
+  // effect instead, once, the first time scan data actually arrives.
+  const [showScan, setShowScan] = useState(false);
+  const hasScan = !!room.room_scan;
+  const scanAutoShownRef = useRef(false);
+  useEffect(() => {
+    if (hasScan && !scanAutoShownRef.current) {
+      scanAutoShownRef.current = true;
+      setShowScan(true);
+    }
+  }, [hasScan]);
   // Ghost indices already swapped for a real catalog model — hidden from then on.
   const [replacedGhosts, setReplacedGhosts] = useState<Set<number>>(() => new Set());
   // The scanned-object ghost currently being replaced from the catalog, if any.
   const [scanSwap, setScanSwap] = useState<ScanSwapRequest | null>(null);
-  const hasScan = !!room.room_scan;
   // 0 = full quality; 1 = safe-mode retry after a WebGL context failure
   const [glAttempt, setGlAttempt] = useState(0);
 
