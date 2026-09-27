@@ -29,6 +29,14 @@ export interface RadialItem {
   children?: RadialItem[]
   /** Names the submenu once it is open, in place of the surface's own label. */
   childLabel?: string
+  /** Show the thumbnail alone. For a set the user picks by eye — ceiling
+   *  profiles — a name under each is noise. */
+  hideLabel?: boolean
+  /** Dismiss the ring on picking this. Default is to stay: choosing a finish
+   *  is a matter of trying a few, and a ring that shut after every pick had
+   *  to be reopened for each one. Set for the items that hand over to a panel
+   *  or a sheet, which would otherwise open behind it. */
+  closesMenu?: boolean
 }
 
 interface Props {
@@ -235,7 +243,8 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               // and dismisses.
               if (item.children?.length) { setOffset(0); setTrail((t) => [...t, item]); return }
               item.onSelect()
-              onClose()
+              // Stays open on purpose — see `closesMenu`.
+              if (item.closesMenu) onClose()
             }}
             className="absolute flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 active:scale-95 transition-transform animate-[radialpop_120ms_ease-out] overflow-hidden"
             style={{
@@ -257,9 +266,11 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
                 </span>
                 {/* The name rides a scrim at the foot of the thumbnail: a
                     catalogue code printed over line art is unreadable. */}
-                <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[8px] font-semibold leading-tight truncate">
-                  {item.label}
-                </span>
+                {!item.hideLabel && (
+                  <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[8px] font-semibold leading-tight truncate">
+                    {item.label}
+                  </span>
+                )}
               </>
             ) : (
               <>

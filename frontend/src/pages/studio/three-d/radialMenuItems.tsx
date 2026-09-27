@@ -10,6 +10,8 @@ import { TileThumb } from "@/components/studio/TileThumb";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
 import { FLOOR_COLORS } from "./constants";
 import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
+import { CEILING_DESIGNS, type CeilingDesignId } from "@/lib/ceilingDesigns";
+import { CeilingPreview } from "@/lib/ceilingPreview";
 
 /** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
  *  the default, and the one most floors are laid in. */
@@ -64,12 +66,14 @@ export function buildRadialItems(
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
     /** Lays the floor: a material and the pattern it is laid in. */
     setFloorPattern: (floorType: 'parquet' | 'tile', patternId: string, settings: FloorPatternSettings) => void;
+    /** Reshapes the ceiling, keeping whatever settings it already had. */
+    setCeilingDesign: (id: CeilingDesignId) => void;
   },
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
     placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled,
-    setFloorPattern, setSkirting,
+    setFloorPattern, setSkirting, setCeilingDesign,
   } = deps;
 
   /** Sends the user to the full panel — what a ring with nothing in it can
@@ -99,6 +103,7 @@ export function buildRadialItems(
           })),
           {
             key: 'color:panel', label: 'Panel', icon: RadialIcons.add,
+            closesMenu: true,
             onSelect: () => openPaintPanel(r.wallId),
           },
         ],
@@ -120,6 +125,7 @@ export function buildRadialItems(
           // uploading a new paper happens in the panel.
           {
             key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
+            closesMenu: true,
             onSelect: () => openPaintPanel(r.wallId),
           },
         ],
@@ -140,6 +146,7 @@ export function buildRadialItems(
           })),
           {
             key: 'win:custom', label: "O'lchamli", icon: RadialIcons.add,
+            closesMenu: true,
             onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
           },
         ],
@@ -222,8 +229,29 @@ export function buildRadialItems(
         })),
       },
       {
+        // The profiles themselves, drawn in section — the same little diagrams
+        // the design panel shows. No names under them: the shape of a ceiling
+        // is what is being chosen, and a label is noise beside the drawing.
         key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,
-        onSelect: () => { setSelectedWall('CEILING'); setActivePhase('boyoq'); setShowPanel(true); },
+        childLabel: 'Shift turi',
+        onSelect: () => {},
+        children: [
+          ...CEILING_DESIGNS.map((cd) => ({
+            key: `ceil:${cd.id}`,
+            label: cd.label,
+            icon: RadialIcons.ceiling,
+            fill: <CeilingPreview designId={cd.id} className="w-full h-full" />,
+            hideLabel: true,
+            onSelect: () => setCeilingDesign(cd.id),
+          })),
+          {
+            // The drop, the border, the cove light and the colour live in the
+            // panel; the ring picks the shape.
+            key: 'ceil:panel', label: 'Panel', icon: RadialIcons.add,
+            closesMenu: true,
+            onSelect: () => { setSelectedWall('CEILING'); setActivePhase('boyoq'); setShowPanel(true); },
+          },
+        ],
       },
     ];
   }
@@ -231,6 +259,7 @@ export function buildRadialItems(
   return [
     {
       key: 'object', label: 'Narsa', icon: RadialIcons.add,
+      closesMenu: true,
       onSelect: () => setShowAddSheet(true),
     },
     {
@@ -295,6 +324,7 @@ export function buildRadialItems(
       // + image upload), not the plain 4-way FloorSection picker the old
       // 'pol' phase opened.
       key: 'floor', label: 'Rang', icon: RadialIcons.floor,
+      closesMenu: true,
       onSelect: () => { setSelectedWall('FLOOR'); setActivePhase('boyoq'); setShowPanel(true); },
     },
   ];

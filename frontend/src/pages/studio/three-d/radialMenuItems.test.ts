@@ -13,6 +13,7 @@ import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { WALL_COLORS } from '@/lib/wallPalette'
+import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
 import type { RadialState } from './useSurfaceRadialMenu'
 
 type Call = [string, ...unknown[]]
@@ -39,6 +40,7 @@ function harness() {
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
       setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
+      setCeilingDesign: (id: string) => calls.push(['ceiling', id]),
       setFloorPattern: (floorType: string, patternId: string, st: Record<string, unknown>) => {
         settings.push(st)
         calls.push(['floor', floorType, patternId, st.plankLengthCm, st.plankWidthCm])
@@ -188,9 +190,17 @@ describe('tapping the ceiling', () => {
     expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 
-  it('still offers the ceiling type picker', () => {
-    const { deps } = harness()
-    expect(buildRadialItems(CEILING!, deps as never).map((i) => i.label)).toContain('Shift turi')
+  it('fans the ceiling profiles out too, drawings only', () => {
+    const { calls, deps } = harness()
+    const shift = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'ceiling')!
+    expect(shift.label).toBe('Shift turi')
+    const profiles = shift.children!.filter((c) => c.key.startsWith('ceil:') && c.key !== 'ceil:panel')
+    expect(profiles.length).toBe(CEILING_DESIGNS.length)
+    // Picked by eye: the drawing carries it, a name under each is noise.
+    expect(profiles.every((c) => c.hideLabel && c.fill != null)).toBe(true)
+    profiles.find((c) => c.key === 'ceil:floating')!.onSelect()
+    expect(calls).toContainEqual(['ceiling', 'floating'])
+    expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 })
 
@@ -255,6 +265,37 @@ describe('tapping the floor', () => {
     const square = kafel.children!.find((c) => c.label === '600×600')!
     square.children!.find((c) => c.label === 'Marmar kulrang')!.onSelect()
     expect(settings[1].textureRotation).toBe(0)
+  })
+})
+
+describe('staying open', () => {
+  // Picking a finish is a matter of trying a few: a ring that shut after every
+  // pick had to be reopened for each one.
+  it('keeps every finish choice open', () => {
+    const { deps } = harness()
+    const items = [
+      ...buildRadialItems(WALL!, deps as never),
+      ...buildRadialItems(CEILING!, deps as never),
+      ...buildRadialItems(FLOOR!, deps as never),
+    ]
+    const finishes = items
+      .flatMap((i) => i.children ?? [])
+      .filter((c) => !c.key.endsWith(':panel') && c.key !== 'win:custom')
+    expect(finishes.length).toBeGreaterThan(20)
+    expect(finishes.some((c) => c.closesMenu)).toBe(false)
+  })
+
+  it('closes for the ones that open a panel or a sheet behind it', () => {
+    const { deps } = harness()
+    const wall = buildRadialItems(WALL!, deps as never)
+    const floor = buildRadialItems(FLOOR!, deps as never)
+    const panels = [
+      wall.find((i) => i.key === 'paint')!.children!.find((c) => c.key === 'color:panel')!,
+      wall.find((i) => i.key === 'oboy')!.children!.find((c) => c.key === 'wp:panel')!,
+      floor.find((i) => i.key === 'object')!,
+      floor.find((i) => i.key === 'floor')!,
+    ]
+    expect(panels.every((c) => c.closesMenu)).toBe(true)
   })
 })
 

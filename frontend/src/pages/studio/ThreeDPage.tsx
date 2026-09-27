@@ -891,6 +891,11 @@ export default function ThreeDPage() {
           placeLight: placeLightAt,
           setCornice: (trim) => useRoomStore.getState().setDesignState({ cornice: trim }),
           setSkirting: (trim) => useRoomStore.getState().setDesignState({ skirting: trim }),
+          // Settings ride across a switch, as the panel does it: a border
+          // width chosen for one profile is still what the room wants.
+          setCeilingDesign: (id) => useRoomStore.getState().setDesignState({
+            ceiling: { design: id, settings: useRoomStore.getState().designState.ceiling?.settings },
+          }),
           wallpapers,
           applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
           applyWallColor: (hex) =>

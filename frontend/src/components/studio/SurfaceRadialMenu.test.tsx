@@ -69,11 +69,14 @@ function mount() {
 }
 
 describe('tapping a wall-menu button', () => {
-  it('runs the item and closes, rather than only closing', () => {
+  it('runs the item, rather than only dismissing', () => {
+    // The bug this file was written for: the tap bubbled to the backdrop,
+    // which closed the menu before the click could land.
     const { onPaint, onClose } = mount()
     tap(screen.getByText('Rang').closest('button')!)
     expect(onPaint).toHaveBeenCalledTimes(1)
-    expect(onClose).toHaveBeenCalledTimes(1)
+    // ...and the ring stays up, so the next colour is one tap away.
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('opens the device list without dismissing the menu', () => {
@@ -84,12 +87,53 @@ describe('tapping a wall-menu button', () => {
     expect(screen.getByText('Ikkita kalit')).toBeTruthy()
   })
 
-  it('places a device picked from the list', () => {
+  it('places a device picked from the list, and stays up for the next one', () => {
+    // Choosing a finish means trying a few: the ring that shut on every pick
+    // had to be reopened each time.
     const { onDevice, onClose } = mount()
     tap(screen.getByText('Elektr').closest('button')!)
     tap(screen.getByText('Ikkita kalit').closest('button')!)
     expect(onDevice).toHaveBeenCalledWith('Ikkita kalit')
+    expect(onClose).not.toHaveBeenCalled()
+    tap(screen.getByText('Bitta rozetka').closest('button')!)
+    expect(onDevice).toHaveBeenCalledWith('Bitta rozetka')
+  })
+
+  it('dismisses for an item that hands over to a panel', () => {
+    const onClose = vi.fn()
+    const onPanel = vi.fn()
+    act(() => {
+      render(
+        <SurfaceRadialMenu
+          x={100} y={200} surface="wall" onClose={onClose}
+          items={[{
+            key: 'panel', label: 'Panel', icon: RadialIcons.add,
+            closesMenu: true, onSelect: onPanel,
+          }]}
+        />,
+      )
+    })
+    tap(screen.getByText('Panel').closest('button')!)
+    expect(onPanel).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a thumbnail-only item without its name', () => {
+    const onClose = vi.fn()
+    act(() => {
+      render(
+        <SurfaceRadialMenu
+          x={100} y={200} surface="ceiling" onClose={onClose}
+          items={[{
+            key: 'c1', label: 'Suzuvchi shift', icon: RadialIcons.ceiling,
+            fill: <svg data-testid="ceil-drawing" />, hideLabel: true,
+            onSelect: () => {},
+          }]}
+        />,
+      )
+    })
+    expect(screen.getByTestId('ceil-drawing')).toBeInTheDocument()
+    expect(screen.queryByText('Suzuvchi shift')).toBeNull()
   })
 
   it('shows three devices square on and a faded one either side', () => {
