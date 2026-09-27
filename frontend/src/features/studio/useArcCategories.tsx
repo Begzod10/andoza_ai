@@ -15,15 +15,17 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
-import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame } from 'lucide-react'
+import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, Zap, ToggleLeft, Plug, Tv } from 'lucide-react'
 import { useRoomStore } from '@/store/roomStore'
 import { listWallpapers, type Wallpaper as WallpaperEntry } from '@/lib/api'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
 import { FLOOR_PATTERN_DEFS, type FloorPatternId, type FloorPatternSettings } from '@/lib/floorGeometry'
 import { FLOOR_COLORS } from '@/pages/studio/three-d/constants'
 import { trimProfilesOf, type TrimProfileDef } from '@/lib/trimProfiles'
+import { CATALOG as ELECTRICAL_CATALOG } from '@/pages/studio/placement/constants'
+import { ELECTRICAL_DIMS } from '@/pages/studio/three-d/constants'
 import { PatternThumb, TrimThumb } from '@/components/studio/design-panel/FloorControls'
-import { furniturePlacementMm, nextLightPositionMm } from '@/lib/placement'
+import { furniturePlacementMm, nextLightPositionMm, nextElectricalPositionMm } from '@/lib/placement'
 import { resolveTargetWall } from '@/components/studio/design-panel/shared'
 import type { ArcCategory, ArcItem } from '@/components/studio/QuarterArcMenu'
 
@@ -43,6 +45,8 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
   const geometry = useRoomStore((s) => s.geometry)
   const placeFurniture = useRoomStore((s) => s.placeFurniture)
   const addLight = useRoomStore((s) => s.addLight)
+  const addElectrical = useRoomStore((s) => s.addElectrical)
+  const electricals = useRoomStore((s) => s.electricals)
   const setWallCovering = useRoomStore((s) => s.setWallCovering)
   const setDesignState = useRoomStore((s) => s.setDesignState)
   const floorType = useRoomStore((s) => s.designState.floorType)
@@ -135,6 +139,35 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       },
     }))
 
+    // Elektr — the same faceplates the Elektr tab offers, at the same mounting
+    // heights. That tab places them by clicking the exact spot on a plan;
+    // there is no click to read here, so each lands on the selected wall (or
+    // the first one) near its middle, nudged off whatever is already there,
+    // and is dragged into place on the Elektr tab afterwards.
+    const wall = geometry.walls.find((w) => w.id === selectedWall) ?? geometry.walls[0]
+    const electric: ArcItem[] = !wall ? [] : ELECTRICAL_CATALOG.map((entry) => {
+      const Icon = entry.type.startsWith('switch') ? ToggleLeft
+        : entry.type === 'socket_media' ? Tv
+        : entry.type === 'panel' ? Zap
+        : Plug
+      return {
+        key: `el:${entry.type}`,
+        label: entry.label,
+        icon: <Icon size={18} strokeWidth={1.8} />,
+        onSelect: () => addElectrical({
+          id: nanoid(),
+          type: entry.type,
+          wallId: wall.id,
+          positionMm: nextElectricalPositionMm(
+            wall.length,
+            electricals.filter((e) => e.wallId === wall.id).length,
+            (ELECTRICAL_DIMS[entry.type]?.w ?? 0.1) * 1000,
+          ),
+          heightMm: entry.height,
+        }),
+      }
+    })
+
     /** Plintus and Karniz differ only in which run of trim they write. */
     const trimItems = (kind: 'skirting' | 'cornice'): ArcItem[] =>
       trimProfilesOf(kind).map((def: TrimProfileDef) => ({
@@ -192,10 +225,17 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         icon: <Frame size={19} strokeWidth={1.8} />,
         items: trimItems('cornice'),
       },
+      {
+        key: 'elektr',
+        label: 'Elektr',
+        icon: <Zap size={19} strokeWidth={1.8} />,
+        items: electric,
+      },
     ]
   }, [
     userFurniture, catalogFurniture, furniture, wallpapers, lights, geometry,
     placeFurniture, addLight, setWallCovering, selectedWall, openPanelAt,
     setDesignState, floorType, floorTexture, floorPattern,
+    addElectrical, electricals,
   ])
 }
