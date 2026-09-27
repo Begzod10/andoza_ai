@@ -18,6 +18,7 @@ export { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
 import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
+import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
@@ -797,6 +798,10 @@ export default function ThreeDPage() {
         setArmedLightType={setArmedLightType}
         planMode={isChiroqTab && chiroqView === '2d'}
       />
+
+      {/* Press-and-hold delete, mounted once outside the canvas: it is ordinary
+          DOM, and whichever item was held supplies its own label and action. */}
+      <HoldDeleteButton />
 
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}

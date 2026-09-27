@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedElectrical } from "@/store/roomStore";
 import { ELECTRICAL_DIMS } from "./constants";
+import { TYPE_LABEL } from "@/pages/studio/placement/constants";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { wallDefsFromVertices, type PolyWallDef } from "@/lib/wallDefsFromVertices";
 import { alongWallM, wallMountFrame, wallMountPoint } from "@/lib/wallMountFrame";
 
@@ -152,6 +154,7 @@ export function DraggableElectricalModels({
   controlsRef: React.RefObject<OrbitControlsImpl | null>
   W: number; D: number
 }) {
+  const { bind: holdBind } = useHoldToDelete()
   const electricals = useRoomStore(s => s.electricals)
   const moveElectrical = useRoomStore(s => s.moveElectrical)
   const geometry = useRoomStore(s => s.geometry)
@@ -175,6 +178,10 @@ export function DraggableElectricalModels({
 
   function startDrag(el: PlacedElectrical, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
+    holdBind({
+      label: TYPE_LABEL[el.type] ?? 'Qurilma',
+      onDelete: () => useRoomStore.getState().removeElectrical(el.id),
+    }).onPointerDown(e)
     dragPosMmRef.current = el.positionMm
     draggingIdRef.current = el.id
     setDraggingId(el.id)

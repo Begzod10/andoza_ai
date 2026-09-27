@@ -33,6 +33,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { liveOpeningDrag } from '@/lib/liveOpeningDrag'
 import { wallDefsFromVertices } from '@/lib/wallDefsFromVertices'
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 
 export interface OpeningSel { wallId: string; elId: string }
 
@@ -253,6 +254,8 @@ export function WallOpenings({
     ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
   }
 
+  const { bind: bindHold, wasHeld } = useHoldToDelete()
+
   const walls = geometry.walls.filter((w) => defs[w.id] && !hiddenWalls?.has(w.id))
 
   return (
@@ -274,14 +277,26 @@ export function WallOpenings({
           const centerAlongM = (liveEl.position + liveEl.width / 2) * s
           const centerY = (liveEl.sill_height + liveEl.height / 2) * s
           const [px, py, pz] = toWorld(wd, centerAlongM, centerY, 0.02)
+          const hold = bindHold({
+            label: el.type === 'eshik' ? 'Eshik' : 'Deraza',
+            onDelete: () => { removeElement(w.id, el.id); if (isSel) onSelect(null) },
+          })
           return (
             <group key={`op-${w.id}-${el.id}`}>
               {/* Invisible (faint when selected) hit plane for select + drag */}
               <mesh
                 position={[px, py, pz]}
                 rotation={[0, wd.ry, 0]}
-                onClick={(e) => { e.stopPropagation(); onSelect({ wallId: w.id, elId: el.id }); }}
-                onPointerDown={(e) => onDown(e, el)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  // A hold that just put the delete button up is not a tap.
+                  if (wasHeld()) return
+                  onSelect({ wallId: w.id, elId: el.id })
+                }}
+                onPointerDown={(e) => {
+                  hold.onPointerDown(e)
+                  onDown(e, el)
+                }}
                 onPointerMove={(e) => onMove(e, wd, el)}
                 onPointerUp={onUp}
                 onPointerCancel={onUp}

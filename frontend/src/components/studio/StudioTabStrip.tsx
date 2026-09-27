@@ -37,9 +37,10 @@ interface TabDef {
 function tabsFor(roomId: string): TabDef[] {
   return [
     { seg: "ichkarida", label: "3D", to: `/studio/${roomId}/ichkarida` },
-    { seg: "mebel", label: "Mebelirovka", to: `/studio/${roomId}/mebel` },
-    { seg: "chiroqlar", label: "Chiroqlar", to: `/studio/${roomId}/chiroqlar` },
-    { seg: "elektr", label: "Elektr", to: `/studio/${roomId}/elektr` },
+    // Mebelirovka, Chiroqlar and Elektr are gone from the strip: furniture,
+    // fixtures and faceplates are all placed from the 3D view now — the corner
+    // menu, and the ring that opens on a wall or ceiling tap. Their routes
+    // still resolve, so an old link or a bookmark still works.
     { seg: "aylanish", label: "Aylanish", to: `/studio/${roomId}/aylanish` },
     // Top-level route, not nested under /studio/:roomId — see StudioNav.
     { seg: "smeta", label: "Smeta", to: `/smeta/${roomId}` },

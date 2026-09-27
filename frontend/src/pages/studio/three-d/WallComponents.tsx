@@ -1224,7 +1224,7 @@ export const trimSelectedMat = (
  */
 export function TrimRun({
   trim, lengthM, mitreStart, mitreEnd, position, yaw, flipY, material,
-  onClick, isSelected,
+  onClick, isSelected, onHoldDown,
 }: {
   trim: ResolvedTrim;
   lengthM: number;
@@ -1242,6 +1242,8 @@ export function TrimRun({
   onClick?: () => void;
   /** Tinted like a selected wall or floor, so it is clear which run is live. */
   isSelected?: boolean;
+  /** Starts the press-and-hold that offers to delete the run. */
+  onHoldDown?: (e: { clientX: number; clientY: number }) => void;
 }) {
   const geo = useMemo(
     () => buildTrimGeometry({
@@ -1259,6 +1261,7 @@ export function TrimRun({
       receiveShadow
       raycast={onClick ? THREE.Mesh.prototype.raycast : noRaycast}
       onClick={onClick}
+      onPointerDown={onHoldDown}
     >
       {material ?? (isSelected ? trimSelectedMat : trimMat)}
     </mesh>
@@ -1271,7 +1274,7 @@ export function TrimRun({
  * floor. `junctionY` comes from the active ceiling design, so the moulding
  * follows a dropped ceiling down rather than floating at the slab.
  */
-export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, onClick, isSelected }: {
+export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, onClick, isSelected, onHoldDown }: {
   width: number; depth: number; geometry: RoomGeometry;
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
@@ -1280,6 +1283,7 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, 
    *  the user, so picking any of them selects all of them. */
   onClick?: () => void;
   isSelected?: boolean;
+  onHoldDown?: (e: { clientX: number; clientY: number }) => void;
 }) {
   const band: [number, number] = [(junctionY - trim.heightM) * 1000, junctionY * 1000];
   const walls = [
@@ -1294,7 +1298,7 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, 
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
         return trimRuns(w.lenM, els, trim, w.runSign, band).map((r, i) => (
-          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM} flipY
+          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} onHoldDown={onHoldDown} trim={trim} lengthM={r.lengthM} flipY
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));
       })}
@@ -1349,13 +1353,14 @@ function trimRuns(
  * skipped entirely when the user has taken the skirting off, so nothing is
  * left behind at the wall/floor junction.
  */
-export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, isSelected }: {
+export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, isSelected, onHoldDown }: {
   width: number; depth: number; geometry: RoomGeometry;
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
   /** Selects the whole skirting, for the same reason the cornice does. */
   onClick?: () => void;
   isSelected?: boolean;
+  onHoldDown?: (e: { clientX: number; clientY: number }) => void;
 }) {
   if (geometry.vertices && geometry.vertices.length >= 3) {
     const wallIds = geometry.walls.map((w) => w.id);
@@ -1397,7 +1402,7 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, 
               ? [along, 0, d.face]
               : [d.face, 0, along];
             return (
-              <TrimRun key={`${wall.id}-${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM}
+              <TrimRun key={`${wall.id}-${i}`} onClick={onClick} isSelected={isSelected} onHoldDown={onHoldDown} trim={trim} lengthM={r.lengthM}
                 mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={position} yaw={yaw} />
             );
           });
@@ -1423,7 +1428,7 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, 
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
         return trimRuns(w.lenM, els, trim, w.runSign).map((r, i) => (
-          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM}
+          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} onHoldDown={onHoldDown} trim={trim} lengthM={r.lengthM}
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));
       })}

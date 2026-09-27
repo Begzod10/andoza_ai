@@ -22,6 +22,7 @@ import { floorSlabColorFor } from "@/lib/floorGeometry";
 import { Wall, WindowFrames, DoorFrames, Baseboard, Cornice, WindowFrameItem, DoorFrameItem, TrimRun, type FrameWallDef } from "./WallComponents";
 import { resolveTrim } from "@/lib/trimProfiles";
 import { CeilingLights } from "./LightingComponents";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 
 /**
  * The full room shell: the legacy 4-wall ABCD room (floor, ceiling, walls,
@@ -743,6 +744,14 @@ export const RoomScene = memo(function RoomScene({
   // Skirting: `undefined` is "never touched", which still draws the default
   // board so rooms designed before the picker existed are unchanged; only an
   // explicit `null` removes it from the scene.
+  const { bind: bindHoldDelete } = useHoldToDelete()
+  const setDesignState = useRoomStore((s) => s.setDesignState)
+  // Deleting a trim run means taking it out of the room: `null` is the stored
+  // "deliberately off", as opposed to `undefined`, which still draws the
+  // default board.
+  const holdSkirting = bindHoldDelete({ label: 'Plintus', onDelete: () => setDesignState({ skirting: null }) })
+  const holdCornice = bindHoldDelete({ label: 'Karniz', onDelete: () => setDesignState({ cornice: null }) })
+
   const skirting = useMemo(
     () => (designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')),
     [designState.skirting],
@@ -866,12 +875,12 @@ export const RoomScene = memo(function RoomScene({
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           {skirting && (
             <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting}
-              onClick={onSkirtingClick} isSelected={isSkirtingSelected} />
+              onClick={onSkirtingClick} isSelected={isSkirtingSelected} onHoldDown={holdSkirting.onPointerDown} />
           )}
           {cornice && (
             <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
               trim={cornice} junctionY={corniceY}
-              onClick={onCorniceClick} isSelected={isCorniceSelected} />
+              onClick={onCorniceClick} isSelected={isCorniceSelected} onHoldDown={holdCornice.onPointerDown} />
           )}
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}

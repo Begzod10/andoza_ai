@@ -11,6 +11,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
 import { planPolygon, offsetPolygon } from "@/lib/planPolygon";
@@ -680,6 +681,7 @@ export function DraggableFurnitureModels({
     }
   }, [geometry, roomW, roomD])
 
+  const { bind: holdBind } = useHoldToDelete()
   const { camera, gl } = useThree()
   const floorPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -778,6 +780,12 @@ export function DraggableFurnitureModels({
   // very first press.
   function startDragFromMesh(item: PlacedFurniture, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
+    // Hold to delete rides along with the drag: it gives way as soon as the
+    // finger travels, so this still drags exactly as it did.
+    holdBind({
+      label: resolveDisplayInfo(item).name,
+      onDelete: () => onDelete(item.id),
+    }).onPointerDown(e)
     if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }

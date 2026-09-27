@@ -1,106 +1,17 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
-import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate,
+  getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom,
   createShareLink, revokeShareLink,
 } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
-import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-
-function StudioNav({ roomId, isDirty, topOffset }: { roomId: string; isDirty: boolean; topOffset: number }) {
-  const [navOpen, setNavOpen] = useState(false);
-  const navItems = [
-    { to: `/studio/${roomId}/ichkarida`, label: "3D" },
-    { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
-    { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
-    { to: `/studio/${roomId}/elektr`, label: "Elektr" },
-    { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
-    // /smeta/:roomId is a top-level route, not nested under /studio/:roomId —
-    // clicking this leaves the studio layout entirely (SmetaPage has its own
-    // header with a back link to here), unlike the other tabs above which
-    // stay within this same StudioPage shell.
-    // "Smeta" everywhere else that names this same page (route, page <h1>,
-    // WizardPage's "Smeta ko'rish" button, the whole uz.smeta.* locale
-    // namespace) — this tab used to say "Hisoblagich" ("calculator"),
-    // making it read like a different feature.
-    { to: `/smeta/${roomId}`, label: "Smeta" },
-  ];
-
-  // Studio audit finding (feature completeness): no running price total
-  // visible without leaving the 3D studio for the separate /smeta page.
-  // Surfaced here, on the tab that already leads there, rather than adding
-  // a new header slot — the header row is a tight 3-column grid on mobile
-  // (back+title / tabs / save+kebab) with no spare room.
-  //
-  // The estimate engine only ever prices the room's *saved* state (the
-  // preview endpoint loads room.state from the DB) — it has no way to see
-  // local edits still sitting unsaved in the store. Rather than fake a
-  // number that updates on every keystroke, this shows the true last-saved
-  // total and flags it with a "•" while isDirty, so it reads as "as of your
-  // last save" instead of silently pretending to be live when it isn't.
-  const isRealRoom = !!roomId && roomId !== "local";
-  const { data: estimate } = useQuery({
-    queryKey: ["studio-nav-total", roomId],
-    queryFn: () => previewEstimate(roomId),
-    enabled: isRealRoom,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-    // A room with nothing priceable yet (brand new, empty) 400s/500s just
-    // as often as it succeeds — this badge is a nice-to-have, not worth a
-    // retry storm over.
-    retry: false,
-  });
-
-  return (
-    // Collapsed into a single round trigger button — pressing it opens a
-    // TopDrawer sliding down from below the header with the same tabs laid
-    // out as a vertical list, instead of the old horizontal scroll strip.
-    <>
-      <TopDrawerButton active={navOpen} onClick={() => setNavOpen(true)} label="Bo'limlar">
-        <Menu size={18} aria-hidden="true" />
-      </TopDrawerButton>
-      <TopDrawer open={navOpen} onOpenChange={setNavOpen} title="Bo'limlar" topOffset={topOffset}>
-        <div className="flex flex-col p-2">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setNavOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center justify-between gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors",
-                  isActive
-                    ? "bg-primary-tint text-brand"
-                    : "text-neutral-700 hover:bg-neutral-50"
-                )
-              }
-            >
-              <span>{item.label}</span>
-              {item.label === "Smeta" && estimate != null && (
-                <span
-                  className="text-[11px] font-normal opacity-70"
-                  title={isDirty ? "So'nggi saqlangan holat bo'yicha — o'zgarishlar hali saqlanmagan" : undefined}
-                >
-                  {isDirty && "• "}
-                  {formatUZSCompact(estimate.total_uzs)}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      </TopDrawer>
-    </>
-  );
-}
 
 export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -571,7 +482,6 @@ export default function StudioPage() {
               menu buttons end up in this one header row, not stacked as
               separate rows below it. */}
           <div className="flex justify-center items-center gap-2 min-w-0">
-            <StudioNav roomId={room.id} isDirty={isDirty} topOffset={headerHeight} />
             <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
           </div>
 
