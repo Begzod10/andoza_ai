@@ -5,7 +5,7 @@
  * (the desktop panels already staggered; the mobile sheet didn't).
  */
 import { describe, it, expect } from 'vitest'
-import { nextFurnitureOffsetMm, nextLightPositionMm } from '../placement'
+import { nextFurnitureOffsetMm, nextLightPositionMm, fitDeviceHeightMm } from '../placement'
 import type { RoomGeometry } from '@/store/roomStore'
 
 function abcd(a: number, b: number): RoomGeometry {
@@ -68,5 +68,44 @@ describe('nextLightPositionMm', () => {
     expect(pos.xMm).toBeLessThan(1800)
     expect(pos.zMm).toBeGreaterThan(0)
     expect(pos.zMm).toBeLessThan(1800)
+  })
+})
+
+describe('fitDeviceHeightMm', () => {
+  /** A split unit's indoor half: 300mm tall, catalogued at 2400mm. */
+  const AC_H = 300
+  const AC_MOUNT = 2400
+
+  it('leaves it at its catalogue height in a standard room', () => {
+    // 2400 + 300 is exactly 2700 — it fits, so nothing moves.
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 2700)).toBe(2400)
+  })
+
+  it('leaves it alone in a tall room too', () => {
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 3200)).toBe(2400)
+  })
+
+  it('brings it down under a low ceiling', () => {
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 2500)).toBe(2200)
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 2400)).toBe(2100)
+  })
+
+  it('never lets the device poke through the ceiling', () => {
+    for (const ceiling of [2000, 2200, 2400, 2500, 2700, 3000]) {
+      const y = fitDeviceHeightMm(AC_MOUNT, AC_H, ceiling)
+      expect(y + AC_H).toBeLessThanOrEqual(ceiling)
+    }
+  })
+
+  it('never puts it below the floor', () => {
+    // A ceiling lower than the unit itself: nowhere to hang it.
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 200)).toBe(0)
+    expect(fitDeviceHeightMm(AC_MOUNT, AC_H, 0)).toBe(0)
+  })
+
+  it('does not disturb the devices that sit low anyway', () => {
+    // A socket at 300mm and a switch at 900mm are nowhere near any ceiling.
+    expect(fitDeviceHeightMm(300, 80, 2700)).toBe(300)
+    expect(fitDeviceHeightMm(900, 80, 2500)).toBe(900)
   })
 })

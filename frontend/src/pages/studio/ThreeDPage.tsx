@@ -17,7 +17,7 @@ import type { ToolMode } from "@/features/studio/StudioFurniture";
 export { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
-import { furniturePlacementMm } from "@/lib/placement";
+import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
@@ -349,7 +349,8 @@ export default function ThreeDPage() {
   ) {
     const g = wallGeom(wallId);
     if (!g || !point) return;
-    const widthMm = (ELECTRICAL_DIMS[type]?.w ?? 0.1) * 1000;
+    const dims = ELECTRICAL_DIMS[type];
+    const widthMm = (dims?.w ?? 0.1) * 1000;
     const margin = widthMm / 2 + 50;
     const lengthMm = g.length * 1000;
     const alongMm = g.alongM(point) * 1000;
@@ -360,7 +361,10 @@ export default function ThreeDPage() {
       positionMm: lengthMm <= margin * 2
         ? lengthMm / 2
         : Math.min(Math.max(alongMm, margin), lengthMm - margin),
-      heightMm,
+      // Brought down if the room's ceiling is too low for it to hang at its
+      // catalogue height — an air conditioner at 2400mm just fits a 2700mm
+      // ceiling and would push through anything lower.
+      heightMm: fitDeviceHeightMm(heightMm, (dims?.h ?? 0.1) * 1000, H * 1000),
     });
     setActivePhase('montaj');
   }

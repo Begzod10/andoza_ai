@@ -73,3 +73,27 @@ export function furniturePlacementMm(
   // which measures from the room's centre.
   return { x: spot.x - room.W / 2, y: spot.z - room.D / 2 }
 }
+
+
+/**
+ * Mounting height (mm from the floor) for a wall device, brought down when the
+ * ceiling is too low for it.
+ *
+ * An air conditioner hangs at 2400mm, which puts the top of a 300mm unit
+ * exactly at a standard 2700mm ceiling. Drop the ceiling and that height would
+ * push it through — so in a lower room it sits as high as it can instead,
+ * tucked under the ceiling rather than poking out above it.
+ *
+ * A device that already fits is left exactly where its catalogue says, so
+ * nothing moves in an ordinary room.
+ *
+ * @param wantedMm the catalogue's own mounting height
+ * @param deviceHeightMm how tall the device is
+ * @param ceilingMm the room's ceiling height
+ */
+export function fitDeviceHeightMm(wantedMm: number, deviceHeightMm: number, ceilingMm: number): number {
+  const highest = ceilingMm - deviceHeightMm
+  // A ceiling lower than the device itself leaves nowhere to hang it; sitting
+  // it on the floor is the only thing left, and beats a negative height.
+  return Math.max(0, Math.min(wantedMm, highest))
+}

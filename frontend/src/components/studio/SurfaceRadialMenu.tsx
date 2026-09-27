@@ -208,7 +208,13 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               onTurnStart(e)
             }}
             onPointerMove={onTurnMove}
-            onPointerUp={() => onTurnEnd()}
+            onPointerUp={(e) => {
+              // Must swallow it as well as pointerdown: the backdrop dismisses
+              // on pointerUP, so letting this bubble closed the menu before the
+              // click could act — every button looked dead.
+              e.stopPropagation()
+              onTurnEnd()
+            }}
             onClick={(e) => {
               e.stopPropagation()
               // A turn that ended here is not a pick.
