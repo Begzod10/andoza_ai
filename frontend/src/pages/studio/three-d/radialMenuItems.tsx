@@ -19,6 +19,15 @@ const TILE_SIZES = [
   { label: '400×400', lengthCm: 40, widthCm: 40 },
 ]
 
+/** The tile's face. `url: null` is the plain glazed tile the pattern draws on
+ *  its own — kept first so picking a size and nothing else still lands. */
+const TILE_FACES: { label: string; url: string | null }[] = [
+  { label: 'Oddiy', url: null },
+  { label: 'Marmar oq', url: '/floor/tile/marble-white.jpg' },
+  { label: 'Marmar qora', url: '/floor/tile/marble-black.jpg' },
+  { label: 'Marmar kulrang', url: '/floor/tile/marble-grey.jpg' },
+]
+
 /**
  * The context actions offered by the surface radial ("aylana") menu for
  * each surface. Each opens the matching existing panel/sheet — the exact
@@ -233,10 +242,30 @@ export function buildRadialItems(
         label: t.label,
         icon: RadialIcons.floor,
         fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
-        onSelect: () => setFloorPattern('tile', 'stake_bond', {
-          plankLengthCm: t.lengthCm,
-          plankWidthCm: t.widthCm,
-        }),
+        onSelect: () => {},
+        // A size leads on to the face: both belong to the same tile, and
+        // picking one without the other is not a choice anyone makes.
+        childLabel: t.label,
+        children: TILE_FACES.map((face) => ({
+          key: `kafel:${t.label}:${face.url ?? 'plain'}`,
+          label: face.label,
+          icon: RadialIcons.floor,
+          fill: face.url
+            ? <img src={face.url} alt="" loading="lazy" draggable={false}
+                className="absolute inset-0 w-full h-full object-cover" />
+            : <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
+          onSelect: () => setFloorPattern('tile', 'stake_bond', {
+            plankLengthCm: t.lengthCm,
+            plankWidthCm: t.widthCm,
+            textureUrl: face.url,
+            // White lets the photograph's own colours through; the tile grey
+            // would tint a white marble grey.
+            baseColor: face.url ? '#ffffff' : undefined,
+            // The photographs are portrait, and the veining should run the
+            // long way down a 1200x600 tile rather than across it.
+            textureRotation: t.lengthCm > t.widthCm ? 90 : 0,
+          }),
+        })),
       })),
     },
     {

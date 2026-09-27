@@ -209,10 +209,31 @@ export function SkirtingGroup() {
   );
 }
 
-/** The profile's real cross-section, drawn from the same outline the 3D
- *  extrusion uses — wall on the left, floor along the bottom. */
-export function TrimThumb({ def, detail = true }: { def: TrimProfileDef; detail?: boolean }) {
+/**
+ * The profile's real cross-section, drawn from the same outline the 3D
+ * extrusion uses — wall on the left, floor along the bottom.
+ *
+ * Drawn to scale against the tallest profile of its kind, so a 40 mm board
+ * looks like a 40 mm board beside a 100 mm one. Before this every profile was
+ * stretched to fill its square, which made the thing the user is choosing —
+ * how big the board is — the one thing the picture did not show.
+ */
+export function TrimThumb({ def, detail = true, toScale = true }: {
+  def: TrimProfileDef;
+  detail?: boolean;
+  /** Off for a profile shown on its own, where there is nothing to compare
+   *  it against and filling the square reads better. */
+  toScale?: boolean;
+}) {
   const d = useMemo(() => trimProfileSvgPath(def), [def]);
+  // The tallest of this kind sets the scale: it fills the box and everything
+  // else is measured against it.
+  const refMm = useMemo(
+    () => Math.max(...trimProfilesOf(def.kind).map((t) => t.defaultHeightMm)),
+    [def.kind],
+  );
+  const gid = useId();
+
   // The catalogue's own section drawing when there is one: it carries the
   // milled detail and the dimensions, which a filled silhouette cannot. The
   // silhouette stays as the fallback — it is generated from the same `path`
@@ -232,12 +253,35 @@ export function TrimThumb({ def, detail = true }: { def: TrimProfileDef; detail?
       />
     );
   }
+
+  const k = 100 / refMm;
+  const h = toScale ? Math.min(100, def.defaultHeightMm * k) : 100;
+  const w = toScale ? Math.min(100, def.defaultWidthMm * k) : 100;
+
   return (
     <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
+      <defs>
+        {/* Milled timber rather than a flat cut-out: light along the top of
+            the section, shading into the wall side. */}
+        <linearGradient id={`${gid}-face`} x1="0" y1="0" x2="0.35" y2="1">
+          <stop offset="0%" stopColor="#EFE7D9" />
+          <stop offset="55%" stopColor="#D8CEBF" />
+          <stop offset="100%" stopColor="#BBAE99" />
+        </linearGradient>
+      </defs>
       {/* the wall face and the floor line the profile sits against */}
       <path d="M0,-6 L0,106" stroke="#CBD5E1" strokeWidth="3" fill="none" />
       <path d="M-6,100 L106,100" stroke="#CBD5E1" strokeWidth="3" fill="none" />
-      <path d={d} fill="#D8CEBF" stroke="#8A7F6D" strokeWidth="2.5" strokeLinejoin="round" />
+      {/* Standing on the floor line, against the wall, at its own size. */}
+      <g transform={`translate(0, ${100 - h}) scale(${w / 100}, ${h / 100})`}>
+        <path
+          d={d}
+          fill={`url(#${gid}-face)`}
+          stroke="#8A7F6D"
+          strokeWidth={2.5 / Math.max(w, h) * 100}
+          strokeLinejoin="round"
+        />
+      </g>
     </svg>
   );
 }
@@ -337,8 +381,10 @@ function PatternSettings({ def, settings, typeColor, onPatch }: {
           onChange={(v) => onPatch({ plankLengthCm: v })}
         />
       )}
+      {/* Up to 120 cm, not 40: the same control sizes a tile, and a 60 cm
+          tile pinned at the old ceiling dropped to 40 on the first nudge. */}
       <SettingSlider
-        label="Taxta eni" unit=" sm" min={3} max={40} step={1}
+        label="Taxta eni" unit=" sm" min={3} max={120} step={1}
         value={s.plankWidthCm ?? def.defaultWidthCm}
         onChange={(v) => onPatch({ plankWidthCm: v })}
       />

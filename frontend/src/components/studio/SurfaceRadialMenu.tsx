@@ -69,8 +69,10 @@ const EDGE_OPACITY = 0.45
 const EDGE_SCALE = 0.66
 
 export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Props) {
-  /** The item whose children are showing, if any. */
-  const [drill, setDrill] = useState<RadialItem | null>(null)
+  /** The path drilled into, deepest last — a stack rather than a single item
+   *  because a choice can lead to another (a tile size, then its texture). */
+  const [trail, setTrail] = useState<RadialItem[]>([])
+  const drill = trail[trail.length - 1] ?? null
   /** How far the ring has been turned, in slots. */
   const [offset, setOffset] = useState(0)
   /** Live turn gesture; `moved` is what stops a scroll also picking something. */
@@ -82,7 +84,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (drill) { setDrill(null); setOffset(0) }
+      if (drill) { setTrail((t) => t.slice(0, -1)); setOffset(0) }
       else onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -109,7 +111,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
           const edge = sl.slot < 0.5 || sl.slot > WINDOW_SLOTS - 1.5
           return {
             item: shown[sl.index],
-            key: `${drill?.key ?? 'root'}:${sl.key}`,
+            key: `${trail.map((t) => t.key).join('/') || 'root'}:${sl.key}`,
             deg: startDeg + sl.slot * step,
             edge,
             opacity: (edge ? EDGE_OPACITY : 1) * sl.opacity,
@@ -231,7 +233,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               if (edge) { setOffset((o) => wrapArcOffset(Math.round(o + (deg < -90 ? -1 : 1)), n)); return }
               // An item with children opens them in place; only a leaf acts
               // and dismisses.
-              if (item.children?.length) { setOffset(0); setDrill(item); return }
+              if (item.children?.length) { setOffset(0); setTrail((t) => [...t, item]); return }
               item.onSelect()
               onClose()
             }}

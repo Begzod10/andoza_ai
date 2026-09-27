@@ -253,6 +253,10 @@ export function pieceShade(p: FloorPiece, r: ResolvedFloorPattern): number {
   return (p.tone ?? 0) + p.shade * SHADE_AMPLITUDE * r.variation
 }
 
+/** A floor piece's size limits, cm — a plank, a panel or a tile. */
+const MIN_PIECE_CM = 3
+const MAX_PIECE_CM = 300
+
 export function resolveFloorPattern(
   def: FloorPatternDef,
   settings: FloorPatternSettings | undefined,
@@ -261,8 +265,12 @@ export function resolveFloorPattern(
   const s = settings ?? {}
   const textureUrl = s.textureUrl || null
   return {
-    lM: clamp(s.plankLengthCm ?? def.defaultLengthCm, 10, 300) / 100,
-    wM: clamp(s.plankWidthCm ?? def.defaultWidthCm, 3, 40) / 100,
+    lM: clamp(s.plankLengthCm ?? def.defaultLengthCm, MIN_PIECE_CM, MAX_PIECE_CM) / 100,
+    // The width ceiling used to be 40 cm, which is generous for a plank and
+    // far too small for a tile: a 600 mm tile came out 600 x 400 and a
+    // 1200 x 600 came out 1200 x 400. Same ceiling as the length now, so a
+    // square tile stays square.
+    wM: clamp(s.plankWidthCm ?? def.defaultWidthCm, MIN_PIECE_CM, MAX_PIECE_CM) / 100,
     gapM: clamp(s.gapMm ?? DEFAULT_GAP_MM, 0, 8) / 1000,
     bevelM: clamp(s.bevelMm ?? DEFAULT_BEVEL_MM, 0, 3) / 1000,
     // Untextured: the wood colour itself. Textured: a tint multiplied over

@@ -18,8 +18,10 @@ type Call = [string, ...unknown[]]
 
 function harness() {
   const calls: Call[] = []
+  const settings: Record<string, unknown>[] = []
   return {
     calls,
+    settings,
     deps: {
       setSelectedWall: (id: string | null) => calls.push(['selectWall', id]),
       setActivePhase: (p: string) => calls.push(['phase', p]),
@@ -35,8 +37,10 @@ function harness() {
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
       setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
-      setFloorPattern: (floorType: string, patternId: string, st: { plankLengthCm?: number; plankWidthCm?: number }) =>
-        calls.push(['floor', floorType, patternId, st.plankLengthCm, st.plankWidthCm]),
+      setFloorPattern: (floorType: string, patternId: string, st: Record<string, unknown>) => {
+        settings.push(st)
+        calls.push(['floor', floorType, patternId, st.plankLengthCm, st.plankWidthCm])
+      },
     },
   }
 }
@@ -179,20 +183,51 @@ describe('tapping the floor', () => {
   })
 
   it('offers the tile sizes, 600x600 first', () => {
-    const { calls, deps } = harness()
+    const { deps } = harness()
     const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
     expect(kafel.children!.map((c) => c.label))
       .toEqual(['600×600', '300×600', '1200×600', '400×400'])
-    kafel.children![0].onSelect()
-    // Tile is always the same stack bond; the size is what is being chosen.
-    expect(calls).toContainEqual(['floor', 'tile', 'stake_bond', 60, 60])
   })
 
-  it('lays a 300x600 tile the long way along the floor', () => {
+  it('lays the tile once its face is picked — size and face are one choice', () => {
     const { calls, deps } = harness()
     const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
-    kafel.children!.find((c) => c.label === '300×600')!.onSelect()
+    const size = kafel.children!.find((c) => c.label === '300×600')!
+    // The size alone does nothing: it leads on to the face.
+    size.onSelect()
+    expect(calls).toEqual([])
+    size.children!.find((c) => c.label === 'Oddiy')!.onSelect()
+    // Tile is always the same stack bond; size and face are the choices.
     expect(calls).toContainEqual(['floor', 'tile', 'stake_bond', 60, 30])
+  })
+
+  it('offers a plain tile and the three marbles for every size', () => {
+    const { deps } = harness()
+    const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
+    for (const size of kafel.children!) {
+      expect(size.children!.map((c) => c.label))
+        .toEqual(['Oddiy', 'Marmar oq', 'Marmar qora', 'Marmar kulrang'])
+    }
+  })
+
+  it('lets the marble keep its own colours', () => {
+    // Multiplied by the tile grey, a white marble comes out grey.
+    const { settings, deps } = harness()
+    const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
+    kafel.children![0].children!.find((c) => c.label === 'Marmar oq')!.onSelect()
+    expect(settings[0].textureUrl).toBe('/floor/tile/marble-white.jpg')
+    expect(settings[0].baseColor).toBe('#ffffff')
+  })
+
+  it('runs the veining down a long tile, not across it', () => {
+    const { settings, deps } = harness()
+    const kafel = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'kafel')!
+    const long = kafel.children!.find((c) => c.label === '1200×600')!
+    long.children!.find((c) => c.label === 'Marmar kulrang')!.onSelect()
+    expect(settings[0].textureRotation).toBe(90)
+    const square = kafel.children!.find((c) => c.label === '600×600')!
+    square.children!.find((c) => c.label === 'Marmar kulrang')!.onSelect()
+    expect(settings[1].textureRotation).toBe(0)
   })
 })
 
