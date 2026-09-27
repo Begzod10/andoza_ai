@@ -20,6 +20,7 @@ import { nanoid } from "nanoid";
 import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
+import { clearOfOpenings } from "@/lib/electricalClearance";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
@@ -42,6 +43,7 @@ import { useCanvasFraming } from "./three-d/useCanvasFraming";
 import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts";
 import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
 import { PhaseStageNav } from "./three-d/PhaseStageNav";
+import { ModelToolbar } from "./three-d/ModelToolbar";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
@@ -306,6 +308,13 @@ export default function ThreeDPage() {
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
   const { radial, holdBind, closeRadial } = useSurfaceRadialMenu(controlsRef);
+  // Tapping a wall, the ceiling or the floor drops whatever was selected.
+  // onPointerMissed only fires on a tap that hits NOTHING, so a tap on the
+  // room itself left a model selected behind the ring — its outline, its tool
+  // column and its label all still up, over a menu about the wall.
+  const clearOnSurfaceTap = useRef(clearAllSelections);
+  clearOnSurfaceTap.current = clearAllSelections;
+  useEffect(() => { if (radial) clearOnSurfaceTap.current(); }, [radial]);
 
   // ── Drop a model file straight into the room ────────────────────────
   // Imported like a picked file, then placed immediately and the Mebel phase
@@ -361,7 +370,7 @@ export default function ThreeDPage() {
     wallId: string,
     point: { x: number; y: number; z: number } | undefined,
     type: string,
-    heightMm: number,
+    heightMmIn: number,
   ) {
     const g = wallGeom(wallId);
     if (!g || !point) return;
@@ -370,17 +379,28 @@ export default function ThreeDPage() {
     const margin = widthMm / 2 + 50;
     const lengthMm = g.length * 1000;
     const alongMm = g.alongM(point) * 1000;
+    // Tapping a wall through the door or window on it would otherwise mount
+    // the device on the leaf; the same rule the drag follows moves it clear.
+    const heightMm = fitDeviceHeightMm(heightMmIn, (dims?.h ?? 0.1) * 1000, H * 1000);
+    const openings = geometry.walls.find((w) => w.id === wallId)?.elements ?? [];
+    const positionMm = lengthMm <= margin * 2
+      ? lengthMm / 2
+      : clearOfOpenings(
+          alongMm,
+          { widthMm, bottomMm: heightMm, topMm: heightMm + (dims?.h ?? 0.1) * 1000 },
+          openings,
+          lengthMm,
+          margin,
+        );
     useRoomStore.getState().addElectrical({
       id: nanoid(),
       type: type as PlacedElectrical['type'],
       wallId,
-      positionMm: lengthMm <= margin * 2
-        ? lengthMm / 2
-        : Math.min(Math.max(alongMm, margin), lengthMm - margin),
+      positionMm,
       // Brought down if the room's ceiling is too low for it to hang at its
       // catalogue height — an air conditioner at 2400mm just fits a 2700mm
       // ceiling and would push through anything lower.
-      heightMm: fitDeviceHeightMm(heightMm, (dims?.h ?? 0.1) * 1000, H * 1000),
+      heightMm,
     });
     setActivePhase('montaj');
   }
@@ -690,6 +710,11 @@ export default function ThreeDPage() {
               </div>
             </div>
           )}
+
+          {/* The transform tools for whatever model is selected, down the
+              left edge. They come with the selection and go with it — see
+              ModelToolbar. */}
+          <ModelToolbar selectedId={selectedFurId} toolMode={toolMode} setToolMode={setToolMode} />
 
           {/* Bottom CTA. Hidden while the corner arc is open: the arc's own
               ring reaches across this spot, and the two stacked read as one
