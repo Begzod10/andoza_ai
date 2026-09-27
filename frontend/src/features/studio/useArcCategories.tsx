@@ -140,7 +140,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       trimProfilesOf(kind).map((def: TrimProfileDef) => ({
         key: `${kind}:${def.id}`,
         label: def.label,
-        fill: <TrimThumb def={def} />,
+        fill: <TrimThumb def={def} detail={false} />,
         // Switching profile adopts that profile's own catalogue sizes, the
         // same thing the panel's picker does.
         onSelect: () => setDesignState(

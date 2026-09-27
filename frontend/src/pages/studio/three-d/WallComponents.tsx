@@ -1205,6 +1205,14 @@ export const trimMat = (
   <meshStandardMaterial color="#E0D8CC" roughness={0.35} metalness={0.02} envMapIntensity={0.4} />
 );
 
+/** The same moulding, tinted the blue a selected wall or floor gets. */
+export const trimSelectedMat = (
+  <meshStandardMaterial
+    color="#E0D8CC" roughness={0.35} metalness={0.02} envMapIntensity={0.4}
+    emissive="#1E40AF" emissiveIntensity={0.25}
+  />
+);
+
 /**
  * One extruded run of trim, placed in the canonical wall frame (local +X along
  * the wall, +Z into the room) — the same frame the opening reveals use, so a
@@ -1216,6 +1224,7 @@ export const trimMat = (
  */
 export function TrimRun({
   trim, lengthM, mitreStart, mitreEnd, position, yaw, flipY, material,
+  onClick, isSelected,
 }: {
   trim: ResolvedTrim;
   lengthM: number;
@@ -1227,6 +1236,12 @@ export function TrimRun({
   /** Hang the profile downward from `position` — what a ceiling cornice wants. */
   flipY?: boolean;
   material?: React.ReactElement;
+  /** Selects this run. A run without one stays unpickable, as they all were:
+   *  these are slender things lying against the wall, and a raycast target on
+   *  every one of them would sit in front of the wall behind it. */
+  onClick?: () => void;
+  /** Tinted like a selected wall or floor, so it is clear which run is live. */
+  isSelected?: boolean;
 }) {
   const geo = useMemo(
     () => buildTrimGeometry({
@@ -1236,8 +1251,16 @@ export function TrimRun({
     [trim.def, trim.heightM, trim.widthM, lengthM, mitreStart, mitreEnd, flipY],
   );
   return (
-    <mesh geometry={geo} position={position} rotation={[0, yaw, 0]} castShadow={false} receiveShadow raycast={noRaycast}>
-      {material ?? trimMat}
+    <mesh
+      geometry={geo}
+      position={position}
+      rotation={[0, yaw, 0]}
+      castShadow={false}
+      receiveShadow
+      raycast={onClick ? THREE.Mesh.prototype.raycast : noRaycast}
+      onClick={onClick}
+    >
+      {material ?? (isSelected ? trimSelectedMat : trimMat)}
     </mesh>
   );
 }
@@ -1248,11 +1271,15 @@ export function TrimRun({
  * floor. `junctionY` comes from the active ceiling design, so the moulding
  * follows a dropped ceiling down rather than floating at the slab.
  */
-export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY }: {
+export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY, onClick, isSelected }: {
   width: number; depth: number; geometry: RoomGeometry;
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
   junctionY: number;
+  /** Selects the whole cornice — every run round the room is one thing to
+   *  the user, so picking any of them selects all of them. */
+  onClick?: () => void;
+  isSelected?: boolean;
 }) {
   const band: [number, number] = [(junctionY - trim.heightM) * 1000, junctionY * 1000];
   const walls = [
@@ -1267,7 +1294,7 @@ export function Cornice({ width, depth, geometry, hiddenWalls, trim, junctionY }
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
         return trimRuns(w.lenM, els, trim, w.runSign, band).map((r, i) => (
-          <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM} flipY
+          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM} flipY
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));
       })}
@@ -1322,10 +1349,13 @@ function trimRuns(
  * skipped entirely when the user has taken the skirting off, so nothing is
  * left behind at the wall/floor junction.
  */
-export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
+export function Baseboard({ width, depth, geometry, hiddenWalls, trim, onClick, isSelected }: {
   width: number; depth: number; geometry: RoomGeometry;
   hiddenWalls?: ReadonlySet<string>;
   trim: ResolvedTrim;
+  /** Selects the whole skirting, for the same reason the cornice does. */
+  onClick?: () => void;
+  isSelected?: boolean;
 }) {
   if (geometry.vertices && geometry.vertices.length >= 3) {
     const wallIds = geometry.walls.map((w) => w.id);
@@ -1367,7 +1397,7 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
               ? [along, 0, d.face]
               : [d.face, 0, along];
             return (
-              <TrimRun key={`${wall.id}-${i}`} trim={trim} lengthM={r.lengthM}
+              <TrimRun key={`${wall.id}-${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM}
                 mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={position} yaw={yaw} />
             );
           });
@@ -1393,7 +1423,7 @@ export function Baseboard({ width, depth, geometry, hiddenWalls, trim }: {
         if (hiddenWalls?.has(w.id)) return null;
         const els = geometry.walls.find((g) => g.id === w.id)?.elements ?? [];
         return trimRuns(w.lenM, els, trim, w.runSign).map((r, i) => (
-          <TrimRun key={`${w.id}${i}`} trim={trim} lengthM={r.lengthM}
+          <TrimRun key={`${w.id}${i}`} onClick={onClick} isSelected={isSelected} trim={trim} lengthM={r.lengthM}
             mitreStart={r.mitreStart} mitreEnd={r.mitreEnd} position={w.at(r.center)} yaw={w.yaw} />
         ));
       })}

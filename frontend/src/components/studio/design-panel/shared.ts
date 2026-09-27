@@ -36,6 +36,12 @@ export const FLOOR_TARGET: WallTargetOption = { key: "FLOOR", label: "Pol" };
  * target append this themselves alongside `getWallTargets`. */
 export const CEILING_TARGET: WallTargetOption = { key: "CEILING", label: "Shift" };
 
+/** The two trim runs. Not walls either, but they are things in the room a
+ * user points at and expects to be able to change, so they get their own
+ * targets rather than being buried in the floor and ceiling panels. */
+export const SKIRTING_TARGET: WallTargetOption = { key: "SKIRTING", label: "Plintus" };
+export const CORNICE_TARGET: WallTargetOption = { key: "CORNICE", label: "Karniz" };
+
 export const FLOOR_TYPES = [
   { key: "parquet",  label: "Parket"  },
   { key: "tile",     label: "Kafel"   },

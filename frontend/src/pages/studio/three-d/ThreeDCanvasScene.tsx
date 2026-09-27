@@ -251,6 +251,10 @@ export function ThreeDCanvasScene({
           onFloorClick={() => focusSurface('FLOOR')}
           isCeilingSelected={selectedWall === 'CEILING'}
           onCeilingClick={() => focusSurface('CEILING')}
+          isSkirtingSelected={selectedWall === 'SKIRTING'}
+          onSkirtingClick={() => focusSurface('SKIRTING')}
+          isCorniceSelected={selectedWall === 'CORNICE'}
+          onCorniceClick={() => focusSurface('CORNICE')}
           holdBind={holdBind}
         />
         {/* Interactive window/door editing layer (select → toolbar → drag

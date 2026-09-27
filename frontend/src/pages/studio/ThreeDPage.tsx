@@ -19,6 +19,7 @@ import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
 import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
+import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
@@ -367,6 +368,31 @@ export default function ThreeDPage() {
       heightMm: fitDeviceHeightMm(heightMm, (dims?.h ?? 0.1) * 1000, H * 1000),
     });
     setActivePhase('montaj');
+  }
+
+  /**
+   * Hang a fixture where the ceiling was tapped.
+   *
+   * The tap already says where the light goes, which is the one thing the
+   * panel would otherwise make the user supply twice — so the point is used
+   * directly, clamped inside the room rather than trusted blindly, since a
+   * tap near the edge would otherwise hang a chandelier in the wall.
+   */
+  function placeLightAt(point: { x: number; y: number; z: number } | undefined, type: string) {
+    if (!point) return;
+    const t = LIGHT_TYPES.find((l) => l.id === type);
+    const halfW = (t?.sizeM.w ?? 0.3) / 2;
+    const halfD = (t?.sizeM.d ?? 0.3) / 2;
+    const clamp = (v: number, half: number, span: number) =>
+      Math.min(Math.max(v, -span / 2 + half), span / 2 - half);
+    useRoomStore.getState().addLight({
+      id: nanoid(),
+      type: type as LightTypeId,
+      xMm: Math.round((clamp(point.x, halfW, W) + W / 2) * 1000),
+      zMm: Math.round((clamp(point.z, halfD, D) + D / 2) * 1000),
+      ...(t?.mount === 'wall' ? { wallId: 'A' as const } : {}),
+    });
+    setActivePhase('chiroq');
   }
 
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
@@ -794,6 +820,7 @@ export default function ThreeDPage() {
         radialItems={(r) => buildRadialItems(r, {
           setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
           placeElectrical: placeElectricalAt,
+          placeLight: placeLightAt,
         })}
         closeRadial={closeRadial}
       />

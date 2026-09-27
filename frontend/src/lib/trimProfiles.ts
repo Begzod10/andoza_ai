@@ -77,6 +77,14 @@ export interface TrimProfileDef {
   /** Metric sizes rounded from the sheet's imperial dimensions. */
   defaultHeightMm: number
   defaultWidthMm: number
+  /**
+   * The catalogue's own drawing of this section, with its dimensions on it.
+   * Shown in the picker in place of `path`'s silhouette, which carries the
+   * profile's shape but none of the millwork detail. `path` is still what the
+   * room is built from, and still what a profile without a drawing falls back
+   * to in the picker.
+   */
+  previewUrl?: string
 }
 
 /**
@@ -211,6 +219,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 65,
+    previewUrl: '/trim/cornice/t140.png',
     path: {
       start: [0, 0],
       steps: [
@@ -231,6 +240,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 65,
+    previewUrl: '/trim/cornice/t56.png',
     path: {
       start: [0, 0],
       steps: [
@@ -248,6 +258,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 80,
+    previewUrl: '/trim/cornice/t139.png',
     path: {
       start: [0, 0],
       steps: [
@@ -265,6 +276,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 80,
+    previewUrl: '/trim/cornice/t254.png',
     path: {
       start: [0, 0],
       steps: [
@@ -280,6 +292,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 90,
+    previewUrl: '/trim/cornice/t279.png',
     path: {
       start: [0, 0],
       steps: [
@@ -296,6 +309,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 95,
+    previewUrl: '/trim/cornice/t272.png',
     path: {
       start: [0, 0],
       steps: [
@@ -312,6 +326,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 100,
     defaultWidthMm: 98,
+    previewUrl: '/trim/cornice/t276.png',
     path: {
       start: [0, 0],
       steps: [
@@ -329,6 +344,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 101,
     defaultWidthMm: 60,
+    previewUrl: '/trim/cornice/t193.png',
     path: {
       start: [0, 0],
       steps: [
@@ -347,6 +363,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 102,
     defaultWidthMm: 25,
+    previewUrl: '/trim/cornice/t37.png',
     path: {
       start: [0, 0],
       steps: [
@@ -363,6 +380,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 102,
     defaultWidthMm: 72,
+    previewUrl: '/trim/cornice/t112.png',
     path: {
       start: [0, 0],
       steps: [
@@ -381,6 +399,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 103,
     defaultWidthMm: 113,
+    previewUrl: '/trim/cornice/t339.png',
     path: {
       start: [0, 0],
       steps: [
@@ -398,6 +417,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 50,
+    previewUrl: '/trim/cornice/t58.png',
     path: {
       start: [0, 0],
       steps: [
@@ -415,6 +435,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 73,
+    previewUrl: '/trim/cornice/t371.png',
     path: {
       start: [0, 0],
       steps: [
@@ -431,6 +452,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 88,
+    previewUrl: '/trim/cornice/t160.png',
     path: {
       start: [0, 0],
       steps: [
@@ -450,6 +472,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 102,
+    previewUrl: '/trim/cornice/t267.png',
     path: {
       start: [0, 0],
       steps: [
@@ -466,6 +489,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 105,
+    previewUrl: '/trim/cornice/t169.png',
     path: {
       start: [0, 0],
       steps: [
@@ -485,6 +509,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 120,
+    previewUrl: '/trim/cornice/t84.png',
     path: {
       start: [0, 0],
       steps: [
@@ -500,6 +525,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 105,
     defaultWidthMm: 120,
+    previewUrl: '/trim/cornice/t324.png',
     path: {
       start: [0, 0],
       steps: [
@@ -516,6 +542,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 106,
     defaultWidthMm: 98,
+    previewUrl: '/trim/cornice/t192.png',
     path: {
       start: [0, 0],
       steps: [
@@ -533,6 +560,7 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
     kind: 'cornice',
     defaultHeightMm: 110,
     defaultWidthMm: 70,
+    previewUrl: '/trim/cornice/t255.png',
     path: {
       start: [0, 0],
       steps: [

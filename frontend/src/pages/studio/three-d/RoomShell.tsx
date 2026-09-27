@@ -228,6 +228,10 @@ function NWallRoomShell({
   onFloorClick,
   isCeilingSelected,
   onCeilingClick,
+  isSkirtingSelected,
+  onSkirtingClick,
+  isCorniceSelected,
+  onCorniceClick,
   holdBind,
   cutaway = 'off',
   plasterWalls = false,
@@ -241,6 +245,10 @@ function NWallRoomShell({
   onFloorClick?: () => void;
   isCeilingSelected?: boolean;
   onCeilingClick?: () => void;
+  isSkirtingSelected?: boolean;
+  onSkirtingClick?: () => void;
+  isCorniceSelected?: boolean;
+  onCorniceClick?: () => void;
   /** Opens the surface radial menu (add door/window, wall image, ...). The
    *  ABCD shell has always spread this onto its surfaces; without it here a
    *  drawn room could select a wall but never act on it. */
@@ -521,6 +529,8 @@ function NWallRoomShell({
                 return (
                   <TrimRun
                     key={`cor-${si}`}
+                    onClick={onCorniceClick}
+                    isSelected={isCorniceSelected}
                     trim={cornice}
                     lengthM={s.len}
                     flipY
@@ -538,6 +548,8 @@ function NWallRoomShell({
                 return (
                   <TrimRun
                     key={`base-${si}`}
+                    onClick={onSkirtingClick}
+                    isSelected={isSkirtingSelected}
                     trim={trim}
                     lengthM={s.len}
                     mitreStart={fwd ? atLeft : atRight}
@@ -574,6 +586,10 @@ export const RoomScene = memo(function RoomScene({
   onFloorClick,
   isCeilingSelected,
   onCeilingClick,
+  isSkirtingSelected,
+  onSkirtingClick,
+  isCorniceSelected,
+  onCorniceClick,
   holdBind,
   plasterWalls = false,
 }: {
@@ -594,6 +610,12 @@ export const RoomScene = memo(function RoomScene({
    *  highlights it and points the design panel's "Shift" target at it. */
   isCeilingSelected?: boolean;
   onCeilingClick?: () => void;
+  /** The skirting and the cornice are each one thing to the user, however
+   *  many runs they are made of — picking any run selects the lot. */
+  isSkirtingSelected?: boolean;
+  onSkirtingClick?: () => void;
+  isCorniceSelected?: boolean;
+  onCorniceClick?: () => void;
   /** Long-press handler bundles per surface — spread onto wrapping groups so a
    *  press-and-hold on a wall/ceiling/floor opens the radial context menu. */
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
@@ -843,11 +865,13 @@ export const RoomScene = memo(function RoomScene({
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           {skirting && (
-            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting} />
+            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting}
+              onClick={onSkirtingClick} isSelected={isSkirtingSelected} />
           )}
           {cornice && (
             <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
-              trim={cornice} junctionY={corniceY} />
+              trim={cornice} junctionY={corniceY}
+              onClick={onCorniceClick} isSelected={isCorniceSelected} />
           )}
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
@@ -874,6 +898,10 @@ export const RoomScene = memo(function RoomScene({
             onFloorClick={onFloorClick}
             isCeilingSelected={isCeilingSelected}
             onCeilingClick={onCeilingClick}
+            isSkirtingSelected={isSkirtingSelected}
+            onSkirtingClick={onSkirtingClick}
+            isCorniceSelected={isCorniceSelected}
+            onCorniceClick={onCorniceClick}
             holdBind={holdBind}
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}

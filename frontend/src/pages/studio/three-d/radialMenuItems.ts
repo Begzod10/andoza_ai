@@ -2,6 +2,7 @@ import { RadialIcons, type RadialItem } from "@/components/studio/SurfaceRadialM
 import type { PhaseKey } from "@/lib/phases";
 import type { RadialState } from "./useSurfaceRadialMenu";
 import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constants";
+import { LIGHT_TYPES } from "@/lib/lightCatalog";
 
 /**
  * The context actions offered by the surface radial ("aylana") menu for
@@ -20,9 +21,11 @@ export function buildRadialItems(
     /** Drops a wall device at the tapped spot. Returns nothing — the menu
      *  closes either way. */
     placeElectrical: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: string, heightMm: number) => void;
+    /** Hangs a fixture where the ceiling was tapped. */
+    placeLight: (point: { x: number; y: number; z: number } | undefined, type: string) => void;
   },
 ): RadialItem[] {
-  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical } = deps;
+  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical, placeLight } = deps;
 
   if (r.surface === 'wall') {
     return [
@@ -57,8 +60,18 @@ export function buildRadialItems(
   if (r.surface === 'ceiling') {
     return [
       {
+        // The fixtures themselves, in the ring, rather than a jump to the
+        // panel: a ceiling tap already says where the light goes, and sending
+        // the user to a panel threw that away and made them place it again.
         key: 'light', label: 'Chiroq', icon: RadialIcons.light,
-        onSelect: () => { setActivePhase('chiroq'); setShowPanel(true); },
+        childLabel: 'Chiroq',
+        onSelect: () => {},
+        children: LIGHT_TYPES.map((t) => ({
+          key: `light:${t.id}`,
+          label: t.name,
+          icon: RadialIcons.light,
+          onSelect: () => placeLight(r.point, t.id),
+        })),
       },
       {
         key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,

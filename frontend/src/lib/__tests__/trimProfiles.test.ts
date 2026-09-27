@@ -5,6 +5,8 @@
  * announce themselves until someone puts one in a room.
  */
 import { describe, it, expect } from 'vitest'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   trimProfilesOf, trimProfileDef, resolveTrim,
   TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM,
@@ -126,5 +128,29 @@ describe('the cornice sheet', () => {
 
   it('lists them in the order the sheet reads', () => {
     expect(trimProfilesOf('cornice').map((p) => p.label)).toEqual(SHEET.map(([l]) => l))
+  })
+})
+
+describe('the catalogue drawings', () => {
+  // vitest runs from the frontend package root.
+  const PUBLIC = join(process.cwd(), 'public')
+
+  it('gives every cornice its section drawing', () => {
+    for (const def of trimProfilesOf('cornice')) {
+      expect(def.previewUrl, `${def.label} has no drawing`).toBeTruthy()
+    }
+  })
+
+  it('points every drawing at a file that is actually shipped', () => {
+    // A typo here is a broken image in the picker, and nothing else notices.
+    for (const def of trimProfilesOf('cornice')) {
+      const rel = def.previewUrl!.replace(/^\//, '')
+      expect(existsSync(join(PUBLIC, rel)), `${def.label}: missing ${def.previewUrl}`).toBe(true)
+    }
+  })
+
+  it('gives each profile its own drawing rather than sharing one', () => {
+    const urls = trimProfilesOf('cornice').map((p) => p.previewUrl)
+    expect(new Set(urls).size).toBe(urls.length)
   })
 })

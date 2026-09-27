@@ -211,8 +211,27 @@ export function SkirtingGroup() {
 
 /** The profile's real cross-section, drawn from the same outline the 3D
  *  extrusion uses — wall on the left, floor along the bottom. */
-export function TrimThumb({ def }: { def: TrimProfileDef }) {
+export function TrimThumb({ def, detail = true }: { def: TrimProfileDef; detail?: boolean }) {
   const d = useMemo(() => trimProfileSvgPath(def), [def]);
+  // The catalogue's own section drawing when there is one: it carries the
+  // milled detail and the dimensions, which a filled silhouette cannot. The
+  // silhouette stays as the fallback — it is generated from the same `path`
+  // the moulding is actually built from, so a profile without a drawing still
+  // previews as the thing the room will get.
+  //
+  // `detail={false}` asks for the silhouette anyway: in the corner menu's
+  // 50px circles a dimensioned drawing is unreadable, where the outline still
+  // tells a cove from an ogee.
+  if (detail && def.previewUrl) {
+    return (
+      <img
+        src={def.previewUrl}
+        alt=""
+        loading="lazy"
+        className="w-full aspect-square rounded-md bg-white object-contain p-0.5"
+      />
+    );
+  }
   return (
     <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
       {/* the wall face and the floor line the profile sits against */}

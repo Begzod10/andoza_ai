@@ -187,7 +187,7 @@ export function CeilingTargetPanel({ syncToApi }: {
  * so an absent choice means no cornice and the thumbnails double as the add
  * control.
  */
-function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => void }) {
+export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => void }) {
   const designState = useRoomStore((s) => s.designState);
   const setDesignState = useRoomStore((s) => s.setDesignState);
 
@@ -280,6 +280,19 @@ function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => void }) {
 /** The cornice's real cross-section: ceiling along the top, wall down the left. */
 function CorniceThumb({ def }: { def: TrimProfileDef }) {
   const d = React.useMemo(() => trimProfileSvgPath(def, true), [def]);
+  // The millwork sheet's own section drawing, dimensions and all — the detail
+  // a filled outline cannot carry. The outline below is still the fallback,
+  // and is generated from the same `path` the moulding is built from.
+  if (def.previewUrl) {
+    return (
+      <img
+        src={def.previewUrl}
+        alt=""
+        loading="lazy"
+        className="w-full aspect-square rounded-md bg-white object-contain p-0.5"
+      />
+    );
+  }
   return (
     <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
       <path d="M-6,0 L106,0" stroke="#CBD5E1" strokeWidth="3" fill="none" />

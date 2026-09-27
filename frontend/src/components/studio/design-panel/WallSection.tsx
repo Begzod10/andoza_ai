@@ -7,7 +7,9 @@ import { useRoomStore, resolveWallColor } from "@/store/roomStore";
 import type { WallCovering, DesignState } from "@/store/roomStore";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import { useDebounce } from "@/hooks/useDebounce";
-import { getWallTargets, FLOOR_TARGET, CEILING_TARGET, resolveTargetWall, type WallTarget } from "./shared";
+import { getWallTargets, FLOOR_TARGET, CEILING_TARGET, SKIRTING_TARGET, CORNICE_TARGET, resolveTargetWall, type WallTarget } from "./shared";
+import { SkirtingGroup } from "./FloorControls";
+import { CorniceGroup } from "./CeilingTargetPanel";
 import { CeilingTargetPanel } from "./CeilingTargetPanel";
 import { WallFloorTargetPanel } from "./WallFloorTargetPanel";
 import { WallPanelGenerator } from "./WallPanelGenerator";
@@ -111,7 +113,7 @@ export function WallSection({
   // the room's walls change (a hand-drawn polygon room's walls aren't a
   // fixed A/B/C/D set, unlike a legacy rectangle room's).
   const wallTargets = React.useMemo(
-    () => [...getWallTargets(geometry), FLOOR_TARGET, CEILING_TARGET],
+    () => [...getWallTargets(geometry), FLOOR_TARGET, CEILING_TARGET, SKIRTING_TARGET, CORNICE_TARGET],
     [geometry.walls],
   );
 
@@ -229,13 +231,18 @@ export function WallSection({
       {/* Floor controls when "Pol" is selected */}
       {targetWall === 'FLOOR' && <WallFloorTargetPanel handleSetFloorType={handleSetFloorType} />}
 
+      {/* The two trim runs, each with the same picker its own panel uses. */}
+      {targetWall === 'SKIRTING' && <SkirtingGroup />}
+      {targetWall === 'CORNICE' && <CorniceGroup syncToApi={syncToApi} />}
+
       {/* Bo'yoq / Oboy / Tekstura controls — only for actual walls. CEILING
        * has its own finish (the "Shift turi" section above, ceiling.settings.color) —
        * nothing here ever reads a 'CEILING' wallCoverings/wallPanels entry, so this
        * used to render fully-interactive paint/oboy/panel controls for the ceiling
        * that saved a value nothing displayed, while getPanelCount() below always
        * showed "0 dona" since no wall in geometry has id 'CEILING'. */}
-      {targetWall !== 'FLOOR' && targetWall !== 'CEILING' && (<>
+      {targetWall !== 'FLOOR' && targetWall !== 'CEILING'
+        && targetWall !== 'SKIRTING' && targetWall !== 'CORNICE' && (<>
       <section className="pt-5 border-t border-gray-100">
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           {(["paint", "texture"] as const).map((mode) => (
