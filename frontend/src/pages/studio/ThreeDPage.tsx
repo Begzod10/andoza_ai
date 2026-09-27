@@ -21,6 +21,8 @@ import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { clearOfOpenings } from "@/lib/electricalClearance";
+import { listWallpapers, type Wallpaper as WallpaperEntry } from "@/lib/api";
+import { resolveTargetWall } from "@/components/studio/design-panel/shared";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
@@ -405,6 +407,37 @@ export default function ThreeDPage() {
     setActivePhase('montaj');
   }
 
+  /** Papers the tapped wall — or every wall, when the tap carried none. */
+  function applyWallpaperTo(wallId: string | undefined, url: string) {
+    useRoomStore.getState().setWallCovering(resolveTargetWall(wallId ?? null), {
+      // The design panel's own default mapping: repeatX is tiles per metre,
+      // so 1.0 is a 100 x 100 cm sheet, undistorted.
+      kind: 'texture', url, color: '#ffffff',
+      repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0,
+    });
+  }
+
+  /**
+   * A window of a chosen style, at the tapped spot, in one go.
+   *
+   * `createOpening('deraza', ...)` opens NewWindowSheet to ask for width,
+   * height, style and colour. Picking the style off the ring answers the
+   * question the sheet exists for, so this takes the sheet's own default size
+   * and places the window directly; the sheet is still one tap away under
+   * "O'lchamli" for a window that has to be exact.
+   */
+  function createWindowStyled(
+    wallId: string,
+    point: { x: number; y: number; z: number } | undefined,
+    styleId: string,
+  ) {
+    const g = wallGeom(wallId);
+    if (!g || !point) return;
+    const { position, sill_height } = computeOpeningRect(g, point, 900, 1200, false);
+    addElement(wallId, { type: 'deraza', width: 900, height: 1200, sill_height, position, styleId });
+    setSelectedWall(wallId);
+  }
+
   /**
    * Hang a fixture where the ceiling was tapped.
    *
@@ -442,6 +475,14 @@ export default function ThreeDPage() {
   }, [setActivePhase]);
   const arcCategories = useArcCategories({ selectedWall, openPanelAt });
   const [arcOpen, setArcOpen] = useState(false);
+
+  // The same query key and scope the design panel's Oboy tab uses, so the ring
+  // and the panel share one cache entry and an upload in either shows in both.
+  const { data: wallpapers = [] } = useQuery<WallpaperEntry[]>({
+    queryKey: ['wallpapers', 'oboy'],
+    queryFn: () => listWallpapers({ kind: 'oboy' }),
+    staleTime: 60_000,
+  });
 
   const { wallGeom, computeOpeningRect, createOpening } = useOpeningCreation({
     W, D, H, geometry, addElement, setPendingWindowSpot, setSelectedWall,
@@ -862,6 +903,9 @@ export default function ThreeDPage() {
           placeElectrical: placeElectricalAt,
           placeLight: placeLightAt,
           setCornice: (trim) => useRoomStore.getState().setDesignState({ cornice: trim }),
+          wallpapers,
+          applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
+          createWindowStyled,
         })}
         closeRadial={closeRadial}
       />

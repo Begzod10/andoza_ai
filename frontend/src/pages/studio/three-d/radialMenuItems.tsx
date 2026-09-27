@@ -4,6 +4,7 @@ import type { RadialState } from "./useSurfaceRadialMenu";
 import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constants";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { trimProfilesOf } from "@/lib/trimProfiles";
+import { WINDOW_STYLES } from "@/lib/windowStyles";
 import { TrimThumb } from "@/components/studio/design-panel/FloorControls";
 
 /**
@@ -27,19 +28,74 @@ export function buildRadialItems(
     placeLight: (point: { x: number; y: number; z: number } | undefined, type: string) => void;
     /** Runs a cornice profile round the whole room. */
     setCornice: (trim: { id: string; heightMm: number; widthMm: number }) => void;
+    /** The wallpapers the design panel's Oboy tab lists — the same query, so
+     *  one upload shows up in both. */
+    wallpapers: { id: string | number; name: string; url: string }[];
+    /** Papers the tapped wall (or every wall, when none is picked). */
+    applyWallpaper: (url: string) => void;
+    /** Puts a window of that style where the wall was tapped, skipping the
+     *  size-and-style sheet. */
+    createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
   },
 ): RadialItem[] {
-  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical, placeLight, setCornice } = deps;
+  const {
+    setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
+    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, createWindowStyled,
+  } = deps;
+
+  /** Sends the user to the full panel — what a ring with nothing in it can
+   *  still usefully offer, and where a new paper gets uploaded. */
+  const openPaintPanel = (wallId: string | undefined) => {
+    setSelectedWall(wallId ?? 'ALL');
+    setActivePhase('boyoq');
+    setShowPanel(true);
+  };
 
   if (r.surface === 'wall') {
     return [
       {
+        // The papers themselves, in the ring. Tapping a wall says which wall
+        // is being papered, and the panel made the user say it again.
         key: 'paint', label: 'Rang', icon: RadialIcons.paint,
-        onSelect: () => { setSelectedWall(r.wallId ?? 'ALL'); setActivePhase('boyoq'); setShowPanel(true); },
+        childLabel: 'Rang',
+        onSelect: () => openPaintPanel(r.wallId),
+        children: [
+          ...wallpapers.map((w) => ({
+            key: `wp:${w.id}`,
+            label: w.name,
+            icon: RadialIcons.paint,
+            fill: <img src={w.url} alt="" loading="lazy" draggable={false}
+              className="absolute inset-0 w-full h-full object-cover" />,
+            onSelect: () => applyWallpaper(w.url),
+          })),
+          // Last, always: the ring can only show what has been uploaded, and
+          // the rest of the finishes — plain colours, uploads, the shop —
+          // live in the panel.
+          {
+            key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
+            onSelect: () => openPaintPanel(r.wallId),
+          },
+        ],
       },
       {
+        // Window styles, straight from the ring. The sheet that asked for
+        // width, height, style and colour is still there for a window that
+        // needs to be exact — this is for the common case.
         key: 'window', label: 'Oyna', icon: RadialIcons.window,
+        childLabel: 'Oyna',
         onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
+        children: [
+          ...WINDOW_STYLES.map((st) => ({
+            key: `win:${st.id}`,
+            label: st.label,
+            icon: RadialIcons.window,
+            onSelect: () => { if (r.wallId) createWindowStyled(r.wallId, r.point, st.id); },
+          })),
+          {
+            key: 'win:custom', label: "O'lchamli", icon: RadialIcons.add,
+            onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
+          },
+        ],
       },
       {
         key: 'door', label: 'Eshik', icon: RadialIcons.door,

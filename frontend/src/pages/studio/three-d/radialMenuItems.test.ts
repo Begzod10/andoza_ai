@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildRadialItems } from './radialMenuItems'
 import { trimProfilesOf } from '@/lib/trimProfiles'
+import { WINDOW_STYLES } from '@/lib/windowStyles'
 import type { RadialState } from './useSurfaceRadialMenu'
 
 type Call = [string, ...unknown[]]
@@ -28,6 +29,10 @@ function harness() {
       placeLight: (p: unknown, t: string) => calls.push(['light', t]),
       setCornice: (trim: { id: string; heightMm: number; widthMm: number }) =>
         calls.push(['cornice', trim.id, trim.heightMm, trim.widthMm]),
+      wallpapers: [{ id: 7, name: 'Oq gul', url: '/media/oq-gul.jpg' }],
+      applyWallpaper: (url: string) => calls.push(['paper', url]),
+      createWindowStyled: (w: string, p: unknown, styleId: string) =>
+        calls.push(['window', w, styleId]),
     },
   }
 }
@@ -41,6 +46,40 @@ describe('tapping a wall', () => {
     const { deps } = harness()
     expect(buildRadialItems(WALL!, deps as never).map((i) => i.label))
       .toEqual(['Rang', 'Oyna', 'Eshik', 'Elektr'])
+  })
+
+  it('papers the wall from the ring, without a trip to the panel', () => {
+    const { calls, deps } = harness()
+    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
+    rang.children!.find((c) => c.key === 'wp:7')!.onSelect()
+    expect(calls).toContainEqual(['paper', '/media/oq-gul.jpg'])
+    expect(calls.some((c) => c[0] === 'panel')).toBe(false)
+  })
+
+  it('still offers the panel, which is where a new paper comes from', () => {
+    // The ring can only show what has been uploaded; with nothing uploaded it
+    // would otherwise be an empty ring and a dead end.
+    const { calls, deps } = harness()
+    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
+    rang.children![rang.children!.length - 1].onSelect()
+    expect(calls).toContainEqual(['panel', true])
+  })
+
+  it('offers the window styles, and puts the picked one on the tapped wall', () => {
+    const { calls, deps } = harness()
+    const oyna = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'window')!
+    expect(oyna.children!.length).toBeGreaterThan(WINDOW_STYLES.length - 1)
+    oyna.children!.find((c) => c.key === 'win:double')!.onSelect()
+    expect(calls).toContainEqual(['window', 'A', 'double'])
+  })
+
+  it('keeps the sheet for a window that has to be exact', () => {
+    // Style alone does not fix width, height or colour, so the long way in
+    // must not disappear behind the shortcut.
+    const { calls, deps } = harness()
+    const oyna = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'window')!
+    oyna.children!.find((c) => c.key === 'win:custom')!.onSelect()
+    expect(calls).toContainEqual(['opening', 'A', 'deraza'])
   })
 
   it('puts a device on the wall that was tapped, at its catalogue height', () => {
