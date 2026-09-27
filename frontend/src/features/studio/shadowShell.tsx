@@ -44,6 +44,23 @@ export type ResolvedElMm = {
  */
 export const SHELL_T = 0.12
 
+/**
+ * How far the shell's opening is pulled in from the real one, per side, in
+ * metres.
+ *
+ * A door leaf is cut 6 mm narrower than its opening and a window sash likewise
+ * sits inside its frame — real clearances, invisible to look at. The shell,
+ * though, cut its hole at the FULL opening, so that clearance was a slot with
+ * nothing behind it: direct sun came through the few millimetres around the
+ * leaf and landed on the floor as a bright band down the side of the doorway
+ * (and around the window frame). Closing the hole by more than the clearance
+ * puts the slot behind solid shell.
+ *
+ * It only shifts where shadow falls, never what is drawn — the shell writes no
+ * colour — so a centimetre off each edge of the sunlit patch costs nothing.
+ */
+export const OPENING_SHADOW_INSET = 0.01
+
 const noRaycast = () => {}
 
 /**
@@ -83,20 +100,31 @@ function wallBoxes(
   const sorted = [...elements].sort((a, b) => a.position - b.position)
   let cursor = 0
   for (const el of sorted) {
-    const left = el.position
-    const right = el.position + el.width
-    const headM = (el.sill_height + el.height) * s
+    // Pull the hole in from each jamb and from the head, but never past a
+    // third of the opening — a narrow rooflight must still let light in, not
+    // be sealed over by two insets meeting in the middle.
+    const sideInset = Math.min(OPENING_SHADOW_INSET * 1000, el.width / 3)
+    const headInset = Math.min(OPENING_SHADOW_INSET * 1000, el.height / 3)
+    const left = el.position + sideInset
+    const right = el.position + el.width - sideInset
+    // A window sash clears its sill by the same few millimetres, so that edge
+    // needs closing too — but only where there IS a sill. A door leaf reaches
+    // the floor, and raising its hole would lay a bar across the threshold
+    // that an open door would cast a line from.
+    const sillInset = el.sill_height > 0 ? headInset : 0
+    const headM = (el.sill_height + el.height - headInset) * s
+    const bottomM = (el.sill_height + sillInset) * s
     // Pier to the left of the opening
     if (left > cursor) {
       push(((cursor + left) / 2 - totalMm / 2) * s, heightM / 2, (left - cursor) * s, heightM)
     }
     // Lintel above it
     if (headM < heightM) {
-      push(((left + right) / 2 - totalMm / 2) * s, headM + (heightM - headM) / 2, el.width * s, heightM - headM)
+      push(((left + right) / 2 - totalMm / 2) * s, headM + (heightM - headM) / 2, (right - left) * s, heightM - headM)
     }
-    // Spandrel below a window
-    if (el.sill_height > 0) {
-      push(((left + right) / 2 - totalMm / 2) * s, (el.sill_height * s) / 2, el.width * s, el.sill_height * s)
+    // Spandrel below a window, carried up past the sill to meet the sash
+    if (bottomM > 0) {
+      push(((left + right) / 2 - totalMm / 2) * s, bottomM / 2, (right - left) * s, bottomM)
     }
     cursor = right
   }
