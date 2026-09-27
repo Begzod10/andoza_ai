@@ -620,7 +620,7 @@ export default function WizardPage() {
       // though the store rehydrated the PREVIOUS room's designState (the paint
       // or oboi picked in the studio) from localStorage — which then silently
       // became the "new" room's design, instead of DEFAULT_DESIGN_STATE's bare
-      // brick. A wizard draft's designState is never user-chosen either (the
+      // plaster. A wizard draft's designState is never user-chosen either (the
       // wizard has no design controls; autosave just snapshots whatever the
       // store held), so resetting it on every new-room entry loses nothing.
       resetDesignState()
@@ -631,7 +631,7 @@ export default function WizardPage() {
           if ((s.wizardStep ?? 0) > 0) {
             loadDraftState(draft.state)
             // Resume keeps the draft's DIMENSIONS; its designState snapshot is
-            // stale store spillover (see above), so it still starts as brick.
+            // stale store spillover (see above), so it still starts bare.
             resetDesignState()
             setResumePrompt(true)
           } else {

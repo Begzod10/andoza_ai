@@ -228,11 +228,10 @@ export function ThreeDCanvasScene({
 
         {/* No phase-forced wall material: entering Suvoq used to force
             the photo-real plaster PBR onto every wall (plasterWalls was
-            `activePhase === 'suvoq'`, from the era when the Suvoq panel
-            was a passive info card and the default covering was bare
-            plaster anyway). New rooms now start with the brick baseline,
-            which must stay visible through every phase until the user
-            actually clicks a texture/color — so each wall simply renders
+            `activePhase === 'suvoq'`). The default is bare plaster again,
+            so that would mostly be a no-op now — but whatever a wall
+            carries must stay visible through every phase until the user
+            actually clicks a texture/color, so each wall simply renders
             its real covering; a 'plaster'-kind covering still gets the
             plaster PBR via WallSegment's own `covering.kind` check. */}
         <RoomScene

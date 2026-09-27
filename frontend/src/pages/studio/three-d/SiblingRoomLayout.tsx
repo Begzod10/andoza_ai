@@ -13,7 +13,7 @@ import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio
 import { useHiddenWalls, type CutawayMode } from "@/features/studio/diorama";
 import {
   ADD_ROOM_BTN_STYLE, SIBLING_LABEL_STYLE, SIBLING_DELETE_STYLE,
-  SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT, SIBLING_WALL_COLOR_DEFAULT,
+  SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT,
   type RoomSide,
 } from "./constants";
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
@@ -76,10 +76,10 @@ function SiblingWall({
   size: [number, number, number]
   coverings: DesignState['wallCoverings'] | undefined
 }) {
-  // A brand-new room has no saved coverings blob yet, but opened in the
-  // studio it renders DEFAULT_DESIGN_STATE (brick). Fall back to that same
-  // default here so a fresh neighbour reads as brick from inside the active
-  // room too, instead of a flat grey that contradicts what opening it shows.
+  // A brand-new room has no saved coverings blob yet, but opened in the studio
+  // it renders DEFAULT_DESIGN_STATE. Fall back to that same default here so a
+  // fresh neighbour reads the way opening it would, rather than some other
+  // colour that contradicts it.
   const covering = coverings
     ? resolveWallCovering(coverings, wallId)
     : DEFAULT_DESIGN_STATE.wallCoverings.ALL
@@ -95,7 +95,7 @@ function SiblingWall({
       (entry) => {
         // Clone (shares the image) so this wall's repeat doesn't fight other
         // users of the shared texture; scale by the covering's tiles-per-metre
-        // so bricks render near true size instead of one stretched tile.
+        // so a pattern renders near true size instead of one stretched tile.
         clone = entry.tex.clone()
         const along = Math.max(size[0], size[2])
         clone.repeat.set(
@@ -117,7 +117,12 @@ function SiblingWall({
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor)
   }, [covering])
 
-  const flatColor = coverings ? resolveWallColor(coverings, wallId) : SIBLING_WALL_COLOR_DEFAULT
+  // Read the default's own colour rather than naming a second one here: a
+  // hardcoded fallback is how this drifted out of step with the default in the
+  // first place.
+  const flatColor = coverings
+    ? resolveWallColor(coverings, wallId)
+    : resolveWallColor(DEFAULT_DESIGN_STATE.wallCoverings, wallId)
   const map = covering?.kind === 'texture' ? loadedTex : covering?.kind === 'oboy' ? oboyTex : null
 
   return (

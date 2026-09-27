@@ -149,7 +149,6 @@ export const SIBLING_FLOOR_COLOR_BY_TYPE: Record<string, string> = {
 
 export const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
 
-export const SIBLING_WALL_COLOR_DEFAULT = '#C9C2B4'
 
 
 // ─── View presets ─────────────────────────────────────────────────────────────

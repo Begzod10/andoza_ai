@@ -27,24 +27,20 @@ function isOversizedInline(url?: string | null): boolean {
 }
 
 export const DEFAULT_DESIGN_STATE: DesignState = {
-  // A brand-new room starts as bare stretcher-bond brick (user's decision,
-  // 2026-09-16) — the real state of a flat before any finishing work, and the
-  // baseline every phase builds on. The texture ships with the app; the
-  // Belcrest 500 Stretcher tile maps to 1000 × 1000 mm of wall per the user's
-  // explicit UVW spec (2026-09-19), so repeatX 1.0 (tiles-per-metre, = 1/1.0)
-  // renders bricks at true scale; the image is square, so repeatY 1.0
-  // preserves the 1 m vertical span.
+  // A brand-new room starts as bare plaster (user's decision, 2026-09-27,
+  // replacing the stretcher-bond brick that was the default from 2026-09-16).
+  // It is the same idea — the real state of a flat before any finishing work,
+  // the baseline every phase builds on — but without a texture that has to be
+  // painted over before the room looks like anything.
+  //
+  // `plaster` is a kind rather than an image: the wall renders with the
+  // plaster PBR treatment and PLASTER_BASE_COLOR, which is also what the Suvoq
+  // phase is about, so a new room opens already showing the phase it is on.
+  //
+  // Only new rooms are affected. A saved room carries its own wallCoverings
+  // and never falls back here.
   wallCoverings: {
-    ALL: {
-      kind: 'texture',
-      url: '/textures/brick_stretcher.jpg',
-      color: '#ffffff',
-      repeatX: 1.0,
-      repeatY: 1.0,
-      offsetX: 0,
-      offsetY: 0,
-      rotation: 0,
-    },
+    ALL: { kind: 'plaster' },
   },
   floorType: 'parquet',
   floorConfigured: false,
