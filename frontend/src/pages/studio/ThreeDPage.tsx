@@ -163,9 +163,13 @@ export default function ThreeDPage() {
     peakIntensity: highQuality3d ? 1.3 : 1.0,
   }), [sunHour, today, highQuality3d]);
   const [showHelp, setShowHelp] = useState(false);
-  // LiDAR scan reference layer (GLB overlay + object ghost boxes). OFF by
-  // default — it is a pure reference aid, never part of the default view.
-  const [showScan, setShowScan] = useState(false);
+  // LiDAR scan reference layer (GLB overlay + object ghost boxes). ON by
+  // default when the room actually has scan data, so a user who just
+  // finished a LiDAR scan immediately sees their detected furniture instead
+  // of landing on what looks like an empty room — previously this required
+  // manually finding and toggling "Skan ko'rinishi" with no visible cue
+  // anything had been detected.
+  const [showScan, setShowScan] = useState(() => !!room.room_scan);
   // Ghost indices already swapped for a real catalog model — hidden from then on.
   const [replacedGhosts, setReplacedGhosts] = useState<Set<number>>(() => new Set());
   // The scanned-object ghost currently being replaced from the catalog, if any.

@@ -2,6 +2,13 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { uploadRoomThumbnail } from "@/lib/api";
 import { slugifyFileName } from "./helpers";
 
+declare global {
+  interface Window {
+    /** See useRoomThumbnailCapture's manual-trigger comment below. */
+    __captureRoomThumbnail?: () => void;
+  }
+}
+
 /**
  * Grabs the live 3D canvas as image data — either automatically for the
  * project-card thumbnail, or on demand for the user-facing "Skrinshot"
@@ -17,18 +24,31 @@ import { slugifyFileName } from "./helpers";
  * Fire-and-forget: a failed capture should never surface as a user-facing
  * error mid-navigation, and the next capture just replaces it.
  */
+function captureAndUpload(canvas: HTMLCanvasElement, roomId: string) {
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    uploadRoomThumbnail(roomId, blob).catch(() => {});
+  }, 'image/jpeg', 0.8);
+}
+
 export function useRoomThumbnailCapture(glCanvasRef: RefObject<HTMLCanvasElement | null>, roomId: string) {
   const roomIdRef = useRef(roomId);
   roomIdRef.current = roomId;
   useEffect(() => {
+    // Also expose a manual trigger: the mobile app embeds this page in a
+    // WebView and may tear it down natively (app-bar back, system back
+    // gesture) without the SPA itself ever unmounting this component, so the
+    // cleanup-based capture below wouldn't fire. The native shell calls this
+    // via runJavaScript just before it destroys the WebView. Harmless no-op
+    // for the plain web app, which never calls it.
+    window.__captureRoomThumbnail = () => {
+      const canvas = glCanvasRef.current;
+      if (canvas) captureAndUpload(canvas, roomIdRef.current);
+    };
     return () => {
       const canvas = glCanvasRef.current;
-      if (!canvas) return;
-      const capturedRoomId = roomIdRef.current;
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        uploadRoomThumbnail(capturedRoomId, blob).catch(() => {});
-      }, 'image/jpeg', 0.8);
+      if (canvas) captureAndUpload(canvas, roomIdRef.current);
+      if (window.__captureRoomThumbnail) delete window.__captureRoomThumbnail;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
