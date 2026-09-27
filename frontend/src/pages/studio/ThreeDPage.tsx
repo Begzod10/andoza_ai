@@ -88,18 +88,13 @@ THREE.ColorManagement.enabled = true;
 export interface StudioContext {
   room: Room;
   onSave: () => Promise<void>;
-  /** DOM node (rendered by StudioPage's header) this page portals its own
-   *  collapsed menu-trigger buttons into, so they land in the header's one
-   *  row instead of stacking as separate rows below it. Null until the
-   *  header has mounted the slot. */
-  toolbarSlot?: HTMLDivElement | null;
-  /** Header height, reused as this page's own TopDrawers' topOffset so they
-   *  open flush below the (now shared) header row. */
-  toolbarSlotTop?: number;
   /** The middle of the header row, where the tab strip goes. Null until the
    *  header has mounted it — and absent entirely on a page that is not inside
    *  StudioPage's layout, which keeps the strip floating over its viewport. */
   tabSlot?: HTMLDivElement | null;
+  /** A node inside the header's ⋮ dropdown, for this page's own menu rows.
+   *  Null while the dropdown is closed. */
+  menuSlot?: HTMLDivElement | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -107,7 +102,7 @@ export interface StudioContext {
 export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
-  const { room, onSave, toolbarSlot, toolbarSlotTop, tabSlot } = useOutletContext<StudioContext>();
+  const { room, onSave, tabSlot, menuSlot } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -275,12 +270,6 @@ export default function ThreeDPage() {
         ? (phaseParam as PhaseKey)
         : 'boyoq'
   const [activePhase, setActivePhase] = useState<PhaseKey>(initialPhase)
-  // The toolbar is collapsed into a single round TopDrawerButton, portaled
-  // into StudioPage's header row rather than stacking as a row of its own.
-  // Its topOffset comes straight from the header's own measured height
-  // (toolbarSlotTop), since that's the only fixed chrome it opens beneath.
-  // (The stage picker sat beside it until it was removed — see PhaseStageNav.)
-  const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -568,10 +557,7 @@ export default function ThreeDPage() {
             is the studio's only toolbar row now that the header absorbed the
             old separate tab-nav row (see StudioPage.tsx). */}
         <ToolsDrawerPanel
-          toolbarSlot={toolbarSlot}
-          toolbarSlotTop={toolbarSlotTop}
-          toolsDrawerOpen={toolsDrawerOpen}
-          setToolsDrawerOpen={setToolsDrawerOpen}
+          menuSlot={menuSlot}
           hasScan={hasScan}
           showScan={showScan}
           setShowScan={setShowScan}

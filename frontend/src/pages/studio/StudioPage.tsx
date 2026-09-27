@@ -38,27 +38,16 @@ export default function StudioPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Measured (not hardcoded) header height, fed to StudioNav's TopDrawer as
-  // its topOffset so the drawer opens flush below the header row regardless
-  // of how tall that row renders at a given breakpoint (it varies: py-2 vs
-  // lg:py-3 padding, plus the two-line title/subtitle that's hidden below sm).
+  // The header used to be measured, to place the drawers that opened beneath
+  // it. There are none left — the last of them moved into the ⋮ menu — so the
+  // height is nobody's business any more.
   const headerRef = useRef<HTMLElement | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const updateHeight = () => setHeaderHeight(el.getBoundingClientRect().height);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  // DOM node the active tab (via Outlet context) portals its own collapsed
-  // menu-trigger buttons into, so they render inside this header row instead
-  // of a separate row of their own. A ref alone wouldn't do — the context
-  // value passed to <Outlet> needs to change (state) once the node mounts.
-  const [toolbarSlotEl, setToolbarSlotEl] = useState<HTMLDivElement | null>(null);
   const [tabSlotEl, setTabSlotEl] = useState<HTMLDivElement | null>(null);
+  // A slot inside the ⋮ dropdown for the current tab's own menu rows (the 3D
+  // view's scan toggle, sun clock, AI builder and design-panel button). Null
+  // while the dropdown is closed, which is exactly when they should not
+  // render — see ToolsDrawerPanel.
+  const [menuSlotEl, setMenuSlotEl] = useState<HTMLDivElement | null>(null);
   // Focus targets for the share popover's focus management: the kebab
   // button is the stable "trigger" to restore focus to on close (the
   // "Ulashish" menu item that actually opened it unmounts immediately,
@@ -463,11 +452,6 @@ export default function StudioPage() {
                 <path d="M11 4L6 9l5 5"/>
               </svg>
             </NavLink>
-            {/* A portal slot the current tab's own round trigger buttons (the
-                tools drawer) render into via Outlet context, so a tab's
-                collapsed menus sit beside the back button rather than in a
-                row of their own. */}
-            <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
             <button
               className="min-w-0 text-left hidden sm:block"
               onClick={() => setSettingsOpen(true)}
@@ -541,7 +525,8 @@ export default function StudioPage() {
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px]">
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px] max-w-[85vw]">
+                  <div ref={setMenuSlotEl} />
                   {room.id !== 'local' && (
                     <button
                       onClick={handleShareClick}
@@ -658,7 +643,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave, toolbarSlot: toolbarSlotEl, toolbarSlotTop: headerHeight, tabSlot: tabSlotEl }} />
+          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl }} />
         </Suspense>
       </main>
     </div>

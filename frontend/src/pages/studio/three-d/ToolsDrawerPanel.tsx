@@ -1,33 +1,32 @@
 import type { Dispatch, SetStateAction } from "react";
-import { Wrench } from "lucide-react";
 import { createPortal } from "react-dom";
-import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { uz } from "@/locale/uz";
 import { formatClock } from "./helpers";
 
 /**
- * The studio's collapsed "Asboblar" toolbar drawer: the scan overlay for a
- * scanned room, the sun clock, the AI-builder entry point and the mobile
- * design-panel toggle. Split out of ThreeDPage.tsx — see that file's header
- * comment for the full picture.
+ * What used to be the studio's "Asboblar" drawer, reduced to the three things
+ * it still carries — the scan overlay, the sun clock, the AI builder and the
+ * design-panel toggle — and moved into the header's ⋮ menu.
  *
- * It used to carry the tool modes, undo/redo, help/recentre/screenshot and
- * the day-night toggles too. Those were removed at the user's request
- * (2026-09-28): the transform tools now sit beside the selected model
- * (ModelToolbar) and undo/redo keep their keyboard shortcuts.
+ * The drawer and its wrench button were removed at the user's request
+ * (2026-09-28), the last of a series: the section menu, the phases button, the
+ * placement tabs, the tool modes, undo/redo, the view controls and the
+ * day-night toggles all went before it. Rather than lose what was left, it
+ * rides in the menu that already exists beside Ulashish and O'chirish.
+ *
+ * Renders nothing at all until that menu is open, since `menuSlot` is the node
+ * inside the dropdown.
  */
 export function ToolsDrawerPanel({
-  toolbarSlot, toolbarSlotTop, toolsDrawerOpen, setToolsDrawerOpen,
+  menuSlot,
   hasScan, showScan, setShowScan,
   sceneLightOn,
   sunHour, setSunHour,
   setShowAiSheet,
   setShowPanel,
 }: {
-  toolbarSlot?: HTMLDivElement | null;
-  toolbarSlotTop?: number;
-  toolsDrawerOpen: boolean;
-  setToolsDrawerOpen: Dispatch<SetStateAction<boolean>>;
+  /** A node inside the header's ⋮ dropdown; null while it is closed. */
+  menuSlot?: HTMLDivElement | null;
   hasScan: boolean;
   showScan: boolean;
   setShowScan: Dispatch<SetStateAction<boolean>>;
@@ -38,17 +37,9 @@ export function ToolsDrawerPanel({
   setShowAiSheet: Dispatch<SetStateAction<boolean>>;
   setShowPanel: Dispatch<SetStateAction<boolean>>;
 }) {
-  return (
-    <>
-      {toolbarSlot && createPortal(
-        <TopDrawerButton active={toolsDrawerOpen} onClick={() => setToolsDrawerOpen((v) => !v)} label="Asboblar">
-          <Wrench size={18} strokeWidth={2} />
-        </TopDrawerButton>,
-        toolbarSlot,
-      )}
-      <TopDrawer open={toolsDrawerOpen} onOpenChange={setToolsDrawerOpen} title="Asboblar" topOffset={toolbarSlotTop ?? 0}>
-        <div className="flex flex-col divide-y divide-gray-100 pb-2">
-
+  if (!menuSlot) return null;
+  return createPortal(
+    <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
           {/* The LiDAR reference layer: the scan GLB plus a ghost box per
               detected object, over the modelled room. Only a scanned room has
               one, so the whole section goes with it. */}
@@ -141,8 +132,7 @@ export function ToolsDrawerPanel({
             </button>
           </div>
 
-        </div>
-      </TopDrawer>
-    </>
+    </div>,
+    menuSlot,
   );
 }

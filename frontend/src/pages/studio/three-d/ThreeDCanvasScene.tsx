@@ -28,7 +28,7 @@ import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting } from "./SceneEnvironment";
-import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
+import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator, LookAroundRotate } from "./CameraControls";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -338,6 +338,9 @@ export function ThreeDCanvasScene({
 
         <RealismEffects enabled={useComposer} />
 
+        {/* A one-finger drag looks around from where the camera stands,
+            instead of flying it round the pivot — see LookAroundRotate. */}
+        <LookAroundRotate controlsRef={controlsRef} />
         <OrbitControls
           ref={controlsRef}
           makeDefault
