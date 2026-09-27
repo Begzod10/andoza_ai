@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { buildRadialItems } from './radialMenuItems'
+import { trimProfilesOf } from '@/lib/trimProfiles'
 import type { RadialState } from './useSurfaceRadialMenu'
 
 type Call = [string, ...unknown[]]
@@ -25,6 +26,8 @@ function harness() {
       setShowAddSheet: (v: boolean) => calls.push(['addSheet', v]),
       placeElectrical: (w: string, p: unknown, t: string, h: number) => calls.push(['electrical', w, t, h]),
       placeLight: (p: unknown, t: string) => calls.push(['light', t]),
+      setCornice: (trim: { id: string; heightMm: number; widthMm: number }) =>
+        calls.push(['cornice', trim.id, trim.heightMm, trim.widthMm]),
     },
   }
 }
@@ -73,6 +76,32 @@ describe('tapping the ceiling', () => {
     const chandelier = chiroq.children!.find((c) => c.key === 'light:chandelier')!
     chandelier.onSelect()
     expect(calls).toContainEqual(['light', 'chandelier'])
+  })
+
+  it('offers the cornice profiles, since the cornice runs along the ceiling edge', () => {
+    const { deps } = harness()
+    const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
+    expect(karniz.label).toBe('Karniz')
+    // The whole T-series sheet, not a handful of them.
+    expect(karniz.children!.length).toBe(trimProfilesOf('cornice').length)
+    expect(karniz.children!.map((c) => c.label)).toContain('T 140')
+  })
+
+  it('runs the picked profile at its own catalogue size', () => {
+    // Adopting the profile's sizes is what the panel and the corner menu do;
+    // keeping the previous profile's numbers would render the wrong section.
+    const { calls, deps } = harness()
+    const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
+    const def = trimProfilesOf('cornice')[3]
+    karniz.children!.find((c) => c.key === `cornice:${def.id}`)!.onSelect()
+    expect(calls).toContainEqual(['cornice', def.id, def.defaultHeightMm, def.defaultWidthMm])
+  })
+
+  it('picks a cornice without sending the user to the panel', () => {
+    const { calls, deps } = harness()
+    const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
+    karniz.children![0].onSelect()
+    expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 
   it('still offers the ceiling type picker', () => {

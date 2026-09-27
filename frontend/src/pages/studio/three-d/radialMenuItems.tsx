@@ -3,6 +3,8 @@ import type { PhaseKey } from "@/lib/phases";
 import type { RadialState } from "./useSurfaceRadialMenu";
 import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constants";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
+import { trimProfilesOf } from "@/lib/trimProfiles";
+import { TrimThumb } from "@/components/studio/design-panel/FloorControls";
 
 /**
  * The context actions offered by the surface radial ("aylana") menu for
@@ -23,9 +25,11 @@ export function buildRadialItems(
     placeElectrical: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: string, heightMm: number) => void;
     /** Hangs a fixture where the ceiling was tapped. */
     placeLight: (point: { x: number; y: number; z: number } | undefined, type: string) => void;
+    /** Runs a cornice profile round the whole room. */
+    setCornice: (trim: { id: string; heightMm: number; widthMm: number }) => void;
   },
 ): RadialItem[] {
-  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical, placeLight } = deps;
+  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical, placeLight, setCornice } = deps;
 
   if (r.surface === 'wall') {
     return [
@@ -71,6 +75,28 @@ export function buildRadialItems(
           label: t.name,
           icon: RadialIcons.light,
           onSelect: () => placeLight(r.point, t.id),
+        })),
+      },
+      {
+        // The cornice belongs to the ceiling edge, so it is offered from the
+        // ceiling tap as well as the corner menu. The profiles show as their
+        // own cross-sections (`detail={false}`): in a 20px icon the
+        // catalogue's dimensioned drawing is unreadable, while the outline
+        // still tells a cove from an ogee, and the T-code names it below.
+        key: 'karniz', label: 'Karniz', icon: RadialIcons.cornice,
+        childLabel: 'Karniz',
+        onSelect: () => {},
+        children: trimProfilesOf('cornice').map((def) => ({
+          key: `cornice:${def.id}`,
+          label: def.label,
+          icon: <TrimThumb def={def} detail={false} />,
+          // Picking a profile adopts its own catalogue sizes, the same thing
+          // the panel's picker and the corner menu do.
+          onSelect: () => setCornice({
+            id: def.id,
+            heightMm: def.defaultHeightMm,
+            widthMm: def.defaultWidthMm,
+          }),
         })),
       },
       {

@@ -245,7 +245,7 @@ export default function ThreeDPage() {
   // Suvoq + Shpaklovka). Earlier stages then render as done via the existing
   // positional check-mark logic. The wizard's post-creation hand-off passes
   // ?phase=suvoq so a brand-new room opens at the START of the phase flow
-  // (its walls are still bare brick — nothing has been done to them yet).
+  // (its walls are still bare plaster — nothing has been done to them yet).
   // Falls back to the historical 'boyoq' default, which now only applies to
   // REOPENING a room (projects list, tab switches, direct links).
   const phaseParam = new URLSearchParams(location.search).get('phase')
@@ -826,6 +826,7 @@ export default function ThreeDPage() {
           setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
           placeElectrical: placeElectricalAt,
           placeLight: placeLightAt,
+          setCornice: (trim) => useRoomStore.getState().setDesignState({ cornice: trim }),
         })}
         closeRadial={closeRadial}
       />

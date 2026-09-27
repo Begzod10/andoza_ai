@@ -326,4 +326,14 @@ export const RadialIcons = {
       <path d="M8 16h8" />
     </svg>
   ),
+  // The corner the cornice sits in, seen in section: ceiling across the top,
+  // wall down the side, and the coved moulding bridging them.
+  cornice: (
+    <svg {...ico}>
+      <path d="M4 5h16" />
+      <path d="M5 4v16" />
+      <path d="M5 12c4.5 0 7-2.5 7-7" />
+      <path d="M5 12h1.5M12 5V3.5" strokeWidth="1.2" />
+    </svg>
+  ),
 }
