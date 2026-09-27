@@ -10,6 +10,7 @@ import { TYPE_LABEL } from "@/pages/studio/placement/constants";
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { wallDefsFromVertices, type PolyWallDef } from "@/lib/wallDefsFromVertices";
 import { alongWallM, wallMountFrame, wallMountPoint } from "@/lib/wallMountFrame";
+import { clearOfOpenings } from "@/lib/electricalClearance";
 
 /**
  * Wall-mounted electrical devices (switches, sockets, panels) and their
@@ -61,12 +62,16 @@ function DraggableElectricalItem({
 
   if (isAc) {
     return (
-      <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}>
+      // The handlers belong to the whole device, not to the one mesh that
+      // happens to be its body: pressing the louvre or the seam used to miss
+      // the unit entirely and hit the wall behind it, which opened the wall
+      // menu instead of dragging the unit or offering to delete it.
+      <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
+        onPointerDown={onPointerDown}
+        onPointerEnter={() => { document.body.style.cursor = 'grab' }}
+        onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
         {/* Body — rounded-looking white case standing off the wall. */}
-        <mesh castShadow receiveShadow
-          onPointerDown={onPointerDown}
-          onPointerEnter={() => { document.body.style.cursor = 'grab' }}
-          onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+        <mesh castShadow receiveShadow>
           <boxGeometry args={[dim.w, dim.h, depth]} />
           <meshStandardMaterial color="#F5F5F2" roughness={0.45} metalness={0.05}
             emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.08 : 0} />
@@ -87,11 +92,11 @@ function DraggableElectricalItem({
 
   if (isPanel) {
     return (
-      <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}>
-        <mesh castShadow
-          onPointerDown={onPointerDown}
-          onPointerEnter={() => { document.body.style.cursor = 'grab' }}
-          onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+      <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
+        onPointerDown={onPointerDown}
+        onPointerEnter={() => { document.body.style.cursor = 'grab' }}
+        onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+        <mesh castShadow>
           <boxGeometry args={[dim.w, dim.h, depth]} />
           <meshStandardMaterial color="#E8E4DC" roughness={0.6} metalness={0.1}
             emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.08 : 0}/>
@@ -117,11 +122,11 @@ function DraggableElectricalItem({
   }
 
   return (
-    <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}>
-      <mesh castShadow
-        onPointerDown={onPointerDown}
-        onPointerEnter={() => { document.body.style.cursor = 'grab' }}
-        onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+    <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
+      onPointerDown={onPointerDown}
+      onPointerEnter={() => { document.body.style.cursor = 'grab' }}
+      onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
+      <mesh castShadow>
         <boxGeometry args={[dim.w, dim.h, depth]} />
         <meshStandardMaterial color="#F5F5F0" roughness={0.5} metalness={0.05}
           emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.1 : 0}/>
@@ -214,6 +219,13 @@ export function DraggableElectricalModels({
       normal, new THREE.Vector3(frame.midX, 0, frame.midZ),
     )
     const wallLenMm = frame.length * 1000
+    const openings = geometry.walls.find(w => w.id === el.wallId)?.elements ?? []
+    const dim = ELECTRICAL_DIMS[el.type] ?? { w: 0.08, h: 0.08 }
+    const band = {
+      widthMm: dim.w * 1000,
+      bottomMm: el.heightMm,
+      topMm: el.heightMm + dim.h * 1000,
+    }
     const canvas = gl.domElement
 
     const handleMove = (e: PointerEvent) => {
@@ -224,9 +236,10 @@ export function DraggableElectricalModels({
       )
       raycaster.setFromCamera(ndc, camera)
       if (!raycaster.ray.intersectPlane(wallPlane, hitPoint.current)) return
-      let posMm = alongWallM(frame, hitPoint.current) * 1000
-      posMm = Math.max(100, Math.min(wallLenMm - 100, posMm))
-      dragPosMmRef.current = posMm
+      const posMm = alongWallM(frame, hitPoint.current) * 1000
+      // Clamped to the wall AND off any door or window it would land on —
+      // a socket dragged across the door used to stop on the leaf.
+      dragPosMmRef.current = clearOfOpenings(posMm, band, openings, wallLenMm)
     }
 
     canvas.addEventListener('pointermove', handleMove)
@@ -236,7 +249,7 @@ export function DraggableElectricalModels({
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId, W, D, polyDefs])
+  }, [draggingId, W, D, polyDefs, geometry])
 
   if (electricals.length === 0) return null
   return (

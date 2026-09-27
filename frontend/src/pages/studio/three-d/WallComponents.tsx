@@ -1,6 +1,6 @@
 import * as React from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import type { WallCovering, WallPanelSettings, RoomGeometry, WallElement } from "@/store/roomStore";
@@ -1260,8 +1260,14 @@ export function TrimRun({
       castShadow={false}
       receiveShadow
       raycast={onClick ? THREE.Mesh.prototype.raycast : noRaycast}
-      onClick={onClick}
-      onPointerDown={onHoldDown}
+      // A run lies flat against the wall, so the same raycast that hits it
+      // hits the wall behind — and without this the wall's own handler ran
+      // too, opening the Devor menu (Rang/Oyna/Eshik/Elektr) over a tap that
+      // was meant for the skirting. Stopping it here keeps the nearest thing
+      // the thing that was touched, for the press as well as the click: a
+      // hold on the trim offers to delete it rather than opening that menu.
+      onClick={onClick ? (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(); } : undefined}
+      onPointerDown={onHoldDown ? (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHoldDown(e); } : undefined}
     >
       {material ?? (isSelected ? trimSelectedMat : trimMat)}
     </mesh>
