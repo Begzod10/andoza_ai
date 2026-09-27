@@ -381,3 +381,27 @@
 .bg-paper {
   background-color: var(--color-app-bg);
 }
+
+/* ── Custom 3D cursor across the whole app ─────────────────────────────────
+   The pointer becomes a glossy, puffed 3D black arrow everywhere (hotspot at
+   the arrow tip). Text fields keep a usable caret and disabled controls keep
+   not-allowed, so the theme never breaks usability. */
+:root {
+  --cursor-3d: url('/cursor-arrow-3d.svg') 5 4, auto;
+}
+html,
+body,
+*,
+*::before,
+*::after {
+  cursor: var(--cursor-3d) !important;
+}
+input:not([type='button']):not([type='submit']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+textarea,
+[contenteditable='true'] {
+  cursor: text !important;
+}
+:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed !important;
+}

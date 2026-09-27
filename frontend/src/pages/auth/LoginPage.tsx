@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
+import RegisterBackground from "./RegisterBackground";
 
 // Inset "pressed" neumorphic field, matched to the login card surface.
 const FIELD_BASE =
@@ -143,7 +145,17 @@ export default function LoginPage() {
 
   // ── Render ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#e6e7ee] flex flex-col items-center justify-center px-5">
+    <div className="relative min-h-screen bg-[#e6e7ee] flex flex-col items-center justify-center px-5">
+      {/* Renovation scene behind the whole auth page (login + register). */}
+      <RegisterBackground />
+
+      {/* All content (brand, card, text) fades in slowly on load. */}
+      <motion.div
+        className="relative z-10 flex w-full flex-col items-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.6, ease: "easeOut" }}
+      >
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center">
         <img src="/icon.svg" alt="AndozaAI" className="w-14 h-14 mb-3" />
@@ -268,6 +280,7 @@ export default function LoginPage() {
       </div>
 
       <p className="text-xs text-muted mt-6 text-center opacity-60">AndozaAI v1.0.0</p>
+      </motion.div>
     </div>
   );
 }
