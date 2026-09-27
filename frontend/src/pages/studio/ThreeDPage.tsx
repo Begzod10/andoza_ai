@@ -18,6 +18,8 @@ export { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
 import { furniturePlacementMm } from "@/lib/placement";
+import { ELECTRICAL_DIMS } from "./three-d/constants";
+import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
 import { sunPosition, dayOfYear } from "@/lib/sunPosition";
@@ -327,6 +329,40 @@ export default function ThreeDPage() {
     // opens on the same click — so we no longer force the paint panel here.
     setSelOpening(null);
     setSelectedWall(id);
+  }
+
+  /**
+   * Drop a socket/switch where the wall was tapped.
+   *
+   * The tap already carries both things the Elektr tab would otherwise make
+   * the user supply: which wall, and where along it — `wallGeom.alongM` is the
+   * same projection a new window or door uses, so a device lands under the
+   * finger rather than at some default spot. The height is the catalogue's,
+   * not the tap's: sockets belong at 300mm and switches at 900mm whatever
+   * height the wall happened to be touched at.
+   */
+  function placeElectricalAt(
+    wallId: string,
+    point: { x: number; y: number; z: number } | undefined,
+    type: string,
+    heightMm: number,
+  ) {
+    const g = wallGeom(wallId);
+    if (!g || !point) return;
+    const widthMm = (ELECTRICAL_DIMS[type]?.w ?? 0.1) * 1000;
+    const margin = widthMm / 2 + 50;
+    const lengthMm = g.length * 1000;
+    const alongMm = g.alongM(point) * 1000;
+    useRoomStore.getState().addElectrical({
+      id: nanoid(),
+      type: type as PlacedElectrical['type'],
+      wallId,
+      positionMm: lengthMm <= margin * 2
+        ? lengthMm / 2
+        : Math.min(Math.max(alongMm, margin), lengthMm - margin),
+      heightMm,
+    });
+    setActivePhase('montaj');
   }
 
   const addSheetSection: 'wallpaper' | 'lyustra' | 'furniture' =
@@ -753,6 +789,7 @@ export default function ThreeDPage() {
         radial={radial}
         radialItems={(r) => buildRadialItems(r, {
           setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
+          placeElectrical: placeElectricalAt,
         })}
         closeRadial={closeRadial}
       />

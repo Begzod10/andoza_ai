@@ -5,7 +5,7 @@
  * (the desktop panels already staggered; the mobile sheet didn't).
  */
 import { describe, it, expect } from 'vitest'
-import { nextFurnitureOffsetMm, nextLightPositionMm, nextElectricalPositionMm } from '../placement'
+import { nextFurnitureOffsetMm, nextLightPositionMm } from '../placement'
 import type { RoomGeometry } from '@/store/roomStore'
 
 function abcd(a: number, b: number): RoomGeometry {
@@ -68,42 +68,5 @@ describe('nextLightPositionMm', () => {
     expect(pos.xMm).toBeLessThan(1800)
     expect(pos.zMm).toBeGreaterThan(0)
     expect(pos.zMm).toBeLessThan(1800)
-  })
-})
-
-describe('nextElectricalPositionMm', () => {
-  const WALL = 4000
-
-  it('puts the first device near the middle of the wall', () => {
-    const p = nextElectricalPositionMm(WALL, 0)
-    expect(p).toBeGreaterThan(WALL * 0.2)
-    expect(p).toBeLessThan(WALL * 0.8)
-  })
-
-  it('nudges each one off the last so they do not stack invisibly', () => {
-    const spots = [0, 1, 2, 3].map((n) => nextElectricalPositionMm(WALL, n))
-    expect(new Set(spots).size).toBe(spots.length)
-  })
-
-  it('keeps the whole faceplate on the wall', () => {
-    const width = 180 // TV + Ethernet + Ant. is the widest of them
-    for (let n = 0; n < 12; n++) {
-      const p = nextElectricalPositionMm(WALL, n, width)
-      expect(p - width / 2).toBeGreaterThanOrEqual(0)
-      expect(p + width / 2).toBeLessThanOrEqual(WALL)
-    }
-  })
-
-  it('stays on a short wall instead of hanging off its ends', () => {
-    const short = 600
-    for (let n = 0; n < 8; n++) {
-      const p = nextElectricalPositionMm(short, n, 180)
-      expect(p).toBeGreaterThanOrEqual(0)
-      expect(p).toBeLessThanOrEqual(short)
-    }
-  })
-
-  it('centres on a wall too short to hold the device at all', () => {
-    expect(nextElectricalPositionMm(100, 3, 400)).toBe(50)
   })
 })

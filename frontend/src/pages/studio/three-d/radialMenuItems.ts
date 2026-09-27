@@ -1,6 +1,7 @@
 import { RadialIcons, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
 import type { PhaseKey } from "@/lib/phases";
 import type { RadialState } from "./useSurfaceRadialMenu";
+import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constants";
 
 /**
  * The context actions offered by the surface radial ("aylana") menu for
@@ -16,9 +17,12 @@ export function buildRadialItems(
     setShowPanel: (show: boolean) => void;
     createOpening: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: 'deraza' | 'eshik') => void;
     setShowAddSheet: (show: boolean) => void;
+    /** Drops a wall device at the tapped spot. Returns nothing — the menu
+     *  closes either way. */
+    placeElectrical: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: string, heightMm: number) => void;
   },
 ): RadialItem[] {
-  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet } = deps;
+  const { setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet, placeElectrical } = deps;
 
   if (r.surface === 'wall') {
     return [
@@ -33,6 +37,20 @@ export function buildRadialItems(
       {
         key: 'door', label: 'Eshik', icon: RadialIcons.door,
         onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
+      },
+      {
+        // Sockets and switches belong to a wall and to a spot on it, which is
+        // exactly what a wall tap already knows — so they are offered here
+        // rather than from the corner menu, which knew neither.
+        key: 'elektr', label: 'Elektr', icon: RadialIcons.socket,
+        childLabel: 'Elektr',
+        onSelect: () => {},
+        children: ELECTRICAL_CATALOG.map((entry) => ({
+          key: `el:${entry.type}`,
+          label: entry.label,
+          icon: RadialIcons.socket,
+          onSelect: () => { if (r.wallId) placeElectrical(r.wallId, r.point, entry.type, entry.height); },
+        })),
       },
     ];
   }

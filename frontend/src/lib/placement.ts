@@ -73,32 +73,3 @@ export function furniturePlacementMm(
   // which measures from the room's centre.
   return { x: spot.x - room.W / 2, y: spot.z - room.D / 2 }
 }
-
-
-/**
- * Where the next wall device (socket, switch, panel) goes along its wall, in
- * millimetres from the wall's position-0 end.
- *
- * The Elektr tab places these by clicking the exact spot on a plan. Added from
- * the corner arc instead there is no click to read, so they land near the
- * middle of the wall and are nudged off each other — the same reasoning as the
- * furniture stagger: a second device exactly on the first is invisible, and
- * effectively lost.
- *
- * @param wallLengthMm the wall's own length
- * @param existingCount how many devices are already on that wall
- * @param deviceWidthMm the faceplate's width, so it can't hang off an end
- */
-export function nextElectricalPositionMm(
-  wallLengthMm: number,
-  existingCount: number,
-  deviceWidthMm = 100,
-): number {
-  const margin = deviceWidthMm / 2 + 50
-  const stagger = ((existingCount % 6) - 2.5) * 300
-  const wanted = wallLengthMm / 2 + stagger
-  // A wall shorter than the device leaves nothing to clamp into; centring it
-  // is the least wrong answer and stays on the wall's midpoint.
-  if (wallLengthMm <= margin * 2) return wallLengthMm / 2
-  return Math.min(Math.max(wanted, margin), wallLengthMm - margin)
-}

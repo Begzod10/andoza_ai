@@ -8,7 +8,7 @@
  * anchors to a screen coordinate (clientX/clientY captured from the R3F pointer
  * event) via a fixed-position overlay, and a full-screen backdrop dismisses it.
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export type RadialSurface = 'wall' | 'ceiling' | 'floor'
 
@@ -17,6 +17,12 @@ export interface RadialItem {
   label: string
   icon: React.ReactNode
   onSelect: () => void
+  /** A second ring of choices this item opens instead of acting. Picking it
+   *  swaps the menu's contents rather than closing, so a wall tap can lead to
+   *  "Elektr" and then to which device without ever leaving the surface. */
+  children?: RadialItem[]
+  /** Names the submenu once it is open, in place of the surface's own label. */
+  childLabel?: string
 }
 
 interface Props {
@@ -38,16 +44,23 @@ const RADIUS = 82
 const BTN = 56
 
 export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Props) {
-  // Escape closes the menu, matching the rest of the studio's keyboard model.
+  /** The item whose children are showing, if any. */
+  const [drill, setDrill] = useState<RadialItem | null>(null)
+
+  // Escape backs out one level at a time — the submenu first, then the whole
+  // menu — so a mis-tap into "Elektr" doesn't cost the whole gesture.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (drill) setDrill(null)
+      else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, drill])
 
-  const n = items.length
+  const shown = drill?.children ?? items
+  const n = shown.length
   // Spread items across an arc centred on straight-up (−90°). One item → dead
   // centre top; more items → fan out ±48° per step, clamped to a half-circle.
   const step = Math.min(52, 150 / Math.max(1, n - 1))
@@ -93,10 +106,10 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
           pointerEvents: 'none',
         }}
       >
-        {SURFACE_LABEL[surface]}
+        {drill?.childLabel ?? drill?.label ?? SURFACE_LABEL[surface]}
       </div>
 
-      {items.map((item, i) => {
+      {shown.map((item, i) => {
         const deg = startDeg + step * i
         const rad = (deg * Math.PI) / 180
         const bx = ax + RADIUS * Math.cos(rad)
@@ -111,6 +124,9 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
             }}
             onClick={(e) => {
               e.stopPropagation()
+              // An item with children opens them in place; only a leaf acts
+              // and dismisses.
+              if (item.children?.length) { setDrill(item); return }
               item.onSelect()
               onClose()
             }}
@@ -198,6 +214,14 @@ export const RadialIcons = {
     <svg {...ico}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 8v8M8 12h8" />
+    </svg>
+  ),
+  socket: (
+    <svg {...ico}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <circle cx="9.5" cy="11" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="11" r="1.1" fill="currentColor" stroke="none" />
+      <path d="M8 16h8" />
     </svg>
   ),
 }

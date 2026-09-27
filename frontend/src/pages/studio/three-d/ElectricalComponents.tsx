@@ -6,7 +6,8 @@ import * as THREE from "three";
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedElectrical } from "@/store/roomStore";
 import { ELECTRICAL_DIMS } from "./constants";
-import { getWallPlane } from "./helpers";
+import { wallDefsFromVertices, type PolyWallDef } from "@/lib/wallDefsFromVertices";
+import { alongWallM, wallMountFrame, wallMountPoint } from "@/lib/wallMountFrame";
 
 /**
  * Wall-mounted electrical devices (switches, sockets, panels) and their
@@ -15,10 +16,12 @@ import { getWallPlane } from "./helpers";
  */
 
 function DraggableElectricalItem({
-  el, W, D, isDragging, dragPosMmRef, onPointerDown,
+  el, W, D, polyDefs, isDragging, dragPosMmRef, onPointerDown,
 }: {
   el: PlacedElectrical
   W: number; D: number
+  /** Per-edge frames for a drawn/scanned room; empty for a legacy rectangle. */
+  polyDefs: Record<string, PolyWallDef>
   isDragging: boolean
   dragPosMmRef: React.MutableRefObject<number>
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void
@@ -29,26 +32,26 @@ function DraggableElectricalItem({
   const depth = isPanel ? 0.12 : 0.018
   const T = 0.004
   const isSwitch = el.type.startsWith('switch')
-  const isH = el.wallId === 'A' || el.wallId === 'C'
+  const frame = useMemo(
+    () => wallMountFrame(el.wallId, W, D, polyDefs),
+    [el.wallId, W, D, polyDefs],
+  )
 
-  // Compute static position (the axis that stays fixed during drag)
+  // Static position, from the wall's own frame — which is what makes this work
+  // for a drawn room's W1..Wn as well as a rectangle's A..D.
   const { px, py, pz, ry } = useMemo(() => {
     const cy = el.heightMm / 1000 + dim.h / 2
-    const p = el.positionMm / 1000
-    switch (el.wallId) {
-      case 'A': return { px: p - W / 2, py: cy, pz: -(D / 2) + depth / 2 + T, ry: 0 }
-      case 'C': return { px: p - W / 2, py: cy, pz: D / 2 - depth / 2 - T, ry: Math.PI }
-      case 'D': return { px: -(W / 2) + depth / 2 + T, py: cy, pz: p - D / 2, ry: Math.PI / 2 }
-      case 'B': return { px: W / 2 - depth / 2 - T, py: cy, pz: p - D / 2, ry: -Math.PI / 2 }
-      default: return { px: 0, py: cy, pz: 0, ry: 0 }
-    }
-  }, [el, W, D, dim.h, depth])
+    if (!frame) return { px: 0, py: cy, pz: 0, ry: 0 }
+    const { x, z } = wallMountPoint(frame, el.positionMm / 1000, depth / 2 + T)
+    return { px: x, py: cy, pz: z, ry: frame.ry }
+  }, [el.positionMm, el.heightMm, frame, dim.h, depth, T])
 
   useFrame(() => {
-    if (!isDragging || !groupRef.current) return
+    if (!isDragging || !groupRef.current || !frame) return
     const pos = dragPosMmRef.current / 1000
-    if (isH) groupRef.current.position.x = pos - W / 2
-    else     groupRef.current.position.z = pos - D / 2
+    const live = wallMountPoint(frame, pos, depth / 2 + T)
+    groupRef.current.position.x = live.x
+    groupRef.current.position.z = live.z
   })
 
   if (isPanel) {
@@ -122,6 +125,15 @@ export function DraggableElectricalModels({
 }) {
   const electricals = useRoomStore(s => s.electricals)
   const moveElectrical = useRoomStore(s => s.moveElectrical)
+  const geometry = useRoomStore(s => s.geometry)
+  // Per-edge frames for a drawn/scanned room; a legacy rectangle has none and
+  // takes wallMountFrame's own A..D branch.
+  const polyDefs = useMemo(
+    () => (geometry.vertices && geometry.vertices.length >= 3
+      ? wallDefsFromVertices(geometry.vertices, geometry.walls.map(w => w.id))
+      : {}),
+    [geometry],
+  )
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const draggingIdRef = useRef<string | null>(null)
   const dragPosMmRef = useRef(0)
@@ -156,9 +168,16 @@ export function DraggableElectricalModels({
     const el = electricalsRef.current.find(e => e.id === draggingId)
     if (!el) return
 
-    const wallPlane = getWallPlane(el.wallId as 'A' | 'B' | 'C' | 'D', W, D)
-    const isH = el.wallId === 'A' || el.wallId === 'C'
-    const wallLenMm = isH ? W * 1000 : D * 1000
+    const frame = wallMountFrame(el.wallId, W, D, polyDefs)
+    if (!frame) return
+    // The plane of the wall the device is on. Built from the wall's own
+    // normal and midpoint rather than from the room's bounding box, so a
+    // diagonal wall in a drawn room drags along itself and not along X or Z.
+    const normal = new THREE.Vector3(frame.nx, 0, frame.nz)
+    const wallPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      normal, new THREE.Vector3(frame.midX, 0, frame.midZ),
+    )
+    const wallLenMm = frame.length * 1000
     const canvas = gl.domElement
 
     const handleMove = (e: PointerEvent) => {
@@ -169,9 +188,7 @@ export function DraggableElectricalModels({
       )
       raycaster.setFromCamera(ndc, camera)
       if (!raycaster.ray.intersectPlane(wallPlane, hitPoint.current)) return
-      let posMm = isH
-        ? (hitPoint.current.x + W / 2) * 1000
-        : (hitPoint.current.z + D / 2) * 1000
+      let posMm = alongWallM(frame, hitPoint.current) * 1000
       posMm = Math.max(100, Math.min(wallLenMm - 100, posMm))
       dragPosMmRef.current = posMm
     }
@@ -183,7 +200,7 @@ export function DraggableElectricalModels({
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId, W, D])
+  }, [draggingId, W, D, polyDefs])
 
   if (electricals.length === 0) return null
   return (
@@ -191,7 +208,7 @@ export function DraggableElectricalModels({
       {electricals.map(el => (
         <DraggableElectricalItem
           key={el.id}
-          el={el} W={W} D={D}
+          el={el} W={W} D={D} polyDefs={polyDefs}
           isDragging={draggingId === el.id}
           dragPosMmRef={dragPosMmRef}
           onPointerDown={(e) => startDrag(el, e)}
