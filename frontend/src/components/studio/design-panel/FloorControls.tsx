@@ -226,12 +226,15 @@ export function TrimThumb({ def, detail = true, toScale = true }: {
   toScale?: boolean;
 }) {
   const d = useMemo(() => trimProfileSvgPath(def), [def]);
-  // The tallest of this kind sets the scale: it fills the box and everything
-  // else is measured against it.
-  const refMm = useMemo(
-    () => Math.max(...trimProfilesOf(def.kind).map((t) => t.defaultHeightMm)),
-    [def.kind],
-  );
+  // The biggest of this kind sets the scale: it fills the box and everything
+  // else is measured against it, so the sizes can be compared at a glance.
+  const { refHMm, refWMm } = useMemo(() => {
+    const all = trimProfilesOf(def.kind);
+    return {
+      refHMm: Math.max(...all.map((t) => t.defaultHeightMm)),
+      refWMm: Math.max(...all.map((t) => t.defaultWidthMm)),
+    };
+  }, [def.kind]);
   const gid = useId();
 
   // The catalogue's own section drawing when there is one: it carries the
@@ -254,12 +257,25 @@ export function TrimThumb({ def, detail = true, toScale = true }: {
     );
   }
 
-  const k = 100 / refMm;
-  const h = toScale ? Math.min(100, def.defaultHeightMm * k) : 100;
-  const w = toScale ? Math.min(100, def.defaultWidthMm * k) : 100;
+  // Everything sits in the middle of the box, and the whole family is sized to
+  // fit INSIDE the inscribed circle rather than the square: these are shown in
+  // round buttons as well as square tiles, and a drawing that fills the square
+  // loses its corners to the crop. Fitting the diagonal is what lets a tall
+  // narrow skirting fill more of the circle than a near-square cornice can.
+  const FIT_RADIUS = 46;
+  const SPAN = 84;
+  const k = toScale
+    ? (2 * FIT_RADIUS) / Math.hypot(refWMm, refHMm)
+    : SPAN / Math.max(refHMm, refWMm);
+  const h = toScale ? def.defaultHeightMm * k : SPAN;
+  const w = toScale ? def.defaultWidthMm * k : SPAN;
+  // The wall and the floor are common to every profile of the kind, so the
+  // widest and the tallest just reach the guides and the rest fall short.
+  const wallX = 50 - (toScale ? refWMm * k : SPAN) / 2;
+  const floorY = 50 + (toScale ? refHMm * k : SPAN) / 2;
 
   return (
-    <svg viewBox="-6 -6 112 112" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
+    <svg viewBox="0 0 100 100" className="w-full aspect-square rounded-md bg-gray-50" aria-hidden>
       <defs>
         {/* Milled timber rather than a flat cut-out: light along the top of
             the section, shading into the wall side. */}
@@ -270,10 +286,10 @@ export function TrimThumb({ def, detail = true, toScale = true }: {
         </linearGradient>
       </defs>
       {/* the wall face and the floor line the profile sits against */}
-      <path d="M0,-6 L0,106" stroke="#CBD5E1" strokeWidth="3" fill="none" />
-      <path d="M-6,100 L106,100" stroke="#CBD5E1" strokeWidth="3" fill="none" />
+      <path d={`M${wallX},4 L${wallX},96`} stroke="#CBD5E1" strokeWidth="2.5" fill="none" />
+      <path d={`M4,${floorY} L96,${floorY}`} stroke="#CBD5E1" strokeWidth="2.5" fill="none" />
       {/* Standing on the floor line, against the wall, at its own size. */}
-      <g transform={`translate(0, ${100 - h}) scale(${w / 100}, ${h / 100})`}>
+      <g transform={`translate(${wallX}, ${floorY - h}) scale(${w / 100}, ${h / 100})`}>
         <path
           d={d}
           fill={`url(#${gid}-face)`}
