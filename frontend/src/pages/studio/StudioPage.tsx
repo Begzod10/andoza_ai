@@ -58,6 +58,7 @@ export default function StudioPage() {
   // of a separate row of their own. A ref alone wouldn't do — the context
   // value passed to <Outlet> needs to change (state) once the node mounts.
   const [toolbarSlotEl, setToolbarSlotEl] = useState<HTMLDivElement | null>(null);
+  const [tabSlotEl, setTabSlotEl] = useState<HTMLDivElement | null>(null);
   // Focus targets for the share popover's focus management: the kebab
   // button is the stable "trigger" to restore focus to on close (the
   // "Ulashish" menu item that actually opened it unmounts immediately,
@@ -462,6 +463,11 @@ export default function StudioPage() {
                 <path d="M11 4L6 9l5 5"/>
               </svg>
             </NavLink>
+            {/* A portal slot the current tab's own round trigger buttons (the
+                tools drawer) render into via Outlet context, so a tab's
+                collapsed menus sit beside the back button rather than in a
+                row of their own. */}
+            <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
             <button
               className="min-w-0 text-left hidden sm:block"
               onClick={() => setSettingsOpen(true)}
@@ -476,14 +482,11 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sections menu trigger, plus a portal slot the current tab's own
-              round trigger buttons (e.g. ThreeDPage's stage/tools drawers)
-              render into via Outlet context — so all of a tab's collapsed
-              menu buttons end up in this one header row, not stacked as
-              separate rows below it. */}
-          <div className="flex justify-center items-center gap-2 min-w-0">
-            <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
-          </div>
+          {/* The tab strip rides in the middle of the header (2026-09-28, at
+              the user's request), where it used to float over the viewport
+              below — one row of chrome instead of two. A page that has no
+              strip to portal in simply leaves this empty. */}
+          <div ref={setTabSlotEl} className="flex justify-center items-center min-w-0" />
 
           {/* Save + kebab */}
           <div className="flex items-center gap-2 flex-shrink-0 relative">
@@ -655,7 +658,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave, toolbarSlot: toolbarSlotEl, toolbarSlotTop: headerHeight }} />
+          <Outlet context={{ room, onSave: handleSave, toolbarSlot: toolbarSlotEl, toolbarSlotTop: headerHeight, tabSlot: tabSlotEl }} />
         </Suspense>
       </main>
     </div>

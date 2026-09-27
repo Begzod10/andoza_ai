@@ -92,21 +92,28 @@ export interface TrimProfileDef {
  * milled detail worked into the top third — ogees, beads and coves over a
  * plain face. `tekis` is the plain square-edge board the studio drew before
  * this picker existed, kept first and default so existing rooms are untouched.
+ *
+ * Heights are the millwork sheet's own three — 168, 144 and 119 mm over an
+ * 18 mm board — not the 40-50 mm these carried at first, which is quadrant
+ * bead rather than skirting and read as a thin line in the room. The taller
+ * the milled section, the taller the board it is worked into, so the three
+ * sizes fall out of the profiles themselves. An existing room keeps whatever
+ * it saved; only a newly picked profile takes these.
  */
 const SKIRTING_PROFILES: TrimProfileDef[] = [
   {
     id: 'tekis',
     label: 'Tekis',
     kind: 'skirting',
-    defaultHeightMm: 100,
-    defaultWidthMm: 20,
+    defaultHeightMm: 144,
+    defaultWidthMm: 18,
     path: { start: [0, 0], steps: [{ to: [1, 0] }, { to: [1, 1] }, { to: [0, 1] }] },
   },
   {
     id: 'b052',
     label: 'B525-052',
     kind: 'skirting',
-    defaultHeightMm: 40,
+    defaultHeightMm: 119,
     defaultWidthMm: 18,
     path: {
       start: [0, 0],
@@ -125,7 +132,7 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
     id: 'b054',
     label: 'B525-054',
     kind: 'skirting',
-    defaultHeightMm: 45,
+    defaultHeightMm: 144,
     defaultWidthMm: 18,
     path: {
       start: [0, 0],
@@ -144,8 +151,8 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
     id: 'b055',
     label: 'B525-055',
     kind: 'skirting',
-    defaultHeightMm: 50,
-    defaultWidthMm: 16,
+    defaultHeightMm: 119,
+    defaultWidthMm: 18,
     path: {
       start: [0, 0],
       steps: [
@@ -163,8 +170,8 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
     id: 'b056',
     label: 'B525-056',
     kind: 'skirting',
-    defaultHeightMm: 50,
-    defaultWidthMm: 19,
+    defaultHeightMm: 168,
+    defaultWidthMm: 18,
     path: {
       start: [0, 0],
       steps: [
@@ -179,7 +186,7 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
     id: 'b053',
     label: 'B525-053',
     kind: 'skirting',
-    defaultHeightMm: 75,
+    defaultHeightMm: 168,
     defaultWidthMm: 18,
     path: {
       start: [0, 0],

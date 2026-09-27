@@ -9,6 +9,7 @@ import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorC
 import { TileThumb } from "@/components/studio/TileThumb";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
 import { FLOOR_COLORS } from "./constants";
+import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
 
 /** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
  *  the default, and the one most floors are laid in. */
@@ -56,6 +57,8 @@ export function buildRadialItems(
     wallpapers: { id: string | number; name: string; url: string }[];
     /** Papers the tapped wall (or every wall, when none is picked). */
     applyWallpaper: (url: string) => void;
+    /** Paints it a flat colour instead. */
+    applyWallColor: (hex: string) => void;
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
@@ -65,7 +68,7 @@ export function buildRadialItems(
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening, setShowAddSheet,
-    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, createWindowStyled,
+    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled,
     setFloorPattern, setSkirting,
   } = deps;
 
@@ -80,23 +83,41 @@ export function buildRadialItems(
   if (r.surface === 'wall') {
     return [
       {
-        // The papers themselves, in the ring. Tapping a wall says which wall
-        // is being papered, and the panel made the user say it again.
+        // Paint and paper are two different decisions and now two buttons:
+        // one ring of papers with a colour hidden among them was a list the
+        // user had to scroll past to reach either.
         key: 'paint', label: 'Rang', icon: RadialIcons.paint,
         childLabel: 'Rang',
+        onSelect: () => openPaintPanel(r.wallId),
+        children: [
+          ...WALL_COLORS.map((hex) => ({
+            key: `color:${hex}`,
+            label: wallColorName(hex),
+            icon: RadialIcons.paint,
+            fill: <span className="absolute inset-0" style={{ background: hex }} />,
+            onSelect: () => applyWallColor(hex),
+          })),
+          {
+            key: 'color:panel', label: 'Panel', icon: RadialIcons.add,
+            onSelect: () => openPaintPanel(r.wallId),
+          },
+        ],
+      },
+      {
+        key: 'oboy', label: 'Oboy', icon: RadialIcons.wallpaper,
+        childLabel: 'Oboy',
         onSelect: () => openPaintPanel(r.wallId),
         children: [
           ...wallpapers.map((w) => ({
             key: `wp:${w.id}`,
             label: w.name,
-            icon: RadialIcons.paint,
+            icon: RadialIcons.wallpaper,
             fill: <img src={w.url} alt="" loading="lazy" draggable={false}
               className="absolute inset-0 w-full h-full object-cover" />,
             onSelect: () => applyWallpaper(w.url),
           })),
           // Last, always: the ring can only show what has been uploaded, and
-          // the rest of the finishes — plain colours, uploads, the shop —
-          // live in the panel.
+          // uploading a new paper happens in the panel.
           {
             key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
             onSelect: () => openPaintPanel(r.wallId),

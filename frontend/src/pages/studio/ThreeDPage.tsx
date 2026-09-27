@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
@@ -95,6 +96,10 @@ export interface StudioContext {
   /** Header height, reused as this page's own TopDrawers' topOffset so they
    *  open flush below the (now shared) header row. */
   toolbarSlotTop?: number;
+  /** The middle of the header row, where the tab strip goes. Null until the
+   *  header has mounted it — and absent entirely on a page that is not inside
+   *  StudioPage's layout, which keeps the strip floating over its viewport. */
+  tabSlot?: HTMLDivElement | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -102,7 +107,7 @@ export interface StudioContext {
 export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
-  const { room, onSave, toolbarSlot, toolbarSlotTop } = useOutletContext<StudioContext>();
+  const { room, onSave, toolbarSlot, toolbarSlotTop, tabSlot } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -587,7 +592,13 @@ export default function ThreeDPage() {
             (arrows at the corners, current tab name centered), which is why
             the corner control clusters below all start at top-16 instead of
             top-3: the strip keeps one consistent click spot on every tab. */}
-        <StudioTabStrip roomId={room.id} />
+        {/* In the header row when there is a slot for it, floating over the
+            viewport otherwise. Inline there: the overlay variant positions
+            itself absolutely, which inside a flex header would sit it over
+            the title. */}
+        {tabSlot
+          ? createPortal(<StudioTabStrip roomId={room.id} variant="inline" />, tabSlot)
+          : <StudioTabStrip roomId={room.id} />}
         {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
             the full-width top-view plan editor ('2d') for the live 3D
             viewport ('3d', the default). z-20 matches the other corner
@@ -882,6 +893,8 @@ export default function ThreeDPage() {
           setSkirting: (trim) => useRoomStore.getState().setDesignState({ skirting: trim }),
           wallpapers,
           applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
+          applyWallColor: (hex) =>
+            useRoomStore.getState().setWallCovering(resolveTargetWall(r.wallId ?? null), { kind: 'paint', color: hex }),
           createWindowStyled,
           setFloorPattern: (floorType, patternId, settings) =>
             useRoomStore.getState().setDesignState({

@@ -12,6 +12,7 @@ import { buildRadialItems } from './radialMenuItems'
 import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
+import { WALL_COLORS } from '@/lib/wallPalette'
 import type { RadialState } from './useSurfaceRadialMenu'
 
 type Call = [string, ...unknown[]]
@@ -34,6 +35,7 @@ function harness() {
         calls.push(['cornice', trim.id, trim.heightMm, trim.widthMm]),
       wallpapers: [{ id: 7, name: 'Oq gul', url: '/media/oq-gul.jpg' }],
       applyWallpaper: (url: string) => calls.push(['paper', url]),
+      applyWallColor: (hex: string) => calls.push(['color', hex]),
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
       setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
@@ -50,27 +52,52 @@ const CEILING: RadialState = { surface: 'ceiling', point: { x: 0.4, y: 2.6, z: -
 const FLOOR: RadialState = { surface: 'floor', point: { x: 0.4, y: 0, z: -0.8 } }
 
 describe('tapping a wall', () => {
-  it('offers paint, a window, a door and the electrics', () => {
+  it('offers paint, paper, a window, a door and the electrics', () => {
     const { deps } = harness()
     expect(buildRadialItems(WALL!, deps as never).map((i) => i.label))
-      .toEqual(['Rang', 'Oyna', 'Eshik', 'Elektr'])
+      .toEqual(['Rang', 'Oboy', 'Oyna', 'Eshik', 'Elektr'])
+  })
+
+  it('keeps Rang to colours — every one of them, and nothing else', () => {
+    const { deps } = harness()
+    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
+    const colours = rang.children!.filter((c) => c.key.startsWith('color:') && c.key !== 'color:panel')
+    expect(colours.map((c) => c.key.slice('color:'.length))).toEqual([...WALL_COLORS])
+    expect(rang.children!.some((c) => c.key.startsWith('wp:'))).toBe(false)
+  })
+
+  it('paints the wall the colour that was tapped', () => {
+    const { calls, deps } = harness()
+    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
+    rang.children!.find((c) => c.key === `color:${WALL_COLORS[2]}`)!.onSelect()
+    expect(calls).toContainEqual(['color', WALL_COLORS[2]])
+  })
+
+  it('keeps Oboy to the papers', () => {
+    const { calls, deps } = harness()
+    const oboy = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'oboy')!
+    expect(oboy.children!.some((c) => c.key.startsWith('color:'))).toBe(false)
+    oboy.children!.find((c) => c.key === 'wp:7')!.onSelect()
+    expect(calls).toContainEqual(['paper', '/media/oq-gul.jpg'])
   })
 
   it('papers the wall from the ring, without a trip to the panel', () => {
     const { calls, deps } = harness()
-    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
-    rang.children!.find((c) => c.key === 'wp:7')!.onSelect()
+    const oboy = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'oboy')!
+    oboy.children!.find((c) => c.key === 'wp:7')!.onSelect()
     expect(calls).toContainEqual(['paper', '/media/oq-gul.jpg'])
     expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 
-  it('still offers the panel, which is where a new paper comes from', () => {
+  it('still offers the panel from both, which is where a new paper comes from', () => {
     // The ring can only show what has been uploaded; with nothing uploaded it
     // would otherwise be an empty ring and a dead end.
-    const { calls, deps } = harness()
-    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
-    rang.children![rang.children!.length - 1].onSelect()
-    expect(calls).toContainEqual(['panel', true])
+    for (const key of ['paint', 'oboy']) {
+      const { calls, deps } = harness()
+      const item = buildRadialItems(WALL!, deps as never).find((i) => i.key === key)!
+      item.children![item.children!.length - 1].onSelect()
+      expect(calls).toContainEqual(['panel', true])
+    }
   })
 
   it('offers the window styles, and puts the picked one on the tapped wall', () => {

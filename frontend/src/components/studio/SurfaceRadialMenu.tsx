@@ -350,6 +350,13 @@ export const RadialIcons = {
       <path d="M8 16h8" />
     </svg>
   ),
+  wallpaper: (
+    <svg {...ico}>
+      <rect x="3" y="3" width="18" height="18" rx="1.5" />
+      <path d="M8 3v18M16 3v18" />
+      <path d="M8 8c1.6 0 1.6 2.4 0 2.4M16 8c1.6 0 1.6 2.4 0 2.4M8 15c1.6 0 1.6 2.4 0 2.4" />
+    </svg>
+  ),
   // The corner the cornice sits in, seen in section: ceiling across the top,
   // wall down the side, and the coved moulding bridging them.
   cornice: (
