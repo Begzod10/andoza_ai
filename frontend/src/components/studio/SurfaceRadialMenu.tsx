@@ -17,6 +17,11 @@ export interface RadialItem {
   key: string
   label: string
   icon: React.ReactNode
+  /** A drawn thumbnail — a milled profile's catalogue section — shown instead
+   *  of the icon, filling the whole button rather than sitting in a 20px slot,
+   *  because a moulding is chosen by looking at its shape. The corner menu's
+   *  items do the same thing. */
+  fill?: React.ReactNode
   onSelect: () => void
   /** A second ring of choices this item opens instead of acting. Picking it
    *  swaps the menu's contents rather than closing, so a wall tap can lead to
@@ -228,7 +233,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               item.onSelect()
               onClose()
             }}
-            className="absolute flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 active:scale-95 transition-transform animate-[radialpop_120ms_ease-out]"
+            className="absolute flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 active:scale-95 transition-transform animate-[radialpop_120ms_ease-out] overflow-hidden"
             style={{
               left: bx,
               top: by,
@@ -241,10 +246,25 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               touchAction: 'none',
             }}
           >
-            <span className="w-5 h-5 flex items-center justify-center">{item.icon}</span>
-            <span className="text-[8px] font-semibold leading-none text-gray-600">
-              {item.label}
-            </span>
+            {item.fill ? (
+              <>
+                <span className="absolute inset-0 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>img]:w-full [&>img]:h-full">
+                  {item.fill}
+                </span>
+                {/* The name rides a scrim at the foot of the thumbnail: a
+                    catalogue code printed over line art is unreadable. */}
+                <span className="absolute inset-x-0 bottom-0 px-0.5 py-[1px] bg-black/55 text-white text-[8px] font-semibold leading-tight truncate">
+                  {item.label}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-5 h-5 flex items-center justify-center">{item.icon}</span>
+                <span className="text-[8px] font-semibold leading-none text-gray-600">
+                  {item.label}
+                </span>
+              </>
+            )}
           </button>
         )
       })}

@@ -79,17 +79,18 @@ export function buildRadialItems(
       },
       {
         // The cornice belongs to the ceiling edge, so it is offered from the
-        // ceiling tap as well as the corner menu. The profiles show as their
-        // own cross-sections (`detail={false}`): in a 20px icon the
-        // catalogue's dimensioned drawing is unreadable, while the outline
-        // still tells a cove from an ogee, and the T-code names it below.
+        // ceiling tap as well as the corner menu. Each profile shows the
+        // catalogue's own section drawing, filling the button — a moulding is
+        // picked by looking at it, and the flat silhouette this used to show
+        // threw away the milled detail that tells the profiles apart.
         key: 'karniz', label: 'Karniz', icon: RadialIcons.cornice,
         childLabel: 'Karniz',
         onSelect: () => {},
         children: trimProfilesOf('cornice').map((def) => ({
           key: `cornice:${def.id}`,
           label: def.label,
-          icon: <TrimThumb def={def} detail={false} />,
+          icon: RadialIcons.cornice,
+          fill: <TrimThumb def={def} />,
           // Picking a profile adopts its own catalogue sizes, the same thing
           // the panel's picker and the corner menu do.
           onSelect: () => setCornice({

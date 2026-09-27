@@ -87,6 +87,16 @@ describe('tapping the ceiling', () => {
     expect(karniz.children!.map((c) => c.label)).toContain('T 140')
   })
 
+  it("previews each profile with the catalogue's own drawing", () => {
+    // A flat silhouette loses the milled detail that tells one profile from
+    // another, which is the whole basis for picking one.
+    const { deps } = harness()
+    const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
+    const withDrawings = trimProfilesOf('cornice').filter((d) => d.previewUrl)
+    expect(withDrawings.length).toBeGreaterThan(0)
+    expect(karniz.children!.every((c) => c.fill != null)).toBe(true)
+  })
+
   it('runs the picked profile at its own catalogue size', () => {
     // Adopting the profile's sizes is what the panel and the corner menu do;
     // keeping the previous profile's numbers would render the wrong section.
