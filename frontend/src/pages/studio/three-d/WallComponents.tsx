@@ -19,6 +19,8 @@ import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
 
 /** Paper has a weave, and its own image says where. */
 const WALLPAPER = surfaceFinish('wallpaper');
+const PAINT_FINISH = surfaceFinish('paint');
+const PLASTER_FINISH = surfaceFinish('plaster');
 import { trimSegments } from "./helpers";
 
 /**
@@ -274,10 +276,11 @@ function WallSegment({
           aoMapIntensity={0.3}
           roughness={1}
           metalness={0}
-          // The apartment HDR is a warm outdoor scene; at high intensity it
-          // casts neutral-grey plaster brown. Keep IBL low so raw concrete
-          // reads as concrete, and let the analytic lights carry the shaping.
-          envMapIntensity={0.3}
+          // The apartment HDR is a warm outdoor scene, and three has no notion
+          // of being indoors — a wall samples the sky as if the roof were not
+          // there. Keep IBL to a whisper and let the analytic lights, which
+          // the shadow shell does stop at the walls, carry the shaping.
+          envMapIntensity={PLASTER_FINISH.envMapIntensity}
           emissive={isSelected ? "#1E40AF" : "#000000"}
           emissiveIntensity={isSelected ? 0.15 : 0}
         />
@@ -286,15 +289,15 @@ function WallSegment({
           // Emulsion on plaster: the relief is the wall's, the sheen is the
           // paint's, so the roughness map modulates a value of its own rather
           // than the stucco's full 1.
-          aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={0.3}
+          aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={PAINT_FINISH.envMapIntensity}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
         <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} {...surface}
-          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.3}
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : (
         <meshStandardMaterial ref={matRef} map={mat ?? undefined} {...surface}
-          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.2}
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       )}
     </mesh>

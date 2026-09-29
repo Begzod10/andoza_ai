@@ -30,6 +30,17 @@ describe('the finishes', () => {
       .toBeGreaterThan(surfaceFinish('parquet').envMapIntensity)
   })
 
+  it('keeps every surface from mirroring the sky it stands under', () => {
+    // three has no notion of being indoors: a glossy floor samples the
+    // environment as if the ceiling were not there, and the HDRI's sun landed
+    // on the tiles as a blown white blob. What a room reflects should come
+    // from its own windows and lamps, which are analytic lights and owe
+    // nothing to this number.
+    for (const k of ['tile', 'parquet', 'laminate', 'concrete', 'wallpaper', 'paint', 'plaster'] as SurfaceKind[]) {
+      expect(surfaceFinish(k).envMapIntensity).toBeLessThanOrEqual(0.15)
+    }
+  })
+
   it('gives a bump to the surfaces whose image describes relief', () => {
     // Grout lines, plank gaps, a paper's weave.
     for (const k of ['tile', 'parquet', 'laminate', 'wallpaper'] as SurfaceKind[]) {

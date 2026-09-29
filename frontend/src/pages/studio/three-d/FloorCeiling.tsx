@@ -6,7 +6,11 @@ import {
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
 import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
-import { floorFinish, rimColorFor } from "@/lib/surfaceFinish";
+import { floorFinish, rimColorFor, surfaceFinish } from "@/lib/surfaceFinish";
+
+/** A ceiling is plaster, and indoors — see lib/surfaceFinish on why this is a
+ *  whisper rather than a number with any ambition. */
+const CEILING_ENV = surfaceFinish('plaster').envMapIntensity;
 import { parquetBoardsFor, withBoardGrain } from "@/lib/parquetBoards";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
@@ -461,6 +465,9 @@ export const Ceiling = memo(function Ceiling({
         <meshStandardMaterial
           color={resolved.color}
           roughness={0.95}
+          // Said explicitly, because the default is 1: a ceiling that samples
+          // the whole sky is the brightest surface in a room that has a roof.
+          envMapIntensity={CEILING_ENV}
           side={THREE.FrontSide}
           colorWrite={!hidden}
           depthWrite={!hidden}

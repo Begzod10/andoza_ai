@@ -55,14 +55,30 @@ const GLOSS: Record<SurfaceKind, number> = {
   plaster: 0,
 }
 
+/**
+ * How much of the environment each surface picks up.
+ *
+ * Kept low across the board, and lowest where it would show most. The
+ * environment map is the sky the flat stands in, and three has no notion of
+ * being indoors: a glossy tile samples it as if the ceiling were not there,
+ * so the HDRI's sun landed on the floor as a blown white blob in the middle
+ * of a room.
+ *
+ * What a room should reflect is what actually reaches it: the sun through its
+ * windows — which is the directional light, already stopped at the walls by
+ * the shadow shell, so it enters through openings and nowhere else — and the
+ * lamps hanging in it. Both are analytic lights and unaffected by these
+ * numbers. What is left here is a whisper of sky for the sheen that tells a
+ * gloss from a matte.
+ */
 const FINISH: Record<SurfaceKind, Omit<SurfaceFinish, 'roughness'>> = {
-  tile: { metalness: 0.06, envMapIntensity: 0.65, bumpScale: 0.012 },
-  parquet: { metalness: 0.02, envMapIntensity: 0.4, bumpScale: 0.03 },
-  laminate: { metalness: 0.02, envMapIntensity: 0.45, bumpScale: 0.02 },
-  concrete: { metalness: 0, envMapIntensity: 0.15, bumpScale: 0.04 },
-  wallpaper: { metalness: 0, envMapIntensity: 0.25, bumpScale: 0.035 },
-  paint: { metalness: 0, envMapIntensity: 0.3, bumpScale: 0 },
-  plaster: { metalness: 0, envMapIntensity: 0.3, bumpScale: 0 },
+  tile: { metalness: 0.06, envMapIntensity: 0.14, bumpScale: 0.012 },
+  parquet: { metalness: 0.02, envMapIntensity: 0.1, bumpScale: 0.03 },
+  laminate: { metalness: 0.02, envMapIntensity: 0.12, bumpScale: 0.02 },
+  concrete: { metalness: 0, envMapIntensity: 0.06, bumpScale: 0.04 },
+  wallpaper: { metalness: 0, envMapIntensity: 0.1, bumpScale: 0.035 },
+  paint: { metalness: 0, envMapIntensity: 0.1, bumpScale: 0 },
+  plaster: { metalness: 0, envMapIntensity: 0.1, bumpScale: 0 },
 }
 
 export function surfaceFinish(kind: SurfaceKind): SurfaceFinish {

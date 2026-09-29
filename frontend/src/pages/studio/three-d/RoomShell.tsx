@@ -23,6 +23,7 @@ import { doorwayNiches } from "@/lib/doorwayNiches";
 import { isAxisAlignedRectangle, outlineSpan } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
+import { surfaceFinish } from "@/lib/surfaceFinish";
 import { Wall, WindowFrames, DoorFrames, Baseboard, Cornice, WindowFrameItem, DoorFrameItem, TrimRun, type FrameWallDef } from "./WallComponents";
 import { resolveTrim } from "@/lib/trimProfiles";
 import { CeilingLights } from "./LightingComponents";
@@ -511,6 +512,9 @@ function NWallRoomShell({
           emissive={isCeilingSelected ? '#1E40AF' : '#000000'}
           emissiveIntensity={isCeilingSelected ? 0.25 : 0}
           roughness={0.95}
+          // Indoors: see lib/surfaceFinish. The default of 1 has the ceiling
+          // sampling the whole sky through its own roof.
+          envMapIntensity={surfaceFinish('plaster').envMapIntensity}
           side={ceilingSide}
         />
       </mesh>
