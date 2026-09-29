@@ -54,10 +54,11 @@ export function tileSettings(size: TileSize, face: TileFace) {
     textureRotation: (size.lengthCm > size.widthCm ? 90 : 0) as 0 | 90,
     // Tile is laid in the stack bond, whose OWN numbers are a wide oak
     // board's — a fat arris and heavy tone variation, which on porcelain
-    // reads as a bad print. A tile's joint is grout, and one tile looks much
-    // like the next.
-    gapMm: 3.5,
-    bevelMm: 0.8,
+    // reads as a bad print. These are the user's, per tile type: a fine
+    // rectified joint, a 1.5 mm eased edge, and barely any tone variation,
+    // because one tile does look much like the next.
+    gapMm: 0.5,
+    bevelMm: 1.5,
     colorVariation: 0.12,
   }
 }

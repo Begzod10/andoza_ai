@@ -155,11 +155,21 @@ export function floorSlabColor(baseColor: string): string {
  *  of the shadow that makes the planks read as separate boards. */
 const TEXTURED_SLAB_COLOR = '#2A2521'
 
+/**
+ * Grout. A tile's joint is filled with it, and it is pale — the dark slab that
+ * makes plank gaps read as shadow turns a tiled floor into a grid of black
+ * lines, which no bathroom has.
+ */
+const GROUT_COLOR = '#EFEDE8'
+
 /** What to paint the under-slab for this pattern state. */
 export function floorSlabColorFor(
   pattern: { settings?: FloorPatternSettings } | null | undefined,
   fallbackBaseColor: string,
+  /** Boards sit over a shadow; tiles sit over grout. */
+  floorType?: string,
 ): string {
+  if (floorType === 'tile') return GROUT_COLOR
   const s = pattern?.settings
   if (s?.textureUrl) return TEXTURED_SLAB_COLOR
   return floorSlabColor(s?.baseColor ?? fallbackBaseColor)

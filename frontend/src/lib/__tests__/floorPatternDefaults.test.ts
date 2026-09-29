@@ -4,7 +4,9 @@
  * check them is through the resolver the floor is built from.
  */
 import { describe, it, expect } from 'vitest'
-import { FLOOR_PATTERN_DEFS, floorPatternDef, resolveFloorPattern } from '../floorGeometry'
+import {
+  FLOOR_PATTERN_DEFS, floorPatternDef, resolveFloorPattern, floorSlabColorFor,
+} from '../floorGeometry'
 import { TILE_SIZES, TILE_FACES, tileSettings } from '../tileCatalog'
 
 const laid = (id: string) => {
@@ -57,14 +59,29 @@ describe('what each pattern is laid with, by default', () => {
 })
 
 describe('tile, which shares the stack bond', () => {
-  it('is not laid like a wide oak board', () => {
-    // The pattern's own numbers are a board's: a fat arris and heavy tone
-    // variation, which on porcelain reads as a bad print.
+  it('is laid as the user set it: 0.5 mm joint, 1.5 mm arris, 12%', () => {
+    // The pattern's own numbers are a board's; a tile says its own.
     const def = floorPatternDef('stake_bond')!
     const r = resolveFloorPattern(def, tileSettings(TILE_SIZES[0], TILE_FACES[0]), '#D8D8D0')
-    expect(r.variation).toBeLessThan(0.2)
-    expect(r.gapM * 1000).toBeGreaterThan(2)   // grout, not a closed joint
-    expect(r.bevelM * 1000).toBeLessThan(1)
+    expect(r.gapM * 1000).toBeCloseTo(0.5, 6)
+    expect(r.bevelM * 1000).toBeCloseTo(1.5, 6)
+    expect(r.variation).toBeCloseTo(0.12, 6)
+  })
+
+  it('is grouted white, not shadowed black', () => {
+    // What shows through the joints IS the joint. The dark slab that makes
+    // plank gaps read as shadow turns a tiled floor into a grid of black
+    // lines, which no bathroom has.
+    const pattern = { settings: tileSettings(TILE_SIZES[0], TILE_FACES[1]) }
+    const grout = floorSlabColorFor(pattern, '#D8D8D0', 'tile')
+    expect(grout.toLowerCase()).not.toBe('#2a2521')
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(grout.slice(i, i + 2), 16))
+    expect(Math.min(r, g, b)).toBeGreaterThan(200)
+  })
+
+  it('leaves a plank floor its shadow', () => {
+    const boards = { settings: { textureUrl: '/floor/parquet/oak-01.jpg' } }
+    expect(floorSlabColorFor(boards, '#C9AB7E', 'parquet').toLowerCase()).toBe('#2a2521')
   })
 
   it('keeps the tile size it was given', () => {

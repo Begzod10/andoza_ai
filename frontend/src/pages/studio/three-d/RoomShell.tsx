@@ -424,7 +424,7 @@ function NWallRoomShell({
       >
         <meshStandardMaterial
           color={floorPattern
-            ? floorSlabColorFor(floorPattern, floorBase)
+            ? floorSlabColorFor(floorPattern, floorBase, designState.floorType)
             : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
           emissive={isFloorSelected ? '#1E40AF' : '#000000'}
           emissiveIntensity={isFloorSelected ? 0.25 : 0}

@@ -213,7 +213,7 @@ export const WoodFloor = memo(function WoodFloor({
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.004, 0]} receiveShadow>
           <planeGeometry args={[width + 0.04, depth + 0.04]} />
           <meshStandardMaterial
-            color={floorSlabColorFor(activePattern, floorColor)}
+            color={floorSlabColorFor(activePattern, floorColor, floorType)}
             roughness={0.92} metalness={0} envMapIntensity={0.15}
           />
         </mesh>
