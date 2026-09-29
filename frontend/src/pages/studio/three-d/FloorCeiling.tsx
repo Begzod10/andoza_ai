@@ -399,7 +399,7 @@ export const Ceiling = memo(function Ceiling({
  * than as a pale surface that happens to be bright: a cove LED is the one thing
  * in the room that should not respond to the room's own lighting.
  */
-function CeilingProfile({
+export function CeilingProfile({
   parts, color, stripK, selected = false,
 }: {
   parts: CeilingPart[]

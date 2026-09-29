@@ -25,6 +25,10 @@ function realDeps(wallId: string | undefined) {
     placeElectrical: noop,
     placeLight: noop,
     setCornice: noop,
+    setCeilingDesign: (id: string) =>
+      useRoomStore.getState().setDesignState({
+        ceiling: { design: id as never, settings: useRoomStore.getState().designState.ceiling?.settings },
+      }),
     setSkirting: (trim: { id: string; heightMm: number; widthMm: number }) =>
       useRoomStore.getState().setDesignState({ skirting: trim }),
     wallpapers: [PAPER],
@@ -95,6 +99,14 @@ describe('the floor and trim rings, against the real store', () => {
       id: 'stake_bond',
       settings: { plankLengthCm: 60, plankWidthCm: 60, textureUrl: '/floor/tile/marble-black.jpg' },
     })
+  })
+
+  it('reshapes the ceiling from the ring', () => {
+    const ceiling = { surface: 'ceiling', point: { x: 0, y: 2.6, z: 0 } } as NonNullable<RadialState>
+    const deps = realDeps(undefined)
+    const shift = buildRadialItems(ceiling, deps as never).find((i) => i.key === 'ceiling')!
+    shift.children!.find((c) => c.key === 'ceil:floating')!.onSelect()
+    expect(useRoomStore.getState().designState.ceiling?.design).toBe('floating')
   })
 
   it('changes the skirting to the board that was tapped, at its real height', () => {

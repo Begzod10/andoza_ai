@@ -368,6 +368,13 @@ export const RadialIcons = {
       <path d="M8 8c1.6 0 1.6 2.4 0 2.4M16 8c1.6 0 1.6 2.4 0 2.4M8 15c1.6 0 1.6 2.4 0 2.4" />
     </svg>
   ),
+  /** Taking a thing out — no cornice, no skirting. */
+  none: (
+    <svg {...ico}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M6.5 17.5L17.5 6.5" />
+    </svg>
+  ),
   // The corner the cornice sits in, seen in section: ceiling across the top,
   // wall down the side, and the coved moulding bridging them.
   cornice: (

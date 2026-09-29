@@ -146,8 +146,16 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
     }))
 
     /** Plintus and Karniz differ only in which run of trim they write. */
-    const trimItems = (kind: 'skirting' | 'cornice'): ArcItem[] =>
-      trimProfilesOf(kind).map((def: TrimProfileDef) => ({
+    const trimItems = (kind: 'skirting' | 'cornice'): ArcItem[] => [
+      // Taking the run out is one of the choices: a room can have no cornice,
+      // and a user who added one needs a way back.
+      {
+        key: `${kind}:none`,
+        label: "Yo'q",
+        icon: '⊘',
+        onSelect: () => setDesignState(kind === 'skirting' ? { skirting: null } : { cornice: null }),
+      },
+      ...trimProfilesOf(kind).map((def: TrimProfileDef) => ({
         key: `${kind}:${def.id}`,
         label: def.label,
         // The catalogue's own section drawing where there is one — the same
@@ -162,7 +170,8 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
             ? { skirting: { id: def.id, heightMm: def.defaultHeightMm, widthMm: def.defaultWidthMm } }
             : { cornice: { id: def.id, heightMm: def.defaultHeightMm, widthMm: def.defaultWidthMm } },
         ),
-      }))
+      })),
+    ]
 
     return [
       {

@@ -54,10 +54,10 @@ export function buildRadialItems(
     placeElectrical: (wallId: string, point: { x: number; y: number; z: number } | undefined, type: string, heightMm: number) => void;
     /** Hangs a fixture where the ceiling was tapped. */
     placeLight: (point: { x: number; y: number; z: number } | undefined, type: string) => void;
-    /** Runs a cornice profile round the whole room. */
-    setCornice: (trim: { id: string; heightMm: number; widthMm: number }) => void;
+    /** Runs a cornice profile round the whole room, or `null` to take it out. */
+    setCornice: (trim: { id: string; heightMm: number; widthMm: number } | null) => void;
     /** Same, for the skirting. */
-    setSkirting: (trim: { id: string; heightMm: number; widthMm: number }) => void;
+    setSkirting: (trim: { id: string; heightMm: number; widthMm: number } | null) => void;
     /** The wallpapers the design panel's Oboy tab lists — the same query, so
      *  one upload shows up in both. */
     wallpapers: { id: string | number; name: string; url: string }[];
@@ -200,17 +200,27 @@ export function buildRadialItems(
   // the ring goes straight to the choice, scrolling through the whole sheet.
   if (r.surface === 'skirting' || r.surface === 'cornice') {
     const kind = r.surface
-    return trimProfilesOf(kind).map((def) => ({
-      key: `${kind}:${def.id}`,
-      label: def.label,
-      icon: kind === 'cornice' ? RadialIcons.cornice : RadialIcons.floor,
-      fill: <TrimThumb def={def} />,
-      onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)({
-        id: def.id,
-        heightMm: def.defaultHeightMm,
-        widthMm: def.defaultWidthMm,
-      }),
-    }))
+    return [
+      // Taking the run out is one of the choices: a room can have no cornice,
+      // and a user who added one needs a way back.
+      {
+        key: `${kind}:none`,
+        label: "Yo'q",
+        icon: RadialIcons.none,
+        onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)(null),
+      },
+      ...trimProfilesOf(kind).map((def) => ({
+        key: `${kind}:${def.id}`,
+        label: def.label,
+        icon: kind === 'cornice' ? RadialIcons.cornice : RadialIcons.floor,
+        fill: <TrimThumb def={def} />,
+        onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)({
+          id: def.id,
+          heightMm: def.defaultHeightMm,
+          widthMm: def.defaultWidthMm,
+        }),
+      })),
+    ]
   }
 
   if (r.surface === 'ceiling') {
@@ -241,7 +251,12 @@ export function buildRadialItems(
         key: 'karniz', label: 'Karniz', icon: RadialIcons.cornice,
         childLabel: 'Karniz',
         onSelect: () => {},
-        children: trimProfilesOf('cornice').map((def) => ({
+        children: [{
+          key: 'cornice:none',
+          label: "Yo'q",
+          icon: RadialIcons.none,
+          onSelect: () => setCornice(null),
+        }, ...trimProfilesOf('cornice').map((def) => ({
           key: `cornice:${def.id}`,
           label: def.label,
           icon: RadialIcons.cornice,
@@ -253,7 +268,7 @@ export function buildRadialItems(
             heightMm: def.defaultHeightMm,
             widthMm: def.defaultWidthMm,
           }),
-        })),
+        }))],
       },
       {
         // The profiles themselves, drawn in section — the same little diagrams

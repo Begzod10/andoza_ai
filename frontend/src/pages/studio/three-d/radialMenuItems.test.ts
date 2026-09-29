@@ -33,8 +33,8 @@ function harness() {
       setShowAddSheet: (v: boolean) => calls.push(['addSheet', v]),
       placeElectrical: (w: string, p: unknown, t: string, h: number) => calls.push(['electrical', w, t, h]),
       placeLight: (p: unknown, t: string) => calls.push(['light', t]),
-      setCornice: (trim: { id: string; heightMm: number; widthMm: number }) =>
-        calls.push(['cornice', trim.id, trim.heightMm, trim.widthMm]),
+      setCornice: (trim: { id: string; heightMm: number; widthMm: number } | null) =>
+        calls.push(trim ? ['cornice', trim.id, trim.heightMm, trim.widthMm] : ['cornice', null]),
       wallpapers: [{ id: 7, name: 'Oq gul', url: '/media/oq-gul.jpg' }],
       applyWallpaper: (url: string) => calls.push(['paper', url]),
       applyWallColor: (hex: string) => calls.push(['color', hex]),
@@ -42,7 +42,7 @@ function harness() {
         calls.push(['window', w, styleId]),
       createDoorStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['door', w, styleId]),
-      setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
+      setSkirting: (trim: { id: string } | null) => calls.push(['skirting', trim?.id ?? null]),
       setCeilingDesign: (id: string) => calls.push(['ceiling', id]),
       setFloorPattern: (floorType: string, patternId: string, st: Record<string, unknown>) => {
         settings.push(st)
@@ -184,8 +184,9 @@ describe('tapping the ceiling', () => {
     const { deps } = harness()
     const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
     expect(karniz.label).toBe('Karniz')
-    // The whole T-series sheet, not a handful of them.
-    expect(karniz.children!.length).toBe(trimProfilesOf('cornice').length)
+    // The whole T-series sheet, not a handful of them — plus the way out.
+    expect(karniz.children!.length).toBe(trimProfilesOf('cornice').length + 1)
+    expect(karniz.children![0].key).toBe('cornice:none')
     expect(karniz.children!.map((c) => c.label)).toContain('T 140')
   })
 
@@ -196,7 +197,8 @@ describe('tapping the ceiling', () => {
     const karniz = buildRadialItems(CEILING!, deps as never).find((i) => i.key === 'karniz')!
     const withDrawings = trimProfilesOf('cornice').filter((d) => d.previewUrl)
     expect(withDrawings.length).toBeGreaterThan(0)
-    expect(karniz.children!.every((c) => c.fill != null)).toBe(true)
+    // "Yo'q" is not a profile and has nothing to draw.
+    expect(karniz.children!.slice(1).every((c) => c.fill != null)).toBe(true)
   })
 
   it('runs the picked profile at its own catalogue size', () => {
@@ -338,9 +340,23 @@ describe('tapping a trim run', () => {
   it('goes straight to the boards — the tap already said which run', () => {
     const { deps } = harness()
     const items = buildRadialItems(SKIRTING!, deps as never)
-    expect(items.length).toBe(trimProfilesOf('skirting').length)
+    expect(items.length).toBe(trimProfilesOf('skirting').length + 1)
     // No drilling: these ARE the choices.
     expect(items.every((i) => i.children == null)).toBe(true)
+  })
+
+  it('offers taking the run out, first, on both trims', () => {
+    // A room can have no cornice, and a user who added one needs a way back.
+    const { calls, deps } = harness()
+    const skirting = buildRadialItems(SKIRTING!, deps as never)
+    expect(skirting[0].key).toBe('skirting:none')
+    skirting[0].onSelect()
+    expect(calls).toContainEqual(['skirting', null])
+
+    const cornice = buildRadialItems(CORNICE!, deps as never)
+    expect(cornice[0].key).toBe('cornice:none')
+    cornice[0].onSelect()
+    expect(calls).toContainEqual(['cornice', null])
   })
 
   it('changes the skirting to the board that was picked', () => {
@@ -354,7 +370,7 @@ describe('tapping a trim run', () => {
     const { calls, deps } = harness()
     const items = buildRadialItems(CORNICE!, deps as never)
     expect(items.map((i) => i.label)).toContain('T 140')
-    items[0].onSelect()
+    items[1].onSelect()
     expect(calls.some((c) => c[0] === 'cornice')).toBe(true)
     expect(calls.some((c) => c[0] === 'skirting')).toBe(false)
   })

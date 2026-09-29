@@ -12,7 +12,7 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { OPENING_REVEAL_D, WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
+import { OPENING_REVEAL_D, WINDOW_SASH_RECESS, noRaycast } from "@/pages/studio/three-d/constants";
 import { DOOR_IVORY, doorStyle, panelFlutes } from "@/lib/doorStyles";
 import { buildPanelGeometry, innerPanel } from "@/lib/doorPanelGeometry";
 
@@ -402,7 +402,7 @@ function LeafPanels({ styleId, leafW, leafH, color }: {
   return (
     <group>
       {panels.map((p) => (
-        <mesh key={p.key} geometry={p.geo} castShadow receiveShadow>
+        <mesh key={p.key} geometry={p.geo} castShadow receiveShadow raycast={noRaycast}>
           <meshStandardMaterial color={color} roughness={0.5} metalness={0.03} />
         </mesh>
       ))}
@@ -410,7 +410,7 @@ function LeafPanels({ styleId, leafW, leafH, color }: {
           door scale the shadow between them is what the eye reads, and a rib
           casts the same line as a groove. */}
       {flutes.map((f) => (
-        <mesh key={f.key} position={[f.x, f.y, 0.005]}>
+        <mesh key={f.key} position={[f.x, f.y, 0.005]} raycast={noRaycast}>
           <boxGeometry args={[0.006, f.h, 0.003]} />
           <meshStandardMaterial color={color} roughness={0.55} metalness={0.03} />
         </mesh>
@@ -418,6 +418,16 @@ function LeafPanels({ styleId, leafW, leafH, color }: {
     </group>
   );
 }
+
+/**
+ * Swallows the click that follows a tap on an opening.
+ *
+ * Selecting happens on pointerdown, which already stops there — but the CLICK
+ * is a separate event, and with no handler on the leaf it carried on to the
+ * next thing the ray met. Through a doorway that is the ceiling, seen from
+ * outside the room, so tapping a door opened the ceiling menu.
+ */
+const swallowClick = { onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() };
 
 function DoorLeaf({
   wf,
@@ -493,6 +503,7 @@ function DoorLeaf({
             castShadow
             receiveShadow
             onPointerDown={onPointerDown}
+            {...swallowClick}
             onPointerEnter={() => { document.body.style.cursor = cursor; }}
             onPointerLeave={() => { document.body.style.cursor = ""; }}
           >
@@ -604,6 +615,7 @@ function Pane({
   const glassH = Math.max(0.02, h - BAR * 2);
   const barProps = {
     onPointerDown,
+    ...swallowClick,
     onPointerEnter: () => { document.body.style.cursor = cursor; },
     onPointerLeave: () => { document.body.style.cursor = ""; },
   };

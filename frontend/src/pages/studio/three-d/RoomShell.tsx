@@ -17,7 +17,9 @@ import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 import { shadeCovering, boardSegments, trimSegments } from "./helpers";
-import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
+import { WoodFloor, Ceiling, PatternFloor, CeilingProfile } from "./FloorCeiling";
+import { isAxisAlignedRectangle, outlineSpan } from "@/lib/roomOutline";
+import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
 import { Wall, WindowFrames, DoorFrames, Baseboard, Cornice, WindowFrameItem, DoorFrameItem, TrimRun, type FrameWallDef } from "./WallComponents";
 import { resolveTrim } from "@/lib/trimProfiles";
@@ -372,6 +374,18 @@ function NWallRoomShell({
 
   const hiddenEdges = useHiddenPolyEdges(cutaway, edges)
 
+  // The ceiling design, for an outline the rectangular builder can serve.
+  const ceilingParts = useMemo(() => {
+    if (!isAxisAlignedRectangle(filteredCentred)) return []
+    const { W: bw, D: bd } = outlineSpan(filteredCentred)
+    const design = ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN)
+    return buildCeilingParts(
+      design,
+      resolveCeilingSettings(design, designState.ceiling?.settings),
+      bw, bd, H,
+    )
+  }, [filteredCentred, designState.ceiling?.design, designState.ceiling?.settings, H])
+
   // Real-geometry laying pattern (Naqsh) for a drawn/scanned polygon room:
   // the flat polygon becomes the dark under-slab and the instanced planks
   // are clipped to this very outline. Same centred frame as the walls.
@@ -438,6 +452,23 @@ function NWallRoomShell({
           from above meets the culled face and passes straight through to the
           floor plan, so the slab can never swallow a pick there. */}
       <group {...(holdBind?.('ceiling') ?? {})}>
+      {/* The chosen ceiling design hangs under the slab — the drawn-room shell
+          used to ignore it entirely, so Shift turi did nothing here while it
+          worked in a rectangular room. The parts are axis-aligned boxes built
+          for a W x D room, so they are only hung where the outline IS one:
+          on an L-shaped room they would cut through a wall, and a flat slab
+          is better than a ceiling through the wall. */}
+      {ceilingParts.length > 0 && (
+        <CeilingProfile
+          parts={ceilingParts}
+          color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
+          stripK={resolveCeilingSettings(
+            ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN),
+            designState.ceiling?.settings,
+          ).stripK}
+          selected={!!isCeilingSelected}
+        />
+      )}
       <mesh
         geometry={polyGeo}
         rotation={[-Math.PI / 2, 0, 0]}
