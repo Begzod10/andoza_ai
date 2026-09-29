@@ -243,9 +243,10 @@ export function TrimThumb({ def, detail = true, toScale = true }: {
   // the moulding is actually built from, so a profile without a drawing still
   // previews as the thing the room will get.
   //
-  // `detail={false}` asks for the silhouette anyway: in the corner menu's
-  // 50px circles a dimensioned drawing is unreadable, where the outline still
-  // tells a cove from an ogee.
+  // `detail={false}` asks for the silhouette anyway, for a caller that wants
+  // the outline alone. Nothing does at the moment: the corner menu used to,
+  // on the theory that a dimensioned drawing is unreadable in its circles, but
+  // the flat silhouette turned out to tell the user even less.
   if (detail && def.previewUrl) {
     return (
       <img
