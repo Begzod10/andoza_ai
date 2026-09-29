@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
+import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -239,7 +240,7 @@ export function SiblingRooms({
 /** Mounts the interactive 3D doors and windows. The wrapper is what lets the
  *  cutaway hook run inside the Canvas while its controls live on the page. */
 export function OpeningLayer({
-  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect,
+  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect, openMenu,
 }: {
   geometry: RoomGeometry;
   W: number;
@@ -249,6 +250,8 @@ export function OpeningLayer({
   controlsRef: RefObject<OrbitControlsImpl | null>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Opens the tapped opening's own ring — see DoorLeaves' `openMenu`. */
+  openMenu?: (kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void;
 }) {
   const hiddenWalls = useHiddenWalls(cutaway);
   const shared = {
@@ -265,8 +268,8 @@ export function OpeningLayer({
   };
   return (
     <>
-      <DoorLeaves {...shared} />
-      <WindowSashes {...shared} />
+      <DoorLeaves {...shared} openMenu={(wallId, elId, e) => openMenu?.('door', wallId, elId, e)} />
+      <WindowSashes {...shared} openMenu={(wallId, elId, e) => openMenu?.('window', wallId, elId, e)} />
     </>
   );
 }

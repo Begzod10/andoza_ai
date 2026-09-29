@@ -42,6 +42,8 @@ function harness() {
         calls.push(['window', w, styleId]),
       createDoorStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['door', w, styleId]),
+      restyleOpening: (w: string, elId: string, styleId: string) =>
+        calls.push(['restyle', w, elId, styleId]),
       setSkirting: (trim: { id: string } | null) => calls.push(['skirting', trim?.id ?? null]),
       setCeilingDesign: (id: string) => calls.push(['ceiling', id]),
       setFloorPattern: (floorType: string, patternId: string, st: Record<string, unknown>) => {
@@ -343,6 +345,36 @@ describe('staying open', () => {
         .find((i) => i.key === 'oboy')!.children!.find((c) => c.key === 'wp:panel')!,
     ]
     expect(panels.every((c) => c.closesMenu)).toBe(true)
+  })
+})
+
+describe('tapping an opening', () => {
+  const DOOR: RadialState = { surface: 'door', wallId: 'B', elId: 'e9', point: { x: 0, y: 1, z: 0 } }
+  const WIN: RadialState = { surface: 'window', wallId: 'B', elId: 'e4', point: { x: 0, y: 1.4, z: 0 } }
+
+  it('offers the leaf designs for the door that was tapped', () => {
+    const { calls, deps } = harness()
+    const items = buildRadialItems(DOOR!, deps as never)
+    expect(items.length).toBe(DOOR_STYLES.length)
+    expect(items.every((i) => i.fill != null)).toBe(true)
+    items.find((i) => i.key === 'door:p034')!.onSelect()
+    // Changes THAT door — it does not hang another one beside it.
+    expect(calls).toEqual([['restyle', 'B', 'e9', 'p034']])
+  })
+
+  it('offers the sash layouts for a tapped window', () => {
+    const { calls, deps } = harness()
+    const items = buildRadialItems(WIN!, deps as never)
+    expect(items.length).toBe(WINDOW_STYLES.length)
+    items.find((i) => i.key === 'win:triple')!.onSelect()
+    expect(calls).toEqual([['restyle', 'B', 'e4', 'triple']])
+  })
+
+  it('does nothing when the ring somehow has no opening to change', () => {
+    const { calls, deps } = harness()
+    const orphan = { surface: 'door', wallId: 'B', point: { x: 0, y: 1, z: 0 } } as NonNullable<RadialState>
+    buildRadialItems(orphan, deps as never)[0].onSelect()
+    expect(calls).toEqual([])
   })
 })
 

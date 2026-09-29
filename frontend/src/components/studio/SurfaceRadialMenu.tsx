@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { angleAt, arcSlots, slotsFromAngleDelta, wrapArcOffset } from '@/lib/arcMenu'
 
-export type RadialSurface = 'wall' | 'ceiling' | 'floor' | 'skirting' | 'cornice'
+export type RadialSurface = 'wall' | 'ceiling' | 'floor' | 'skirting' | 'cornice' | 'door' | 'window'
 
 export interface RadialItem {
   key: string
@@ -53,6 +53,8 @@ const SURFACE_LABEL: Record<RadialSurface, string> = {
   floor: 'Pol',
   skirting: 'Plintus',
   cornice: 'Karniz',
+  door: 'Eshik',
+  window: 'Oyna',
 }
 
 // Ring geometry: buttons sit on an arc opening upward from the press point.

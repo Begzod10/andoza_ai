@@ -3,7 +3,13 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 
 export type RadialState = {
-  surface: RadialSurface; wallId?: string; x: number; y: number; point?: { x: number; y: number; z: number };
+  surface: RadialSurface;
+  wallId?: string;
+  /** The opening the ring was opened on, for the door/window rings — the ring
+   *  changes THAT door rather than making a new one. */
+  elId?: string;
+  x: number; y: number;
+  point?: { x: number; y: number; z: number };
 } | null;
 
 /**
@@ -45,7 +51,7 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
    * alternative. The click carries the R3F world hit (`e.point`) so a
    * created window/door lands exactly where the surface was tapped.
    */
-  function openSurfaceMenu(surface: RadialSurface, wallId: string | undefined, e: any) {
+  function openSurfaceMenu(surface: RadialSurface, wallId: string | undefined, e: any, elId?: string) {
     // If a long-press already opened the menu, its trailing click must not
     // reopen/replace it.
     if (heldRef.current) { heldRef.current = false; return; }
@@ -53,10 +59,10 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     const y = e?.nativeEvent?.clientY ?? e?.clientY ?? 0;
     const point = e?.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : (holdPoint.current ?? undefined);
     if (controlsRef.current) controlsRef.current.enabled = false;
-    setRadial({ surface, wallId, x, y, point });
+    setRadial({ surface, wallId, elId, x, y, point });
   }
 
-  function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }) {
+  function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }, elId?: string) {
     const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
     const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
     // The R3F event's world intersection point — where on the wall it was hit.
@@ -68,7 +74,7 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
       // Freeze the camera so menu taps don't orbit the room, and drop any
       // active selection highlight noise.
       if (controlsRef.current) controlsRef.current.enabled = false;
-      setRadial({ surface, wallId, x: cx, y: cy, point: holdPoint.current ?? undefined });
+      setRadial({ surface, wallId, elId, x: cx, y: cy, point: holdPoint.current ?? undefined });
     }, HOLD_MS);
   }
   function moveHold(e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number }) {
@@ -86,10 +92,10 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
   }
 
   /** Pointer handlers to spread onto a surface's wrapping <group>. */
-  function holdBind(surface: RadialSurface, wallId?: string) {
+  function holdBind(surface: RadialSurface, wallId?: string, elId?: string) {
     return {
-      onClick: (e: any) => openSurfaceMenu(surface, wallId, e),
-      onPointerDown: (e: any) => startHold(surface, wallId, e),
+      onClick: (e: any) => openSurfaceMenu(surface, wallId, e, elId),
+      onPointerDown: (e: any) => startHold(surface, wallId, e, elId),
       onPointerMove: (e: any) => moveHold(e),
       onPointerUp: () => clearHold(),
       onPointerLeave: () => clearHold(),

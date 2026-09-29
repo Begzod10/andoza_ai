@@ -919,6 +919,7 @@ export default function ThreeDPage() {
             useRoomStore.getState().setWallCovering(resolveTargetWall(r.wallId ?? null), { kind: 'paint', color: hex }),
           createWindowStyled,
           createDoorStyled,
+          restyleOpening: (wallId, elId, styleId) => updateElement(wallId, elId, { styleId }),
           setFloorPattern: (floorType, patternId, settings) =>
             useRoomStore.getState().setDesignState({
               floorType,

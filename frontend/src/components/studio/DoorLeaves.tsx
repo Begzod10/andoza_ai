@@ -189,6 +189,7 @@ export function OpeningLeaves({
   selectedId = null,
   onSelect,
   interactive = true,
+  openMenu,
 }: {
   kind: OpeningKind;
   geometry: RoomGeometry;
@@ -203,6 +204,10 @@ export function OpeningLeaves({
    *  This is what the walkthrough and the elektr preview want — they show the
    *  openings, they do not edit them. */
   interactive?: boolean;
+  /** Opens the opening's own ring where it was tapped — the leaf designs for a
+   *  door, the sash layouts for a window. Without it a tap on a door had
+   *  nothing of its own to offer and the click went looking behind it. */
+  openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void;
 }) {
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
@@ -347,6 +352,13 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
+          onTap: (e: ThreeEvent<MouseEvent>) => {
+            // Always stop here, ring or no ring: the click is a separate event
+            // from the pointerdown that selects, and with nothing handling it
+            // it carried on to whatever the ray met beyond the opening.
+            e.stopPropagation();
+            if (interactive) openMenu?.(wf.id, el.id, e);
+          },
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
             onSelect?.(null);
@@ -419,16 +431,6 @@ function LeafPanels({ styleId, leafW, leafH, color }: {
   );
 }
 
-/**
- * Swallows the click that follows a tap on an opening.
- *
- * Selecting happens on pointerdown, which already stops there — but the CLICK
- * is a separate event, and with no handler on the leaf it carried on to the
- * next thing the ray met. Through a doorway that is the ceiling, seen from
- * outside the room, so tapping a door opened the ceiling menu.
- */
-const swallowClick = { onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() };
-
 function DoorLeaf({
   wf,
   el,
@@ -436,6 +438,7 @@ function DoorLeaf({
   toolMode,
   interactive = true,
   onPointerDown,
+  onTap,
   onPatch,
   onDelete,
 }: {
@@ -445,6 +448,7 @@ function DoorLeaf({
   toolMode: DoorToolMode;
   interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
+  onTap: (e: ThreeEvent<MouseEvent>) => void;
   onPatch: (patch: Partial<WallElement>) => void;
   onDelete: () => void;
 }) {
@@ -503,7 +507,7 @@ function DoorLeaf({
             castShadow
             receiveShadow
             onPointerDown={onPointerDown}
-            {...swallowClick}
+            onClick={onTap}
             onPointerEnter={() => { document.body.style.cursor = cursor; }}
             onPointerLeave={() => { document.body.style.cursor = ""; }}
           >
@@ -601,6 +605,7 @@ function Pane({
   grid,
   fan,
   onPointerDown,
+  onTap,
   cursor,
 }: {
   w: number;
@@ -609,13 +614,14 @@ function Pane({
   grid?: [number, number];
   fan?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
+  onTap: (e: ThreeEvent<MouseEvent>) => void;
   cursor: string;
 }) {
   const glassW = Math.max(0.02, w - BAR * 2);
   const glassH = Math.max(0.02, h - BAR * 2);
   const barProps = {
     onPointerDown,
-    ...swallowClick,
+    onClick: onTap,
     onPointerEnter: () => { document.body.style.cursor = cursor; },
     onPointerLeave: () => { document.body.style.cursor = ""; },
   };
@@ -713,6 +719,7 @@ function WindowSash({
   toolMode,
   interactive = true,
   onPointerDown,
+  onTap,
   onPatch,
   onDelete,
 }: {
@@ -722,6 +729,7 @@ function WindowSash({
   toolMode: DoorToolMode;
   interactive?: boolean;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
+  onTap: (e: ThreeEvent<MouseEvent>) => void;
   onPatch: (patch: Partial<WallElement>) => void;
   onDelete: () => void;
 }) {
@@ -784,6 +792,7 @@ function WindowSash({
             grid={pane.grid}
             fan={pane.fan}
             onPointerDown={onPointerDown}
+            onTap={onTap}
             cursor={cursor}
           />
         );

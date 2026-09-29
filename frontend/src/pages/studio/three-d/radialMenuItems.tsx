@@ -70,6 +70,9 @@ export function buildRadialItems(
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
     /** The same for a door, at the standard 900 x 2100. */
     createDoorStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
+    /** Restyles an opening already in the wall — the leaf design of a door,
+     *  the sash layout of a window. */
+    restyleOpening: (wallId: string, elId: string, styleId: string) => void;
     /** Lays the floor: a material and the pattern it is laid in. */
     setFloorPattern: (floorType: 'parquet' | 'tile', patternId: string, settings: FloorPatternSettings) => void;
     /** Reshapes the ceiling, keeping whatever settings it already had. */
@@ -79,7 +82,7 @@ export function buildRadialItems(
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening,
     placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled, createDoorStyled,
-    setFloorPattern, setSkirting, setCeilingDesign,
+    setFloorPattern, setSkirting, setCeilingDesign, restyleOpening,
   } = deps;
 
   /** Sends the user to the full panel — what a ring with nothing in it can
@@ -190,6 +193,30 @@ export function buildRadialItems(
       },
     ];
   }
+  // A door or a window tapped in the room offers the designs it could be —
+  // the same sheets the wall ring hangs a new one from, but changing THIS
+  // opening rather than making another. Tapping the thing is how the user
+  // says which one they mean.
+  if (r.surface === 'door') {
+    return DOOR_STYLES.map((st) => ({
+      key: `door:${st.id}`,
+      label: st.label,
+      icon: RadialIcons.door,
+      fill: <DoorPreview styleId={st.id} />,
+      onSelect: () => { if (r.wallId && r.elId) restyleOpening(r.wallId, r.elId, st.id); },
+    }));
+  }
+
+  if (r.surface === 'window') {
+    return WINDOW_STYLES.map((st) => ({
+      key: `win:${st.id}`,
+      label: st.label,
+      icon: RadialIcons.window,
+      fill: <WindowPreview style={st} />,
+      onSelect: () => { if (r.wallId && r.elId) restyleOpening(r.wallId, r.elId, st.id); },
+    }));
+  }
+
   // A trim run tapped in the room offers the profiles it could be. There is
   // no submenu: the user already said which run they mean by tapping it, so
   // the ring goes straight to the choice, scrolling through the whole sheet.

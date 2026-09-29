@@ -89,7 +89,7 @@ export function ThreeDCanvasScene({
   cutaway: CutawayMode;
   selectedWall: string | null;
   focusSurface: (id: string) => void;
-  holdBind: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
+  holdBind: (surface: RadialSurface, wallId?: string, elId?: string) => Record<string, unknown>;
   selOpening: OpeningSel | null;
   selectOpening: (sel: OpeningSel | null) => void;
   updateElement: (wallId: string, elementId: string, patch: Partial<Omit<WallElement, 'id'>>) => void;
@@ -333,6 +333,12 @@ export function ThreeDCanvasScene({
           controlsRef={controlsRef}
           selectedId={selectedDoorId}
           onSelect={selectDoor}
+          // A tapped door or window opens its own ring of designs, where it
+          // was tapped — the same plumbing the trim runs use.
+          openMenu={(kind, wallId, elId, e) =>
+            (holdBind(kind, wallId, elId) as unknown as {
+              onClick: (ev: ThreeEvent<MouseEvent>) => void
+            }).onClick(e)}
         />
         <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
 
