@@ -548,7 +548,17 @@ const SHADE_TOP = 1.0
 const SHADE_CHAMFER = 0.78
 const SHADE_SIDE = 0.5
 
-interface PrismArrays { positions: number[]; normals: number[]; colors: number[]; uvs: number[] }
+interface VertArrays { positions: number[]; normals: number[]; colors: number[]; uvs: number[] }
+
+/**
+ * A piece's triangles, kept in two buckets.
+ *
+ * The rim — the chamfer round the top edge and the side walls below it — can
+ * want a different material from the face: a tile's arris is the grout-white
+ * edge of the porcelain, not a strip of the marble printed on its face. Kept
+ * apart here so the geometry can carry two material groups, rim first.
+ */
+interface PrismArrays { rim: VertArrays; top: VertArrays }
 
 /**
  * How a plank's texture is laid on its own footprint: one tile per plank
@@ -695,7 +705,7 @@ function appendChamferedPrism(
   const top = insetConvexPoly(poly, b)
   const y1 = thickness - b
   const n = poly.length
-  const { positions, normals, colors, uvs } = out
+
 
   const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3()
   const AB = new THREE.Vector3(), AC = new THREE.Vector3(), N = new THREE.Vector3()
@@ -707,23 +717,26 @@ function appendChamferedPrism(
    *  edge, so the map runs over the chamfer without a seam). The side walls
    *  reuse their top edge's coordinates; they are a ~10 mm strip inside the
    *  joint, drawn at SHADE_SIDE, and never read as a surface. */
-  const pushUv = (p: THREE.Vector3) => {
+  const pushUv = (into: VertArrays, p: THREE.Vector3) => {
     const dx = p.x - uv.ox, dz = p.z - uv.oz
-    uvs.push((dx * uv.ux + dz * uv.uz) / uv.su, (dx * vx + dz * vz) / uv.sv)
+    into.uvs.push((dx * uv.ux + dz * uv.uz) / uv.su, (dx * vx + dz * vz) / uv.sv)
   }
 
   /** Push a triangle wound so its face normal agrees with `ref`. */
-  function tri(a: number[], bb: number[], c: number[], ref: THREE.Vector3, shade: number) {
+  function tri(
+    a: number[], bb: number[], c: number[], ref: THREE.Vector3, shade: number,
+    into: VertArrays,
+  ) {
     A.fromArray(a); B.fromArray(bb); C.fromArray(c)
     AB.subVectors(B, A); AC.subVectors(C, A)
     N.crossVectors(AB, AC)
     if (N.dot(ref) < 0) { const t = B.clone(); B.copy(C); C.copy(t); N.negate() }
     N.normalize()
-    positions.push(A.x, A.y, A.z, B.x, B.y, B.z, C.x, C.y, C.z)
-    pushUv(A); pushUv(B); pushUv(C)
+    into.positions.push(A.x, A.y, A.z, B.x, B.y, B.z, C.x, C.y, C.z)
+    pushUv(into, A); pushUv(into, B); pushUv(into, C)
     for (let i = 0; i < 3; i++) {
-      normals.push(N.x, N.y, N.z)
-      colors.push(shade * tint[0], shade * tint[1], shade * tint[2])
+      into.normals.push(N.x, N.y, N.z)
+      into.colors.push(shade * tint[0], shade * tint[1], shade * tint[2])
     }
   }
 
@@ -740,12 +753,12 @@ function appendChamferedPrism(
     const mx = (x1 + x2) / 2 - cx, mz = (z1 + z2) / 2 - cz
     // Side wall (0 → y1), outward
     outV.set(mx, 0, mz)
-    tri([x1, 0, z1], [x2, 0, z2], [x2, y1, z2], outV, SHADE_SIDE)
-    tri([x1, 0, z1], [x2, y1, z2], [x1, y1, z1], outV, SHADE_SIDE)
+    tri([x1, 0, z1], [x2, 0, z2], [x2, y1, z2], outV, SHADE_SIDE, out.rim)
+    tri([x1, 0, z1], [x2, y1, z2], [x1, y1, z1], outV, SHADE_SIDE, out.rim)
     // Chamfer band (y1 outline → top inset), outward + up
     outV.set(mx, Math.hypot(mx, mz), mz)
-    tri([x1, y1, z1], [x2, y1, z2], [tx2, thickness, tz2], outV, SHADE_CHAMFER)
-    tri([x1, y1, z1], [tx2, thickness, tz2], [tx1, thickness, tz1], outV, SHADE_CHAMFER)
+    tri([x1, y1, z1], [x2, y1, z2], [tx2, thickness, tz2], outV, SHADE_CHAMFER, out.rim)
+    tri([x1, y1, z1], [tx2, thickness, tz2], [tx1, thickness, tz1], outV, SHADE_CHAMFER, out.rim)
   }
   // Top face (fan)
   const UP = new THREE.Vector3(0, 1, 0)
@@ -756,29 +769,53 @@ function appendChamferedPrism(
       [top[i + 1][0], thickness, top[i + 1][1]],
       UP,
       SHADE_TOP,
+      out.top,
     )
   }
 }
 
-function emptyPrismArrays(): PrismArrays {
+function emptyVerts(): VertArrays {
   return { positions: [], normals: [], colors: [], uvs: [] }
 }
 
-function arraysToGeometry(a: PrismArrays): THREE.BufferGeometry {
+function emptyPrismArrays(): PrismArrays {
+  return { rim: emptyVerts(), top: emptyVerts() }
+}
+
+function prismVertexCount(a: PrismArrays): number {
+  return (a.rim.positions.length + a.top.positions.length) / 3
+}
+
+/**
+ * The two buckets as one buffer, rim first.
+ *
+ * `split` adds a material group per bucket, for a floor whose edges are a
+ * different material from its face — a tile's white arris against its marble.
+ * Without it the whole piece is one group and one material, which is what a
+ * plank wants: an oak board's chamfer is oak.
+ */
+function arraysToGeometry(a: PrismArrays, split = false): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(a.positions, 3))
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(a.normals, 3))
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(a.colors, 3))
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(a.uvs, 2))
+  const cat = (k: keyof VertArrays) => [...a.rim[k], ...a.top[k]] as number[]
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(cat('positions'), 3))
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(cat('normals'), 3))
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cat('colors'), 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(cat('uvs'), 2))
+  if (split) {
+    const rimVerts = a.rim.positions.length / 3
+    const topVerts = a.top.positions.length / 3
+    geo.addGroup(0, rimVerts, 0)
+    geo.addGroup(rimVerts, topVerts, 1)
+  }
   return geo
 }
 
 export function chamferedPrismGeometry(
-  poly: Vec2[], thickness: number, bevel: number, uv?: UvFrame,
+  poly: Vec2[], thickness: number, bevel: number, uv?: UvFrame, split = false,
 ): THREE.BufferGeometry {
   const arrays = emptyPrismArrays()
   appendChamferedPrism(arrays, poly, thickness, bevel, [1, 1, 1], uv ?? localUvFrame(poly))
-  return arraysToGeometry(arrays)
+  return arraysToGeometry(arrays, split)
 }
 
 // ─── Polygon clipping (non-rectangular rooms: RoomPlan scans, drawn rooms) ───
@@ -939,6 +976,10 @@ export function buildFloorGroup(
    *  board, and each plank drawn with the one its position picks — a real
    *  floor is not one plank photographed a thousand times. */
   boardCount = 1,
+  /** Paints the chamfer and sides of every piece, for a floor whose edges are
+   *  not its face: tile. Left off, the rim is the face's own material, which
+   *  is what a board wants. */
+  rimColor?: string,
 ): BuiltFloor {
   const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor)
 
@@ -949,6 +990,19 @@ export function buildFloorGroup(
     new THREE.Plane(new THREE.Vector3(0, 0, -1), D / 2 + clip),
     new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2 + clip),
   ]
+
+  // A tile's arris is the white edge of the porcelain, not a strip of the
+  // marble printed on its face — so the rim can take a material of its own.
+  const rim = rimColor
+    ? new THREE.MeshStandardMaterial({
+      color: rimColor,
+      roughness: Math.min(1, finish.roughness + 0.15),
+      metalness: 0,
+      envMapIntensity: finish.envMapIntensity * 0.6,
+      clippingPlanes,
+      vertexColors: true, // keeps the baked shading down the chamfer
+    })
+    : null
 
   const boards = Math.max(1, boardCount)
   const materials = Array.from({ length: boards }, () => new THREE.MeshStandardMaterial({
@@ -1034,7 +1088,7 @@ export function buildFloorGroup(
     }
 
     if (pieces.length > 0) {
-      const geo = chamferedPrismGeometry(footprint, PLANK_THICKNESS, resolved.bevelM, uvLocal)
+      const geo = chamferedPrismGeometry(footprint, PLANK_THICKNESS, resolved.bevelM, uvLocal, !!rim)
       geometries.push(geo)
       // Split by board: instances in one mesh all draw with one material, so
       // a floor laid from twelve boards is twelve meshes of the same geometry
@@ -1045,7 +1099,7 @@ export function buildFloorGroup(
 
       byBoard.forEach((group_, b) => {
         if (group_.length === 0) return
-        const mesh = new THREE.InstancedMesh(geo, materials[b], group_.length)
+        const mesh = new THREE.InstancedMesh(geo, rim ? [rim, materials[b]] : materials[b], group_.length)
         group_.forEach((p, i) => {
           pos.set(p.x, 0, p.z)
           // Generator rotations are CCW in (x,z) math coords; THREE's rotation
@@ -1071,10 +1125,10 @@ export function buildFloorGroup(
   }
 
   merged.forEach((m, b) => {
-    if (m.positions.length === 0) return
-    const geo = arraysToGeometry(m)
+    if (prismVertexCount(m) === 0) return
+    const geo = arraysToGeometry(m, !!rim)
     geometries.push(geo)
-    const mesh = new THREE.Mesh(geo, materials[b])
+    const mesh = new THREE.Mesh(geo, rim ? [rim, materials[b]] : materials[b])
     mesh.castShadow = false
     mesh.receiveShadow = true
     mesh.frustumCulled = false
@@ -1091,6 +1145,7 @@ export function buildFloorGroup(
     dispose() {
       for (const g of geometries) g.dispose()
       for (const m of materials) m.dispose()
+      rim?.dispose()
     },
   }
 }

@@ -6,7 +6,7 @@ import {
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
 import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
-import { floorFinish } from "@/lib/surfaceFinish";
+import { floorFinish, rimColorFor } from "@/lib/surfaceFinish";
 import { parquetBoardsFor, withBoardGrain } from "@/lib/parquetBoards";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
@@ -295,8 +295,11 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   // quarter-turn — otherwise the grain runs across every plank.
   const laid = useMemo(() => withBoardGrain(pattern, boards.length), [pattern, boards.length]);
   const built = useMemo(
-    () => buildFloorGroup(laid, width, depth, fallbackColor, clipPolygon, finish, boards.length || 1),
-    [laid, width, depth, fallbackColor, clipPolygon, finish, boards.length],
+    () => buildFloorGroup(
+      laid, width, depth, fallbackColor, clipPolygon, finish,
+      boards.length || 1, rimColorFor(floorType),
+    ),
+    [laid, width, depth, fallbackColor, clipPolygon, finish, boards.length, floorType],
   );
 
   useEffect(() => {

@@ -78,3 +78,17 @@ export function floorFinish(floorType: string | undefined): SurfaceFinish {
       : 'parquet',
   )
 }
+
+/**
+ * The colour of a piece's cut edge — the chamfer round its top and the sides
+ * below it — where that is not the face's own material.
+ *
+ * A tile's arris is the body of the porcelain, which is milky white whatever
+ * is printed on the face: a black marble tile still has a pale edge, and
+ * drawing it with the marble makes the floor read as one printed sheet rather
+ * than as tiles. A board's chamfer is the same wood as the board, so boards
+ * get none of this.
+ */
+export function rimColorFor(floorType: string | undefined): string | undefined {
+  return floorType === 'tile' ? '#F2F0EB' : undefined
+}

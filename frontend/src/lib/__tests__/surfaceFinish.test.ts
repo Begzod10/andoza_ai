@@ -5,7 +5,7 @@
  * floor is what made a polished tile and an oiled parquet reflect alike.
  */
 import { describe, it, expect } from 'vitest'
-import { surfaceFinish, floorFinish, type SurfaceKind } from '../surfaceFinish'
+import { surfaceFinish, floorFinish, rimColorFor, type SurfaceKind } from '../surfaceFinish'
 
 const gloss = (kind: SurfaceKind) => Math.round((1 - surfaceFinish(kind).roughness) * 100)
 
@@ -64,5 +64,21 @@ describe('floorFinish', () => {
   it('falls back to parquet, the schema default', () => {
     expect(floorFinish(undefined)).toEqual(surfaceFinish('parquet'))
     expect(floorFinish('marble-ish')).toEqual(surfaceFinish('parquet'))
+  })
+})
+
+describe('rimColorFor', () => {
+  it('gives a tile a milky arris, whatever is printed on its face', () => {
+    // A black marble tile still has a pale edge; drawing the edge with the
+    // marble makes the floor read as one printed sheet rather than as tiles.
+    const rim = rimColorFor('tile')!
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(rim.slice(i, i + 2), 16))
+    expect(Math.min(r, g, b)).toBeGreaterThan(220)
+  })
+
+  it('leaves a board alone — an oak chamfer is oak', () => {
+    expect(rimColorFor('parquet')).toBeUndefined()
+    expect(rimColorFor('laminate')).toBeUndefined()
+    expect(rimColorFor(undefined)).toBeUndefined()
   })
 })
