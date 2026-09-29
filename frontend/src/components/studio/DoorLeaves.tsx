@@ -33,6 +33,20 @@ const BRASS = "#B8985A";
  * window sash it keeps its thickness and cannot use WINDOW_SASH_RECESS.
  */
 const DOOR_LEAF_RECESS = OPENING_REVEAL_D - LEAF_T / 2;
+
+/**
+ * How deep in the niche the room-facing surface of a closed leaf or sash sits,
+ * measured from the wall face.
+ *
+ * Anything drawn "on" an opening — a selection border, a hit plane — belongs
+ * at this depth. Drawn at the wall face instead it floats 200 mm in front of
+ * the door, which from any angle but dead-on reads as the highlight being in
+ * the wrong place, because it is.
+ */
+export const LEAF_FACE_DEPTH = {
+  door: DOOR_LEAF_RECESS - LEAF_T / 2,
+  window: WINDOW_SASH_RECESS,
+} as const;
 const GAP = 0.006; // clearance between leaf and frame
 const SASH_T = 0.045; // window sash thickness (selection outline only)
 // Visible depth of window sash rails/muntins along the wall normal. Kept at

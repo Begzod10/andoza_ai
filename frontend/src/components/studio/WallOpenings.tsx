@@ -34,6 +34,7 @@ import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { liveOpeningDrag } from '@/lib/liveOpeningDrag'
 import { wallDefsFromVertices } from '@/lib/wallDefsFromVertices'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
+import { LEAF_FACE_DEPTH } from "./DoorLeaves";
 
 export interface OpeningSel { wallId: string; elId: string }
 
@@ -83,7 +84,7 @@ function toWorld(wd: WallDef, alongM: number, yM: number, push = 0): [number, nu
 const s = 1 / 1000
 
 export function WallOpenings({
-  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting,
+  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting, openMenu,
 }: {
   geometry: RoomGeometry
   W: number; D: number; H: number
@@ -93,6 +94,8 @@ export function WallOpenings({
   updateElement: (wallId: string, elId: string, patch: Partial<Omit<WallElement, 'id'>>) => void
   removeElement: (wallId: string, elId: string) => void
   onInteracting: (active: boolean) => void
+  /** Opens the tapped opening's own ring of designs, where it was tapped. */
+  openMenu?: (kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void
 }) {
   // Real polygon data (≥3 hand-drawn vertices) uses the generalized per-edge
   // math; a legacy 4-wall rectangle room (no `vertices`) keeps using the
@@ -276,7 +279,16 @@ export function WallOpenings({
             : el
           const centerAlongM = (liveEl.position + liveEl.width / 2) * s
           const centerY = (liveEl.sill_height + liveEl.height / 2) * s
-          const [px, py, pz] = toWorld(wd, centerAlongM, centerY, 0.02)
+          // In front of the LEAF, not of the wall. The leaf hangs at the back
+          // of a 200 mm niche, so an overlay pushed 20 mm off the wall face
+          // floated the better part of a foot in front of the door — which is
+          // what the selection border being "in a different place from the
+          // door" was. 20 mm of clearance, measured from where the leaf
+          // actually is.
+          const [px, py, pz] = toWorld(
+            wd, centerAlongM, centerY,
+            0.02 - LEAF_FACE_DEPTH[isDoor ? 'door' : 'window'],
+          )
           const hold = bindHold({
             label: el.type === 'eshik' ? 'Eshik' : 'Deraza',
             onDelete: () => { removeElement(w.id, el.id); if (isSel) onSelect(null) },
@@ -292,6 +304,10 @@ export function WallOpenings({
                   // A hold that just put the delete button up is not a tap.
                   if (wasHeld()) return
                   onSelect({ wallId: w.id, elId: el.id })
+                  // ...and offer what this opening could be. This plane sits
+                  // in front of the leaf, so it — not the leaf's own handler —
+                  // is what a tap on a door actually lands on.
+                  openMenu?.(isDoor ? 'door' : 'window', w.id, el.id, e)
                 }}
                 onPointerDown={(e) => {
                   hold.onPointerDown(e)

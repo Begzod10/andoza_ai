@@ -128,6 +128,15 @@ export function ThreeDCanvasScene({
   const trimTap = (surface: RadialSurface) =>
     holdBind(surface) as unknown as { onClick: (e: ThreeEvent<MouseEvent>) => void };
 
+  /** A tapped door or window opens its own ring of designs, where it was
+   *  tapped. Both the leaf itself and the editing layer's hit plane in front
+   *  of it route here, so whichever one the ray meets first, the ring opens. */
+  const openOpeningMenu = (
+    kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>,
+  ) => (holdBind(kind, wallId, elId) as unknown as {
+    onClick: (ev: ThreeEvent<MouseEvent>) => void
+  }).onClick(e);
+
   return (
     <CanvasErrorBoundary
       key={glAttempt}
@@ -287,6 +296,7 @@ export function ThreeDCanvasScene({
           updateElement={updateElement}
           removeElement={removeElement}
           onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
+          openMenu={openOpeningMenu}
         />
         <SwapButtons W={W} D={D} H={H} />
         {topView && (
@@ -335,10 +345,7 @@ export function ThreeDCanvasScene({
           onSelect={selectDoor}
           // A tapped door or window opens its own ring of designs, where it
           // was tapped — the same plumbing the trim runs use.
-          openMenu={(kind, wallId, elId, e) =>
-            (holdBind(kind, wallId, elId) as unknown as {
-              onClick: (ev: ThreeEvent<MouseEvent>) => void
-            }).onClick(e)}
+          openMenu={openOpeningMenu}
         />
         <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
 
