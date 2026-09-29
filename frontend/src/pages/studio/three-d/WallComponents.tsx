@@ -15,6 +15,10 @@ import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimPro
 import { useRoomStore } from "@/store/roomStore";
 import { DOOR_IVORY } from "@/lib/doorStyles";
 import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast, FLOOR_COLORS } from "./constants";
+import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
+
+/** Paper has a weave, and its own image says where. */
+const WALLPAPER = surfaceFinish('wallpaper');
 import { trimSegments } from "./helpers";
 
 /**
@@ -260,10 +264,10 @@ function WallSegment({
         <meshStandardMaterial ref={matRef} color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
-        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} color="#ffffff" roughness={0.65} metalness={0} envMapIntensity={0.3}
+        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} bumpMap={imgMat ?? undefined} bumpScale={WALLPAPER.bumpScale} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : (
-        <meshStandardMaterial ref={matRef} map={mat ?? undefined} color="#ffffff" roughness={0.9} metalness={0} envMapIntensity={0.2}
+        <meshStandardMaterial ref={matRef} map={mat ?? undefined} bumpMap={mat ?? undefined} bumpScale={WALLPAPER.bumpScale} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.2}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       )}
     </mesh>
@@ -951,12 +955,17 @@ function DoorwayFloorMat({ wM, dM }: { wM: number; dM: number }) {
 
   useEffect(() => () => { tex?.dispose(); }, [tex]);
 
+  const finish = floorFinish(designState.floorType);
   return (
     <meshStandardMaterial
       color={tex ? "#ffffff" : base}
       map={tex ?? undefined}
-      roughness={0.55}
-      metalness={0.04}
+      // Same relief the room's own floor gets, from the same image.
+      bumpMap={tex && finish.bumpScale > 0 ? tex : undefined}
+      bumpScale={finish.bumpScale}
+      roughness={finish.roughness}
+      metalness={finish.metalness}
+      envMapIntensity={finish.envMapIntensity}
     />
   );
 }

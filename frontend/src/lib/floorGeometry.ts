@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { surfaceFinish, type SurfaceFinish } from './surfaceFinish'
 
 /**
  * Real-geometry floor laying patterns for the Pol phase — the FloorGenerator
@@ -898,6 +899,9 @@ export function buildFloorGroup(
   D: number,
   fallbackBaseColor: string,
   clipPoly?: Vec2[],
+  /** How the named material behaves in light. A tile is glossy, a parquet
+   *  half so, and the same laying pattern in either should not look alike. */
+  finish: SurfaceFinish = surfaceFinish('parquet'),
 ): BuiltFloor {
   const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor)
 
@@ -911,9 +915,9 @@ export function buildFloorGroup(
 
   const material = new THREE.MeshStandardMaterial({
     color: 0xffffff, // real tone lives in the per-instance colours
-    roughness: 0.5,
-    metalness: 0.04,
-    envMapIntensity: 0.4,
+    roughness: finish.roughness,
+    metalness: finish.metalness,
+    envMapIntensity: finish.envMapIntensity,
     clippingPlanes,
     vertexColors: true, // the baked AO rim on chamfer + sides
   })

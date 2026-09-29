@@ -432,6 +432,7 @@ function NWallRoomShell({
           depth={patternExtents.D}
           fallbackColor={floorBase}
           clipPolygon={filteredCentred}
+          floorType={designState.floorType}
         />
       )}
       </group>

@@ -6,6 +6,7 @@ import {
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
 import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
+import { floorFinish } from "@/lib/surfaceFinish";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
@@ -33,6 +34,9 @@ export const WoodFloor = memo(function WoodFloor({
 }) {
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
+  // Kafel is glossy, parket half so — the name is what says how it behaves in
+  // light, and one set of numbers for every floor made them all look alike.
+  const flatFinish = floorFinish(floorType);
 
   // Precedence: a laying pattern wins, and carries its own per-plank image in
   // floorPattern.settings.textureUrl. With no pattern, the legacy whole-floor
@@ -212,7 +216,10 @@ export const WoodFloor = memo(function WoodFloor({
             roughness={0.92} metalness={0} envMapIntensity={0.15}
           />
         </mesh>
-        <PatternFloor pattern={activePattern} width={width} depth={depth} fallbackColor={floorColor} />
+        <PatternFloor
+          pattern={activePattern} width={width} depth={depth}
+          fallbackColor={floorColor} floorType={floorType}
+        />
         {isSelected && (
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={1}>
             <planeGeometry args={[width + 0.04, depth + 0.04]} />
@@ -228,7 +235,14 @@ export const WoodFloor = memo(function WoodFloor({
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
         <planeGeometry args={[width + 0.04, depth + 0.04]} />
         {floorConfigured || floorTexture ? (
-          <meshStandardMaterial map={activeTex} roughness={0.55} metalness={0.05} envMapIntensity={0.4} />
+          <meshStandardMaterial
+            map={activeTex}
+            bumpMap={flatFinish.bumpScale > 0 ? activeTex : undefined}
+            bumpScale={flatFinish.bumpScale}
+            roughness={flatFinish.roughness}
+            metalness={flatFinish.metalness}
+            envMapIntensity={flatFinish.envMapIntensity}
+          />
         ) : (
           <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />
         )}
@@ -255,9 +269,12 @@ export const WoodFloor = memo(function WoodFloor({
  * instead of the rectangular clipping planes, so drawn/scanned polygon
  * rooms — including L-shapes — get the same real-geometry floor.
  */
-export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon }: {
+export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon, floorType }: {
   pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
   clipPolygon?: [number, number][];
+  /** Which material this is, so a tile reflects like a tile and a parquet
+   *  like a parquet — see lib/surfaceFinish. */
+  floorType?: string;
 }) {
   const { gl, invalidate } = useThree();
 
@@ -266,9 +283,10 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   // Nothing else in the app uses clipping, so leaving it on is inert.
   useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
 
+  const finish = useMemo(() => floorFinish(floorType), [floorType]);
   const built = useMemo(
-    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon),
-    [pattern, width, depth, fallbackColor, clipPolygon],
+    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon, finish),
+    [pattern, width, depth, fallbackColor, clipPolygon, finish],
   );
 
   useEffect(() => {
@@ -283,7 +301,13 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   useEffect(() => {
     const material = built.material;
     if (!textureUrl) {
-      if (material.map) { material.map.dispose(); material.map = null; material.needsUpdate = true; invalidate(); }
+      if (material.map) {
+        material.map.dispose();
+        material.map = null;
+        material.bumpMap = null;
+        material.needsUpdate = true;
+        invalidate();
+      }
       return;
     }
     let cancelled = false;
@@ -303,6 +327,12 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
         mine = t;
         material.map?.dispose();
         material.map = t;
+        // The diffuse doubles as the height: the dark line of a grout joint or
+        // a plank's shadow gap is exactly where the surface steps down, so the
+        // image already describes the relief. Bump rather than displacement —
+        // a plank is two triangles, with no vertices to move.
+        material.bumpMap = finish.bumpScale > 0 ? t : null;
+        material.bumpScale = finish.bumpScale;
         material.needsUpdate = true;
         invalidate();
       },
@@ -311,9 +341,12 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
     return () => {
       cancelled = true;
       unsub();
-      if (mine) { if (material.map === mine) { material.map = null; material.needsUpdate = true; } mine.dispose(); }
+      if (mine) {
+        if (material.map === mine) { material.map = null; material.bumpMap = null; material.needsUpdate = true; }
+        mine.dispose();
+      }
     };
-  }, [built, textureUrl, gl, invalidate]);
+  }, [built, textureUrl, gl, invalidate, finish]);
 
   return <primitive object={built.group} position={[0, -0.004, 0]} />;
 }
