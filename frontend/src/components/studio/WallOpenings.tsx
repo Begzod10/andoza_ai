@@ -84,7 +84,7 @@ function toWorld(wd: WallDef, alongM: number, yM: number, push = 0): [number, nu
 const s = 1 / 1000
 
 export function WallOpenings({
-  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting, openMenu,
+  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting, openMenu, armedId,
 }: {
   geometry: RoomGeometry
   W: number; D: number; H: number
@@ -96,6 +96,8 @@ export function WallOpenings({
   onInteracting: (active: boolean) => void
   /** Opens the tapped opening's own ring of designs, where it was tapped. */
   openMenu?: (kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void
+  /** The opening a double tap has armed for dragging. Only this one moves. */
+  armedId?: string | null
 }) {
   // Real polygon data (≥3 hand-drawn vertices) uses the generalized per-edge
   // math; a legacy 4-wall rectangle room (no `vertices`) keeps using the
@@ -222,13 +224,16 @@ export function WallOpenings({
 
   function onDown(e: ThreeEvent<PointerEvent>, el: WallElement) {
     e.stopPropagation()
-    if (!(selected && selected.elId === el.id)) return
+    // Dragging takes two taps to arm — see `armedId`. A single tap is for
+    // looking at what the opening could be, and a finger resting on a door
+    // and sliding a little used to walk it along the wall.
+    if (armedId !== el.id) return
     dragging.current = true
     onInteracting(true)
     ;(e.target as Element)?.setPointerCapture?.(e.pointerId)
   }
   function onMove(e: ThreeEvent<PointerEvent>, wd: WallDef, el: WallElement) {
-    if (!dragging.current || !(selected && selected.elId === el.id)) return
+    if (!dragging.current || armedId !== el.id) return
     e.stopPropagation()
     const hit = new THREE.Vector3()
     if (!e.ray.intersectPlane(wd.plane, hit)) return
@@ -369,7 +374,10 @@ export function WallOpenings({
               {isSel && (
                 <lineSegments position={[px, py, pz]} rotation={[0, wd.ry, 0]}>
                   <edgesGeometry args={[getEdgesPlane(el.width * s, el.height * s)]} />
-                  <lineBasicMaterial color="#2E5BFF" />
+                  {/* Amber once a double tap has armed it: the border is the
+                      only thing that can say "this one will move if you drag
+                      it", and a mode nobody can see is a mode nobody trusts. */}
+                  <lineBasicMaterial color={armedId === el.id ? '#F59E0B' : '#2E5BFF'} />
                 </lineSegments>
               )}
 

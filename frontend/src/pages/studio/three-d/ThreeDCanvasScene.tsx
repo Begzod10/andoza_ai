@@ -56,7 +56,7 @@ export function ThreeDCanvasScene({
   topView, sceneLightOn, sun, W, D, H, highQuality3d,
   room, geometry, designState,
   showContactShadows, useComposer, lightsOn, cutaway,
-  selectedWall, focusSurface, holdBind,
+  selectedWall, focusSurface, holdBind, armedOpeningId,
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
@@ -90,6 +90,8 @@ export function ThreeDCanvasScene({
   selectedWall: string | null;
   focusSurface: (id: string) => void;
   holdBind: (surface: RadialSurface, wallId?: string, elId?: string) => Record<string, unknown>;
+  /** The opening a double tap has armed for dragging, if any. */
+  armedOpeningId?: string | null;
   selOpening: OpeningSel | null;
   selectOpening: (sel: OpeningSel | null) => void;
   updateElement: (wallId: string, elementId: string, patch: Partial<Omit<WallElement, 'id'>>) => void;
@@ -297,6 +299,7 @@ export function ThreeDCanvasScene({
           removeElement={removeElement}
           onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
           openMenu={openOpeningMenu}
+          armedId={armedOpeningId}
         />
         <SwapButtons W={W} D={D} H={H} />
         {topView && (

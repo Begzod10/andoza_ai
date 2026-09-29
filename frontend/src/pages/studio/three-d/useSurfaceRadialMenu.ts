@@ -1,6 +1,7 @@
 import { useRef, useState, type RefObject } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
+import { armsForDragging } from "@/lib/doubleTapArm";
 
 export type RadialState = {
   surface: RadialSurface;
@@ -24,6 +25,17 @@ export type RadialState = {
  */
 export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | null>) {
   const [radial, setRadial] = useState<RadialState>(null);
+  /**
+   * The opening a double tap has armed for dragging, if any.
+   *
+   * One tap shows what a door could be; two say you mean to move it. Without
+   * that, a finger resting on a door and sliding a little walked it along the
+   * wall, which is not what anyone taps a door to do.
+   */
+  const [armedOpening, setArmedOpening] = useState<{ wallId?: string; elId: string } | null>(null);
+  const openedAt = useRef(0);
+  const radialRef = useRef<RadialState>(null);
+  radialRef.current = radial;
   // World-space hit point of the press, captured from the raycast so a created
   // window/door lands exactly where the wall was touched.
   const holdPoint = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -59,8 +71,15 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     const y = e?.nativeEvent?.clientY ?? e?.clientY ?? 0;
     const point = e?.point ? { x: e.point.x, y: e.point.y, z: e.point.z } : (holdPoint.current ?? undefined);
     if (controlsRef.current) controlsRef.current.enabled = false;
+    openedAt.current = Date.now();
+    // Opening a ring on anything else lets go of whatever was armed.
+    if (!elId || armedOpening?.elId !== elId) setArmedOpening(null);
     setRadial({ surface, wallId, elId, x, y, point });
   }
+
+  /** Lets go of the armed opening — a tap on empty space, or on anything
+   *  else. */
+  function disarmOpening() { setArmedOpening(null); }
 
   function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }, elId?: string) {
     const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
@@ -84,6 +103,13 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     if (Math.hypot(cx - holdStart.current.x, cy - holdStart.current.y) > HOLD_MOVE_TOL) clearHold();
   }
   function closeRadial() {
+    // A tap that dismisses the ring within half a second of it opening is the
+    // second half of a double tap: the finger is still on the door. That arms
+    // it for dragging; a considered dismiss a moment later does not.
+    const r = radialRef.current;
+    if (armsForDragging(r, openedAt.current, Date.now())) {
+      setArmedOpening({ wallId: r!.wallId, elId: r!.elId! });
+    }
     setRadial(null);
     if (controlsRef.current) controlsRef.current.enabled = true;
     // Safety net: if the trailing click never arrived, don't leave the guard
@@ -103,5 +129,5 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     };
   }
 
-  return { radial, holdBind, closeRadial };
+  return { radial, holdBind, closeRadial, armedOpening, disarmOpening };
 }
