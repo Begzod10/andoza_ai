@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { MultiTouchPan } from "@/pages/studio/three-d/MultiTouchPan";
 import * as THREE from "three";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicRoom } from "@/lib/api";
@@ -192,7 +193,11 @@ export default function SharedRoomPage() {
               minDistance={0.5}
               maxDistance={Math.max(W, D) * 4 + 6}
               maxPolarAngle={Math.PI * 0.49}
+              // Same touch gestures the studio uses: one finger turns, two
+              // pinch-zoom and drag, three drag.
+              touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
             />
+            <MultiTouchPan />
           </Suspense>
         </Canvas>
       </main>

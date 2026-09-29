@@ -59,10 +59,12 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.apartment import Apartment
+from app.models.electrical import RoomElectrical
 from app.models.estimate import Estimate
 from app.models.material import Material
 from app.models.norm import Norm
 from app.models.room import Room
+from app.models.room_finish import RoomFinish
 from app.models.room_state import RoomState
 from app.schemas.estimate import (
     EstimateLine,
@@ -71,6 +73,7 @@ from app.schemas.estimate import (
     PaginatedEstimates,
 )
 from app.services.currency import get_usd_rate, uzs_to_usd
+from app.services.room_finishes import apply_finishes_to_room
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 from app.services.smeta_ai import fill_ai_price_gaps
 
@@ -125,6 +128,56 @@ async def _load_materials(
         .where(Material.id.in_(mid_uuids))
     )
     return {str(m.id): m for m in result.scalars().all()}
+
+
+async def _load_room_for_pricing(
+    room_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Any,
+) -> tuple[Room, Room, dict[str, Material], float | None]:
+    """Load the room, overlay its room_finishes rows, and load the materials.
+
+    Returns ``(room, priced_room, materials_map, wiring_meters)`` — ``room``
+    is the real ORM row (used for display/PDF), ``priced_room`` is the
+    shallow copy handed to compute_estimate, and ``wiring_meters`` is the
+    measured cable run from the room's electrical plan (None when the room
+    has no plan). Loading it here rather than inside the pricing engine is
+    deliberate: smeta.py is sync and pure, and a lazy load from inside it
+    raises MissingGreenlet under the async session.
+
+    ``room_finishes`` rows were, until now, never read by the smeta at all: a
+    finish could be recorded through the finishes API and still cost nothing.
+    ``apply_finishes_to_room`` overlays them onto ``surfaces`` /
+    ``designState.wallCoverings`` UNDER the room's own values, so a room the
+    studio already configured prices exactly as before, while a scanned N-wall
+    room whose walls were finished through the API now costs every one of
+    them (compute_estimate already walks ``geometry.walls[].id``, so there is
+    no per-wall-count logic here or in smeta.py).
+    """
+    room = await _load_room_for_user(room_id, user_id, db)
+    result = await db.execute(select(RoomFinish).where(RoomFinish.room_id == room.id))
+    finishes = list(result.scalars().all())
+    priced_room = apply_finishes_to_room(room, finishes)
+    materials_map = await _load_materials(priced_room, db)
+    wiring_meters = await _load_wiring_meters(room.id, db)
+    return room, priced_room, materials_map, wiring_meters
+
+
+async def _load_wiring_meters(room_id: uuid.UUID, db: Any) -> float | None:
+    """The cable run measured off the room's placed electrical layout.
+
+    ``room_electrical.wiring_meters`` is written through the electrical API
+    when the user places a plan by hand. It is Numeric(8,2), so it comes back
+    as Decimal — coerced to float here so the pure pricing engine only ever
+    sees plain numbers. Returns None when the room has no plan yet (or has
+    one with no run recorded), which makes the smeta fall back to its
+    per-point estimate.
+    """
+    result = await db.execute(
+        select(RoomElectrical.wiring_meters).where(RoomElectrical.room_id == room_id)
+    )
+    value = result.scalar_one_or_none()
+    return float(value) if value is not None else None
 
 
 async def _load_norms(db: Any) -> dict[str, Norm]:
@@ -272,14 +325,16 @@ async def preview_estimate(
     design.  The returned ``id`` is a transient UUID and ``created_at`` is the
     current UTC time; neither value is stored in the database.
     """
-    room = await _load_room_for_user(room_id, current_user.id, db)
-    materials_map = await _load_materials(room, db)
+    room, priced_room, materials_map, wiring_meters = await _load_room_for_pricing(
+        room_id, current_user.id, db
+    )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
     computed: ComputedEstimate = compute_estimate(
-        room, materials_map, norms_map,
+        priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+        wiring_meters=wiring_meters,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
     usd_rate = await get_usd_rate()
@@ -318,14 +373,16 @@ async def create_estimate(
     current_user: CurrentUser,
     db: DbSession,
 ) -> EstimateResponse:
-    room = await _load_room_for_user(room_id, current_user.id, db)
-    materials_map = await _load_materials(room, db)
+    room, priced_room, materials_map, wiring_meters = await _load_room_for_pricing(
+        room_id, current_user.id, db
+    )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
     computed: ComputedEstimate = compute_estimate(
-        room, materials_map, norms_map,
+        priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+        wiring_meters=wiring_meters,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
@@ -411,14 +468,16 @@ async def _generate_estimate_pdf(
     current_user: CurrentUser,
     db: DbSession,
 ) -> StreamingResponse:
-    room = await _load_room_for_user(room_id, current_user.id, db)
-    materials_map = await _load_materials(room, db)
+    room, priced_room, materials_map, wiring_meters = await _load_room_for_pricing(
+        room_id, current_user.id, db
+    )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
 
     computed: ComputedEstimate = compute_estimate(
-        room, materials_map, norms_map,
+        priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
+        wiring_meters=wiring_meters,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 

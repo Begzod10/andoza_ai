@@ -10,7 +10,8 @@ import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl 
 import { useGLTF } from "@react-three/drei";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
-import { nextFurnitureOffsetMm } from "@/lib/placement";
+import { furniturePlacementMm } from "@/lib/placement";
+import { deleteUserModel, updateUserModel } from "@/lib/api";
 
 /**
  * One row of the material editor. Accepts image drops so a texture can be
@@ -248,6 +249,7 @@ export function MebelSection() {
   const setUserFurniturePlacement = useRoomStore((s) => s.setUserFurniturePlacement);
   const setUserFurniturePrice = useRoomStore((s) => s.setUserFurniturePrice);
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture);
+  const geometry = useRoomStore((s) => s.geometry);
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
   const [furnitureCat, setFurnitureCat] = React.useState<FurnitureCategory | 'barchasi' | 'mening'>('barchasi');
@@ -445,18 +447,37 @@ export function MebelSection() {
               }}
               count={count}
               busy={texBusy === entry.id}
-              onPlace={() => placeFurniture({ id: nanoid(), furniture_id: entry.id, ...nextFurnitureOffsetMm(count), rotation: 0 })}
+              onPlace={() => placeFurniture({
+                id: nanoid(), furniture_id: entry.id, rotation: 0,
+                ...furniturePlacementMm(geometry, count, entry.sizeM),
+              })}
               onOpenTexEditor={() => openTexEditor(entry.id)}
               onRemove={() => {
                 // Drop the stored GLB too — otherwise deleted models keep
-                // occupying IndexedDB with nothing referencing them.
+                // occupying IndexedDB with nothing referencing them. The
+                // server copy goes with it: deleting from the shelf means
+                // "I don't want this model", not "free my browser cache".
                 if ('blobId' in entry) void deleteModelFromDb(entry.blobId)
+                const serverId = 'serverId' in entry ? entry.serverId : undefined
+                if (serverId) deleteUserModel(serverId).catch(() => {})
                 removeUserFurniture(entry.id)
               }}
               onFiles={(files) => void applyMaterialFiles({ entryId: entry.id }, files)}
-              onRecategorize={entry.isUser ? (category) => setUserFurnitureCategory(entry.id, category) : undefined}
-              onSetPlacement={entry.isUser ? (placement) => setUserFurniturePlacement(entry.id, placement) : undefined}
-              onSetPrice={entry.isUser ? (priceUzs) => setUserFurniturePrice(entry.id, priceUzs) : undefined}
+              onRecategorize={entry.isUser ? (category) => {
+                setUserFurnitureCategory(entry.id, category)
+                const sid = 'serverId' in entry ? entry.serverId : undefined
+                if (sid) updateUserModel(sid, { category }).catch(() => {})
+              } : undefined}
+              onSetPlacement={entry.isUser ? (placement) => {
+                setUserFurniturePlacement(entry.id, placement)
+                const sid = 'serverId' in entry ? entry.serverId : undefined
+                if (sid) updateUserModel(sid, { placement }).catch(() => {})
+              } : undefined}
+              onSetPrice={entry.isUser ? (priceUzs) => {
+                setUserFurniturePrice(entry.id, priceUzs)
+                const sid = 'serverId' in entry ? entry.serverId : undefined
+                if (sid) updateUserModel(sid, { price_uzs: priceUzs }).catch(() => {})
+              } : undefined}
             />
           );
         })}

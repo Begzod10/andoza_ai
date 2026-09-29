@@ -59,8 +59,30 @@ const config: Config = {
         "brand-tint": "#EEF2FF",
         orange: "#F97316",
         "orange-tint": "#FFF1E7",
+        // Same hue as `orange`, darkened until white text on top clears
+        // WCAG AA (4.5:1) — `orange` itself only reaches 2.8:1 with white
+        // text, so it stays as an accent/icon/border color while any
+        // orange surface carrying white text uses this instead.
+        "orange-cta": "#C2410C",
         muted: "#6B7280",
         subtle: "#9CA3AF",
+
+        // ── Soft UI ───────────────────────────────────────────────────────
+        // Neumorphism needs the control and the surface behind it to be the
+        // same colour — the shape is made entirely of light, not of fill. So
+        // this is a ground, not a button colour, and the shadows below are
+        // calculated against it.
+        soft: {
+          DEFAULT: "#EDEFF3",
+          deep: "#E4E7ED",
+          raised: "#F2F4F7",
+          // The selected/active fill. Bright enough that text on it has to be
+          // dark — white would land at about 1.3:1, which is unreadable.
+          active: "#05F2F5",
+          "active-deep": "#04C9CC",
+          // Text and glyphs that sit on `active`.
+          "active-ink": "#08272B",
+        },
       },
       fontFamily: {
         sans: ["Manrope", "Inter", "SF Pro Display", "system-ui", "sans-serif"],
@@ -123,6 +145,29 @@ const config: Config = {
         btn: "0 14px 28px -10px rgba(30, 64, 175, 0.55)",
         hover: "0 12px 24px -8px rgba(17, 24, 39, 0.12)",
         active: "0 4px 8px -4px rgba(17, 24, 39, 0.08)",
+
+        // ── Soft UI ───────────────────────────────────────────────────────
+        // Two shadows to every raised state: a white one up-left where the
+        // light comes from, a blue-grey one down-right where it does not.
+        // Dropping either half is what makes neumorphism look like a plain
+        // drop shadow instead of a moulded surface.
+        "soft-raised":
+          "-6px -6px 12px rgba(255,255,255,.92), 6px 6px 14px rgba(163,177,198,.44)",
+        "soft-raised-sm":
+          "-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px rgba(163,177,198,.4)",
+        "soft-raised-lg":
+          "-9px -9px 18px rgba(255,255,255,.95), 10px 10px 22px rgba(163,177,198,.5)",
+        // Pressed inverts the light: the same two shadows, moved inside.
+        "soft-pressed":
+          "inset -3px -3px 7px rgba(255,255,255,.82), inset 4px 4px 9px rgba(163,177,198,.5)",
+        "soft-pressed-deep":
+          "inset -4px -4px 9px rgba(255,255,255,.75), inset 6px 6px 12px rgba(163,177,198,.58)",
+        // Filled controls cast rather than catch the light; see soft-lift note.
+        "soft-lift":
+          "0 7px 16px -7px rgba(163,177,198,.7), 3px 3px 9px rgba(163,177,198,.4), -3px -3px 8px rgba(255,255,255,.85)",
+        "soft-accent": "0 10px 22px -8px rgba(59,99,222,.55), -2px -2px 6px rgba(255,255,255,.4)",
+        "soft-teal": "0 10px 22px -8px rgba(30,158,140,.5), 0 0 22px rgba(43,182,163,.35)",
+        "soft-focus": "0 0 0 3px rgba(255,255,255,.9), 0 0 0 5px rgba(91,124,240,.55)",
       },
       transitionDuration: {
         instant: "0ms",
@@ -158,19 +203,12 @@ const config: Config = {
         "slide-up": "slideUp 0.28s cubic-bezier(0.16,1,0.3,1)",
         "scan-sweep": "scanSweep 2.6s linear infinite",
         "pulse-ring": "pulseRing 1.4s ease-out infinite",
+        "soft-in": "softIn 0.22s cubic-bezier(0.16,1,0.3,1)",
         "float": "floatY 6s ease-in-out infinite",
         "float-slow": "floatY 8.5s ease-in-out infinite",
         "rise-in": "riseIn 0.7s cubic-bezier(0.16,1,0.3,1) both",
       },
       keyframes: {
-        floatY: {
-          "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-14px)" },
-        },
-        riseIn: {
-          "0%": { transform: "translateY(24px)", opacity: "0" },
-          "100%": { transform: "translateY(0)", opacity: "1" },
-        },
         popIn: {
           "0%": { transform: "scale(0.8)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
@@ -190,6 +228,18 @@ const config: Config = {
         pulseRing: {
           "0%": { transform: "scale(1)", opacity: "0.8" },
           "100%": { transform: "scale(1.8)", opacity: "0" },
+        },
+        softIn: {
+          "0%": { transform: "scale(0.86)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        floatY: {
+          "0%,100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-14px)" },
+        },
+        riseIn: {
+          "0%": { transform: "translateY(24px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
         },
       },
     },

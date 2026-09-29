@@ -19,6 +19,10 @@ import { resolveElementPositions } from '@/lib/wallPositions'
 import { PlanFurnitureLayer } from './PlanFurniture'
 import type { Hull } from '@/lib/modelFootprint'
 import { lightType, kelvinToHex, type LightType, type LightTypeId } from '@/lib/lightCatalog'
+import {
+  isAbcdRoom, nearestEdge, offsetPolygon, planPolygon, pointAtWallPosition, pointInPolygon,
+  svgPoints, wallPositionAt, type PlanPolygon,
+} from '@/lib/planPolygon'
 
 const T = 250        // wall thickness in plan, mm
 const MARGIN = 520   // viewBox margin, mm
@@ -73,19 +77,58 @@ export function ChiroqPlanView({
   const hullsRef = useRef<Map<string, Hull>>(new Map())
   const onHull = useCallback((id: string, hull: Hull) => { hullsRef.current.set(id, hull) }, [])
 
+  // Legacy rectangle (walls A-B-C-D) is drawn as [0, W] × [0, D]; a scanned or
+  // hand-drawn polygon room (W1..Wn walls) is drawn from its vertices in the
+  // same plan frame (lib/planPolygon.ts), so light coordinates mean the same
+  // thing in both and match what the 3D scene shows.
   const wallA = geometry.walls.find((w) => w.id === 'A')
   const wallB = geometry.walls.find((w) => w.id === 'B')
-  if (!wallA || !wallB || geometry.walls.length !== 4) {
+  const rect = isAbcdRoom(geometry) && wallA && wallB ? { W: wallA.length, D: wallB.length } : null
+  const poly = rect ? null : planPolygon(geometry)
+  if (!rect && !poly) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-gray-500 p-6 text-center">
-        2D chiroq rejasi faqat to'rtburchak (A-B-C-D) xonalar uchun mavjud
+        2D chiroq rejasi uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang
       </div>
     )
   }
 
-  const W = wallA.length
-  const D = wallB.length
-  const vb = `${-T - MARGIN} ${-T - MARGIN} ${W + 2 * T + 2 * MARGIN} ${D + 2 * T + 2 * MARGIN}`
+  const W = rect?.W ?? poly?.W ?? 0
+  const D = rect?.D ?? poly?.D ?? 0
+  // Plan-space corner of the room's bounding box — (0, 0) for the rectangle.
+  const x0 = poly?.minX ?? 0
+  const z0 = poly?.minZ ?? 0
+  const vb = `${x0 - T - MARGIN} ${z0 - T - MARGIN} ${W + 2 * T + 2 * MARGIN} ${D + 2 * T + 2 * MARGIN}`
+
+  /**
+   * The room's constraints applied to a wanted position: a wall fixture stays
+   * on its wall, everything else stays inside the outline. Null means the
+   * spot is not allowed (a polygon room's exterior) — keep the last one.
+   */
+  function constrainLight(l: PlacedLight, wantX: number, wantZ: number): { x: number; z: number } | null {
+    const t = lightType(l.type)
+    let x = clamp(snap(wantX), x0, x0 + W)
+    let z = clamp(snap(wantZ), z0, z0 + D)
+    if (t.mount === 'wall') {
+      if (rect) {
+        // A wall fixture slides along its own wall instead of leaving it
+        const wall = l.wallId ?? 'A'
+        if (wall === 'A') z = 0
+        if (wall === 'C') z = D
+        if (wall === 'D') x = 0
+        if (wall === 'B') x = W
+      } else if (poly) {
+        const edge = poly.edges.find((e) => e.id === l.wallId) ?? nearestEdge(poly, x, z)!.edge
+        const pos = clamp(snap(wallPositionAt(edge, x, z)), 0, edge.len)
+        const q = pointAtWallPosition(edge, pos, (t.sizeM.d / 2) * 1000)
+        x = Math.round(q.x)
+        z = Math.round(q.z)
+      }
+    } else if (poly && !pointInPolygon(x, z, poly.vertices)) {
+      return null
+    }
+    return { x, z }
+  }
 
   function planPoint(clientX: number, clientY: number) {
     const svg = svgRef.current
@@ -104,19 +147,35 @@ export function ChiroqPlanView({
     if (!armedType) return
     const t = lightType(armedType)
     const p = planPoint(clientX, clientY)
-    const x = clamp(snap(p.x), 0, W)
-    const z = clamp(snap(p.z), 0, D)
+    const x = clamp(snap(p.x), x0, x0 + W)
+    const z = clamp(snap(p.z), z0, z0 + D)
+    // A polygon room's plan also shows the box around it — clicks there are
+    // outside the room and place nothing (wall fixtures snap to the nearest
+    // wall instead, below).
+    if (poly && t.mount !== 'wall' && !pointInPolygon(x, z, poly.vertices)) return
 
     const light: PlacedLight = { id: nanoid(), type: t.id, xMm: x, zMm: z }
     if (t.mount === 'wall') {
       // A wall fixture goes on whichever wall the click was nearest, and sits
       // flush with it rather than wherever the pointer happened to land.
-      const wall = nearestWall(x, z, W, D) ?? 'A'
-      light.wallId = wall
-      if (wall === 'A') light.zMm = 0
-      if (wall === 'C') light.zMm = D
-      if (wall === 'D') light.xMm = 0
-      if (wall === 'B') light.xMm = W
+      if (rect) {
+        const wall = nearestWall(x, z, W, D) ?? 'A'
+        light.wallId = wall
+        if (wall === 'A') light.zMm = 0
+        if (wall === 'C') light.zMm = D
+        if (wall === 'D') light.xMm = 0
+        if (wall === 'B') light.xMm = W
+      } else if (poly) {
+        const hit = nearestEdge(poly, x, z)!
+        const q = pointAtWallPosition(hit.edge, hit.position, (t.sizeM.d / 2) * 1000)
+        light.xMm = Math.round(q.x)
+        light.zMm = Math.round(q.z)
+        // roomStore's wallId union is the legacy A-D set; a polygon wall's id
+        // (W1..Wn) is stored through it unchanged — the 3D fixturePose treats
+        // any other id as "use the plan point + rotation" (LightFixtures.tsx).
+        light.wallId = hit.edge.id as PlacedLight['wallId']
+        light.rotation = Math.atan2(hit.edge.nx, hit.edge.nz)
+      }
     }
     addLight(light)
     onSelect(light.id)
@@ -133,24 +192,14 @@ export function ChiroqPlanView({
 
   function handleMove(e: React.PointerEvent) {
     const p = planPoint(e.clientX, e.clientY)
-    setHover(armedType ? { x: clamp(snap(p.x), 0, W), z: clamp(snap(p.z), 0, D) } : null)
+    setHover(armedType ? { x: clamp(snap(p.x), x0, x0 + W), z: clamp(snap(p.z), z0, z0 + D) } : null)
 
     const d = dragRef.current
     if (!d) return
     const l = lights.find((x) => x.id === d.id)
     if (!l) return
-    const t = lightType(l.type)
-    let x = clamp(snap(p.x - d.offX), 0, W)
-    let z = clamp(snap(p.z - d.offZ), 0, D)
-    // A wall fixture slides along its own wall instead of leaving it
-    if (t.mount === 'wall') {
-      const wall = l.wallId ?? 'A'
-      if (wall === 'A') z = 0
-      if (wall === 'C') z = D
-      if (wall === 'D') x = 0
-      if (wall === 'B') x = W
-    }
-    moveLight(d.id, x, z)
+    const next = constrainLight(l, p.x - d.offX, p.z - d.offZ)
+    if (next) moveLight(d.id, next.x, next.z)
   }
 
   const endDrag = () => { dragRef.current = null }
@@ -158,18 +207,8 @@ export function ChiroqPlanView({
 
   /** Keyboard nudge on the same SNAP grid the pointer drag snaps to. */
   function nudgeLight(l: PlacedLight, dx: number, dz: number) {
-    const t = lightType(l.type)
-    let x = clamp(snap(l.xMm + dx), 0, W)
-    let z = clamp(snap(l.zMm + dz), 0, D)
-    // A wall fixture slides along its own wall, same constraint handleMove applies.
-    if (t.mount === 'wall') {
-      const wall = l.wallId ?? 'A'
-      if (wall === 'A') z = 0
-      if (wall === 'C') z = D
-      if (wall === 'D') x = 0
-      if (wall === 'B') x = W
-    }
-    moveLight(l.id, x, z)
+    const next = constrainLight(l, l.xMm + dx, l.zMm + dz)
+    if (next) moveLight(l.id, next.x, next.z)
   }
 
   /** Keyboard path parallel to pointer drag: Enter/Space selects like a
@@ -210,21 +249,6 @@ export function ChiroqPlanView({
 
   return (
     <div className="h-full flex flex-col">
-      {/* ── Status strip: what a click will do right now ─────────── */}
-      <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-white/70">
-        {armedType ? (
-          <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
-            <span>{lightType(armedType).emoji}</span>
-            {lightType(armedType).name} — rejada joyni bosing
-          </p>
-        ) : (
-          <p className="text-[11px] text-gray-400">
-            O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing.
-            Qo'yilgan chiroqni sudrab suring.
-          </p>
-        )}
-      </div>
-
       <svg
         ref={svgRef}
         viewBox={vb}
@@ -241,26 +265,53 @@ export function ChiroqPlanView({
             locally rather than relying silently on the app's global
             :focus-visible outline rule applying to these SVG shapes. */}
         <style>{`.kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #2563EB); outline-offset: 2px; }`}</style>
-        <rect x={0} y={0} width={W} height={D} fill={FLOOR_FILL} />
+        {rect ? (
+          <>
+            <rect x={0} y={0} width={W} height={D} fill={FLOOR_FILL} />
 
-        {/* metre grid — the reference for "exactly here" */}
-        {Array.from({ length: Math.max(0, Math.floor(W / 1000)) }, (_, i) => (
-          <line key={`gx${i}`} x1={(i + 1) * 1000} y1={0} x2={(i + 1) * 1000} y2={D}
-                stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
-        ))}
-        {Array.from({ length: Math.max(0, Math.floor(D / 1000)) }, (_, i) => (
-          <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000}
-                stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
-        ))}
+            {/* metre grid — the reference for "exactly here" */}
+            {Array.from({ length: Math.max(0, Math.floor(W / 1000)) }, (_, i) => (
+              <line key={`gx${i}`} x1={(i + 1) * 1000} y1={0} x2={(i + 1) * 1000} y2={D}
+                    stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+            ))}
+            {Array.from({ length: Math.max(0, Math.floor(D / 1000)) }, (_, i) => (
+              <line key={`gy${i}`} x1={0} y1={(i + 1) * 1000} x2={W} y2={(i + 1) * 1000}
+                    stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+            ))}
 
-        {/* walls */}
-        <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={WALL_DARK} />
-        <rect x={-T} y={D} width={W + 2 * T} height={T} fill={WALL_DARK} />
-        <rect x={-T} y={-T} width={T} height={D + 2 * T} fill={WALL_DARK} />
-        <rect x={W} y={-T} width={T} height={D + 2 * T} fill={WALL_DARK} />
+            {/* walls */}
+            <rect x={-T} y={-T} width={W + 2 * T} height={T} fill={WALL_DARK} />
+            <rect x={-T} y={D} width={W + 2 * T} height={T} fill={WALL_DARK} />
+            <rect x={-T} y={-T} width={T} height={D + 2 * T} fill={WALL_DARK} />
+            <rect x={W} y={-T} width={T} height={D + 2 * T} fill={WALL_DARK} />
 
-        {/* openings, as pale gaps — orientation cues for aiming a fixture */}
-        <OpeningMarks geometry={geometry} W={W} D={D} />
+            {/* openings, as pale gaps — orientation cues for aiming a fixture */}
+            <OpeningMarks geometry={geometry} W={W} D={D} />
+          </>
+        ) : (
+          <>
+            {/* polygon room: mitred wall band outside the outline, floor on
+                top, metre grid clipped to the floor */}
+            <defs>
+              <clipPath id="chiroq-floor-clip">
+                <polygon points={svgPoints(poly!.vertices)} />
+              </clipPath>
+            </defs>
+            <polygon points={svgPoints(offsetPolygon(poly!, T))} fill={WALL_DARK} />
+            <polygon points={svgPoints(poly!.vertices)} fill={FLOOR_FILL} />
+            <g clipPath="url(#chiroq-floor-clip)">
+              {Array.from({ length: Math.max(0, Math.floor(W / 1000)) }, (_, i) => (
+                <line key={`gx${i}`} x1={x0 + (i + 1) * 1000} y1={z0} x2={x0 + (i + 1) * 1000} y2={z0 + D}
+                      stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+              ))}
+              {Array.from({ length: Math.max(0, Math.floor(D / 1000)) }, (_, i) => (
+                <line key={`gy${i}`} x1={x0} y1={z0 + (i + 1) * 1000} x2={x0 + W} y2={z0 + (i + 1) * 1000}
+                      stroke="#DDD8CC" strokeWidth={12} strokeDasharray="60 60" />
+              ))}
+            </g>
+            <PolygonOpeningMarks geometry={geometry} poly={poly!} />
+          </>
+        )}
 
         {/* furniture, dimmed: what the light is actually for */}
         <g opacity={0.35} style={{ pointerEvents: 'none' }}>
@@ -275,9 +326,12 @@ export function ChiroqPlanView({
           />
         </g>
 
-        {/* centre guides — the usual "centre it on the room" case */}
-        <line x1={W / 2} y1={0} x2={W / 2} y2={D} stroke={BLUE} strokeWidth={6} strokeDasharray="40 60" opacity={0.25} />
-        <line x1={0} y1={D / 2} x2={W} y2={D / 2} stroke={BLUE} strokeWidth={6} strokeDasharray="40 60" opacity={0.25} />
+        {/* centre guides — the usual "centre it on the room" case (for a
+            polygon room (W/2, D/2) is its centroid, the 3D scene's origin) */}
+        <g clipPath={poly ? 'url(#chiroq-floor-clip)' : undefined}>
+          <line x1={W / 2} y1={z0} x2={W / 2} y2={z0 + D} stroke={BLUE} strokeWidth={6} strokeDasharray="40 60" opacity={0.25} />
+          <line x1={x0} y1={D / 2} x2={x0 + W} y2={D / 2} stroke={BLUE} strokeWidth={6} strokeDasharray="40 60" opacity={0.25} />
+        </g>
 
         {/* placed fixtures */}
         {lights.map((l) => (
@@ -304,19 +358,55 @@ export function ChiroqPlanView({
         )}
 
         {/* room dimensions */}
-        <text x={W / 2} y={-T - 150} fontSize={210} fill="#6B7280" textAnchor="middle">
-          {(W / 1000).toFixed(1)} m
-        </text>
-        <text x={-T - 150} y={D / 2} fontSize={210} fill="#6B7280" textAnchor="middle"
-              transform={`rotate(-90 ${-T - 150} ${D / 2})`}>
-          {(D / 1000).toFixed(1)} m
-        </text>
+        {rect ? (
+          <>
+            <text x={W / 2} y={-T - 150} fontSize={210} fill="#6B7280" textAnchor="middle">
+              {(W / 1000).toFixed(1)} m
+            </text>
+            <text x={-T - 150} y={D / 2} fontSize={210} fill="#6B7280" textAnchor="middle"
+                  transform={`rotate(-90 ${-T - 150} ${D / 2})`}>
+              {(D / 1000).toFixed(1)} m
+            </text>
+          </>
+        ) : (
+          <g fill="#6B7280" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>
+            {poly!.edges.map((e) => {
+              const mx = (e.x1 + e.x2) / 2
+              const mz = (e.z1 + e.z2) / 2
+              return (
+                <text key={e.id} x={mx - e.nx * (T + 330)} y={mz - e.nz * (T + 330)} fontSize={190} fontWeight={600}>
+                  {e.id} · {(e.len / 1000).toFixed(1)} m
+                </text>
+              )
+            })}
+          </g>
+        )}
       </svg>
+
+      {/* ── Status strip: what a click will do right now ───────────
+          Below the plan (was above it) — the stories tab strip's left
+          arrow and title now float along the plan's top edge, and this
+          bar's text sat exactly underneath them. */}
+      <div className="shrink-0 px-3 py-2 border-t border-gray-200 bg-white/70">
+        {armedType ? (
+          <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
+            <span>{lightType(armedType).emoji}</span>
+            {lightType(armedType).name} — rejada joyni bosing
+          </p>
+        ) : (
+          <p className="text-[11px] text-gray-400">
+            O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing.
+            Qo'yilgan chiroqni sudrab suring.
+          </p>
+        )}
+      </div>
 
       {/* ── Exact coordinates for the selected fixture ───────────── */}
       {selected && (
         <CoordinateBar
           light={selected}
+          x0={x0}
+          z0={z0}
           W={W}
           D={D}
           onMove={(x, z) => moveLight(selected.id, x, z)}
@@ -411,9 +501,40 @@ function OpeningMarks({ geometry, W, D }: {
   )
 }
 
+/** Openings of a polygon room, drawn as pale bars centred on their wall. */
+function PolygonOpeningMarks({ geometry, poly }: {
+  geometry: ReturnType<typeof useRoomStore.getState>['geometry']
+  poly: PlanPolygon
+}) {
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {poly.edges.map((e) => {
+        const wall = geometry.walls.find((w) => w.id === e.id)
+        if (!wall) return null
+        const deg = (Math.atan2(e.dz, e.dx) * 180) / Math.PI
+        return resolveElementPositions(wall.elements, e.len).map((el) => {
+          // Bar centred in the wall band: half a band OUTSIDE the floor line
+          const c = pointAtWallPosition(e, el.position + el.width / 2, -T / 2)
+          return (
+            <rect
+              key={`${e.id}-${el.id ?? el.position}`}
+              x={-el.width / 2} y={-T / 2} width={el.width} height={T}
+              transform={`translate(${c.x} ${c.z}) rotate(${deg.toFixed(2)})`}
+              fill={el.type !== 'eshik' ? '#BFD9F2' : '#E7D9C4'}
+            />
+          )
+        })
+      })}
+    </g>
+  )
+}
+
 /** Numeric position for the selected fixture — for dimensions that must be exact. */
-function CoordinateBar({ light, W, D, onMove, onPatch }: {
+function CoordinateBar({ light, x0, z0, W, D, onMove, onPatch }: {
   light: PlacedLight
+  /** Plan-space corner of the room's bounding box. */
+  x0: number
+  z0: number
   W: number
   D: number
   onMove: (x: number, z: number) => void
@@ -425,8 +546,8 @@ function CoordinateBar({ light, W, D, onMove, onPatch }: {
       <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
         <span>{t.emoji}</span>{t.name}
       </span>
-      <NumField label="X" value={light.xMm} min={0} max={W} onCommit={(v) => onMove(v, light.zMm)} />
-      <NumField label="Y" value={light.zMm} min={0} max={D} onCommit={(v) => onMove(light.xMm, v)} />
+      <NumField label="X" value={light.xMm} min={x0} max={x0 + W} onCommit={(v) => onMove(v, light.zMm)} />
+      <NumField label="Y" value={light.zMm} min={z0} max={z0 + D} onCommit={(v) => onMove(light.xMm, v)} />
       <button
         onClick={() => onMove(Math.round(W / 2), Math.round(D / 2))}
         className="text-[10px] font-semibold text-gray-500 hover:text-brand px-2 py-1 rounded-md border border-gray-200"

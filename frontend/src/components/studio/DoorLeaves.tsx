@@ -12,14 +12,30 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
+import { OPENING_REVEAL_D, WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
 const S = 1 / 1000;
 const SNAP_MM = 5;
 const LEAF_T = 0.04; // leaf thickness in metres
+/**
+ * How far OUT of the room (along the wall normal) the door leaf — and with it
+ * its hinge axis — is pushed, so the leaf hangs at the outer edge of the
+ * 200 mm reveal WallComponents cuts around the opening, exactly as the window
+ * glass hangs at the outer edge of its own reveal. Derived from LEAF_T so the
+ * leaf's OUTER face lands flush with the reveal's exterior face and nothing
+ * pokes out the far side of the wall; a door leaf is a real slab, so unlike a
+ * window sash it keeps its thickness and cannot use WINDOW_SASH_RECESS.
+ */
+const DOOR_LEAF_RECESS = OPENING_REVEAL_D - LEAF_T / 2;
 const GAP = 0.006; // clearance between leaf and frame
-const SASH_T = 0.045; // window sash thickness
+const SASH_T = 0.045; // window sash thickness (selection outline only)
+// Visible depth of window sash rails/muntins along the wall normal. Kept at
+// a 2 mm epsilon instead of a true plane: the faces stay flat against the
+// glass (user feedback: any real thickness read as a protruding lip inside
+// the window reveal) while still avoiding z-fighting with the glass plane.
+const SASH_FACE_T = 0.002;
 const BAR = 0.035; // sash rail width
 const MUNTIN = 0.022; // glazing bar inside a pane (grid / arched head)
 
@@ -67,63 +83,78 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * points INTO the room. Doing the maths once here means the leaf, its hinge
  * and its swing are described in one orientation instead of four.
  */
-interface WallFrame {
+export interface WallFrame {
   id: string;
   yaw: number;
+  /** World centre of the wall (its edge's true midpoint). */
   cx: number;
   cz: number;
-  /** 'X' walls run along world X, 'Z' walls along world Z. */
-  axis: "X" | "Z";
+  /** Unit vector along the wall in world XZ, pointing from the element
+   *  `position` = 0 end toward the `position` = length end. For the legacy
+   *  axis-aligned rectangle this is simply +X or +Z; for a polygon edge it is
+   *  the edge's own direction, which is the whole point — a diagonal wall has
+   *  no single world axis to slide an opening along. */
+  ux: number;
+  uz: number;
   lengthM: number;
 }
 
 function wallFrames(W: number, D: number): WallFrame[] {
   return [
-    { id: "A", yaw: 0, cx: 0, cz: -D / 2, axis: "X", lengthM: W },
-    { id: "C", yaw: Math.PI, cx: 0, cz: D / 2, axis: "X", lengthM: W },
-    { id: "B", yaw: -Math.PI / 2, cx: W / 2, cz: 0, axis: "Z", lengthM: D },
-    { id: "D", yaw: Math.PI / 2, cx: -W / 2, cz: 0, axis: "Z", lengthM: D },
+    { id: "A", yaw: 0, cx: 0, cz: -D / 2, ux: 1, uz: 0, lengthM: W },
+    { id: "C", yaw: Math.PI, cx: 0, cz: D / 2, ux: 1, uz: 0, lengthM: W },
+    { id: "B", yaw: -Math.PI / 2, cx: W / 2, cz: 0, ux: 0, uz: 1, lengthM: D },
+    { id: "D", yaw: Math.PI / 2, cx: -W / 2, cz: 0, ux: 0, uz: 1, lengthM: D },
   ];
 }
 
 /**
  * Same WallFrame contract as `wallFrames`, but for a polygon room — backs
- * the rectilinear/N-wall hand-drawing feature (a RoomPlan-drawn layout with
- * other-than-4 walls, described by `geometry.vertices`). Built on the shared
+ * the rectilinear/N-wall hand-drawing feature and LiDAR-scanned rooms (any
+ * layout described by `geometry.vertices`). Built on the shared
  * `wallDefsFromVertices` utility so this file's frames stay in lockstep with
  * `NWallRoomShell`'s rendered wall boxes (see that function's centering/
  * rotation convention — read-only reference, not edited here).
  *
- * `PolyWallDef` describes each wall by its constant cross-axis `face` and
- * its along-axis `leftAlong` (position-0) coordinate rather than a centre
- * point, so the centre this file's frames need is reconstructed here as
- * `leftAlong + length / 2`.
+ * Uses that util's exact per-edge midpoint and direction (`midX`/`midZ`,
+ * `dirX`/`dirZ`), NOT its `axis`/`face`/`originAlong` triple. Those three are an
+ * axis-aligned APPROXIMATION — they snap a genuinely diagonal edge to
+ * whichever world axis it is closer to — which is tolerable for click
+ * hit-testing but puts a leaf metres away from its wall on a scanned room,
+ * where no edge is axis-aligned. The midpoint/direction pair is exact for any
+ * edge and reproduces the wall group `NWallRoomShell` draws the opening's
+ * hole in.
  */
-function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
+export function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
   const defs = wallDefsFromVertices(vertices, wallIds);
   const out: WallFrame[] = [];
   for (const id of wallIds) {
     const d = defs[id];
     if (!d) continue; // degenerate edge (near-duplicate vertex) — no frame for it
-    const centreAlong = d.leftAlong + d.length / 2;
     out.push({
       id: d.id,
       yaw: d.ry,
-      cx: d.axis === "X" ? centreAlong : d.face,
-      cz: d.axis === "Z" ? centreAlong : d.face,
-      axis: d.axis,
+      cx: d.midX,
+      cz: d.midZ,
+      ux: d.dirX,
+      uz: d.dirZ,
       lengthM: d.length,
     });
   }
   return out;
 }
 
-/** World-space centre of a door sitting at `position` mm along its wall. */
-function openingCentre(wf: WallFrame, el: WallElement) {
+/** World-space centre of a door sitting at `position` mm along its wall:
+ *  the wall centre displaced along the wall's own direction by how far the
+ *  opening's midpoint sits from that centre. */
+export function openingCentre(
+  wf: WallFrame,
+  el: { position: number; width: number },
+) {
   const offset = (el.position + el.width / 2 - wf.lengthM * 500) * S;
   return {
-    x: wf.axis === "X" ? wf.cx + offset : wf.cx,
-    z: wf.axis === "Z" ? wf.cz + offset : wf.cz,
+    x: wf.cx + wf.ux * offset,
+    z: wf.cz + wf.uz * offset,
   };
 }
 
@@ -252,7 +283,7 @@ export function OpeningLeaves({
     const axisScreenSign = (wallId: string): number => {
       const wf = frames.find((f) => f.id === wallId);
       if (!wf) return 1;
-      const axis = new THREE.Vector3(wf.axis === "X" ? 1 : 0, 0, wf.axis === "Z" ? 1 : 0);
+      const axis = new THREE.Vector3(wf.ux, 0, wf.uz);
       const origin = new THREE.Vector3(wf.cx, 1, wf.cz);
       const a = origin.clone().project(camera);
       const b = origin.clone().add(axis).project(camera);
@@ -385,8 +416,14 @@ function DoorLeaf({
 
   return (
     <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
-      {/* Hinge pivot — the whole leaf turns about this vertical edge */}
-      <group position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
+      {/* Hinge pivot — the whole leaf turns about this vertical edge. The
+          pivot itself carries the reveal recess (local +Z points into the
+          room, so outward is −Z): the hinge axis moves out to the reveal's
+          outer edge WITH the leaf, rather than leaving the leaf swinging
+          about the old wall-plane axis, which would have swept it through
+          the jamb. From inside you now look down the 200 mm niche at the
+          leaf, and it still opens about the jamb it is hung on. */}
+      <group position={[hingeX, 0, -DOOR_LEAF_RECESS]} rotation={[0, swing, 0]}>
         <group position={[(dir * leafW) / 2, leafH / 2, 0]}>
           <mesh
             castShadow
@@ -451,10 +488,20 @@ function DoorLeaf({
   );
 }
 
-/** Glass pane — shared by every sash so the look stays uniform. */
-function Glass({ w, h }: { w: number; h: number }) {
+/**
+ * Glass pane — shared by every sash so the look stays uniform.
+ *
+ * It takes the sash's own pointer handlers and IS pickable, deliberately: as
+ * an unpickable pane a tap on the glass went straight through the window and
+ * hit whatever lay beyond, which from inside the room meant selecting the
+ * ceiling from the outside — tapping a window opened the ceiling menu.
+ */
+function Glass({ w, h, handlers }: {
+  w: number; h: number;
+  handlers?: Record<string, unknown>;
+}) {
   return (
-    <mesh raycast={() => null}>
+    <mesh {...handlers}>
       <planeGeometry args={[Math.max(0.02, w), Math.max(0.02, h)]} />
       <meshPhysicalMaterial
         color="#B8D4EC"
@@ -539,12 +586,12 @@ function Pane({
 
   return (
     <>
-      {/* four sash rails */}
+      {/* four sash rails — flat (SASH_FACE_T deep), full BAR face width */}
       {[
-        { p: [0, h / 2 - BAR / 2, 0], a: [w, BAR, SASH_T] },
-        { p: [0, -h / 2 + BAR / 2, 0], a: [w, BAR, SASH_T] },
-        { p: [-w / 2 + BAR / 2, 0, 0], a: [BAR, h, SASH_T] },
-        { p: [w / 2 - BAR / 2, 0, 0], a: [BAR, h, SASH_T] },
+        { p: [0, h / 2 - BAR / 2, 0], a: [w, BAR, SASH_FACE_T] },
+        { p: [0, -h / 2 + BAR / 2, 0], a: [w, BAR, SASH_FACE_T] },
+        { p: [-w / 2 + BAR / 2, 0, 0], a: [BAR, h, SASH_FACE_T] },
+        { p: [w / 2 - BAR / 2, 0, 0], a: [BAR, h, SASH_FACE_T] },
       ].map((bar, k) => (
         <mesh key={k} castShadow position={bar.p as [number, number, number]} {...barProps}>
           <boxGeometry args={bar.a as [number, number, number]} />
@@ -552,20 +599,20 @@ function Pane({
         </mesh>
       ))}
 
-      <Glass w={glassW} h={glassH} />
+      <Glass w={glassW} h={glassH} handlers={barProps} />
 
       {/* muntin grid */}
       {grid && !fan && (
         <>
           {Array.from({ length: Math.max(0, grid[0] - 1) }, (_, k) => (
             <mesh key={`v${k}`} position={[-glassW / 2 + (glassW / grid[0]) * (k + 1), 0, 0]}>
-              <boxGeometry args={[MUNTIN, glassH, MUNTIN]} />
+              <boxGeometry args={[MUNTIN, glassH, SASH_FACE_T]} />
               <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
             </mesh>
           ))}
           {Array.from({ length: Math.max(0, grid[1] - 1) }, (_, k) => (
             <mesh key={`h${k}`} position={[0, -glassH / 2 + (glassH / grid[1]) * (k + 1), 0]}>
-              <boxGeometry args={[glassW, MUNTIN, MUNTIN]} />
+              <boxGeometry args={[glassW, MUNTIN, SASH_FACE_T]} />
               <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
             </mesh>
           ))}
@@ -575,7 +622,7 @@ function Pane({
       {/* arched head */}
       {fanBars.map((b, k) => (
         <mesh key={`f${k}`} position={b.p} rotation={[0, 0, b.r]}>
-          <boxGeometry args={[b.len, MUNTIN, MUNTIN]} />
+          <boxGeometry args={[b.len, MUNTIN, SASH_FACE_T]} />
           <meshStandardMaterial color={color} roughness={0.5} metalness={0.08} />
         </mesh>
       ))}
@@ -645,6 +692,13 @@ function WindowSash({
 
   return (
     <group ref={groupRef} position={[c.x, sill, c.z]} rotation={[0, wf.yaw, 0]}>
+      {/* The whole sash assembly sits recessed at the OUTER edge of the
+          window reveal (local +Z points into the room, so outward is −Z):
+          from inside you look down the 200 mm-deep reveal to the glass,
+          flush with the frame ring WallComponents places at the same
+          wall-normal offset. Doors stay at the wall plane — only windows
+          get the reveal. */}
+      <group position={[0, 0, -WINDOW_SASH_RECESS]}>
       {panes.map((pane, i) => {
         const pw = pane.w * innerW;
         const ph = pane.h * innerH;
@@ -681,8 +735,9 @@ function WindowSash({
           <group key={i} position={[hingeX, 0, 0]} rotation={[0, swing, 0]}>
             <group position={[(dir * pw) / 2, py, 0]}>
               {body}
-              {/* Handle on the free edge, at mid height */}
-              <group position={[dir * (pw / 2 - 0.045), -ph * 0.05, SASH_T / 2 + 0.012]}>
+              {/* Handle on the free edge, at mid height — offset from the
+                  flat sash face, not the old thick one */}
+              <group position={[dir * (pw / 2 - 0.045), -ph * 0.05, SASH_FACE_T / 2 + 0.012]}>
                 <mesh rotation={[Math.PI / 2, 0, 0]}>
                   <cylinderGeometry args={[0.012, 0.012, 0.024, 12]} />
                   <meshStandardMaterial color="#B8BCC0" roughness={0.3} metalness={0.85} />
@@ -703,6 +758,7 @@ function WindowSash({
           <lineBasicMaterial color="#2563EB" />
         </lineSegments>
       )}
+      </group>
 
       {selected && (
         <Html position={[0, h + 0.18, 0.02]} center zIndexRange={[120, 0]} style={{ pointerEvents: "none" }}>

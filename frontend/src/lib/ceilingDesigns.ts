@@ -309,3 +309,40 @@ export function buildCeilingParts(
 
   return parts
 }
+
+/**
+ * Height of the wall/ceiling junction at the PERIMETER, where a cornice sits.
+ *
+ * Not every design lowers the ceiling where it meets the wall: an island panel
+ * (`floating`), and a lit `flat` ceiling inset to let its light escape upward,
+ * both leave the perimeter open to the slab, so the junction stays at H. The
+ * designs that do run right up to the wall bring it down to the bottom face of
+ * whatever lands there — the panel for `flat`, the perimeter band for `border`
+ * and `recessed`, and the second band for `double_layer`.
+ *
+ * @param H interior height in metres; the result is in metres too.
+ */
+export function ceilingPerimeterY(
+  design: CeilingDesign,
+  settings: CeilingSettings,
+  H: number,
+): number {
+  const drop = settings.drop / 1000
+  const innerDrop = settings.innerDrop / 1000
+  const lit = settings.strip && design.uses.includes('strip')
+
+  switch (design.id) {
+    case 'flat':
+      // Inset by the reveal when lit — the wall then meets the slab, not the panel.
+      return lit ? H : H - drop - SHEET
+    case 'border':
+    case 'recessed':
+      return H - drop
+    case 'double_layer':
+      return H - drop - SHEET - innerDrop
+    case 'floating':
+    case 'non_drop':
+    default:
+      return H
+  }
+}

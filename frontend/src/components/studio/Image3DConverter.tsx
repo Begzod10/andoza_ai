@@ -8,6 +8,16 @@ interface Image3DConverterProps {
 
 type ConverterState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error'
 
+/** Meshy needs a publicly fetchable http(s) image — anything else is a typo. */
+function isPublicHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function Image3DConverter({ onModelReady, onError }: Image3DConverterProps) {
   const [state, setState] = useState<ConverterState>('idle')
   const [imageUrl, setImageUrl] = useState('')
@@ -18,6 +28,13 @@ export function Image3DConverter({ onModelReady, onError }: Image3DConverterProp
     if (!imageUrl.trim()) {
       setError('Rasm URL kiriting')
       onError?.('Rasm URL kiriting')
+      return
+    }
+
+    if (!isPublicHttpUrl(imageUrl.trim())) {
+      const message = "To'g'ri rasm URL kiriting (https://...)"
+      setError(message)
+      onError?.(message)
       return
     }
 

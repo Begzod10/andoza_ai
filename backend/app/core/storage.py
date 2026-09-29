@@ -106,6 +106,28 @@ async def delete_file(key: str) -> None:
     await anyio.to_thread.run_sync(delete_object)
 
 
+def _local_download(key: str) -> bytes:
+    return _media_path(key).read_bytes()
+
+
+async def download_file(key: str) -> bytes:
+    """Read a stored object's bytes by *key*, from wherever it lives.
+
+    Used by auth-gated download endpoints (e.g. streaming a scan's GLB) that
+    must not just hand out the public URL. The blocking disk/network read runs
+    in a worker thread like the other storage calls.
+    """
+    if not settings.s3_configured:
+        return await anyio.to_thread.run_sync(_local_download, key)
+    s3 = _get_s3()
+
+    def _get() -> bytes:
+        obj = s3.get_object(Bucket=settings.S3_BUCKET, Key=key)
+        return obj["Body"].read()
+
+    return await anyio.to_thread.run_sync(_get)
+
+
 def public_url(storage_key: str) -> str:
     """URL for a stored key — S3 objects are already absolute, local keys are
     relative to MEDIA_URL_PREFIX."""
@@ -114,16 +136,54 @@ def public_url(storage_key: str) -> str:
     return f"{settings.MEDIA_URL_PREFIX}/{storage_key}"
 
 
+def request_base_url(request: Request) -> str:
+    """The public origin to hang media URLs off, without a trailing slash.
+
+    ``request.base_url`` alone is not trustworthy behind a TLS-terminating
+    reverse proxy: the proxy speaks plain HTTP to the app, so unless uvicorn
+    runs with ``--proxy-headers`` (see docker-compose.prod.yml) the scheme is
+    ``http`` even when the browser is on ``https``. Every media URL then comes
+    back as ``http://...`` and the browser blocks it as mixed content — which
+    is exactly how the 3-D furniture models went missing in production.
+
+    Two belts on top of that buckle, so a deployment mistake cannot silently
+    reintroduce mixed content:
+
+    * ``settings.PUBLIC_BASE_URL`` wins outright when it is configured.
+    * Otherwise an ``X-Forwarded-Proto: https`` header upgrades the scheme even
+      if uvicorn ignored it. The upgrade is one-way on purpose: a forged header
+      can only ever make a URL *more* secure, never downgrade an https origin,
+      and the host still comes from ``request.base_url`` (never from a
+      spoofable ``X-Forwarded-Host``), so this cannot point clients at someone
+      else's domain.
+    """
+    if settings.PUBLIC_BASE_URL:
+        return settings.PUBLIC_BASE_URL.rstrip("/")
+
+    base = str(request.base_url).rstrip("/")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    # A chain of proxies appends, so the client-facing scheme is the first one.
+    scheme = forwarded_proto.split(",")[0].strip().lower()
+    if scheme in ("https", "wss") and base.startswith("http://"):
+        base = "https://" + base[len("http://"):]
+    return base
+
+
 def absolute_media_url(request: Request, storage_key: str | None) -> str | None:
     """Resolve a stored key to an absolute URL the client can fetch directly.
 
     Shared by every router that serves an uploaded/captured image (wallpapers,
     room thumbnails, ...) so the host-relative-vs-absolute distinction between
     local disk and S3 storage is handled in exactly one place.
+
+    Deliberately absolute rather than root-relative: the Flutter app consumes
+    these same fields (e.g. ``WallpaperOut.url`` -> ``CachedNetworkImage``)
+    outside any web origin, so a ``/media/...`` path would have nothing to
+    resolve against there.
     """
     if not storage_key:
         return None
     url = public_url(storage_key)
     if url.startswith("http://") or url.startswith("https://"):
         return url
-    return f"{str(request.base_url).rstrip('/')}{url}"
+    return f"{request_base_url(request)}{url}"

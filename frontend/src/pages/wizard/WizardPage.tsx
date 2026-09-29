@@ -14,6 +14,7 @@ import { WallElevationPreview } from '@/components/wizard/WallElevationPreview'
 import { MetricCard } from '@/components/ui/MetricCard'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { createApartment, createRoom, createDraftRoom, getDraftRoom, updateDraftRoom, deleteDraftRoom, updateRoom } from '@/lib/api'
+import { wallElementsToApiPositions } from '@/lib/wallPositions'
 import { cn } from '@/lib/utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -538,7 +539,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
         <button
-          onClick={() => roomId && navigate(`/studio/${roomId}`)}
+          onClick={() => roomId && navigate(`/studio/${roomId}/ichkarida?phase=suvoq`)}
           disabled={!roomId}
           className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
@@ -584,6 +585,7 @@ export default function WizardPage() {
     setWizardStep,
     loadDraftState,
     resetRoom,
+    resetDesignState,
   } = useRoomStore()
 
   const [searchParams] = useSearchParams()
@@ -614,12 +616,23 @@ export default function WizardPage() {
         setDraftLoaded(true)
         return
       }
+      // roomId is NOT persisted, so after a page reload it is null here even
+      // though the store rehydrated the PREVIOUS room's designState (the paint
+      // or oboi picked in the studio) from localStorage — which then silently
+      // became the "new" room's design, instead of DEFAULT_DESIGN_STATE's bare
+      // plaster. A wizard draft's designState is never user-chosen either (the
+      // wizard has no design controls; autosave just snapshots whatever the
+      // store held), so resetting it on every new-room entry loses nothing.
+      resetDesignState()
       if (draftId) {
         try {
           const draft = await getDraftRoom(draftId)
           const s = draft.state as { wizardStep?: number }
           if ((s.wizardStep ?? 0) > 0) {
             loadDraftState(draft.state)
+            // Resume keeps the draft's DIMENSIONS; its designState snapshot is
+            // stale store spillover (see above), so it still starts bare.
+            resetDesignState()
             setResumePrompt(true)
           } else {
             setStep(0)
@@ -692,22 +705,27 @@ export default function WizardPage() {
     setRoomId(localId)
     setSaving(true)
     try {
-      const aptId = existingApartmentId ?? (await createApartment({ name: 'Mening kvartiram' })).id
+      const aptId = existingApartmentId ?? (await createApartment({ name: 'Mening xonadonim' })).id
       const room = await createRoom(aptId, {
         name: 'Xona',
         ceiling_h: ceilingHeight / 1000,
         geometry: {
-          walls: geometry.walls.map((w) => ({
-            id: w.id,
-            length: w.length / 1000,
-            elements: w.elements.map((e) => ({
-              type: e.type,
-              width: e.width / 1000,
-              height: e.height / 1000,
-              sill_height: (e.sill_height ?? 0) / 1000,
-              position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
-            })),
-          })),
+          walls: geometry.walls.map((w) => {
+            // Store mm (left edge, possibly an unresolved auto placeholder) →
+            // API centre fractions. See lib/wallPositions.ts.
+            const positions = wallElementsToApiPositions(w.elements, w.length)
+            return {
+              id: w.id,
+              length: w.length / 1000,
+              elements: w.elements.map((e, i) => ({
+                type: e.type,
+                width: e.width / 1000,
+                height: e.height / 1000,
+                sill_height: (e.sill_height ?? 0) / 1000,
+                position: positions[i],
+              })),
+            }
+          }),
           // Non-rectangular (hand-drawn / N-wall) rooms carry their real
           // outline here — omitted for the legacy 4-wall case, where it's
           // unset on the store's own geometry.
@@ -771,7 +789,7 @@ export default function WizardPage() {
     if (step === 0 && isFromDraw) {
       void handleSave().then((id) => {
         void persistLayoutPos()
-        if (id) navigate(`/studio/${id}/ichkarida`)
+        if (id) navigate(`/studio/${id}/ichkarida?phase=suvoq`)
       })
       return
     }

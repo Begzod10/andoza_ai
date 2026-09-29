@@ -5,7 +5,9 @@ import {
   ceilingDesign, resolveCeilingSettings, buildCeilingParts,
   type CeilingDesignId, type CeilingSettings, type CeilingPart,
 } from "@/lib/ceilingDesigns";
+import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
 import { kelvinToHex } from "@/lib/lightCatalog";
+import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
 
 /**
@@ -14,11 +16,15 @@ import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
  */
 
 export const WoodFloor = memo(function WoodFloor({
-  width, depth, floorType, floorTexture, floorTextureSettings, floorConfigured = true, isSelected, onClick,
+  width, depth, floorType, floorTexture, floorTextureSettings, floorPattern, floorConfigured = true, isSelected, onClick,
 }: {
   width: number; depth: number; floorType: string;
   floorTexture?: string | null;
   floorTextureSettings?: { repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number } | null;
+  /** Real-geometry laying pattern (Naqsh). When set (and no custom image
+   *  overrides it) the flat textured plane is replaced by instanced plank
+   *  solids — see lib/floorGeometry. Unset = exactly the old flat floor. */
+  floorPattern?: FloorPatternState | null;
   /** False for a room that hasn't visited Pol yet — renders a flat neutral
    *  screed instead of defaulting to a full parquet/tile pattern no one chose. */
   floorConfigured?: boolean;
@@ -28,13 +34,20 @@ export const WoodFloor = memo(function WoodFloor({
   const { invalidate } = useThree();
   const floorColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet;
 
+  // Precedence: a laying pattern wins, and carries its own per-plank image in
+  // floorPattern.settings.textureUrl. With no pattern, the legacy whole-floor
+  // `floorTexture` (one image stretched over a flat plane) behaves exactly as
+  // it always did — so rooms and users on that path are untouched.
+  const activePattern = floorPattern ?? null;
+
   // Custom texture from user upload — loaded async
   const [customTex, setCustomTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
     if (!floorTexture) { setCustomTex(null); return; }
     let disposed = false;
     new THREE.TextureLoader().load(
-      floorTexture,
+      // Same <img>-vs-WebGL cache collision as the walls — see textureFetchUrl.
+      textureFetchUrl(floorTexture),
       (tex) => {
         if (disposed) { tex.dispose(); return; }
         tex.wrapS = THREE.RepeatWrapping;
@@ -185,6 +198,31 @@ export const WoodFloor = memo(function WoodFloor({
   // floor (this onClick) AND bubble up to the holdBind('floor') wrapper in
   // RoomShell.tsx, which opens the surface radial menu, exactly like a wall
   // tap already does both at once.
+  if (activePattern) {
+    // Real-geometry floor: dark under-slab (visible through the plank gaps as
+    // recessed grooves) + instanced beveled plank solids on top. The slab
+    // keeps the raycast/onClick role — the planks never intercept picks, so a
+    // tap still selects the floor exactly like before.
+    return (
+      <group onClick={onClick}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.004, 0]} receiveShadow>
+          <planeGeometry args={[width + 0.04, depth + 0.04]} />
+          <meshStandardMaterial
+            color={floorSlabColorFor(activePattern, floorColor)}
+            roughness={0.92} metalness={0} envMapIntensity={0.15}
+          />
+        </mesh>
+        <PatternFloor pattern={activePattern} width={width} depth={depth} fallbackColor={floorColor} />
+        {isSelected && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={1}>
+            <planeGeometry args={[width + 0.04, depth + 0.04]} />
+            <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
   return (
     <group onClick={onClick}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} castShadow receiveShadow>
@@ -206,6 +244,81 @@ export const WoodFloor = memo(function WoodFloor({
 });
 
 
+/**
+ * The instanced plank/tile solids of a laying pattern (Naqsh). Planks sit
+ * with their bottoms slightly below y=0 so the visible floor surface stays
+ * near where the flat plane was (furniture at y=0 doesn't float or sink),
+ * while the ~10 mm body still leaves real recessed grooves at the gaps.
+ *
+ * Exported for NWallRoomShell too: with `clipPolygon` (the centred room
+ * outline, metres) the planks are clipped analytically to that outline
+ * instead of the rectangular clipping planes, so drawn/scanned polygon
+ * rooms — including L-shapes — get the same real-geometry floor.
+ */
+export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon }: {
+  pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
+  clipPolygon?: [number, number][];
+}) {
+  const { gl, invalidate } = useThree();
+
+  // Planks overhang the room rect and are trimmed by material clipping
+  // planes at the walls; that path is compiled out unless this flag is on.
+  // Nothing else in the app uses clipping, so leaving it on is inert.
+  useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
+
+  const built = useMemo(
+    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon),
+    [pattern, width, depth, fallbackColor, clipPolygon],
+  );
+
+  useEffect(() => {
+    invalidate();
+    return () => { built.dispose(); };
+  }, [built, invalidate]);
+
+  // The plank image, hung on the shared material once loaded — separate from
+  // the geometry build so picking a texture doesn't relay the whole floor
+  // (the UVs are baked per plank and don't depend on which image it is).
+  const textureUrl = pattern.settings?.textureUrl || null;
+  useEffect(() => {
+    const material = built.material;
+    if (!textureUrl) {
+      if (material.map) { material.map.dispose(); material.map = null; material.needsUpdate = true; invalidate(); }
+      return;
+    }
+    let cancelled = false;
+    let mine: THREE.Texture | null = null;
+    // Same shared loader (and textureFetchUrl CORS/cache convention) the walls
+    // use; cloned before use, exactly like Wall does, so our copy owns its
+    // wrap/repeat settings and its disposal.
+    const unsub = requestSharedTexture(
+      textureUrl,
+      ({ tex }) => {
+        if (cancelled) return;
+        const t = tex.clone();
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = gl.capabilities.getMaxAnisotropy();
+        t.needsUpdate = true;
+        mine = t;
+        material.map?.dispose();
+        material.map = t;
+        material.needsUpdate = true;
+        invalidate();
+      },
+      () => { console.warn("[FloorCeiling] plank texture failed to load:", textureUrl); },
+    );
+    return () => {
+      cancelled = true;
+      unsub();
+      if (mine) { if (material.map === mine) { material.map = null; material.needsUpdate = true; } mine.dispose(); }
+    };
+  }, [built, textureUrl, gl, invalidate]);
+
+  return <primitive object={built.group} position={[0, -0.004, 0]} />;
+}
+
+
 // ─── Ceiling designs ──────────────────────────────────────────────────────────
 
 /**
@@ -219,13 +332,21 @@ export const WoodFloor = memo(function WoodFloor({
  * either way, which is the one part that must not depend on the view.
  */
 export const Ceiling = memo(function Ceiling({
-  W, D, H, T, designId, settings, hidden, meshRef,
+  W, D, H, T, designId, settings, hidden, meshRef, isSelected, onClick,
 }: {
   W: number; D: number; H: number; T: number
   designId: CeilingDesignId
   settings?: Partial<CeilingSettings>
   hidden: boolean
   meshRef: MutableRefObject<THREE.Mesh | null>
+  /** Tinted the same blue a selected wall/floor gets, so the ceiling reads as
+   *  the active surface while the panel edits it. */
+  isSelected?: boolean
+  /** Selects the ceiling. No stopPropagation on the group below (same as the
+   *  floor's and the walls' own groups) — one tap has to both select and
+   *  bubble to RoomShell's holdBind('ceiling') wrapper, which is what opens
+   *  the radial menu. */
+  onClick?: () => void
 }) {
   const design = ceilingDesign(designId)
   const resolved = useMemo(() => resolveCeilingSettings(design, settings), [design, settings])
@@ -234,8 +355,13 @@ export const Ceiling = memo(function Ceiling({
     [design, resolved, W, D, H],
   )
 
+  // Hidden means the slab draws nothing and (via RoomScene's raycast switch)
+  // cannot be picked, so the highlight has to go with it — a tint glowing in
+  // an open-topped top view would be painting a ceiling that isn't shown.
+  const showSelected = !!isSelected && !hidden
+
   return (
-    <group>
+    <group onClick={onClick}>
       <mesh ref={meshRef} position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <planeGeometry args={[W + 2 * T, D + 2 * T]} />
         <meshStandardMaterial
@@ -244,10 +370,22 @@ export const Ceiling = memo(function Ceiling({
           side={THREE.FrontSide}
           colorWrite={!hidden}
           depthWrite={!hidden}
+          // Emissive rather than the floor's overlay plane: a dropped design
+          // hangs its panels BELOW this slab, so an overlay would end up
+          // behind them and the tint would vanish on exactly the ceilings
+          // that have something to select. Tinting the materials instead
+          // colours the slab and the panels wherever they happen to sit.
+          emissive={showSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={showSelected ? 0.25 : 0}
         />
       </mesh>
       {!hidden && parts.length > 0 && (
-        <CeilingProfile parts={parts} color={resolved.color} stripK={resolved.stripK} />
+        <CeilingProfile
+          parts={parts}
+          color={resolved.color}
+          stripK={resolved.stripK}
+          selected={showSelected}
+        />
       )}
     </group>
   )
@@ -262,11 +400,15 @@ export const Ceiling = memo(function Ceiling({
  * in the room that should not respond to the room's own lighting.
  */
 function CeilingProfile({
-  parts, color, stripK,
+  parts, color, stripK, selected = false,
 }: {
   parts: CeilingPart[]
   color: string
   stripK: number
+  /** Selection tint, carried down so a dropped ceiling highlights as one
+   *  surface instead of just its slab. The LED strips stay untouched — they
+   *  are a light source, not a face of the ceiling. */
+  selected?: boolean
 }) {
   const stripColor = kelvinToHex(stripK)
   return (
@@ -283,7 +425,11 @@ function CeilingProfile({
           {part.kind === 'strip' ? (
             <meshBasicMaterial color={stripColor} toneMapped={false} />
           ) : (
-            <meshStandardMaterial color={color} roughness={0.92} metalness={0} />
+            <meshStandardMaterial
+              color={color} roughness={0.92} metalness={0}
+              emissive={selected ? '#1E40AF' : '#000000'}
+              emissiveIntensity={selected ? 0.25 : 0}
+            />
           )}
         </mesh>
       ))}

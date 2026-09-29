@@ -1,13 +1,16 @@
 /**
- * Types emitted by the native RoomPlan scanner and helpers to convert them
- * into the Zustand store's RoomGeometry.
+ * Types emitted by the native RoomPlan scanner and helpers to convert a scan
+ * into the payload `roomStore.loadRoom` accepts.
  *
- * All distances in ScannedRoom are in **metres** (as RoomPlan produces them).
- * The store uses **millimetres**, so every value is ×1000 on the way in.
+ * All distances in ScannedRoom are in **metres** (as RoomPlan produces them),
+ * and `snapToFourWalls` works in millimetres because the rounding is easier to
+ * reason about there. `loadRoom` speaks the API's units — metres, with opening
+ * positions as 0..1 centre fractions — so `scanToApiGeometry` converts back
+ * out at the boundary rather than handing the store raw millimetres.
  */
 
-import { nanoid } from 'nanoid'
-import type { RoomGeometry, Wall, WallElement } from '@/store/roomStore'
+import type { RoomPayloadGeometry } from '@/store/roomStore'
+import { storeElementToApiPosition } from './wallPositions'
 
 // ─── Native scanner output types ─────────────────────────────────────────────
 
@@ -145,28 +148,47 @@ export function snapToFourWalls(room: ScannedRoom): SnappedRect {
   }
 }
 
-// ─── scanToStoreGeometry ─────────────────────────────────────────────────────
+// ─── scanToApiGeometry ───────────────────────────────────────────────────────
 /**
- * Full pipeline: ScannedRoom (metres) → RoomGeometry (mm) ready for the Zustand store.
+ * Full pipeline: ScannedRoom (metres) → the geometry `loadRoom` expects.
  *
- * Also returns the ceiling height in mm so callers can pass it to setCeilingHeight /
- * loadRoom independently.
+ * The output is in the API's units, not the store's: metres, with each
+ * opening's CENTRE as a 0..1 fraction of its wall (see `RoomPayloadGeometry`).
+ * `loadRoom` converts those to the store's millimetre left edges itself, so
+ * handing it millimetres produced a room 1000× too large — every wall past the
+ * 3D camera's far plane, and past the backend's 25 m limit.
+ *
+ * Returns the ceiling height separately, in metres, for the payload's
+ * `ceiling_h`.
  */
-export function scanToStoreGeometry(room: ScannedRoom): { geometry: RoomGeometry; ceilingMm: number } {
+export function scanToApiGeometry(
+  room: ScannedRoom,
+): { geometry: RoomPayloadGeometry; ceilingM: number } {
   const { rectWalls, ceilingMm } = snapToFourWalls(room)
 
-  const walls: Wall[] = rectWalls.map(rw => ({
+  const walls: RoomPayloadGeometry['walls'] = rectWalls.map((rw) => ({
     id: rw.id,
-    length: rw.lengthMm,
-    elements: rw.openings.map((op): WallElement => ({
-      id: nanoid(),
-      type: op.type,
-      width: Math.round(op.widthM * M_TO_MM),
-      height: Math.round(op.heightM * M_TO_MM),
-      sill_height: Math.round(op.sillM * M_TO_MM),
-      position: Math.round(op.offsetM * M_TO_MM),
-    })),
+    length: rw.lengthMm / M_TO_MM,
+    elements: rw.openings.map((op) => {
+      // Round in millimetres — the unit the rest of this file and the studio
+      // work in — then divide back out, so the metres handed over are whole
+      // millimetres rather than the scanner's raw floats.
+      const widthMm = Math.round(op.widthM * M_TO_MM)
+      const positionMm = Math.round(op.offsetM * M_TO_MM)
+      return {
+        type: op.type,
+        width: widthMm / M_TO_MM,
+        height: Math.round(op.heightM * M_TO_MM) / M_TO_MM,
+        sill_height: Math.round(op.sillM * M_TO_MM) / M_TO_MM,
+        // Left edge → centre fraction via wallPositions.ts, the one place
+        // that conversion is allowed to live.
+        position: storeElementToApiPosition(
+          { position: positionMm, width: widthMm },
+          rw.lengthMm,
+        ),
+      }
+    }),
   }))
 
-  return { geometry: { walls }, ceilingMm }
+  return { geometry: { walls }, ceilingM: ceilingMm / M_TO_MM }
 }

@@ -38,16 +38,41 @@ export const UNCONFIGURED_FLOOR_COLOR = "#DCD7CC";
 export const WALLPAPER_WIDTH_M = 1.06 // standard roll width
 
 
+// ─── Opening reveal (wall-thickness illusion) ────────────────────────────────
+// Interior walls render as widthless planes (WALL_T = 0), so an opening pasted
+// onto the wall plane reads as paper. EVERY opening — window, balcony door and
+// door alike — therefore gets a reveal: flat surfaces extending this far
+// OUTWARD (away from the room) from the interior wall face, which fakes a
+// 200 mm-thick wall, with the opening's own frame and its sash/leaf sitting at
+// the reveal's outer edge.
+export const OPENING_REVEAL_D = 0.2;   // reveal depth in metres (200 mm)
+
+// Wall-normal offset (from the interior wall plane, outward) at which the
+// window sashes and glass are centred: 5 mm inside the reveal's exterior
+// edge, so the flat sash faces sit just in front of the flat frame ring that
+// WallComponents places flush with that edge (2 mm of clear separation — no
+// coplanar faces). Shared by WallComponents and DoorLeaves so both agree.
+// (A door leaf is a real 40 mm slab, so DoorLeaves derives its own recess
+// from LEAF_T instead — see DOOR_LEAF_RECESS there.)
+export const WINDOW_SASH_RECESS = OPENING_REVEAL_D - 0.005;
+
+
 // ─── Wall-mounted electrical devices ─────────────────────────────────────────
 
+// Plate sizes from the Chameleon range these are modelled on (see
+// Faceplates.tsx): the 80 mm square plate carries one gang OR two — a
+// two-gang switch is two rockers on one plate, not a wider plate — and two
+// sockets side by side need the 150 mm one.
 export const ELECTRICAL_DIMS: Record<string, { w: number; h: number }> = {
-  switch1:      { w: 0.08, h: 0.08 },
-  switch2:      { w: 0.14, h: 0.08 },
-  socket1:      { w: 0.08, h: 0.08 },
-  socket2:      { w: 0.14, h: 0.08 },
-  socket_media: { w: 0.18, h: 0.08 },
+  switch1:      { w: 0.081, h: 0.081 },
+  switch2:      { w: 0.081, h: 0.081 },
+  socket1:      { w: 0.081, h: 0.081 },
+  socket2:      { w: 0.152, h: 0.081 },
+  socket_media: { w: 0.152, h: 0.081 },
   // panel is a cabinet, not a thin faceplate
   panel:        { w: 0.40, h: 0.50 },
+  // a split unit's indoor half — a long shallow box, not a faceplate
+  ac:           { w: 0.90, h: 0.30 },
 }
 
 
@@ -128,7 +153,6 @@ export const SIBLING_FLOOR_COLOR_BY_TYPE: Record<string, string> = {
 
 export const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
 
-export const SIBLING_WALL_COLOR_DEFAULT = '#C9C2B4'
 
 
 // ─── View presets ─────────────────────────────────────────────────────────────

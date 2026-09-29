@@ -74,7 +74,10 @@ class ElectricalDevice(Base):
 
     __tablename__ = "electrical_devices"
     __table_args__ = (
-        CheckConstraint("wall_index >= 0 AND wall_index <= 3", name="ck_electrical_device_wall_index"),
+        # No upper bound: a scanned room is an N-wall polygon, so the valid
+        # range depends on the room's own geometry and is checked in the API
+        # layer (same reasoning as room_finishes.wall_index).
+        CheckConstraint("wall_index >= 0", name="ck_electrical_device_wall_index"),
         CheckConstraint("count >= 1", name="ck_electrical_device_count_positive"),
     )
 

@@ -1,104 +1,17 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
-import { TopDrawer, TopDrawerButton } from "@/components/ui/TopDrawer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom, previewEstimate,
+  getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom,
   createShareLink, revokeShareLink,
 } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
-import { cn, formatUZSCompact } from "@/lib/utils";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
+import { hasAbcdWalls } from "@/lib/roomDims";
+import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-
-function StudioNav({ roomId, isDirty, topOffset }: { roomId: string; isDirty: boolean; topOffset: number }) {
-  const [navOpen, setNavOpen] = useState(false);
-  const navItems = [
-    { to: `/studio/${roomId}/ichkarida`, label: "3D" },
-    { to: `/studio/${roomId}/mebel`, label: "Mebelirovka" },
-    { to: `/studio/${roomId}/chiroqlar`, label: "Chiroqlar" },
-    { to: `/studio/${roomId}/elektr`, label: "Elektr" },
-    { to: `/studio/${roomId}/aylanish`, label: "Aylanish" },
-    // /smeta/:roomId is a top-level route, not nested under /studio/:roomId —
-    // clicking this leaves the studio layout entirely (SmetaPage has its own
-    // header with a back link to here), unlike the other tabs above which
-    // stay within this same StudioPage shell.
-    // "Smeta" everywhere else that names this same page (route, page <h1>,
-    // WizardPage's "Smeta ko'rish" button, the whole uz.smeta.* locale
-    // namespace) — this tab used to say "Hisoblagich" ("calculator"),
-    // making it read like a different feature.
-    { to: `/smeta/${roomId}`, label: "Smeta" },
-  ];
-
-  // Studio audit finding (feature completeness): no running price total
-  // visible without leaving the 3D studio for the separate /smeta page.
-  // Surfaced here, on the tab that already leads there, rather than adding
-  // a new header slot — the header row is a tight 3-column grid on mobile
-  // (back+title / tabs / save+kebab) with no spare room.
-  //
-  // The estimate engine only ever prices the room's *saved* state (the
-  // preview endpoint loads room.state from the DB) — it has no way to see
-  // local edits still sitting unsaved in the store. Rather than fake a
-  // number that updates on every keystroke, this shows the true last-saved
-  // total and flags it with a "•" while isDirty, so it reads as "as of your
-  // last save" instead of silently pretending to be live when it isn't.
-  const isRealRoom = !!roomId && roomId !== "local";
-  const { data: estimate } = useQuery({
-    queryKey: ["studio-nav-total", roomId],
-    queryFn: () => previewEstimate(roomId),
-    enabled: isRealRoom,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-    // A room with nothing priceable yet (brand new, empty) 400s/500s just
-    // as often as it succeeds — this badge is a nice-to-have, not worth a
-    // retry storm over.
-    retry: false,
-  });
-
-  return (
-    // Collapsed into a single round trigger button — pressing it opens a
-    // TopDrawer sliding down from below the header with the same tabs laid
-    // out as a vertical list, instead of the old horizontal scroll strip.
-    <>
-      <TopDrawerButton active={navOpen} onClick={() => setNavOpen(true)} label="Bo'limlar">
-        <Menu size={18} aria-hidden="true" />
-      </TopDrawerButton>
-      <TopDrawer open={navOpen} onOpenChange={setNavOpen} title="Bo'limlar" topOffset={topOffset}>
-        <div className="flex flex-col p-2">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setNavOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center justify-between gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors",
-                  isActive
-                    ? "bg-primary-tint text-brand"
-                    : "text-neutral-700 hover:bg-neutral-50"
-                )
-              }
-            >
-              <span>{item.label}</span>
-              {item.label === "Smeta" && estimate != null && (
-                <span
-                  className="text-[11px] font-normal opacity-70"
-                  title={isDirty ? "So'nggi saqlangan holat bo'yicha — o'zgarishlar hali saqlanmagan" : undefined}
-                >
-                  {isDirty && "• "}
-                  {formatUZSCompact(estimate.total_uzs)}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      </TopDrawer>
-    </>
-  );
-}
 
 export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -125,26 +38,16 @@ export default function StudioPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Measured (not hardcoded) header height, fed to StudioNav's TopDrawer as
-  // its topOffset so the drawer opens flush below the header row regardless
-  // of how tall that row renders at a given breakpoint (it varies: py-2 vs
-  // lg:py-3 padding, plus the two-line title/subtitle that's hidden below sm).
+  // The header used to be measured, to place the drawers that opened beneath
+  // it. There are none left — the last of them moved into the ⋮ menu — so the
+  // height is nobody's business any more.
   const headerRef = useRef<HTMLElement | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const updateHeight = () => setHeaderHeight(el.getBoundingClientRect().height);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  // DOM node the active tab (via Outlet context) portals its own collapsed
-  // menu-trigger buttons into, so they render inside this header row instead
-  // of a separate row of their own. A ref alone wouldn't do — the context
-  // value passed to <Outlet> needs to change (state) once the node mounts.
-  const [toolbarSlotEl, setToolbarSlotEl] = useState<HTMLDivElement | null>(null);
+  const [tabSlotEl, setTabSlotEl] = useState<HTMLDivElement | null>(null);
+  // A slot inside the ⋮ dropdown for the current tab's own menu rows (the 3D
+  // view's scan toggle, sun clock, AI builder and design-panel button). Null
+  // while the dropdown is closed, which is exactly when they should not
+  // render — see ToolsDrawerPanel.
+  const [menuSlotEl, setMenuSlotEl] = useState<HTMLDivElement | null>(null);
   // Focus targets for the share popover's focus management: the kebab
   // button is the stable "trigger" to restore focus to on close (the
   // "Ulashish" menu item that actually opened it unmounts immediately,
@@ -293,21 +196,28 @@ export default function StudioPage() {
 
       // Geometry in backend format: lengths in metres, positions 0-1 fraction
       const geometryPayload = {
-        walls: s.geometry.walls.map(w => ({
-          id: w.id,
-          length: w.length / 1000,
-          elements: w.elements.map(e => ({
-            type: e.type,
-            width: e.width / 1000,
-            height: e.height / 1000,
-            sill_height: (e.sill_height ?? 0) / 1000,
-            position: e.position > 0 ? Math.min(1, e.position / w.length) : 0.5,
-            // Window type — the API geometry is authoritative on reload, so
-            // without this the picked style would be lost on every refresh
-            style_id: e.styleId ?? null,
-            sashes: e.sashes ?? null,
-          })),
-        })),
+        walls: s.geometry.walls.map(w => {
+          // Store mm (left edge, possibly an unresolved auto placeholder) →
+          // API centre fractions — the single conversion point on the way out,
+          // mirroring apiPositionToStoreMm on the way in. Resolving first means
+          // what we save is what the studio was drawing.
+          const positions = wallElementsToApiPositions(w.elements, w.length)
+          return {
+            id: w.id,
+            length: w.length / 1000,
+            elements: w.elements.map((e, i) => ({
+              type: e.type,
+              width: e.width / 1000,
+              height: e.height / 1000,
+              sill_height: (e.sill_height ?? 0) / 1000,
+              position: positions[i],
+              // Window type — the API geometry is authoritative on reload, so
+              // without this the picked style would be lost on every refresh
+              style_id: e.styleId ?? null,
+              sashes: e.sashes ?? null,
+            })),
+          }
+        }),
         // Polygon (N-wall) rooms carry their outline in `vertices` (mm in the
         // store). Without re-emitting it here the save drops the polygon and
         // the backend rebuilds a rectangle / rejects the room (422). Same
@@ -346,7 +256,7 @@ export default function StudioPage() {
       // Room not in DB — create apartment + room
       let aptId = s.apartmentId;
       if (!aptId) {
-        const apt = await createApartment({ name: s.name || 'Kvartira' });
+        const apt = await createApartment({ name: s.name || 'Xonadon' });
         aptId = apt.id;
       }
       const newRoom = await createRoom(aptId, {
@@ -456,7 +366,27 @@ export default function StudioPage() {
   // Always use localRoom for rendering: it mirrors the Zustand store so settings
   // sheet changes (ceiling height, wall lengths) reflect immediately in all 3D views.
   // apiRoom is used only for the status banner and initial state loading (useEffect below).
-  const room = localRoom;
+  // The LiDAR `room_scan` metadata is server-only (it is not mirrored into the
+  // store), so fold it back in from the fetched room for the scan overlay.
+  const room = useMemo<Room>(
+    () => (apiRoom?.room_scan ? { ...localRoom, room_scan: apiRoom.room_scan } : localRoom),
+    [localRoom, apiRoom],
+  );
+
+  // Header sub-line. `room.length`/`room.width` are the LEGACY rectangle
+  // fields: they are read off walls "A" and "B", which only a 4-wall wizard
+  // room has. A LiDAR-scanned polygon room's walls are numbered ("0".."4"),
+  // so both lookups missed and the header confidently printed the hardcoded
+  // 4.0 × 3.0 fallback for a 5-wall, 37.5 m² room. For a polygon there is no
+  // honest single width × length, so show what actually describes it — the
+  // shoelace floor area (already computed in `room.area`), the wall count and
+  // the ceiling height — and keep the familiar W × L × H line for rectangles.
+  const dimsLabel = useMemo(() => {
+    const h = (room.ceiling_height ?? 0).toFixed(1);
+    const isRect = hasAbcdWalls(geometry);
+    if (isRect) return `${room.length?.toFixed(1)} × ${room.width?.toFixed(1)} × ${h} m`;
+    return `${room.area.toFixed(1)} m² · ${geometry.walls.length} devor · shift ${h} m`;
+  }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls]);
 
   // When a saved room loads from API and has a full state blob, restore it into the store.
   useEffect(() => {
@@ -528,7 +458,7 @@ export default function StudioPage() {
             >
               <p className="text-[16px] lg:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
               <p className="text-[11px] text-muted flex items-center gap-1">
-                {room.length?.toFixed(1)} × {room.width?.toFixed(1)} × {room.ceiling_height?.toFixed(1)} m
+                {dimsLabel}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
                 </svg>
@@ -536,15 +466,11 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sections menu trigger, plus a portal slot the current tab's own
-              round trigger buttons (e.g. ThreeDPage's stage/tools drawers)
-              render into via Outlet context — so all of a tab's collapsed
-              menu buttons end up in this one header row, not stacked as
-              separate rows below it. */}
-          <div className="flex justify-center items-center gap-2 min-w-0">
-            <StudioNav roomId={room.id} isDirty={isDirty} topOffset={headerHeight} />
-            <div ref={setToolbarSlotEl} className="flex items-center gap-2" />
-          </div>
+          {/* The tab strip rides in the middle of the header (2026-09-28, at
+              the user's request), where it used to float over the viewport
+              below — one row of chrome instead of two. A page that has no
+              strip to portal in simply leaves this empty. */}
+          <div ref={setTabSlotEl} className="flex justify-center items-center min-w-0" />
 
           {/* Save + kebab */}
           <div className="flex items-center gap-2 flex-shrink-0 relative">
@@ -599,7 +525,8 @@ export default function StudioPage() {
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px]">
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px] max-w-[85vw]">
+                  <div ref={setMenuSlotEl} />
                   {room.id !== 'local' && (
                     <button
                       onClick={handleShareClick}
@@ -716,7 +643,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave, toolbarSlot: toolbarSlotEl, toolbarSlotTop: headerHeight }} />
+          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl }} />
         </Suspense>
       </main>
     </div>

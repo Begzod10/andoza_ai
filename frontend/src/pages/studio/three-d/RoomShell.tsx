@@ -1,23 +1,28 @@
 import * as React from "react";
-import { memo, useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
-import { useRoomStore, resolveWallCovering, resolveWallPanel, PLASTER_BASE_COLOR } from "@/store/roomStore";
+import { useRoomStore, resolveWallCovering, resolveWallPanel } from "@/store/roomStore";
 import type { DesignState, RoomGeometry, WallElement } from "@/store/roomStore";
 import type { Room } from "@/lib/api";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { DEFAULT_CEILING_DESIGN } from "@/lib/ceilingDesigns";
+import { DEFAULT_CEILING_DESIGN, CEILING_SETTING_DEFAULTS, ceilingDesign, resolveCeilingSettings, ceilingPerimeterY } from "@/lib/ceilingDesigns";
 import {
-  WallFade, WallTopRim, CornerPosts, FloorSlab,
+  WallFade,
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
+import { ShadowShell } from "@/features/studio/shadowShell";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
-import { WALL_T, CEILING_DEFAULT, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
-import { shadeCovering } from "./helpers";
-import { WoodFloor, Ceiling } from "./FloorCeiling";
-import { Wall, WindowFrames, DoorFrames, Baseboard } from "./WallComponents";
+import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
+import { shadeCovering, boardSegments, trimSegments } from "./helpers";
+import { WoodFloor, Ceiling, PatternFloor } from "./FloorCeiling";
+import { floorSlabColorFor } from "@/lib/floorGeometry";
+import { Wall, WindowFrames, DoorFrames, Baseboard, Cornice, WindowFrameItem, DoorFrameItem, TrimRun, type FrameWallDef } from "./WallComponents";
+import { resolveTrim } from "@/lib/trimProfiles";
 import { CeilingLights } from "./LightingComponents";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 
 /**
  * The full room shell: the legacy 4-wall ABCD room (floor, ceiling, walls,
@@ -148,8 +153,71 @@ export const SwapButtons = memo(function SwapButtons({ W, D, H }: { W: number; D
 // ─── N-wall polygon room shell ────────────────────────────────────────────────
 //
 // Used when the room has non-ABCD wall IDs (e.g. from a RoomPlan scan).
-// Renders a polygon floor/ceiling and N wall boxes positioned along each edge.
-// Windows/doors and baseboards are omitted for now (Phase 5 enhancement).
+// Renders a polygon floor/ceiling plus, for EACH polygon edge, a real carved
+// wall (with door/window cutouts via the shared <Wall> segmentation), matching
+// window/door frames, and baseboard trim — the same look as the ABCD room.
+//
+// Each edge v[i]→v[(i+1)%n] is rendered as an axis-'X' wall built at the local
+// origin and wrapped in a <group position={edge midpoint} rotation-y={edge yaw}>
+// so all the existing X-axis wall/frame/baseboard code is reused, just rotated
+// into place. The along-length direction is fixed by the winding, so the
+// room-inward face is chosen per edge via <Wall innerFaceDir> (see that prop).
+
+
+interface PolyEdge {
+  index: number;
+  wallId: string;
+  /** Edge midpoint in centred metres (world XZ, room centred at origin). */
+  mx: number; mz: number;
+  /** Y rotation aligning local +X with the edge direction. */
+  yaw: number;
+  /** Edge length in metres. */
+  length: number;
+  /** Which local face is room-inward (+1 = local +Z, −1 = local −Z). */
+  faceDir: 1 | -1;
+  /** Outward normal (unit, world XZ) — used by the camera-facing cutaway. */
+  ox: number; oz: number;
+}
+
+function polyEdgesEqual(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+/**
+ * Camera-facing hidden-edge tracking for the polygon shell — the N-wall
+ * analogue of diorama.useHiddenWalls. Hides any edge whose OUTWARD normal
+ * points toward the camera, with the same hysteresis so it doesn't flicker
+ * at the boundary.
+ */
+function useHiddenPolyEdges(mode: CutawayMode, edges: PolyEdge[]): ReadonlySet<number> {
+  const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
+  const current = useRef<ReadonlySet<number>>(hidden);
+
+  useFrame(({ camera }) => {
+    let next: Set<number>;
+    if (mode === 'off') {
+      if (current.current.size === 0) return;
+      next = new Set();
+    } else {
+      const len = Math.hypot(camera.position.x, camera.position.z) || 1;
+      const dx = camera.position.x / len, dz = camera.position.z / len;
+      next = new Set<number>();
+      for (const e of edges) {
+        const dot = e.ox * dx + e.oz * dz;
+        const was = current.current.has(e.index);
+        // hysteresis: hide above 0.30, unhide below 0.22 (same as ABCD)
+        if (dot > (was ? 0.22 : 0.3)) next.add(e.index);
+      }
+      if (polyEdgesEqual(current.current, next)) return;
+    }
+    current.current = next;
+    setHidden(next);
+  });
+
+  return hidden;
+}
 
 function NWallRoomShell({
   geometry,
@@ -157,13 +225,44 @@ function NWallRoomShell({
   designState,
   selectedWall,
   onWallClick,
+  isFloorSelected,
+  onFloorClick,
+  isCeilingSelected,
+  onCeilingClick,
+  isSkirtingSelected,
+  onSkirtingClick,
+  isCorniceSelected,
+  onCorniceClick,
+  holdBind,
+  cutaway = 'off',
+  plasterWalls = false,
 }: {
   geometry: RoomGeometry;
   H: number;
   designState: DesignState;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
+  isFloorSelected?: boolean;
+  onFloorClick?: () => void;
+  isCeilingSelected?: boolean;
+  onCeilingClick?: () => void;
+  isSkirtingSelected?: boolean;
+  onSkirtingClick?: (e: ThreeEvent<MouseEvent>) => void;
+  isCorniceSelected?: boolean;
+  onCorniceClick?: (e: ThreeEvent<MouseEvent>) => void;
+  /** Opens the surface radial menu (add door/window, wall image, ...). The
+   *  ABCD shell has always spread this onto its surfaces; without it here a
+   *  drawn room could select a wall but never act on it. */
+  holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
+  cutaway?: CutawayMode;
+  plasterWalls?: boolean;
 }) {
+  // Skirting: undefined means the user never touched it, which still renders
+  // the default board; only an explicit null takes it off.
+  const trim = designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')
+  // Cornice: opt-in, and this shell always draws the plain slab at H (a
+  // scanned room is rendered open-topped), so the junction is simply H.
+  const cornice = designState.cornice ? resolveTrim(designState.cornice, 'cornice') : null
   const verts = geometry.vertices!
   const n = verts.length
 
@@ -224,15 +323,85 @@ function NWallRoomShell({
 
   const polyGeo = useMemo(() => buildShape(filteredCentred), [filteredCentred])
 
-  const T = 0.02  // polygon walls stay as boxes — 2cm minimum to avoid degenerate geometry
+  // Which face of the ceiling slab points DOWN into the room: always the back
+  // one. This used to be derived from the polygon's signed area, on the theory
+  // that a clockwise loop flips ShapeGeometry's front face — it does not.
+  // ShapeUtils.triangulateShape normalizes the contour's winding before
+  // triangulating, so ShapeGeometry emits +Z normals for EITHER winding, and
+  // `rotation={[-PI/2, 0, 0]}` turns that +Z into +Y (up, out of the room)
+  // every time. A room whose outline happened to be drawn clockwise therefore
+  // got FrontSide, i.e. a ceiling facing away from the people under it: it
+  // vanished from inside (sky overhead, lights hanging off nothing) and,
+  // now that the slab is pickable, could not be clicked either, since a
+  // FrontSide material culls exactly the face a ray from below arrives at.
+  const ceilingSide = THREE.BackSide
+
+  // Per-edge transforms + inward/outward normals. `centred` (not the filtered
+  // set) is used so edge i still lines up with geometry.walls[i]; the room is
+  // centred at the origin, so "toward centroid" is simply "toward (0,0)".
+  const edges = useMemo<PolyEdge[]>(() => {
+    const out: PolyEdge[] = []
+    for (let i = 0; i < centred.length; i++) {
+      const [x1, z1] = centred[i]
+      const [x2, z2] = centred[(i + 1) % centred.length]
+      const dx = x2 - x1
+      const dz = z2 - z1
+      const length = Math.hypot(dx, dz)
+      if (length < 0.01) continue
+      const mx = (x1 + x2) / 2
+      const mz = (z1 + z2) / 2
+      // Wrapping-group yaw: local +X → edge direction (dx,dz); this maps the
+      // wall's local +Z face normal to world (-dz,dx)/length.
+      const yaw = Math.atan2(-dz, dx)
+      const nx = -dz / length
+      const nz = dx / length
+      // local +Z (nx,nz) is room-inward when it points toward the centroid (0,0).
+      const inward = nx * -mx + nz * -mz
+      const faceDir: 1 | -1 = inward >= 0 ? 1 : -1
+      // Outward normal = away from centroid.
+      let ox = nx, oz = nz
+      if (ox * mx + oz * mz < 0) { ox = -ox; oz = -oz }
+      out.push({
+        index: i,
+        wallId: geometry.walls[i]?.id ?? String(i),
+        mx, mz, yaw, length, faceDir, ox, oz,
+      })
+    }
+    return out
+  }, [centred, geometry.walls])
+
+  const hiddenEdges = useHiddenPolyEdges(cutaway, edges)
+
+  // Real-geometry laying pattern (Naqsh) for a drawn/scanned polygon room:
+  // the flat polygon becomes the dark under-slab and the instanced planks
+  // are clipped to this very outline. Same centred frame as the walls.
+  const floorPattern = designState.floorPattern ?? null
+  const floorBase = FLOOR_COLORS[designState.floorType] ?? '#C9AB7E'
+  const patternExtents = useMemo(() => {
+    let mx = 0, mz = 0
+    for (const [x, z] of filteredCentred) { mx = Math.max(mx, Math.abs(x)); mz = Math.max(mz, Math.abs(z)) }
+    return { W: 2 * mx, D: 2 * mz }
+  }, [filteredCentred])
 
   return (
     <group>
-      {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0 */}
-      <mesh geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* Floor — ShapeGeometry in XY plane, rotated to XZ at Y=0. Wrapped
+          like the ABCD shell's floor so tapping it selects the floor and
+          opens the same radial menu. */}
+      <group {...(holdBind?.('floor') ?? {})}>
+      <mesh
+        geometry={polyGeo}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+        onClick={onFloorClick}
+      >
         <meshStandardMaterial
-          color={designState.floorConfigured ? (FLOOR_COLORS[designState.floorType] ?? '#C9AB7E') : UNCONFIGURED_FLOOR_COLOR}
-          roughness={0.8}
+          color={floorPattern
+            ? floorSlabColorFor(floorPattern, floorBase)
+            : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
+          emissive={isFloorSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={isFloorSelected ? 0.25 : 0}
+          roughness={floorPattern ? 0.92 : 0.8}
           // ShapeGeometry's front-face winding depends on the input polygon's
           // winding in its own local X-Y space, before this mesh's rotation
           // is applied — if that ends up facing down post-rotation, the
@@ -242,89 +411,157 @@ function NWallRoomShell({
           side={THREE.DoubleSide}
         />
       </mesh>
+      {floorPattern && (
+        <PatternFloor
+          pattern={floorPattern}
+          width={patternExtents.W}
+          depth={patternExtents.D}
+          fallbackColor={floorBase}
+          clipPolygon={filteredCentred}
+        />
+      )}
+      </group>
 
-      {/* Ceiling, as a shadow caster only.
-          A scanned room is always drawn open-topped, so this never needs to be
-          seen — but without it the sun falls straight through the roof onto the
-          floor, which is what gave the ABCD rooms away. Writing neither colour
-          nor depth keeps it in the shadow map while drawing nothing, so it also
-          cannot bring back the bright sliver this mesh was switched off to
-          diagnose (that turned out to be a mis-rotated plane in the other room
-          shell, fixed there). */}
+      {/* Ceiling — a plain white slab, and the roof the sun stops at.
+          It used to draw nothing (colourWrite off, shadow caster only) on the
+          assumption that a scanned room is always shown open-topped. Drawn
+          rooms are ordinary rooms people work inside, so that left them with
+          sky overhead and the ceiling lights hanging off nothing.
+          Single-sided like the ABCD shell's ceiling: seen from inside, gone
+          from above, so pulling the camera out of the room still looks in
+          rather than at a lid — see `ceilingSide` for which face that is.
+
+          Wrapped and pickable like the floor above it: the slab used to be
+          noRaycast, so a drawn room's ceiling was the one surface that could
+          neither be selected nor long-pressed. Being single-sided also keeps
+          it out of the way of any view that looks down at the room — a ray
+          from above meets the culled face and passes straight through to the
+          floor plan, so the slab can never swallow a pick there. */}
+      <group {...(holdBind?.('ceiling') ?? {})}>
       <mesh
         geometry={polyGeo}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, H, 0]}
         castShadow
-        raycast={noRaycast}
+        onClick={onCeilingClick}
       >
         <meshStandardMaterial
-          color={CEILING_DEFAULT}
+          // The room's own ceiling colour, same source and same near-white
+          // default (#F4F1EA) the ABCD shell paints — CEILING_DEFAULT is a
+          // greyer slab tone that made drawn rooms read dirtier than
+          // rectangular ones side by side.
+          color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
+          emissive={isCeilingSelected ? '#1E40AF' : '#000000'}
+          emissiveIntensity={isCeilingSelected ? 0.25 : 0}
           roughness={0.95}
-          side={THREE.DoubleSide}
-          colorWrite={false}
-          depthWrite={false}
+          side={ceilingSide}
         />
       </mesh>
+      </group>
 
-      {/* One wall box per polygon edge */}
-      {centred.map(([x1, z1], i) => {
-        const [x2, z2] = centred[(i + 1) % n]
-        const dx = x2 - x1
-        const dz = z2 - z1
-        const length = Math.sqrt(dx * dx + dz * dz)
-        if (length < 0.01) return null
-
-        const wall = geometry.walls[i]
-        const wallId = wall?.id ?? String(i)
-
-        // Rotation: atan2(-dz, dx) aligns box local-X with edge direction (dx,dz)
-        const ry = Math.atan2(-dz, dx)
-
-        // Alternate shade factor for depth cues (avoid all walls looking identical)
-        const shadeFactor = i % 2 === 0 ? 0.92 : 0.82
+      {/* One carved wall + frames + baseboard per polygon edge, rotated into place */}
+      {edges.map((e) => {
+        const wall = geometry.walls[e.index]
+        const elements = wall?.elements ?? []
+        // Alternate shade factor for depth cues (avoid all walls looking identical),
+        // same 0.92/0.82 pair the ABCD shell uses for its A/C vs B/D walls.
+        const shadeFactor = e.index % 2 === 0 ? 0.92 : 0.82
         const covering = shadeCovering(
-          resolveWallCovering(designState.wallCoverings, wallId),
+          resolveWallCovering(designState.wallCoverings, e.wallId),
           shadeFactor,
         )
-        const baseColor = covering.kind === 'plaster' ? PLASTER_BASE_COLOR
-          : covering.kind === 'paint' ? covering.color
-          : covering.kind === 'texture' ? covering.color
-          : covering.baseColor
-        const isSelected = selectedWall === wallId
+        // Two independent signs, both needed (see `FrameWallDef`):
+        //  • `alongSign: 1` — this def lives in the edge's OWN rotated group,
+        //    whose local +X already points from vertices[i] to vertices[i+1],
+        //    i.e. the direction position grows in. The sign only ever matters
+        //    to a def expressed in world axes (see `buildFrameWallDefs`).
+        //  • `faceDir` is mandatory here: these frames render INSIDE that same
+        //    rotated group, where cx/cz are both 0 and so carry no sign for
+        //    the reveal to read — without it every drawn-room opening would
+        //    cut its 200 mm niche toward the same side regardless of which way
+        //    the wall actually faces.
+        const frameWd: FrameWallDef = { id: e.wallId, axis: 'X', cx: 0, cz: 0, length: e.length, alongSign: 1, faceDir: e.faceDir }
+        const resolvedEls = resolveElementPositions(elements, e.length * 1000)
+        const baseSegs = boardSegments(e.length, elements, (trim?.heightM ?? 0.1) * 1000)
 
-        // Corner joint fix: a square-cut box running exactly edge-length only
-        // touches its neighbour at a single point at a convex (e.g. rectangle)
-        // corner, which happens to look fine, but at a concave/reflex corner
-        // (an inward notch) it leaves a real gap — the two boxes' end faces
-        // never actually meet, exposing whatever is behind (e.g. another
-        // wall's side face) through the hole. Mirrors the legacy RoomScene's
-        // "B/D own the corners" convention (walls extended by T so they
-        // overlap at the shared thickness instead of only touching at a
-        // point), generalized for arbitrary per-edge angles: every wall
-        // extends by T/2 at each end, so at ANY joint — convex or concave —
-        // both meeting boxes overlap across the corner rather than merely
-        // meeting at a point. At convex corners this only grows an already-
-        // harmless overlap; it does not introduce a gap there.
-        const boxLength = length + T
-
+        // Merge note: master's concave-corner fix here drew each wall box
+        // `length + T` long (84e22852), and this path dropped it for the
+        // <Wall> renderer. That costs nothing: T is WALL_T, which was already
+        // 0 when that commit landed — interior walls render as widthless
+        // planes, so the extension was `length + 0` and the "gap" it described
+        // cannot occur. If WALL_T ever becomes non-zero, the overlap has to be
+        // re-added inside the wall mesh, NOT by growing `length` — openings are
+        // positioned against it and would all shift by T/2.
         return (
-          <mesh
-            key={wallId}
-            position={[(x1 + x2) / 2, H / 2, (z1 + z2) / 2]}
-            rotation={[0, ry, 0]}
-            castShadow
-            receiveShadow
-            onClick={() => onWallClick?.(wallId)}
-          >
-            <boxGeometry args={[boxLength, H, T]} />
-            <meshStandardMaterial
-              color={isSelected ? '#1E40AF' : baseColor}
-              roughness={0.85}
-              emissive={isSelected ? '#1E40AF' : '#000000'}
-              emissiveIntensity={isSelected ? 0.12 : 0}
-            />
-          </mesh>
+          <WallFade key={e.wallId} hidden={hiddenEdges.has(e.index)}>
+            <group position={[e.mx, 0, e.mz]} rotation={[0, e.yaw, 0]} {...(holdBind?.('wall', e.wallId) ?? {})}>
+              <Wall
+                plaster={plasterWalls}
+                wallId={e.wallId}
+                length={e.length}
+                height={H}
+                thickness={WALL_T}
+                covering={covering}
+                elements={elements}
+                axis="X"
+                cx={0}
+                cz={0}
+                innerFaceDir={e.faceDir}
+                isSelected={selectedWall === e.wallId}
+                onClick={() => onWallClick?.(e.wallId)}
+                panelSettings={resolveWallPanel(designState.wallPanels, e.wallId)}
+              />
+              {resolvedEls.map((el) =>
+                el.type === 'eshik' ? (
+                  <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
+                ) : (
+                  <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />
+                ),
+              )}
+              {/* Skirting: one milled run per gap segment. This group is
+                  already rotated onto the edge, so the run only needs to turn
+                  its profile toward the room — yaw 0 when the room is on the
+                  local +Z side, π when it is not (which also reverses local
+                  +X, hence the swapped mitre flags). */}
+              {cornice && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
+                const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
+                const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
+                const fwd = e.faceDir > 0;
+                return (
+                  <TrimRun
+                    key={`cor-${si}`}
+                    onClick={onCorniceClick}
+                    isSelected={isCorniceSelected}
+                    trim={cornice}
+                    lengthM={s.len}
+                    flipY
+                    mitreStart={fwd ? atLeft : atRight}
+                    mitreEnd={fwd ? atRight : atLeft}
+                    position={[s.center, H, 0]}
+                    yaw={fwd ? 0 : Math.PI}
+                  />
+                );
+              })}
+              {trim && baseSegs.map((s, si) => {
+                const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
+                const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
+                const fwd = e.faceDir > 0;
+                return (
+                  <TrimRun
+                    key={`base-${si}`}
+                    onClick={onSkirtingClick}
+                    isSelected={isSkirtingSelected}
+                    trim={trim}
+                    lengthM={s.len}
+                    mitreStart={fwd ? atLeft : atRight}
+                    mitreEnd={fwd ? atRight : atLeft}
+                    position={[s.center, 0, 0]}
+                    yaw={fwd ? 0 : Math.PI}
+                  />
+                );
+              })}
+            </group>
+          </WallFade>
         )
       })}
     </group>
@@ -348,6 +585,12 @@ export const RoomScene = memo(function RoomScene({
   onWallClick,
   isFloorSelected,
   onFloorClick,
+  isCeilingSelected,
+  onCeilingClick,
+  isSkirtingSelected,
+  onSkirtingClick,
+  isCorniceSelected,
+  onCorniceClick,
   holdBind,
   plasterWalls = false,
 }: {
@@ -364,6 +607,16 @@ export const RoomScene = memo(function RoomScene({
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
   onFloorClick?: () => void;
+  /** The ceiling is selectable exactly like a wall or the floor — one tap
+   *  highlights it and points the design panel's "Shift" target at it. */
+  isCeilingSelected?: boolean;
+  onCeilingClick?: () => void;
+  /** The skirting and the cornice are each one thing to the user, however
+   *  many runs they are made of — picking any run selects the lot. */
+  isSkirtingSelected?: boolean;
+  onSkirtingClick?: (e: ThreeEvent<MouseEvent>) => void;
+  isCorniceSelected?: boolean;
+  onCorniceClick?: (e: ThreeEvent<MouseEvent>) => void;
   /** Long-press handler bundles per surface — spread onto wrapping groups so a
    *  press-and-hold on a wall/ceiling/floor opens the radial context menu. */
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
@@ -463,6 +716,17 @@ export const RoomScene = memo(function RoomScene({
     [wallD?.elements, D, T_MM],
   );
 
+  // A/C resolved in interior-span coordinates — what ShadowShell wants for the
+  // walls that don't own the corners (it does its own shifting).
+  const elementsAResolved = useMemo(
+    () => resolveElementPositions(wallA?.elements ?? EMPTY_ELEMENTS, W * 1000),
+    [wallA?.elements, W],
+  );
+  const elementsCResolved = useMemo(
+    () => resolveElementPositions(wallC?.elements ?? EMPTY_ELEMENTS, W * 1000),
+    [wallC?.elements, W],
+  );
+
   // Stable per-wall click handlers — an inline `() => onWallClick?.('A')`
   // literal at the call site below would be a fresh function reference on
   // every RoomScene render, which (like `covering`/`elements` above) would
@@ -474,11 +738,38 @@ export const RoomScene = memo(function RoomScene({
 
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
-  // Cutaway: which walls are currently hidden (auto = camera-facing, diorama = fixed pair)
+  // Cutaway: which walls are currently hidden (camera-facing ones)
   const hiddenWalls = useHiddenWalls(cutaway)
+
+  // Skirting: `undefined` is "never touched", which still draws the default
+  // board so rooms designed before the picker existed are unchanged; only an
+  // explicit `null` removes it from the scene.
+  const { bind: bindHoldDelete } = useHoldToDelete()
+  const setDesignState = useRoomStore((s) => s.setDesignState)
+  // Deleting a trim run means taking it out of the room: `null` is the stored
+  // "deliberately off", as opposed to `undefined`, which still draws the
+  // default board.
+  const holdSkirting = bindHoldDelete({ label: 'Plintus', onDelete: () => setDesignState({ skirting: null }) })
+  const holdCornice = bindHoldDelete({ label: 'Karniz', onDelete: () => setDesignState({ cornice: null }) })
+
+  const skirting = useMemo(
+    () => (designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')),
+    [designState.skirting],
+  )
+  // Cornice: only an explicit choice puts one in the scene.
+  const cornice = useMemo(
+    () => (designState.cornice ? resolveTrim(designState.cornice, 'cornice') : null),
+    [designState.cornice],
+  )
+  // Where the wall actually meets the ceiling, so the moulding follows a
+  // dropped design down instead of floating up at the slab.
+  const corniceY = useMemo(() => {
+    const d = ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN)
+    return ceilingPerimeterY(d, resolveCeilingSettings(d, designState.ceiling?.settings), H)
+  }, [designState.ceiling?.design, designState.ceiling?.settings, H])
   const cutawayOn = cutaway !== 'off'
 
-  // Top view and the cutaway diorama both look into an open-topped box. That is
+  // Top view and the cutaway both look into an open-topped box. That is
   // a viewing convention, not a hole in the building: the room still has a roof,
   // and the sun must still stop at it. Let it through and daylight lands
   // straight on the floor with hard shadows of the walls across it — the
@@ -510,6 +801,7 @@ export const RoomScene = memo(function RoomScene({
               width={W} depth={D} floorType={designState.floorType}
               floorTexture={designState.floorTexture}
               floorTextureSettings={designState.floorTextureSettings}
+              floorPattern={designState.floorPattern}
               floorConfigured={designState.floorConfigured}
               isSelected={isFloorSelected}
               onClick={onFloorClick}
@@ -533,6 +825,8 @@ export const RoomScene = memo(function RoomScene({
               settings={designState.ceiling?.settings}
               hidden={ceilingHidden}
               meshRef={ceilingRef}
+              isSelected={isCeilingSelected}
+              onClick={onCeilingClick}
             />
           </group>
 
@@ -545,8 +839,6 @@ export const RoomScene = memo(function RoomScene({
                 isSelected={selectedWall === 'A'} onClick={handleWallClickA}
                 panelSettings={panelsA} />
             </group>
-
-            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={-(D / 2 + T / 2)} height={H} />}
           </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
@@ -557,8 +849,6 @@ export const RoomScene = memo(function RoomScene({
                 isSelected={selectedWall === 'B'} onClick={handleWallClickB}
                 panelSettings={panelsB} />
             </group>
-
-            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={W / 2 + T / 2} cz={0} height={H} />}
           </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
@@ -569,8 +859,6 @@ export const RoomScene = memo(function RoomScene({
                 isSelected={selectedWall === 'C'} onClick={handleWallClickC}
                 panelSettings={panelsC} />
             </group>
-
-            {cutawayOn && <WallTopRim length={W} thickness={T} axis="X" cx={0} cz={D / 2 + T / 2} height={H} />}
           </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
@@ -581,21 +869,30 @@ export const RoomScene = memo(function RoomScene({
                 isSelected={selectedWall === 'D'} onClick={handleWallClickD}
                 panelSettings={panelsD} />
             </group>
-
-            {cutawayOn && <WallTopRim length={D + 2 * T} thickness={T} axis="Z" cx={-(W / 2 + T / 2)} cz={0} height={H} />}
           </WallFade>
 
           <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
-          <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} />
+          {skirting && (
+            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting}
+              onClick={onSkirtingClick} isSelected={isSkirtingSelected} onHoldDown={holdSkirting.onPointerDown} />
+          )}
+          {cornice && (
+            <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
+              trim={cornice} junctionY={corniceY}
+              onClick={onCorniceClick} isSelected={isCorniceSelected} onHoldDown={holdCornice.onPointerDown} />
+          )}
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
 
-          {/* Diorama frame: floating slab + corner posts outlining the box */}
-          {cutawayOn && <>
-            <FloorSlab W={W} D={D} T={T} />
-            <CornerPosts W={W} D={D} T={T} H={H} />
-          </>}
+          {/* The sun's occluder. Outside the fades on purpose — see shadowShell.tsx. */}
+          <ShadowShell
+            W={W} D={D} H={H}
+            elementsA={elementsAResolved}
+            elementsB={elementsBOuter}
+            elementsC={elementsCResolved}
+            elementsD={elementsDOuter}
+          />
         </>
       ) : (
         /* N-wall polygon room — only available when geometry.vertices is set */
@@ -606,6 +903,17 @@ export const RoomScene = memo(function RoomScene({
             designState={designState}
             selectedWall={selectedWall}
             onWallClick={onWallClick}
+            isFloorSelected={isFloorSelected}
+            onFloorClick={onFloorClick}
+            isCeilingSelected={isCeilingSelected}
+            onCeilingClick={onCeilingClick}
+            isSkirtingSelected={isSkirtingSelected}
+            onSkirtingClick={onSkirtingClick}
+            isCorniceSelected={isCorniceSelected}
+            onCorniceClick={onCorniceClick}
+            holdBind={holdBind}
+            cutaway={topView ? 'off' : cutaway}
+            plasterWalls={plasterWalls}
           />
         ) : null
       )}

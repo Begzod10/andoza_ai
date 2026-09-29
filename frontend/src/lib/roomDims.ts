@@ -16,6 +16,21 @@
  */
 import type { RoomGeometry } from '@/store/roomStore'
 
+/**
+ * True when this geometry is the legacy wizard rectangle, whose walls are
+ * named A (back), B (right), C (front), D (left).
+ *
+ * Detected by the A+B pair — the same test `StudioPage`'s `dimsLabel` uses
+ * (commit 745d90e3). A LiDAR-scanned or hand-drawn polygon has numbered or
+ * `W<n>` wall ids instead, so anything reading `walls.find(id === 'A')` has to
+ * ask this first rather than silently falling back to a hardcoded rectangle.
+ */
+export function hasAbcdWalls(geometry: RoomGeometry): boolean {
+  return (
+    geometry.walls.some((w) => w.id === 'A') && geometry.walls.some((w) => w.id === 'B')
+  )
+}
+
 export interface RoomExtents {
   /** Interior width in metres — along world X, the length of walls A and C. */
   W: number

@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.deps import CurrentUser, DbSession
 from app.config import settings
 from app.models.apartment import Apartment
+from app.models.electrical import RoomElectrical
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.norm import Norm
@@ -88,6 +89,19 @@ async def _load_norms(db: DbSession) -> dict[str, Any]:
     return {n.material_key: n for n in result.scalars().all()}
 
 
+async def _load_wiring_meters(room_id: uuid.UUID, db: DbSession) -> float | None:
+    """Measured cable run from the room's electrical plan, or None.
+
+    Loaded up front (never lazily from inside the sync pricing engine) —
+    see app.routers.estimate._load_wiring_meters.
+    """
+    result = await db.execute(
+        select(RoomElectrical.wiring_meters).where(RoomElectrical.room_id == room_id)
+    )
+    value = result.scalar_one_or_none()
+    return float(value) if value is not None else None
+
+
 # ---------------------------------------------------------------------------
 # Phase A — Room-builder agent
 # ---------------------------------------------------------------------------
@@ -117,6 +131,7 @@ async def ai_build(
     materials_by_cat = await _load_all_materials(db)
     furniture_list = await _load_all_furniture(db)
     norms_map = await _load_norms(db)
+    wiring_meters = await _load_wiring_meters(room.id, db)
 
     room_state: dict = {
         "id": str(room.id),
@@ -168,7 +183,9 @@ async def ai_build(
         if draft.furniture:
             patched_room.furniture_layout = list(patched_room.furniture_layout or []) + draft.furniture
 
-        computed = compute_estimate(patched_room, materials_map, norms_map)
+        computed = compute_estimate(
+            patched_room, materials_map, norms_map, wiring_meters=wiring_meters
+        )
         return {
             "total_uzs": computed.total_uzs,
             "total_min": computed.total_min,
@@ -245,7 +262,10 @@ async def smeta_ask(
         materials_map_full = {str(m.id): m for m in mat_result.scalars().all()}
 
     norms_map = await _load_norms(db)
-    computed = compute_estimate(room, materials_map_full, norms_map)
+    wiring_meters = await _load_wiring_meters(room.id, db)
+    computed = compute_estimate(
+        room, materials_map_full, norms_map, wiring_meters=wiring_meters
+    )
 
     # Build a compact estimate summary for the context
     lines_summary = "\n".join(

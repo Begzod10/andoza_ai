@@ -1,19 +1,43 @@
-"""One-time async seed script for UyTa'mir.
+"""Seed data and seed functions for UyTa'mir.
 
-Populates:
-  - Norms (upsert by material_key)
-  - Sample Stores (3 partner stores)
-  - Sample Materials (9 realistic Tashkent 2024 prices)
-  - Sample Ustalar (5 verified craftsmen)
+Defines:
+  - NORMS (upsert by material_key)
+  - STORES — Hamkor Qurilish, Unitile Toshkent, LaminatShop
+  - MATERIALS — 9 rows, realistic Tashkent 2024 prices
+  - USTALAR — 5 craftsmen
 
-Run once after migrations::
+Rows carry every field the mobile app renders, on a par with
+``app.seed_catalog``: a material has an ``image_url`` and an usta has
+``lat``/``lng`` (U1 map pin) plus an ``avatar_url``. tests/test_seed_catalogs.py
+pins that, so a row added below without them fails the suite.
+
+This module is the *data*; the deploy runs it through two single-purpose
+entry points, so editing the lists below does reach production:
+
+  - ``python -m app.seed_norms``    -> NORMS
+  - ``python -m app.seed_partners`` -> STORES / MATERIALS / USTALAR
+
+``app.seed_catalog`` seeds a second, entirely separate real catalog
+(Qurilish Bozori, Stroy Master, Leroy Merlin Tashkent). The two share no
+store name, no material and no usta phone; both are seeded on every deploy
+and neither touches the other's rows — see tests/test_seed_catalogs.py.
+
+``seed()`` below still runs everything at once for a local/first-time
+database::
 
     cd backend
     python -m app.seeds
 
-or::
+On a live database prefer the two entry points: they are independent, so a
+catalog problem cannot roll the norms back with it.
 
-    python app/seeds.py
+Every function here is insert-guarded on a natural key (store ``name``,
+material ``(name_uz, store_id)``, usta ``phone``), and an existing row is
+left exactly as it is — admins edit stores and ustalar through
+/admin/catalog, and a deploy-time reseed must not revert those edits.
+Norms are the one exception: nothing but this file writes them, so they are
+upserted and a corrected coverage figure reaches production on the next
+deploy.
 """
 from __future__ import annotations
 
@@ -27,6 +51,10 @@ from app.models.material import Material
 from app.models.norm import Norm
 from app.models.store import Store
 from app.models.usta import Usta
+# Same slug helper the other catalog uses, so both files build the same
+# image-URL shape from a material name. Data-free formatting helper only —
+# the two catalogs stay independent otherwise.
+from app.seed_catalog import _slugify
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -175,25 +203,42 @@ NORMS: list[dict] = [
     },
 ]
 
-# Stores: name, district, phone, partner_tier
+# Stores: name, district, phone, telegram, logo_color, partner_tier.
+# NOTE: these three are already live in production, and _seed_stores is
+# insert-only — the telegram/logo_color below therefore only reach a fresh
+# database. Backfilling the existing rows is a separate one-off job.
+#
+# partner_tier must be one of app.models.store.PARTNER_TIERS (standard |
+# gold | platinum) — ck_stores_partner_tier rejects anything else. Two of
+# these rows used to name tiers outside that set; the app has never had
+# them, and the shop screen renders any non-gold/platinum tier as a plain
+# dealer, so they only ever meant "standard" in practice. The live rows were
+# created by hand through the admin API, which validated the tier, and say
+# standard — matching that here invents nothing.
 STORES: list[dict] = [
     {
         "name": "Hamkor Qurilish",
         "district": "Chilonzor",
         "phone": "+998901234567",
+        "telegram": "@hamkor_qurilish",
+        "logo_color": "#2563EB",
         "partner_tier": "gold",
     },
     {
         "name": "Unitile Toshkent",
         "district": "Yunusobod",
         "phone": "+998901234568",
-        "partner_tier": "silver",
+        "telegram": "@unitile_toshkent",
+        "logo_color": "#DC2626",
+        "partner_tier": "standard",
     },
     {
         "name": "LaminatShop",
         "district": "Mirzo-Ulugbek",
         "phone": "+998901234569",
-        "partner_tier": "bronze",
+        "telegram": "@laminatshop_uz",
+        "logo_color": "#7C3AED",
+        "partner_tier": "standard",
     },
 ]
 
@@ -290,13 +335,26 @@ MATERIALS: list[dict] = [
     },
 ]
 
-# Ustalar: name, category, district, phone, verified, rating, jobs_count, price_min, price_max
+# Ustalar: name, category, district, phone, telegram, lat, lng, verified,
+# rating, jobs_count, price_min, price_max.
+#
+# lat/lng exist so the row gets a pin on the U1 map — an usta without them is
+# listed in U3 but invisible on the map. These are DEMO COORDINATES, not
+# surveyed business addresses: each one is its district's anchor point from
+# app.seed_catalog.USTALAR (which took them from the Flutter mock in
+# lib/providers/masters_provider.dart, since replaced by backend wiring),
+# nudged a few hundred metres so two pins never land on the same spot. Treat
+# them as "somewhere in this district", which is all the U4 profile claims —
+# it draws an approximate-area circle, never an exact pin.
 USTALAR: list[dict] = [
     {
         "name": "Sardor Karimov",
         "category": "elektrik",
         "district": "Chilonzor",
         "phone": "+998901111101",
+        "telegram": "@sardor_elektrik",
+        "lat": 41.2962,
+        "lng": 69.2438,
         "verified": True,
         "rating": 4.80,
         "jobs_count": 127,
@@ -309,6 +367,9 @@ USTALAR: list[dict] = [
         "category": "malyar",
         "district": "Yunusobod",
         "phone": "+998901111102",
+        "telegram": "@jahongir_malyar",
+        "lat": 41.3148,
+        "lng": 69.2761,
         "verified": True,
         "rating": 4.60,
         "jobs_count": 89,
@@ -320,6 +381,9 @@ USTALAR: list[dict] = [
         "category": "laminat",
         "district": "Mirzo-Ulugbek",
         "phone": "+998901111103",
+        "telegram": "@bekzod_laminat",
+        "lat": 41.3229,
+        "lng": 69.2335,
         "verified": True,
         "rating": 4.90,
         "jobs_count": 203,
@@ -331,6 +395,9 @@ USTALAR: list[dict] = [
         "category": "santexnik",
         "district": "Shayxontohur",
         "phone": "+998901111104",
+        "telegram": "@ulugbek_santex",
+        "lat": 41.2812,
+        "lng": 69.2806,
         "verified": True,
         "rating": 4.50,
         "jobs_count": 56,
@@ -342,6 +409,9 @@ USTALAR: list[dict] = [
         "category": "brigada",
         "district": "Chilonzor",
         "phone": "+998901111105",
+        "telegram": "@dilnoza_brigada",
+        "lat": 41.3031,
+        "lng": 69.2367,
         "verified": True,
         "rating": 4.70,
         "jobs_count": 34,
@@ -349,6 +419,20 @@ USTALAR: list[dict] = [
         "price_max": 350_000,
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Deterministic image URLs, derived so a row added above can't forget them.
+# Same placeholder services and key scheme as app.seed_catalog: materials use
+# picsum keyed by a slug of name_uz, ustalar use pravatar keyed by phone. Both
+# are placeholders for a real product photo / profile picture; the shop cards
+# (S1/S3) and the U1 map pins fall back to a bare icon without them.
+# ---------------------------------------------------------------------------
+for _m in MATERIALS:
+    _m["image_url"] = f"https://picsum.photos/seed/{_slugify(_m['name_uz'])}/600/400"
+
+for _u in USTALAR:
+    _u["avatar_url"] = f"https://i.pravatar.cc/300?u={_u['phone']}"
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +461,10 @@ async def _seed_norms(session) -> None:
 
 
 async def _seed_stores(session) -> dict[str, Store]:
-    """Insert stores that don't exist yet. Return name→Store map."""
+    """Insert stores that don't exist yet (matched by name). Return name→Store map.
+
+    An existing store is returned untouched — see the module docstring.
+    """
     store_map: dict[str, Store] = {}
     for data in STORES:
         result = await session.execute(
@@ -389,6 +476,8 @@ async def _seed_stores(session) -> dict[str, Store]:
                 name=data["name"],
                 district=data["district"],
                 phone=data["phone"],
+                telegram=data["telegram"],
+                logo_color=data["logo_color"],
                 partner_tier=data["partner_tier"],
                 is_active=True,
             )
@@ -402,7 +491,10 @@ async def _seed_stores(session) -> dict[str, Store]:
 
 
 async def _seed_materials(session, store_map: dict[str, Store]) -> None:
-    """Insert materials that don't exist (matched by name_uz + store)."""
+    """Insert materials that don't exist (matched by name_uz + store).
+
+    An existing material is left alone, price included.
+    """
     for data in MATERIALS:
         store = store_map.get(data["store_ref"])
         if store is None:
@@ -423,6 +515,7 @@ async def _seed_materials(session, store_map: dict[str, Store]) -> None:
                 name_uz=data["name_uz"],
                 unit=data["unit"],
                 price_uzs=data["price_uzs"],
+                image_url=data["image_url"],
                 color_hex=data["color_hex"],
                 pbr_roughness=data["pbr_roughness"],
                 texture_key=data.get("texture_key"),
@@ -431,15 +524,16 @@ async def _seed_materials(session, store_map: dict[str, Store]) -> None:
             session.add(material)
             log.info("Material created: %s (%s)", data["name_uz"], data["category"])
         else:
-            material.price_uzs = data["price_uzs"]
-            material.pbr_roughness = data["pbr_roughness"]
-            material.texture_key = data.get("texture_key")
-            log.info("Material updated: %s", data["name_uz"])
+            log.info("Material already exists: %s", data["name_uz"])
     await session.flush()
 
 
 async def _seed_ustalar(session) -> None:
-    """Insert ustalar that don't exist (matched by phone)."""
+    """Insert ustalar that don't exist (matched by phone).
+
+    An existing usta is left alone: rating/jobs_count/verified are admin- and
+    app-maintained, not ours to reset.
+    """
     for data in USTALAR:
         result = await session.execute(
             select(Usta).where(Usta.phone == data["phone"])
@@ -450,7 +544,11 @@ async def _seed_ustalar(session) -> None:
                 name=data["name"],
                 category=data["category"],
                 district=data["district"],
+                lat=data["lat"],
+                lng=data["lng"],
                 phone=data["phone"],
+                telegram=data["telegram"],
+                avatar_url=data["avatar_url"],
                 verified=data["verified"],
                 rating=data["rating"],
                 jobs_count=data["jobs_count"],
@@ -461,9 +559,6 @@ async def _seed_ustalar(session) -> None:
             session.add(usta)
             log.info("Usta created: %s (%s)", data["name"], data["category"])
         else:
-            usta.verified = data["verified"]
-            usta.rating = data["rating"]
-            usta.jobs_count = data["jobs_count"]
             log.info("Usta already exists: %s", data["name"])
     await session.flush()
 
@@ -473,7 +568,12 @@ async def _seed_ustalar(session) -> None:
 # ---------------------------------------------------------------------------
 
 async def seed() -> None:
-    """Run all seed operations in a single transaction."""
+    """Run every seed operation in a single transaction.
+
+    Convenient for a fresh local database. The deploy uses the split entry
+    points instead (app.seed_norms + app.seed_partners), so that a failure
+    in one half cannot roll back the other.
+    """
     async with AsyncSessionLocal() as session:
         async with session.begin():
             log.info("=== UyTa'mir seed started ===")

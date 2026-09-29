@@ -57,3 +57,62 @@ export function resolveElementPositions(
       : el.position,
   }))
 }
+
+// ─── API ↔ store position conversion ─────────────────────────────────────────
+//
+// The two sides of the wire measure an opening from different points, and the
+// difference is exactly half its width — big enough to move a 900 mm door
+// 450 mm, small enough that it long went unnoticed on narrow windows:
+//
+//   API  (backend/app/schemas/room.py, WallElement.position)
+//        the opening's CENTRE, as a 0..1 fraction of the wall's length.
+//   store (WallElement.position above)
+//        the opening's LEFT EDGE, in millimetres.
+//
+// Convert only here. Everything downstream — rendering, dragging, the 2D plans
+// — speaks store millimetres, and `convert_captured_room` / `room_electrical_auto`
+// on the server speak centre fractions.
+
+/** API centre fraction → store left-edge millimetres. */
+export function apiPositionToStoreMm(
+  fraction: number,
+  wallLenMm: number,
+  widthMm: number,
+): number {
+  // May legitimately go negative: the scan can see a door whose centre sits
+  // less than half its width from a corner, and clamping here would silently
+  // move it. The renderers cope; only a user drag clamps it onto the wall.
+  return Math.round(fraction * wallLenMm - widthMm / 2)
+}
+
+/** Store left-edge millimetres → API centre fraction, clamped to the field's 0..1.
+ *
+ *  Pass an element whose `position` is already resolved (see
+ *  `resolveElementPositions`) — an unresolved auto placeholder still reads 0,
+ *  which would be saved as "centre half a width from the start corner" rather
+ *  than the centred spot it actually renders at. */
+export function storeElementToApiPosition(
+  el: Pick<WallElement, 'position' | 'width'>,
+  wallLenMm: number,
+): number {
+  if (wallLenMm <= 0) return 0.5
+  const centreMm = el.position + el.width / 2
+  return Math.min(1, Math.max(0, centreMm / wallLenMm))
+}
+
+/** Every element of a wall as the API wants them: auto placeholders resolved to
+ *  where they actually render, then each one's centre as a 0..1 fraction.
+ *
+ *  Resolving first is what makes the save round-trip exact. The old shortcut
+ *  ("position 0 ⇒ write 0.5") happened to be right for a lone auto opening —
+ *  it does render centred — but collapsed two auto openings on one wall onto
+ *  the same spot, and reloading then turned that into two explicit, overlapping
+ *  positions. */
+export function wallElementsToApiPositions(
+  elements: WallElement[],
+  wallLenMm: number,
+): number[] {
+  return resolveElementPositions(elements, wallLenMm).map((el) =>
+    storeElementToApiPosition(el, wallLenMm),
+  )
+}

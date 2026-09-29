@@ -10,7 +10,6 @@ import { useRoomStore, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { WallCovering, FloorType, DesignState } from "@/store/roomStore";
 import { LightPanel } from "@/components/studio/LightPanel";
 import type { LightTypeId } from "@/lib/lightCatalog";
-import { PLASTER_FINISHES, plasterRepeat } from "@/lib/plasterFinishes";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 
 import type { PhaseKey } from "@/lib/phases";
@@ -42,8 +41,6 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   const setWallCovering = useRoomStore((s) => s.setWallCovering);
   const setFloorTexture = useRoomStore((s) => s.setFloorTexture);
   const resetDesignState = useRoomStore((s) => s.resetDesignState);
-  const geometry = useRoomStore((s) => s.geometry);
-  const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const surfaces = useRoomStore((s) => s.surfaces);
   const applySurface = useRoomStore((s) => s.applySurface);
 
@@ -107,6 +104,21 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
       floorType: designState.floorType,
     };
     syncToApi({ ...designState, ...updated });
+  }
+
+  /** Apply a covering to EVERY wall, ignoring the selected wall: writes the
+   * `ALL` target (the store clears per-wall overrides for ALL, so nothing
+   * left over can mask it via resolveWallCovering's per-wall-first fallback)
+   * and syncs the same cleared shape to the API. */
+  function applyAllWallsCovering(covering: WallCovering) {
+    setWallCovering("ALL", covering);
+    syncToApi({ ...designState, wallCoverings: { ALL: covering } });
+  }
+
+  /** Suvoq-phase texture covering: UVW map fixed at 100 cm × 100 cm
+   * (repeatX is tiles-per-metre — see applyWallpaper) and not editable. */
+  function suvoqFixedCovering(url: string): WallCovering {
+    return { kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 };
   }
 
   function handleSetPaintColor(color: string) {
@@ -177,18 +189,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     textureFileRef.current?.click();
   }
 
-  /** Wall-sized tiling for an uploaded plaster/concrete photo. */
+  /** Covering for a plaster/shpaklovka photo. Same 100 cm x 100 cm UVW map
+   *  the Bo'yoq/Oboy images use (repeatX is tiles-per-metre — see
+   *  applyWallpaper): the user asked for one mapping across the phases
+   *  instead of the 2.4 m "plaster patch" tile this used to apply, which
+   *  rendered the same image at a visibly different scale in each phase. */
   function plasterUploadCovering(url: string): WallCovering {
-    const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
-    // Treat an uploaded plaster shot as roughly a 2.4 m patch, matching the
-    // generated finishes — a wallpaper's 0.5 × 1.0 repeat looks like tiling.
-    const { repeatX, repeatY } = plasterRepeat(
-      { ...PLASTER_FINISHES[0], tileM: 2.4 },
-      wallW,
-      wallH,
-    );
-    return { kind: 'texture', url, color: '#ffffff', repeatX, repeatY, offsetX: 0, offsetY: 0, rotation: 0 };
+    return { kind: 'texture', url, color: '#ffffff', repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0 };
   }
 
   /**
@@ -289,7 +296,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     setWallpaperError(null);
     try {
       const wallpaper = await uploadWallpaper(file, { kind: libraryScope });
-      if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
+      // Suvoq is the simplified phase: every upload goes straight onto ALL
+      // walls with the fixed 100 cm mapping, whatever wall is selected.
+      if (phase === 'suvoq') applyAllWallsCovering(suvoqFixedCovering(wallpaper.url));
+      else if (intent === 'plaster') applyWallCovering(plasterUploadCovering(wallpaper.url));
       else applyWallpaper(wallpaper.url);
       queryClient.invalidateQueries({ queryKey: ["wallpapers", libraryScope] });
     } catch (err) {
@@ -360,6 +370,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             handleSetPaintColor={handleSetPaintColor}
             renderTexturePicker={renderTexturePicker}
             plasterUploadCovering={plasterUploadCovering}
+            // Suvoq only — Shpaklovka shares this section and keeps its full UI.
+            simplified={phase === 'suvoq'}
+            applySuvoqTexture={(url) => applyAllWallsCovering(suvoqFixedCovering(url))}
+            removeSuvoqTexture={() => applyAllWallsCovering({ kind: 'paint', color: '#D8D3C8' })}
           />
         )}
         {phase === 'montaj' && <MontajSection />}

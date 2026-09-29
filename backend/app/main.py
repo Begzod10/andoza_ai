@@ -15,7 +15,7 @@ from starlette.staticfiles import StaticFiles
 from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
-    wallpapers, electrical, decoration, finishes, furniture_placements, room_state,
+    wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
     orders, currency, admin_catalog, room_share,
 )
 
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
     app.include_router(meshy.router, tags=["meshy"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
+    app.include_router(user_models.router, prefix="/api/v1", tags=["user-models"])
     app.include_router(electrical.router, prefix="/api/v1", tags=["electrical"])
     app.include_router(decoration.router, prefix="/api/v1", tags=["decoration"])
     app.include_router(finishes.router, prefix="/api/v1", tags=["finishes"])

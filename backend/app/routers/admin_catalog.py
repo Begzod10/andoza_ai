@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import functools
 import uuid as uuid_module
 
 import structlog
 from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
 from app.core.cache import cache_delete_prefix
 from app.core.storage import absolute_media_url, delete_file, upload_file
+from app.database import run_after_commit
 from app.models.furniture import Furniture
 from app.models.store import Store
 from app.models.usta import Usta
@@ -38,6 +41,41 @@ _ALLOWED_THUMBNAIL_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _EXT_BY_THUMBNAIL_TYPE = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 _MAX_GLB_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 _MAX_THUMBNAIL_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+def _invalidate_after_commit(db: AsyncSession, prefix: str) -> None:
+    """Queue the public-catalog invalidation for *prefix* for post-commit.
+
+    Never invalidate inline: the handler has only flushed at that point —
+    get_db() commits once it returns — so a read landing between an inline
+    delete and the commit would refill the cache from pre-write rows and serve
+    them for the full 10-minute catalog TTL. Deferring closes that window; the
+    trade is that a post-commit Redis failure can no longer roll the write
+    back, so it is logged rather than raised (see app/core/cache.py).
+    """
+    run_after_commit(db, functools.partial(cache_delete_prefix, prefix))
+
+
+async def _delete_files(keys: list[str], event: str) -> None:
+    for key in keys:
+        try:
+            await delete_file(key)
+        except Exception as exc:  # the row is gone; a stray file isn't worth a 500
+            logger.warning(event, key=key, error=str(exc))
+
+
+def _delete_files_after_commit(db: AsyncSession, keys: list[str | None], event: str) -> None:
+    """Queue the storage deletes for *keys* for post-commit.
+
+    Same seam, same reason as _invalidate_after_commit(): the row deletion is
+    only flushed while the handler runs. Deleting the files inline would leave
+    a live row pointing at a missing GLB if anything after this — the commit
+    included — failed. Once committed the row is gone for good, so the files
+    can safely follow.
+    """
+    present = [key for key in keys if key]
+    if present:
+        run_after_commit(db, functools.partial(_delete_files, present, event))
 
 
 def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> FurnitureAdminOut:
@@ -87,7 +125,7 @@ async def create_store(payload: StoreCreate, admin: AdminUser, db: DbSession) ->
     db.add(store)
     await db.flush()
     await db.refresh(store)
-    await cache_delete_prefix("stores:")
+    _invalidate_after_commit(db, "stores:")
 
     logger.info("store_created", id=str(store.id), admin_id=str(admin.id))
     return StoreAdminOut.model_validate(store)
@@ -131,7 +169,7 @@ async def update_store(
 
     await db.flush()
     await db.refresh(store)
-    await cache_delete_prefix("stores:")
+    _invalidate_after_commit(db, "stores:")
     logger.info("store_updated", id=str(store.id), admin_id=str(admin.id), fields=list(updates))
     return StoreAdminOut.model_validate(store)
 
@@ -163,13 +201,8 @@ async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSessi
 
     await db.delete(store)
     await db.flush()
-    await cache_delete_prefix("stores:")
-
-    for key in stray_keys:
-        try:
-            await delete_file(key)
-        except Exception as exc:  # the rows are gone; a stray file isn't worth a 500
-            logger.warning("store_delete_file_failed", key=key, error=str(exc))
+    _invalidate_after_commit(db, "stores:")
+    _delete_files_after_commit(db, stray_keys, "store_delete_file_failed")
 
     logger.info("store_deleted", id=str(store_id), admin_id=str(admin.id), files_removed=len(stray_keys))
 
@@ -301,7 +334,7 @@ async def upload_furniture_model(
     db.add(furniture)
     await db.flush()
     await db.refresh(furniture)
-    await cache_delete_prefix("furniture:")
+    _invalidate_after_commit(db, "furniture:")
 
     logger.info(
         "furniture_model_uploaded",
@@ -395,7 +428,7 @@ async def update_furniture(
 
     await db.flush()
     await db.refresh(furniture)
-    await cache_delete_prefix("furniture:")
+    _invalidate_after_commit(db, "furniture:")
     logger.info("furniture_updated", id=str(furniture.id), admin_id=str(admin.id), fields=list(updates))
     return _furniture_out(furniture, request, new_store.name if new_store else None)
 
@@ -416,15 +449,16 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
     await db.delete(furniture)
     await db.flush()
 
-    for key in (glb_key, thumbnail_key):
-        if not key:
-            continue
-        try:
-            await delete_file(key)
-        except Exception as exc:  # the row is gone; a stray file is not worth a 500
-            logger.warning("furniture_file_delete_failed", key=key, error=str(exc))
+    # Neither the invalidation nor the file deletes happen here: both are
+    # queued for after get_db()'s commit. Inline, the invalidation would race
+    # a concurrent read back into the cache pre-commit, and the file deletes
+    # would destroy the GLB of a row that a failed commit then leaves alive.
+    # Order still matters between the two hooks — invalidate first, so the
+    # public catalog stops advertising the model before its files go.
+    # delete_store() above orders it the same way; keep the two in step.
+    _invalidate_after_commit(db, "furniture:")
+    _delete_files_after_commit(db, [glb_key, thumbnail_key], "furniture_file_delete_failed")
 
-    await cache_delete_prefix("furniture:")
     logger.info("furniture_deleted", id=str(furniture_id), admin_id=str(admin.id))
 
 
@@ -474,7 +508,7 @@ async def create_usta(payload: UstaCreate, admin: AdminUser, db: DbSession) -> U
     db.add(usta)
     await db.flush()
     await db.refresh(usta)
-    await cache_delete_prefix("ustalar:")
+    _invalidate_after_commit(db, "ustalar:")
 
     logger.info("usta_created", id=str(usta.id), admin_id=str(admin.id))
     return UstaAdminOut.model_validate(usta)
@@ -565,7 +599,7 @@ async def update_usta(
 
     await db.flush()
     await db.refresh(usta)
-    await cache_delete_prefix("ustalar:")
+    _invalidate_after_commit(db, "ustalar:")
 
     logger.info("usta_updated", id=str(usta.id), admin_id=str(admin.id), fields=list(updates))
     return UstaAdminOut.model_validate(usta)
@@ -585,6 +619,6 @@ async def delete_usta(usta_id: uuid_module.UUID, admin: AdminUser, db: DbSession
 
     await db.delete(usta)
     await db.flush()
-    await cache_delete_prefix("ustalar:")
+    _invalidate_after_commit(db, "ustalar:")
 
     logger.info("usta_deleted", id=str(usta_id), admin_id=str(admin.id))

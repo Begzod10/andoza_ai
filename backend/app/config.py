@@ -5,6 +5,12 @@ from typing import List, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Fixed origins used by WebView-based native app shells (Capacitor/WKWebView).
+# These are always CORS-allowed (see Settings.CORS_ORIGINS below) and are also
+# used by the auth router to decide whether a request came from the native
+# app (which needs JWTs in the response body) vs. a browser (cookies only).
+NATIVE_APP_ORIGINS = frozenset({"capacitor://localhost", "http://localhost"})
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -67,6 +73,13 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/app/media"
     MEDIA_URL_PREFIX: str = "/media"
 
+    # Absolute public origin the API is reachable at, e.g.
+    # "https://andoza.jumaniyozov.uz". Optional escape hatch: when set, media
+    # URLs are built from it instead of from the incoming request, so they are
+    # correct no matter what the proxy forwards. Leave empty to derive the
+    # origin from the request (see app/core/storage.py::absolute_media_url).
+    PUBLIC_BASE_URL: str = ""
+
     @property
     def s3_configured(self) -> bool:
         """True when object storage is usable; otherwise uploads go to disk.
@@ -126,7 +139,7 @@ class Settings(BaseSettings):
         # Native mobile app WebView origins (Capacitor / WKWebView) must always
         # be allowed, independent of the deployment's CORS_ORIGINS_STR — the
         # browser/WebView enforces CORS on these fixed origins.
-        for origin in ("capacitor://localhost", "http://localhost"):
+        for origin in NATIVE_APP_ORIGINS:
             if origin not in origins:
                 origins.append(origin)
         return origins

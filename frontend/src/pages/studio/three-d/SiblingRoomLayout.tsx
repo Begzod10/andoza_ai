@@ -3,7 +3,7 @@ import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import type { Room } from "@/lib/api";
-import { resolveWallCovering, resolveWallColor } from "@/store/roomStore";
+import { resolveWallCovering, resolveWallColor, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { DesignState, PlacedFurniture, RoomGeometry } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
@@ -13,7 +13,7 @@ import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio
 import { useHiddenWalls, type CutawayMode } from "@/features/studio/diorama";
 import {
   ADD_ROOM_BTN_STYLE, SIBLING_LABEL_STYLE, SIBLING_DELETE_STYLE,
-  SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT, SIBLING_WALL_COLOR_DEFAULT,
+  SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT,
   type RoomSide,
 } from "./constants";
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
@@ -76,26 +76,53 @@ function SiblingWall({
   size: [number, number, number]
   coverings: DesignState['wallCoverings'] | undefined
 }) {
-  const covering = coverings ? resolveWallCovering(coverings, wallId) : undefined
+  // A brand-new room has no saved coverings blob yet, but opened in the studio
+  // it renders DEFAULT_DESIGN_STATE. Fall back to that same default here so a
+  // fresh neighbour reads the way opening it would, rather than some other
+  // colour that contradicts it.
+  const covering = coverings
+    ? resolveWallCovering(coverings, wallId)
+    : DEFAULT_DESIGN_STATE.wallCoverings.ALL
   const textureUrl = covering?.kind === 'texture' ? covering.url : null
+  const texRepeatPerM = covering?.kind === 'texture' ? covering.repeatX : 1
   const [loadedTex, setLoadedTex] = useState<THREE.Texture | null>(null)
 
   useEffect(() => {
     if (!textureUrl) { setLoadedTex(null); return }
+    let clone: THREE.Texture | null = null
     const unsub = requestSharedTexture(
       textureUrl,
-      (entry) => setLoadedTex(entry.tex),
+      (entry) => {
+        // Clone (shares the image) so this wall's repeat doesn't fight other
+        // users of the shared texture; scale by the covering's tiles-per-metre
+        // so a pattern renders near true size instead of one stretched tile.
+        clone = entry.tex.clone()
+        const along = Math.max(size[0], size[2])
+        clone.repeat.set(
+          Math.max(0.25, along * texRepeatPerM),
+          Math.max(0.25, size[1] * texRepeatPerM),
+        )
+        clone.needsUpdate = true
+        setLoadedTex(clone)
+      },
       () => setLoadedTex(null),
     )
-    return unsub
-  }, [textureUrl])
+    return () => { unsub(); clone?.dispose() }
+    // size is a fresh array literal per render; its values are stable per wall
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textureUrl, texRepeatPerM])
 
   const oboyTex = useMemo(() => {
     if (covering?.kind !== 'oboy') return null
     return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor)
   }, [covering])
 
-  const flatColor = covering ? resolveWallColor(coverings!, wallId) : SIBLING_WALL_COLOR_DEFAULT
+  // Read the default's own colour rather than naming a second one here: a
+  // hardcoded fallback is how this drifted out of step with the default in the
+  // first place.
+  const flatColor = coverings
+    ? resolveWallColor(coverings, wallId)
+    : resolveWallColor(DEFAULT_DESIGN_STATE.wallCoverings, wallId)
   const map = covering?.kind === 'texture' ? loadedTex : covering?.kind === 'oboy' ? oboyTex : null
 
   return (

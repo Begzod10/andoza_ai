@@ -1,0 +1,731 @@
+import * as THREE from 'three'
+import { toCreasedNormals } from 'three-stdlib'
+
+/**
+ * Milled trim profiles — the cross-sections behind the floor skirting
+ * (plintus) and, on the same machinery, the ceiling cornice (galtel).
+ *
+ * A profile is a closed 2D outline drawn in a NORMALISED 1×1 box:
+ *   x — projection away from the wall: 0 = flat against the wall face,
+ *       1 = the full configured width (thickness) out into the room
+ *   y — run up the wall face: 0 = at the junction (floor for a skirting),
+ *       1 = the full configured height
+ * The outline is scaled to the user's millimetres at build time, so one
+ * catalogue entry serves every size. A profile drawn with circular beads
+ * therefore stretches into ellipses when height and width are dialled to an
+ * unusual ratio — the same liberty a real catalogue takes when it sells one
+ * silhouette in several sizes.
+ *
+ * Outlines run COUNTER-CLOCKWISE (bottom edge left→right, up the milled face,
+ * back along the top, down the wall side) so the extruded solid comes out with
+ * its faces pointing outward.
+ */
+
+// ─── Path building ────────────────────────────────────────────────────────────
+
+/** One step of a profile outline: a straight line, or a cubic Bézier when the
+ *  moulding curves. Cubics are how these shapes are drawn on a millwork sheet,
+ *  and they sample to any smoothness we ask for. */
+type Step =
+  | { to: [number, number] }
+  | { to: [number, number]; c1: [number, number]; c2: [number, number] }
+
+interface ProfilePath {
+  start: [number, number]
+  steps: Step[]
+}
+
+function cubic(
+  p0: [number, number], c1: [number, number], c2: [number, number], p1: [number, number], t: number,
+): [number, number] {
+  const u = 1 - t
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+  return [
+    a * p0[0] + b * c1[0] + c * c2[0] + d * p1[0],
+    a * p0[1] + b * c1[1] + c * c2[1] + d * p1[1],
+  ]
+}
+
+/** Flatten a path to a point list. Curves are sampled `curveSegs` times; the
+ *  end point of each step is emitted exactly once so the outline stays closed
+ *  and free of duplicate vertices. */
+function samplePath(path: ProfilePath, curveSegs: number): Array<[number, number]> {
+  const pts: Array<[number, number]> = [path.start]
+  let cur = path.start
+  for (const step of path.steps) {
+    if ('c1' in step) {
+      for (let i = 1; i <= curveSegs; i++) pts.push(cubic(cur, step.c1, step.c2, step.to, i / curveSegs))
+    } else {
+      pts.push(step.to)
+    }
+    cur = step.to
+  }
+  return pts
+}
+
+// ─── Catalogue ────────────────────────────────────────────────────────────────
+
+export type TrimKind = 'skirting' | 'cornice'
+
+export interface TrimProfileDef {
+  id: string
+  /** Shown under the thumbnail — the millwork catalogue's own code, so the
+   *  user can match what they picked against the printed sheet. */
+  label: string
+  kind: TrimKind
+  path: ProfilePath
+  /** Metric sizes rounded from the sheet's imperial dimensions. */
+  defaultHeightMm: number
+  defaultWidthMm: number
+  /**
+   * The catalogue's own drawing of this section, with its dimensions on it.
+   * Shown in the picker in place of `path`'s silhouette, which carries the
+   * profile's shape but none of the millwork detail. `path` is still what the
+   * room is built from, and still what a profile without a drawing falls back
+   * to in the picker.
+   */
+  previewUrl?: string
+}
+
+/**
+ * Floor skirting, after the B525 millwork sheet: a tall flat back with the
+ * milled detail worked into the top third — ogees, beads and coves over a
+ * plain face. `tekis` is the plain square-edge board the studio drew before
+ * this picker existed, kept first and default so existing rooms are untouched.
+ *
+ * Heights are the millwork sheet's own three — 168, 144 and 119 mm over an
+ * 18 mm board — not the 40-50 mm these carried at first, which is quadrant
+ * bead rather than skirting and read as a thin line in the room. The taller
+ * the milled section, the taller the board it is worked into, so the three
+ * sizes fall out of the profiles themselves. An existing room keeps whatever
+ * it saved; only a newly picked profile takes these.
+ */
+const SKIRTING_PROFILES: TrimProfileDef[] = [
+  {
+    id: 'tekis',
+    label: 'Tekis',
+    kind: 'skirting',
+    defaultHeightMm: 144,
+    defaultWidthMm: 18,
+    path: { start: [0, 0], steps: [{ to: [1, 0] }, { to: [1, 1] }, { to: [0, 1] }] },
+  },
+  {
+    id: 'b052',
+    label: 'B525-052',
+    kind: 'skirting',
+    defaultHeightMm: 119,
+    defaultWidthMm: 18,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.50] },                                           // plain face
+        { to: [0.82, 0.56] },                                        // step back
+        { to: [0.80, 0.74], c1: [1.06, 0.58], c2: [1.06, 0.72] },    // bead
+        { to: [0.72, 0.76] },
+        { to: [0.18, 1], c1: [0.80, 0.92], c2: [0.10, 0.86] },       // ogee
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 'b054',
+    label: 'B525-054',
+    kind: 'skirting',
+    defaultHeightMm: 144,
+    defaultWidthMm: 18,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.42] },
+        { to: [0.84, 0.48] },
+        { to: [0.66, 0.70], c1: [0.98, 0.56], c2: [0.60, 0.58] },    // lower ogee
+        { to: [0.62, 0.72] },
+        { to: [0.14, 1], c1: [0.86, 0.90], c2: [0.06, 0.84] },       // upper ogee
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 'b055',
+    label: 'B525-055',
+    kind: 'skirting',
+    defaultHeightMm: 119,
+    defaultWidthMm: 18,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.46] },
+        { to: [0.82, 0.52] },
+        { to: [0.80, 0.68], c1: [1.05, 0.54], c2: [1.05, 0.66] },    // bead
+        { to: [0.70, 0.72] },
+        { to: [0.16, 1], c1: [0.82, 0.90], c2: [0.08, 0.85] },       // ogee
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 'b056',
+    label: 'B525-056',
+    kind: 'skirting',
+    defaultHeightMm: 168,
+    defaultWidthMm: 18,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.34] },
+        { to: [0.22, 1], c1: [0.95, 0.70], c2: [0.70, 1.0] },        // one long cove
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 'b053',
+    label: 'B525-053',
+    kind: 'skirting',
+    defaultHeightMm: 168,
+    defaultWidthMm: 18,
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.38] },
+        { to: [0.80, 0.42] },
+        { to: [0.80, 0.56], c1: [1.04, 0.44], c2: [1.04, 0.54] },    // lower bead
+        { to: [0.78, 0.58] },
+        { to: [0.78, 0.72], c1: [1.02, 0.60], c2: [1.02, 0.70] },    // upper bead
+        { to: [0.72, 0.76] },
+        { to: [0.16, 1], c1: [0.84, 0.92], c2: [0.08, 0.86] },       // ogee
+        { to: [0, 1] },
+      ],
+    },
+  },
+]
+
+/**
+ * Ceiling cornice, after the T-series millwork sheet: a corner section with a
+ * flat ceiling face along the top and a flat wall face down the left, with the
+ * moulded profile sweeping between them — coves, ogees, quarter-rounds and
+ * stepped faces.
+ *
+ * Every code and both dimensions come from the sheet. The curves are drawn in
+ * its style and to each profile's character (which are cove, which ogee, which
+ * stepped) rather than traced off it, so a printed T 272 and this one agree on
+ * size and family but not on every millimetre of the moulding.
+ *
+ * Listed in the sheet's own reading order, so the picker matches the page
+ * someone is choosing from.
+ */
+const CORNICE_PROFILES: TrimProfileDef[] = [
+  {
+    id: 't140',
+    label: 'T 140',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 65,
+    previewUrl: '/trim/cornice/t140.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.52, 0.44], c1: [0.80, 0.20], c2: [0.72, 0.36] },    // cove
+        { to: [0.62, 0.52] },
+        { to: [0.44, 0.66], c1: [0.70, 0.60], c2: [0.58, 0.66] },    // bead
+        { to: [0.34, 0.72] },
+        { to: [0.40, 0.82] },                                        // step
+        { to: [0.18, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't56',
+    label: 'T 56',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 65,
+    previewUrl: '/trim/cornice/t56.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.44, 0.50], c1: [0.86, 0.24], c2: [0.64, 0.40] },    // cove
+        { to: [0.52, 0.72], c1: [0.28, 0.58], c2: [0.34, 0.70] },    // roll below it
+        { to: [0.26, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't139',
+    label: 'T 139',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 80,
+    previewUrl: '/trim/cornice/t139.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.24, 0.54], c1: [0.66, 0.04], c2: [0.30, 0.20] },    // big quarter-round
+        { to: [0.34, 0.66] },
+        { to: [0.16, 0.76] },                                        // fillet
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't254',
+    label: 'T 254',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 80,
+    previewUrl: '/trim/cornice/t254.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0, 0.88], c1: [0.42, 0.30], c2: [0.30, 0.62] },       // one clean hollow
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't279',
+    label: 'T 279',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 90,
+    previewUrl: '/trim/cornice/t279.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.30, 0.62], c1: [0.72, 0.34], c2: [0.64, 0.50] },    // long shallow ogee
+        { to: [0.14, 0.86], c1: [0.10, 0.68], c2: [0.24, 0.80] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't272',
+    label: 'T 272',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 95,
+    previewUrl: '/trim/cornice/t272.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.12, 0.82], c1: [0.46, 0.26], c2: [0.20, 0.56] },    // deep smooth hollow
+        { to: [0.12, 0.92] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't276',
+    label: 'T 276',
+    kind: 'cornice',
+    defaultHeightMm: 100,
+    defaultWidthMm: 98,
+    previewUrl: '/trim/cornice/t276.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.22, 0.70], c1: [0.52, 0.24], c2: [0.30, 0.50] },    // hollow
+        { to: [0.30, 0.80] },                                        // step
+        { to: [0.12, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't193',
+    label: 'T 193',
+    kind: 'cornice',
+    defaultHeightMm: 101,
+    defaultWidthMm: 60,
+    previewUrl: '/trim/cornice/t193.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.86, 0.16] },
+        { to: [0.86, 0.30] },
+        { to: [0.30, 0.74] },                                        // flat diagonal face
+        { to: [0.30, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't37',
+    label: 'T 37',
+    kind: 'cornice',
+    defaultHeightMm: 102,
+    defaultWidthMm: 25,
+    previewUrl: '/trim/cornice/t37.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.34, 0.62], c1: [1.0, 0.32], c2: [0.66, 0.44] },     // narrow cove
+        { to: [0.34, 0.80] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't112',
+    label: 'T 112',
+    kind: 'cornice',
+    defaultHeightMm: 102,
+    defaultWidthMm: 72,
+    previewUrl: '/trim/cornice/t112.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.34, 0.58], c1: [0.74, 0.28], c2: [0.50, 0.44] },    // cove
+        { to: [0.42, 0.70] },                                        // stepped foot
+        { to: [0.20, 0.78] },
+        { to: [0.20, 0.90] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't339',
+    label: 'T 339',
+    kind: 'cornice',
+    defaultHeightMm: 103,
+    defaultWidthMm: 113,
+    previewUrl: '/trim/cornice/t339.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.40, 0.50], c1: [0.80, 0.18], c2: [0.58, 0.36] },    // wide shallow sweep
+        { to: [0.50, 0.68], c1: [0.24, 0.54], c2: [0.32, 0.64] },    // bead
+        { to: [0.22, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't58',
+    label: 'T 58',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 50,
+    previewUrl: '/trim/cornice/t58.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.16] },                                           // fillet
+        { to: [0.30, 0.62], c1: [0.72, 0.34], c2: [0.46, 0.46] },    // cove
+        { to: [0.30, 0.84] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't371',
+    label: 'T 371',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 73,
+    previewUrl: '/trim/cornice/t371.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.46, 0.40], c1: [0.92, 0.16], c2: [0.70, 0.26] },    // strong ogee
+        { to: [0.16, 0.78], c1: [0.22, 0.54], c2: [0.34, 0.70] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't160',
+    label: 'T 160',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 88,
+    previewUrl: '/trim/cornice/t160.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.44, 0.46], c1: [0.84, 0.20], c2: [0.60, 0.34] },    // cove
+        { to: [0.52, 0.58] },                                        // two steps under it
+        { to: [0.28, 0.66] },
+        { to: [0.34, 0.80] },
+        { to: [0.14, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't267',
+    label: 'T 267',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 102,
+    previewUrl: '/trim/cornice/t267.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.14, 0.78], c1: [0.50, 0.24], c2: [0.22, 0.52] },    // large hollow
+        { to: [0.22, 0.90] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't169',
+    label: 'T 169',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 105,
+    previewUrl: '/trim/cornice/t169.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.18] },
+        { to: [0.54, 0.30], c1: [0.94, 0.30], c2: [0.74, 0.22] },
+        { to: [0.54, 0.60], c1: [0.22, 0.34], c2: [0.22, 0.56] },    // round scoop
+        { to: [0.32, 0.78], c1: [0.72, 0.64], c2: [0.50, 0.70] },
+        { to: [0.32, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't84',
+    label: 'T 84',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 120,
+    previewUrl: '/trim/cornice/t84.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0, 0.90], c1: [0.55, 0.14], c2: [0.12, 0.44] },       // deep sweep
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't324',
+    label: 'T 324',
+    kind: 'cornice',
+    defaultHeightMm: 105,
+    defaultWidthMm: 120,
+    previewUrl: '/trim/cornice/t324.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.06, 0.70], c1: [0.54, 0.08], c2: [0.12, 0.34] },    // slender crescent
+        { to: [0.18, 0.88] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't192',
+    label: 'T 192',
+    kind: 'cornice',
+    defaultHeightMm: 106,
+    defaultWidthMm: 98,
+    previewUrl: '/trim/cornice/t192.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [0.88, 0.14] },                                        // stepped top
+        { to: [0.26, 0.66], c1: [0.66, 0.30], c2: [0.40, 0.48] },    // hollow
+        { to: [0.26, 0.86] },
+        { to: [0, 1] },
+      ],
+    },
+  },
+  {
+    id: 't255',
+    label: 'T 255',
+    kind: 'cornice',
+    defaultHeightMm: 110,
+    defaultWidthMm: 70,
+    previewUrl: '/trim/cornice/t255.png',
+    path: {
+      start: [0, 0],
+      steps: [
+        { to: [1, 0] },
+        { to: [1, 0.12] },                                           // fillet
+        { to: [0.36, 0.56], c1: [0.72, 0.30], c2: [0.50, 0.40] },    // quarter round
+        { to: [0.36, 0.76] },
+        { to: [0.16, 0.82] },                                        // fillet
+        { to: [0, 1] },
+      ],
+    },
+  },
+]
+
+export const TRIM_PROFILES: TrimProfileDef[] = [...SKIRTING_PROFILES, ...CORNICE_PROFILES]
+
+export function trimProfilesOf(kind: TrimKind): TrimProfileDef[] {
+  return TRIM_PROFILES.filter((p) => p.kind === kind)
+}
+
+export function trimProfileDef(id: string | undefined, kind: TrimKind): TrimProfileDef {
+  const list = trimProfilesOf(kind)
+  return list.find((p) => p.id === id) ?? list[0]
+}
+
+// ─── Stored state ─────────────────────────────────────────────────────────────
+
+/**
+ * What the design stores for one trim run. `undefined` means "never touched" —
+ * for the skirting that reads as ON with the default profile, so rooms drawn
+ * before this picker existed keep the board they always had. `null` means the
+ * user deliberately took it off.
+ */
+export interface TrimState {
+  id: string
+  /** How far up the wall, in mm. Falls back to the profile's own default. */
+  heightMm?: number
+  /** How far off the wall, in mm. Falls back to the profile's own default. */
+  widthMm?: number
+}
+
+export interface ResolvedTrim {
+  def: TrimProfileDef
+  heightM: number
+  widthM: number
+}
+
+/** Fill a stored choice out to real metres, applying per-profile defaults. */
+export function resolveTrim(state: TrimState | null | undefined, kind: TrimKind): ResolvedTrim {
+  const def = trimProfileDef(state?.id, kind)
+  return {
+    def,
+    heightM: (state?.heightMm ?? def.defaultHeightMm) / 1000,
+    widthM: (state?.widthMm ?? def.defaultWidthMm) / 1000,
+  }
+}
+
+export const TRIM_HEIGHT_RANGE_MM = { skirting: { min: 30, max: 200 }, cornice: { min: 30, max: 160 } } as const
+export const TRIM_WIDTH_RANGE_MM = { skirting: { min: 10, max: 40 }, cornice: { min: 20, max: 140 } } as const
+
+// ─── Geometry ─────────────────────────────────────────────────────────────────
+
+/** Sampling density along each curve. Twelve is enough that an ogee's
+ *  highlight reads as a sweep rather than a set of steps, while keeping a
+ *  whole room's trim to a few thousand triangles. */
+const CURVE_SEGS = 12
+
+/** Above this angle an edge stays sharp; below it the shading is smoothed, so
+ *  the milled curves catch light continuously while the arrises stay crisp. */
+const CREASE_ANGLE = Math.PI / 5   // 36°
+
+/** Cache: the same profile at the same size and length recurs on every wall of
+ *  a room, and rebuilding an extrusion per segment per frame is wasteful. */
+const geoCache = new Map<string, THREE.BufferGeometry>()
+
+export interface TrimGeometryOpts {
+  def: TrimProfileDef
+  heightM: number
+  widthM: number
+  /** Length of this run along the wall. */
+  lengthM: number
+  /** Cut the end back at 45° so it meets the neighbouring wall's run in a
+   *  mitre. False leaves a square end — what a run stopped by a doorway wants. */
+  mitreStart: boolean
+  mitreEnd: boolean
+  /** Hang the profile DOWNWARD from y = 0 instead of standing it up: what a
+   *  ceiling cornice needs, measuring its height down from the ceiling. */
+  flipY?: boolean
+}
+
+/**
+ * One run of trim as a solid, in the canonical wall frame this file shares
+ * with the opening reveals in WallComponents:
+ *   local +X — along the wall, the run centred on the origin
+ *   local +Y — up (or, with `flipY`, the profile hangs below the origin)
+ *   local +Z — out of the wall into the room, the profile's projection
+ *
+ * The mitre is cut by shifting only the vertices at each end: the extrusion's
+ * side walls span the whole run, so moving an end's ring slants those faces
+ * into a true 45° plane rather than just angling the cap.
+ */
+export function buildTrimGeometry(opts: TrimGeometryOpts): THREE.BufferGeometry {
+  const { def, heightM, widthM, lengthM, mitreStart, mitreEnd, flipY = false } = opts
+  const key = [def.id, heightM, widthM, lengthM, mitreStart, mitreEnd, flipY].join('|')
+  const hit = geoCache.get(key)
+  if (hit) return hit
+
+  let pts = samplePath(def.path, CURVE_SEGS)
+    .map(([x, y]) => [x * widthM, (flipY ? -y : y) * heightM] as [number, number])
+  // Mirroring about y reverses the winding; put it back so the solid's faces
+  // still point outward.
+  if (flipY) pts = pts.slice().reverse()
+
+  const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)))
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: lengthM, bevelEnabled: false, curveSegments: CURVE_SEGS })
+
+  // Extrusion comes out as x = projection, y = height, z = length. Turn it
+  // into the canonical frame: length along X (centred), projection along +Z.
+  geo.rotateY(-Math.PI / 2)
+  geo.translate(lengthM / 2, 0, 0)
+
+  const half = lengthM / 2
+  const EPS = 1e-6
+  if (mitreStart || mitreEnd) {
+    const pos = geo.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i)
+      const z = pos.getZ(i)               // 0 at the wall, widthM at the face
+      if (mitreEnd && x > half - EPS) pos.setX(i, x - z)
+      else if (mitreStart && x < -half + EPS) pos.setX(i, x + z)
+    }
+    pos.needsUpdate = true
+  }
+
+  // Bite 1 mm into the wall so the back face can never poke through a wall
+  // plane it would otherwise be exactly coplanar with.
+  geo.translate(0, 0, -0.001)
+
+  const out = toCreasedNormals(geo, CREASE_ANGLE)
+  geo.dispose()
+  geoCache.set(key, out)
+  return out
+}
+
+/**
+ * The same outline as an SVG path, for the picker thumbnails — drawn from the
+ * profile itself so the swatch is the real cross-section, not a drawing of
+ * one. Rendered in a `viewBox="0 0 100 100"` with the wall on the left and the
+ * floor at the bottom.
+ */
+export function trimProfileSvgPath(def: TrimProfileDef, flipY = false): string {
+  const pts = samplePath(def.path, CURVE_SEGS)
+  const d = pts
+    .map(([x, y], i) => {
+      const sx = x * 100
+      const sy = flipY ? y * 100 : 100 - y * 100
+      return `${i === 0 ? 'M' : 'L'}${sx.toFixed(1)},${sy.toFixed(1)}`
+    })
+    .join(' ')
+  return `${d} Z`
+}

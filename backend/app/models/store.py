@@ -3,15 +3,30 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+# The partner tiers the app knows how to render. `lib/providers/
+# shop_provider.dart` in the mobile app treats anything outside gold /
+# platinum as a plain, non-official dealer, so an unrecognised tier does not
+# error anywhere — it just silently downgrades the store's badge. Kept
+# enforceable rather than documented: the CHECK below covers every writer
+# (seeders, one-off scripts, psql) and app.schemas.admin_catalog re-exports
+# this tuple so the admin API validates against the same list.
+PARTNER_TIERS = ("standard", "gold", "platinum")
+
 
 class Store(Base):
     __tablename__ = "stores"
+    __table_args__ = (
+        CheckConstraint(
+            "partner_tier IN (%s)" % ", ".join(f"'{t}'" for t in PARTNER_TIERS),
+            name="ck_stores_partner_tier",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -30,7 +45,7 @@ class Store(Base):
         String(20),
         nullable=False,
         default="standard",
-        comment="standard | gold | platinum",
+        comment="standard | gold | platinum",  # see PARTNER_TIERS / ck_stores_partner_tier
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

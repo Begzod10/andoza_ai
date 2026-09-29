@@ -6,6 +6,29 @@
 import * as THREE from "three";
 
 export interface TexEntry { tex: THREE.Texture; aspect: number }
+
+/**
+ * The URL to actually fetch a texture from.
+ *
+ * WebGL will not sample a cross-origin image unless it was fetched with CORS,
+ * so THREE.TextureLoader asks for one (`crossOrigin = 'anonymous'`). The design
+ * panel shows the very same URLs as ordinary <img> thumbnails, which send no
+ * Origin header — and the browser then hands the texture loader that cached,
+ * CORS-less copy, which fails the check. The image is fine and the server's
+ * headers are fine; only the cached copy is unusable.
+ *
+ * Marking the request as the texture one gives it a cache entry of its own, so
+ * the two consumers stop colliding. Static, not a timestamp, so the texture is
+ * still cached normally — and different from anything already poisoned, which
+ * is what fixes it for people who have been using the app all along.
+ *
+ * Data URLs carry their own bytes and are same-origin by definition; appending
+ * to one would corrupt it.
+ */
+export function textureFetchUrl(url: string): string {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'for=tex';
+}
 const _texCache    = new Map<string, TexEntry>();
 const _texPending  = new Set<string>();
 const _texWaiters  = new Map<string, Array<(e: TexEntry) => void>>();
@@ -31,7 +54,8 @@ export function requestSharedTexture(
   if (!_texPending.has(url)) {
     _texPending.add(url);
     new THREE.TextureLoader().load(
-      url,
+      // The cache key stays the plain URL; only the network request is marked.
+      textureFetchUrl(url),
       (t) => {
         t.colorSpace = THREE.SRGBColorSpace;
         t.wrapS = t.wrapT = THREE.RepeatWrapping;

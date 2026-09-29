@@ -49,11 +49,20 @@ class UserOut(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    """Returned by auth endpoints. JWT is both in HttpOnly cookie (web) and response body (mobile)."""
+    """Returned by auth endpoints.
+
+    JWTs are ALWAYS set as HttpOnly cookies. They are ALSO echoed in this
+    response body, but only for native app clients (Flutter/Capacitor),
+    which manage their own Bearer-token auth and don't get a browser cookie
+    jar. Web (browser) requests get `null` here and must rely on the cookies
+    — see `_is_native_client()` in app/routers/auth.py for the detection
+    logic, so an XSS bug in the web client can't exfiltrate a token that was
+    never in the response it can read.
+    """
 
     user: UserOut
-    access_token: str
-    refresh_token: str
+    access_token: str | None = None
+    refresh_token: str | None = None
     token_type: str = "bearer"
 
 

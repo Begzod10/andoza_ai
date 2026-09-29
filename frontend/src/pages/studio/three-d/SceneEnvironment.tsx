@@ -125,8 +125,12 @@ export function SceneLighting({
         shadow-camera-bottom={-shadowBox.hh}
         shadow-camera-near={shadowBox.near}
         shadow-camera-far={shadowBox.far}
-        shadow-bias={-0.0008}
-        shadow-normalBias={0.02}
+        // Small on purpose. The 2 cm normalBias these used to be was sized to
+        // hide acne on zero-thickness walls, and pushed samples clean through
+        // them at corners — the leak itself. The ShadowShell is 12 cm thick,
+        // so a 1 cm offset lands well inside it and there is nothing to hide.
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.01}
         shadow-radius={4}
       />
       {/* Cool sky-bounce fill light — scaled by daylight for time-of-day mood,

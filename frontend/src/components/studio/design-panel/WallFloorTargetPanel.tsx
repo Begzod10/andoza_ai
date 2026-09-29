@@ -6,14 +6,23 @@ import { uz } from "@/locale/uz";
 import { useRoomStore } from "@/store/roomStore";
 import { useDebounce } from "@/hooks/useDebounce";
 import { FLOOR_TYPES } from "./shared";
+import { FloorPatternGroup, SkirtingGroup } from "./FloorControls";
 
 const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
 
 /**
- * The full floor editor (type, do'kon material search, image + UVW) shown
- * from WallSection when the "Pol" target is selected. Distinct from the
- * standalone FloorSection (the simpler top-level "Pol" phase tab), which
- * only offers the type list.
+ * The full floor editor shown from WallSection when the "Pol" target is
+ * selected: type, do'kon material search, the laying pattern (Naqsh) and
+ * skirting (Plintus) shared with the "Pol" phase panel, plus a whole-floor
+ * image with UVW controls.
+ *
+ * Naqsh/Plintus used to exist ONLY in FloorSection (the "Pol" phase panel),
+ * which made this panel a strict subset. That gap was invisible on desktop,
+ * where the phase rail is always on screen, but on mobile the rail is behind
+ * a drawer and the floor's radial "Rang" action lands here — so the pattern
+ * and skirting controls were effectively unreachable on a phone. They are
+ * factored into FloorControls.tsx and rendered by both hosts rather than
+ * duplicated.
  */
 export function WallFloorTargetPanel({ handleSetFloorType }: {
   handleSetFloorType(type: string): void;
@@ -22,6 +31,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
   const floorTextureSettings = useRoomStore((s) => s.designState.floorTextureSettings);
+  const floorPattern = useRoomStore((s) => s.designState.floorPattern);
   const setDesignState = useRoomStore((s) => s.setDesignState);
   const setFloorTexture = useRoomStore((s) => s.setFloorTexture);
   const applySurface = useRoomStore((s) => s.applySurface);
@@ -61,6 +71,26 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
     applySurface("floor", materialId);
   }
 
+  /** The image currently on the floor — the pattern's plank texture when a
+   *  laying pattern is on, otherwise the legacy whole-floor image. Same rule
+   *  FloorSection uses, so the two panels never disagree about which image
+   *  the floor is actually wearing. */
+  const activeFloorImage = floorPattern ? (floorPattern.settings?.textureUrl ?? null) : (floorTexture ?? null);
+
+  /** Apply (or clear) an image on whatever the floor currently is. Writing
+   *  `floorTexture` while a pattern is laid would store an image the 3D floor
+   *  never draws — the planks read `floorPattern.settings.textureUrl`. */
+  function applyFloorImage(url: string | null) {
+    setDesignState({ floorConfigured: true });
+    if (floorPattern) {
+      setDesignState({
+        floorPattern: { id: floorPattern.id, settings: { ...floorPattern.settings, textureUrl: url } },
+      });
+    } else {
+      setFloorTexture(url);
+    }
+  }
+
   function updateFloorTexSettings(patch: Partial<{ repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }>) {
     const current = floorTextureSettings ?? DEFAULT_FLOOR_TEX_SETTINGS;
     setDesignState({ floorTextureSettings: { ...current, ...patch } });
@@ -92,13 +122,13 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
     setDesignState({ floorConfigured: true });
     try {
       const uploaded = await uploadWallpaper(file, { kind: "pol" });
-      setFloorTexture(uploaded.url);
+      applyFloorImage(uploaded.url);
       queryClient.invalidateQueries({ queryKey: ["wallpapers", "pol"] });
     } catch (err) {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const url = ev.target?.result as string;
-        if (url) setFloorTexture(url);
+        if (url) applyFloorImage(url);
       };
       reader.readAsDataURL(file);
       setFloorError(
@@ -196,6 +226,10 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
               )}
             </div>
           )}
+
+          <FloorPatternGroup />
+
+          <SkirtingGroup />
         </section>
       )}
 
@@ -223,16 +257,18 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
             <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
           </button>
           {floorError && <p className="text-xs text-amber-600 leading-snug">{floorError}</p>}
-          {floorTexture && (() => {
+          {activeFloorImage && (() => {
             const fs = floorTextureSettings ?? DEFAULT_FLOOR_TEX_SETTINGS;
             return (
               <>
                 <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <img src={floorTexture} alt="Pol teksturasi" className="w-14 h-14 object-cover rounded-md border border-gray-200 shrink-0" />
+                  <img src={activeFloorImage} alt="Pol teksturasi" className="w-14 h-14 object-cover rounded-md border border-gray-200 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-700 truncate">Yuklangan rasm</p>
+                    <p className="text-xs font-medium text-gray-700 truncate">
+                      {floorPattern ? "Taxtalarga qo'llandi" : "Yuklangan rasm"}
+                    </p>
                     <button
-                      onClick={() => setFloorTexture(null)}
+                      onClick={() => applyFloorImage(null)}
                       className="text-xs text-red-400 hover:text-red-600 mt-0.5"
                     >
                       O'chirish
@@ -240,7 +276,16 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   </div>
                 </div>
 
-                {/* UVW controls */}
+                {/* UVW controls — the whole-floor mapping only. With a laying
+                    pattern on, the image is glued to each plank at the plank's
+                    own size (see FloorCeiling), so these sliders would move
+                    nothing; the Naqsh settings above are the knobs then. */}
+                {floorPattern ? (
+                  <p className="text-[11px] text-gray-500 leading-snug">
+                    Naqsh yoqilgan — rasm har bir taxtaga alohida yopishtiriladi.
+                    O'lchamini "Naqsh → Sozlamalar" dan o'zgartiring.
+                  </p>
+                ) : (
                 <div className="space-y-2.5 p-3 bg-gray-50 rounded-xl border border-gray-100">
                   <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Tekstura sozlamalari</p>
 
@@ -301,6 +346,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                     Standartga qaytarish
                   </button>
                 </div>
+                )}
               </>
             );
           })()}

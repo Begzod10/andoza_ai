@@ -58,7 +58,7 @@ export class CanvasErrorBoundary extends React.Component<
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-1 px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold active:scale-95 transition-transform"
+            className="mt-1 px-5 py-2 rounded-full text-sm font-semibold transition-transform bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100"
           >
             Sahifani yangilash
           </button>

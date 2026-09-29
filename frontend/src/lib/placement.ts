@@ -11,6 +11,7 @@
  */
 import type { RoomGeometry } from '@/store/roomStore'
 import { roomExtents } from '@/lib/roomDims'
+import { halfExtentsToBounds, placementSpot, roomBoundsFromGeometry } from '@/lib/furnitureBounds'
 
 /**
  * Stagger offset (mm) for the *n*th piece of a given furniture item already
@@ -44,4 +45,55 @@ export function nextLightPositionMm(
     xMm: Math.round((W * 1000) / 2 + jitter - 375),
     zMm: Math.round((D * 1000) / 2 + (existingCount % 3) * 250 - 250),
   }
+}
+
+
+/**
+ * Drop point (store millimetres) for the next piece of furniture — the
+ * stagger above, but kept inside the room's walls.
+ *
+ * `nextFurnitureOffsetMm` measures from the room's centre and asks nothing
+ * about the room, which is fine until the room is small (the stagger walks
+ * the model into a wall) or L-shaped (its bounding-box centre can be in the
+ * cut-away corner, so the very first model starts life outside the room).
+ *
+ * @param sizeM the model's footprint in metres, when the catalog knows it. A
+ *        conservative box is assumed otherwise — better a slightly cautious
+ *        placement than one that clips a wall.
+ */
+export function furniturePlacementMm(
+  geometry: RoomGeometry,
+  existingCount: number,
+  sizeM?: { w: number; d: number },
+): { x: number; y: number } {
+  const room = roomBoundsFromGeometry(geometry)
+  const bounds = halfExtentsToBounds(((sizeM?.w ?? 0.6) * 1000) / 2, ((sizeM?.d ?? 0.6) * 1000) / 2)
+  const spot = placementSpot(room, bounds, existingCount)
+  // Plan millimetres (from the room's corner) back to the store's own frame,
+  // which measures from the room's centre.
+  return { x: spot.x - room.W / 2, y: spot.z - room.D / 2 }
+}
+
+
+/**
+ * Mounting height (mm from the floor) for a wall device, brought down when the
+ * ceiling is too low for it.
+ *
+ * An air conditioner hangs at 2400mm, which puts the top of a 300mm unit
+ * exactly at a standard 2700mm ceiling. Drop the ceiling and that height would
+ * push it through — so in a lower room it sits as high as it can instead,
+ * tucked under the ceiling rather than poking out above it.
+ *
+ * A device that already fits is left exactly where its catalogue says, so
+ * nothing moves in an ordinary room.
+ *
+ * @param wantedMm the catalogue's own mounting height
+ * @param deviceHeightMm how tall the device is
+ * @param ceilingMm the room's ceiling height
+ */
+export function fitDeviceHeightMm(wantedMm: number, deviceHeightMm: number, ceilingMm: number): number {
+  const highest = ceilingMm - deviceHeightMm
+  // A ceiling lower than the device itself leaves nowhere to hang it; sitting
+  // it on the floor is the only thing left, and beats a negative height.
+  return Math.max(0, Math.min(wantedMm, highest))
 }

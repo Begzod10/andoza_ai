@@ -33,6 +33,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { liveOpeningDrag } from '@/lib/liveOpeningDrag'
 import { wallDefsFromVertices } from '@/lib/wallDefsFromVertices'
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 
 export interface OpeningSel { wallId: string; elId: string }
 
@@ -41,8 +42,13 @@ interface WallDef {
   axis: 'X' | 'Z'
   /** world position of the wall's inner face on the OTHER axis */
   face: number
-  /** along-axis world coordinate of the wall's LEFT edge (position = 0) */
-  leftAlong: number
+  /** along-axis world coordinate of the wall's position-0 end (see
+   *  `PolyWallDef` in lib/wallDefsFromVertices.ts — on a polygon edge this is
+   *  `vertices[i]`, which is NOT always the axis minimum). */
+  originAlong: number
+  /** Direction of increasing position on `axis`: +1 or −1. Always +1 for the
+   *  legacy ABCD rectangle below. */
+  alongSign: 1 | -1
   length: number
   ry: number
   normal: THREE.Vector3
@@ -57,17 +63,18 @@ const KEYBOARD_NUDGE_MM = 100
 
 function buildWallDefs(W: number, D: number): Record<string, WallDef> {
   return {
-    A: { id: 'A', axis: 'X', face: -D / 2, leftAlong: -W / 2, length: W, ry: 0, normal: new THREE.Vector3(0, 0, 1), plane: new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2) },
-    C: { id: 'C', axis: 'X', face: D / 2, leftAlong: -W / 2, length: W, ry: Math.PI, normal: new THREE.Vector3(0, 0, -1), plane: new THREE.Plane(new THREE.Vector3(0, 0, -1), D / 2) },
-    B: { id: 'B', axis: 'Z', face: W / 2, leftAlong: -D / 2, length: D, ry: -Math.PI / 2, normal: new THREE.Vector3(-1, 0, 0), plane: new THREE.Plane(new THREE.Vector3(-1, 0, 0), W / 2) },
-    D: { id: 'D', axis: 'Z', face: -W / 2, leftAlong: -D / 2, length: D, ry: Math.PI / 2, normal: new THREE.Vector3(1, 0, 0), plane: new THREE.Plane(new THREE.Vector3(1, 0, 0), W / 2) },
+    A: { id: 'A', axis: 'X', face: -D / 2, originAlong: -W / 2, alongSign: 1, length: W, ry: 0, normal: new THREE.Vector3(0, 0, 1), plane: new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2) },
+    C: { id: 'C', axis: 'X', face: D / 2, originAlong: -W / 2, alongSign: 1, length: W, ry: Math.PI, normal: new THREE.Vector3(0, 0, -1), plane: new THREE.Plane(new THREE.Vector3(0, 0, -1), D / 2) },
+    B: { id: 'B', axis: 'Z', face: W / 2, originAlong: -D / 2, alongSign: 1, length: D, ry: -Math.PI / 2, normal: new THREE.Vector3(-1, 0, 0), plane: new THREE.Plane(new THREE.Vector3(-1, 0, 0), W / 2) },
+    D: { id: 'D', axis: 'Z', face: -W / 2, originAlong: -D / 2, alongSign: 1, length: D, ry: Math.PI / 2, normal: new THREE.Vector3(1, 0, 0), plane: new THREE.Plane(new THREE.Vector3(1, 0, 0), W / 2) },
   }
 }
 
 /** World coordinates of a point on the wall face at along-offset `alongM` (from
- *  left edge) and height `yM`, nudged `push` metres into the room. */
+ *  the wall's position-0 end) and height `yM`, nudged `push` metres into the
+ *  room. */
 function toWorld(wd: WallDef, alongM: number, yM: number, push = 0): [number, number, number] {
-  const along = wd.leftAlong + alongM
+  const along = wd.originAlong + wd.alongSign * alongM
   const n = wd.normal
   if (wd.axis === 'X') return [along + n.x * push, yM, wd.face + n.z * push]
   return [wd.face + n.x * push, yM, along + n.z * push]
@@ -143,7 +150,7 @@ export function WallOpenings({
     const wallLenMm = wd.length * 1000
     const wallHMm = H * 1000
     const along = wd.axis === 'X' ? hit.x : hit.z
-    const uMm = (along - wd.leftAlong) * 1000
+    const uMm = (along - wd.originAlong) * wd.alongSign * 1000
 
     let position = uMm - el.width / 2
     let sill = isDoor ? 0 : hit.y * 1000 - el.height / 2
@@ -247,6 +254,8 @@ export function WallOpenings({
     ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
   }
 
+  const { bind: bindHold, wasHeld } = useHoldToDelete()
+
   const walls = geometry.walls.filter((w) => defs[w.id] && !hiddenWalls?.has(w.id))
 
   return (
@@ -268,14 +277,26 @@ export function WallOpenings({
           const centerAlongM = (liveEl.position + liveEl.width / 2) * s
           const centerY = (liveEl.sill_height + liveEl.height / 2) * s
           const [px, py, pz] = toWorld(wd, centerAlongM, centerY, 0.02)
+          const hold = bindHold({
+            label: el.type === 'eshik' ? 'Eshik' : 'Deraza',
+            onDelete: () => { removeElement(w.id, el.id); if (isSel) onSelect(null) },
+          })
           return (
             <group key={`op-${w.id}-${el.id}`}>
               {/* Invisible (faint when selected) hit plane for select + drag */}
               <mesh
                 position={[px, py, pz]}
                 rotation={[0, wd.ry, 0]}
-                onClick={(e) => { e.stopPropagation(); onSelect({ wallId: w.id, elId: el.id }); }}
-                onPointerDown={(e) => onDown(e, el)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  // A hold that just put the delete button up is not a tap.
+                  if (wasHeld()) return
+                  onSelect({ wallId: w.id, elId: el.id })
+                }}
+                onPointerDown={(e) => {
+                  hold.onPointerDown(e)
+                  onDown(e, el)
+                }}
                 onPointerMove={(e) => onMove(e, wd, el)}
                 onPointerUp={onUp}
                 onPointerCancel={onUp}

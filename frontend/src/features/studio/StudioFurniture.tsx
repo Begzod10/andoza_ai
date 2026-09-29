@@ -11,8 +11,16 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
+import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
+import { planPolygon, offsetPolygon } from "@/lib/planPolygon";
+import { roomExtents } from "@/lib/roomDims";
+import {
+  clampFootprintToRoom, halfExtentsToBounds, rotatedHalfExtents, FUR_WALL_GAP,
+  worldToPlan, planToWorld, type RoomBounds,
+} from "@/lib/furnitureBounds";
 import { extractSceneInfo } from "@/lib/modelConverter";
 import {
   partKeyFor, resolvePartKey, resolvePartFromMesh, partLabel,
@@ -211,7 +219,6 @@ function DraggableFurnitureItem({
   selectedPartKey,
   onSelectPart,
   displayInfo,
-  onDelete,
 }: {
   item: PlacedFurniture
   isDragging: boolean
@@ -224,7 +231,6 @@ function DraggableFurnitureItem({
   onButtonPointerDown: (e: React.PointerEvent) => void
   onFootprint: (id: string, hw: number, hd: number) => void
   displayInfo: { name: string; priceUzs: number | null }
-  onDelete: (id: string) => void
   /** Active part key when this item owns the current part selection */
   selectedPartKey: string | null
   onSelectPart: (part: SelectedPart | null) => void
@@ -327,7 +333,7 @@ function DraggableFurnitureItem({
   }
 
   // Compute Y offset and XZ footprint ONCE per clone, before R3F sets position.
-  const { yOffUnit, geomHW, geomHD, geomHH, geomCX, geomCZ } = useMemo(() => {
+  const { yOffUnit, geomHW, geomHD, geomHH } = useMemo(() => {
     const box = new THREE.Box3().setFromObject(cloned)
     const ok = isFinite(box.min.x)
     return {
@@ -335,11 +341,6 @@ function DraggableFurnitureItem({
       geomHW: ok ? (box.max.x - box.min.x) / 2 : 0.3,
       geomHD: ok ? (box.max.z - box.min.z) / 2 : 0.3,
       geomHH: ok ? (box.max.y - box.min.y) / 2 : 0.5,
-      // Bounding-box centre in the model's local space — many models pivot at
-      // a corner, so the selection cage must centre on the GEOMETRY, not the
-      // pivot, or cage and mesh visibly disagree.
-      geomCX: ok ? (box.min.x + box.max.x) / 2 : 0,
-      geomCZ: ok ? (box.min.z + box.max.z) / 2 : 0,
     }
   }, [cloned])
 
@@ -364,7 +365,7 @@ function DraggableFurnitureItem({
 
   useFrame(() => {
     if (!isDragging) {
-      // restore the cage after a live-scale drag hid it
+      // restore the outline after a live-scale drag hid it
       if (selRef.current && !selRef.current.visible) selRef.current.visible = true
       return
     }
@@ -378,24 +379,11 @@ function DraggableFurnitureItem({
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
       const liveScale = effScale * (dragScaleRef.current ?? 1)
       primitiveRef.current.scale.setScalar(liveScale)
-      // cage is sized for the committed scale — hide it while live-scaling
+      // the outline is built at the committed scale — hide it while
+      // live-scaling rather than let it drift off the model
       if (selRef.current) selRef.current.visible = false
     }
   })
-
-  // Clean 12-edge selection cage — a triangle wireframe draws face diagonals,
-  // which reads as a "rotated" box around the model.
-  const so0 = item.scaleOverride ?? 1
-  const cageGeo = useMemo(() => {
-    if (!entry) return null
-    const sc = effScale * so0
-    const w = geomHW * sc * 2 + 0.06
-    const d = geomHD * sc * 2 + 0.06
-    // Height from the real geometry — catalog sizeM.h can disagree with it
-    const h = geomHH * sc * 2 + 0.06
-    return new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d))
-  }, [entry, so0, effScale, geomHW, geomHD, geomHH])
-  useEffect(() => () => { cageGeo?.dispose() }, [cageGeo])
 
   if (!entry || !modelPath) return null
 
@@ -482,36 +470,11 @@ function DraggableFurnitureItem({
           </div>
         </Html>
       )}
-      {/* Selection indicators — rotate WITH the model and centre on its
-          bounding box (models often pivot at a corner, not the middle) */}
+      {/* Selection outline — rotates WITH the model, and is hidden by the
+          same frame loop while a live scale drag is in flight. */}
       {isSelected && (
         <group ref={selRef} rotation={[0, item.rotation, 0]}>
-          <group position={[geomCX * s, 0, geomCZ * s]}>
-            {/* Flat footprint outline — clearly visible in top/isometric view */}
-            <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[fw + 0.08, fd + 0.08]} />
-              <meshBasicMaterial color="#2563EB" transparent opacity={0} />
-            </mesh>
-            {/* Ground-level border rect using 4 thin box edges */}
-            {[
-              { pos: [0, 0.012, -(fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
-              { pos: [0, 0.012,  (fd / 2 + 0.04)] as [number,number,number], scale: [fw + 0.08, 0.012, 0.012] as [number,number,number] },
-              { pos: [-(fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
-              { pos: [ (fw / 2 + 0.04), 0.012, 0] as [number,number,number], scale: [0.012, 0.012, fd + 0.08] as [number,number,number] },
-            ].map((edge, i) => (
-              <mesh key={i} position={edge.pos}>
-                <boxGeometry args={edge.scale} />
-                <meshBasicMaterial color="#2563EB" />
-              </mesh>
-            ))}
-            {/* 3D selection cage — pure box EDGES (a triangle wireframe would
-                draw face diagonals that read as a rotated box) */}
-            {cageGeo && (
-              <lineSegments geometry={cageGeo} position={[0, geomHH * s, 0]}>
-                <lineBasicMaterial color="#2563EB" />
-              </lineSegments>
-            )}
-          </group>
+          <SelectionOutline object={cloned} scale={s} position={[0, yOff, 0]} rotationY={0} />
         </group>
       )}
       {toolMode === 'move' && (
@@ -579,10 +542,10 @@ function DraggableFurnitureItem({
         </Html>
       )}
 
-      {/* Characteristics + delete panel — shown on selection alone (any tool
-          mode, not just while dragging), mirroring WindowEditor's pattern in
-          DoorLeaves.tsx: tap once, see what it is and a way to remove it,
-          without needing the keyboard Delete key this only had before. */}
+      {/* What this is — name, footprint, price — shown on selection alone, in
+          any tool mode. Deleting is not offered here any more: it is a press
+          and hold on the model itself, which is far harder to hit by accident
+          than a red button sitting under the thumb throughout a drag. */}
       {isSelected && (
         <Html position={[0, buttonH + 0.22, 0]} center zIndexRange={[110, 0]} style={{ pointerEvents: 'none' }}>
           <div
@@ -597,15 +560,6 @@ function DraggableFurnitureItem({
               {fw.toFixed(2)} × {fd.toFixed(2)} m
               {displayInfo.priceUzs != null && ` · ${displayInfo.priceUzs.toLocaleString('uz-UZ')} so'm`}
             </p>
-            <button
-              onClick={() => onDelete(item.id)}
-              style={{
-                marginTop: 8, width: '100%', border: 'none', borderRadius: 8, padding: '6px 10px',
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#FEF2F2', color: '#E5484D',
-              }}
-            >
-              O'chirish
-            </button>
           </div>
         </Html>
       )}
@@ -651,6 +605,30 @@ export function DraggableFurnitureModels({
   const scaleStartYRef = useRef(0)
   const scaleStartValueRef = useRef(1)
   const rotateStartAngleRef = useRef(0)
+  const geometry = useRoomStore((s) => s.geometry)
+  // The walls the drag actually has to respect. `roomW`/`roomD` are the room's
+  // BOUNDING extents, which for a drawn or scanned room describe a rectangle
+  // the room merely fits inside — clamping to it let a model be pushed into
+  // the notch of an L, through two walls. The outline (inset by the wall gap)
+  // is the room itself; a legacy A-B-C-D rectangle has none and keeps the
+  // plain per-axis clamp.
+  const roomBounds = useMemo<RoomBounds>(() => {
+    const poly = planPolygon(geometry)
+    // For a polygon the extents must come from the same call planPolygon
+    // makes, or the plan frame this converts into would be offset from the
+    // one the outline is expressed in and the clamp would fence off the
+    // wrong strip of floor. The roomW/roomD props carry a caller's fallback
+    // and are only right for the legacy rectangle, which needs no outline.
+    const ext = poly ? roomExtents(geometry) : { W: roomW, D: roomD }
+    return {
+      W: ext.W * 1000,
+      D: ext.D * 1000,
+      inner: poly ? offsetPolygon(poly, -FUR_WALL_GAP) : null,
+      outline: poly ? poly.vertices : null,
+    }
+  }, [geometry, roomW, roomD])
+
+  const { bind: holdBind } = useHoldToDelete()
   const { camera, gl } = useThree()
   const floorPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -682,29 +660,20 @@ export function DraggableFurnitureModels({
     return { name: 'Mebel', priceUzs: null }
   }
 
-  // Half-extents of an item's AABB after its yaw rotation — a model authored
-  // long along Z and rotated 90° occupies X, and vice versa. Using unrotated
-  // extents locked dragging on one axis for rotated large items.
-  function rotatedHalf(hw: number, hd: number, rot: number): { hw: number; hd: number } {
-    const c = Math.abs(Math.cos(rot))
-    const s = Math.abs(Math.sin(rot))
-    return { hw: hw * c + hd * s, hd: hw * s + hd * c }
-  }
-
   // AABB overlap test using actual geometry footprints, not catalog sizeM
   function wouldCollide(draggingId: string, nx: number, nz: number): boolean {
     const all = furnitureRef.current
     const aFP0 = footprintsRef.current.get(draggingId)
     if (!aFP0) return false
     const dragItem = all.find((f) => f.id === draggingId)
-    const aFP = rotatedHalf(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
+    const aFP = rotatedHalfExtents(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
     const GAP = 0.03 // 3 cm minimum clearance
 
     for (const f of all) {
       if (f.id === draggingId) continue
       const bFP0 = footprintsRef.current.get(f.id)
       if (!bFP0) continue
-      const bFP = rotatedHalf(bFP0.hw, bFP0.hd, f.rotation)
+      const bFP = rotatedHalfExtents(bFP0.hw, bFP0.hd, f.rotation)
       const dx = Math.abs(nx - f.x / 1000)
       const dz = Math.abs(nz - f.y / 1000)
       if (dx < aFP.hw + bFP.hw + GAP && dz < aFP.hd + bFP.hd + GAP) return true
@@ -725,10 +694,10 @@ export function DraggableFurnitureModels({
       const hw0 = fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2
       const hd0 = fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2
       // Wall clamping must use the ROTATED extents, or a long model turned
-      // 90° gets its free axis locked against the walls
-      const { hw, hd } = rotatedHalf(hw0, hd0, item.rotation)
-      const WALL_MARGIN = 0.05 // 5 cm clearance from wall inner face
-      dragHalfRef.current = { w: hw + WALL_MARGIN, d: hd + WALL_MARGIN }
+      // 90° gets its free axis locked against the walls. The wall gap is the
+      // clamp's own business, so these stay the bare half-extents.
+      const { hw, hd } = rotatedHalfExtents(hw0, hd0, item.rotation)
+      dragHalfRef.current = { w: hw, d: hd }
       dragPosRef.current.set(item.x / 1000, 0, item.y / 1000)
       document.body.style.cursor = 'grabbing'
     } else if (toolMode === 'rotate') {
@@ -758,6 +727,12 @@ export function DraggableFurnitureModels({
   // very first press.
   function startDragFromMesh(item: PlacedFurniture, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
+    // Hold to delete rides along with the drag: it gives way as soon as the
+    // finger travels, so this still drags exactly as it did.
+    holdBind({
+      label: resolveDisplayInfo(item).name,
+      onDelete: () => onDelete(item.id),
+    }).onPointerDown(e)
     if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
     activateDrag(item, e.clientX, e.clientY)
   }
@@ -802,13 +777,20 @@ export function DraggableFurnitureModels({
         raycaster.setFromCamera(ndc, camera)
         if (!raycaster.ray.intersectPlane(floorPlane, hitPoint.current)) return
         const { w, d } = dragHalfRef.current
-        const halfW = roomW / 2
-        const halfD = roomD / 2
         const snap = 0.05
-        const rawX = Math.max(-halfW + w, Math.min(halfW - w, hitPoint.current.x))
-        const rawZ = Math.max(-halfD + d, Math.min(halfD - d, hitPoint.current.z))
-        const x = Math.round(rawX / snap) * snap
-        const z = Math.round(rawZ / snap) * snap
+        // Snap first, then clamp: snapping afterwards could nudge the model
+        // back out through the wall the clamp had just pulled it inside of.
+        const wantX = Math.round(hitPoint.current.x / snap) * snap
+        const wantZ = Math.round(hitPoint.current.z / snap) * snap
+        // The clamp works in the plan's frame (mm from the room's corner);
+        // the drag works in world metres about the room's centre.
+        const fitted = clampFootprintToRoom(
+          worldToPlan({ x: wantX, z: wantZ }, roomBounds),
+          worldToPlan({ x: dragPosRef.current.x, z: dragPosRef.current.z }, roomBounds),
+          halfExtentsToBounds(w * 1000, d * 1000),
+          roomBounds,
+        )
+        const { x, z } = planToWorld(fitted, roomBounds)
         // Only update position if it doesn't overlap another item
         if (!wouldCollide(draggingIdRef.current!, x, z)) {
           dragPosRef.current.set(x, 0, z)
@@ -833,7 +815,7 @@ export function DraggableFurnitureModels({
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId, toolMode, roomW, roomD])
+  }, [draggingId, toolMode, roomBounds])
 
   return (
     <>
@@ -857,7 +839,6 @@ export function DraggableFurnitureModels({
             selectedPartKey={selectedPart?.itemId === item.id ? selectedPart.partKey : null}
             onSelectPart={onSelectPart}
             displayInfo={resolveDisplayInfo(item)}
-            onDelete={onDelete}
           />
         </Suspense>
       ))}

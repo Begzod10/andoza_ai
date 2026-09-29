@@ -1,10 +1,10 @@
 import type * as React from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { WallCovering } from "@/store/roomStore";
 import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
 import type { PlasterFinish } from "@/lib/plasterFinishes";
-import { getWallTargets, CEILING_TARGET, resolveTargetWall, type WallTarget } from "./shared";
+import { getWallTargets, resolveTargetWall, type WallTarget } from "./shared";
 
 interface SuvoqSectionProps {
   selectedWall?: string | null;
@@ -17,6 +17,16 @@ interface SuvoqSectionProps {
     libraryLabel: string,
   ) => React.ReactNode;
   plasterUploadCovering: (url: string) => WallCovering;
+  /** Suvoq phase only: hide the wall-target chips, the generated beton
+   * finishes and every mapping control — the panel is just "upload an image /
+   * pick one from the library", and picking applies it to ALL walls with a
+   * fixed 100 cm × 100 cm UVW map. Shpaklovka keeps the full UI. */
+  simplified?: boolean;
+  /** Simplified mode: apply this library texture to every wall (clears
+   * per-wall overrides) with the fixed 100 cm mapping. */
+  applySuvoqTexture?: (url: string) => void;
+  /** Simplified mode: strip the texture from every wall. */
+  removeSuvoqTexture?: () => void;
 }
 
 /**
@@ -30,21 +40,73 @@ interface SuvoqSectionProps {
 export function SuvoqSection({
   selectedWall, onWallChange, applyWallCovering, handleSetPaintColor,
   renderTexturePicker, plasterUploadCovering,
+  simplified, applySuvoqTexture, removeSuvoqTexture,
 }: SuvoqSectionProps) {
   const wallCoverings = useRoomStore((s) => s.designState.wallCoverings);
   const geometry = useRoomStore((s) => s.geometry);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
 
-  const targetWall: WallTarget = resolveTargetWall(selectedWall);
-  const setTargetWall = (w: WallTarget) => onWallChange?.(w === 'ALL' ? null : w);
-  // ALL + one entry per actual wall in the room's own geometry, plus CEILING
-  // (this section never targets FLOOR) — recomputed whenever the room's
-  // walls change, so a hand-drawn polygon room's real wall ids show up here
-  // instead of a stale/nonexistent A/B/C/D set.
+  // ALL + one entry per actual wall in the room's own geometry — recomputed
+  // whenever the room's walls change, so a hand-drawn polygon room's real wall
+  // ids show up here instead of a stale/nonexistent A/B/C/D set.
+  //
+  // FLOOR and CEILING are deliberately NOT offered. Everything this section
+  // applies is a wall covering, and the 3D only ever reads `ALL` or a real
+  // `geometry.walls[].id` (resolveWallCovering → RoomShell), so a finish
+  // applied to either sentinel was written to a key nothing renders and
+  // silently did nothing — the same dead-key trap WallSection guards at its
+  // `targetWall !== 'FLOOR' && targetWall !== 'CEILING'` check.
   const wallTargets = useMemo(
-    () => [...getWallTargets(geometry), CEILING_TARGET],
+    () => getWallTargets(geometry),
     [geometry.walls],
   );
+
+  // `selectedWall` is shared with the 3D viewport and survives a phase change,
+  // so arriving here with the floor or ceiling still selected (ThreeDPage's
+  // surface radial menu sets both) would aim every pick at that same dead key.
+  // Fall back to ALL whenever the selection is not one of the chips above.
+  const rawTarget: WallTarget = resolveTargetWall(selectedWall);
+  const isWallTarget = wallTargets.some((w) => w.key === rawTarget);
+  const targetWall: WallTarget = isWallTarget ? rawTarget : 'ALL';
+  const setTargetWall = (w: WallTarget) => onWallChange?.(w === 'ALL' ? null : w);
+
+  // The parent derives the key it WRITES from the same shared `selectedWall`,
+  // so coercing the value locally would only fix the chip highlight. Clear the
+  // selection instead, which moves the parent's target to ALL as well.
+  useEffect(() => {
+    if (!isWallTarget) onWallChange?.(null);
+  }, [isWallTarget, onWallChange]);
+
+  // Suvoq phase: no wall targeting, no generated finishes, no mapping
+  // controls — upload/pick an image and it lands on every wall at a fixed
+  // 100 cm × 100 cm tile (the parent owns that application logic).
+  if (simplified) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq</h3>
+          <p className="text-[11px] text-gray-500 leading-snug">
+            Rasm yuklang yoki kutubxonadan tanlang — tekstura barcha devorlarga qo'llanadi.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {renderTexturePicker(
+            'plaster',
+            (url) => applySuvoqTexture?.(url),
+            'Rasm kutubxonasi',
+          )}
+        </div>
+
+        <button
+          onClick={() => removeSuvoqTexture?.()}
+          className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Teksturani olib tashlash
+        </button>
+      </section>
+    );
+  }
 
   const currentCoveringUrl = (() => {
     const c = targetWall === 'ALL' ? wallCoverings.ALL : (wallCoverings[targetWall] ?? wallCoverings.ALL);
@@ -53,7 +115,10 @@ export function SuvoqSection({
 
   function applyPlaster(finish: PlasterFinish) {
     const wallW = (geometry.walls.find((w) => w.id === 'A')?.length ?? 4000) / 1000;
-    const wallH = ceilingHeight > 0 ? ceilingHeight : 2.7;
+    // Millimetres in the store, metres here — see plasterUploadCovering in
+    // DesignPanel for the same conversion and what its absence looked like
+    // (repeatY in the thousands, so every finish rendered as flat grey).
+    const wallH = ceilingHeight > 0 ? ceilingHeight / 1000 : 2.7;
     const { repeatX, repeatY } = plasterRepeat(finish, wallW, wallH);
     applyWallCovering({
       kind: 'texture',

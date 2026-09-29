@@ -28,6 +28,18 @@ jobs:
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+
+          # Copy the script over and run it as a FILE — never
+          # `bash -s < deploy/remote-deploy.sh`. Piped that way the script IS
+          # the remote bash's stdin, so the first `docker compose exec` inside
+          # it reads stdin, swallows the rest of the script, and the deploy
+          # truncates silently with exit 0. `ssh -n` additionally gives the
+          # remote an empty stdin, so no command over there can consume the
+          # deploy itself no matter what gets added to the script later.
+          scp -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+              deploy/remote-deploy.sh \
+              "$DEPLOY_USER@$DEPLOY_HOST:/tmp/andoza-remote-deploy.sh"
+          ssh -n -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
               "$DEPLOY_USER@$DEPLOY_HOST" \
-              "APP_DIR='$DEPLOY_PATH' bash -s" < deploy/remote-deploy.sh
+              "APP_DIR='$DEPLOY_PATH' bash /tmp/andoza-remote-deploy.sh; \
+               rc=\$?; rm -f /tmp/andoza-remote-deploy.sh; exit \$rc"
