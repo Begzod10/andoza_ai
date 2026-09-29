@@ -7,6 +7,7 @@ import {
 } from "@/lib/ceilingDesigns";
 import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
 import { floorFinish } from "@/lib/surfaceFinish";
+import { parquetBoardsFor } from "@/lib/parquetBoards";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
@@ -284,9 +285,15 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   useEffect(() => { gl.localClippingEnabled = true; }, [gl]);
 
   const finish = useMemo(() => floorFinish(floorType), [floorType]);
+  // The boards a parquet is laid from, unless the user has chosen an image of
+  // their own — then that image is the whole floor.
+  const boards = useMemo(
+    () => parquetBoardsFor(floorType, pattern.settings?.textureUrl),
+    [floorType, pattern.settings?.textureUrl],
+  );
   const built = useMemo(
-    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon, finish),
-    [pattern, width, depth, fallbackColor, clipPolygon, finish],
+    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon, finish, boards.length || 1),
+    [pattern, width, depth, fallbackColor, clipPolygon, finish, boards.length],
   );
 
   useEffect(() => {
@@ -297,56 +304,69 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   // The plank image, hung on the shared material once loaded — separate from
   // the geometry build so picking a texture doesn't relay the whole floor
   // (the UVs are baked per plank and don't depend on which image it is).
-  const textureUrl = pattern.settings?.textureUrl || null;
+  // What each material wears: the user's own image on all of them, or one
+  // board each when the floor is laid from boards.
+  const urls = useMemo(
+    () => (boards.length ? boards : built.materials.map(() => pattern.settings?.textureUrl || null)),
+    [boards, built.materials, pattern.settings?.textureUrl],
+  );
+
   useEffect(() => {
-    const material = built.material;
-    if (!textureUrl) {
-      if (material.map) {
-        material.map.dispose();
-        material.map = null;
-        material.bumpMap = null;
-        material.needsUpdate = true;
-        invalidate();
-      }
-      return;
-    }
     let cancelled = false;
-    let mine: THREE.Texture | null = null;
-    // Same shared loader (and textureFetchUrl CORS/cache convention) the walls
-    // use; cloned before use, exactly like Wall does, so our copy owns its
-    // wrap/repeat settings and its disposal.
-    const unsub = requestSharedTexture(
-      textureUrl,
-      ({ tex }) => {
-        if (cancelled) return;
-        const t = tex.clone();
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.anisotropy = gl.capabilities.getMaxAnisotropy();
-        t.needsUpdate = true;
-        mine = t;
-        material.map?.dispose();
-        material.map = t;
-        // The diffuse doubles as the height: the dark line of a grout joint or
-        // a plank's shadow gap is exactly where the surface steps down, so the
-        // image already describes the relief. Bump rather than displacement —
-        // a plank is two triangles, with no vertices to move.
-        material.bumpMap = finish.bumpScale > 0 ? t : null;
-        material.bumpScale = finish.bumpScale;
-        material.needsUpdate = true;
-        invalidate();
-      },
-      () => { console.warn("[FloorCeiling] plank texture failed to load:", textureUrl); },
-    );
+    const mine: (THREE.Texture | null)[] = [];
+    const unsubs: Array<() => void> = [];
+
+    built.materials.forEach((material, i) => {
+      const url = urls[i] ?? null;
+      if (!url) {
+        if (material.map) {
+          material.map.dispose();
+          material.map = null;
+          material.bumpMap = null;
+          material.needsUpdate = true;
+        }
+        return;
+      }
+      // Same shared loader (and textureFetchUrl CORS/cache convention) the
+      // walls use; cloned before use, exactly like Wall does, so our copy owns
+      // its wrap/repeat settings and its disposal.
+      unsubs.push(requestSharedTexture(
+        url,
+        ({ tex }) => {
+          if (cancelled) return;
+          const t = tex.clone();
+          t.wrapS = t.wrapT = THREE.RepeatWrapping;
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.anisotropy = gl.capabilities.getMaxAnisotropy();
+          t.needsUpdate = true;
+          mine[i] = t;
+          material.map?.dispose();
+          material.map = t;
+          // The diffuse doubles as the height: the dark line of a grout joint
+          // or a plank's shadow gap is exactly where the surface steps down,
+          // so the image already describes the relief. Bump rather than
+          // displacement — a plank is two triangles, with no vertices to move.
+          material.bumpMap = finish.bumpScale > 0 ? t : null;
+          material.bumpScale = finish.bumpScale;
+          material.needsUpdate = true;
+          invalidate();
+        },
+        () => { console.warn("[FloorCeiling] plank texture failed to load:", url); },
+      ));
+    });
+    invalidate();
+
     return () => {
       cancelled = true;
-      unsub();
-      if (mine) {
-        if (material.map === mine) { material.map = null; material.bumpMap = null; material.needsUpdate = true; }
-        mine.dispose();
-      }
+      for (const u of unsubs) u();
+      built.materials.forEach((material, i) => {
+        const t = mine[i];
+        if (!t) return;
+        if (material.map === t) { material.map = null; material.bumpMap = null; material.needsUpdate = true; }
+        t.dispose();
+      });
     };
-  }, [built, textureUrl, gl, invalidate, finish]);
+  }, [built, urls, gl, invalidate, finish]);
 
   return <primitive object={built.group} position={[0, -0.004, 0]} />;
 }

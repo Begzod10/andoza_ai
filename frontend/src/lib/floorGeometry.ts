@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { surfaceFinish, type SurfaceFinish } from './surfaceFinish'
+import { boardIndexAt } from './parquetBoards'
 
 /**
  * Real-geometry floor laying patterns for the Pol phase — the FloorGenerator
@@ -877,9 +878,13 @@ export interface BuiltFloor {
   count: number
   /** Distinct InstancedMeshes (one per piece class). */
   classCount: number
-  /** Shared by every mesh — the caller hangs the plank texture on `.map`
-   *  once it has loaded, without rebuilding any geometry. */
+  /** The first material, and the only one when the floor is laid from a
+   *  single image — the caller hangs the plank texture on `.map` once it has
+   *  loaded, without rebuilding any geometry. */
   material: THREE.MeshStandardMaterial
+  /** One per board the floor is laid from: a parquet deals twelve different
+   *  boards out across the room, and each needs its own image. */
+  materials: THREE.MeshStandardMaterial[]
   dispose(): void
 }
 
@@ -909,6 +914,10 @@ export function buildFloorGroup(
   /** How the named material behaves in light. A tile is glossy, a parquet
    *  half so, and the same laying pattern in either should not look alike. */
   finish: SurfaceFinish = surfaceFinish('parquet'),
+  /** How many different boards the floor is laid from. One material per
+   *  board, and each plank drawn with the one its position picks — a real
+   *  floor is not one plank photographed a thousand times. */
+  boardCount = 1,
 ): BuiltFloor {
   const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor)
 
@@ -920,14 +929,16 @@ export function buildFloorGroup(
     new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2 + clip),
   ]
 
-  const material = new THREE.MeshStandardMaterial({
+  const boards = Math.max(1, boardCount)
+  const materials = Array.from({ length: boards }, () => new THREE.MeshStandardMaterial({
     color: 0xffffff, // real tone lives in the per-instance colours
     roughness: finish.roughness,
     metalness: finish.metalness,
     envMapIntensity: finish.envMapIntensity,
     clippingPlanes,
     vertexColors: true, // the baked AO rim on chamfer + sides
-  })
+  }))
+  const material = materials[0]
 
   // The room outline, forced CCW so "left of each edge" is the interior. No
   // outward expansion: the polygon shell's wall boxes sit centred on these
@@ -951,7 +962,10 @@ export function buildFloorGroup(
   const one = new THREE.Vector3(1, 1, 1)
   const yAxis = new THREE.Vector3(0, 1, 0)
   const color = new THREE.Color()
-  const merged = emptyPrismArrays()
+  // One merged buffer per board: the planks cut at a wall are real geometry
+  // rather than instances, and they have to wear the same board as their
+  // neighbours or the cut row would stand out.
+  const merged = Array.from({ length: boards }, () => emptyPrismArrays())
   let placed = 0
 
   for (const cls of classes) {
@@ -989,8 +1003,9 @@ export function buildFloorGroup(
         // The cut parts keep the UNCUT plank's uv frame, so a sawn plank
         // shows the matching part of the tile, not a squeezed whole one.
         const uvWorld = placeUvFrame(uvLocal, p.x, p.z, p.rot)
+        const bin = boardIndexAt(p.x, p.z, boards)
         for (const part of parts) {
-          appendChamferedPrism(merged, ensureCCW(part), PLANK_THICKNESS, resolved.bevelM, [c.r, c.g, c.b], uvWorld)
+          appendChamferedPrism(merged[bin], ensureCCW(part), PLANK_THICKNESS, resolved.bevelM, [c.r, c.g, c.b], uvWorld)
         }
         placed++
       }
@@ -1000,49 +1015,61 @@ export function buildFloorGroup(
     if (pieces.length > 0) {
       const geo = chamferedPrismGeometry(footprint, PLANK_THICKNESS, resolved.bevelM, uvLocal)
       geometries.push(geo)
-      const mesh = new THREE.InstancedMesh(geo, material, pieces.length)
-      pieces.forEach((p, i) => {
-        pos.set(p.x, 0, p.z)
-        // Generator rotations are CCW in (x,z) math coords; THREE's rotation
-        // about +Y is the mirror of that, hence the sign flip.
-        quat.setFromAxisAngle(yAxis, -p.rot)
-        m4.compose(pos, quat, one)
-        mesh.setMatrixAt(i, m4)
-        color.setStyle(shadeColor(resolved.baseColor, pieceShade(p, resolved)))
-        mesh.setColorAt(i, color)
+      // Split by board: instances in one mesh all draw with one material, so
+      // a floor laid from twelve boards is twelve meshes of the same geometry
+      // rather than one. Still a handful of draw calls, against a thousand
+      // planks that would otherwise all be the same photograph.
+      const byBoard: FloorPiece[][] = Array.from({ length: boards }, () => [])
+      for (const p of pieces) byBoard[boardIndexAt(p.x, p.z, boards)].push(p)
+
+      byBoard.forEach((group_, b) => {
+        if (group_.length === 0) return
+        const mesh = new THREE.InstancedMesh(geo, materials[b], group_.length)
+        group_.forEach((p, i) => {
+          pos.set(p.x, 0, p.z)
+          // Generator rotations are CCW in (x,z) math coords; THREE's rotation
+          // about +Y is the mirror of that, hence the sign flip.
+          quat.setFromAxisAngle(yAxis, -p.rot)
+          m4.compose(pos, quat, one)
+          mesh.setMatrixAt(i, m4)
+          color.setStyle(shadeColor(resolved.baseColor, pieceShade(p, resolved)))
+          mesh.setColorAt(i, color)
+        })
+        mesh.instanceMatrix.needsUpdate = true
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+        mesh.castShadow = false
+        mesh.receiveShadow = true
+        // Bounds would be computed from the base plank alone — planks span the
+        // whole room, so culling by that sphere blanks the floor mid-orbit.
+        mesh.frustumCulled = false
+        mesh.raycast = noRaycast
+        group.add(mesh)
       })
-      mesh.instanceMatrix.needsUpdate = true
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-      mesh.castShadow = false
-      mesh.receiveShadow = true
-      // Bounds would be computed from the base plank alone — planks span the
-      // whole room, so culling by that sphere blanks the floor mid-orbit.
-      mesh.frustumCulled = false
-      mesh.raycast = noRaycast
-      group.add(mesh)
       placed += pieces.length
     }
   }
 
-  if (merged.positions.length > 0) {
-    const geo = arraysToGeometry(merged)
+  merged.forEach((m, b) => {
+    if (m.positions.length === 0) return
+    const geo = arraysToGeometry(m)
     geometries.push(geo)
-    const mesh = new THREE.Mesh(geo, material)
+    const mesh = new THREE.Mesh(geo, materials[b])
     mesh.castShadow = false
     mesh.receiveShadow = true
     mesh.frustumCulled = false
     mesh.raycast = noRaycast
     group.add(mesh)
-  }
+  })
 
   return {
     group,
     count: outline ? placed : count,
     classCount: classes.length,
     material,
+    materials,
     dispose() {
       for (const g of geometries) g.dispose()
-      material.dispose()
+      for (const m of materials) m.dispose()
     },
   }
 }
