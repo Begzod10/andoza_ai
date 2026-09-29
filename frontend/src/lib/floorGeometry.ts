@@ -446,6 +446,9 @@ export interface FloorPieces {
   resolved: ResolvedFloorPattern
 }
 
+/** How far the laid pattern runs past the room outline, metres per side. */
+export const PATTERN_OVERHANG = 0.26
+
 /** Instance-count ceiling — a 6×5 m herringbone lands near 1k; this guards absurd
  *  inputs (tiny planks × huge room) by coarsening the planks instead of
  *  freezing the tab. */
@@ -463,8 +466,12 @@ export function computeFloorPieces(
   for (let attempt = 0; attempt < 3; attempt++) {
     const angle = (resolved.rotationDeg * Math.PI) / 180
     const ca = Math.abs(Math.cos(angle)), sa = Math.abs(Math.sin(angle))
-    const cw = W * ca + D * sa + 0.3
-    const ch = W * sa + D * ca + 0.3
+    // Pieces run past the room and are cut back at the walls. The overhang has
+    // to reach past the deepest thing that wants floor beyond them, which is a
+    // doorway niche (OPENING_REVEAL_D, 200 mm) — a 150 mm-per-side margin left
+    // the back of every doorway bare.
+    const cw = W * ca + D * sa + PATTERN_OVERHANG * 2
+    const ch = W * sa + D * ca + PATTERN_OVERHANG * 2
 
     const sheet = new Sheet()
     GENERATORS[def.id](resolved, cw, ch, sheet)

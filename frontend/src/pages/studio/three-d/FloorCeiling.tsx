@@ -351,6 +351,41 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   return <primitive object={built.group} position={[0, -0.004, 0]} />;
 }
 
+/**
+ * The same laid floor, drawn again and clipped to the doorway niches.
+ *
+ * The room's own floor is clipped at the wall line, so the 200 mm a door hangs
+ * in was left to a flat patch of colour — a different floor under every door.
+ * These patches are built from the SAME pattern, width and depth as the room's
+ * floor, so every plank and joint falls exactly where it would have: the only
+ * difference between the two is where they are cut.
+ */
+export function DoorwayFloors({ niches, pattern, width, depth, fallbackColor, floorType }: {
+  niches: { elId: string; polygon: [number, number][] }[];
+  pattern: FloorPatternState;
+  width: number;
+  depth: number;
+  fallbackColor: string;
+  floorType?: string;
+}) {
+  if (!niches.length) return null;
+  return (
+    <>
+      {niches.map((n) => (
+        <PatternFloor
+          key={n.elId}
+          pattern={pattern}
+          width={width}
+          depth={depth}
+          fallbackColor={fallbackColor}
+          clipPolygon={n.polygon}
+          floorType={floorType}
+        />
+      ))}
+    </>
+  );
+}
+
 
 // ─── Ceiling designs ──────────────────────────────────────────────────────────
 

@@ -15,9 +15,11 @@ import {
 import { ShadowShell } from "@/features/studio/shadowShell";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
-import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
+import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast, OPENING_REVEAL_D } from "./constants";
+import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { shadeCovering, boardSegments, trimSegments } from "./helpers";
-import { WoodFloor, Ceiling, PatternFloor, CeilingProfile } from "./FloorCeiling";
+import { WoodFloor, Ceiling, PatternFloor, CeilingProfile, DoorwayFloors } from "./FloorCeiling";
+import { doorwayNiches } from "@/lib/doorwayNiches";
 import { isAxisAlignedRectangle, outlineSpan } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
@@ -374,6 +376,17 @@ function NWallRoomShell({
 
   const hiddenEdges = useHiddenPolyEdges(cutaway, edges)
 
+  // The floor inside each doorway, in the same centred frame as the pattern.
+  // The per-edge frames come from the outline this shell already draws from,
+  // so a niche lands on its own wall however the room was drawn.
+  const niches = useMemo(() => {
+    const defs = wallDefsFromVertices(
+      filteredCentred.map(([x, z]) => [x * 1000, z * 1000] as [number, number]),
+      geometry.walls.map((w) => w.id),
+    )
+    return doorwayNiches(geometry.walls, 0, 0, defs, OPENING_REVEAL_D)
+  }, [filteredCentred, geometry.walls])
+
   // The ceiling design, for an outline the rectangular builder can serve.
   const ceilingParts = useMemo(() => {
     if (!isAxisAlignedRectangle(filteredCentred)) return []
@@ -426,14 +439,26 @@ function NWallRoomShell({
         />
       </mesh>
       {floorPattern && (
-        <PatternFloor
-          pattern={floorPattern}
-          width={patternExtents.W}
-          depth={patternExtents.D}
-          fallbackColor={floorBase}
-          clipPolygon={filteredCentred}
-          floorType={designState.floorType}
-        />
+        <>
+          <PatternFloor
+            pattern={floorPattern}
+            width={patternExtents.W}
+            depth={patternExtents.D}
+            fallbackColor={floorBase}
+            clipPolygon={filteredCentred}
+            floorType={designState.floorType}
+          />
+          {/* ...and on under each door, from the same pattern, so the joints
+              carry through rather than merely matching in colour. */}
+          <DoorwayFloors
+            niches={niches}
+            pattern={floorPattern}
+            width={patternExtents.W}
+            depth={patternExtents.D}
+            fallbackColor={floorBase}
+            floorType={designState.floorType}
+          />
+        </>
       )}
       </group>
 
@@ -824,6 +849,13 @@ export const RoomScene = memo(function RoomScene({
     mesh.raycast = ceilingHidden ? noRaycast : THREE.Mesh.prototype.raycast
   }, [ceilingHidden])
 
+  // The floor inside each doorway of a rectangular room. A, B, C and D need no
+  // per-edge frames — wallMountFrame knows them by name.
+  const abcdNiches = useMemo(
+    () => doorwayNiches(geometry.walls, W, D, {}, OPENING_REVEAL_D),
+    [geometry.walls, W, D],
+  )
+
   return (
     <group>
       {isLegacyAbcd ? (
@@ -838,6 +870,18 @@ export const RoomScene = memo(function RoomScene({
               isSelected={isFloorSelected}
               onClick={onFloorClick}
             />
+            {/* ...and on under each door, from the same pattern, so the joints
+                carry through rather than merely matching in colour. */}
+            {designState.floorPattern && (
+              <DoorwayFloors
+                niches={abcdNiches}
+                pattern={designState.floorPattern}
+                width={W}
+                depth={D}
+                fallbackColor={FLOOR_COLORS[designState.floorType] ?? FLOOR_COLORS.parquet}
+                floorType={designState.floorType}
+              />
+            )}
           </group>
 
           {/* Ceiling — always present for shadow casting; layer 2 in topView hides from camera.
