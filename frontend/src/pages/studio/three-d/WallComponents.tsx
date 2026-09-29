@@ -11,8 +11,10 @@ import { resolveElementPositions } from "@/lib/wallPositions";
 import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { buildTrimGeometry, type ResolvedTrim } from "@/lib/trimProfiles";
-import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast } from "./constants";
+import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimProfiles";
+import { useRoomStore } from "@/store/roomStore";
+import { DOOR_IVORY } from "@/lib/doorStyles";
+import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast, FLOOR_COLORS } from "./constants";
 import { trimSegments } from "./helpers";
 
 /**
@@ -772,6 +774,10 @@ const FRAME_W = 0.05; // 5cm frame width
 // proud of the reveal (reported on the window, then on the door). Not zero
 // only so the ring never goes coplanar with the reveal's exterior edge.
 const FRAME_T = 0.002;
+/** The architrave (nalichnik) around a door, on the room face: 70 mm across
+ *  the wall, standing 10 mm proud of it — the section the user specified. */
+const ARCH_W = 0.07;
+const ARCH_T = 0.01;
 // Named distinctly from the `s` used locally inside Wall's segment-building
 // useMemo (a few dozen lines up) to avoid shadowing it.
 const MM = 1 / 1000;
@@ -896,7 +902,64 @@ const windowSillLipMat = <meshStandardMaterial color="#D4C4B4" roughness={0.5} m
 // Shared by windows and doors so both openings read as the same wall.
 const windowRevealMat = <meshStandardMaterial color="#E7E1D6" roughness={0.85} metalness={0} envMapIntensity={0.3} />;
 const doorFrameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
-const doorThresholdMat = <meshStandardMaterial color="#5A4A3A" roughness={0.75} metalness={0.08} envMapIntensity={0.1} />;
+/** Painted trim, in the door's own colour. */
+const architraveMat = (color: string) => (
+  <meshStandardMaterial color={color} roughness={0.55} metalness={0.03} />
+);
+
+/**
+ * The floor of a doorway niche, in the room's own floor finish.
+ *
+ * It used to be a dark threshold plate, which read as a different floor laid
+ * in the opening — reported as exactly that. The room's floor stops at the
+ * wall line (its pattern is generated and clipped to the room outline), so the
+ * niche cannot simply be part of it; instead it takes the same colour and, for
+ * a floor with an image, the same image at the same tile size. The joints do
+ * not line up with the room's grid — the niche is a separate patch — but it is
+ * the same floor rather than a brown strip across the doorway.
+ */
+function DoorwayFloorMat({ wM, dM }: { wM: number; dM: number }) {
+  const designState = useRoomStore((st) => st.designState);
+  const pattern = designState.floorPattern ?? null;
+  const base = pattern?.settings?.baseColor
+    ?? FLOOR_COLORS[designState.floorType]
+    ?? "#C9AB7E";
+  const url = pattern?.settings?.textureUrl ?? designState.floorTexture ?? null;
+  const tileW = (pattern?.settings?.plankLengthCm ?? 60) / 100;
+  const tileD = (pattern?.settings?.plankWidthCm ?? 60) / 100;
+
+  const [tex, setTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    if (!url) { setTex(null); return; }
+    let live = true;
+    const cancel = requestSharedTexture(
+      url,
+      (e) => {
+        if (!live) return;
+        // Cloned so this patch's repeat doesn't fight the room's own use of
+        // the same image.
+        const t = e.tex.clone();
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(Math.max(0.1, wM / tileW), Math.max(0.1, dM / tileD));
+        t.needsUpdate = true;
+        setTex(t);
+      },
+      () => { if (live) setTex(null); },
+    );
+    return () => { live = false; cancel(); };
+  }, [url, wM, dM, tileW, tileD]);
+
+  useEffect(() => () => { tex?.dispose(); }, [tex]);
+
+  return (
+    <meshStandardMaterial
+      color={tex ? "#ffffff" : base}
+      map={tex ?? undefined}
+      roughness={0.55}
+      metalness={0.04}
+    />
+  );
+}
 
 /**
  * The three directions every framed opening needs, derived once from its wall.
@@ -1100,6 +1163,15 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   const [px, py, pz] = frameGroupOrigin(wd, el);
   const { out, revealYaw, v } = openingAxes(wd);
 
+  // The casing is painted with the door, so it follows the leaf's colour.
+  const leafColor = el.leafColor ?? DOOR_IVORY;
+  // Where the casing's legs stand: on the skirting, or on the floor when the
+  // room has none. `null` is the stored "deliberately no skirting"; undefined
+  // still draws the default board.
+  const skirtingState = useRoomStore((st) => st.designState.skirting);
+  const archBase = skirtingState === null ? 0 : resolveTrim(skirtingState, 'skirting').heightM;
+  const archLegH = Math.max(0.05, elH - archBase);
+
   // Flat trim ring at the reveal's outer edge — same construction as the
   // window's, so neither shows a lip inside the niche. Spanning exactly the
   // opening puts its outer sides against the reveal planes.
@@ -1112,7 +1184,10 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
           room's floor plane stops at the wall, so without this you would see
           straight through the 200 mm gap under the leaf. Threshold tone, flush
           with floor level — a plate to walk over, never a step up. */}
-      <OpeningReveal w={elW} h={elH} yaw={revealYaw} floorMat={doorThresholdMat} />
+      <OpeningReveal
+        w={elW} h={elH} yaw={revealYaw}
+        floorMat={<DoorwayFloorMat wM={elW} dM={OPENING_REVEAL_D} />}
+      />
 
       {/* Left frame */}
       <mesh position={v(-jamb, elH / 2, frC)}>
@@ -1132,15 +1207,33 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
         {doorFrameMat}
       </mesh>
 
-      {/* Threshold (door sill at floor level) with wear finish — always at
-          absolute world Y=0.01 regardless of the group's own Y, same as the
-          old hardcoded absolute position. It sits ON the reveal's floor plane
-          (different Y, so no z-fighting) and still breaks the line between
-          room floor and doorway. */}
-      <mesh position={[0, 0.01 - py, 0]}>
-        <boxGeometry args={v(elW, 0.01, FRAME_W)} />
-        {doorThresholdMat}
-      </mesh>
+      {/* The architrave, on the room face — two legs and a head, mitre-lapped
+          at the corners the way a fitted one is. `out` points away from the
+          room, so the casing stands proud along −out.
+
+          The legs start at the top of the skirting rather than at the floor:
+          the skirting runs on past the opening and under the casing (its run
+          only breaks for the opening itself), and a 10 mm casing cannot pass
+          in front of an 18 mm board — so on site the casing is cut to stand on
+          it, which is what the user asked for. With no skirting in the room
+          they run to the floor. */}
+      <group position={v(0, 0, -out * (ARCH_T / 2))}>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={v(side * (elW / 2 + ARCH_W / 2), archBase + archLegH / 2, 0)} castShadow>
+            <boxGeometry args={v(ARCH_W, archLegH, ARCH_T)} />
+            {architraveMat(leafColor)}
+          </mesh>
+        ))}
+        <mesh position={v(0, elH + ARCH_W / 2, 0)} castShadow>
+          <boxGeometry args={v(elW + ARCH_W * 2, ARCH_W, ARCH_T)} />
+          {architraveMat(leafColor)}
+        </mesh>
+      </group>
+
+      {/* No threshold plate. A dark bar laid across the doorway was the thing
+          that read as "a different floor under the door"; the niche carries
+          the room's own finish now, and a flat threshold in a flat is a strip
+          nobody asked for. */}
     </group>
   );
 }

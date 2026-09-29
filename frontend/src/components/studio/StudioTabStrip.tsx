@@ -48,6 +48,9 @@ function tabsFor(roomId: string): TabDef[] {
 }
 
 interface TabNav {
+  /** Every section, in order — so a strip with too few to cycle can simply
+   *  list them. */
+  all: TabDef[];
   current: TabDef;
   prev: TabDef;
   next: TabDef;
@@ -57,6 +60,7 @@ interface TabNav {
   next2: TabDef;
   goPrev: () => void;
   goNext: () => void;
+  goTo: (t: TabDef) => void;
 }
 
 export function useStudioTabNav(roomId: string): TabNav | null {
@@ -79,7 +83,9 @@ export function useStudioTabNav(roomId: string): TabNav | null {
   const next2 = tabs[(idx + 2) % n];
   // location.search carried along so any phase/query params survive the hop.
   const go = (t: TabDef) => navigate(t.to + location.search);
+  
   return {
+    all: tabs,
     current: tabs[idx],
     prev,
     next,
@@ -87,6 +93,7 @@ export function useStudioTabNav(roomId: string): TabNav | null {
     next2,
     goPrev: () => go(prev),
     goNext: () => go(next),
+    goTo: go,
   };
 }
 
@@ -221,6 +228,40 @@ export function StudioTabStrip({
   const swallowClickAfterDrag = (e: React.MouseEvent) => {
     if (draggedRef.current) e.preventDefault();
   };
+
+  // Two sections cannot be cycled: prev and next are both the other one, so
+  // the carousel showed it twice — "Smeta | 3D | Smeta". With this few, list
+  // them instead, one pill each.
+  const tooFewToCycle = nav.all.length <= 2;
+  if (tooFewToCycle) {
+    const pills = (
+      <div className={BAR_CLS} style={{ maxWidth: '100%' }}>
+        <div className="flex" style={{ gap: GAP }}>
+          {nav.all.map((t) => {
+            const isCurrent = t.seg === nav.current.seg;
+            return (
+              <button
+                key={t.seg}
+                type="button"
+                disabled={isCurrent}
+                onClick={() => nav.goTo(t)}
+                aria-current={isCurrent ? 'page' : undefined}
+                title={isCurrent ? t.label : `${t.label} bo'limiga o'tish`}
+                className={`${isCurrent ? CURRENT_CLS : SIDE_CLS} ${isCurrent ? '' : 'hover:opacity-100 hover:bg-gray-100'}`}
+                style={{ width: SLOT_MAX }}
+              >
+                <span className={LABEL_CLS}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+    if (variant === 'inline') return <div className="flex justify-center">{pills}</div>;
+    return (
+      <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-30 ${titleClassName}`}>{pills}</div>
+    );
+  }
 
   // Five slots so both edges stay filled through a full slot of travel; the
   // middle one is the current section, and the track is offset so it sits in
