@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { buildRadialItems } from './radialMenuItems'
 import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
+import { DOOR_STYLES } from '@/lib/doorStyles'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { WALL_COLORS } from '@/lib/wallPalette'
 import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
@@ -39,6 +40,8 @@ function harness() {
       applyWallColor: (hex: string) => calls.push(['color', hex]),
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
+      createDoorStyled: (w: string, p: unknown, styleId: string) =>
+        calls.push(['door', w, styleId]),
       setSkirting: (trim: { id: string }) => calls.push(['skirting', trim.id]),
       setCeilingDesign: (id: string) => calls.push(['ceiling', id]),
       setFloorPattern: (floorType: string, patternId: string, st: Record<string, unknown>) => {
@@ -100,6 +103,16 @@ describe('tapping a wall', () => {
       item.children![item.children!.length - 1].onSelect()
       expect(calls).toContainEqual(['panel', true])
     }
+  })
+
+  it('offers the leaf designs, and hangs the picked one on the tapped wall', () => {
+    const { calls, deps } = harness()
+    const eshik = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'door')!
+    expect(eshik.children!.length).toBe(DOOR_STYLES.length)
+    // Drawn, not iconised — the panel layout is the whole choice.
+    expect(eshik.children!.every((c) => c.fill != null)).toBe(true)
+    eshik.children!.find((c) => c.key === 'door:p032')!.onSelect()
+    expect(calls).toContainEqual(['door', 'A', 'p032'])
   })
 
   it('draws every window style, rather than one grid icon eighteen times', () => {

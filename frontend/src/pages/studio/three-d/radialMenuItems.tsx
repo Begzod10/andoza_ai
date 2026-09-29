@@ -6,6 +6,8 @@ import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { trimProfilesOf } from "@/lib/trimProfiles";
 import { WINDOW_STYLES } from "@/lib/windowStyles";
 import { WindowPreview } from "@/lib/windowPreview";
+import { DOOR_STYLES } from "@/lib/doorStyles";
+import { DoorPreview } from "@/lib/doorPreview";
 import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorControls";
 import { TileThumb } from "@/components/studio/TileThumb";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
@@ -66,6 +68,8 @@ export function buildRadialItems(
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
+    /** The same for a door, at the standard 900 x 2100. */
+    createDoorStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
     /** Lays the floor: a material and the pattern it is laid in. */
     setFloorPattern: (floorType: 'parquet' | 'tile', patternId: string, settings: FloorPatternSettings) => void;
     /** Reshapes the ceiling, keeping whatever settings it already had. */
@@ -74,7 +78,7 @@ export function buildRadialItems(
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening,
-    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled,
+    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled, createDoorStyled,
     setFloorPattern, setSkirting, setCeilingDesign,
   } = deps;
 
@@ -158,8 +162,19 @@ export function buildRadialItems(
         ],
       },
       {
+        // The leaf designs, as the windows do it: a door is 900 x 2100
+        // whatever style it wears, so the only question the ring has to ask
+        // is which one.
         key: 'door', label: 'Eshik', icon: RadialIcons.door,
+        childLabel: 'Eshik',
         onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
+        children: DOOR_STYLES.map((st) => ({
+          key: `door:${st.id}`,
+          label: st.label,
+          icon: RadialIcons.door,
+          fill: <DoorPreview styleId={st.id} />,
+          onSelect: () => { if (r.wallId) createDoorStyled(r.wallId, r.point, st.id); },
+        })),
       },
       {
         // Sockets and switches belong to a wall and to a spot on it, which is

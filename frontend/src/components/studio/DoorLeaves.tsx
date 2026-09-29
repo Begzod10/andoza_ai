@@ -13,12 +13,16 @@ import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { OPENING_REVEAL_D, WINDOW_SASH_RECESS } from "@/pages/studio/three-d/constants";
+import { DOOR_IVORY, doorStyle, panelFlutes } from "@/lib/doorStyles";
+import { buildPanelGeometry, innerPanel } from "@/lib/doorPanelGeometry";
 
 export type DoorToolMode = "select" | "move" | "rotate" | "scale";
 
 const S = 1 / 1000;
 const SNAP_MM = 5;
 const LEAF_T = 0.04; // leaf thickness in metres
+/** The sheet's door furniture is brass, not the chrome the studio drew. */
+const BRASS = "#B8985A";
 /**
  * How far OUT of the room (along the wall normal) the door leaf — and with it
  * its hinge axis — is pushed, so the leaf hangs at the outer edge of the
@@ -48,7 +52,9 @@ const LIMITS = {
   window: { minW: 300, maxW: 3000, minH: 300,  maxH: 2400, minSill: 0,  maxSill: 1800 },
 } as const;
 
-const LEAF_COLORS = ["#C9A227", "#8B5E34", "#E8E2D8", "#5A5A5A", "#2F4858"];
+// Painted ivory first: it is what the MY-P sheet's doors are, and what a new
+// door is made in. The stains and the greys stay for a door that wants them.
+const LEAF_COLORS = [DOOR_IVORY, "#E8E2D8", "#C9A227", "#8B5E34", "#5A5A5A", "#2F4858"];
 const SASH_COLORS = ["#E8E2D8", "#FFFFFF", "#8B5E34", "#5A5A5A", "#2F4858"];
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -355,6 +361,64 @@ export function OpeningLeaves({
   );
 }
 
+/**
+ * One face's worth of moulding, for whichever style the door carries.
+ *
+ * The geometries are built per leaf size and thrown away with it: a door is
+ * resized rarely and there are a handful in a room, where caching across
+ * every door in the flat would mean holding geometry for sizes nothing is
+ * using any more.
+ */
+function LeafPanels({ styleId, leafW, leafH, color }: {
+  styleId?: string;
+  leafW: number;
+  leafH: number;
+  color: string;
+}) {
+  const style = doorStyle(styleId);
+
+  const panels = useMemo(() => {
+    const out: { geo: THREE.ExtrudeGeometry; key: string }[] = [];
+    style.panels.forEach((panel, i) => {
+      out.push({ geo: buildPanelGeometry(panel, leafW, leafH), key: `p${i}` });
+      if (panel.double) out.push({ geo: buildPanelGeometry(innerPanel(panel), leafW, leafH), key: `p${i}i` });
+    });
+    return out;
+  }, [style, leafW, leafH]);
+
+  const flutes = useMemo(
+    () => style.panels.filter((p) => p.fluted).flatMap((p, pi) =>
+      panelFlutes(p).map((f, i) => ({
+        key: `f${pi}-${i}`,
+        x: f.x * leafW,
+        y: ((f.y0 + f.y1) / 2) * leafH,
+        h: Math.max(0.01, (f.y1 - f.y0) * leafH),
+      }))),
+    [style, leafW, leafH],
+  );
+
+  useEffect(() => () => { panels.forEach((p) => p.geo.dispose()); }, [panels]);
+
+  return (
+    <group>
+      {panels.map((p) => (
+        <mesh key={p.key} geometry={p.geo} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.5} metalness={0.03} />
+        </mesh>
+      ))}
+      {/* Fluting: shallow grooves across the field, drawn as thin ribs — at
+          door scale the shadow between them is what the eye reads, and a rib
+          casts the same line as a groove. */}
+      {flutes.map((f) => (
+        <mesh key={f.key} position={[f.x, f.y, 0.005]}>
+          <boxGeometry args={[0.006, f.h, 0.003]} />
+          <meshStandardMaterial color={color} roughness={0.55} metalness={0.03} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function DoorLeaf({
   wf,
   el,
@@ -390,7 +454,7 @@ function DoorLeaf({
   const dir = hingeLeft ? 1 : -1;
   const swing = THREE.MathUtils.degToRad(angleDeg) * -dir;
 
-  const woodColor = el.leafColor ?? "#8B5E34";
+  const woodColor = el.leafColor ?? DOOR_IVORY;
   // Scenery gets no hover affordance — nothing happens if you click it.
   const cursor = !interactive ? ""
     : toolMode === "select" ? "pointer"
@@ -436,15 +500,11 @@ function DoorLeaf({
             <meshStandardMaterial color={woodColor} roughness={0.55} metalness={0.05} />
           </mesh>
 
-          {/* Two recessed panels per face — what reads as "a door" rather than a slab */}
+          {/* The style's own panels, moulded into both faces — what reads as
+              "a door" rather than a slab. */}
           {[1, -1].map((face) => (
-            <group key={face} position={[0, 0, (face * LEAF_T) / 2 + face * 0.001]}>
-              {[0.26, -0.22].map((yFrac, i) => (
-                <mesh key={i} position={[0, leafH * yFrac, 0]}>
-                  <boxGeometry args={[leafW * 0.66, leafH * (i === 0 ? 0.34 : 0.38), 0.004]} />
-                  <meshStandardMaterial color={woodColor} roughness={0.42} metalness={0.04} />
-                </mesh>
-              ))}
+            <group key={face} position={[0, 0, (face * LEAF_T) / 2]} rotation={[0, face > 0 ? 0 : Math.PI, 0]}>
+              <LeafPanels styleId={el.styleId} leafW={leafW} leafH={leafH} color={woodColor} />
             </group>
           ))}
 
@@ -455,11 +515,11 @@ function DoorLeaf({
               <group key={face} position={[0, 0, face * (LEAF_T / 2 + 0.018)]}>
                 <mesh rotation={[Math.PI / 2, 0, 0]}>
                   <cylinderGeometry args={[0.017, 0.017, 0.036, 16]} />
-                  <meshStandardMaterial color="#C0C4C8" roughness={0.28} metalness={0.85} />
+                  <meshStandardMaterial color={BRASS} roughness={0.3} metalness={0.85} />
                 </mesh>
                 <mesh position={[-dir * 0.05, 0, 0]}>
                   <boxGeometry args={[0.1, 0.022, 0.022]} />
-                  <meshStandardMaterial color="#C0C4C8" roughness={0.28} metalness={0.85} />
+                  <meshStandardMaterial color={BRASS} roughness={0.3} metalness={0.85} />
                 </mesh>
               </group>
             ))}

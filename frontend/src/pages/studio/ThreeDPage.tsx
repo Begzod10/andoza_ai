@@ -398,6 +398,8 @@ export default function ThreeDPage() {
   /** The window the ring last made, so picking another style changes that one
    *  instead of adding a second window on top of it. */
   const lastStyledWindow = useRef<StyledWindow | null>(null);
+  /** The same, for doors. */
+  const lastStyledDoor = useRef<StyledWindow | null>(null);
 
   /** Papers the tapped wall — or every wall, when the tap carried none. */
   function applyWallpaperTo(wallId: string | undefined, url: string) {
@@ -445,6 +447,37 @@ export default function ThreeDPage() {
     const wall = useRoomStore.getState().geometry.walls.find((w) => w.id === wallId);
     const added = wall?.elements?.[wall.elements.length - 1];
     lastStyledWindow.current = added ? { spot, wallId, id: added.id } : null;
+    setSelectedWall(wallId);
+  }
+
+  /**
+   * A door of a chosen style, at the tapped spot, at the standard 900 x 2100.
+   *
+   * Same rule as the windows: the ring stays open, so a second style is the
+   * user reconsidering the door in front of them rather than asking for
+   * another one beside it.
+   */
+  function createDoorStyled(
+    wallId: string,
+    point: { x: number; y: number; z: number } | undefined,
+    styleId: string,
+  ) {
+    const g = wallGeom(wallId);
+    if (!g || !point) return;
+
+    const spot = windowSpotKey(wallId, point);
+    const last = lastStyledDoor.current;
+    const wallNow = useRoomStore.getState().geometry.walls.find((w) => w.id === last?.wallId);
+    if (restylesExisting(last, spot, wallNow?.elements)) {
+      updateElement(last.wallId, last.id, { styleId });
+      return;
+    }
+
+    const { position, sill_height } = computeOpeningRect(g, point, 900, 2100, true);
+    addElement(wallId, { type: 'eshik', width: 900, height: 2100, sill_height, position, styleId });
+    const wall = useRoomStore.getState().geometry.walls.find((w) => w.id === wallId);
+    const added = wall?.elements?.[wall.elements.length - 1];
+    lastStyledDoor.current = added ? { spot, wallId, id: added.id } : null;
     setSelectedWall(wallId);
   }
 
@@ -885,6 +918,7 @@ export default function ThreeDPage() {
           applyWallColor: (hex) =>
             useRoomStore.getState().setWallCovering(resolveTargetWall(r.wallId ?? null), { kind: 'paint', color: hex }),
           createWindowStyled,
+          createDoorStyled,
           setFloorPattern: (floorType, patternId, settings) =>
             useRoomStore.getState().setDesignState({
               floorType,
