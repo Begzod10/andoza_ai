@@ -52,5 +52,12 @@ export function tileSettings(size: TileSize, face: TileFace) {
     textureUrl: face.url,
     baseColor: face.url ? '#ffffff' : undefined,
     textureRotation: (size.lengthCm > size.widthCm ? 90 : 0) as 0 | 90,
+    // Tile is laid in the stack bond, whose OWN numbers are a wide oak
+    // board's — a fat arris and heavy tone variation, which on porcelain
+    // reads as a bad print. A tile's joint is grout, and one tile looks much
+    // like the next.
+    gapMm: 3.5,
+    bevelMm: 0.8,
+    colorVariation: 0.12,
   }
 }

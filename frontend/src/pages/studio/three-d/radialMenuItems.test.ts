@@ -260,12 +260,15 @@ describe('tapping the floor', () => {
       .toEqual(['parket', 'kafel'])
   })
 
-  it('lays the picked parquet pattern at its own plank size', () => {
-    const { calls, deps } = harness()
+  it('lays the picked parquet pattern with the pattern\'s own numbers', () => {
+    // No overrides from the ring: the sizes, the arris and the tone variation
+    // all belong to the pattern now, so passing any of them here would only
+    // be a chance to disagree with it.
+    const { calls, settings, deps } = harness()
     const parket = buildRadialItems(FLOOR!, deps as never).find((i) => i.key === 'parket')!
-    const def = FLOOR_PATTERN_DEFS.find((d) => d.id === 'chevron')!
     parket.children!.find((c) => c.key === 'parket:chevron')!.onSelect()
-    expect(calls).toContainEqual(['floor', 'parquet', 'chevron', def.defaultLengthCm, def.defaultWidthCm])
+    expect(calls).toContainEqual(['floor', 'parquet', 'chevron', undefined, undefined])
+    expect(settings[0]).toEqual({})
   })
 
   it('offers the tile sizes, 600x600 first', () => {

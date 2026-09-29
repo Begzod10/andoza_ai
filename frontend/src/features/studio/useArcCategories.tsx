@@ -134,16 +134,10 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       label: def.label,
       fill: <PatternThumb def={def} color={baseColor} textureUrl={carriedTexture} />,
       onSelect: () => {
-        // The panel's own rule: keep the tone and joint knobs already dialed
-        // in, take the new pattern's classic plank sizes, and carry any floor
-        // image over as the plank texture.
-        const prev = floorPattern?.settings
+        // The panel's own rule: take the pattern's own numbers — its plank
+        // sizes, its arris, its tone variation — and carry over only a floor
+        // image, which is a choice about the wood rather than the laying.
         const kept: FloorPatternSettings = {}
-        if (prev?.baseColor != null) kept.baseColor = prev.baseColor
-        if (prev?.gapMm != null) kept.gapMm = prev.gapMm
-        if (prev?.bevelMm != null) kept.bevelMm = prev.bevelMm
-        if (prev?.colorVariation != null) kept.colorVariation = prev.colorVariation
-        if (prev?.rotationDeg != null) kept.rotationDeg = prev.rotationDeg
         if (carriedTexture) kept.textureUrl = carriedTexture
         setDesignState({ floorPattern: { id: def.id as FloorPatternId, settings: kept }, floorConfigured: true })
       },

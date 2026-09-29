@@ -45,13 +45,13 @@ export function FloorPatternGroup() {
    *  A whole-floor image already chosen carries over as the plank texture, so
    *  laying a pattern over it keeps showing the wood the user picked. */
   function applyPattern(id: FloorPatternId) {
+    // Each pattern carries its own joint and tone numbers now, so switching
+    // takes them rather than dragging the last pattern's knobs along: a
+    // herringbone laid with a brick bond's arris is not the herringbone the
+    // user picked off the sheet. Only an image of their own carries over,
+    // since that is a choice about the wood and not about the laying.
     const prev = floorPattern?.settings;
     const kept: FloorPatternSettings = {};
-    if (prev?.baseColor != null) kept.baseColor = prev.baseColor;
-    if (prev?.gapMm != null) kept.gapMm = prev.gapMm;
-    if (prev?.bevelMm != null) kept.bevelMm = prev.bevelMm;
-    if (prev?.colorVariation != null) kept.colorVariation = prev.colorVariation;
-    if (prev?.rotationDeg != null) kept.rotationDeg = prev.rotationDeg;
     const carried = prev?.textureUrl ?? floorTexture ?? null;
     if (carried) kept.textureUrl = carried;
     setDesignState({

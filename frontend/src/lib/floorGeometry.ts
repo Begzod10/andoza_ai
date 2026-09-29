@@ -82,17 +82,28 @@ export interface FloorPatternDef {
   usesLength: boolean
   defaultLengthCm: number
   defaultWidthCm: number
+  /**
+   * The joint and tone knobs this pattern is laid with, dialled in by the user
+   * per pattern (2026-09-30). A herringbone wants a fine 1 mm arris and plenty
+   * of tone variation; a brick bond of wide boards wants half that arris and
+   * more variation still. One set of numbers for all six made every pattern
+   * look like the same floor cut differently.
+   */
+  defaultGapMm: number
+  defaultBevelMm: number
+  /** 0-1. */
+  defaultVariation: number
   /** Side of the square region the picker thumbnail shows, metres. */
   thumbSpanM: number
 }
 
 export const FLOOR_PATTERN_DEFS: FloorPatternDef[] = [
-  { id: 'herringbone',         label: 'Herringbone',         usesLength: true,  defaultLengthCm: 49,  defaultWidthCm: 7,  thumbSpanM: 1.35 },
-  { id: 'double_herringbone',  label: 'Double Herringbone',  usesLength: true,  defaultLengthCm: 48,  defaultWidthCm: 8,  thumbSpanM: 1.6 },
-  { id: 'chevron',             label: 'Chevron',             usesLength: true,  defaultLengthCm: 55,  defaultWidthCm: 9,  thumbSpanM: 1.4 },
-  { id: 'wood_strip',          label: 'Wood Strip',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 12, thumbSpanM: 1.6 },
-  { id: 'brick_bond',          label: 'Brick Bond',          usesLength: true,  defaultLengthCm: 90,  defaultWidthCm: 15, thumbSpanM: 1.7 },
-  { id: 'stake_bond',          label: 'Stake Bond',          usesLength: true,  defaultLengthCm: 60,  defaultWidthCm: 20, thumbSpanM: 1.7 },
+  { id: 'herringbone',         label: 'Herringbone',         usesLength: true,  defaultLengthCm: 49,  defaultWidthCm: 7,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.35 },
+  { id: 'double_herringbone',  label: 'Double Herringbone',  usesLength: true,  defaultLengthCm: 48,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.6 },
+  { id: 'chevron',             label: 'Chevron',             usesLength: true,  defaultLengthCm: 55,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.4 },
+  { id: 'wood_strip',          label: 'Wood Strip',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.6 },
+  { id: 'brick_bond',          label: 'Brick Bond',          usesLength: true,  defaultLengthCm: 90,  defaultWidthCm: 15, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
+  { id: 'stake_bond',          label: 'Stake Bond',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
 ]
 
 const BY_ID = new Map(FLOOR_PATTERN_DEFS.map((d) => [d.id, d]))
@@ -273,14 +284,14 @@ export function resolveFloorPattern(
     // 1200 x 600 came out 1200 x 400. Same ceiling as the length now, so a
     // square tile stays square.
     wM: clamp(s.plankWidthCm ?? def.defaultWidthCm, MIN_PIECE_CM, MAX_PIECE_CM) / 100,
-    gapM: clamp(s.gapMm ?? DEFAULT_GAP_MM, 0, 8) / 1000,
-    bevelM: clamp(s.bevelMm ?? DEFAULT_BEVEL_MM, 0, 3) / 1000,
+    gapM: clamp(s.gapMm ?? def.defaultGapMm ?? DEFAULT_GAP_MM, 0, 8) / 1000,
+    bevelM: clamp(s.bevelMm ?? def.defaultBevelMm ?? DEFAULT_BEVEL_MM, 0, 3) / 1000,
     // Untextured: the wood colour itself. Textured: a tint multiplied over
     // the image, so an unset colour must be white and not the floor type's tan.
     baseColor: s.baseColor ?? (textureUrl ? '#ffffff' : fallbackBaseColor),
     textureUrl,
     textureRotation: s.textureRotation === 90 ? 90 : 0,
-    variation: clamp(s.colorVariation ?? 0.5, 0, 1),
+    variation: clamp(s.colorVariation ?? def.defaultVariation ?? 0.5, 0, 1),
     rotationDeg: s.rotationDeg === 45 || s.rotationDeg === 90 ? s.rotationDeg : 0,
   }
 }

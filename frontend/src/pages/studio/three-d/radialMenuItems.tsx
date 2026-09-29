@@ -315,10 +315,9 @@ export function buildRadialItems(
         label: def.label,
         icon: RadialIcons.floor,
         fill: <PatternThumb def={def} color={FLOOR_COLORS.parquet} />,
-        onSelect: () => setFloorPattern('parquet', def.id, {
-          plankLengthCm: def.defaultLengthCm,
-          plankWidthCm: def.defaultWidthCm,
-        }),
+        // No overrides: the pattern's own sizes, arris and tone variation are
+        // what it is laid with.
+        onSelect: () => setFloorPattern('parquet', def.id, {}),
       })),
     },
     {
