@@ -59,12 +59,16 @@ export const WINDOW_SASH_RECESS = OPENING_REVEAL_D - 0.005;
 
 // ─── Wall-mounted electrical devices ─────────────────────────────────────────
 
+// Plate sizes from the Chameleon range these are modelled on (see
+// Faceplates.tsx): the 80 mm square plate carries one gang OR two — a
+// two-gang switch is two rockers on one plate, not a wider plate — and two
+// sockets side by side need the 150 mm one.
 export const ELECTRICAL_DIMS: Record<string, { w: number; h: number }> = {
-  switch1:      { w: 0.08, h: 0.08 },
-  switch2:      { w: 0.14, h: 0.08 },
-  socket1:      { w: 0.08, h: 0.08 },
-  socket2:      { w: 0.14, h: 0.08 },
-  socket_media: { w: 0.18, h: 0.08 },
+  switch1:      { w: 0.081, h: 0.081 },
+  switch2:      { w: 0.081, h: 0.081 },
+  socket1:      { w: 0.081, h: 0.081 },
+  socket2:      { w: 0.152, h: 0.081 },
+  socket_media: { w: 0.152, h: 0.081 },
   // panel is a cabinet, not a thin faceplate
   panel:        { w: 0.40, h: 0.50 },
   // a split unit's indoor half — a long shallow box, not a faceplate

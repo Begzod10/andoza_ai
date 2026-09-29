@@ -14,6 +14,7 @@ import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
 import { CEILING_DESIGNS, type CeilingDesignId } from "@/lib/ceilingDesigns";
 import { CeilingPreview } from "@/lib/ceilingPreview";
 import { LightPreview } from "@/lib/lightPreview";
+import { FaceplatePreview } from "@/lib/faceplatePreview";
 
 /** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
  *  the default, and the one most floors are laid in. */
@@ -171,6 +172,9 @@ export function buildRadialItems(
           key: `el:${entry.type}`,
           label: entry.label,
           icon: RadialIcons.socket,
+          // Each fitting drawn face-on, from the same range the 3D ones are
+          // modelled on: one socket icon repeated told the user nothing.
+          fill: <FaceplatePreview type={entry.type} />,
           onSelect: () => { if (r.wallId) placeElectrical(r.wallId, r.point, entry.type, entry.height); },
         })),
       },

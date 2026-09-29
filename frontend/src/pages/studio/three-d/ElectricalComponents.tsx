@@ -11,6 +11,7 @@ import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { wallDefsFromVertices, type PolyWallDef } from "@/lib/wallDefsFromVertices";
 import { alongWallM, wallMountFrame, wallMountPoint } from "@/lib/wallMountFrame";
 import { clearOfOpenings } from "@/lib/electricalClearance";
+import { Faceplate, PLATE_T } from "./Faceplates";
 
 /**
  * Wall-mounted electrical devices (switches, sockets, panels) and their
@@ -35,9 +36,11 @@ function DraggableElectricalItem({
   const dim = ELECTRICAL_DIMS[el.type] ?? { w: 0.08, h: 0.08 }
   // A faceplate is flush; a consumer unit is a cabinet; a split unit's indoor
   // half is a long shallow box hung off the wall.
-  const depth = isPanel ? 0.12 : isAc ? 0.2 : 0.018
-  const T = 0.004
-  const isSwitch = el.type.startsWith('switch')
+  const depth = isPanel ? 0.12 : isAc ? 0.2 : PLATE_T
+  // How far the back of the fitting sits off the wall face. A faceplate is
+  // screwed to it, so only enough to keep the two surfaces from z-fighting;
+  // the cabinet and the split unit hang clear.
+  const T = isPanel || isAc ? 0.004 : 0.0012
   const frame = useMemo(
     () => wallMountFrame(el.wallId, W, D, polyDefs),
     [el.wallId, W, D, polyDefs],
@@ -126,28 +129,7 @@ function DraggableElectricalItem({
       onPointerDown={onPointerDown}
       onPointerEnter={() => { document.body.style.cursor = 'grab' }}
       onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
-      <mesh castShadow>
-        <boxGeometry args={[dim.w, dim.h, depth]} />
-        <meshStandardMaterial color="#F5F5F0" roughness={0.5} metalness={0.05}
-          emissive={isDragging ? '#4466AA' : '#000'} emissiveIntensity={isDragging ? 0.1 : 0}/>
-      </mesh>
-      {isSwitch ? (
-        <mesh position={[0, 0.005, depth / 2 + 0.001]}>
-          <boxGeometry args={[dim.w * 0.7, dim.h * 0.55, 0.004]} />
-          <meshStandardMaterial color="#1B3784" roughness={0.4} metalness={0.1} />
-        </mesh>
-      ) : (
-        <>
-          <mesh position={[-0.012, 0.008, depth / 2 + 0.001]}>
-            <cylinderGeometry args={[0.004, 0.004, 0.003, 12]} />
-            <meshStandardMaterial color="#1B3784" />
-          </mesh>
-          <mesh position={[0.012, 0.008, depth / 2 + 0.001]}>
-            <cylinderGeometry args={[0.004, 0.004, 0.003, 12]} />
-            <meshStandardMaterial color="#1B3784" />
-          </mesh>
-        </>
-      )}
+      <Faceplate type={el.type} w={dim.w} h={dim.h} isDragging={isDragging} />
     </group>
   )
 }

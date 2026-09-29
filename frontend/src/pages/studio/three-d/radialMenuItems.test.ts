@@ -134,6 +134,12 @@ describe('tapping a wall', () => {
     expect(calls).toContainEqual(['electrical', 'A', 'socket1', 300])
   })
 
+  it('draws each fitting, rather than one socket icon seven times', () => {
+    const { deps } = harness()
+    const elektr = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'elektr')!
+    expect(elektr.children!.every((c) => c.fill != null)).toBe(true)
+  })
+
   it('offers the air conditioner, at the height it hangs', () => {
     const { calls, deps } = harness()
     const elektr = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'elektr')!
