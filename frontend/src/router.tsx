@@ -19,6 +19,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// Public landing at "/" for guests; authenticated users skip straight to their
+// projects so "/" keeps behaving like the app entry for logged-in users.
+function LandingGate() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  if (isAuthenticated) return <Navigate to="/projects" replace />;
+  return withSuspense(<LandingPage />);
+}
+
 // ---------- Skeleton fallback ----------
 
 function PageSkeleton() {
@@ -73,14 +81,14 @@ const SharedRoomPage = lazy(() => import("@/pages/share/SharedRoomPage"));
 const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
 const DrawRoomPage = lazy(() => import("@/pages/scan/DrawRoomPage"));
-const LandingPage = lazy(() => import("@/pages/landing/LandingPage"));
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
 
 // ---------- Routes ----------
 
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: withSuspense(<LandingPage />),
+    element: <LandingGate />,
   },
   {
     path: "/login",

@@ -1,104 +1,79 @@
-import { ArrowRight, PlayCircle, LayoutGrid, Truck, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/Button";
-import { Logo } from "@/components/branding/Logo";
-import { GridBackdrop } from "./GridBackdrop";
-import { HeroMock } from "./HeroMock";
-import { FloatingObject } from "./FloatingObject";
-import { useSpotlight } from "./hooks/useSpotlight";
-import { useLanguage } from "./i18n/LanguageContext";
-import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
+import { Link } from "react-router-dom";
+import { useLang } from "./i18n";
+import ConveyorHero from "./ConveyorHero";
 
-export function Hero() {
-  const navigate = useNavigate();
-  const { ref: spotlightRef, onMouseMove } = useSpotlight<HTMLElement>();
-  const { t } = useLanguage();
+// ─── Hero ────────────────────────────────────────────────────────────────────
+
+export default function Hero() {
+  const { t } = useLang();
 
   return (
-    <section
-      ref={spotlightRef}
-      onMouseMove={onMouseMove}
-      className="relative overflow-hidden bg-primary text-white"
-    >
-      <GridBackdrop className="landing-grid-drift" />
-      <div aria-hidden="true" className="landing-spotlight pointer-events-none absolute inset-0" />
-      <div
-        aria-hidden="true"
-        className="landing-blob-drift absolute -top-24 -right-24 w-96 h-96 rounded-full bg-secondary/30 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="landing-blob-drift absolute bottom-0 left-1/3 w-72 h-72 rounded-full bg-orange/10 blur-3xl"
-        style={{ animationDelay: "3s" }}
-      />
+    <main className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-8 text-center sm:pt-14 lg:pt-20">
+      {/* eyebrow */}
+      <span className="animate-rise-in mb-7 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white/70 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-500 backdrop-blur">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#3b7fff]" />
+        {t.hero.eyebrow}
+      </span>
 
-      {/* Feature illustrations filling the otherwise-empty background —
-          floor plan, order delivery, before/after transformation. */}
-      <FloatingObject icon={LayoutGrid} tint="primary" className="w-12 h-12 top-24 right-[40%] hidden xl:flex" />
-      <FloatingObject
-        icon={Truck}
-        tint="orange"
-        floatDelayed
-        className="w-14 h-14 bottom-10 right-[8%] hidden lg:flex"
-      />
-      <FloatingObject
-        icon={Sparkles}
-        tint="primary"
-        className="w-11 h-11 bottom-1/3 left-[3%] hidden xl:flex"
-      />
-
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-20 sm:pt-10 sm:pb-28">
-        <header className="flex items-center justify-between mb-16 sm:mb-24 gap-3">
-          <Logo variant="horizontal" theme="dark" width={140} height={46} />
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="landing-keycap landing-keycap--white landing-keycap--sm landing-focus-ring !text-primary"
-              onClick={() => navigate("/login")}
-            >
-              {t.hero.kirish}
-            </Button>
-          </div>
-        </header>
-
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
-          <div className="landing-hero-in">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase text-warning-bright">
-              {t.hero.eyebrow}
-            </span>
-            <h1 className="mt-5 text-4xl sm:text-5xl lg:text-h1 font-extrabold leading-[1.08]">
-              {t.hero.headlinePre}
-              <span className="text-warning-bright">{t.hero.headlineHighlight}</span>
-              {t.hero.headlinePost}
-            </h1>
-            <p className="mt-5 text-lg text-white/80 max-w-xl">{t.hero.subheadline}</p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button
-                size="lg"
-                className="landing-keycap landing-keycap--orange landing-focus-ring !text-white"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
-                rightIcon={<ArrowRight className="w-5 h-5" />}
-                onClick={() => navigate("/projects")}
-              >
-                {t.hero.ctaPrimary}
-              </Button>
-              <a
-                href="#qanday-ishlaydi"
-                className="landing-focus-ring rounded-md inline-flex items-center gap-2 text-white/90 font-semibold hover:text-white transition-colors"
-              >
-                <PlayCircle className="w-5 h-5" /> {t.hero.ctaSecondary}
-              </a>
-            </div>
-            <p className="mt-4 text-sm text-white/60">{t.hero.disclaimer}</p>
-          </div>
-
-          <div className="landing-hero-in-delayed">
-            <HeroMock />
-          </div>
-        </div>
+      {/* floating app glyph */}
+      <div className="animate-float mb-7 grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-[0_18px_45px_-15px_rgba(30,41,59,0.35)] ring-1 ring-black/5 sm:h-[68px] sm:w-[68px]">
+        <span className="grid grid-cols-2 gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#3b7fff]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
+          <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
+          <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
+        </span>
       </div>
-    </section>
+
+      <h1 className="animate-rise-in text-[38px] font-extrabold leading-[1.04] tracking-tight sm:text-6xl lg:text-[76px]">
+        {t.hero.title1}
+        <br />
+        <span className="bg-gradient-to-r from-[#3b7fff] via-[#7aa5ff] to-neutral-400 bg-clip-text text-transparent">
+          {t.hero.title2}
+        </span>
+      </h1>
+
+      <p
+        className="animate-rise-in mt-6 max-w-lg text-base text-neutral-500 sm:text-lg"
+        style={{ animationDelay: "0.08s" }}
+      >
+        {t.hero.subtitle}
+      </p>
+
+      <div
+        className="animate-rise-in mt-9 flex flex-col items-center gap-3 sm:flex-row"
+        style={{ animationDelay: "0.16s" }}
+      >
+        <Link
+          to="/login"
+          className="rounded-full bg-[#2563eb] px-7 py-3.5 text-sm font-bold text-white shadow-[0_16px_35px_-12px_rgba(37,99,235,0.7)] transition-transform hover:-translate-y-0.5 hover:bg-[#1d4ed8] active:translate-y-0"
+        >
+          {t.hero.primary}
+        </Link>
+        <a
+          href="#how"
+          className="inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-neutral-600 transition-colors hover:text-neutral-900"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-white shadow ring-1 ring-black/5">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+          {t.hero.secondary}
+        </a>
+      </div>
+
+      <p className="animate-rise-in mt-5 text-[13px] text-neutral-400" style={{ animationDelay: "0.22s" }}>
+        {t.hero.note}
+      </p>
+
+      {/* ── Main visual: PROBLEM → AndozaAI machine → SOLUTION conveyor ── */}
+      <div
+        className="animate-rise-in mt-14 w-full sm:mt-16"
+        style={{ animationDelay: "0.3s" }}
+      >
+        <ConveyorHero />
+      </div>
+    </main>
   );
 }

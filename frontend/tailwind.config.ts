@@ -204,6 +204,9 @@ const config: Config = {
         "scan-sweep": "scanSweep 2.6s linear infinite",
         "pulse-ring": "pulseRing 1.4s ease-out infinite",
         "soft-in": "softIn 0.22s cubic-bezier(0.16,1,0.3,1)",
+        "float": "floatY 6s ease-in-out infinite",
+        "float-slow": "floatY 8.5s ease-in-out infinite",
+        "rise-in": "riseIn 0.7s cubic-bezier(0.16,1,0.3,1) both",
       },
       keyframes: {
         popIn: {
@@ -229,6 +232,14 @@ const config: Config = {
         softIn: {
           "0%": { transform: "scale(0.86)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        floatY: {
+          "0%,100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-14px)" },
+        },
+        riseIn: {
+          "0%": { transform: "translateY(24px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
         },
       },
     },

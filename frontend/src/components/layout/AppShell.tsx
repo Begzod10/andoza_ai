@@ -1,8 +1,10 @@
 import type React from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { logoutApi } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
+import { ThemeToggle } from './ThemeToggle'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -190,12 +192,13 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
 
   return (
     <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-neutral-200 z-30">
-      {/* Logo */}
-      <div className="px-5 pt-8 pb-6">
+      {/* Logo + day/night toggle */}
+      <div className="px-5 pt-8 pb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src="/icon.svg" alt="AndozaAI" className="w-9 h-9 flex-shrink-0" />
           <span className="text-lg font-bold text-neutral-900">AndozaAI</span>
         </div>
+        <ThemeToggle />
       </div>
 
       {/* Nav */}
@@ -317,9 +320,24 @@ function BottomNav({ onFab }: { onFab: () => void }) {
 
 export function AppShell() {
   const [sheetOpen, setSheetOpen] = useState(false)
+  const theme = useThemeStore((s) => s.theme)
+  const syncFromClock = useThemeStore((s) => s.syncFromClock)
+
+  // Keep the theme following the system clock while in auto mode: re-check on
+  // mount and every 10 min so it flips at 06:00 / 18:00 without a reload.
+  useEffect(() => {
+    syncFromClock()
+    const id = window.setInterval(syncFromClock, 10 * 60 * 1000)
+    return () => window.clearInterval(id)
+  }, [syncFromClock])
+
+  // Drive the CSS var (global.css) that recolors ONLY the app background.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-app-theme', theme)
+  }, [theme])
 
   return (
-    <div className="flex min-h-screen bg-paper">
+    <div className="flex min-h-screen" style={{ backgroundColor: 'var(--color-app-bg)' }}>
       {/* Desktop: fixed sidebar */}
       <DesktopSidebar onNew={() => setSheetOpen(true)} />
 

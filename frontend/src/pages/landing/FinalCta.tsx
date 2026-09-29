@@ -1,60 +1,40 @@
-import { ArrowRight, Hammer, Palette } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/Button";
-import { Reveal } from "./Reveal";
-import { GridBackdrop } from "./GridBackdrop";
-import { FloatingObject } from "./FloatingObject";
-import { useLanguage } from "./i18n/LanguageContext";
+import { Link } from "react-router-dom";
+import { useLang } from "./i18n";
+import Reveal from "./Reveal";
 
-export function FinalCta() {
-  const navigate = useNavigate();
-  const { t } = useLanguage();
+export default function FinalCta() {
+  const { t } = useLang();
 
   return (
-    <section className="relative overflow-hidden py-20 sm:py-28 bg-paper">
-      <div
-        aria-hidden="true"
-        className="landing-blob-drift absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] rounded-full bg-primary-tint blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="landing-blob-drift absolute top-0 right-0 w-72 h-72 rounded-full bg-orange-tint blur-3xl"
-        style={{ animationDelay: "2.5s" }}
-      />
-      <FloatingObject icon={Hammer} tint="orange" className="w-14 h-14 top-10 left-[8%] hidden lg:flex" />
-      <FloatingObject
-        icon={Palette}
-        tint="primary"
-        floatDelayed
-        className="w-14 h-14 bottom-10 right-[8%] hidden lg:flex"
-      />
+    <section className="relative z-10 mx-auto max-w-6xl px-6 py-16 sm:py-20">
+      <Reveal className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1d4ed8] via-[#2563eb] to-[#3b7fff] px-8 py-14 text-center shadow-[0_40px_80px_-30px_rgba(37,99,235,0.7)] sm:px-16 sm:py-20">
+        {/* soft texture + glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.6) 1px, transparent 1.4px)",
+            backgroundSize: "22px 22px",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-16 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-white/20 blur-3xl"
+        />
 
-      {/* A closing "card" rather than bare centered text floating on the
-          section background — echoes the navy anchor tiles used in
-          Problem/Solution/Pricing so the page reads as one system, and
-          gives this section its own structural identity instead of
-          riding entirely on the decorative icons around it. */}
-      <Reveal className="relative max-w-3xl mx-auto px-4 sm:px-6">
-        <div className="relative overflow-hidden rounded-3xl bg-primary text-center px-8 py-14 sm:px-16 sm:py-16 shadow-2xl">
-          <GridBackdrop className="landing-grid-drift" />
-          <div className="relative">
-            <h2 className="text-3xl sm:text-h2 font-extrabold text-white">
-              {t.finalCta.headingPre}
-              <span className="text-warning-bright">{t.finalCta.headingHighlight}</span>
-            </h2>
-            <p className="mt-4 text-white/75 text-lg max-w-xl mx-auto">{t.finalCta.subheading}</p>
-            <div className="mt-8">
-              <Button
-                size="lg"
-                className="landing-keycap landing-keycap--orange landing-focus-ring !text-white"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
-                rightIcon={<ArrowRight className="w-5 h-5" />}
-                onClick={() => navigate("/projects")}
-              >
-                {t.finalCta.cta}
-              </Button>
-            </div>
-          </div>
+        <div className="relative">
+          <h2 className="mx-auto max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+            {t.finalCta.heading}
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base text-blue-100 sm:text-lg">
+            {t.finalCta.subtitle}
+          </p>
+          <Link
+            to="/login"
+            className="mt-8 inline-flex items-center rounded-full bg-white px-8 py-3.5 text-sm font-bold text-[#1d4ed8] shadow-[0_16px_35px_-12px_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+          >
+            {t.finalCta.button}
+          </Link>
         </div>
       </Reveal>
     </section>

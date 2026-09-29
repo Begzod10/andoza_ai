@@ -1,33 +1,53 @@
-import type { ReactNode, Ref } from "react";
-import { useInView } from "./hooks/useInView";
+import { useEffect, useRef, useState } from "react";
 
-interface RevealProps {
-  children: ReactNode;
-  delayMs?: number;
+/**
+ * Fades + rises its children into view the first time they enter the viewport.
+ * Falls back to visible if IntersectionObserver is unavailable.
+ */
+export default function Reveal({
+  children,
+  delay = 0,
+  className,
+  as: Tag = "div",
+}: {
+  children: React.ReactNode;
+  /** delay in seconds before the rise-in animation plays */
+  delay?: number;
   className?: string;
-  /** Root element tag — use "li" inside an <ol>/<ul> to keep valid HTML. */
-  as?: "div" | "li";
-}
+  as?: "div" | "section" | "li";
+}) {
+  const ref = useRef<HTMLElement | null>(null);
+  const [shown, setShown] = useState(false);
 
-// Fades + slides a section's children in once they scroll into view.
-export function Reveal({ children, delayMs = 0, className = "", as = "div" }: RevealProps) {
-  // The DOM node always matches `as`; the union ref type just needs a single
-  // narrowing cast per branch below to satisfy each intrinsic element's prop.
-  const { ref, isVisible } = useInView<HTMLLIElement | HTMLDivElement>();
-  const revealClassName = `landing-reveal ${isVisible ? "is-visible" : ""} ${className}`;
-  const style = { transitionDelay: isVisible ? `${delayMs}ms` : "0ms" };
-
-  if (as === "li") {
-    return (
-      <li ref={ref as Ref<HTMLLIElement>} className={revealClassName} style={style}>
-        {children}
-      </li>
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShown(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
     );
-  }
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div ref={ref as Ref<HTMLDivElement>} className={revealClassName} style={style}>
+    <Tag
+      ref={ref as never}
+      className={`${shown ? "animate-rise-in" : "opacity-0"} ${className ?? ""}`}
+      style={shown ? { animationDelay: `${delay}s` } : undefined}
+    >
       {children}
-    </div>
+    </Tag>
   );
 }
