@@ -24,6 +24,8 @@ import { listWallpapers, type Wallpaper as WallpaperEntry } from '@/lib/api'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
 import { FLOOR_PATTERN_DEFS, type FloorPatternId, type FloorPatternSettings } from '@/lib/floorGeometry'
 import { FLOOR_COLORS } from '@/pages/studio/three-d/constants'
+import { TILE_SIZES, TILE_FACES, TILE_PATTERN_ID, tileSettings } from '@/lib/tileCatalog'
+import { TileThumb } from '@/components/studio/TileThumb'
 import { trimProfilesOf, type TrimProfileDef } from '@/lib/trimProfiles'
 import { PatternThumb, TrimThumb } from '@/components/studio/design-panel/FloorControls'
 import { furniturePlacementMm, nextLightPositionMm } from '@/lib/placement'
@@ -121,8 +123,10 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       }),
     }))
 
-    // Pol — the laying patterns, each previewed with the real geometry the
-    // floor will be built from, exactly as the design panel draws them.
+    // Pol — the two materials a floor is, as the surface ring offers them:
+    // Parket leads to the laying patterns, Kafel to a tile size and then its
+    // face. Each pattern is previewed with the real geometry the floor will be
+    // built from, exactly as the design panel draws them.
     const baseColor = FLOOR_COLORS[floorType] ?? FLOOR_COLORS.parquet
     const carriedTexture = floorPattern?.settings?.textureUrl ?? floorTexture ?? null
     const patterns: ArcItem[] = FLOOR_PATTERN_DEFS.map((def) => ({
@@ -238,7 +242,41 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         key: 'pol',
         label: 'Pol',
         icon: <Grid3x3 size={19} strokeWidth={1.8} />,
-        items: patterns,
+        items: [
+          {
+            key: 'pol:parket',
+            label: 'Parket',
+            icon: <Grid3x3 size={19} strokeWidth={1.8} />,
+            items: patterns,
+            onSelect: () => {},
+          },
+          {
+            key: 'pol:kafel',
+            label: 'Kafel',
+            icon: <Grid3x3 size={19} strokeWidth={1.8} />,
+            // Size first, then the face: with tile, those are the two things
+            // being chosen, and neither is a choice without the other.
+            items: TILE_SIZES.map((t) => ({
+              key: `kafel:${t.label}`,
+              label: t.label,
+              fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
+              onSelect: () => {},
+              items: TILE_FACES.map((face) => ({
+                key: `kafel:${t.label}:${face.url ?? 'plain'}`,
+                label: face.label,
+                ...(face.url
+                  ? { imageUrl: face.url }
+                  : { fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} /> }),
+                onSelect: () => setDesignState({
+                  floorType: 'tile',
+                  floorPattern: { id: TILE_PATTERN_ID as FloorPatternId, settings: tileSettings(t, face) },
+                  floorConfigured: true,
+                }),
+              })),
+            })),
+            onSelect: () => {},
+          },
+        ],
       },
       {
         key: 'plintus',

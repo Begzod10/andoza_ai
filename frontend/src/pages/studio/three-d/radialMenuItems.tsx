@@ -10,6 +10,7 @@ import { DOOR_STYLES } from "@/lib/doorStyles";
 import { DoorPreview } from "@/lib/doorPreview";
 import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorControls";
 import { TileThumb } from "@/components/studio/TileThumb";
+import { TILE_SIZES, TILE_FACES, TILE_PATTERN_ID, tileSettings } from "@/lib/tileCatalog";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
 import { FLOOR_COLORS } from "./constants";
 import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
@@ -17,24 +18,6 @@ import { CEILING_DESIGNS, type CeilingDesignId } from "@/lib/ceilingDesigns";
 import { CeilingPreview } from "@/lib/ceilingPreview";
 import { LightPreview } from "@/lib/lightPreview";
 import { FaceplatePreview } from "@/lib/faceplatePreview";
-
-/** Tile sizes, in the millimetres the user buys them by. 600x600 first: it is
- *  the default, and the one most floors are laid in. */
-const TILE_SIZES = [
-  { label: '600×600', lengthCm: 60, widthCm: 60 },
-  { label: '300×600', lengthCm: 60, widthCm: 30 },
-  { label: '1200×600', lengthCm: 120, widthCm: 60 },
-  { label: '400×400', lengthCm: 40, widthCm: 40 },
-]
-
-/** The tile's face. `url: null` is the plain glazed tile the pattern draws on
- *  its own — kept first so picking a size and nothing else still lands. */
-const TILE_FACES: { label: string; url: string | null }[] = [
-  { label: 'Oddiy', url: null },
-  { label: 'Marmar oq', url: '/floor/tile/marble-white.jpg' },
-  { label: 'Marmar qora', url: '/floor/tile/marble-black.jpg' },
-  { label: 'Marmar kulrang', url: '/floor/tile/marble-grey.jpg' },
-]
 
 /**
  * The context actions offered by the surface radial ("aylana") menu for
@@ -362,17 +345,7 @@ export function buildRadialItems(
             ? <img src={face.url} alt="" loading="lazy" draggable={false}
                 className="absolute inset-0 w-full h-full object-cover" />
             : <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
-          onSelect: () => setFloorPattern('tile', 'stake_bond', {
-            plankLengthCm: t.lengthCm,
-            plankWidthCm: t.widthCm,
-            textureUrl: face.url,
-            // White lets the photograph's own colours through; the tile grey
-            // would tint a white marble grey.
-            baseColor: face.url ? '#ffffff' : undefined,
-            // The photographs are portrait, and the veining should run the
-            // long way down a 1200x600 tile rather than across it.
-            textureRotation: t.lengthCm > t.widthCm ? 90 : 0,
-          }),
+          onSelect: () => setFloorPattern('tile', TILE_PATTERN_ID, tileSettings(t, face)),
         })),
       })),
     },

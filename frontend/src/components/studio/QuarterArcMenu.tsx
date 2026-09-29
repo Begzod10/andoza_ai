@@ -68,8 +68,10 @@ export function QuarterArcMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
-  /** The item within the active category whose own ring is showing. */
-  const [drillKey, setDrillKey] = useState<string | null>(null)
+  /** The path drilled into within the active category, deepest last: Pol
+   *  leads to Kafel, Kafel to a size, a size to its faces. A single level was
+   *  enough for the rooms under Mebel and is not enough for this. */
+  const [trail, setTrail] = useState<ArcItem[]>([])
   // One scroll position per ring: six categories no more fit the inner arc
   // than 87 wallpapers fit the outer one, and they scroll independently.
   const [offset, setOffset] = useState({ inner: 0, outer: 0 })
@@ -92,26 +94,25 @@ export function QuarterArcMenu({
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (drillKey) setDrillKey(null)
+      if (trail.length) setTrail((t) => t.slice(0, -1))
       else if (activeKey) setActiveKey(null)
       else setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, activeKey, drillKey])
+  }, [open, activeKey, trail])
 
   function closeAll() {
     setOpen(false)
     setActiveKey(null)
-    setDrillKey(null)
+    setTrail([])
     setOffset({ inner: 0, outer: 0 })
   }
 
   useEffect(() => { onOpenChange?.(open) }, [open, onOpenChange])
 
   const active = categories.find((c) => c.key === activeKey) ?? null
-  const drilled = drillKey ? active?.items.find((i) => i.key === drillKey) ?? null : null
-  const shown = drilled?.items ?? active?.items ?? []
+  const shown = trail.length ? trail[trail.length - 1].items ?? [] : active?.items ?? []
   const outer: ArcItem[] = active
     ? (shown.length === 0 ? (active.emptyItem ? [active.emptyItem] : []) : shown)
     : []
@@ -207,7 +208,7 @@ export function QuarterArcMenu({
     // under Mebel, where the whole catalog in one arc was a long scroll.
     if (item.items?.length) {
       setOffset((o) => ({ ...o, outer: 0 }))
-      setDrillKey(item.key)
+      setTrail((t) => [...t, item])
       return
     }
     item.onSelect()
@@ -216,7 +217,7 @@ export function QuarterArcMenu({
   function renderOuterButton(item: ArcItem, pos: { dx: number; dy: number }, opacity: number, i: number, slotKey: number | string) {
     return (
       <button
-        key={`${activeKey}:${drillKey ?? ''}:${slotKey}`}
+        key={`${activeKey}:${trail.map((t) => t.key).join('/')}:${slotKey}`}
         onPointerDown={(e) => { e.stopPropagation(); onDragStart(e) }}
         onPointerMove={onDragMove}
         onPointerUp={() => onDragEnd()}
@@ -311,8 +312,8 @@ export function QuarterArcMenu({
                 // Tapping the live category backs out of a sub-ring first, so
                 // the way back from a room's models is the button that opened
                 // it — the same place the finger already is.
-                if (cat.key === activeKey && drillKey) { setDrillKey(null); return }
-                setDrillKey(null)
+                if (cat.key === activeKey && trail.length) { setTrail((t) => t.slice(0, -1)); return }
+                setTrail([])
                 setActiveKey((k) => (k === cat.key ? null : cat.key))
               }}
               aria-pressed={isActive}
