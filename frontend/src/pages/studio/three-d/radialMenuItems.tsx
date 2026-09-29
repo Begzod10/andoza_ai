@@ -99,42 +99,37 @@ export function buildRadialItems(
         key: 'paint', label: 'Rang', icon: RadialIcons.paint,
         childLabel: 'Rang',
         onSelect: () => openPaintPanel(r.wallId),
-        children: [
-          ...WALL_COLORS.map((hex) => ({
-            key: `color:${hex}`,
-            label: wallColorName(hex),
-            icon: RadialIcons.paint,
-            fill: <span className="absolute inset-0" style={{ background: hex }} />,
-            onSelect: () => applyWallColor(hex),
-          })),
-          {
-            key: 'color:panel', label: 'Panel', icon: RadialIcons.add,
-            closesMenu: true,
-            onSelect: () => openPaintPanel(r.wallId),
-          },
-        ],
+        // No panel escape among the colours: the palette IS the choice, and
+        // the design panel is in the header's menu when more is wanted.
+        children: WALL_COLORS.map((hex) => ({
+          key: `color:${hex}`,
+          label: wallColorName(hex),
+          icon: RadialIcons.paint,
+          fill: <span className="absolute inset-0" style={{ background: hex }} />,
+          onSelect: () => applyWallColor(hex),
+        })),
       },
       {
         key: 'oboy', label: 'Oboy', icon: RadialIcons.wallpaper,
         childLabel: 'Oboy',
         onSelect: () => openPaintPanel(r.wallId),
-        children: [
-          ...wallpapers.map((w) => ({
-            key: `wp:${w.id}`,
-            label: w.name,
-            icon: RadialIcons.wallpaper,
-            fill: <img src={w.url} alt="" loading="lazy" draggable={false}
-              className="absolute inset-0 w-full h-full object-cover" />,
-            onSelect: () => applyWallpaper(w.url),
-          })),
-          // Last, always: the ring can only show what has been uploaded, and
-          // uploading a new paper happens in the panel.
-          {
-            key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
-            closesMenu: true,
-            onSelect: () => openPaintPanel(r.wallId),
-          },
-        ],
+        children: wallpapers.length
+          ? wallpapers.map((w) => ({
+              key: `wp:${w.id}`,
+              label: w.name,
+              icon: RadialIcons.wallpaper,
+              fill: <img src={w.url} alt="" loading="lazy" draggable={false}
+                className="absolute inset-0 w-full h-full object-cover" />,
+              onSelect: () => applyWallpaper(w.url),
+            }))
+          // Only when nothing has been uploaded: an empty ring is a dead end,
+          // and the panel is where a paper comes from. With papers to show,
+          // the ring shows papers and nothing else.
+          : [{
+              key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
+              closesMenu: true,
+              onSelect: () => openPaintPanel(r.wallId),
+            }],
       },
       {
         // Window styles, straight from the ring. The sheet that asked for

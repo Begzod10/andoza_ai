@@ -94,15 +94,26 @@ describe('tapping a wall', () => {
     expect(calls.some((c) => c[0] === 'panel')).toBe(false)
   })
 
-  it('still offers the panel from both, which is where a new paper comes from', () => {
-    // The ring can only show what has been uploaded; with nothing uploaded it
-    // would otherwise be an empty ring and a dead end.
-    for (const key of ['paint', 'oboy']) {
-      const { calls, deps } = harness()
-      const item = buildRadialItems(WALL!, deps as never).find((i) => i.key === key)!
-      item.children![item.children!.length - 1].onSelect()
-      expect(calls).toContainEqual(['panel', true])
-    }
+  it('offers the panel only when there is no paper to show', () => {
+    // With papers, the ring is papers and nothing else. With none it would be
+    // an empty ring and a dead end, so it points at where papers come from.
+    const withPapers = harness()
+    const oboy = buildRadialItems(WALL!, withPapers.deps as never).find((i) => i.key === 'oboy')!
+    expect(oboy.children!.some((c) => c.key === 'wp:panel')).toBe(false)
+
+    const bare = harness()
+    bare.deps.wallpapers = []
+    const empty = buildRadialItems(WALL!, bare.deps as never).find((i) => i.key === 'oboy')!
+    expect(empty.children!.map((c) => c.key)).toEqual(['wp:panel'])
+    empty.children![0].onSelect()
+    expect(bare.calls).toContainEqual(['panel', true])
+  })
+
+  it('keeps the colours to colours, with no way out to the panel', () => {
+    const { deps } = harness()
+    const rang = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'paint')!
+    expect(rang.children!.every((c) => c.key.startsWith('color:'))).toBe(true)
+    expect(rang.children!.some((c) => c.key === 'color:panel')).toBe(false)
   })
 
   it('offers the leaf designs, and hangs the picked one on the tapped wall', () => {
@@ -324,10 +335,12 @@ describe('staying open', () => {
   it('closes for the ones that open a panel or a sheet behind it', () => {
     const { deps } = harness()
     const wall = buildRadialItems(WALL!, deps as never)
+    const bare = harness()
+    bare.deps.wallpapers = []
     const panels = [
-      wall.find((i) => i.key === 'paint')!.children!.find((c) => c.key === 'color:panel')!,
-      wall.find((i) => i.key === 'oboy')!.children!.find((c) => c.key === 'wp:panel')!,
       wall.find((i) => i.key === 'window')!.children!.find((c) => c.key === 'win:custom')!,
+      buildRadialItems(WALL!, bare.deps as never)
+        .find((i) => i.key === 'oboy')!.children!.find((c) => c.key === 'wp:panel')!,
     ]
     expect(panels.every((c) => c.closesMenu)).toBe(true)
   })
