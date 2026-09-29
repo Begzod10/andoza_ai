@@ -12,7 +12,7 @@ import { requestSharedTexture, peekSharedTexture } from "@/lib/sharedWallTexture
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimProfiles";
-import { useRoomStore } from "@/store/roomStore";
+import { useRoomStore, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import { DOOR_IVORY } from "@/lib/doorStyles";
 import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast, FLOOR_COLORS } from "./constants";
 import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
@@ -192,10 +192,12 @@ function WallSegment({
   // pattern flows uninterrupted across door/window cuts. Clones share the
   // underlying image — loaded once for the whole session.
   const showPlaster = plaster || covering.kind === 'plaster';
+  // Built for every wall, not only a bare one: the stucco's relief is what
+  // paint and paper sit ON, so a painted wall needs the same maps a plastered
+  // one does. Only the diffuse differs between them.
   const plasterMaps = useMemo(() => {
-    if (!showPlaster) return null;
     return clonePlasterMapsFor(seg.pw, seg.ph, seg.startMm / 1000, seg.startYm);
-  }, [showPlaster, seg.pw, seg.ph, seg.startMm, seg.startYm]);
+  }, [seg.pw, seg.ph, seg.startMm, seg.startYm]);
 
   const paintColor = covering.kind === 'paint' ? covering.color : '#ffffff';
 
@@ -227,6 +229,19 @@ function WallSegment({
    * different subset of the other recompile conditions).
    */
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  /**
+   * The surface every finish shares — the stucco's relief and its roughness,
+   * with no albedo of its own. Spread into whichever material this wall is
+   * wearing, so paint and paper sit on the same plaster rather than on glass.
+   */
+  const surface = plasterMaps
+    ? {
+      normalMap: plasterMaps.normalMap,
+      normalScale: PLASTER_NORMAL_SCALE,
+      roughnessMap: plasterMaps.roughnessMap,
+      aoMap: plasterMaps.aoMap,
+    }
+    : {};
   const { invalidate } = useThree();
   useLayoutEffect(() => {
     const m = matRef.current;
@@ -240,14 +255,20 @@ function WallSegment({
   return (
     <mesh position={[seg.px, seg.py, seg.pz]} rotation={[0, seg.ry, 0]} castShadow receiveShadow>
       <planeGeometry args={[seg.pw, seg.ph]} />
+      {/* Every finish is the same wall: the stucco maps carry the surface —
+          its fine relief and how it scatters light — and the colour or the
+          paper on top of it supplies the diffuse. A painted wall with no
+          relief at all was the flattest thing in the room.
+
+          `surface` is undefined until the maps have loaded; the material is
+          the same either way, so a wall simply starts smooth and gains its
+          grain a moment later. */}
       {showPlaster && plasterMaps ? (
         <meshStandardMaterial
           ref={matRef}
-          map={plasterMaps.map}
-          normalMap={plasterMaps.normalMap}
-          normalScale={PLASTER_NORMAL_SCALE}
-          roughnessMap={plasterMaps.roughnessMap}
-          aoMap={plasterMaps.aoMap}
+          // No albedo in the set: plaster's own tone is a colour.
+          color={PLASTER_BASE_COLOR}
+          {...surface}
           // Full-strength AO makes the sun-averted walls go near-black with
           // real photo maps (the scene's ambient fill is only ~0.18).
           aoMapIntensity={0.3}
@@ -261,13 +282,19 @@ function WallSegment({
           emissiveIntensity={isSelected ? 0.15 : 0}
         />
       ) : covering.kind === 'paint' ? (
-        <meshStandardMaterial ref={matRef} color={paintColor} roughness={0.88} metalness={0} envMapIntensity={0.3}
+        <meshStandardMaterial ref={matRef} color={paintColor} {...surface}
+          // Emulsion on plaster: the relief is the wall's, the sheen is the
+          // paint's, so the roughness map modulates a value of its own rather
+          // than the stucco's full 1.
+          aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
       ) : covering.kind === 'texture' ? (
-        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} bumpMap={imgMat ?? undefined} bumpScale={WALLPAPER.bumpScale} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.3}
+        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} {...surface}
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.3}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : (
-        <meshStandardMaterial ref={matRef} map={mat ?? undefined} bumpMap={mat ?? undefined} bumpScale={WALLPAPER.bumpScale} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.2}
+        <meshStandardMaterial ref={matRef} map={mat ?? undefined} {...surface}
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={0.2}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       )}
     </mesh>

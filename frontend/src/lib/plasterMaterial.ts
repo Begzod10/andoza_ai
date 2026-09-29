@@ -1,23 +1,28 @@
 import * as THREE from 'three'
 
 /**
- * Photo-real plaster (suvoq) PBR maps, served from our own public/ folder so
- * no CDN is involved at runtime.
+ * The wall's surface, as PBR maps — served from our own public/ folder so no
+ * CDN is involved at runtime.
  *
- * The active material is whatever 4 files sit in public/textures/plaster/
- * under the GENERIC names below — to swap the look (e.g. a different Poly
- * Haven asset), just replace those files; no code change needed:
- *   diff.jpg    — albedo/diffuse
+ * There is deliberately NO albedo. A wall's colour is the user's: the paint
+ * they picked in Rang, the paper they picked in Oboy, or plaster's own tone.
+ * What the maps carry is the SURFACE — the fine relief of stucco and how it
+ * scatters light — which is the same whether the wall is painted olive or
+ * hung with a damask.
+ *
+ * Two files in public/textures/wall/, both from the white stucco 1k set the
+ * user supplied. To swap the look, replace them; no code change needed:
  *   nor_gl.jpg  — normal map (OpenGL convention)
- *   rough.jpg   — roughness
- *   ao.jpg      — ambient occlusion
+ *   arm.jpg     — ambient occlusion (R), roughness (G), metalness (B), the
+ *                 packing Poly Haven ships. three reads .r for aoMap and .g
+ *                 for roughnessMap, so one file serves both.
  *
  * The maps are loaded exactly once per session (module singleton). Per-wall
  * repeat/offset is applied on cheap texture clones that share the underlying
  * image, so memory cost stays flat no matter how many wall segments render.
  */
 
-const BASE = '/textures/plaster'
+const BASE = '/textures/wall'
 
 /**
  * Physical size (metres) one tile covers. 1 m keeps the maths obvious and the
@@ -26,8 +31,8 @@ const BASE = '/textures/plaster'
 export const PLASTER_TILE_M = 1.0
 
 export interface PlasterMaps {
-  map: THREE.Texture
   normalMap: THREE.Texture
+  /** The ARM map, handed to both slots — see the header. */
   roughnessMap: THREE.Texture
   aoMap: THREE.Texture
 }
@@ -115,18 +120,18 @@ function loadMap(loader: THREE.TextureLoader, name: keyof typeof FALLBACK_FILL, 
   return configure(tex, srgb)
 }
 
-/** Load (once) and return the shared plaster texture set. */
+/** Load (once) and return the shared wall-surface texture set. */
 export function getPlasterMaps(): PlasterMaps {
   if (cached) return cached
   const loader = new THREE.TextureLoader()
-  const map = loadMap(loader, 'diff', true)
   const normalMap = loadMap(loader, 'nor_gl', false)
-  const roughnessMap = loadMap(loader, 'rough', false)
-  const aoMap = loadMap(loader, 'ao', false)
+  // One ARM texture in both slots: three samples .g for roughness and .r for
+  // occlusion, which is exactly how the channels are packed.
+  const arm = loadMap(loader, 'arm', false)
   // Sample AO from the primary uv set — wall planes have no uv2 (three r152+:
   // aoMap reads channel 1 by default, channel 0 is the regular uv attribute).
-  aoMap.channel = 0
-  cached = { map, normalMap, roughnessMap, aoMap }
+  arm.channel = 0
+  cached = { normalMap, roughnessMap: arm, aoMap: arm }
   return cached
 }
 
@@ -171,11 +176,13 @@ export function clonePlasterMapsFor(
     return t
   }
 
+  // The ARM texture is one object in two slots, so it is cloned once and
+  // handed to both — cloning twice would upload the same image twice.
+  const arm = cloneOne(shared.roughnessMap)
   return {
-    map: cloneOne(shared.map),
     normalMap: cloneOne(shared.normalMap),
-    roughnessMap: cloneOne(shared.roughnessMap),
-    aoMap: cloneOne(shared.aoMap),
+    roughnessMap: arm,
+    aoMap: arm,
   }
 }
 
