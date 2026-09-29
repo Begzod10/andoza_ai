@@ -3,7 +3,7 @@
  * twelve boards it is dealt from, and the rule for which plank gets which.
  */
 import { describe, it, expect } from 'vitest'
-import { PARQUET_BOARDS, parquetBoardsFor, boardIndexAt } from '../parquetBoards'
+import { PARQUET_BOARDS, parquetBoardsFor, boardIndexAt, withBoardGrain } from '../parquetBoards'
 
 describe('the board set', () => {
   it('is twelve distinct boards', () => {
@@ -63,5 +63,35 @@ describe('boardIndexAt', () => {
 
   it('is a no-op for a floor laid from one image', () => {
     expect(boardIndexAt(3, 4, 1)).toBe(0)
+  })
+})
+
+describe('withBoardGrain', () => {
+  const pattern = { id: 'herringbone', settings: { plankWidthCm: 8 } }
+
+  it('turns the plank frame a quarter wherever our boards are laid', () => {
+    // The boards are photographed standing up, so without this the grain runs
+    // across every plank instead of along it.
+    expect(withBoardGrain(pattern, 12).settings.textureRotation).toBe(90)
+  })
+
+  it('applies to every parquet pattern, not one of them', () => {
+    for (const id of ['herringbone', 'chevron', 'wood_strip', 'brick_bond', 'stake_bond']) {
+      expect(withBoardGrain({ id, settings: {} }, 12).settings.textureRotation).toBe(90)
+    }
+  })
+
+  it('keeps a rotation the user has chosen', () => {
+    const theirs = { id: 'chevron', settings: { textureRotation: 0 as const } }
+    expect(withBoardGrain(theirs, 12).settings.textureRotation).toBe(0)
+  })
+
+  it('leaves a floor that is not laid from boards alone', () => {
+    const tiles = { id: 'stake_bond', settings: {} }
+    expect(withBoardGrain(tiles, 0)).toBe(tiles)
+  })
+
+  it('does not lose the rest of the settings', () => {
+    expect(withBoardGrain(pattern, 12).settings.plankWidthCm).toBe(8)
   })
 })

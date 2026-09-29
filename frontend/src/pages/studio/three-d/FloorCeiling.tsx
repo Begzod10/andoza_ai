@@ -7,7 +7,7 @@ import {
 } from "@/lib/ceilingDesigns";
 import { buildFloorGroup, floorSlabColorFor, type FloorPatternState } from "@/lib/floorGeometry";
 import { floorFinish } from "@/lib/surfaceFinish";
-import { parquetBoardsFor } from "@/lib/parquetBoards";
+import { parquetBoardsFor, withBoardGrain } from "@/lib/parquetBoards";
 import { kelvinToHex } from "@/lib/lightCatalog";
 import { requestSharedTexture, textureFetchUrl } from "@/lib/sharedWallTexture";
 import { FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast } from "./constants";
@@ -291,9 +291,12 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
     () => parquetBoardsFor(floorType, pattern.settings?.textureUrl),
     [floorType, pattern.settings?.textureUrl],
   );
+  // Our own boards are photographed standing up, so the plank frame gets a
+  // quarter-turn — otherwise the grain runs across every plank.
+  const laid = useMemo(() => withBoardGrain(pattern, boards.length), [pattern, boards.length]);
   const built = useMemo(
-    () => buildFloorGroup(pattern, width, depth, fallbackColor, clipPolygon, finish, boards.length || 1),
-    [pattern, width, depth, fallbackColor, clipPolygon, finish, boards.length],
+    () => buildFloorGroup(laid, width, depth, fallbackColor, clipPolygon, finish, boards.length || 1),
+    [laid, width, depth, fallbackColor, clipPolygon, finish, boards.length],
   );
 
   useEffect(() => {

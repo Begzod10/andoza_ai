@@ -46,3 +46,21 @@ export function boardIndexAt(x: number, z: number, count: number): number {
   const h = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
   return Math.floor((h - Math.floor(h)) * count) % count
 }
+
+/**
+ * The plank UV frame, turned a quarter so the grain runs ALONG the board.
+ *
+ * These boards are photographed standing up — the grain runs down the long
+ * side of the image — and the plank frame maps that long side across the
+ * plank's width, which laid a herringbone with the grain running the wrong
+ * way across every piece. A quarter-turn is the default for every parquet
+ * pattern now; a floor whose rotation the user has set keeps theirs.
+ */
+export function withBoardGrain<T extends { settings?: { textureRotation?: 0 | 90 } }>(
+  pattern: T,
+  boardCount: number,
+): T {
+  if (boardCount < 1) return pattern
+  if (pattern.settings?.textureRotation !== undefined) return pattern
+  return { ...pattern, settings: { ...pattern.settings, textureRotation: 90 as const } }
+}
