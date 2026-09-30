@@ -52,6 +52,7 @@ import { ModelToolbar } from "./three-d/ModelToolbar";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
+import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
 
@@ -285,6 +286,7 @@ export default function ThreeDPage() {
     wallId: string; point: { x: number; y: number; z: number }; initialSillHeight: number;
   } | null>(null);
   const [showAiSheet, setShowAiSheet] = useState(false);
+  const [showRender, setShowRender] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   // Desktop-only edge-collapse toggles for the phase-stepper rail and design
@@ -625,6 +627,7 @@ export default function ThreeDPage() {
           sunHour={sunHour}
           setSunHour={setSunHour}
           setShowAiSheet={setShowAiSheet}
+          setShowRender={setShowRender}
           setShowPanel={setShowPanel}
         />
 
@@ -890,6 +893,7 @@ export default function ThreeDPage() {
           DOM, and whichever item was held supplies its own label and action. */}
       <HoldDeleteButton />
 
+      <RenderSheet open={showRender} onOpenChange={setShowRender} glCanvasRef={glCanvasRef} />
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}
         setShowAddSheet={setShowAddSheet}

@@ -20,6 +20,7 @@ export * from "./api/draftRooms";
 export * from "./api/leads";
 export * from "./api/ai";
 export * from "./api/meshy";
+export * from "./api/render";
 export * from "./api/wallpapers";
 export * from "./api/userModels";
 export * from "./api/admin";
