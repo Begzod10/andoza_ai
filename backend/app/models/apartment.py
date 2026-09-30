@@ -51,6 +51,7 @@ class Apartment(Base):
         back_populates="apartment",
         cascade="all, delete-orphan",
         lazy="select",
+        order_by="Room.updated_at.desc()",
     )
 
     def __repr__(self) -> str:
