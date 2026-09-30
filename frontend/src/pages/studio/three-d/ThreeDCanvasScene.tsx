@@ -23,6 +23,7 @@ import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { DEFAULT_HDRI } from "@/lib/hdri";
 import { skyFogColor } from "@/lib/skyEnvironment";
 import { computeOccupiedSides } from "./helpers";
+import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
@@ -62,7 +63,7 @@ export function ThreeDCanvasScene({
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
   onSave, navigate, handleDeleteSibling,
   toolMode, selectedFurId, selectFurniture, selectedPart, selectFurniturePart,
-  showScan, replacedGhosts, setScanSwap,
+  showScan, showQibla, replacedGhosts, setScanSwap,
   selectedDoorId, selectDoor,
   selectedLightId, selectLight,
   topMinDist, maxPolarAngle,
@@ -110,6 +111,7 @@ export function ThreeDCanvasScene({
   selectedPart: SelectedPart | null;
   selectFurniturePart: (part: SelectedPart | null) => void;
   showScan: boolean;
+  showQibla: boolean;
   replacedGhosts: Set<number>;
   setScanSwap: Dispatch<SetStateAction<ScanSwapRequest | null>>;
   selectedDoorId: string | null;
@@ -336,6 +338,7 @@ export function ThreeDCanvasScene({
           replaced={replacedGhosts}
           onReplace={setScanSwap}
         />
+        <QiblaMarker W={W} D={D} visible={showQibla} />
         <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
         <OpeningLayer
           geometry={geometry}

@@ -5,6 +5,12 @@ export const uz = {
   studio: {
     devor_rangi: "Devor rangi",
     pol_turi: "Pol turi",
+    qibla: {
+      nomi: "Qibla",
+      korinishi_yoq: "Qibla yo'nalishini yashirish",
+      korinishi_bor: "Qibla yo'nalishini ko'rsatish",
+      izoh: "Toshkent bo'yicha hisoblangan; xona shimolga qaragan deb olinadi",
+    },
     skan: {
       korinishi: "Skan ko'rinishi",
       korinishi_yoq: "Skan ko'rinishini o'chirish",

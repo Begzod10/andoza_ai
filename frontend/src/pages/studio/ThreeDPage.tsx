@@ -179,6 +179,7 @@ export default function ThreeDPage() {
   // useState lazy initializer here would freeze at false. Sync it in an
   // effect instead, once, the first time scan data actually arrives.
   const [showScan, setShowScan] = useState(false);
+  const [showQibla, setShowQibla] = useState(false);
   const hasScan = !!room.room_scan;
   const scanAutoShownRef = useRef(false);
   useEffect(() => {
@@ -616,6 +617,8 @@ export default function ThreeDPage() {
           hasScan={hasScan}
           showScan={showScan}
           setShowScan={setShowScan}
+          showQibla={showQibla}
+          setShowQibla={setShowQibla}
           sceneLightOn={sceneLightOn}
           sunHour={sunHour}
           setSunHour={setSunHour}
@@ -845,6 +848,7 @@ export default function ThreeDPage() {
             selectedPart={selectedPart}
             selectFurniturePart={selectFurniturePart}
             showScan={showScan}
+            showQibla={showQibla}
             replacedGhosts={replacedGhosts}
             setScanSwap={setScanSwap}
             selectedDoorId={selectedDoorId}

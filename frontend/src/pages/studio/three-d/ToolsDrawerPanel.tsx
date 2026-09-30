@@ -20,6 +20,7 @@ import { formatClock } from "./helpers";
 export function ToolsDrawerPanel({
   menuSlot,
   hasScan, showScan, setShowScan,
+  showQibla, setShowQibla,
   sceneLightOn,
   sunHour, setSunHour,
   setShowAiSheet,
@@ -30,6 +31,8 @@ export function ToolsDrawerPanel({
   hasScan: boolean;
   showScan: boolean;
   setShowScan: Dispatch<SetStateAction<boolean>>;
+  showQibla: boolean;
+  setShowQibla: Dispatch<SetStateAction<boolean>>;
   /** The sun clock only means anything while the sun is the light source. */
   sceneLightOn: boolean;
   sunHour: number;
@@ -65,6 +68,30 @@ export function ToolsDrawerPanel({
               {showScan && <p className="mt-2 text-xs text-amber-700">{uz.studio.skan.izoh}</p>}
             </div>
           )}
+
+          {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
+              checking which wall the room's Qibla falls on. */}
+          <div className="px-4 py-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{uz.studio.qibla.nomi}</p>
+            <button
+              onClick={() => setShowQibla(v => !v)}
+              title={showQibla ? uz.studio.qibla.korinishi_yoq : uz.studio.qibla.korinishi_bor}
+              aria-label={showQibla ? uz.studio.qibla.korinishi_yoq : uz.studio.qibla.korinishi_bor}
+              aria-pressed={showQibla}
+              className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
+                showQibla
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 6l3 6h-6z" fill="currentColor" />
+              </svg>
+              <span>{uz.studio.qibla.nomi}</span>
+            </button>
+            {showQibla && <p className="mt-2 text-xs text-emerald-700">{uz.studio.qibla.izoh}</p>}
+          </div>
 
           {/* What is left of the lighting cluster: the sun clock. The
               day/night and room-light toggles were removed with the rest of
