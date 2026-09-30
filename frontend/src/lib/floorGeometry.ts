@@ -481,12 +481,20 @@ export function computeFloorPieces(
   W: number,
   D: number,
   fallbackBaseColor: string,
+  /** Extra rotation (radians), added on top of the user's rotationDeg choice.
+   *  The legacy rectangular room is built with its walls forced onto the
+   *  world X/Z axes, so a world-axis-aligned pattern already lines up with
+   *  its walls and this stays 0. A scanned/drawn polygon room keeps its
+   *  actual world orientation, which is almost never axis-aligned — callers
+   *  for that room type pass the room's own dominant wall angle here so the
+   *  laid pattern's grid lines up with the walls instead of with the world. */
+  baseAngleRad = 0,
 ): FloorPieces {
   const def = floorPatternDef(state.id) ?? FLOOR_PATTERN_DEFS[0]
   let resolved = resolveFloorPattern(def, state.settings, fallbackBaseColor)
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const angle = (resolved.rotationDeg * Math.PI) / 180
+    const angle = (resolved.rotationDeg * Math.PI) / 180 + baseAngleRad
     const ca = Math.abs(Math.cos(angle)), sa = Math.abs(Math.sin(angle))
     // Pieces run past the room and are cut back at the walls. The overhang has
     // to reach past the deepest thing that wants floor beyond them, which is a
@@ -980,8 +988,10 @@ export function buildFloorGroup(
    *  not its face: tile. Left off, the rim is the face's own material, which
    *  is what a board wants. */
   rimColor?: string,
+  /** See computeFloorPieces — 0 for the legacy axis-aligned room. */
+  baseAngleRad = 0,
 ): BuiltFloor {
-  const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor)
+  const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor, baseAngleRad)
 
   const clip = 0.02
   const clippingPlanes = clipPoly ? undefined : [
