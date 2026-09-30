@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { qiblaBearing, bearingToScene, compassPoint, CITY_PRESETS, isValidCoordinate } from '../qibla'
+import { qiblaBearing, bearingToScene, compassPoint, CITY_PRESETS, isValidCoordinate, FACING_OPTIONS } from '../qibla'
 
 describe('qiblaBearing', () => {
   it('matches AlAdhan for Tashkent (240.297°)', () => {
@@ -35,6 +35,20 @@ describe('bearingToScene', () => {
   it('turns with the room: facing south, north lies on +Z', () => {
     const [x, z] = bearingToScene(0, 'south')
     expect(x).toBeCloseTo(0); expect(z).toBeCloseTo(1)
+  })
+})
+
+describe('room orientation', () => {
+  it('offers eight facings starting at north', () => {
+    expect(FACING_OPTIONS).toHaveLength(8)
+    expect(FACING_OPTIONS[0]).toEqual({ bearing: 0, label: 'Shimol' })
+  })
+
+  it('swings the Qibla arrow with the room: facing east puts a south-west Qibla toward the back-left', () => {
+    // Qibla 240° with wall A facing 90° is 150° relative: down and to the right in the plan.
+    const [x, z] = bearingToScene(240, 90)
+    expect(x).toBeCloseTo(Math.sin(150 * Math.PI / 180))
+    expect(z).toBeCloseTo(-Math.cos(150 * Math.PI / 180))
   })
 })
 

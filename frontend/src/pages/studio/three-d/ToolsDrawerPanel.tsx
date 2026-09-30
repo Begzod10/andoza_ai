@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { uz } from "@/locale/uz";
 import { formatClock } from "./helpers";
 import { useRoomStore } from "@/store/roomStore";
-import { CITY_PRESETS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
+import { CITY_PRESETS, FACING_OPTIONS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
 
 /**
  * What used to be the studio's "Asboblar" drawer, reduced to the three things
@@ -24,6 +24,7 @@ import { CITY_PRESETS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
 function QiblaLocation() {
   const location = useRoomStore((st) => st.designState.location);
   const setDesignState = useRoomStore((st) => st.setDesignState);
+  const facing = useRoomStore((st) => st.designState.facing ?? 0);
   const custom = !!location && !location.label;
   const [customMode, setCustomMode] = useState(custom);
   const [lat, setLat] = useState(String(location?.latitude ?? ""));
@@ -76,6 +77,15 @@ function QiblaLocation() {
       {customMode && (lat !== "" || lon !== "") && !valid && (
         <p className="text-xs text-red-600">{uz.studio.qibla.notogri}</p>
       )}
+      <label className="text-xs text-gray-500" htmlFor="qibla-facing">{uz.studio.qibla.yonalish}</label>
+      <select
+        id="qibla-facing"
+        value={facing}
+        onChange={(e) => setDesignState({ facing: Number(e.target.value) })}
+        className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm"
+      >
+        {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{o.label}</option>)}
+      </select>
       <p className="text-xs text-gray-500">
         {Math.round(qiblaBearing(location?.latitude, location?.longitude))}°
       </p>

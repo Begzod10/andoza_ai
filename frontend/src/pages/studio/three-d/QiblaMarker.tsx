@@ -21,7 +21,8 @@ export function QiblaMarker({ W, D, visible }: { W: number; D: number; visible: 
     () => qiblaBearing(location?.latitude, location?.longitude),
     [location?.latitude, location?.longitude],
   );
-  const [dx, dz] = useMemo(() => bearingToScene(bearing), [bearing]);
+  const facing = useRoomStore((st) => st.designState.facing);
+  const [dx, dz] = useMemo(() => bearingToScene(bearing, facing), [bearing, facing]);
 
   // How far the ray from the centre travels before it meets the room's edge.
   const edge = Math.min(

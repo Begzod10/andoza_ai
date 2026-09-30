@@ -11,7 +11,7 @@ import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { DEFAULT_HDRI } from "@/lib/hdri";
 import { DoorLeaves, WindowSashes } from "@/components/studio/DoorLeaves";
 import { roomExtents } from '@/lib/roomDims';
-import { sunPosition, dayOfYear } from '@/lib/sunPosition';
+import { sunPosition, dayOfYear, siteOf } from '@/lib/sunPosition';
 
 // ─── Movement controller ──────────────────────────────────────────────────────
 
@@ -126,8 +126,8 @@ export default function WalkthroughPage() {
   // The same hour the studio is set to, so walking into the room does not walk
   // into a different time of day.
   const sun = useMemo(
-    () => sunPosition({ hour: sunHour, dayOfYear: dayOfYear(new Date()), peakIntensity: 1.3 }),
-    [sunHour],
+    () => sunPosition({ hour: sunHour, dayOfYear: dayOfYear(new Date()), ...siteOf(designState.location), facing: designState.facing, peakIntensity: 1.3 }),
+    [sunHour, designState.location, designState.facing],
   );
   const [locked, setLocked] = useState(false);
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);

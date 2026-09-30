@@ -30,7 +30,7 @@ import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
-import { sunPosition, dayOfYear } from "@/lib/sunPosition";
+import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
 import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
 import type { LightTypeId } from "@/lib/lightCatalog";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
@@ -157,15 +157,17 @@ export default function ThreeDPage() {
   const sunHour = useRoomStore((st) => st.sunHour);
   const setSunHour = useRoomStore((st) => st.setSunHour);
   const today = useMemo(() => dayOfYear(new Date()), []);
-  // Site defaults to Tashkent (sunPosition's DEFAULT_SITE), and the room sits
-  // in the app's own frame — wall A's outward face is north, the same north
-  // AddRoomButtons uses. Between them the arc is fully determined, so there is
-  // nothing here for the user to set.
+  // Site and orientation are the room's own (Qibla section of the ⋮ menu):
+  // Tashkent and wall A facing north until the user says otherwise.
+  const roomLocation = useRoomStore((st) => st.designState.location);
+  const facing = useRoomStore((st) => st.designState.facing);
   const sun = useMemo(() => sunPosition({
     hour: sunHour,
     dayOfYear: today,
+    ...siteOf(roomLocation),
+    facing,
     peakIntensity: highQuality3d ? 1.3 : 1.0,
-  }), [sunHour, today, highQuality3d]);
+  }), [sunHour, today, highQuality3d, roomLocation, facing]);
   const [showHelp, setShowHelp] = useState(false);
   // LiDAR scan reference layer (GLB overlay + object ghost boxes). ON by
   // default when the room actually has scan data, so a user who just

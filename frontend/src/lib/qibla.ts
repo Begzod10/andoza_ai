@@ -40,6 +40,14 @@ export function bearingToScene(bearing: number, facing: number | Cardinal = 0): 
   return [Math.sin(rel), -Math.cos(rel)]
 }
 
+/** Choices for which way wall A's outward face points. */
+export const FACING_OPTIONS: readonly { bearing: number; label: string }[] = [
+  { bearing: 0, label: 'Shimol' }, { bearing: 45, label: 'Shimoli-sharq' },
+  { bearing: 90, label: 'Sharq' }, { bearing: 135, label: 'Janubi-sharq' },
+  { bearing: 180, label: 'Janub' }, { bearing: 225, label: "Janubi-g'arb" },
+  { bearing: 270, label: "G'arb" }, { bearing: 315, label: "Shimoli-g'arb" },
+]
+
 const POINTS = ['Shimol', 'Shimoli-sharq', 'Sharq', 'Janubi-sharq', 'Janub', 'Janubi-g\'arb', 'G\'arb', 'Shimoli-g\'arb']
 
 /** Eight-point compass name in Uzbek, for the label beside the arrow. */
