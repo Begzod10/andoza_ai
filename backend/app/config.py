@@ -120,7 +120,7 @@ class Settings(BaseSettings):
 
     # Meshy API — Image to 3D conversion
     MESHY_API_KEY: str = ""
-    MESHY_API_URL: str = "https://api.meshy.ai/v2"
+    MESHY_API_URL: str = "https://api.meshy.ai/openapi/v1"
 
     # MyArchitectAI — photorealistic renders of a studio screenshot. Every call
     # is billed to this one key, so RENDER_DAILY_LIMIT caps each user's renders

@@ -72,7 +72,9 @@ def create_app() -> FastAPI:
     app.include_router(estimate.estimates_router, prefix="/api/v1", tags=["estimate"])
     app.include_router(draft_rooms.router, prefix="/api/v1", tags=["draft-rooms"])
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
-    app.include_router(meshy.router, tags=["meshy"])
+    app.include_router(meshy.router, prefix="/api/v1", tags=["meshy"])
+    # Legacy path: the router was first mounted here, before it joined /api/v1.
+    app.include_router(meshy.router, prefix="/api", include_in_schema=False)
     app.include_router(render.router, prefix="/api/v1", tags=["render"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
     app.include_router(user_models.router, prefix="/api/v1", tags=["user-models"])

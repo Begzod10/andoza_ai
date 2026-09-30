@@ -18,10 +18,49 @@ from app.config import settings
 log = structlog.get_logger(__name__)
 
 
+# Meshy's REST API lives under /openapi/v1. The app shipped with
+# https://api.meshy.ai/v2 (in config.py and .env.example), which has never been a
+# valid path — every call to it is a 404 — so any deployment still carrying that
+# value is pointed at the real one rather than left broken.
+DEFAULT_BASE_URL = "https://api.meshy.ai/openapi/v1"
+_LEGACY_BASE_URLS = {"https://api.meshy.ai/v2", "https://api.meshy.ai/v1", "https://api.meshy.ai"}
+
+# Terminal task states. CANCELED is one too: a task cancelled on Meshy's side
+# never becomes SUCCEEDED, so treating it as "still running" polls until timeout.
+_FAILED_STATES = {"FAILED", "CANCELED"}
+
+
+def normalize_base_url(url: str | None) -> str:
+    url = (url or "").strip().rstrip("/")
+    if not url or url in _LEGACY_BASE_URLS:
+        return DEFAULT_BASE_URL
+    return url
+
+
 class MeshyError(Exception):
     """Raised when Meshy API call fails."""
 
     pass
+
+
+def _error_from_response(response: httpx.Response) -> str:
+    """A readable reason from a non-2xx Meshy response."""
+    try:
+        body = response.json()
+        detail = body.get("message") if isinstance(body, dict) else None
+    except ValueError:
+        detail = None
+    if response.status_code == 402:
+        return "Meshy hisobida mablag' yetarli emas"
+    if response.status_code == 429:
+        return "Meshy so'rovlar limiti oshdi, birozdan keyin urinib ko'ring"
+    return detail or f"Meshy HTTP {response.status_code}"
+
+
+def _task_error(task: dict[str, Any]) -> str:
+    err = task.get("task_error")
+    message = err.get("message") if isinstance(err, dict) else None
+    return message or task.get("error") or "Unknown error"
 
 
 class MeshyClient:
@@ -29,7 +68,7 @@ class MeshyClient:
 
     def __init__(self) -> None:
         self.api_key = settings.MESHY_API_KEY
-        self.base_url = settings.MESHY_API_URL
+        self.base_url = normalize_base_url(settings.MESHY_API_URL)
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -70,13 +109,20 @@ class MeshyClient:
                     json=payload,
                     headers=self.headers,
                 )
-                response.raise_for_status()
-                task = response.json()
-                log.info("meshy_task_created", task_id=task.get("id"))
-                return task
             except httpx.HTTPError as e:
-                log.error("meshy_api_error", error=str(e), status=getattr(e.response, "status_code", None))
+                log.error("meshy_api_error", error=str(e))
                 raise MeshyError(f"Failed to create Meshy task: {e}") from e
+
+        if response.status_code >= 400:
+            log.error("meshy_api_error", status=response.status_code)
+            raise MeshyError(_error_from_response(response))
+        task = response.json()
+        # The create call answers {"result": "<task id>"}, not a task object.
+        task_id = task.get("result") or task.get("id")
+        if not task_id:
+            raise MeshyError("Meshy did not return a task id")
+        log.info("meshy_task_created", task_id=task_id)
+        return {**task, "id": task_id}
 
     async def get_task(self, task_id: str) -> dict[str, Any]:
         """Poll task status.
@@ -99,11 +145,14 @@ class MeshyClient:
                     f"{self.base_url}/image-to-3d/{task_id}",
                     headers=self.headers,
                 )
-                response.raise_for_status()
-                return response.json()
             except httpx.HTTPError as e:
                 log.error("meshy_poll_error", task_id=task_id, error=str(e))
                 raise MeshyError(f"Failed to poll Meshy task {task_id}: {e}") from e
+
+        if response.status_code >= 400:
+            log.error("meshy_poll_error", task_id=task_id, status=response.status_code)
+            raise MeshyError(_error_from_response(response))
+        return response.json()
 
     async def wait_for_completion(
         self,
@@ -141,10 +190,10 @@ class MeshyClient:
                     log.info("meshy_completed", task_id=task_id)
                     return task
 
-                if status == "FAILED":
-                    error = task.get("error", "Unknown error")
-                    log.error("meshy_failed", task_id=task_id, error=error)
-                    raise MeshyError(f"Meshy task failed: {error}")
+                if status in _FAILED_STATES:
+                    error = _task_error(task)
+                    log.error("meshy_failed", task_id=task_id, status=status, error=error)
+                    raise MeshyError(f"Meshy task {status.lower()}: {error}")
 
                 if poll_num < max_polls - 1:
                     await asyncio.sleep(poll_interval)
