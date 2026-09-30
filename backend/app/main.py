@@ -16,7 +16,7 @@ from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, currency, admin_catalog, room_share,
+    orders, currency, admin_catalog, room_share, render,
 )
 
 
@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(draft_rooms.router, prefix="/api/v1", tags=["draft-rooms"])
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
     app.include_router(meshy.router, tags=["meshy"])
+    app.include_router(render.router, prefix="/api/v1", tags=["render"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
     app.include_router(user_models.router, prefix="/api/v1", tags=["user-models"])
     app.include_router(electrical.router, prefix="/api/v1", tags=["electrical"])
