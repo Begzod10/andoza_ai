@@ -10,7 +10,8 @@ Two things about this API shape the client:
   charge already refunded). Only a body holding ``output`` is a result.
 * **5 requests/second per key, bursts of 20**, over which it answers 429 (never
   charged). One key serves every user, so a 429 is retried with backoff and
-  jitter rather than surfaced.
+  jitter rather than surfaced. A 502 ("billing service temporarily unreachable",
+  also never charged) is retried the same way, as the spec asks.
 """
 
 from __future__ import annotations
@@ -32,6 +33,8 @@ log = structlog.get_logger(__name__)
 _TIMEOUT = httpx.Timeout(180.0, connect=10.0)
 _MAX_ATTEMPTS = 4
 _BASE_DELAY = 1.0
+# Statuses the API documents as "not charged, retry with backoff".
+_RETRYABLE = {429, 502}
 
 OUTPUT_FORMATS = ("webp", "jpg", "png", "avif")
 
@@ -70,9 +73,11 @@ class MyArchitectClient:
                 log.error("myarchitect_transport_error", path=path, error=str(exc))
                 raise MyArchitectError(f"MyArchitectAI unreachable: {exc}") from exc
 
-            if response.status_code == 429 and attempt < _MAX_ATTEMPTS:
+            if response.status_code in _RETRYABLE and attempt < _MAX_ATTEMPTS:
                 delay = _BASE_DELAY * 2 ** (attempt - 1) + random.uniform(0, 0.5)
-                log.warning("myarchitect_rate_limited", path=path, attempt=attempt, retry_in=round(delay, 2))
+                log.warning(
+                    "myarchitect_retrying", path=path, status=response.status_code, attempt=attempt, retry_in=round(delay, 2),
+                )
                 await asyncio.sleep(delay)
                 continue
             break

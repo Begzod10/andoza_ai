@@ -67,6 +67,37 @@ async def test_429_is_retried_with_backoff_then_succeeds():
     assert sleep.await_count == 2
 
 
+async def test_502_billing_outage_is_retried_then_succeeds():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(502, json={"error": "Service Unavailable"})
+        return httpx.Response(200, json={"output": ["https://cdn.test/ok.jpg"]})
+
+    with patch.object(myarchitect.asyncio, "sleep", new=AsyncMock()) as sleep:
+        url = await _client(handler).render_interior("x")
+
+    assert url == "https://cdn.test/ok.jpg"
+    assert calls["n"] == 2
+    assert sleep.await_count == 1
+
+
+async def test_502_gives_up_after_the_last_attempt():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(502, json={"error": "Service Unavailable"})
+
+    with patch.object(myarchitect.asyncio, "sleep", new=AsyncMock()):
+        with pytest.raises(MyArchitectError) as exc:
+            await _client(handler).render_interior("x")
+    assert exc.value.status == 502
+    assert calls["n"] == 4
+
+
 async def test_429_gives_up_after_the_last_attempt():
     with patch.object(myarchitect.asyncio, "sleep", new=AsyncMock()):
         with pytest.raises(MyArchitectError) as exc:
