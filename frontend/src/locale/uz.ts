@@ -9,7 +9,12 @@ export const uz = {
       nomi: "Qibla",
       korinishi_yoq: "Qibla yo'nalishini yashirish",
       korinishi_bor: "Qibla yo'nalishini ko'rsatish",
-      izoh: "Toshkent bo'yicha hisoblangan; xona shimolga qaragan deb olinadi",
+      izoh: "Xona shimolga qaragan deb olinadi; yo'nalish xona joylashuvi bo'yicha hisoblanadi",
+      joylashuv: "Xona joylashuvi",
+      boshqa: "Boshqa joy…",
+      kenglik: "Kenglik",
+      uzunlik: "Uzunlik",
+      notogri: "Koordinatalar noto'g'ri",
     },
     skan: {
       korinishi: "Skan ko'rinishi",

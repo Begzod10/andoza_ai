@@ -46,3 +46,30 @@ const POINTS = ['Shimol', 'Shimoli-sharq', 'Sharq', 'Janubi-sharq', 'Janub', 'Ja
 export function compassPoint(bearing: number): string {
   return POINTS[Math.round((((bearing % 360) + 360) % 360) / 45) % 8]
 }
+
+export interface RoomLocation { latitude: number; longitude: number; label?: string }
+
+/** Uzbekistan's regional centres, for the location picker. */
+export const CITY_PRESETS: readonly (RoomLocation & { label: string })[] = [
+  { label: 'Toshkent', latitude: 41.31, longitude: 69.24 },
+  { label: 'Samarqand', latitude: 39.65, longitude: 66.96 },
+  { label: 'Buxoro', latitude: 39.77, longitude: 64.42 },
+  { label: 'Andijon', latitude: 40.78, longitude: 72.34 },
+  { label: 'Namangan', latitude: 41.0, longitude: 71.67 },
+  { label: "Farg'ona", latitude: 40.38, longitude: 71.79 },
+  { label: 'Nukus', latitude: 42.46, longitude: 59.61 },
+  { label: 'Urganch', latitude: 41.55, longitude: 60.63 },
+  { label: 'Qarshi', latitude: 38.86, longitude: 65.79 },
+  { label: 'Termiz', latitude: 37.22, longitude: 67.28 },
+  { label: 'Jizzax', latitude: 40.12, longitude: 67.83 },
+  { label: 'Guliston', latitude: 40.49, longitude: 68.78 },
+  { label: 'Navoiy', latitude: 40.1, longitude: 65.37 },
+]
+
+/** Whether a pair of numbers is a place on Earth. */
+export function isValidCoordinate(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) && Number.isFinite(longitude) &&
+    Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180
+  )
+}

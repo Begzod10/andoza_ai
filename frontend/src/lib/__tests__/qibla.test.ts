@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { qiblaBearing, bearingToScene, compassPoint } from '../qibla'
+import { qiblaBearing, bearingToScene, compassPoint, CITY_PRESETS, isValidCoordinate } from '../qibla'
 
 describe('qiblaBearing', () => {
   it('matches AlAdhan for Tashkent (240.297°)', () => {
@@ -42,5 +42,27 @@ describe('compassPoint', () => {
   it('names the Tashkent Qibla south-west-ish and wraps at north', () => {
     expect(compassPoint(240.3)).toBe("Janubi-g'arb")
     expect(compassPoint(359)).toBe('Shimol')
+  })
+})
+
+describe('room locations', () => {
+  it('gives every preset city a valid coordinate and a distinct name', () => {
+    for (const c of CITY_PRESETS) expect(isValidCoordinate(c.latitude, c.longitude)).toBe(true)
+    expect(new Set(CITY_PRESETS.map((c) => c.label)).size).toBe(CITY_PRESETS.length)
+  })
+
+  it('leads with Tashkent, the default site', () => {
+    expect(CITY_PRESETS[0].label).toBe('Toshkent')
+  })
+
+  it('moves the bearing with the city (Nukus is further west than Tashkent)', () => {
+    const nukus = CITY_PRESETS.find((c) => c.label === 'Nukus')!
+    expect(qiblaBearing(nukus.latitude, nukus.longitude)).not.toBeCloseTo(qiblaBearing(), 0)
+  })
+
+  it('rejects out-of-range and non-numeric coordinates', () => {
+    expect(isValidCoordinate(999, 0)).toBe(false)
+    expect(isValidCoordinate(0, 181)).toBe(false)
+    expect(isValidCoordinate(NaN, 0)).toBe(false)
   })
 })

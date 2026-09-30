@@ -1,7 +1,9 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { uz } from "@/locale/uz";
 import { formatClock } from "./helpers";
+import { useRoomStore } from "@/store/roomStore";
+import { CITY_PRESETS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
 
 /**
  * What used to be the studio's "Asboblar" drawer, reduced to the three things
@@ -17,6 +19,70 @@ import { formatClock } from "./helpers";
  * Renders nothing at all until that menu is open, since `menuSlot` is the node
  * inside the dropdown.
  */
+/** Where the room is: a city picker, or hand-typed coordinates. Saves with the
+ *  room (designState.location); a room never given one reads as Tashkent. */
+function QiblaLocation() {
+  const location = useRoomStore((st) => st.designState.location);
+  const setDesignState = useRoomStore((st) => st.setDesignState);
+  const custom = !!location && !location.label;
+  const [customMode, setCustomMode] = useState(custom);
+  const [lat, setLat] = useState(String(location?.latitude ?? ""));
+  const [lon, setLon] = useState(String(location?.longitude ?? ""));
+  const latN = Number(lat), lonN = Number(lon);
+  const valid = lat.trim() !== "" && lon.trim() !== "" && isValidCoordinate(latN, lonN);
+
+  const commit = (nextLat: string, nextLon: string) => {
+    const a = Number(nextLat), b = Number(nextLon);
+    if (nextLat.trim() !== "" && nextLon.trim() !== "" && isValidCoordinate(a, b)) {
+      setDesignState({ location: { latitude: a, longitude: b } });
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <label className="text-xs text-gray-500" htmlFor="qibla-city">{uz.studio.qibla.joylashuv}</label>
+      <select
+        id="qibla-city"
+        value={customMode ? "__custom" : location?.label ?? CITY_PRESETS[0].label}
+        onChange={(e) => {
+          if (e.target.value === "__custom") { setCustomMode(true); return; }
+          setCustomMode(false);
+          const c = CITY_PRESETS.find((p) => p.label === e.target.value)!;
+          setDesignState({ location: { latitude: c.latitude, longitude: c.longitude, label: c.label } });
+        }}
+        className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm"
+      >
+        {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{c.label}</option>)}
+        <option value="__custom">{uz.studio.qibla.boshqa}</option>
+      </select>
+      {customMode && (
+        <div className="flex gap-2">
+          {([
+            [uz.studio.qibla.kenglik, lat, (v: string) => { setLat(v); commit(v, lon); }],
+            [uz.studio.qibla.uzunlik, lon, (v: string) => { setLon(v); commit(lat, v); }],
+          ] as const).map(([label, value, onChange]) => (
+            <input
+              key={label}
+              inputMode="decimal"
+              aria-label={label}
+              placeholder={label}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="min-h-[44px] w-1/2 rounded-xl border border-gray-200 px-3 text-sm"
+            />
+          ))}
+        </div>
+      )}
+      {customMode && (lat !== "" || lon !== "") && !valid && (
+        <p className="text-xs text-red-600">{uz.studio.qibla.notogri}</p>
+      )}
+      <p className="text-xs text-gray-500">
+        {Math.round(qiblaBearing(location?.latitude, location?.longitude))}°
+      </p>
+    </div>
+  );
+}
+
 export function ToolsDrawerPanel({
   menuSlot,
   hasScan, showScan, setShowScan,
@@ -91,6 +157,7 @@ export function ToolsDrawerPanel({
               <span>{uz.studio.qibla.nomi}</span>
             </button>
             {showQibla && <p className="mt-2 text-xs text-emerald-700">{uz.studio.qibla.izoh}</p>}
+            {showQibla && <QiblaLocation />}
           </div>
 
           {/* What is left of the lighting cluster: the sun clock. The

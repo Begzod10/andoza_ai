@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { qiblaBearing, bearingToScene, compassPoint } from "@/lib/qibla";
 import { uz } from "@/locale/uz";
+import { useRoomStore } from "@/store/roomStore";
 
 /**
  * A flat arrow on the floor pointing toward the Qibla, with its bearing beside
@@ -15,7 +16,11 @@ import { uz } from "@/locale/uz";
 const noRaycast = () => null;
 
 export function QiblaMarker({ W, D, visible }: { W: number; D: number; visible: boolean }) {
-  const bearing = useMemo(() => qiblaBearing(), []);
+  const location = useRoomStore((st) => st.designState.location);
+  const bearing = useMemo(
+    () => qiblaBearing(location?.latitude, location?.longitude),
+    [location?.latitude, location?.longitude],
+  );
   const [dx, dz] = useMemo(() => bearingToScene(bearing), [bearing]);
 
   // How far the ray from the centre travels before it meets the room's edge.
