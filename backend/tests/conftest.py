@@ -2,7 +2,7 @@
 Pytest fixtures and configuration for AndozaAI backend tests.
 
 Establishes environment variables before any app module imports.
-Provides reusable mocks for external services (OpenAI, Redis, Meshy).
+Provides reusable mocks for external services (OpenAI, Redis).
 """
 import os
 import tempfile
@@ -21,7 +21,6 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("AI_FEATURES_ENABLED", "false")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-not-real")
-os.environ.setdefault("MESHY_API_KEY", "meshy-test-key-not-real")
 os.environ.setdefault("ENVIRONMENT", "test")
 
 # MEDIA_ROOT defaults to /app/media — the path inside the Docker image (see
@@ -108,12 +107,6 @@ def mock_openai():
         )
     )
     return client
-
-
-@pytest.fixture
-def mock_meshy():
-    """Mock Meshy API client."""
-    return AsyncMock()
 
 
 # ============================================================================

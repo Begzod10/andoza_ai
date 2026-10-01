@@ -19,7 +19,6 @@ export * from "./api/estimates";
 export * from "./api/draftRooms";
 export * from "./api/leads";
 export * from "./api/ai";
-export * from "./api/meshy";
 export * from "./api/render";
 export * from "./api/photoModel";
 export * from "./api/seller";
