@@ -42,7 +42,7 @@ function UstaCard({
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-bold text-neutral-900 truncate">{usta.name}</h3>
             {usta.verified && (
-              <span className="bg-success/10 text-success text-xs font-semibold px-2 py-0.5 rounded-chip">
+              <span className="bg-success/10 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-chip">
                 {uz.ustalar.verified}
               </span>
             )}
@@ -202,8 +202,8 @@ export default function UstalarPage() {
               className={cn(
                 "px-4 py-1.5 rounded-chip text-sm font-medium border-2 transition-colors",
                 sort === opt.key
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-neutral-200 hover:border-brand/40"
+                  ? "border-brand bg-white text-brand"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:border-brand/40"
               )}
             >
               {opt.label}

@@ -14,6 +14,9 @@ const api = vi.hoisted(() => ({
   updateMyModel: vi.fn(),
   deleteMyModel: vi.fn(),
   uploadMyModel: vi.fn(),
+  createPhotoModel: vi.fn(),
+  waitForRender: vi.fn(),
+  fetchPhotoModelGlb: vi.fn(),
 }))
 vi.mock('@/lib/api', () => ({
   ...Object.fromEntries(Object.entries(api).map(([k, v]) => [k, (...a: unknown[]) => v(...a)])),
@@ -135,5 +138,67 @@ describe('SellerPage', () => {
     fireEvent.change(input, { target: { files: [new File(['x'], 'sofa.obj')] } })
     expect(await screen.findByRole('alert')).toHaveTextContent('.glb')
     expect(api.uploadMyModel).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('building the 3D model from a photo (inside the upload dialog)', () => {
+  async function openDialog() {
+    api.getMyStore.mockResolvedValue(store())
+    api.listMyModels.mockResolvedValue({ total: 0, page: 1, per_page: 100, items: [] })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Yangi model/ }))
+    return screen.findByLabelText('Rasmdan 3D model yaratish')
+  }
+  const photo = () => new File(['x'], 'sofa.jpg', { type: 'image/jpeg' })
+
+  it('turns the photo into the model file, names the model after it and uses the photo as its picture', async () => {
+    api.createPhotoModel.mockResolvedValue({ job_id: 'j1' })
+    api.waitForRender.mockResolvedValue({ url: 'u', key: 'photo-models/u/m.glb', prompt: null })
+    api.fetchPhotoModelGlb.mockResolvedValue(new Blob(['glb']))
+    api.uploadMyModel.mockResolvedValue(model({ status: 'pending', is_active: false }))
+    const input = await openDialog()
+
+    fireEvent.change(input, { target: { files: [photo()] } })
+
+    await waitFor(() => expect(screen.getByText('sofa.glb')).toBeInTheDocument())
+    expect(api.waitForRender).toHaveBeenCalledWith('j1', expect.any(AbortSignal))
+    expect(api.fetchPhotoModelGlb).toHaveBeenCalledWith('photo-models/u/m.glb')
+    expect(screen.getByLabelText('Nomi')).toHaveValue('sofa')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yuklash' }))
+    await waitFor(() => expect(api.uploadMyModel).toHaveBeenCalled())
+    const sent = api.uploadMyModel.mock.calls[0][0]
+    expect(sent.file.name).toBe('sofa.glb')
+    expect(sent.thumbnail.name).toBe('sofa.jpg')
+  })
+
+  it('keeps the name the seller already typed', async () => {
+    api.createPhotoModel.mockResolvedValue({ job_id: 'j1' })
+    api.waitForRender.mockResolvedValue({ url: 'u', key: 'k', prompt: null })
+    api.fetchPhotoModelGlb.mockResolvedValue(new Blob(['glb']))
+    const input = await openDialog()
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Uch o\'rinli divan' } })
+    fireEvent.change(input, { target: { files: [photo()] } })
+    await waitFor(() => expect(screen.getByText('sofa.glb')).toBeInTheDocument())
+    expect(screen.getByLabelText('Nomi')).toHaveValue("Uch o'rinli divan")
+  })
+
+  it('shows progress, blocks submitting meanwhile, and says why when it fails', async () => {
+    api.createPhotoModel.mockResolvedValue({ job_id: 'j1' })
+    api.waitForRender.mockRejectedValue(new Error("Bugun AI so'rovlar limiti tugadi."))
+    const input = await openDialog()
+    fireEvent.change(input, { target: { files: [photo()] } })
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
+    expect(screen.getByRole('button', { name: 'Yuklash' })).toBeDisabled()
+  })
+
+  it('refuses a photo over 20 MB without calling the server', async () => {
+    const input = await openDialog()
+    const big = photo()
+    Object.defineProperty(big, 'size', { value: 21 * 1024 * 1024 })
+    fireEvent.change(input, { target: { files: [big] } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('20 MB')
+    expect(api.createPhotoModel).not.toHaveBeenCalled()
   })
 })
