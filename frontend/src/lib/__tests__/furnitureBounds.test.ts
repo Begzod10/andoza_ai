@@ -156,10 +156,13 @@ describe('clampFootprintToRoom, rectangular room', () => {
     expect(far.x + SMALL.maxX).toBeCloseTo(RECT_ROOM.W - 120, 6)
   })
 
-  it('leaves a real gap between the model and the wall by default', () => {
+  it('puts the model AGAINST the wall by default', () => {
+    // The 50 mm this used to insist on showed as a stripe of floor behind
+    // every bed and wardrobe. Furniture stands against a wall; a clearance is
+    // now something a caller asks for, as the test above does.
     const got = clampFootprintToRoom({ x: -5000, z: -5000 }, { x: 1000, z: 1000 }, SMALL, RECT_ROOM)
-    expect(got.x + SMALL.minX).toBeGreaterThan(0)
-    expect(got.z + SMALL.minZ).toBeGreaterThan(0)
+    expect(got.x + SMALL.minX).toBeCloseTo(0, 6)
+    expect(got.z + SMALL.minZ).toBeCloseTo(0, 6)
   })
 
   it('handles an origin that is not the model centre', () => {

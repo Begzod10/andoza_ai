@@ -19,7 +19,8 @@ import { DEFAULT_WINDOW_STYLE, mullionCount, resolveWindowStyle } from '@/lib/wi
 import { PlanFurnitureLayer, itemScale, resolveFurnitureEntry } from './PlanFurniture'
 import { WindowStylePicker } from './WindowStylePicker'
 import { isAbcdRoom, offsetPolygon, planPolygon, svgPoints } from '@/lib/planPolygon'
-import { clampFootprintToRoom, FUR_WALL_GAP } from '@/lib/furnitureBounds'
+import { FUR_WALL_GAP } from '@/lib/furnitureBounds'
+import { resolveFurnitureMove, type Obstacle } from '@/lib/furnitureCollision'
 
 type ElType = WallElement['type']
 
@@ -299,33 +300,41 @@ export function MebelPlanView() {
     return wall.toU(p.x, p.y)
   }
 
-  /** Placed item → its plan-space extents around the model origin, in mm. */
+  /** Placed item → its extents around the model origin in the item's OWN
+   *  axes, mm. Unrotated: the resolver turns them itself, and a box big
+   *  enough to hold the model at every angle is bigger than the model at any
+   *  of them. */
   function furExtents(item: PlacedFurniture) {
     const entry = resolveFurnitureEntry(item.furniture_id, userFurniture, catalogFurniture)
     const hull = hullsRef.current.get(item.id)
-    if (entry && hull) {
-      const b = hullBounds(hull, item.rotation, itemScale(entry, item) * 1000)
-      return b
-    }
+    if (entry && hull) return hullBounds(hull, 0, itemScale(entry, item) * 1000)
     // Before the symbol has reported (or without a catalog entry): square box
     const so = item.scaleOverride ?? 1
     const hw = ((entry?.sizeM.w ?? 0.6) * so * 1000) / 2
     const hd = ((entry?.sizeM.d ?? 0.6) * so * 1000) / 2
-    const c = Math.abs(Math.cos(item.rotation))
-    const s = Math.abs(Math.sin(item.rotation))
-    const rw = hw * c + hd * s
-    const rd = hw * s + hd * c
-    return { minX: -rw, maxX: rw, minZ: -rd, maxZ: rd }
+    return { minX: -hw, maxX: hw, minZ: -hd, maxZ: hd }
   }
 
-  /** Keep an item's whole footprint inside the room — the same rule the 3D
-   *  viewport's drag applies, so the two editors stop it at the same walls. */
+  /** Everything except `skipId`, as footprints to keep clear of. */
+  function furObstacles(skipId: string): Obstacle[] {
+    return furniture
+      .filter((f) => f.id !== skipId)
+      .map((f) => ({
+        at: { x: f.x + W / 2, z: f.y + Dp / 2 },
+        box: { ...furExtents(f), rotation: f.rotation },
+      }))
+  }
+
+  /** Keep an item's whole footprint inside the room and clear of the others —
+   *  the same rule, and the same resolver, the 3D viewport's drag applies, so
+   *  the two editors stop it in the same places. */
   function clampFurniture(item: PlacedFurniture, planX: number, planY: number) {
-    const fitted = clampFootprintToRoom(
-      { x: planX, z: planY },
+    const fitted = resolveFurnitureMove(
       { x: item.x + W / 2, z: item.y + Dp / 2 },
-      furExtents(item),
+      { x: planX, z: planY },
+      { ...furExtents(item), rotation: item.rotation },
       { W, D: Dp, inner: innerOutline, outline: poly ? poly.vertices : null },
+      furObstacles(item.id),
       FUR_WALL_GAP,
     )
     return { x: fitted.x, y: fitted.z }

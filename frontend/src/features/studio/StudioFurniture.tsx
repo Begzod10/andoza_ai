@@ -11,6 +11,10 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
+import {
+  resolveFurnitureMove, resolveFurnitureRotation,
+  type Obstacle, type OrientedFootprint,
+} from '@/lib/furnitureCollision'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
@@ -18,7 +22,7 @@ import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatal
 import { planPolygon, offsetPolygon } from "@/lib/planPolygon";
 import { roomExtents } from "@/lib/roomDims";
 import {
-  clampFootprintToRoom, halfExtentsToBounds, rotatedHalfExtents, FUR_WALL_GAP,
+  halfExtentsToBounds, FUR_WALL_GAP,
   worldToPlan, planToWorld, type RoomBounds,
 } from "@/lib/furnitureBounds";
 import { extractSceneInfo } from "@/lib/modelConverter";
@@ -374,6 +378,12 @@ function DraggableFurnitureItem({
       groupRef.current.position.z = dragPosRef.current.z
     } else if (toolMode === 'rotate' && primitiveRef.current && dragRotRef.current !== null) {
       primitiveRef.current.rotation.y = dragRotRef.current
+      // A turn against a wall shifts the model off it; show that as it
+      // happens rather than letting the model jump when the drag is let go.
+      if (groupRef.current && dragPosRef.current) {
+        groupRef.current.position.x = dragPosRef.current.x
+        groupRef.current.position.z = dragPosRef.current.z
+      }
       // keep the selection cage glued to the model during live rotation
       if (selRef.current) selRef.current.rotation.y = dragRotRef.current
     } else if (toolMode === 'scale' && primitiveRef.current && entry) {
@@ -600,6 +610,10 @@ export function DraggableFurnitureModels({
   const draggingIdRef = useRef<string | null>(null)
   const furnitureRef = useRef(furniture)
   furnitureRef.current = furniture
+  /** The dragged model's own half-extents, metres, UNROTATED. The resolver
+   *  turns them itself — a bounding box big enough to hold a model at every
+   *  angle is bigger than the model at any of them, and the difference is a
+   *  gap against the wall. */
   const dragHalfRef = useRef({ w: 0.3, d: 0.3 })
   const rotateStartXRef = useRef(0)
   const scaleStartYRef = useRef(0)
@@ -660,25 +674,33 @@ export function DraggableFurnitureModels({
     return { name: 'Mebel', priceUzs: null }
   }
 
-  // AABB overlap test using actual geometry footprints, not catalog sizeM
-  function wouldCollide(draggingId: string, nx: number, nz: number): boolean {
-    const all = furnitureRef.current
-    const aFP0 = footprintsRef.current.get(draggingId)
-    if (!aFP0) return false
-    const dragItem = all.find((f) => f.id === draggingId)
-    const aFP = rotatedHalfExtents(aFP0.hw, aFP0.hd, dragItem?.rotation ?? 0)
-    const GAP = 0.03 // 3 cm minimum clearance
-
-    for (const f of all) {
-      if (f.id === draggingId) continue
-      const bFP0 = footprintsRef.current.get(f.id)
-      if (!bFP0) continue
-      const bFP = rotatedHalfExtents(bFP0.hw, bFP0.hd, f.rotation)
-      const dx = Math.abs(nx - f.x / 1000)
-      const dz = Math.abs(nz - f.y / 1000)
-      if (dx < aFP.hw + bFP.hw + GAP && dz < aFP.hd + bFP.hd + GAP) return true
+  /**
+   * Everything else standing in the room, as footprints the resolver can test
+   * against — each at its own angle, measured from its real geometry rather
+   * than its catalogue size.
+   *
+   * A model whose GLB has not loaded has reported no footprint yet and is left
+   * out: an unknown shape is better treated as absent than as a guess, which
+   * would fence off floor that may well be empty.
+   */
+  function obstaclesFor(skipId: string): Obstacle[] {
+    const out: Obstacle[] = []
+    for (const f of furnitureRef.current) {
+      if (f.id === skipId) continue
+      const fp = footprintsRef.current.get(f.id)
+      if (!fp) continue
+      out.push({
+        at: worldToPlan({ x: f.x / 1000, z: f.y / 1000 }, roomBounds),
+        box: { ...halfExtentsToBounds(fp.hw * 1000, fp.hd * 1000), rotation: f.rotation },
+      })
     }
-    return false
+    return out
+  }
+
+  /** The dragged model's footprint, in the plan's millimetres, at `rotation`. */
+  function dragBox(rotation: number): OrientedFootprint {
+    const { w, d } = dragHalfRef.current
+    return { ...halfExtentsToBounds(w * 1000, d * 1000), rotation }
   }
 
   function activateDrag(item: PlacedFurniture, clientX: number, clientY = 0) {
@@ -693,17 +715,20 @@ export function DraggableFurnitureModels({
       const so = item.scaleOverride ?? 1
       const hw0 = fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2
       const hd0 = fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2
-      // Wall clamping must use the ROTATED extents, or a long model turned
-      // 90° gets its free axis locked against the walls. The wall gap is the
-      // clamp's own business, so these stay the bare half-extents.
-      const { hw, hd } = rotatedHalfExtents(hw0, hd0, item.rotation)
-      dragHalfRef.current = { w: hw, d: hd }
-      dragPosRef.current.set(item.x / 1000, 0, item.y / 1000)
+      dragHalfRef.current = { w: hw0, d: hd0 }
       document.body.style.cursor = 'grabbing'
     } else if (toolMode === 'rotate') {
+      // Turning needs the footprint too: a model may only turn into space it
+      // can actually occupy.
+      const fp = footprintsRef.current.get(item.id)
+      const entry = resolveEntry(item.furniture_id)
+      const so = item.scaleOverride ?? 1
+      dragHalfRef.current = {
+        w: fp?.hw ?? (entry?.sizeM.w ?? 0.6) * so / 2,
+        d: fp?.hd ?? (entry?.sizeM.d ?? 0.6) * so / 2,
+      }
       rotateStartXRef.current = clientX
       rotateStartAngleRef.current = item.rotation
-      dragRotRef.current = item.rotation
       document.body.style.cursor = 'ew-resize'
     } else if (toolMode === 'scale') {
       const so = item.scaleOverride ?? 1
@@ -712,6 +737,10 @@ export function DraggableFurnitureModels({
       dragScaleRef.current = so
       document.body.style.cursor = 'ns-resize'
     }
+    // Position and angle are both live in every mode: a move has to know which
+    // way the model faces, and a turn may have to shift it to find the room.
+    dragPosRef.current.set(item.x / 1000, 0, item.y / 1000)
+    dragRotRef.current = item.rotation
     draggingIdRef.current = item.id
     setDraggingId(item.id)
     if (controlsRef.current) controlsRef.current.enabled = false
@@ -752,7 +781,9 @@ export function DraggableFurnitureModels({
       if (toolMode === 'move' || toolMode === 'select') {
         moveFurniture(id, dragPosRef.current.x * 1000, dragPosRef.current.z * 1000, item.rotation)
       } else if (toolMode === 'rotate') {
-        moveFurniture(id, item.x, item.y, dragRotRef.current)
+        // Position too: turning against a wall shifts the model off it, and
+        // committing the old position would put it back through the wall.
+        moveFurniture(id, dragPosRef.current.x * 1000, dragPosRef.current.z * 1000, dragRotRef.current)
       } else if (toolMode === 'scale') {
         resizeFurniture(id, dragScaleRef.current)
       }
@@ -776,30 +807,43 @@ export function DraggableFurnitureModels({
         )
         raycaster.setFromCamera(ndc, camera)
         if (!raycaster.ray.intersectPlane(floorPlane, hitPoint.current)) return
-        const { w, d } = dragHalfRef.current
-        const snap = 0.05
-        // Snap first, then clamp: snapping afterwards could nudge the model
-        // back out through the wall the clamp had just pulled it inside of.
-        const wantX = Math.round(hitPoint.current.x / snap) * snap
-        const wantZ = Math.round(hitPoint.current.z / snap) * snap
-        // The clamp works in the plan's frame (mm from the room's corner);
+        // No grid snap: the model follows the finger, and the resolver below
+        // is what stops it. Rounding to 50 mm first put a model up to half a
+        // step away from the wall it was pushed against and made a slow drag
+        // move in visible jumps.
+        //
+        // The resolver works in the plan's frame (mm from the room's corner);
         // the drag works in world metres about the room's centre.
-        const fitted = clampFootprintToRoom(
-          worldToPlan({ x: wantX, z: wantZ }, roomBounds),
+        const fitted = resolveFurnitureMove(
           worldToPlan({ x: dragPosRef.current.x, z: dragPosRef.current.z }, roomBounds),
-          halfExtentsToBounds(w * 1000, d * 1000),
+          worldToPlan({ x: hitPoint.current.x, z: hitPoint.current.z }, roomBounds),
+          dragBox(dragRotRef.current),
           roomBounds,
+          obstaclesFor(draggingIdRef.current!),
         )
         const { x, z } = planToWorld(fitted, roomBounds)
-        // Only update position if it doesn't overlap another item
-        if (!wouldCollide(draggingIdRef.current!, x, z)) {
-          dragPosRef.current.set(x, 0, z)
-        }
+        dragPosRef.current.set(x, 0, z)
       } else if (toolMode === 'rotate') {
         const deltaX = e.clientX - rotateStartXRef.current
         const rawRot = rotateStartAngleRef.current - deltaX * (Math.PI / 120)
         const step = 5 * (Math.PI / 180)
-        dragRotRef.current = Math.round(rawRot / step) * step
+        const wantRot = Math.round(rawRot / step) * step
+        // A model may only turn into room it can actually occupy. If turning
+        // in place would put a corner through a wall or into the next model,
+        // the resolver shifts it off by as little as will do; if nothing will,
+        // it keeps the angle it had rather than letting it sweep through.
+        const solved = resolveFurnitureRotation(
+          worldToPlan({ x: dragPosRef.current.x, z: dragPosRef.current.z }, roomBounds),
+          dragBox(wantRot),
+          wantRot,
+          roomBounds,
+          obstaclesFor(draggingIdRef.current!),
+        )
+        if (solved) {
+          dragRotRef.current = solved.rotation
+          const w = planToWorld(solved.at, roomBounds)
+          dragPosRef.current.set(w.x, 0, w.z)
+        }
       } else if (toolMode === 'scale') {
         const deltaY = scaleStartYRef.current - e.clientY // drag up = bigger
         // Generous bounds: unit-misdetected imports may need large corrections

@@ -16,8 +16,16 @@ import { offsetPolygon, planPolygon, pointInPolygon } from '@/lib/planPolygon'
 import { roomExtents } from '@/lib/roomDims'
 import type { RoomGeometry } from '@/store/roomStore'
 
-/** Clearance kept between a model and the wall it is pushed against, mm. */
-export const FUR_WALL_GAP = 50
+/**
+ * Clearance kept between a model and the wall it is pushed against, mm.
+ *
+ * Zero: furniture stands AGAINST a wall. The 50 mm this used to hold was a
+ * safety margin for a clamp that could only accept or reject a position, and
+ * it showed as a stripe of floor behind every bed and every wardrobe. The
+ * resolver in `furnitureCollision` slides to contact instead, so the margin
+ * has nothing left to protect.
+ */
+export const FUR_WALL_GAP = 0
 
 export interface PlanPoint { x: number; z: number }
 
