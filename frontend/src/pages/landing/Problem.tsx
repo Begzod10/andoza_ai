@@ -1,85 +1,50 @@
 import { useLang } from "./i18n";
 import Reveal from "./Reveal";
 
-// Scattered note placements on the wide board (pin point = % of the board box,
-// so the SVG string — drawn in the same 0–100 space — meets each pin exactly).
-const SPOTS = [
-  { x: 16, y: 15, rot: -6 },
-  { x: 40, y: 33, rot: 5 },
-  { x: 63, y: 13, rot: -4 },
-  { x: 85, y: 39, rot: 7 },
-];
+// Small per-note character: tilt + pin colour. A contained grid (not absolute
+// scatter) guarantees every note stays inside the board at any text length.
+const TILT = ["-2.5deg", "2deg", "-1.5deg", "2.5deg"];
 const PIN_COLORS = ["#ef4444", "#f59e0b", "#e11d48", "#ef4444"];
 
 function Pin({ color }: { color: string }) {
   return (
-    <span
-      className="absolute -top-3 left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full"
-      aria-hidden
-      style={{
-        background: `radial-gradient(circle at 34% 30%, #ffffff 0 1.5px, ${color} 3px, ${color} 100%)`,
-        boxShadow: "0 3px 5px rgba(0,0,0,0.45)",
-      }}
-    />
-  );
-}
-
-function Note({
-  title,
-  desc,
-  color,
-  className = "",
-  style,
-}: {
-  title: string;
-  desc: string;
-  color: string;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div className={`relative w-48 max-w-full ${className}`} style={style}>
-      <Pin color={color} />
-      <div
-        className="relative rounded-[3px] px-5 pb-6 pt-7 shadow-[0_16px_26px_-10px_rgba(0,0,0,0.6)]"
-        style={{ background: "linear-gradient(160deg,#fef3c7 0%,#fcd34d 100%)" }}
-      >
-        <h3 className="text-base font-bold text-neutral-900">{title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-neutral-700">{desc}</p>
-        {/* folded corner */}
-        <span
-          className="absolute bottom-0 right-0 h-5 w-5"
-          style={{ background: "linear-gradient(135deg, transparent 50%, rgba(180,130,10,0.35) 50%)" }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// Cork + wooden-frame board surface, shared by both layouts.
-function boardShell(children: React.ReactNode, className: string) {
-  return (
-    <div
-      className={`relative rounded-[20px] ${className}`}
-      style={{
-        background: "linear-gradient(150deg,#8a6636 0%,#5f4222 55%,#4a3319 100%)",
-        padding: 16,
-        boxShadow: "0 40px 80px -34px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.18)",
-      }}
-    >
-      {/* cork surface */}
-      <div
-        className="pointer-events-none absolute inset-4 rounded-[12px]"
+    <span className="absolute -top-3 left-1/2 z-20 -translate-x-1/2" aria-hidden>
+      <span
+        className="block h-[18px] w-[18px] rounded-full"
         style={{
-          backgroundColor: "#c19a5e",
-          backgroundImage:
-            "radial-gradient(rgba(96,58,16,0.28) 1px, transparent 1.8px), radial-gradient(rgba(255,238,200,0.20) 1px, transparent 1.8px), radial-gradient(rgba(140,96,40,0.14) 1.5px, transparent 2.4px)",
-          backgroundSize: "12px 12px, 18px 18px, 30px 30px",
-          backgroundPosition: "0 0, 6px 9px, 14px 5px",
-          boxShadow: "inset 0 0 70px rgba(64,40,12,0.6)",
+          background: `radial-gradient(circle at 35% 28%, #fff 0 2px, ${color} 3.5px, ${color} 70%, rgba(0,0,0,0.25) 100%)`,
+          boxShadow: "0 4px 7px -1px rgba(0,0,0,0.5)",
         }}
       />
-      {children}
+    </span>
+  );
+}
+
+function Note({ title, desc, color, tilt }: { title: string; desc: string; color: string; tilt: string }) {
+  return (
+    <div className="relative w-full max-w-[280px]" style={{ transform: `rotate(${tilt})` }}>
+      <Pin color={color} />
+      <div
+        className="relative overflow-hidden rounded-xl px-6 pb-7 pt-8"
+        style={{
+          background: "linear-gradient(150deg,#fffbe6 0%,#ffe884 55%,#ffdd5c 100%)",
+          boxShadow:
+            "0 18px 30px -14px rgba(40,30,0,0.45), 0 3px 8px -3px rgba(40,30,0,0.3), inset 0 1px 0 rgba(255,255,255,0.6)",
+        }}
+      >
+        {/* faint ruled lines for a real paper feel */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: "repeating-linear-gradient(transparent 0 22px, #6b5200 22px 23px)" }}
+        />
+        <h3 className="relative text-[17px] font-bold tracking-tight text-[#3a2e05]">{title}</h3>
+        <p className="relative mt-2 text-sm leading-relaxed text-[#5f4e12]">{desc}</p>
+        {/* soft peeled corner */}
+        <span
+          className="pointer-events-none absolute bottom-0 right-0 h-6 w-6"
+          style={{ background: "linear-gradient(135deg, transparent 50%, rgba(120,90,0,0.22) 50%)" }}
+        />
+      </div>
     </div>
   );
 }
@@ -89,92 +54,68 @@ export default function Problem() {
   const items = t.problem.items;
 
   return (
-    <section className="relative z-10 mx-auto max-w-7xl px-6 py-20 sm:py-24">
+    <section className="relative z-10 mx-auto max-w-6xl px-6 py-20 sm:py-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
           {t.problem.heading}
         </h2>
       </Reveal>
 
-      {/* ── Wide detective board (md+): scattered notes tied with a red web ── */}
-      <Reveal className="mt-14 hidden md:block">
-        {boardShell(
-          <>
-            {/* red string web — same 0–100 space as the note pin points */}
-            <svg
-              className="pointer-events-none absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)]"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              style={{ filter: "drop-shadow(0 1.5px 1.5px rgba(0,0,0,0.5))" }}
-              aria-hidden
-            >
-              <path
-                d={`M${SPOTS[0].x} ${SPOTS[0].y} L${SPOTS[1].x} ${SPOTS[1].y} L${SPOTS[2].x} ${SPOTS[2].y} L${SPOTS[3].x} ${SPOTS[3].y} M${SPOTS[0].x} ${SPOTS[0].y} L${SPOTS[2].x} ${SPOTS[2].y} M${SPOTS[1].x} ${SPOTS[1].y} L${SPOTS[3].x} ${SPOTS[3].y}`}
-                fill="none"
-                stroke="#dc2626"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
+      {/* ── Modern evidence board: notes in a contained grid, tied with string ── */}
+      <Reveal className="mt-14">
+        <div
+          className="relative overflow-hidden rounded-[28px] p-5 sm:p-8"
+          style={{
+            background: "linear-gradient(160deg,#caa877 0%,#b8945c 55%,#a07c42 100%)",
+            boxShadow: "0 36px 70px -34px rgba(60,40,10,0.55), inset 0 2px 3px rgba(255,255,255,0.22)",
+          }}
+        >
+          {/* refined cork texture */}
+          <div
+            className="pointer-events-none absolute inset-3 rounded-[20px]"
+            style={{
+              backgroundColor: "#c7a46a",
+              backgroundImage:
+                "radial-gradient(rgba(90,60,20,0.22) 1px, transparent 1.7px), radial-gradient(rgba(255,244,214,0.18) 1px, transparent 1.7px)",
+              backgroundSize: "13px 13px, 21px 21px",
+              backgroundPosition: "0 0, 7px 10px",
+              boxShadow: "inset 0 0 60px rgba(70,46,14,0.5), inset 0 0 0 1px rgba(255,255,255,0.08)",
+            }}
+          />
 
-            {/* the notes */}
-            <div className="relative h-[440px] lg:h-[520px]">
-              {items.map((item, i) => (
-                <Note
-                  key={item.title}
-                  title={item.title}
-                  desc={item.desc}
-                  color={PIN_COLORS[i % PIN_COLORS.length]}
-                  className="absolute"
-                  style={{
-                    left: `${SPOTS[i % SPOTS.length].x}%`,
-                    top: `${SPOTS[i % SPOTS.length].y}%`,
-                    transform: `translateX(-50%) rotate(${SPOTS[i % SPOTS.length].rot}deg)`,
-                  }}
-                />
-              ))}
-            </div>
-          </>,
-          "",
-        )}
-      </Reveal>
+          {/* red string web connecting the four pin areas (2×2 grid) */}
+          <svg
+            className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ filter: "drop-shadow(0 1.5px 1.5px rgba(0,0,0,0.45))" }}
+            aria-hidden
+          >
+            <path
+              d="M27 19 L73 21 L27 66 L73 68 M27 19 L27 66 M73 21 L73 68"
+              fill="none"
+              stroke="#dc2626"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              opacity="0.9"
+            />
+          </svg>
 
-      {/* ── Stacked board (mobile): notes down the centre on one red thread ── */}
-      <Reveal className="mt-12 md:hidden">
-        {boardShell(
-          <>
-            <svg
-              className="pointer-events-none absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)]"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.5))" }}
-              aria-hidden
-            >
-              <path
-                d="M50 3 C 60 26 40 38 50 52 C 60 66 40 80 50 98"
-                fill="none"
-                stroke="#dc2626"
-                strokeWidth="2"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
+          {/* the notes — grid keeps them inside the board at any length */}
+          <div className="relative z-10 grid grid-cols-1 justify-items-center gap-x-10 gap-y-12 py-4 sm:grid-cols-2 sm:py-6">
+            {items.map((item, i) => (
+              <Note
+                key={item.title}
+                title={item.title}
+                desc={item.desc}
+                color={PIN_COLORS[i % PIN_COLORS.length]}
+                tilt={TILT[i % TILT.length]}
               />
-            </svg>
-            <div className="relative flex flex-col items-center gap-12 py-4">
-              {items.map((item, i) => (
-                <Note
-                  key={item.title}
-                  title={item.title}
-                  desc={item.desc}
-                  color={PIN_COLORS[i % PIN_COLORS.length]}
-                  style={{ transform: `rotate(${SPOTS[i % SPOTS.length].rot}deg)` }}
-                />
-              ))}
-            </div>
-          </>,
-          "",
-        )}
+            ))}
+          </div>
+        </div>
       </Reveal>
     </section>
   );
