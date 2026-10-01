@@ -156,7 +156,19 @@ export function ThreeDCanvasScene({
       // the flex column then refuses to shrink past the size the canvas
       // already had — the viewport and the canvas disagree, and the
       // centred render drifts out of the visible slot on every tab switch.
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      style={{
+        position: "absolute", inset: 0, width: "100%", height: "100%",
+        // A press held on the canvas is the app's own gesture — it brings up
+        // the delete button for whatever is under the finger. Left alone, the
+        // browser answers first with "Save image as… / Copy image / Inspect",
+        // and on a phone a long press is the ONLY way to that menu, so it
+        // fires on every single hold. These stop it being offered; the
+        // handler below stops it being shown where it still is.
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+      }}
+      onContextMenu={(e) => e.preventDefault()}
       gl={{
         antialias: glAttempt === 0,
         toneMapping: THREE.ACESFilmicToneMapping,

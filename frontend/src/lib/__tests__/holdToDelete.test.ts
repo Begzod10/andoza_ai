@@ -102,10 +102,10 @@ describe('createHoldTracker', () => {
     expect(onHold).not.toHaveBeenCalled()
   })
 
-  it('waits the 1.2 seconds that was asked for', () => {
+  it('waits the second that was asked for', () => {
     const { onHold, t } = tracker()
     t.down(0, 0, 'x')
-    vi.advanceTimersByTime(1199)
+    vi.advanceTimersByTime(999)
     expect(onHold).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(onHold).toHaveBeenCalled()

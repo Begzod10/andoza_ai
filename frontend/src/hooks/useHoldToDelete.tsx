@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { createHoldTracker, HOLD_DELETE_MS } from '@/lib/holdToDelete'
 
 /**
- * Press and hold a placed thing for 1.2s and a delete button appears where the
+ * Press and hold a placed thing for a second and a delete button appears where the
  * finger is: doors and windows, models, the skirting and cornice, the
  * electrical faceplates.
  *

@@ -13,8 +13,9 @@
  * without a renderer.
  */
 
-/** How long a finger has to stay put. Long enough not to fire mid-drag. */
-export const HOLD_DELETE_MS = 1200
+/** How long a finger has to stay put. Long enough not to fire mid-drag, and
+ *  the second the user asked for. */
+export const HOLD_DELETE_MS = 1000
 /** Travel that still counts as holding still, px. */
 export const HOLD_MOVE_TOL_PX = 10
 
