@@ -27,6 +27,7 @@ def _cfg(monkeypatch):
     monkeypatch.setattr(tripo.settings, "TRIPO_API_KEY", "tsk_test")
     monkeypatch.setattr(tripo.settings, "TRIPO_API_URL", "https://openapi.example.test/v3")
     monkeypatch.setattr(tripo.settings, "TRIPO_MODEL", "v3.1-20260211")
+    monkeypatch.setattr(tripo.settings, "TRIPO_FACE_LIMIT", 50000)
 
 
 def _client(handler) -> TripoClient:
@@ -66,7 +67,42 @@ class TestClient_:
         assert seen["url"].endswith("/generation/image-to-model")
         assert seen["body"] == {
             "input": "file_abc", "model": "v3.1-20260211", "texture": True, "pbr": True, "auto_size": True,
+            "face_limit": 50000,
         }
+
+    async def test_a_zero_face_limit_leaves_it_to_tripo(self, monkeypatch):
+        monkeypatch.setattr(tripo.settings, "TRIPO_FACE_LIMIT", 0)
+        seen = {}
+
+        def handler(request):
+            seen["body"] = json.loads(request.content)
+            return _ok({"task_id": "t"})
+
+        await _client(handler).create_model_from_image("file_abc")
+        assert "face_limit" not in seen["body"]
+
+    async def test_several_views_use_the_multiview_endpoint_in_tripos_order(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            seen["body"] = json.loads(request.content)
+            return _ok({"task_id": "task_2"})
+
+        task_id = await _client(handler).create_model_from_views({"right": "r", "front": "f", "back": "b"})
+        assert task_id == "task_2"
+        assert seen["url"].endswith("/generation/multiview-to-model")
+        assert seen["body"]["inputs"] == [{"front": "f"}, {"back": "b"}, {"right": "r"}]
+        assert seen["body"]["model"] == "v3.1-20260211" and seen["body"]["face_limit"] == 50000
+        assert "input" not in seen["body"]
+
+    @pytest.mark.parametrize("tokens", [{"front": "f"}, {"left": "l", "back": "b"}, {"front": "f", "top": "t"}])
+    async def test_multiview_needs_a_front_and_a_second_view_and_known_names(self, tokens):
+        def handler(request):  # must never be reached
+            raise AssertionError("no request expected")
+
+        with pytest.raises(TripoError):
+            await _client(handler).create_model_from_views(tokens)
 
     async def test_a_nonzero_code_is_a_failure_even_on_http_200(self):
         body = {"code": 2010, "message": "Insufficient credits", "request_id": "req_1"}
@@ -182,6 +218,28 @@ class TestTask:
         assert up.await_args.args[0] == b"glbbytes"
         delete.assert_awaited_once_with("photo-model-sources/u1/a.png")
 
+    async def test_several_photos_are_built_together_and_every_source_deleted(self):
+        from app.tasks import media
+
+        client = MagicMock(
+            upload_image=AsyncMock(side_effect=["tok_f", "tok_l"]),
+            create_model_from_image=AsyncMock(),
+            create_model_from_views=AsyncMock(return_value="task_2"),
+            wait_for_model=AsyncMock(return_value={"output": {"model_url": "https://cdn/m.glb"}, "credits_consumed": 30}),
+        )
+        views = {"left": {"key": "src/l.png", "content_type": "image/png"}}
+        with patch("app.core.storage.download_file", new=AsyncMock(return_value=b"photo")), \
+             patch("app.core.storage.upload_file", new=AsyncMock(return_value="https://s3/m.glb")), \
+             patch("app.core.storage.delete_file", new=AsyncMock()) as delete, \
+             patch("app.services.tripo.get_tripo_client", return_value=client), \
+             patch("httpx.AsyncClient", return_value=_http_returning()):
+            out = await media._generate_model_from_photo("u1", "src/f.jpg", "image/jpeg", views)
+
+        assert out["status"] == "ok"
+        client.create_model_from_views.assert_awaited_once_with({"front": "tok_f", "left": "tok_l"})
+        client.create_model_from_image.assert_not_awaited()
+        assert {c.args[0] for c in delete.await_args_list} == {"src/f.jpg", "src/l.png"}
+
     async def test_a_tripo_failure_is_reported_and_the_source_still_deleted(self):
         from app.tasks import media
 
@@ -254,8 +312,34 @@ class TestRoute:
         assert res.status_code == 202 and res.json() == {"job_id": "job-1"}
         budget.assert_awaited_once_with(str(api.user.id), "photo_model", 3)
         assert up.await_args.args[1].startswith(f"photo-model-sources/{api.user.id}/")
-        assert delay.call_args.args == (str(api.user.id), up.await_args.args[1], "image/jpeg")
+        assert delay.call_args.args == (str(api.user.id), up.await_args.args[1], "image/jpeg", None)
         api.db.add.assert_called_once()
+
+    def test_extra_views_are_stored_and_sent_to_the_task_as_a_multiview_build(self, api):
+        files = {
+            "file": ("f.jpg", b"\xff\xd8front", "image/jpeg"),
+            "left": ("l.png", b"\x89PNGleft", "image/png"),
+            "back": ("b.jpg", b"\xff\xd8back", "image/jpeg"),
+        }
+        with patch("app.routers.photo_model.check_and_increment_budget_for", new=AsyncMock()) as budget, \
+             patch("app.routers.photo_model.upload_file", new=AsyncMock(return_value="u")) as up, \
+             patch("app.routers.photo_model.generate_model_from_photo.delay", return_value=MagicMock(id="job-2")) as delay:
+            res = api.post("/api/v1/models/from-photo", files=files)
+        assert res.status_code == 202
+        budget.assert_awaited_once()  # one build, one allowance — however many photos
+        assert up.await_count == 3
+        _, front_key, front_type, extra = delay.call_args.args
+        assert front_type == "image/jpeg" and set(extra) == {"left", "back"}
+        assert extra["left"]["content_type"] == "image/png" and extra["left"]["key"].endswith(".png")
+        assert front_key not in {v["key"] for v in extra.values()}
+
+    def test_a_bad_extra_view_is_refused_before_any_allowance_is_spent(self, api):
+        files = {"file": ("f.jpg", b"\xff\xd8front", "image/jpeg"), "left": ("l.pdf", b"%PDF", "application/pdf")}
+        with patch("app.routers.photo_model.check_and_increment_budget_for", new=AsyncMock()) as budget, \
+             patch("app.routers.photo_model.upload_file", new=AsyncMock()) as up:
+            assert api.post("/api/v1/models/from-photo", files=files).status_code == 415
+        budget.assert_not_awaited()
+        up.assert_not_awaited()
 
     def test_over_the_daily_limit_is_429_and_nothing_is_stored(self, api):
         with patch("app.routers.photo_model.check_and_increment_budget_for", new=AsyncMock(side_effect=BudgetExceededError())), \

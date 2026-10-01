@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const apiClient = vi.fn()
 vi.mock('../api/client', () => ({ apiClient: (...a: unknown[]) => apiClient(...a) }))
 
-import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from '../api/render'
+import { createRender, createRelight, createUpscale, waitForRender, errorMessage, isGatewayError, LIGHTING_MOODS } from '../api/render'
 
 beforeEach(() => { apiClient.mockReset(); vi.useFakeTimers() })
 afterEach(() => vi.useRealTimers())
@@ -15,6 +15,22 @@ describe('errorMessage', () => {
   it('passes through anything that is not that shape', () => {
     expect(errorMessage(new Error('HTTP 500'))).toBe('HTTP 500')
     expect(errorMessage('plain')).toBe('plain')
+  })
+})
+
+describe('gateway failures', () => {
+  const nginx502 = '<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></center> </body> </html>'
+
+  it('recognises nginx\'s page, a bare 50x and a failed fetch — and nothing else', () => {
+    expect(isGatewayError(new Error(nginx502))).toBe(true)
+    expect(isGatewayError(new Error('HTTP 503'))).toBe(true)
+    expect(isGatewayError(new TypeError('Failed to fetch'))).toBe(true)
+    expect(isGatewayError(new Error('{"detail":"Bugun AI so\'rovlar limiti tugadi."}'))).toBe(false)
+    expect(isGatewayError(new Error('HTTP 500'))).toBe(false)
+  })
+
+  it('shows a sentence, never the proxy\'s HTML', () => {
+    expect(errorMessage(new Error(nginx502))).toBe("Server vaqtincha javob bermayapti. Birozdan so'ng qayta urinib ko'ring.")
   })
 })
 
@@ -91,6 +107,31 @@ describe('waitForRender', () => {
   it('rejects a crashed job', async () => {
     apiClient.mockResolvedValue({ job_id: 'j', status: 'FAILURE', result: null })
     await expect(waitForRender('j')).rejects.toThrow()
+  })
+
+  it('waits out a gateway error (a deploy restart) and still gets the result', async () => {
+    apiClient
+      .mockRejectedValueOnce(new Error('<html><title>502 Bad Gateway</title></html>'))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ job_id: 'j', status: 'SUCCESS', result: { status: 'ok', url: 'u', key: 'k' } })
+    const p = waitForRender('j')
+    await vi.advanceTimersByTimeAsync(10_000)
+    await expect(p).resolves.toMatchObject({ url: 'u', key: 'k' })
+    expect(apiClient).toHaveBeenCalledTimes(3)
+  })
+
+  it('gives up if the gateway never comes back', async () => {
+    apiClient.mockRejectedValue(new Error('<html>502 Bad Gateway</html>'))
+    const p = waitForRender('j')
+    const settled = expect(p).rejects.toThrow('502')
+    await vi.advanceTimersByTimeAsync(200_000)
+    await settled
+  })
+
+  it('a real error in the reply is not retried', async () => {
+    apiClient.mockRejectedValue(new Error('{"detail":"Job not found"}'))
+    await expect(waitForRender('j')).rejects.toThrow('Job not found')
+    expect(apiClient).toHaveBeenCalledTimes(1)
   })
 
   it('stops when aborted', async () => {

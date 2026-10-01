@@ -1,9 +1,17 @@
 import { apiClient, BASE_URL, handleUnauthorized } from "./client";
 
-/** Queue a 3D model build from a furniture photo. Returns the job to poll. */
-export async function createPhotoModel(photo: Blob): Promise<{ job_id: string }> {
+/** The other angles of the same piece, next to the front photo. */
+export type PhotoViews = { left?: Blob; back?: Blob; right?: Blob };
+
+/** Queue a 3D model build. With only the photo it is built from that one; with
+ *  other angles too, from all of them together (the server picks the endpoint).
+ *  Returns the job to poll. */
+export async function createPhotoModel(photo: Blob, views: PhotoViews = {}): Promise<{ job_id: string }> {
   const form = new FormData();
   form.append("file", photo, photo instanceof File ? photo.name : "photo.jpg");
+  for (const [view, blob] of Object.entries(views)) {
+    if (blob) form.append(view, blob, blob instanceof File ? blob.name : `${view}.jpg`);
+  }
   return apiClient<{ job_id: string }>("/models/from-photo", { method: "POST", body: form });
 }
 

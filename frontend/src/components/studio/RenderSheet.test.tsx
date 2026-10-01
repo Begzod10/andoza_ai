@@ -6,11 +6,13 @@ const createRender = vi.fn()
 const createRelight = vi.fn()
 const createUpscale = vi.fn()
 const waitForRender = vi.fn()
+const listRenders = vi.fn()
 vi.mock('@/lib/api', () => ({
   createRender: (...a: unknown[]) => createRender(...a),
   createRelight: (...a: unknown[]) => createRelight(...a),
   createUpscale: (...a: unknown[]) => createUpscale(...a),
   waitForRender: (...a: unknown[]) => waitForRender(...a),
+  listRenders: (...a: unknown[]) => listRenders(...a),
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   LIGHTING_MOODS: ['midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood'],
 }))
@@ -33,7 +35,15 @@ async function renderOnce(outcome = FIRST) {
   await screen.findByTestId('pano-viewer')
 }
 
-beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); createUpscale.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset() })
+async function renderOnceWith(roomId: string) {
+  panoramaJpeg.mockResolvedValue(new Blob(['pano']))
+  createRender.mockResolvedValue({ job_id: 'j1' })
+  waitForRender.mockResolvedValueOnce(FIRST)
+  render(<RenderSheet open onOpenChange={() => {}} roomId={roomId} />)
+  await screen.findByTestId('pano-viewer')
+}
+
+beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); createUpscale.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset(); listRenders.mockReset(); listRenders.mockResolvedValue([]) })
 
 describe('RenderSheet', () => {
   it('takes the panorama and renders it as soon as it opens, with no button pressed', async () => {
@@ -43,6 +53,27 @@ describe('RenderSheet', () => {
     expect(createRender).toHaveBeenCalledTimes(1)
     expect(createRender.mock.calls[0][0]).toBeInstanceOf(Blob)
     expect(waitForRender).toHaveBeenCalledWith('j1', expect.any(AbortSignal))
+  })
+
+  it('sends the room id so the picture is saved against it', async () => {
+    await renderOnceWith('room-7')
+    expect(createRender).toHaveBeenCalledWith(expect.any(Blob), '', 'room-7')
+  })
+
+  it('lists the saved renders of the room and shows one when tapped', async () => {
+    const row = (id: string, kind: string, url: string, key: string) => ({
+      id, kind, url, key, lighting: null, prompt: null, panorama: true, parent_key: null, room_id: 'room-7',
+      created_at: '2026-10-01T10:00:00Z',
+    })
+    listRenders.mockResolvedValue([row('1', 'upscale', 'https://s3/old4k.jpg', 'renders/u/old4k.jpg'), row('2', 'render', 'https://s3/old.jpg', 'renders/u/old.jpg')])
+    await renderOnceWith('room-7')
+    expect(listRenders).toHaveBeenCalledWith('room-7')
+    const thumbs = await screen.findAllByRole('button', { name: /Saqlangan renderlar:/ })
+    expect(thumbs).toHaveLength(2)
+
+    fireEvent.click(thumbs[1])
+
+    expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/old.jpg')
   })
 
   it('does nothing while closed', () => {

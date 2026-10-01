@@ -47,7 +47,6 @@ import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts
 import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
 import { PhaseStageNav } from "./three-d/PhaseStageNav";
 import { ModelToolbar } from "./three-d/ModelToolbar";
-import { request360Capture, PANO_WIDTH, PANO_HEIGHT } from "./three-d/Panorama360";
 import { SUN_INTENSITY } from "./three-d/SceneEnvironment";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
@@ -809,22 +808,13 @@ export default function ThreeDPage() {
               )}
             </button>
             {panorama && (
-              <>
-                <button
-                  onClick={() => setShowRender(true)}
-                  title={uz.render.sarlavha}
-                  className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
-                >
-                  {uz.render.nomi}
-                </button>
-                <button
-                  onClick={request360Capture}
-                  title={`360 panorama saqlash (${PANO_WIDTH}x${PANO_HEIGHT})`}
-                  className="px-4 h-12 rounded-full bg-white/95 text-brand text-[13px] font-bold shadow-lg ring-1 ring-black/5"
-                >
-                  360 saqlash
-                </button>
-              </>
+              <button
+                onClick={() => setShowRender(true)}
+                title={uz.render.sarlavha}
+                className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
+              >
+                {uz.render.nomi}
+              </button>
             )}
           </div>
 
@@ -926,7 +916,7 @@ export default function ThreeDPage() {
           DOM, and whichever item was held supplies its own label and action. */}
       <HoldDeleteButton />
 
-      <RenderSheet open={showRender} onOpenChange={setShowRender} />
+      <RenderSheet open={showRender} onOpenChange={setShowRender} roomId={room.id} />
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}
         setShowAddSheet={setShowAddSheet}

@@ -1,6 +1,7 @@
 import { LanguageProvider } from "./landing/i18n";
 import Nav from "./landing/Nav";
 import Hero from "./landing/Hero";
+import ReferenceStory from "./landing/ReferenceStory";
 import Problem from "./landing/Problem";
 import Solution from "./landing/Solution";
 import HowItWorks from "./landing/HowItWorks";
@@ -33,6 +34,7 @@ export default function LandingPage() {
 
         <Nav />
         <Hero />
+        <ReferenceStory />
         <Problem />
         <Solution />
         <HowItWorks />

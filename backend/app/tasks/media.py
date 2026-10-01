@@ -231,7 +231,9 @@ async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz
     acks_late=False,
     reject_on_worker_lost=False,
 )
-def render_room_image(self, user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+def render_room_image(
+    self, user_id: str, source_key: str, content_type: str, prompt: str | None, room_id: str | None = None,
+) -> dict:
     """Render a studio screenshot with MyArchitectAI and keep the result.
 
     Not retried: the API refunds a failed generation, but a retry would be a
@@ -241,7 +243,7 @@ def render_room_image(self, user_id: str, source_key: str, content_type: str, pr
     """
     import asyncio
 
-    return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt))
+    return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt, room_id))
 
 
 async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
@@ -260,7 +262,50 @@ async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
     return key, await upload_file(fetched.content, key, content_type="image/jpeg")
 
 
-async def _render_room_image(user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+async def _save_render(
+    user_id: str, *, key: str, url: str, kind: str, room_id: str | None = None,
+    lighting: str | None = None, prompt: str | None = None, parent_key: str | None = None,
+) -> None:
+    """Record a finished picture in ``room_renders`` so the user finds it again.
+
+    Best-effort: the picture already exists in storage and the user is about to
+    see it, so a failed insert is logged, not turned into a failed render. A
+    relit / 4K copy takes its room from the picture it was made from.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from app.config import settings
+    from app.models.room_render import RoomRender
+
+    engine = None
+    try:
+        engine = create_async_engine(settings.DATABASE_URL)  # own process/loop
+        Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with Session() as db:
+            room_uuid = _uuid.UUID(room_id) if room_id else None
+            if room_uuid is None and parent_key:
+                parent = (
+                    await db.execute(select(RoomRender).where(RoomRender.key == parent_key))
+                ).scalar_one_or_none()
+                room_uuid = parent.room_id if parent else None
+            db.add(RoomRender(
+                user_id=_uuid.UUID(user_id), room_id=room_uuid, key=key, url=url, kind=kind,
+                lighting=lighting, prompt=prompt, parent_key=parent_key,
+            ))
+            await db.commit()
+    except Exception:
+        logger.exception("save_render failed user=%s key=%s", user_id, key)
+    finally:
+        if engine is not None:
+            await engine.dispose()
+
+
+async def _render_room_image(
+    user_id: str, source_key: str, content_type: str, prompt: str | None, room_id: str | None = None,
+) -> dict:
     from app.core.storage import delete_file, download_file
     from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
 
@@ -281,6 +326,7 @@ async def _render_room_image(user_id: str, source_key: str, content_type: str, p
 
         result_url = await client.render_interior(image, prompt=used_prompt, output_format="jpg")
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="render", room_id=room_id, prompt=used_prompt)
         return {"status": "ok", "key": key, "url": url, "prompt": used_prompt}
     except MyArchitectError as exc:
         logger.error("render_room_image failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
@@ -323,6 +369,7 @@ async def _relight_render(user_id: str, render_key: str, lighting: str) -> dict:
         source = await download_file(render_key)
         result_url = await get_myarchitect_client().set_atmosphere(to_data_uri(source, "image/jpeg"), lighting)
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="relight", lighting=lighting, parent_key=render_key)
         return {"status": "ok", "key": key, "url": url, "lighting": lighting}
     except MyArchitectError as exc:
         logger.error("relight_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
@@ -364,6 +411,7 @@ async def _upscale_render(user_id: str, render_key: str) -> dict:
             to_data_uri(source, "image/jpeg"), resolution="4k", output_format="jpg",
         )
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="upscale", parent_key=render_key)
         return {"status": "ok", "key": key, "url": url, "resolution": "4k"}
     except MyArchitectError as exc:
         logger.error("upscale_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
@@ -384,19 +432,27 @@ async def _upscale_render(user_id: str, render_key: str) -> dict:
     acks_late=False,
     reject_on_worker_lost=False,
 )
-def generate_model_from_photo(self, user_id: str, source_key: str, content_type: str) -> dict:
+def generate_model_from_photo(
+    self, user_id: str, source_key: str, content_type: str, extra_views: dict | None = None,
+) -> dict:
     """Build a 3D model (GLB) from a furniture photo with Tripo and keep it.
 
     Takes 1–2 minutes. Not retried: Tripo returns the credits of a failed task, but
     a retry would be a second charge for what the user asked for once. Failure
     comes back as ``{"status": "failed", ...}`` for ``GET /jobs/{id}``.
+
+    ``source_key`` is the front (or only) photo. ``extra_views`` maps ``left`` /
+    ``back`` / ``right`` to ``{"key": ..., "content_type": ...}``: with any, the
+    model is built from all the photos together instead of from one.
     """
     import asyncio
 
-    return asyncio.run(_generate_model_from_photo(user_id, source_key, content_type))
+    return asyncio.run(_generate_model_from_photo(user_id, source_key, content_type, extra_views))
 
 
-async def _generate_model_from_photo(user_id: str, source_key: str, content_type: str) -> dict:
+async def _generate_model_from_photo(
+    user_id: str, source_key: str, content_type: str, extra_views: dict | None = None,
+) -> dict:
     import uuid
 
     import httpx
@@ -405,11 +461,19 @@ async def _generate_model_from_photo(user_id: str, source_key: str, content_type
     from app.services.tripo import TripoError, get_tripo_client
 
     try:
-        photo = await download_file(source_key)
         client = get_tripo_client()
-        ext = "png" if content_type == "image/png" else "webp" if content_type == "image/webp" else "jpg"
-        token = await client.upload_image(photo, f"photo.{ext}", content_type)
-        task_id = await client.create_model_from_image(token)
+
+        async def _upload(view: str, key: str, ctype: str) -> str:
+            ext = "png" if ctype == "image/png" else "webp" if ctype == "image/webp" else "jpg"
+            return await client.upload_image(await download_file(key), f"{view}.{ext}", ctype)
+
+        if extra_views:
+            tokens = {"front": await _upload("front", source_key, content_type)}
+            for view, spec in extra_views.items():
+                tokens[view] = await _upload(view, spec["key"], spec["content_type"])
+            task_id = await client.create_model_from_views(tokens)
+        else:
+            task_id = await client.create_model_from_image(await _upload("photo", source_key, content_type))
         task = await client.wait_for_model(task_id)
 
         # Tripo's CDN link expires — copy the GLB into our storage.
@@ -426,7 +490,8 @@ async def _generate_model_from_photo(user_id: str, source_key: str, content_type
         logger.exception("generate_model_from_photo error user=%s", user_id)
         return {"status": "failed", "error": str(exc)}
     finally:
-        try:
-            await delete_file(source_key)
-        except Exception:
-            logger.warning("generate_model_from_photo: source cleanup failed key=%s", source_key)
+        for key in [source_key, *(spec["key"] for spec in (extra_views or {}).values())]:
+            try:
+                await delete_file(key)
+            except Exception:
+                logger.warning("generate_model_from_photo: source cleanup failed key=%s", key)

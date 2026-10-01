@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  PANO_EYE_HEIGHT, PANO_WIDTH, PANO_HEIGHT, panoramaSizeFor, flipRows,
+  PANO_EYE_HEIGHT, PANO_WIDTH, PANO_HEIGHT, panoramaSizeFor, flipRows, EQUIRECT_FRAGMENT,
 } from '../panorama360'
 
 describe('the panorama camera', () => {
@@ -72,5 +72,33 @@ describe('flipRows', () => {
 
   it('keeps every pixel it was given', () => {
     expect(flipRows(pixels, W, H).length).toBe(W * H * 4)
+  })
+})
+
+
+describe('the picture is not mirrored', () => {
+  /** The direction the shader samples for a pixel at longitude `lon`, latitude 0. */
+  function direction(lon: number): [number, number, number] {
+    const body = EQUIRECT_FRAGMENT.match(/vec3 dir = vec3\(([\s\S]*?)\);/)![1]
+    const [x, y, z] = body.split(',').map((expr) =>
+      // eslint-disable-next-line no-new-func
+      new Function('lon', 'lat', 'cos', 'sin', `return ${expr.trim()}`)(lon, 0, Math.cos, Math.sin) as number)
+    return [x, y, z]
+  }
+
+  it('looks toward +z in the middle of the image', () => {
+    const [x, , z] = direction(0)
+    expect(x).toBeCloseTo(0, 10)
+    expect(z).toBeCloseTo(1, 10)
+  })
+
+  it('turns to the viewers right, which is -x when facing +z, going right across the image', () => {
+    // Facing +z, +x is on the viewer's LEFT. A pixel a quarter of the way
+    // across to the right of centre must therefore look toward -x: with +x the
+    // room is a mirror image of itself.
+    const [x] = direction(Math.PI / 2)
+    expect(x).toBeCloseTo(-1, 10)
+    const [xl] = direction(-Math.PI / 2)
+    expect(xl).toBeCloseTo(1, 10)
   })
 })

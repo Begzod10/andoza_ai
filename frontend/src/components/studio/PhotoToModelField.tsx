@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { createPhotoModel, fetchPhotoModelGlb, waitForRender } from "@/lib/api";
+import type { PhotoViews } from "@/lib/api";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 
 const MAX_THUMB_BYTES = 5 * 1024 * 1024; // the server's cap on a model's preview picture
 const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // what Tripo accepts
+
+type ViewKey = "front" | "left" | "back" | "right";
+const VIEW_SLOTS: { key: ViewKey; label: string }[] = [
+  { key: "front", label: "Old tomondan (majburiy)" },
+  { key: "left", label: "Chap tomondan" },
+  { key: "back", label: "Orqa tomondan" },
+  { key: "right", label: "O'ng tomondan" },
+];
 
 export interface BuiltFromPhoto {
   /** The generated 3D model, ready to upload like a hand-picked .glb. */
@@ -18,6 +27,10 @@ export interface BuiltFromPhoto {
  * "No 3D file, but a photo": the server builds the model with Tripo (1–2 minutes,
  * POST /models/from-photo) and the result is handed back as a File, so the form
  * previews, names and uploads it exactly as it would a file the person picked.
+ *
+ * Two ways in: ONE photo (the sides and back are guessed), or SEVERAL — the front
+ * plus any of left / back / right — which the server builds together, so the
+ * details match on every side. The choice picks the Tripo endpoint.
  *
  * Shared by the seller's and the admin's upload dialogs. Leaving (the dialog
  * closing) cancels the wait.
@@ -34,6 +47,8 @@ export function PhotoToModelField({
   onError: (message: string | null) => void;
 }) {
   const [building, setBuilding] = useState(false);
+  const [mode, setMode] = useState<"one" | "many">("one");
+  const [slots, setSlots] = useState<Record<ViewKey, File | null>>({ front: null, left: null, back: null, right: null });
   const abortRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
   const onBusyRef = useRef(onBusyChange);
@@ -50,9 +65,9 @@ export function PhotoToModelField({
     if (busyRef.current) onBusyRef.current?.(false); // the parent must not stay locked
   }, []);
 
-  async function build(photo: File) {
+  async function build(photo: File, views: PhotoViews = {}) {
     onError(null);
-    if (photo.size > MAX_PHOTO_BYTES) {
+    if ([photo, ...Object.values(views)].some((f) => f && f.size > MAX_PHOTO_BYTES)) {
       onError("Rasm 20 MB dan kichik bo'lishi kerak");
       return;
     }
@@ -61,7 +76,7 @@ export function PhotoToModelField({
     abortRef.current = controller;
     setBusy(true);
     try {
-      const { job_id } = await createPhotoModel(photo);
+      const { job_id } = await createPhotoModel(photo, views);
       const outcome = await waitForRender(job_id, controller.signal);
       const glb = await fetchPhotoModelGlb(outcome.key);
       const baseName = photo.name.replace(/\.[^.]+$/, "") || "model";
@@ -78,24 +93,89 @@ export function PhotoToModelField({
     }
   }
 
+  const chosen = Object.values(slots).filter(Boolean).length;
+  const canBuildMany = !!slots.front && chosen >= 2;
+
   return (
     <div className="rounded-xl border border-dashed border-neutral-300 p-3 space-y-2">
       <label className="block text-sm font-medium text-neutral-900">Faylingiz yo'qmi? Rasmdan yarating</label>
-      <p className="text-xs text-neutral-500">
-        Mebelning aniq rasmini yuklang (toza fon yaxshi) — 3D model avtomatik yaratiladi, taxminan 1–2 daqiqa.
-      </p>
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        aria-label="Rasmdan 3D model yaratish"
-        disabled={building}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) void build(f);
-        }}
-        className="text-xs w-full"
-      />
+      <div role="radiogroup" aria-label="Rasmlar soni" className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+        {([["one", "1 ta rasm"], ["many", "Bir nechta rasm"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={mode === key}
+            disabled={building}
+            onClick={() => setMode(key)}
+            className={`min-h-[34px] rounded-lg text-xs font-semibold transition disabled:opacity-60 ${
+              mode === key ? "bg-white text-brand shadow-sm" : "text-neutral-500"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "one" ? (
+        <>
+          <p className="text-xs text-neutral-500">
+            Mebelning aniq rasmini yuklang (toza fon yaxshi) — yon va orqa tomonlari taxminan chiziladi. Taxminan 1–2 daqiqa.
+          </p>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Rasmdan 3D model yaratish"
+            disabled={building}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void build(f);
+            }}
+            className="text-xs w-full"
+          />
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-neutral-500">
+            Bitta mebelning turli tomondan rasmlari (bir xil yorug'lik, toza fon). Old tomon majburiy, yana kamida bittasi kerak —
+            rasm qancha ko'p bo'lsa, detallar shuncha aniq chiqadi.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {VIEW_SLOTS.map(({ key, label }) => (
+              <label key={key} className="block text-xs text-neutral-700">
+                <span className="block mb-0.5 font-medium">{label}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-label={label}
+                  disabled={building}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setSlots((prev) => ({ ...prev, [key]: f }));
+                  }}
+                  className="text-xs w-full"
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={building || !canBuildMany}
+            onClick={() => {
+              const { front, left, back, right } = slots;
+              const views: PhotoViews = {};
+              if (left) views.left = left;
+              if (back) views.back = back;
+              if (right) views.right = right;
+              if (front) void build(front, views);
+            }}
+            className="min-h-[40px] w-full rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {chosen} ta rasmdan 3D model yaratish
+          </button>
+        </>
+      )}
       {building && (
         <p role="status" className="flex items-center gap-2 text-xs font-medium text-brand">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand/20 border-t-brand" aria-hidden />

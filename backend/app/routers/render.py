@@ -8,16 +8,19 @@ photo processing already uses.
 from __future__ import annotations
 
 import uuid as uuid_module
+from datetime import datetime
 from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.config import settings
-from app.core.storage import upload_file
+from app.core.storage import delete_file, upload_file
 from app.models.media_job import MediaJob
+from app.models.room_render import RoomRender
 from app.services.llm import check_and_increment_budget_for
 from app.services.myarchitect import INTERIOR_LIGHTING
 from app.tasks.media import relight_render, render_room_image, upscale_render
@@ -46,6 +49,7 @@ async def create_render(
     current_user: CurrentUser,
     db: DbSession,
     prompt: Annotated[str | None, Form(max_length=_MAX_PROMPT_CHARS)] = None,
+    room_id: Annotated[uuid_module.UUID | None, Form()] = None,
 ) -> dict:
     if not settings.MYARCHITECT_API_KEY or settings.RENDER_DAILY_LIMIT <= 0:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Render xizmati mavjud emas")
@@ -77,7 +81,10 @@ async def create_render(
         logger.error("render_source_upload_failed", key=source_key, error=str(exc))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to store the image") from exc
 
-    task = render_room_image.delay(str(current_user.id), source_key, file.content_type, (prompt or "").strip() or None)
+    task = render_room_image.delay(
+        str(current_user.id), source_key, file.content_type, (prompt or "").strip() or None,
+        str(room_id) if room_id else None,
+    )
     db.add(MediaJob(id=task.id, user_id=current_user.id))
     logger.info("render_enqueued", task_id=task.id, user_id=str(current_user.id))
     return {"job_id": task.id}
@@ -142,3 +149,41 @@ async def create_upscale(body: UpscaleIn, current_user: CurrentUser, db: DbSessi
     db.add(MediaJob(id=task.id, user_id=current_user.id))
     logger.info("upscale_enqueued", task_id=task.id, user_id=str(current_user.id))
     return {"job_id": task.id}
+
+
+class RenderOut(BaseModel):
+    id: uuid_module.UUID
+    key: str
+    url: str
+    kind: str
+    lighting: str | None
+    prompt: str | None
+    panorama: bool
+    parent_key: str | None
+    room_id: uuid_module.UUID | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/renders", response_model=list[RenderOut], summary="The caller's saved renders, newest first")
+async def list_renders(
+    current_user: CurrentUser, db: DbSession, room_id: uuid_module.UUID | None = None, limit: int = 50,
+) -> list[RoomRender]:
+    query = select(RoomRender).where(RoomRender.user_id == current_user.id)
+    if room_id is not None:
+        query = query.where(RoomRender.room_id == room_id)
+    rows = await db.execute(query.order_by(RoomRender.created_at.desc()).limit(max(1, min(limit, 100))))
+    return list(rows.scalars())
+
+
+@router.delete("/renders/{render_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a saved render")
+async def delete_render(render_id: uuid_module.UUID, current_user: CurrentUser, db: DbSession) -> None:
+    row = (await db.execute(select(RoomRender).where(RoomRender.id == render_id))).scalar_one_or_none()
+    if row is None or row.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Render not found")
+    await db.delete(row)
+    try:
+        await delete_file(row.key)
+    except Exception:  # the row is what the user sees; a leftover file is harmless
+        logger.warning("render_file_delete_failed", key=row.key)

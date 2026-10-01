@@ -25,6 +25,13 @@ def _user():
     return user
 
 
+@pytest.fixture(autouse=True)
+def _no_db_save():
+    """The tasks record a finished picture in the DB; these tests are not about that."""
+    with patch("app.tasks.media._save_render", new=AsyncMock()) as save:
+        yield save
+
+
 @pytest.fixture
 def client(monkeypatch):
     from app.routers import render as render_router

@@ -1,5 +1,8 @@
 import { apiClient } from "./client";
 
+import { GATEWAY_DOWN, isGatewayError } from "../gatewayError";
+export { isGatewayError };
+
 /** What the render task leaves in `result` once it is finished. */
 export type RenderResult =
   | { status: "ok"; key: string; url: string; prompt?: string | null; lighting?: string }
@@ -34,6 +37,7 @@ interface JobStatus {
 /** The backend answers errors as `{"detail": "..."}`; apiClient throws the raw body. */
 export function errorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
+  if (isGatewayError(err)) return GATEWAY_DOWN; // never show the proxy's HTML page
   try {
     const detail = JSON.parse(raw)?.detail;
     if (typeof detail === "string") return detail;
@@ -44,10 +48,11 @@ export function errorMessage(err: unknown): string {
 }
 
 /** Queue a render of a captured studio screenshot. Returns the job to poll. */
-export async function createRender(image: Blob, prompt?: string): Promise<{ job_id: string }> {
+export async function createRender(image: Blob, prompt?: string, roomId?: string): Promise<{ job_id: string }> {
   const form = new FormData();
   form.append("file", image, "studio.jpg");
   if (prompt?.trim()) form.append("prompt", prompt.trim());
+  if (roomId) form.append("room_id", roomId);
   return apiClient<{ job_id: string }>("/render", { method: "POST", body: form });
 }
 
@@ -67,6 +72,29 @@ export async function createUpscale(renderKey: string): Promise<{ job_id: string
   });
 }
 
+/** A render kept in the database: the first picture, or a relit / 4K copy of one. */
+export interface SavedRender {
+  id: string;
+  key: string;
+  url: string;
+  kind: "render" | "relight" | "upscale";
+  lighting: string | null;
+  prompt: string | null;
+  panorama: boolean;
+  parent_key: string | null;
+  room_id: string | null;
+  created_at: string;
+}
+
+/** The caller's saved renders of a room, newest first. */
+export async function listRenders(roomId: string): Promise<SavedRender[]> {
+  return apiClient<SavedRender[]>(`/renders?room_id=${encodeURIComponent(roomId)}`);
+}
+
+export async function deleteRender(id: string): Promise<void> {
+  await apiClient<void>(`/renders/${id}`, { method: "DELETE" });
+}
+
 export async function getRenderJob(jobId: string): Promise<JobStatus> {
   return apiClient<JobStatus>(`/jobs/${jobId}`);
 }
@@ -74,6 +102,9 @@ export async function getRenderJob(jobId: string): Promise<JobStatus> {
 const POLL_MS = 3000;
 // A render takes ~13 s; this is generous for a queue backlog without spinning forever.
 const MAX_POLLS = 80;
+// A deploy restarts the API for up to a minute. The job lives in the worker and
+// carries on regardless, so a few failed polls in a row are waited out, not fatal.
+const MAX_GATEWAY_MISSES = 30;
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -87,8 +118,17 @@ const sleep = (ms: number, signal?: AbortSignal) =>
 /** Poll a render job to the end. Resolves with the finished render; rejects
  *  with a readable message if it failed or never finished. */
 export async function waitForRender(jobId: string, signal?: AbortSignal): Promise<RenderOutcome> {
+  let misses = 0;
   for (let i = 0; i < MAX_POLLS; i++) {
-    const job = await getRenderJob(jobId);
+    let job: JobStatus;
+    try {
+      job = await getRenderJob(jobId);
+      misses = 0;
+    } catch (err) {
+      if (signal?.aborted || !isGatewayError(err) || ++misses > MAX_GATEWAY_MISSES) throw err;
+      await sleep(POLL_MS, signal);
+      continue;
+    }
     if (job.status === "SUCCESS" && job.result) {
       if (job.result.status === "ok") {
         return { url: job.result.url, key: job.result.key, prompt: job.result.prompt ?? null };

@@ -136,6 +136,7 @@ export const uz = {
     yuklab_olish: "Yuklab olish",
     qayta: "Qayta render",
     asl: "Asl",
+    saqlangan: "Saqlangan renderlar",
     avtomatik_tavsif: "Avtomatik tavsif — xohlasangiz tahrirlang",
     yoritish: "Yoritish",
     yoritilmoqda: "Yorug'lik o'zgartirilmoqda...",
