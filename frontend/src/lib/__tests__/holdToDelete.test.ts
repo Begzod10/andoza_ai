@@ -87,6 +87,43 @@ describe('createHoldTracker', () => {
     expect(onHold.mock.calls[0][0].payload).toBe('b')
   })
 
+  it('is not cancelled by a second finger moving', () => {
+    // Moves are watched on the window for every pointer at once. A thumb
+    // resting on the screen, a palm, or the other hand starting a pinch all
+    // produced pointermoves, and every one of them cancelled a hold the
+    // holding finger was making perfectly still — the "sometimes it works,
+    // sometimes it doesn't".
+    const { onHold, t } = tracker()
+    t.down(100, 100, 'x', 1)
+    t.move(900, 900, 2)
+    vi.advanceTimersByTime(HOLD_DELETE_MS)
+    expect(onHold).toHaveBeenCalledTimes(1)
+  })
+
+  it('is still cancelled by the holding finger moving', () => {
+    const { onHold, t } = tracker()
+    t.down(100, 100, 'x', 1)
+    t.move(900, 900, 1)
+    vi.advanceTimersByTime(HOLD_DELETE_MS)
+    expect(onHold).not.toHaveBeenCalled()
+  })
+
+  it('still cancels on movement when no pointer id is given', () => {
+    // A mouse, or any caller that does not pass one.
+    const { onHold, t } = tracker()
+    t.down(100, 100, 'x')
+    t.move(900, 900)
+    vi.advanceTimersByTime(HOLD_DELETE_MS)
+    expect(onHold).not.toHaveBeenCalled()
+  })
+
+  it('allows the drift of a finger held still for a whole second', () => {
+    // The surface ring's hold, which fires reliably, allows 12 px over 460 ms
+    // — 26 px per second. This one must not be stricter per unit of time than
+    // that, or a press twice as long gets a fifth of the budget.
+    expect(HOLD_MOVE_TOL_PX / (HOLD_DELETE_MS / 1000)).toBeGreaterThanOrEqual(12 / 0.46 * 0.7)
+  })
+
   it('can be called off outright', () => {
     const { onHold, t } = tracker()
     t.down(100, 100, 'x')

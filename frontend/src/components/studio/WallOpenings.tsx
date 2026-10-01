@@ -340,7 +340,18 @@ export function WallOpenings({
                 <button
                   type="button"
                   aria-label={`${isDoor ? 'Eshik' : el.type === 'balkon' ? 'Balkon eshigi' : 'Deraza'} — ${w.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
-                  onClick={() => onSelect({ wallId: w.id, elId: el.id })}
+                  // Both stops matter, and for a reason that is easy to miss:
+                  // R3F listens on a DIV that is this button's ANCESTOR, and
+                  // its default hit test reads `offsetX/offsetY` — which are
+                  // relative to the EVENT TARGET. From a 28 px button those
+                  // are 0..28 whatever the screen size, so an event that
+                  // leaks through is raycast at roughly the viewport's
+                  // top-left corner and opens the ring for whatever surface
+                  // happens to be there. That is "tapping a door opens the
+                  // ceiling's menu", with a dead zone over the door's centre
+                  // where the tap seems to do nothing.
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onSelect({ wallId: w.id, elId: el.id }) }}
                   onKeyDown={(e) => {
                     const wallLenMm = wd.length * 1000
                     switch (e.key) {
@@ -466,7 +477,10 @@ function DimensionLabels({ wd, el, H, isDoor }: { wd: WallDef; el: WallElement; 
       {items.map((it, i) => (
         <group key={i}>
           <GuideLine a={it.a} b={it.b} />
-          <Html position={it.mid} center zIndexRange={[210, 0]}>
+          {/* A label, not a control: without `pointerEvents: 'none'` an <Html>
+              is fully hit-testable, and these sit over the room during exactly
+              the drag whose pointermoves they would swallow. */}
+          <Html position={it.mid} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
             <div style={{ background: '#1A2340', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}>
               {Math.max(0, it.val).toFixed(2)} m
             </div>

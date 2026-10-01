@@ -3,8 +3,12 @@ import type { SunState } from "@/lib/sunPosition";
 import { skyIntensity } from "@/lib/skyEnvironment";
 import { fitShadowFrustum } from "@/lib/shadowFrustum";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
-import { useEffect } from "react";
-import { useThree } from "@react-three/fiber";
+import { MOONRISE_HDRI } from "@/lib/hdri";
+import {
+  MOONRISE_BACKGROUND_INTENSITY,
+  MOONRISE_ENVIRONMENT_INTENSITY,
+  MOONRISE_FOG_COLOR,
+} from "@/lib/moonriseSky";
 
 /** User-supplied HDRI (8K EXR downsized to 2048x1024 .hdr) used as the
  *  studio's sky + image-based lighting. Regenerate from a new source with
@@ -59,41 +63,60 @@ export function BrandedSky({ sun }: { sun: SunState }) {
 
 
 /**
- * A plain white backdrop in place of the sky photo.
+ * The moonrise sky, in place of the flat white backdrop.
  *
- * The HDRI was doing two jobs: the view out of the window, and the room's
- * image-based lighting. Both go. The backdrop is white, and the scene gets no
- * environment map at all — which is the honest version of "white": a uniform
- * environment adds a flat term to every surface and takes contrast away,
- * exactly what a white-on-white room cannot spare.
+ * The user supplied `qwantani_moonrise_puresky_1k.exr` and asked for it as the
+ * scene's background atmosphere, so it is both: the view out of the window
+ * (`scene.background`) and the room's image-based lighting
+ * (`scene.environment`). The two are drawn from the same file at very
+ * different exposures, which is the only reason this component is more than a
+ * one-liner — `lib/moonriseSky.ts` carries the measurements and the argument
+ * for each number, and is the file to read before touching either.
  *
- * Losing the environment costs nothing the room needs. What lights it is the
- * rig below: an ambient and a hemisphere fill, the directional sun — which the
- * shadow shell stops at the walls, so it enters through the windows and
- * nowhere else — and the lamps hanging in the room. What it REMOVES is the
- * sun every glossy surface could see through the ceiling, which is what put a
- * blown highlight on the tiles.
+ * The short version of why they differ: the file is stored hot enough to
+ * tone-map to a bright overcast afternoon at intensity 1, so the backdrop is
+ * drawn at 0.22 to look like the moonrise it is; and an environment map bright
+ * enough to be a believable sky would hand every glossy surface indoors a view
+ * of the moon, because three.js has no notion of being indoors and an
+ * environment map lights every surface as if the roof were not there. That is
+ * precisely the bug already on record here — glossy tiles reflecting the big
+ * light from outside — and the ShadowShell cannot help, since all it can stop
+ * is the directional sun. So the lighting half runs at ~0.037, the quietest
+ * setting this studio has ever shipped a sky at.
  *
- * `scene.environment` is cleared rather than left alone: another page may have
- * installed an HDRI on the same scene, and a leftover sky is the bug this is
- * here to fix.
+ * What still lights the room is the rig below: the ambient and hemisphere
+ * fills, the directional sun the shadow shell confines to the windows, and the
+ * lamps hanging in the room. The sky's contribution to diffuse is under half a
+ * percent of the ambient fill, deliberately — a near-uniform environment term
+ * only flattens contrast, which is the lesson from the attempt that made the
+ * white backdrop a white *environment* and left the user saying nothing was
+ * visible. What the sky is actually here for is specular: the moon and the
+ * horizon glow picked up as a sheen on tile, parquet and glass, which the
+ * specular term can see because it samples the map's peak rather than its mean.
  *
- * Pure white, as asked. It was briefly a hair off it, because a flat's walls
- * and ceiling are near-white themselves and the room can lose its silhouette
- * against #FFF — if that returns, this constant is the one thing to change,
- * and the fog follows it.
+ * The flat colour underneath is not a leftover of the white backdrop. It is
+ * what stands in for the sky while a 5 MB EXR is still in flight — and if the
+ * decode fails outright, since SafeEnvironment's error boundary then renders
+ * nothing — so the room never appears against an unset background. It is the
+ * fog colour on purpose: fog and backdrop are derived from the same horizon
+ * radiance, so the stand-in cannot read as a halo around the room.
+ *
+ * `scene.environment` is no longer cleared by hand here. drei's <Environment>
+ * owns it while mounted and restores whatever it found on unmount, which
+ * covers the leftover-sky bug the manual clear was written for.
  */
-export const BACKDROP_COLOR = '#FFFFFF'
-
-export function WhiteBackdrop({ color = BACKDROP_COLOR }: { color?: string }) {
-  const { scene } = useThree()
-  useEffect(() => {
-    const prev = scene.environment
-    scene.environment = null
-    return () => { scene.environment = prev }
-  }, [scene])
-
-  return <color attach="background" args={[color]} />
+export function MoonriseSky() {
+  return (
+    <>
+      <color attach="background" args={[MOONRISE_FOG_COLOR]} />
+      <SafeEnvironment
+        files={MOONRISE_HDRI}
+        background
+        intensity={MOONRISE_ENVIRONMENT_INTENSITY}
+        backgroundIntensity={MOONRISE_BACKGROUND_INTENSITY}
+      />
+    </>
+  )
 }
 
 

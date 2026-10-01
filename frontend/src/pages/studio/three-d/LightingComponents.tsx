@@ -3,6 +3,8 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
+import { holdCameraStill, swallowPickClick } from '@/lib/pickEvents'
+import { useHoldToDelete } from '@/hooks/useHoldToDelete'
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedLight } from "@/store/roomStore";
 import type { ToolMode } from "@/features/studio/StudioFurniture";
@@ -246,6 +248,10 @@ export function DraggableLightModels({
 }) {
   const lights = useRoomStore((s) => s.lights)
   const moveLight = useRoomStore((s) => s.moveLight)
+  // Hold a fixture for a second and the delete button appears, as it does on
+  // a model, a door or a socket. Lights were the one placed thing that had no
+  // binding at all, so holding one could never do anything.
+  const { bind: holdBind } = useHoldToDelete()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const draggingIdRef = useRef<string | null>(null)
   const dragPosRef = useRef(new THREE.Vector2())
@@ -257,9 +263,21 @@ export function DraggableLightModels({
   const hitPoint = useRef(new THREE.Vector3())
 
   function startDrag(light: PlacedLight, e: ThreeEvent<PointerEvent>) {
+    // The hold rides along with the press whether or not it turns into a
+    // drag, and gives way the moment the finger travels — so it has to be
+    // armed BEFORE the select-only early return below, which is where a press
+    // on an unselected light stops.
+    holdBind({
+      label: lightType(light.type)?.name ?? 'Chiroq',
+      onDelete: () => useRoomStore.getState().removeLight(light.id),
+    }).onPointerDown(e)
     // An already-selected light is draggable right away, no tool-mode switch
     // needed — only an unselected light in 'select' mode is a plain click.
-    if (toolMode === 'select' && light.id !== selectedId) return
+    if (toolMode === 'select' && light.id !== selectedId) {
+      // The press still belongs to the light, not to the camera.
+      holdCameraStill(controlsRef.current)
+      return
+    }
     e.stopPropagation()
     dragPosRef.current.set(light.xMm, light.zMm)
     draggingIdRef.current = light.id
@@ -297,10 +315,16 @@ export function DraggableLightModels({
       dragPosRef.current.set(xMm, zMm)
     }
 
-    canvas.addEventListener('pointermove', handleMove)
+    // Movement is watched on the WINDOW, not on the canvas. R3F mounts every
+    // <Html> overlay — the model's own name card, the drag handle, a door's
+    // button, the dimension labels — as a SIBLING of the canvas, above it. A
+    // pointermove whose target is one of those never reaches a listener on the
+    // canvas, so the dragged thing froze the moment the finger crossed its own
+    // label and started again on the far side. That is the drag "lag".
+    window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', commitDrag)
     return () => {
-      canvas.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -395,6 +419,7 @@ function DraggableLightItem({
             onSelect?.(l.id)
             onStartDrag(l, e)
           }}
+          onClick={swallowPickClick}
           onPointerEnter={() => { document.body.style.cursor = toolMode === 'select' ? 'pointer' : 'grab' }}
           onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
         >
@@ -511,17 +536,21 @@ function LightWallDistanceLabels({
   const frontMidZ = toWorldZ((live.z + hd + roomDmm) / 2)
 
   return (
+    // Labels, not controls. An <Html> with no explicit pointerEvents is fully
+    // hit-testable, and these four appear around a light exactly while it is
+    // being dragged — so they swallowed the very pointermoves that were moving
+    // it, and the light stuck whenever the finger crossed one.
     <>
-      <Html position={[leftMidX, y, worldZ]} center zIndexRange={[210, 0]}>
+      <Html position={[leftMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
         <div style={wallDimLabelStyle}>{(distLeft / 1000).toFixed(2)} m</div>
       </Html>
-      <Html position={[rightMidX, y, worldZ]} center zIndexRange={[210, 0]}>
+      <Html position={[rightMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
         <div style={wallDimLabelStyle}>{(distRight / 1000).toFixed(2)} m</div>
       </Html>
-      <Html position={[worldX, y, backMidZ]} center zIndexRange={[210, 0]}>
+      <Html position={[worldX, y, backMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
         <div style={wallDimLabelStyle}>{(distBack / 1000).toFixed(2)} m</div>
       </Html>
-      <Html position={[worldX, y, frontMidZ]} center zIndexRange={[210, 0]}>
+      <Html position={[worldX, y, frontMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
         <div style={wallDimLabelStyle}>{(distFront / 1000).toFixed(2)} m</div>
       </Html>
     </>

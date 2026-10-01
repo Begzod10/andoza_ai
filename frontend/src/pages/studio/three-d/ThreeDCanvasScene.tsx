@@ -25,7 +25,8 @@ import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
-import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
+import { RealismEffects, SceneLighting, MoonriseSky } from "./SceneEnvironment";
+import { MOONRISE_FOG_COLOR, STUDIO_TONE_MAPPING_EXPOSURE } from "@/lib/moonriseSky";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { Panorama360 } from "./Panorama360";
@@ -178,7 +179,12 @@ export function ThreeDCanvasScene({
       gl={{
         antialias: glAttempt === 0,
         toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.15,
+        // Read from lib/moonriseSky rather than written here, because every
+        // judgement in that file about how the sky will look on screen — the
+        // table that settled its background intensity, the fog colour derived
+        // to match it — is ACES evaluated at this exposure. Two copies of the
+        // number would let those conclusions go stale without a test failing.
+        toneMappingExposure: STUDIO_TONE_MAPPING_EXPOSURE,
         outputColorSpace: THREE.SRGBColorSpace,
         powerPreference: glAttempt === 0 ? 'high-performance' : 'default',
         // Without this, the drawing buffer can already be cleared by the

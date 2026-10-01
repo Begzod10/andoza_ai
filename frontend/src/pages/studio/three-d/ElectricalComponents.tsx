@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
+import { swallowPickClick } from '@/lib/pickEvents'
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedElectrical } from "@/store/roomStore";
 import { ELECTRICAL_DIMS } from "./constants";
@@ -71,6 +72,7 @@ function DraggableElectricalItem({
       // menu instead of dragging the unit or offering to delete it.
       <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
         onPointerDown={onPointerDown}
+        onClick={swallowPickClick}
         onPointerEnter={() => { document.body.style.cursor = 'grab' }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
         {/* Body — rounded-looking white case standing off the wall. */}
@@ -97,6 +99,7 @@ function DraggableElectricalItem({
     return (
       <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
         onPointerDown={onPointerDown}
+        onClick={swallowPickClick}
         onPointerEnter={() => { document.body.style.cursor = 'grab' }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
         <mesh castShadow>
@@ -127,6 +130,7 @@ function DraggableElectricalItem({
   return (
     <group ref={groupRef} position={[px, py, pz]} rotation={[0, ry, 0]}
       onPointerDown={onPointerDown}
+      onClick={swallowPickClick}
       onPointerEnter={() => { document.body.style.cursor = 'grab' }}
       onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}>
       <Faceplate type={el.type} w={dim.w} h={dim.h} isDragging={isDragging} />
@@ -227,10 +231,16 @@ export function DraggableElectricalModels({
       dragPosMmRef.current = clearOfOpenings(posMm, band, openings, wallLenMm)
     }
 
-    canvas.addEventListener('pointermove', handleMove)
+    // Movement is watched on the WINDOW, not on the canvas. R3F mounts every
+    // <Html> overlay — the model's own name card, the drag handle, a door's
+    // button, the dimension labels — as a SIBLING of the canvas, above it. A
+    // pointermove whose target is one of those never reaches a listener on the
+    // canvas, so the dragged thing froze the moment the finger crossed its own
+    // label and started again on the far side. That is the drag "lag".
+    window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', commitDrag)
     return () => {
-      canvas.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

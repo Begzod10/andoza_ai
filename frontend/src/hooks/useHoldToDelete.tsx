@@ -49,7 +49,7 @@ if (typeof window !== 'undefined') {
   // another one — so a per-item listener would keep the hold alive through a
   // drag and delete what the user was moving. And a press can end anywhere,
   // including off the window, which has to stop the timer too.
-  window.addEventListener('pointermove', (e) => tracker.move(e.clientX, e.clientY))
+  window.addEventListener('pointermove', (e) => tracker.move(e.clientX, e.clientY, e.pointerId))
   const end = () => { heldThisPress = tracker.up() }
   window.addEventListener('pointerup', end)
   window.addEventListener('pointercancel', end)
@@ -62,7 +62,8 @@ if (typeof window !== 'undefined') {
  */
 export function useHoldToDelete() {
   const bind = useCallback((item: HoldDeleteItem) => ({
-    onPointerDown: (e: { clientX: number; clientY: number }) => tracker.down(e.clientX, e.clientY, item),
+    onPointerDown: (e: { clientX: number; clientY: number; pointerId?: number }) =>
+      tracker.down(e.clientX, e.clientY, item, e.pointerId),
   }), [])
   /** Whether the press that just ended fired a hold — checked before treating
    *  a release as a tap. */
@@ -98,7 +99,14 @@ export function HoldDeleteButton() {
       className="fixed inset-0 z-[320]"
       // Anywhere else dismisses: while this is up, a stray tap should put it
       // away rather than hit whatever is behind it.
-      onPointerDown={(e) => { e.stopPropagation(); close() }}
+      //
+      // Closed on pointerUP, not down: closing on the press unmounts this
+      // backdrop before the browser dispatches the click, which then hit-tests
+      // against the canvas now underneath and opens a surface ring — so
+      // dismissing the delete button put a menu up in its place.
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => { e.stopPropagation(); close() }}
+      onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
       <div

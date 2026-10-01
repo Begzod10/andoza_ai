@@ -5,6 +5,7 @@ import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { useRoomStore } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
@@ -226,6 +227,7 @@ export function OpeningLeaves({
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
   const removeElement = useRoomStore((s) => s.removeElement);
+  const { bind: holdBind } = useHoldToDelete();
   const { camera, gl, size } = useThree();
 
   const dragRef = useRef<DragState | null>(null);
@@ -272,6 +274,15 @@ export function OpeningLeaves({
 
   function beginDrag(wf: WallFrame, el: WallElement, e: ThreeEvent<PointerEvent>) {
     if (!interactive) return;
+    // Hold a leaf for a second and the delete button comes up, as it does on
+    // a model or a socket. The leaf had no binding at all: only the opening's
+    // hit plane did, and that plane sits 20 mm into the room, so from the far
+    // side of the wall — or on a leaf swung open — the leaf won the raycast
+    // and holding it did nothing.
+    holdBind({
+      label: el.type === 'deraza' ? 'Deraza' : el.type === 'balkon' ? 'Balkon eshigi' : 'Eshik',
+      onDelete: () => { onSelect?.(null); removeElement(wf.id, el.id); },
+    }).onPointerDown(e);
     if (toolMode === "select") {
       e.stopPropagation();
       onSelect?.(el.id);
@@ -301,7 +312,6 @@ export function OpeningLeaves({
 
   useEffect(() => {
     if (!dragging) return;
-    const canvas = gl.domElement;
 
     // Which screen direction "along the wall" points in, so a drag to the
     // right always moves the door right on screen regardless of wall or camera.
@@ -347,10 +357,16 @@ export function OpeningLeaves({
       document.body.style.cursor = "";
     };
 
-    canvas.addEventListener("pointermove", onMove);
+    // Movement is watched on the WINDOW, not on the canvas. R3F mounts every
+    // <Html> overlay — the model's own name card, the drag handle, a door's
+    // button, the dimension labels — as a SIBLING of the canvas, above it. A
+    // pointermove whose target is one of those never reaches a listener on the
+    // canvas, so the dragged thing froze the moment the finger crossed its own
+    // label and started again on the far side. That is the drag "lag".
+    window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => {
-      canvas.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
   }, [dragging, gl, camera, frames, updateElement, controlsRef, lim]);

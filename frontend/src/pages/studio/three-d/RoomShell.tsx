@@ -278,6 +278,14 @@ function NWallRoomShell({
   // Cornice: opt-in, and this shell always draws the plain slab at H (a
   // scanned room is rendered open-topped), so the junction is simply H.
   const cornice = designState.cornice ? resolveTrim(designState.cornice, 'cornice') : null
+  // Press and hold a run to take it off, the same as in a rectangular room.
+  // Bound here rather than passed in, exactly as the ABCD shell binds its own:
+  // taking the trim off is a change to the design state, which both shells can
+  // reach for themselves.
+  const { bind: bindHoldDelete } = useHoldToDelete()
+  const setDesign = useRoomStore((s) => s.setDesignState)
+  const holdSkirting = bindHoldDelete({ label: 'Plintus', onDelete: () => setDesign({ skirting: null }) })
+  const holdCornice = bindHoldDelete({ label: 'Karniz', onDelete: () => setDesign({ cornice: null }) })
   const verts = geometry.vertices!
   const n = verts.length
 
@@ -652,6 +660,10 @@ function NWallRoomShell({
                     key={`cor-${si}`}
                     onClick={onCorniceClick}
                     isSelected={isCorniceSelected}
+                    // The rectangular path has always passed this; the drawn
+                    // one never did, so holding a drawn room's cornice fell
+                    // through to the wall behind it and put up a WALL ring.
+                    onHoldDown={holdCornice.onPointerDown}
                     trim={cornice}
                     lengthM={s.len}
                     flipY
@@ -671,6 +683,7 @@ function NWallRoomShell({
                     key={`base-${si}`}
                     onClick={onSkirtingClick}
                     isSelected={isSkirtingSelected}
+                    onHoldDown={holdSkirting.onPointerDown}
                     trim={trim}
                     lengthM={s.len}
                     mitreStart={fwd ? atLeft : atRight}

@@ -34,6 +34,18 @@ interface SafeEnvironmentProps {
   files?: string
   /** Forwarded to drei's `background` — paints the HDRI as the visible sky */
   background?: boolean
+  /**
+   * Forwarded to drei's `backgroundIntensity` — how hard the map is pushed as
+   * the visible sky, independently of how hard it lights the room.
+   *
+   * Added for the studio's moonrise sky, whose two jobs need very different
+   * exposures: the file is stored hot enough to read as an overcast afternoon
+   * at intensity 1, while an environment map bright enough to be a believable
+   * backdrop would put the moon on every glossy surface indoors. Left
+   * undefined it stays at drei's 1, so the callers that only ever wanted one
+   * exposure are unaffected.
+   */
+  backgroundIntensity?: number
 }
 
 /**
@@ -41,11 +53,21 @@ interface SafeEnvironmentProps {
  * from our own public/ folder, and if it still fails to load (or decode) the
  * error boundary swallows the crash so the scene keeps its analytic lights.
  */
-export function SafeEnvironment({ intensity = 0.35, files = LOCAL_HDR, background = false }: SafeEnvironmentProps) {
+export function SafeEnvironment({
+  intensity = 0.35,
+  files = LOCAL_HDR,
+  background = false,
+  backgroundIntensity,
+}: SafeEnvironmentProps) {
   return (
     <EnvironmentErrorBoundary>
       <Suspense fallback={null}>
-        <Environment files={files} environmentIntensity={intensity} background={background} />
+        <Environment
+          files={files}
+          environmentIntensity={intensity}
+          background={background}
+          backgroundIntensity={backgroundIntensity}
+        />
       </Suspense>
     </EnvironmentErrorBoundary>
   )

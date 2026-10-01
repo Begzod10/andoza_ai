@@ -15,6 +15,7 @@ import {
   resolveFurnitureMove, resolveFurnitureRotation,
   type Obstacle, type OrientedFootprint,
 } from '@/lib/furnitureCollision'
+import { holdCameraStill, swallowPickClick } from '@/lib/pickEvents'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
@@ -425,6 +426,7 @@ function DraggableFurnitureItem({
         rotation={[0, item.rotation, 0]}
         scale={s}
         onPointerDown={toolMode === 'part' ? handlePartClick : onMeshPointerDown}
+        onClick={swallowPickClick}
         onPointerEnter={() => { document.body.style.cursor = meshCursor }}
         onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
       />
@@ -762,14 +764,29 @@ export function DraggableFurnitureModels({
       label: resolveDisplayInfo(item).name,
       onDelete: () => onDelete(item.id),
     }).onPointerDown(e)
-    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
+    if (toolMode === 'select' && selectedId !== item.id) {
+      onSelectItem(item.id)
+      // The press that selects must not also orbit the camera.
+      holdCameraStill(controlsRef.current)
+      return
+    }
     activateDrag(item, e.clientX, e.clientY)
   }
 
   function startDragFromButton(item: PlacedFurniture, e: React.PointerEvent) {
     e.stopPropagation()
     e.preventDefault()
-    if (toolMode === 'select' && selectedId !== item.id) { onSelectItem(item.id); return }
+    // The handle is the model: holding it deletes, exactly as holding the
+    // model does. It was the one way of grabbing a model that could not.
+    holdBind({
+      label: resolveDisplayInfo(item).name,
+      onDelete: () => onDelete(item.id),
+    }).onPointerDown(e)
+    if (toolMode === 'select' && selectedId !== item.id) {
+      onSelectItem(item.id)
+      holdCameraStill(controlsRef.current)
+      return
+    }
     activateDrag(item, e.clientX, e.clientY)
   }
 
@@ -852,10 +869,16 @@ export function DraggableFurnitureModels({
       }
     }
 
-    canvas.addEventListener('pointermove', handleMove)
+    // Movement is watched on the WINDOW, not on the canvas. R3F mounts every
+    // <Html> overlay — the model's own name card, the drag handle, a door's
+    // button, the dimension labels — as a SIBLING of the canvas, above it. A
+    // pointermove whose target is one of those never reaches a listener on the
+    // canvas, so the dragged thing froze the moment the finger crossed its own
+    // label and started again on the far side. That is the drag "lag".
+    window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', commitDrag)
     return () => {
-      canvas.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', commitDrag)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
