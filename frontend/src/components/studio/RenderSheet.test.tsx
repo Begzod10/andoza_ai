@@ -13,6 +13,13 @@ vi.mock('@/lib/api', () => ({
   LIGHTING_MOODS: ['midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood'],
 }))
 
+const panoramaJpeg = vi.fn()
+vi.mock('@/lib/panoramaSnap', () => ({ panoramaJpeg: (...a: unknown[]) => panoramaJpeg(...a) }))
+// The viewer needs WebGL; the sheet only needs to hand it the picture.
+vi.mock('./PanoramaViewer', () => ({
+  PanoramaViewer: ({ src }: { src: string }) => <div data-testid="pano-viewer" data-src={src} />,
+}))
+
 function canvasRef(blob: Blob | null) {
   const canvas = { toBlob: (cb: (b: Blob | null) => void) => cb(blob) } as unknown as HTMLCanvasElement
   return { current: canvas }
@@ -28,7 +35,7 @@ async function renderOnce(outcome = FIRST) {
   await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toBeInTheDocument())
 }
 
-beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); waitForRender.mockReset() })
+beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset() })
 
 describe('RenderSheet', () => {
   it('captures the canvas, queues the render and shows the result', async () => {
@@ -99,5 +106,74 @@ describe('RenderSheet', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
     expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/r.jpg')
+  })
+
+  describe('360° mode', () => {
+    const pickPanorama = () => fireEvent.click(screen.getByRole('radio', { name: '360° panorama' }))
+
+    it('defaults to an ordinary render', () => {
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+      expect(screen.getByRole('radio', { name: 'Oddiy' })).toHaveAttribute('aria-checked', 'true')
+      expect(screen.getByRole('radio', { name: '360° panorama' })).toHaveAttribute('aria-checked', 'false')
+    })
+
+    it('renders a panorama from the middle of the room and shows it in the 360 viewer', async () => {
+      panoramaJpeg.mockResolvedValue(new Blob(['pano']))
+      createRender.mockResolvedValue({ job_id: 'j1' })
+      waitForRender.mockResolvedValueOnce({ url: 'https://s3/pano.jpg', key: 'renders/u/p.jpg', prompt: null })
+      const flat = vi.fn()
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={{ current: { toBlob: flat } as unknown as HTMLCanvasElement }} />)
+
+      pickPanorama()
+      fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+
+      expect(await screen.findByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/pano.jpg')
+      expect(panoramaJpeg).toHaveBeenCalledTimes(1)
+      expect(flat).not.toHaveBeenCalled() // not a screenshot of the current view
+      expect(createRender.mock.calls[0][0]).toBeInstanceOf(Blob)
+      expect(screen.queryByRole('img', { name: /Realistik render/ })).toBeNull()
+    })
+
+    it('an ordinary render is a plain picture, with no viewer', async () => {
+      await renderOnce()
+      expect(screen.queryByTestId('pano-viewer')).toBeNull()
+    })
+
+    it('says so when the panorama cannot be taken, and does not call the server', async () => {
+      panoramaJpeg.mockResolvedValue(null)
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+      pickPanorama()
+      fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Panoramani olib bo'))
+      expect(createRender).not.toHaveBeenCalled()
+    })
+
+    it('a relit panorama is still a panorama', async () => {
+      panoramaJpeg.mockResolvedValue(new Blob(['pano']))
+      createRender.mockResolvedValue({ job_id: 'j1' })
+      createRelight.mockResolvedValue({ job_id: 'j2' })
+      waitForRender
+        .mockResolvedValueOnce({ url: 'https://s3/pano.jpg', key: 'renders/u/p.jpg', prompt: null })
+        .mockResolvedValueOnce({ url: 'https://s3/pano-lit.jpg', key: 'renders/u/q.jpg', prompt: null })
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+      pickPanorama()
+      fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+      await screen.findByTestId('pano-viewer')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Iliq chiroqlar' }))
+
+      await waitFor(() => expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/pano-lit.jpg'))
+    })
+
+    it('cannot switch mode while a render is running', async () => {
+      panoramaJpeg.mockResolvedValue(new Blob(['pano']))
+      createRender.mockResolvedValue({ job_id: 'j1' })
+      waitForRender.mockReturnValue(new Promise(() => {}))
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+      pickPanorama()
+      fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+      await screen.findByRole('status')
+      expect(screen.getByRole('radio', { name: 'Oddiy' })).toBeDisabled()
+    })
   })
 })

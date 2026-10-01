@@ -29,6 +29,7 @@ import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { Panorama360 } from "./Panorama360";
+import { PanoramaSnap } from "./PanoramaSnap";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -270,6 +271,7 @@ export function ThreeDCanvasScene({
         )}
 
         <Panorama360 active={panorama} onCaptured={onPanoramaCaptured} />
+        <PanoramaSnap />
       <WallsBehindCamera geometry={geometry} W={W} D={D}>
           {(behind) => (
             <>

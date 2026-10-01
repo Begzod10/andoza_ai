@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type RefObject } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
 import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import { panoramaJpeg } from "@/lib/panoramaSnap"
+import { PanoramaViewer } from "./PanoramaViewer"
 import type { LightingMood } from "@/lib/api"
 
 type Phase = "idle" | "capturing" | "rendering" | "relighting" | "done" | "error"
 
 /** One picture the sheet can show: the render itself, or a relit copy of it. */
-interface Version { url: string; key: string; label: string; lighting?: LightingMood }
+interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
@@ -47,6 +49,9 @@ export function RenderSheet({
   onOpenChange(open: boolean): void
   glCanvasRef: RefObject<HTMLCanvasElement | null>
 }) {
+  // "Oddiy": a picture of what the studio shows. "360°": a panorama from the middle
+  // of the room, rendered and then seen from inside it.
+  const [mode, setMode] = useState<"flat" | "panorama">("flat")
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
   const [generated, setGenerated] = useState(false)
@@ -69,9 +74,10 @@ export function RenderSheet({
     setActive(0)
     const canvas = glCanvasRef.current
     setPhase("capturing")
-    const blob = canvas ? await captureJpeg(canvas) : null
+    const panorama = mode === "panorama"
+    const blob = panorama ? await panoramaJpeg() : canvas ? await captureJpeg(canvas) : null
     if (!blob) {
-      setError(uz.render.rasm_yoq)
+      setError(panorama ? uz.render.panorama_olinmadi : uz.render.rasm_yoq)
       setPhase("error")
       return
     }
@@ -82,7 +88,7 @@ export function RenderSheet({
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt)
       const outcome = await waitForRender(job_id, controller.signal)
-      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl }])
+      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }])
       setActive(0)
       // The prompt the picture was actually made from: when the user wrote none
       // this is the generated one, ready to edit for the next go (and sent as
@@ -112,6 +118,7 @@ export function RenderSheet({
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
         url: absolute(outcome.url), key: outcome.key, label: uz.render.yorugliq[mood], lighting: mood,
+        panorama: base.panorama, // a relit panorama is still a panorama
       }
       setVersions((v) => [...v, next])
       setActive(versions.length)
@@ -165,6 +172,26 @@ export function RenderSheet({
           </div>
 
           <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
+            {/* What to render: the studio view as it is, or a 360° panorama. */}
+            <div role="radiogroup" aria-label="Render turi" className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1">
+              {([["flat", uz.render.rejim_oddiy], ["panorama", uz.render.rejim_360]] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === key}
+                  disabled={busy}
+                  onClick={() => setMode(key)}
+                  className={`min-h-[36px] rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
+                    mode === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {mode === "panorama" && <p className="-mt-2 text-xs text-gray-400">{uz.render.panorama_izoh}</p>}
+
             <textarea
               value={prompt}
               onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
@@ -184,7 +211,11 @@ export function RenderSheet({
             <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-200">
               {done ? (
                 <>
-                  <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
+                  {current.panorama ? (
+                    <PanoramaViewer key={current.url} src={current.url} alt={uz.render.viewer.nom} className="h-full w-full" />
+                  ) : (
+                    <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
+                  )}
                   {phase === "relighting" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
                       <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
