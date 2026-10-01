@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { icon: "🏠", label: "Mening loyihalarim", to: "/projects" },
   { icon: "🧮", label: "Yangi hisob-kitob", to: "/wizard" },
   { icon: "👷", label: "Ustalar", to: "/ustalar" },
+  { icon: "🛋️", label: "Sotuvchi paneli", to: "/seller" },
 ];
 
 const STATS = [

@@ -3,15 +3,22 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.store import MODERATION_STATUSES
 
 
 class Furniture(Base):
     __tablename__ = "furniture"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN (%s)" % ", ".join(f"'{t}'" for t in MODERATION_STATUSES),
+            name="ck_furniture_status",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -69,6 +76,18 @@ class Furniture(Base):
         comment="Footprint depth in centimetres",
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        index=True,
+        default="approved",
+        server_default="approved",
+        comment="pending | approved | rejected. A seller's upload starts pending (and "
+                "inactive) until an admin approves it; see MODERATION_STATUSES.",
+    )
+    moderation_note: Mapped[str | None] = mapped_column(
+        String(300), nullable=True, comment="Why an admin rejected it, shown to the seller"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

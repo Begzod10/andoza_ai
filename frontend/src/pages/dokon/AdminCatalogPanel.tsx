@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AdminStore } from "@/lib/api";
 import { CatalogOverview } from "./admin/CatalogOverview";
 import { StoreProfile } from "./admin/StoreProfile";
+import { ModerationQueue } from "./admin/ModerationQueue";
 
 /**
  * Admin-only surface on the Do'kon page: create shops, and upload the 3D
@@ -24,6 +25,8 @@ export default function AdminCatalogPanel() {
           {error}
         </div>
       )}
+
+      {!selectedStore && <ModerationQueue onError={setError} />}
 
       {selectedStore ? (
         <StoreProfile

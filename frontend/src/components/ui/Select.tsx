@@ -37,12 +37,16 @@ const baseErrorText = 'text-xs text-red-600 mt-1'
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  function Select({ label, helperText, error, selectSize = 'md', className, children, ...rest }, ref) {
+  function Select({ label, helperText, error, selectSize = 'md', className, children, id: idProp, ...rest }, ref) {
+    // Point the label at its field (see Input).
+    const autoId = React.useId()
+    const id = idProp ?? autoId
     return (
       <div className="w-full">
-        {label && <label className={baseLabel}>{label}</label>}
+        {label && <label htmlFor={id} className={baseLabel}>{label}</label>}
         <select
           ref={ref}
+          id={id}
           className={cn(
             baseSelect,
             selectSizes[selectSize],

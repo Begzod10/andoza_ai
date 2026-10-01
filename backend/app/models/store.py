@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +18,12 @@ from app.database import Base
 # this tuple so the admin API validates against the same list.
 PARTNER_TIERS = ("standard", "gold", "platinum")
 
+# Where a seller's shop (or a model a seller uploads) stands with the admins.
+# A pending or rejected one is also is_active=False, so every existing public
+# query — which already filters on is_active — hides it without knowing about
+# moderation. Rows that predate sellers are 'approved'.
+MODERATION_STATUSES = ("pending", "approved", "rejected")
+
 
 class Store(Base):
     __tablename__ = "stores"
@@ -25,6 +31,10 @@ class Store(Base):
         CheckConstraint(
             "partner_tier IN (%s)" % ", ".join(f"'{t}'" for t in PARTNER_TIERS),
             name="ck_stores_partner_tier",
+        ),
+        CheckConstraint(
+            "status IN (%s)" % ", ".join(f"'{t}'" for t in MODERATION_STATUSES),
+            name="ck_stores_status",
         ),
     )
 
@@ -48,6 +58,24 @@ class Store(Base):
         comment="standard | gold | platinum",  # see PARTNER_TIERS / ck_stores_partner_tier
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        comment="The seller who runs this shop; null for shops the admins manage. "
+                "A user owns at most one shop. Owning one is what makes someone a seller.",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="approved",
+        server_default="approved",
+        comment="pending | approved | rejected — see MODERATION_STATUSES",
+    )
+    moderation_note: Mapped[str | None] = mapped_column(
+        String(300), nullable=True, comment="Why an admin rejected it, shown to the seller"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
