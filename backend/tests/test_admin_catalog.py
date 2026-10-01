@@ -183,6 +183,19 @@ class TestUpdateStore:
         assert response.json()["is_active"] is False
         assert response.json()["name"] == "Yashil Savdo"  # untouched
 
+    def test_clears_the_cached_models_list_too_since_the_models_go_with_the_shop(self, client):
+        store = _store()
+        store.furniture_items = []
+        db = _db(_Result(one=store))
+        _as(_user(is_admin=True), db)
+
+        with patch("app.routers.admin_catalog.cache_delete_prefix", new=AsyncMock()) as cleared:
+            assert client.delete(f"/api/v1/admin/stores/{store.id}").status_code == 204
+            _run_post_commit(db)
+
+        prefixes = {call.args[0] for call in cleared.await_args_list}
+        assert prefixes == {"stores:", "furniture:"}
+
     def test_missing_store_is_404(self, client):
         db = _db(_Result(one=None))
         _as(_user(is_admin=True), db)
