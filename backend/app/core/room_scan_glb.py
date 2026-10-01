@@ -198,29 +198,31 @@ def _panels(length: float, ceiling_h: float,
             holes: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
     """Split one wall face into the solid rectangles left around its openings.
 
-    A vertical-slab decomposition: cut the face at every opening edge in ``u``,
-    then in each slab subtract the ``v`` spans of the openings that cover it.
-    With no openings that yields the whole face back, i.e. the original slab.
-    Overlapping and abutting openings fall out correctly because the spans are
-    merged, so nothing here can produce a doubled or negative-width panel — the
-    reason this is done by splitting rather than by a CSG difference.
+    A horizontal-band decomposition: cut the face at every opening edge in
+    ``v``, then in each band subtract the ``u`` spans of the openings that
+    cover it. Cutting by band rather than by column matters because the overlay
+    is translucent: a column cut at a door's edge would run on up to the
+    ceiling and show as a dark seam line above the door, whereas here everything
+    above the highest opening is one full-width panel. Overlapping and abutting
+    openings fall out correctly because the spans are merged, so nothing can
+    produce a doubled or negative-width panel.
     """
     if not holes:
         return [(0.0, length, 0.0, ceiling_h)]
-    cuts = sorted({0.0, length} | {u for h in holes for u in h[:2]})
+    cuts = sorted({0.0, ceiling_h} | {v for h in holes for v in h[2:]})
     out = []
-    for s0, s1 in zip(cuts, cuts[1:]):
-        if s1 - s0 <= _MIN_PANEL_M:
+    for b0, b1 in zip(cuts, cuts[1:]):
+        if b1 - b0 <= _MIN_PANEL_M:
             continue
-        mid = (s0 + s1) / 2.0
-        spans = sorted((h[2], h[3]) for h in holes if h[0] <= mid <= h[1])
-        v = 0.0
+        mid = (b0 + b1) / 2.0
+        spans = sorted((h[0], h[1]) for h in holes if h[2] <= mid <= h[3])
+        u = 0.0
         for a, b in spans:
-            if a - v > _MIN_PANEL_M:
-                out.append((s0, s1, v, a))
-            v = max(v, b)
-        if ceiling_h - v > _MIN_PANEL_M:
-            out.append((s0, s1, v, ceiling_h))
+            if a - u > _MIN_PANEL_M:
+                out.append((u, a, b0, b1))
+            u = max(u, b)
+        if length - u > _MIN_PANEL_M:
+            out.append((u, length, b0, b1))
     return out
 
 
