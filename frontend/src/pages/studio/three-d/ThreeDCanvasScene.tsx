@@ -1,4 +1,4 @@
-import { Suspense, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Suspense, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -124,13 +124,6 @@ export function ThreeDCanvasScene({
   setDpr: Dispatch<SetStateAction<number | [number, number]>>;
   setDeclineCount: Dispatch<SetStateAction<number>>;
 }) {
-  // Which walls the camera is behind. A wall seen from outside is culled and
-  // is not there; everything hung on it is ordinary geometry and stayed in
-  // mid-air, so these layers follow the wall. The answer comes from inside the
-  // canvas (see WallsBehindCamera) — reading the camera needs useFrame, which
-  // only works in there — and lands here, where the layers that want it are.
-  const [behind, setBehind] = useState<ReadonlySet<string>>(() => new Set());
-
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -192,8 +185,6 @@ export function ThreeDCanvasScene({
       onPointerMissed={onPointerMissed}
       dpr={glAttempt === 0 ? dpr : 1}
     >
-      {/* Drop resolution during interaction, restore at rest */}
-      <WallsBehindCamera geometry={geometry} W={W} D={D} onChange={setBehind} />
       {/* Drop resolution during interaction, restore at rest */}
       <AdaptiveDpr />
       <AdaptiveEvents />
@@ -274,6 +265,9 @@ export function ThreeDCanvasScene({
           </>
         )}
 
+        <WallsBehindCamera geometry={geometry} W={W} D={D}>
+          {(behind) => (
+            <>
         {/* No phase-forced wall material: entering Suvoq used to force
             the photo-real plaster PBR onto every wall (plasterWalls was
             `activePhase === 'suvoq'`). The default is bare plaster again,
@@ -375,6 +369,9 @@ export function ThreeDCanvasScene({
           // was tapped — the same plumbing the trim runs use.
           openMenu={openOpeningMenu}
         />
+            </>
+          )}
+        </WallsBehindCamera>
         <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
 
         <RealismEffects enabled={useComposer} />

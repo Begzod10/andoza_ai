@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { RoomGeometry } from "@/store/roomStore";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
@@ -6,29 +6,23 @@ import { wallMountFrame } from "@/lib/wallMountFrame";
 import { wallsBehindCamera, sameWallSet, type WallPlane } from "@/lib/wallsFromCamera";
 
 /**
- * Reports which walls the camera is currently standing behind.
+ * The walls the camera is currently standing behind.
  *
  * Walls are single-sided, so from outside the room they are culled and simply
  * are not there — which is what lets you look into a flat from above. Their
- * doors, windows, skirting and faceplates are ordinary geometry, and hung in
- * mid-air once the wall had gone. This is what those layers follow, so a wall
- * takes its furniture with it.
+ * doors, windows, skirting and faceplates are ordinary geometry, and stayed
+ * hanging in mid-air once the wall had gone. This set is what those layers
+ * follow, so a wall takes its furniture with it.
  *
- * A COMPONENT rather than a hook, and that is the whole point: it reads the
- * camera every frame, and `useFrame` only works inside the <Canvas>. The set
- * is wanted by layers that are siblings of the canvas's own tree, so the state
- * lives in the parent and this reports into it — a hook called beside the
- * <Canvas> is outside R3F's context and throws on mount.
- *
- * Reports only when the answer changes, not every frame: it holds for whole
- * sweeps of an orbit, and the layers reading it are the heaviest in the scene.
+ * Re-rendered only when the set actually changes, not every frame: the answer
+ * holds for whole sweeps of an orbit, and the layers that read it are the
+ * heaviest in the scene.
  */
-export function WallsBehindCamera({ geometry, W, D, onChange }: {
-  geometry: RoomGeometry;
-  W: number;
-  D: number;
-  onChange: (hidden: ReadonlySet<string>) => void;
-}) {
+export function useWallsBehindCamera(
+  geometry: RoomGeometry,
+  W: number,
+  D: number,
+): ReadonlySet<string> {
   const planes = useMemo<WallPlane[]>(() => {
     const polyDefs = geometry.vertices && geometry.vertices.length >= 3
       ? wallDefsFromVertices(geometry.vertices, geometry.walls.map((w) => w.id))
@@ -41,14 +35,38 @@ export function WallsBehindCamera({ geometry, W, D, onChange }: {
     return out;
   }, [geometry, W, D]);
 
-  const live = useRef<ReadonlySet<string>>(new Set());
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const live = useRef<ReadonlySet<string>>(hidden);
 
   useFrame(({ camera }) => {
     const next = wallsBehindCamera(planes, camera.position.x, camera.position.z, live.current);
     if (sameWallSet(next, live.current)) return;
     live.current = next;
-    onChange(next);
+    setHidden(next);
   });
 
-  return null;
+  return hidden;
+}
+
+/**
+ * Runs {@link useWallsBehindCamera} and hands the set to `children`.
+ *
+ * The hook reads the camera through `useFrame`, which only works for a component
+ * rendered INSIDE the <Canvas>. ThreeDCanvasScene is the component that renders
+ * the Canvas, so calling the hook in its own body crashed the whole studio page
+ * ("R3F: Hooks can only be used within the Canvas component"). This wrapper sits
+ * inside the Canvas and passes the result down.
+ */
+export function WallsBehindCamera({
+  geometry,
+  W,
+  D,
+  children,
+}: {
+  geometry: RoomGeometry;
+  W: number;
+  D: number;
+  children: (behind: ReadonlySet<string>) => ReactNode;
+}) {
+  return <>{children(useWallsBehindCamera(geometry, W, D))}</>;
 }

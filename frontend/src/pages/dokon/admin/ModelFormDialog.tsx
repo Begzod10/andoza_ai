@@ -17,6 +17,7 @@ import {
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
+import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 /**
  * Dialog form for uploading a 3D model. When opened from a shop's profile,
@@ -46,6 +47,9 @@ export function ModelFormDialog({
   const [priceUzs, setPriceUzs] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  // True while a model is being built from a photo (a minute or two).
+  const [building, setBuilding] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   function reset() {
     setNameUz("");
@@ -56,6 +60,7 @@ export function ModelFormDialog({
     setPriceUzs("");
     setFile(null);
     setThumbnail(null);
+    setPhotoError(null);
   }
 
   const uploadMutation = useMutation({
@@ -172,13 +177,25 @@ export function ModelFormDialog({
           </div>
         </div>
 
+        {/* No 3D file but a photo: let the server build one (Tripo). */}
+        <PhotoToModelField
+          onBusyChange={setBuilding}
+          onError={setPhotoError}
+          onBuilt={({ file: built, thumbnail: pic, baseName }) => {
+            setFile(built);
+            if (pic) setThumbnail(pic);
+            if (!nameUz.trim()) setNameUz(baseName);
+          }}
+        />
+        {photoError && <p role="alert" className="text-sm text-red-600">{photoError}</p>}
+
         <ModelPreview3D file={file} />
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={!nameUz.trim() || !file} loading={uploadMutation.isPending}>
+          <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={uploadMutation.isPending}>
             Yuklash
           </Button>
         </div>

@@ -145,7 +145,7 @@ export default function SmetaPage() {
           <div className="space-y-6">
             {/* Currency toggle */}
             <div className="flex items-center justify-end gap-2">
-              <span className="text-xs text-muted">
+              <span className="text-xs text-on-app-muted">
                 1$ = {formatUZS(estimate.usd_rate)}
               </span>
               <div className="inline-flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
@@ -331,7 +331,7 @@ export default function SmetaPage() {
               </Link>
             </div>
 
-            <p className="text-xs text-muted">
+            <p className="text-xs text-on-app-muted">
               Hisoblab chiqildi:{" "}
               {new Date(estimate.created_at).toLocaleString("uz-UZ")}
             </p>

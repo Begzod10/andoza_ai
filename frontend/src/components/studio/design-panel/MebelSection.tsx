@@ -3,10 +3,7 @@ import { nanoid } from "nanoid";
 import { useRoomStore } from "@/store/roomStore";
 import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
-import { ModelImportButton } from "@/components/studio/ModelImportButton";
-import { PhotoModelButton } from "@/components/studio/PhotoModelButton";
-import { useFileDrop, isImageFile, MODEL_FILE_RE } from "@/hooks/useFileDrop";
-import { useModelImport } from "@/hooks/useModelImport";
+import { useFileDrop, isImageFile } from "@/hooks/useFileDrop";
 import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
@@ -263,25 +260,6 @@ export function MebelSection() {
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
   const [furnitureCat, setFurnitureCat] = React.useState<FurnitureCategory | 'barchasi' | 'mening'>('barchasi');
 
-  // ── Drag & drop of model files anywhere on the Mebel panel ──────────
-  const { importFiles: importModelFiles, status: modelImportStatus, warn: modelImportWarn } = useModelImport();
-  const [dropHint, setDropHint] = React.useState<string | null>(null);
-  const { isOver: modelDropOver, dropProps: modelDropProps } = useFileDrop({
-    accept: (f) => MODEL_FILE_RE.test(f.name),
-    disabled: modelImportStatus === 'loading',
-    onDrop: (files) => {
-      // A lone image dropped on the panel background is ambiguous — it only
-      // means something on a model card or a part row.
-      if (!files.some((f) => /\.(glb|gltf|obj|fbx)$/i.test(f.name))) {
-        setDropHint("Rasmni model kartasi ustiga yoki 🖼 muharridagi qism ustiga tashlang");
-        setTimeout(() => setDropHint(null), 4000);
-        return;
-      }
-      setDropHint(null);
-      void importModelFiles(files, furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat);
-    },
-  });
-
   // ── Manual texturing of imported models (per material channel) ──────
   const texInputRef = React.useRef<HTMLInputElement>(null);
   const texTargetRef = React.useRef<{ entryId: string; index?: number } | null>(null);
@@ -397,25 +375,8 @@ export function MebelSection() {
   })
 
   return (
-    <section
-      {...modelDropProps}
-      className={`relative rounded-xl transition-colors ${modelDropOver ? 'ring-2 ring-brand ring-offset-2' : ''}`}
-    >
+    <section className="relative rounded-xl">
       <h3 className="text-sm font-semibold text-gray-900 mb-2">3D Modellar</h3>
-
-      {modelDropOver && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/85 border-2 border-dashed border-brand">
-          <p className="text-sm font-semibold text-brand text-center px-4">
-            ⬇ Model faylini qo'yib yuboring<br />
-            <span className="text-[11px] font-normal text-gray-500">GLB · GLTF · OBJ · FBX (+ teksturalari)</span>
-          </p>
-        </div>
-      )}
-      {modelImportStatus === 'loading' && (
-        <p className="text-[11px] text-brand mb-2 animate-pulse">Model yuklanmoqda...</p>
-      )}
-      {dropHint && <p className="text-[11px] text-amber-600 mb-2">{dropHint}</p>}
-      {modelImportWarn && <p className="text-[11px] text-amber-600 mb-2 leading-snug">{modelImportWarn}</p>}
 
       {/* Category chips */}
       <div className="flex gap-1.5 flex-wrap mb-3">
@@ -454,6 +415,7 @@ export function MebelSection() {
                 priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
                 thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
                 storeName: 'storeName' in entry ? entry.storeName : undefined,
+                storeContact: 'storeContact' in entry ? entry.storeContact : undefined,
               }}
               count={count}
               busy={texBusy === entry.id}
@@ -491,18 +453,6 @@ export function MebelSection() {
             />
           );
         })}
-
-        {/* Upload card */}
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
-          <ModelImportButton
-            compact
-            category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
-          />
-          <div className="my-1 h-px w-3/4 bg-gray-100" />
-          <PhotoModelButton
-            category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
-          />
-        </div>
 
         {/* Hidden image input for manual texturing */}
         <input

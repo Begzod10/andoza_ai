@@ -205,6 +205,16 @@ def _user():
     return u
 
 
+class _Shop:
+    """Stands in for what SQLAlchemy's execute() returns for the shop lookup."""
+
+    def __init__(self, shop):
+        self._shop = shop
+
+    def scalar_one_or_none(self):
+        return self._shop
+
+
 @pytest.fixture
 def api(monkeypatch):
     from app.routers import photo_model as router_mod
@@ -214,10 +224,19 @@ def api(monkeypatch):
     db = AsyncMock()
     db.add = MagicMock()
     user = _user()
+    # By default the caller is a seller with an approved shop; tests change
+    # who they are through api.set_role(...).
+    def set_role(role):
+        user.is_admin = role == "admin"
+        shop = None
+        if role in ("seller", "pending", "rejected"):
+            shop = MagicMock(status={"seller": "approved", "pending": "pending", "rejected": "rejected"}[role])
+        db.execute = AsyncMock(return_value=_Shop(shop))
+    set_role("seller")
     app.dependency_overrides[get_current_active_user] = lambda: user
     app.dependency_overrides[get_db] = lambda: db
     c = TestClient(app)
-    c.user, c.db = user, db
+    c.user, c.db, c.set_role = user, db, set_role
     yield c
     app.dependency_overrides.clear()
 
@@ -290,3 +309,47 @@ class TestGlbRoute:
         key = f"photo-models/{api.user.id}/gone.glb"
         with patch("app.routers.photo_model.download_file", new=AsyncMock(side_effect=FileNotFoundError())):
             assert api.get("/api/v1/models/from-photo/glb", params={"key": key}).status_code == 404
+
+
+class TestWhoMayBuildModels:
+    """Adding models is for admins and approved sellers, not every signed-in user."""
+
+    def _post_ok(self, api):
+        with patch("app.routers.photo_model.check_and_increment_budget_for", new=AsyncMock()) as budget, \
+             patch("app.routers.photo_model.upload_file", new=AsyncMock(return_value="u")), \
+             patch("app.routers.photo_model.generate_model_from_photo.delay", return_value=MagicMock(id="j")) as delay:
+            res = _post(api)
+        return res, budget, delay
+
+    def test_an_approved_seller_may(self, api):
+        api.set_role("seller")
+        res, _, delay = self._post_ok(api)
+        assert res.status_code == 202
+        delay.assert_called_once()
+
+    def test_an_admin_may_without_owning_a_shop(self, api):
+        api.set_role("admin")
+        res, _, _ = self._post_ok(api)
+        assert res.status_code == 202
+
+    @pytest.mark.parametrize("role", ["user", "pending", "rejected"])
+    def test_everyone_else_is_403_and_nothing_is_spent_or_stored(self, api, role):
+        api.set_role(role)
+        with patch("app.routers.photo_model.check_and_increment_budget_for", new=AsyncMock()) as budget, \
+             patch("app.routers.photo_model.upload_file", new=AsyncMock()) as up, \
+             patch("app.routers.photo_model.generate_model_from_photo.delay") as delay:
+            res = _post(api)
+        assert res.status_code == 403
+        budget.assert_not_awaited()
+        up.assert_not_awaited()
+        delay.assert_not_called()
+
+    def test_the_glb_download_is_gated_the_same_way(self, api):
+        key = f"photo-models/{api.user.id}/m.glb"
+        api.set_role("user")
+        with patch("app.routers.photo_model.download_file", new=AsyncMock(return_value=b"x")) as dl:
+            assert api.get("/api/v1/models/from-photo/glb", params={"key": key}).status_code == 403
+        dl.assert_not_awaited()
+        api.set_role("seller")
+        with patch("app.routers.photo_model.download_file", new=AsyncMock(return_value=b"x")):
+            assert api.get("/api/v1/models/from-photo/glb", params={"key": key}).status_code == 200
