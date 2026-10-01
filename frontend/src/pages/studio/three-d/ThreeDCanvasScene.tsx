@@ -396,13 +396,12 @@ export function ThreeDCanvasScene({
           maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
           minPolarAngle={topView ? 0 : 0.08}
           rotateSpeed={topView ? 0.6 : 0.45}
-          // Both drag axes run opposite to OrbitControls' default
-          // grab-and-turn, as the user asked: dragging right sends the
-          // room left, dragging down tilts the view the other way too.
-          // reverseOrbit is the both-axes flag (there are separate
-          // reverseHorizontalOrbit / reverseVerticalOrbit flags if these
-          // ever need to diverge again).
-          reverseOrbit
+          // The two drag axes now differ, which is what the separate flags are
+          // for. Vertical stays opposite to OrbitControls' default, as it has
+          // been: dragging down tilts the view the other way. Horizontal is
+          // back to the default grab-and-turn — dragging right sends the room
+          // right — reversed again at the user's request (2026-10-01).
+          reverseVerticalOrbit
           // zoomSpeed is NOT passed as a prop on purpose: it is retuned from
           // the live distance on every change (see applyUniformZoom), and a
           // prop would overwrite that on the next React render.
