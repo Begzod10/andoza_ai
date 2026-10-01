@@ -129,7 +129,7 @@ class Settings(BaseSettings):
     # for a textured chair came out at 1.4 million triangles / 44 MB). 50 000 is
     # Tripo's own figure for game-ready assets and looks the same at room scale.
     TRIPO_FACE_LIMIT: int = 50000
-    MODEL_FROM_PHOTO_DAILY_LIMIT: int = 3
+    MODEL_FROM_PHOTO_DAILY_LIMIT: int = 10
 
     # MyArchitectAI — photorealistic renders of a studio screenshot. Every call
     # is billed to this one key, so RENDER_DAILY_LIMIT caps each user's renders
