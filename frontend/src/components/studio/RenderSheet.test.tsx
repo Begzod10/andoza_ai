@@ -4,10 +4,12 @@ import { RenderSheet } from './RenderSheet'
 
 const createRender = vi.fn()
 const createRelight = vi.fn()
+const createUpscale = vi.fn()
 const waitForRender = vi.fn()
 vi.mock('@/lib/api', () => ({
   createRender: (...a: unknown[]) => createRender(...a),
   createRelight: (...a: unknown[]) => createRelight(...a),
+  createUpscale: (...a: unknown[]) => createUpscale(...a),
   waitForRender: (...a: unknown[]) => waitForRender(...a),
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   LIGHTING_MOODS: ['midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood'],
@@ -35,7 +37,7 @@ async function renderOnce(outcome = FIRST) {
   await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toBeInTheDocument())
 }
 
-beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset() })
+beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); createUpscale.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset() })
 
 describe('RenderSheet', () => {
   it('captures the canvas, queues the render and shows the result', async () => {
@@ -174,6 +176,57 @@ describe('RenderSheet', () => {
       fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
       await screen.findByRole('status')
       expect(screen.getByRole('radio', { name: 'Oddiy' })).toBeDisabled()
+    })
+  })
+
+  describe('4K', () => {
+    it('offers a 4K copy once there is a render, and adds it as a version', async () => {
+      await renderOnce()
+      createUpscale.mockResolvedValue({ job_id: 'ju' })
+      waitForRender.mockResolvedValueOnce({ url: 'https://s3/big.jpg', key: 'renders/u/big.jpg', prompt: null })
+
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+
+      await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/big.jpg'))
+      expect(createUpscale).toHaveBeenCalledWith('renders/u/a.jpg')
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Asl'), expect.stringContaining('4K')]))
+    })
+
+    it('does not offer 4K again on the 4K copy', async () => {
+      await renderOnce()
+      createUpscale.mockResolvedValue({ job_id: 'ju' })
+      waitForRender.mockResolvedValueOnce({ url: 'https://s3/big.jpg', key: 'renders/u/big.jpg', prompt: null })
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: '4K ✓' })).toBeDisabled())
+      expect(createUpscale).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows progress while it works and says why when it fails, keeping the render', async () => {
+      await renderOnce()
+      createUpscale.mockRejectedValue(new Error("Bugun AI so'rovlar limiti tugadi."))
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
+      expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/r.jpg')
+      expect(screen.getByRole('button', { name: '4K ga oshirish' })).toBeEnabled()
+    })
+
+    it('a 4K panorama stays a panorama, and is recommended for one', async () => {
+      panoramaJpeg.mockResolvedValue(new Blob(['pano']))
+      createRender.mockResolvedValue({ job_id: 'j1' })
+      createUpscale.mockResolvedValue({ job_id: 'ju' })
+      waitForRender
+        .mockResolvedValueOnce({ url: 'https://s3/pano.jpg', key: 'renders/u/p.jpg', prompt: null })
+        .mockResolvedValueOnce({ url: 'https://s3/pano4k.jpg', key: 'renders/u/p4.jpg', prompt: null })
+      render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+      fireEvent.click(screen.getByRole('radio', { name: '360° panorama' }))
+      fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+      await screen.findByTestId('pano-viewer')
+      expect(screen.getByText(/360° panorama uchun tavsiya/)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+
+      await waitFor(() => expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/pano4k.jpg'))
+      expect(screen.queryByText(/360° panorama uchun tavsiya/)).toBeNull()
     })
   })
 })

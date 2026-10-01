@@ -59,6 +59,14 @@ export async function createRelight(renderKey: string, lighting: LightingMood): 
   });
 }
 
+/** Queue a 4K copy (3840 px on the long side) of a finished render. Returns the job to poll. */
+export async function createUpscale(renderKey: string): Promise<{ job_id: string }> {
+  return apiClient<{ job_id: string }>("/render/upscale", {
+    method: "POST",
+    body: JSON.stringify({ render_key: renderKey }),
+  });
+}
+
 export async function getRenderJob(jobId: string): Promise<JobStatus> {
   return apiClient<JobStatus>(`/jobs/${jobId}`);
 }

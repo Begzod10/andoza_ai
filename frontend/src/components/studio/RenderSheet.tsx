@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
-import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
 import { panoramaJpeg } from "@/lib/panoramaSnap"
 import { PanoramaViewer } from "./PanoramaViewer"
 import type { LightingMood } from "@/lib/api"
 
-type Phase = "idle" | "capturing" | "rendering" | "relighting" | "done" | "error"
+type Phase = "idle" | "capturing" | "rendering" | "relighting" | "upscaling" | "done" | "error"
 
 /** One picture the sheet can show: the render itself, or a relit copy of it. */
-interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean }
+interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
@@ -107,7 +107,7 @@ export function RenderSheet({
 
   async function relight(mood: LightingMood) {
     const base = versions[active]
-    if (!base || phase === "relighting") return
+    if (!base || phase === "relighting" || phase === "upscaling") return
     setRelightError("")
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -130,9 +130,37 @@ export function RenderSheet({
     }
   }
 
+  /** A 4K copy of the picture being shown — sharper to zoom into, and what a
+   *  panorama wants, since a 360° picture spreads its pixels over the whole room. */
+  async function upscale() {
+    const base = versions[active]
+    if (!base || base.upscaled || phase === "relighting" || phase === "upscaling") return
+    setRelightError("")
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setPhase("upscaling")
+    try {
+      const { job_id } = await createUpscale(base.key)
+      const outcome = await waitForRender(job_id, controller.signal)
+      const next: Version = {
+        url: absolute(outcome.url), key: outcome.key, label: "4K", lighting: base.lighting,
+        panorama: base.panorama, upscaled: true,
+      }
+      setVersions((v) => [...v, next])
+      setActive(versions.length)
+    } catch (err) {
+      if (controller.signal.aborted) return
+      setRelightError(errorMessage(err))
+    } finally {
+      if (!controller.signal.aborted) setPhase("done")
+    }
+  }
+
   const current = versions[active]
-  const busy = phase === "capturing" || phase === "rendering" || phase === "relighting"
-  const done = !!current && (phase === "done" || phase === "relighting")
+  const followingUp = phase === "relighting" || phase === "upscaling" // a change to a finished render
+  const busy = phase === "capturing" || phase === "rendering" || followingUp
+  const done = !!current && (phase === "done" || followingUp)
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -216,10 +244,12 @@ export function RenderSheet({
                   ) : (
                     <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
                   )}
-                  {phase === "relighting" && (
+                  {followingUp && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
                       <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
-                      <p className="text-sm font-medium text-gray-700" role="status">{uz.render.yoritilmoqda}</p>
+                      <p className="text-sm font-medium text-gray-700" role="status">
+                        {phase === "upscaling" ? uz.render.oshirilmoqda : uz.render.yoritilmoqda}
+                      </p>
                     </div>
                   )}
                 </>
@@ -253,7 +283,7 @@ export function RenderSheet({
                     role="tab"
                     aria-selected={i === active}
                     onClick={() => setActive(i)}
-                    disabled={phase === "relighting"}
+                    disabled={followingUp}
                     className={`shrink-0 overflow-hidden rounded-xl text-left ring-2 transition ${
                       i === active ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
                     }`}
@@ -286,6 +316,24 @@ export function RenderSheet({
                   ))}
                 </div>
                 {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
+              </div>
+            )}
+
+            {done && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.sifat}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={upscale}
+                    disabled={busy || !!current?.upscaled}
+                    className="min-h-[36px] rounded-full bg-gray-100 px-3.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    {current?.upscaled ? "4K ✓" : uz.render.to4k}
+                  </button>
+                  {current?.panorama && !current.upscaled && (
+                    <span className="text-xs text-gray-400">{uz.render.to4k_izoh}</span>
+                  )}
+                </div>
               </div>
             )}
 
