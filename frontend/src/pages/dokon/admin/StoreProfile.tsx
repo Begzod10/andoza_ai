@@ -80,7 +80,7 @@ export function StoreProfile({
     <div className="space-y-6">
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-on-app-muted hover:text-on-app transition-colors"
       >
         <ArrowLeft size={16} />
         Do'konlarga qaytish
@@ -121,7 +121,7 @@ export function StoreProfile({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-neutral-700">3D modellar</h3>
+          <h3 className="text-sm font-semibold text-on-app">3D modellar</h3>
           <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
             Model qo'shish
           </Button>

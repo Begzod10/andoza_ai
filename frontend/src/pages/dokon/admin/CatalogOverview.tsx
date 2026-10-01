@@ -107,7 +107,7 @@ export function CatalogOverview({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700">Do'konlar</h2>
+            <h2 className="text-sm font-semibold text-on-app">Do'konlar</h2>
             <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setShowAddStore(true)}>
               Do'kon qo'shish
             </Button>
@@ -131,7 +131,7 @@ export function CatalogOverview({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700">Do'konsiz modellar</h2>
+            <h2 className="text-sm font-semibold text-on-app">Do'konsiz modellar</h2>
             <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
               Qo'shish
             </Button>

@@ -16,7 +16,9 @@ export function ModelFilterBar({
   onChange: (filters: ModelFilterState) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
+    // On a white card: the field labels are dark text, which the night theme's
+    // dark page background would swallow.
+    <div className="flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 shadow-subtle">
       <div className="w-40">
         <Select
           label="Xona"
@@ -68,7 +70,7 @@ export function ModelFilterBar({
       {hasActiveFilters(filters) && (
         <button
           onClick={() => onChange(EMPTY_MODEL_FILTERS)}
-          className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 h-10 px-1"
+          className="flex items-center gap-1 text-xs text-on-app-muted hover:text-on-app h-10 px-1"
         >
           <X size={13} />
           Tozalash

@@ -18,7 +18,7 @@ export default function AdminCatalogPanel() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <h1 className="text-lg font-semibold text-neutral-800">Do'kon boshqaruvi</h1>
+      <h1 className="text-lg font-semibold text-on-app">Do'kon boshqaruvi</h1>
 
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">

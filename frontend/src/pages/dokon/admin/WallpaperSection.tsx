@@ -71,9 +71,9 @@ export function WallpaperSection({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-neutral-700">{storeId ? "Oboylar" : "Do'konsiz oboylar"}</h2>
+          <h2 className="text-sm font-semibold text-on-app">{storeId ? "Oboylar" : "Do'konsiz oboylar"}</h2>
           {!storeId && (
-            <p className="text-xs text-neutral-400 mt-0.5">
+            <p className="text-xs text-on-app-muted mt-0.5">
               3D model emas — rasm sifatida saqlanadi va devor bezashda ishlatiladi
             </p>
           )}
