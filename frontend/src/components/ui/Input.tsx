@@ -94,16 +94,21 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       inputSize = 'md',
       disabled,
       className,
+      id: idProp,
       ...rest
     },
     ref,
   ) {
+    // The label has to point at its field, or a screen reader announces the
+    // field with no name (and a test cannot find it by label).
+    const autoId = React.useId()
+    const id = idProp ?? autoId
     const hasError = !!error
     const isDisabled = disabled
 
     return (
       <div className="w-full">
-        {label && <label className={baseLabel}>{label}</label>}
+        {label && <label htmlFor={id} className={baseLabel}>{label}</label>}
 
         <div className="relative flex items-center">
           {startIcon && (
@@ -114,6 +119,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
           <input
             ref={ref}
+            id={id}
             disabled={isDisabled}
             className={cn(
               baseInput,

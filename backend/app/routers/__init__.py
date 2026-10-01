@@ -18,9 +18,13 @@ from app.routers import (
     room_state,
     render,
     photo_model,
+    seller,
+    admin_moderation,
 )
 
 __all__ = [
+    "seller",
+    "admin_moderation",
     "photo_model",
     "render",
     "auth",
