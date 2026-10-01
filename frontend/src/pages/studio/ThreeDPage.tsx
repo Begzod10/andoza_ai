@@ -46,6 +46,7 @@ import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts
 import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
 import { PhaseStageNav } from "./three-d/PhaseStageNav";
 import { ModelToolbar } from "./three-d/ModelToolbar";
+import { request360Capture, PANO_WIDTH, PANO_HEIGHT } from "./three-d/Panorama360";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
@@ -277,6 +278,8 @@ export default function ThreeDPage() {
   // Mebelirovka: door/window editor sheet (reuses the room settings sheet)
   const [elementsSheetOpen, setElementsSheetOpen] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
+  /** The 360 camera: standing in the middle of the room at eye height. */
+  const [panorama, setPanorama] = useState(false);
   // Wall tap → "Oyna" (radial menu) opens the same type/size/color chooser
   // RoomSettingsSheet's "+ Deraza" already uses, instead of dropping a
   // default-sized window immediately — holds where the wall was tapped so
@@ -381,6 +384,24 @@ export default function ThreeDPage() {
   const lastStyledWindow = useRef<StyledWindow | null>(null);
   /** The same, for doors. */
   const lastStyledDoor = useRef<StyledWindow | null>(null);
+
+  /**
+   * Hands the finished panorama to the user as a file.
+   *
+   * Equirectangular and 2:1, which is what a 360 viewer reads: give it to one
+   * and it wraps the room back around the viewer it was taken from.
+   */
+  const savePanorama = useCallback((canvas: HTMLCanvasElement) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${room.name || 'xona'}-360.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }, [room.name]);
 
   /** Papers the tapped wall — or every wall, when the tap carried none. */
   function applyWallpaperTo(wallId: string | undefined, url: string) {
@@ -752,6 +773,43 @@ export default function ThreeDPage() {
               for it to go (2026-09-28). The corner arc offers the same things
               and the sheet is still reachable from the design panel. */}
 
+          {/* Bottom-left: the 360 camera. In, and out again — the only two
+              things to say about a mode that otherwise has no chrome of its
+              own, since looking around IS the mode. */}
+          <div className="absolute bottom-5 left-4 z-20 flex items-center gap-2">
+            <button
+              onClick={() => setPanorama((on) => !on)}
+              title={panorama ? "Oddiy ko'rinishga qaytish" : "360 kamera — xona o'rtasidan"}
+              aria-label={panorama ? "360 kameradan chiqish" : "360 kameraga kirish"}
+              aria-pressed={panorama}
+              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
+                panorama ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'
+              }`}
+            >
+              {panorama ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" />
+                  <circle cx="12" cy="12.5" r="3.5" />
+                </svg>
+              )}
+            </button>
+            {panorama && (
+              <button
+                onClick={request360Capture}
+                title={`360 panorama saqlash (${PANO_WIDTH}x${PANO_HEIGHT})`}
+                className="px-4 h-12 rounded-full bg-white/95 text-brand text-[13px] font-bold shadow-lg ring-1 ring-black/5"
+              >
+                360 saqlash
+              </button>
+            )}
+          </div>
+
           {/* Bottom-right corner: the arc menu, mobile only — desktop reaches
               all of this from the design panel and the tools drawer, neither
               of which a phone shows without a detour. Sits beside the CTA
@@ -767,6 +825,8 @@ export default function ThreeDPage() {
 
           <ThreeDCanvasScene
           armedOpeningId={armedOpening?.elId ?? null}
+            panorama={panorama}
+            onPanoramaCaptured={savePanorama}
             glAttempt={glAttempt}
             setGlAttempt={setGlAttempt}
             initCam={initCam}

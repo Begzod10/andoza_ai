@@ -28,6 +28,7 @@ import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout"
 import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { WallsBehindCamera } from "./useWallsBehindCamera";
+import { Panorama360 } from "./Panorama360";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -55,7 +56,7 @@ export function ThreeDCanvasScene({
   topView, sceneLightOn, sun, W, D, H, highQuality3d,
   room, geometry, designState,
   showContactShadows, useComposer, lightsOn, cutaway,
-  selectedWall, focusSurface, holdBind, armedOpeningId,
+  selectedWall, focusSurface, holdBind, panorama, onPanoramaCaptured, armedOpeningId,
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
@@ -89,6 +90,9 @@ export function ThreeDCanvasScene({
   selectedWall: string | null;
   focusSurface: (id: string) => void;
   holdBind: (surface: RadialSurface, wallId?: string, elId?: string) => Record<string, unknown>;
+  /** The 360 camera: standing in the middle of the room, turning on the spot. */
+  panorama: boolean;
+  onPanoramaCaptured: (canvas: HTMLCanvasElement) => void;
   /** The opening a double tap has armed for dragging, if any. */
   armedOpeningId?: string | null;
   selOpening: OpeningSel | null;
@@ -265,7 +269,8 @@ export function ThreeDCanvasScene({
           </>
         )}
 
-        <WallsBehindCamera geometry={geometry} W={W} D={D}>
+        <Panorama360 active={panorama} onCaptured={onPanoramaCaptured} />
+      <WallsBehindCamera geometry={geometry} W={W} D={D}>
           {(behind) => (
             <>
         {/* No phase-forced wall material: entering Suvoq used to force
@@ -379,6 +384,9 @@ export function ThreeDCanvasScene({
         <OrbitControls
           ref={controlsRef}
           makeDefault
+          // The 360 camera turns on the spot and has no pivot; an orbit rig
+          // reaching for one would fight it for every drag.
+          enabled={!panorama}
           target={initCam.target}
           enableDamping
           dampingFactor={0.06}
