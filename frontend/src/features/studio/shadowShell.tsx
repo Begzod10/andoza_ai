@@ -183,6 +183,105 @@ export function buildShellGeometry({
   return merged
 }
 
+/** One edge of a drawn room, as the shell needs it. */
+export interface PolyShellEdge {
+  /** Interior length of the edge, metres. */
+  length: number
+  /** Midpoint of the edge line, in the room's centred frame. */
+  mx: number
+  mz: number
+  /** Rotation that maps local +X onto the edge direction. */
+  yaw: number
+  /** Which way the wall's local +Z points: 1 when that is into the room. */
+  faceDir: 1 | -1
+  /** Openings resolved over this edge's own span, mm. */
+  elements: ResolvedElMm[]
+}
+
+/**
+ * The same shell for a room drawn from a plan.
+ *
+ * Only rectangular rooms had one, so in every drawn room the sun fell through
+ * all four walls at once and lit the floor as if the flat had no envelope —
+ * the thing a shadow shell exists to prevent. The pieces are the same: a slab
+ * per edge with its openings left out, and a roof, built here in each edge's
+ * own frame and then turned onto the edge.
+ */
+export function buildPolyShellGeometry(
+  edges: readonly PolyShellEdge[],
+  outline: readonly [number, number][],
+  H: number,
+): THREE.BufferGeometry | null {
+  const t = SHELL_T
+  const shiftMm = Math.round(t * 1000)
+  const wallH = H + t
+  const boxes: THREE.BufferGeometry[] = []
+
+  for (const e of edges) {
+    const shifted = e.elements.map((el) => ({ ...el, position: el.position + shiftMm }))
+    // Built along local X, centred on the origin; the slab is `t` longer at
+    // each end so neighbouring edges overlap at the corners rather than
+    // meeting along a line a shadow sample can slip through.
+    const local = wallBoxes(e.length + 2 * t, wallH, t, 'X', 0, 0, shifted)
+    // Outward is away from the room, which is the side the inner face is NOT.
+    const m = new THREE.Matrix4()
+      .makeTranslation(e.mx, 0, e.mz)
+      .multiply(new THREE.Matrix4().makeRotationY(e.yaw))
+      .multiply(new THREE.Matrix4().makeTranslation(0, 0, -e.faceDir * (t / 2)))
+    for (const b of local) {
+      b.applyMatrix4(m)
+      boxes.push(b)
+    }
+  }
+
+  // Roof: the room's own outline, a slab thick, sitting in the top `t` of the
+  // walls so it laps over them.
+  if (outline.length >= 3) {
+    const shape = new THREE.Shape()
+    shape.moveTo(outline[0][0], -outline[0][1])
+    for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i][0], -outline[i][1])
+    shape.closePath()
+    const roof = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false })
+    roof.rotateX(Math.PI / 2)
+    roof.translate(0, H + t, 0)
+    boxes.push(roof)
+  }
+
+  if (boxes.length === 0) return null
+  // The slabs are indexed boxes and the roof is an extrusion, which is not;
+  // merging wants them alike, and flattening the boxes is the cheap direction.
+  const flat = boxes.map((b) => {
+    if (!b.index) return b
+    const n = b.toNonIndexed()
+    b.dispose()
+    return n
+  })
+  const merged = mergeBufferGeometries(flat)
+  for (const b of flat) b.dispose()
+  return merged
+}
+
+export function PolyShadowShell({ edges, outline, H }: {
+  edges: readonly PolyShellEdge[]
+  outline: readonly [number, number][]
+  H: number
+}) {
+  // Same reasoning as the rectangular shell: merging is not work to redo every
+  // render, and the inputs arrive with a fresh identity each time.
+  const key = JSON.stringify([edges, outline, H])
+  const geo = useMemo(() => {
+    const [e, o, h] = JSON.parse(key) as [PolyShellEdge[], [number, number][], number]
+    return buildPolyShellGeometry(e, o, h)
+  }, [key])
+
+  if (!geo) return null
+  return (
+    <mesh geometry={geo} castShadow raycast={noRaycast}>
+      <meshBasicMaterial colorWrite={false} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  )
+}
+
 export function ShadowShell({
   W, D, H, elementsA, elementsB, elementsC, elementsD,
 }: ShellSpec) {

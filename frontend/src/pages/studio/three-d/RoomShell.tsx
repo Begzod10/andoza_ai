@@ -12,7 +12,7 @@ import {
   WallFade,
   useHiddenWalls, type CutawayMode,
 } from "@/features/studio/diorama";
-import { ShadowShell } from "@/features/studio/shadowShell";
+import { ShadowShell, PolyShadowShell } from "@/features/studio/shadowShell";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { roomExtents } from "@/lib/roomDims";
 import { WALL_T, FLOOR_COLORS, UNCONFIGURED_FLOOR_COLOR, noRaycast, OPENING_REVEAL_D } from "./constants";
@@ -405,6 +405,28 @@ function NWallRoomShell({
     return -longest.yaw
   }, [edges])
 
+  // What the sun has to get past: one slab per edge, with its openings left
+  // out, in the frame the walls themselves are placed in.
+  const shellEdges = useMemo(
+    () => edges.map((e) => ({
+      length: e.length,
+      mx: e.mx,
+      mz: e.mz,
+      yaw: e.yaw,
+      faceDir: e.faceDir,
+      elements: resolveElementPositions(
+        geometry.walls[e.index]?.elements ?? [],
+        e.length * 1000,
+      ).map((el) => ({
+        position: el.position,
+        width: el.width,
+        height: el.height,
+        sill_height: el.sill_height,
+      })),
+    })),
+    [edges, geometry.walls],
+  )
+
   // The floor inside each doorway, in the same centred frame as the pattern.
   // The per-edge frames come from the outline this shell already draws from,
   // so a niche lands on its own wall however the room was drawn.
@@ -549,6 +571,10 @@ function NWallRoomShell({
         />
       </mesh>
       </group>
+
+      {/* The sun's occluder. Only rectangular rooms had one, so a drawn room
+          took the sun through all four walls at once — see shadowShell.tsx. */}
+      <PolyShadowShell edges={shellEdges} outline={filteredCentred} H={H} />
 
       {/* One carved wall + frames + baseboard per polygon edge, rotated into place */}
       {edges.map((e) => {

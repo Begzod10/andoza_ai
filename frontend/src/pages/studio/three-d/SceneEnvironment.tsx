@@ -99,6 +99,21 @@ export function WhiteBackdrop({ color = BACKDROP_COLOR }: { color?: string }) {
 
 // ─── Lighting ─────────────────────────────────────────────────────────────────
 
+/**
+ * The sun, as the user specified it (2026-10-02): intensity 0.5, size 15.
+ *
+ * The intensity is a PEAK — the beam thins as it crosses more air through the
+ * day and goes out at night, so this is the strength at its highest, not a
+ * number the sun is pinned to.
+ *
+ * The size is the sun's apparent width in the sky, which is the whole reason a
+ * shadow's edge is soft rather than a cut line: a bigger disc spreads the
+ * penumbra. three's directional light has no disc, so size lands on the shadow
+ * blur, which is the same picture from the other end.
+ */
+export const SUN_INTENSITY = 0.5
+export const SUN_SIZE = 15
+
 
 export function SceneLighting({
   width, depth, height, highQuality, sun,
@@ -155,7 +170,7 @@ export function SceneLighting({
       {/* Warm low-angle directional "sun" for form-shading and realistic shadows */}
       <directionalLight
         color={sun ? sun.color : "#FFF3DE"}
-        intensity={sun ? sun.intensity : highQuality ? 1.3 : 1.0}
+        intensity={sun ? sun.intensity : SUN_INTENSITY}
         position={position}
         // A set sun contributes nothing, so its shadow map is pure cost.
         castShadow={sun ? sun.isUp : true}
@@ -172,7 +187,8 @@ export function SceneLighting({
         // so a 1 cm offset lands well inside it and there is nothing to hide.
         shadow-bias={-0.0002}
         shadow-normalBias={0.01}
-        shadow-radius={4}
+        // The sun's size, as a penumbra — see SUN_SIZE.
+        shadow-radius={SUN_SIZE}
       />
       {/* Cool sky-bounce fill light — scaled by daylight for time-of-day mood,
           on top of the flat floor below (so evening still looks like evening,

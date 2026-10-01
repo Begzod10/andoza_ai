@@ -47,6 +47,7 @@ import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
 import { PhaseStageNav } from "./three-d/PhaseStageNav";
 import { ModelToolbar } from "./three-d/ModelToolbar";
 import { request360Capture, PANO_WIDTH, PANO_HEIGHT } from "./three-d/Panorama360";
+import { SUN_INTENSITY } from "./three-d/SceneEnvironment";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
@@ -167,7 +168,10 @@ export default function ThreeDPage() {
     dayOfYear: today,
     ...siteOf(roomLocation),
     facing,
-    peakIntensity: highQuality3d ? 1.3 : 1.0,
+    // The sun's own strength, as the user set it (2026-10-02). It is a PEAK:
+    // the beam still thins through the day and goes out at night, so dusk
+    // reads as dusk rather than as a dimmer switch.
+    peakIntensity: SUN_INTENSITY,
   }), [sunHour, today, highQuality3d, roomLocation, facing]);
   const [showHelp, setShowHelp] = useState(false);
   // LiDAR scan reference layer (GLB overlay + object ghost boxes). ON by
