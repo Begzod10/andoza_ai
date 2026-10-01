@@ -30,8 +30,13 @@ const FACE_SIZE = 1024
  * the cube. Longitude runs from -PI to PI across the image, latitude from
  * +PI/2 at the top to -PI/2 at the bottom, which is the convention every 360
  * viewer assumes.
+ *
+ * The centre of the image looks toward +z and the image runs LEFT TO RIGHT as
+ * the viewer turns to their right. Facing +z, a person's right hand is -x, so x
+ * is negated: without the minus the whole room comes out mirrored (a door on
+ * the left of the window in the room appeared on its right in the picture).
  */
-const EQUIRECT_FRAGMENT = /* glsl */`
+export const EQUIRECT_FRAGMENT = /* glsl */`
   uniform samplerCube cube;
   varying vec2 vUv;
   #define PI 3.141592653589793
@@ -39,7 +44,7 @@ const EQUIRECT_FRAGMENT = /* glsl */`
     float lon = (vUv.x - 0.5) * 2.0 * PI;
     float lat = (vUv.y - 0.5) * PI;
     vec3 dir = vec3(
-      cos(lat) * sin(lon),
+      -cos(lat) * sin(lon),
       sin(lat),
       cos(lat) * cos(lon)
     );
