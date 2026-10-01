@@ -3,14 +3,10 @@ import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
-import { ModelImportButton } from "@/components/studio/ModelImportButton";
-import { PhotoModelButton } from "@/components/studio/PhotoModelButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
-import { useModelImport } from "@/hooks/useModelImport";
-import { useFileDrop, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { getRooms, deleteRoom, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +15,7 @@ import type { ToolMode } from "@/features/studio/StudioFurniture";
 export { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
-import { furniturePlacementMm, fitDeviceHeightMm } from "@/lib/placement";
+import { fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { clearOfOpenings } from "@/lib/electricalClearance";
@@ -113,7 +109,6 @@ export default function ThreeDPage() {
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
   const resetRoom = useRoomStore((s) => s.resetRoom);
-  const placeFurniture = useRoomStore((s) => s.placeFurniture);
   const addElement = useRoomStore((s) => s.addElement);
   const updateElement = useRoomStore((s) => s.updateElement);
   const removeElement = useRoomStore((s) => s.removeElement);
@@ -314,29 +309,6 @@ export default function ThreeDPage() {
   const clearOnSurfaceTap = useRef(clearAllSelections);
   clearOnSurfaceTap.current = clearAllSelections;
   useEffect(() => { if (radial) clearOnSurfaceTap.current(); }, [radial]);
-
-  // ── Drop a model file straight into the room ────────────────────────
-  // Imported like a picked file, then placed immediately and the Mebel phase
-  // opened, so the dropped object is both visible and editable in one gesture.
-  const { importFiles: importModelFiles, status: modelDropStatus, warn: modelDropWarn } = useModelImport();
-  const { isOver: modelDropOver, dropProps: viewportDropProps } = useFileDrop({
-    accept: (f) => MODEL_FILE_RE.test(f.name),
-    disabled: modelDropStatus === 'loading',
-    onDrop: (files) => {
-      if (!files.some((f) => /\.(glb|gltf|obj|fbx)$/i.test(f.name))) return;
-      void importModelFiles(files).then((entryId) => {
-        if (!entryId) return;
-        const placed = useRoomStore.getState().furniture.length;
-        placeFurniture({
-          id: nanoid(),
-          furniture_id: entryId,
-          ...furniturePlacementMm(useRoomStore.getState().geometry, placed),
-          rotation: 0,
-        });
-        setActivePhase('mebel');
-      });
-    },
-  });
 
   /**
    * Select a wall (or the floor) and, from a decorating phase, open the paint
@@ -700,26 +672,7 @@ export default function ThreeDPage() {
           // Mebelirovka 2D mode hides (but keeps mounted) the whole 3D box so
           // toggling back to 3D is instant and loses no scene state.
           className={`flex-1 min-w-0 min-h-0 relative overflow-hidden ${(isMebelTab && mebelView === '2d') || (isChiroqTab && chiroqView === '2d') ? 'hidden' : ''}`}
-          {...viewportDropProps}
         >
-
-          {/* Model drag & drop over the viewport */}
-          {(modelDropOver || modelDropStatus === 'loading') && (
-            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-brand/10 backdrop-blur-[1px] border-4 border-dashed border-brand rounded-lg">
-              <div className="bg-white/95 rounded-2xl px-6 py-4 shadow-xl text-center">
-                <p className="text-2xl mb-1">{modelDropStatus === 'loading' ? '⏳' : '📦'}</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {modelDropStatus === 'loading' ? 'Model yuklanmoqda...' : "Modelni xonaga qo'yib yuboring"}
-                </p>
-                <p className="text-[11px] text-gray-500 mt-0.5">GLB · GLTF · OBJ · FBX (+ teksturalari)</p>
-              </div>
-            </div>
-          )}
-          {modelDropWarn && (
-            <p className="absolute top-16 left-1/2 -translate-x-1/2 z-40 max-w-[80%] bg-amber-50 border border-amber-200 text-amber-700 text-[11px] px-3 py-1.5 rounded-lg shadow">
-              {modelDropWarn}
-            </p>
-          )}
 
           {/* View mode — relocated here from the tools drawer's old
               "Ko'rinish" chips + cutaway button. One segmented control pinned
@@ -787,10 +740,6 @@ export default function ThreeDPage() {
                 </svg>
                 Eshik / Deraza
               </button>
-              <div className="[&>button]:w-full">
-                <ModelImportButton compact />
-              </div>
-              <PhotoModelButton />
             </div>
           )}
 

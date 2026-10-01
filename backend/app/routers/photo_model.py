@@ -1,7 +1,9 @@
 """A 3D model from a furniture photo, via Tripo.
 
 POST /models/from-photo takes the photo, checks the caller's daily allowance,
-stores the source and enqueues ``generate_model_from_photo``. The result is
+stores the source and enqueues ``generate_model_from_photo``. Only admins and
+sellers (the owner of an approved shop) may build models — it spends Tripo
+credits, and adding models is theirs to do, not an ordinary user's. The result is
 polled at the existing ``GET /jobs/{job_id}`` (ownership is the ``media_jobs``
 row, as for photo processing and renders). When it is done, ``result.url`` is a
 GLB the studio imports like any uploaded model.
@@ -12,11 +14,13 @@ import uuid as uuid_module
 
 import structlog
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
+from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.config import settings
 from app.core.storage import download_file, upload_file
 from app.models.media_job import MediaJob
+from app.models.store import Store
 from app.services.llm import check_and_increment_budget_for
 from app.tasks.media import generate_model_from_photo
 
@@ -30,12 +34,23 @@ _MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 _EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
+async def _require_model_builder(db: DbSession, user) -> None:
+    """Admins, or a seller whose shop has been approved. A pending or rejected shop
+    cannot upload models either, so it has no use for this."""
+    if user.is_admin:
+        return
+    store = (await db.execute(select(Store).where(Store.owner_user_id == user.id))).scalar_one_or_none()
+    if store is None or store.status != "approved":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat sotuvchi va administrator uchun")
+
+
 @router.post(
     "/models/from-photo",
     status_code=status.HTTP_202_ACCEPTED,
     summary="Build a 3D model (GLB) from a furniture photo",
 )
 async def create_model_from_photo(file: UploadFile, current_user: CurrentUser, db: DbSession) -> dict:
+    await _require_model_builder(db, current_user)
     if not settings.TRIPO_API_KEY or settings.MODEL_FROM_PHOTO_DAILY_LIMIT <= 0:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="3D model xizmati mavjud emas")
 
@@ -78,11 +93,12 @@ async def create_model_from_photo(file: UploadFile, current_user: CurrentUser, d
     "/models/from-photo/glb",
     summary="Download a model built from the caller's own photo",
 )
-async def get_photo_model_glb(key: str, current_user: CurrentUser) -> Response:
+async def get_photo_model_glb(key: str, current_user: CurrentUser, db: DbSession) -> Response:
     """Stream the GLB through the API so the studio can fetch it same-origin, with
     its cookie, instead of depending on the storage host's CORS rules. Only the
     caller's own models: the key is a storage path, so it must stay in their
     folder and not climb out of it."""
+    await _require_model_builder(db, current_user)
     prefix = f"photo-models/{current_user.id}/"
     if not key.startswith(prefix) or ".." in key:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
