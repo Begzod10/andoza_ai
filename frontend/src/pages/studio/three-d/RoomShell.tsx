@@ -264,8 +264,13 @@ function NWallRoomShell({
   plasterWalls?: boolean;
   /** Walls the camera stands behind. The WALL itself needs no help — it is a
    *  single-sided plane and culls on its own — but everything hung on it is
-   *  ordinary geometry and stayed in mid-air once the wall had gone. */
-  hiddenAttachments?: ReadonlySet<string>;
+   *  ordinary geometry and stayed in mid-air once the wall had gone.
+   *
+   *  Required, though it may be undefined: this shell is mounted in exactly
+   *  one place, and when the prop was optional the wiring was silently left
+   *  off and every drawn room kept its door and window casings floating. A
+   *  required prop makes that a compile error. */
+  hiddenAttachments: ReadonlySet<string> | undefined;
 }) {
   // Skirting: undefined means the user never touched it, which still renders
   // the default board; only an explicit null takes it off.
@@ -1034,6 +1039,7 @@ export const RoomScene = memo(function RoomScene({
             holdBind={holdBind}
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}
+            hiddenAttachments={hiddenAttachments}
           />
         ) : null
       )}
