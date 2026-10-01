@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
-import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import { createRender, createRelight, createUpscale, listRenders, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import type { SavedRender } from "@/lib/api"
 import { panoramaJpeg } from "@/lib/panoramaSnap"
 import { PanoramaViewer } from "./PanoramaViewer"
 import type { LightingMood } from "@/lib/api"
@@ -40,10 +41,12 @@ function Sparkle({ className = "" }: { className?: string }) {
  * the studio's own overlays, including the ⋮ menu and the edge arrows.
  */
 export function RenderSheet({
-  open, onOpenChange,
+  open, onOpenChange, roomId,
 }: {
   open: boolean
   onOpenChange(open: boolean): void
+  /** The room being rendered: its pictures are saved against it and listed back. */
+  roomId?: string
 }) {
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
@@ -55,9 +58,34 @@ export function RenderSheet({
   // A relight that fails must not throw away the render underneath it.
   const [relightError, setRelightError] = useState("")
   const abortRef = useRef<AbortController | null>(null)
+  // Every picture saved for this room, newest first.
+  const [saved, setSaved] = useState<SavedRender[]>([])
 
   // Stop polling if the page goes away mid-render.
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  // The saved pictures: loaded when the sheet opens and again after each new
+  // one lands (the task records it just before the job reports done).
+  useEffect(() => {
+    if (!open || !roomId || phase === "capturing" || phase === "rendering" || phase === "relighting" || phase === "upscaling") return
+    let stale = false
+    listRenders(roomId).then((rows) => { if (!stale) setSaved(rows) }).catch(() => {})
+    return () => { stale = true }
+  }, [open, roomId, phase])
+
+  /** Show a picture from the saved list; it can be relit or made 4K like a fresh one. */
+  function showSaved(row: SavedRender) {
+    if (phase === "capturing" || phase === "rendering" || phase === "relighting" || phase === "upscaling") return
+    setError("")
+    setRelightError("")
+    setVersions([{
+      url: absolute(row.url), key: row.key, panorama: row.panorama, upscaled: row.kind === "upscale",
+      lighting: (row.lighting as LightingMood | null) ?? undefined,
+      label: row.kind === "upscale" ? "4K" : row.lighting ? uz.render.yorugliq[row.lighting as LightingMood] ?? row.lighting : uz.render.asl,
+    }])
+    setActive(0)
+    setPhase("done")
+  }
 
   // Opened from the 360 camera: the panorama is taken and sent at once, with
   // no further button to press. Opening again renders again.
@@ -85,7 +113,7 @@ export function RenderSheet({
     abortRef.current = controller
     try {
       setPhase("rendering")
-      const { job_id } = await createRender(blob, prompt)
+      const { job_id } = await createRender(blob, prompt, roomId)
       const outcome = await waitForRender(job_id, controller.signal)
       setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }])
       setActive(0)
@@ -314,6 +342,31 @@ export function RenderSheet({
                   {current?.panorama && !current.upscaled && (
                     <span className="text-xs text-gray-400">{uz.render.to4k_izoh}</span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {saved.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.saqlangan}</p>
+                <div className="flex gap-2 overflow-x-auto" aria-label={uz.render.saqlangan}>
+                  {saved.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => showSaved(row)}
+                      disabled={busy}
+                      aria-label={`${uz.render.saqlangan}: ${new Date(row.created_at).toLocaleString()}`}
+                      className={`shrink-0 overflow-hidden rounded-xl ring-2 transition disabled:opacity-60 ${
+                        current?.key === row.key ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <img src={absolute(row.url)} alt="" loading="lazy" className="h-14 w-20 object-cover" />
+                      <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                        {row.kind === "upscale" ? "4K" : row.kind === "relight" ? uz.render.yoritish : uz.render.asl}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

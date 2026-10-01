@@ -231,7 +231,9 @@ async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz
     acks_late=False,
     reject_on_worker_lost=False,
 )
-def render_room_image(self, user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+def render_room_image(
+    self, user_id: str, source_key: str, content_type: str, prompt: str | None, room_id: str | None = None,
+) -> dict:
     """Render a studio screenshot with MyArchitectAI and keep the result.
 
     Not retried: the API refunds a failed generation, but a retry would be a
@@ -241,7 +243,7 @@ def render_room_image(self, user_id: str, source_key: str, content_type: str, pr
     """
     import asyncio
 
-    return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt))
+    return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt, room_id))
 
 
 async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
@@ -260,7 +262,50 @@ async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
     return key, await upload_file(fetched.content, key, content_type="image/jpeg")
 
 
-async def _render_room_image(user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+async def _save_render(
+    user_id: str, *, key: str, url: str, kind: str, room_id: str | None = None,
+    lighting: str | None = None, prompt: str | None = None, parent_key: str | None = None,
+) -> None:
+    """Record a finished picture in ``room_renders`` so the user finds it again.
+
+    Best-effort: the picture already exists in storage and the user is about to
+    see it, so a failed insert is logged, not turned into a failed render. A
+    relit / 4K copy takes its room from the picture it was made from.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from app.config import settings
+    from app.models.room_render import RoomRender
+
+    engine = None
+    try:
+        engine = create_async_engine(settings.DATABASE_URL)  # own process/loop
+        Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with Session() as db:
+            room_uuid = _uuid.UUID(room_id) if room_id else None
+            if room_uuid is None and parent_key:
+                parent = (
+                    await db.execute(select(RoomRender).where(RoomRender.key == parent_key))
+                ).scalar_one_or_none()
+                room_uuid = parent.room_id if parent else None
+            db.add(RoomRender(
+                user_id=_uuid.UUID(user_id), room_id=room_uuid, key=key, url=url, kind=kind,
+                lighting=lighting, prompt=prompt, parent_key=parent_key,
+            ))
+            await db.commit()
+    except Exception:
+        logger.exception("save_render failed user=%s key=%s", user_id, key)
+    finally:
+        if engine is not None:
+            await engine.dispose()
+
+
+async def _render_room_image(
+    user_id: str, source_key: str, content_type: str, prompt: str | None, room_id: str | None = None,
+) -> dict:
     from app.core.storage import delete_file, download_file
     from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
 
@@ -281,6 +326,7 @@ async def _render_room_image(user_id: str, source_key: str, content_type: str, p
 
         result_url = await client.render_interior(image, prompt=used_prompt, output_format="jpg")
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="render", room_id=room_id, prompt=used_prompt)
         return {"status": "ok", "key": key, "url": url, "prompt": used_prompt}
     except MyArchitectError as exc:
         logger.error("render_room_image failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
@@ -323,6 +369,7 @@ async def _relight_render(user_id: str, render_key: str, lighting: str) -> dict:
         source = await download_file(render_key)
         result_url = await get_myarchitect_client().set_atmosphere(to_data_uri(source, "image/jpeg"), lighting)
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="relight", lighting=lighting, parent_key=render_key)
         return {"status": "ok", "key": key, "url": url, "lighting": lighting}
     except MyArchitectError as exc:
         logger.error("relight_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
@@ -364,6 +411,7 @@ async def _upscale_render(user_id: str, render_key: str) -> dict:
             to_data_uri(source, "image/jpeg"), resolution="4k", output_format="jpg",
         )
         key, url = await _keep_remote_image(user_id, result_url)
+        await _save_render(user_id, key=key, url=url, kind="upscale", parent_key=render_key)
         return {"status": "ok", "key": key, "url": url, "resolution": "4k"}
     except MyArchitectError as exc:
         logger.error("upscale_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)

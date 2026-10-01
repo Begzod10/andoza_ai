@@ -44,10 +44,11 @@ export function errorMessage(err: unknown): string {
 }
 
 /** Queue a render of a captured studio screenshot. Returns the job to poll. */
-export async function createRender(image: Blob, prompt?: string): Promise<{ job_id: string }> {
+export async function createRender(image: Blob, prompt?: string, roomId?: string): Promise<{ job_id: string }> {
   const form = new FormData();
   form.append("file", image, "studio.jpg");
   if (prompt?.trim()) form.append("prompt", prompt.trim());
+  if (roomId) form.append("room_id", roomId);
   return apiClient<{ job_id: string }>("/render", { method: "POST", body: form });
 }
 
@@ -65,6 +66,29 @@ export async function createUpscale(renderKey: string): Promise<{ job_id: string
     method: "POST",
     body: JSON.stringify({ render_key: renderKey }),
   });
+}
+
+/** A render kept in the database: the first picture, or a relit / 4K copy of one. */
+export interface SavedRender {
+  id: string;
+  key: string;
+  url: string;
+  kind: "render" | "relight" | "upscale";
+  lighting: string | null;
+  prompt: string | null;
+  panorama: boolean;
+  parent_key: string | null;
+  room_id: string | null;
+  created_at: string;
+}
+
+/** The caller's saved renders of a room, newest first. */
+export async function listRenders(roomId: string): Promise<SavedRender[]> {
+  return apiClient<SavedRender[]>(`/renders?room_id=${encodeURIComponent(roomId)}`);
+}
+
+export async function deleteRender(id: string): Promise<void> {
+  await apiClient<void>(`/renders/${id}`, { method: "DELETE" });
 }
 
 export async function getRenderJob(jobId: string): Promise<JobStatus> {
