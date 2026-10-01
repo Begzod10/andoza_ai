@@ -92,6 +92,10 @@ const routes: RouteObject[] = [
     element: <LandingGate />,
   },
   {
+    path: "/landing",
+    element: withSuspense(<LandingPage />),
+  },
+  {
     path: "/login",
     element: withSuspense(<LoginPage />),
   },
