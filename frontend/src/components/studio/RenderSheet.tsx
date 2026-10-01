@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
 import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
@@ -18,10 +18,6 @@ function absolute(url: string): string {
   return new URL(url, new URL(base, window.location.href).origin).toString()
 }
 
-function captureJpeg(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92))
-}
-
 function Sparkle({ className = "" }: { className?: string }) {
   return (
     <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -33,8 +29,9 @@ function Sparkle({ className = "" }: { className?: string }) {
 }
 
 /**
- * "Render": turns what the studio is showing into a photorealistic image.
- * Captures the live canvas, queues it (POST /render) and polls the job. The
+ * "Render": turns a 360° panorama of the room into a photorealistic one.
+ * Opened from the 360 camera, it takes the panorama and queues it
+ * (POST /render) at once, then polls the job. The
  * card keeps the last result until the user renders again.
  *
  * A centred card on a wide screen, a bottom sheet on a phone. It is not the
@@ -43,15 +40,11 @@ function Sparkle({ className = "" }: { className?: string }) {
  * the studio's own overlays, including the ⋮ menu and the edge arrows.
  */
 export function RenderSheet({
-  open, onOpenChange, glCanvasRef,
+  open, onOpenChange,
 }: {
   open: boolean
   onOpenChange(open: boolean): void
-  glCanvasRef: RefObject<HTMLCanvasElement | null>
 }) {
-  // "Oddiy": a picture of what the studio shows. "360°": a panorama from the middle
-  // of the room, rendered and then seen from inside it.
-  const [mode, setMode] = useState<"flat" | "panorama">("flat")
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
   const [generated, setGenerated] = useState(false)
@@ -66,18 +59,24 @@ export function RenderSheet({
   // Stop polling if the page goes away mid-render.
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // Opened from the 360 camera: the panorama is taken and sent at once, with
+  // no further button to press. Opening again renders again.
+  useEffect(() => {
+    if (open) void start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   async function start() {
     if (phase === "capturing" || phase === "rendering") return
     setError("")
     setRelightError("")
     setVersions([])
     setActive(0)
-    const canvas = glCanvasRef.current
     setPhase("capturing")
-    const panorama = mode === "panorama"
-    const blob = panorama ? await panoramaJpeg() : canvas ? await captureJpeg(canvas) : null
+    const panorama = true
+    const blob = await panoramaJpeg()
     if (!blob) {
-      setError(panorama ? uz.render.panorama_olinmadi : uz.render.rasm_yoq)
+      setError(uz.render.panorama_olinmadi)
       setPhase("error")
       return
     }
@@ -200,25 +199,7 @@ export function RenderSheet({
           </div>
 
           <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
-            {/* What to render: the studio view as it is, or a 360° panorama. */}
-            <div role="radiogroup" aria-label="Render turi" className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1">
-              {([["flat", uz.render.rejim_oddiy], ["panorama", uz.render.rejim_360]] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === key}
-                  disabled={busy}
-                  onClick={() => setMode(key)}
-                  className={`min-h-[36px] rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
-                    mode === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {mode === "panorama" && <p className="-mt-2 text-xs text-gray-400">{uz.render.panorama_izoh}</p>}
+            <p className="text-xs text-gray-400">{uz.render.panorama_izoh}</p>
 
             <textarea
               value={prompt}
