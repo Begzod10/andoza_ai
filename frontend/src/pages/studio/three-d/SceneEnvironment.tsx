@@ -5,7 +5,6 @@ import { fitShadowFrustum } from "@/lib/shadowFrustum";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import * as THREE from "three";
 
 /** User-supplied HDRI (8K EXR downsized to 2048x1024 .hdr) used as the
  *  studio's sky + image-based lighting. Regenerate from a new source with
@@ -63,44 +62,38 @@ export function BrandedSky({ sun }: { sun: SunState }) {
  * A plain white backdrop in place of the sky photo.
  *
  * The HDRI was doing two jobs: the view out of the window, and the room's
- * image-based lighting. This does both, and neither is a photograph — the
- * backdrop is white, and what surfaces reflect is a uniform white room rather
- * than a sun, a horizon and a field.
+ * image-based lighting. Both go. The backdrop is white, and the scene gets no
+ * environment map at all — which is the honest version of "white": a uniform
+ * environment adds a flat term to every surface and takes contrast away,
+ * exactly what a white-on-white room cannot spare.
  *
- * That second part matters as much as the first. An environment with a sun in
- * it is a sun every glossy surface can see, through walls and ceiling alike,
- * which is what put a blown highlight on the tiles. A constant colour has
- * nothing to mirror, so a floor shows only what the room's own lights do.
+ * Losing the environment costs nothing the room needs. What lights it is the
+ * rig below: an ambient and a hemisphere fill, the directional sun — which the
+ * shadow shell stops at the walls, so it enters through the windows and
+ * nowhere else — and the lamps hanging in the room. What it REMOVES is the
+ * sun every glossy surface could see through the ceiling, which is what put a
+ * blown highlight on the tiles.
  *
- * The analytic rig is untouched: the directional sun still comes through the
- * windows and nowhere else, and the lamps still light the room.
+ * `scene.environment` is cleared rather than left alone: another page may have
+ * installed an HDRI on the same scene, and a leftover sky is the bug this is
+ * here to fix.
+ *
+ * The colour is a hair off pure white on purpose. A flat's walls and ceiling
+ * are near-white themselves, and against #FFF the room lost its silhouette —
+ * the complaint was that nothing was visible at all. This still reads as a
+ * white backdrop; it just lets the room have an edge against it.
  */
-function whiteEnvironment(): THREE.DataTexture {
-  // 1x1 is enough for a constant: every mip of a flat colour is that colour,
-  // so there is nothing for PMREM filtering to do.
-  const tex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
-  tex.mapping = THREE.EquirectangularReflectionMapping
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.needsUpdate = true
-  return tex
-}
+export const BACKDROP_COLOR = '#EDEFF2'
 
-export function WhiteBackdrop({ intensity = 0.35 }: { intensity?: number }) {
+export function WhiteBackdrop({ color = BACKDROP_COLOR }: { color?: string }) {
   const { scene } = useThree()
   useEffect(() => {
-    const tex = whiteEnvironment()
-    const prevEnv = scene.environment
-    const prevIntensity = scene.environmentIntensity
-    scene.environment = tex
-    scene.environmentIntensity = intensity
-    return () => {
-      scene.environment = prevEnv
-      scene.environmentIntensity = prevIntensity
-      tex.dispose()
-    }
-  }, [scene, intensity])
+    const prev = scene.environment
+    scene.environment = null
+    return () => { scene.environment = prev }
+  }, [scene])
 
-  return <color attach="background" args={['#FFFFFF']} />
+  return <color attach="background" args={[color]} />
 }
 
 

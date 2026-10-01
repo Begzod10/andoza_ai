@@ -25,7 +25,7 @@ import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
-import { RealismEffects, SceneLighting, WhiteBackdrop } from "./SceneEnvironment";
+import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
@@ -188,7 +188,7 @@ export function ThreeDCanvasScene({
           far back. */}
       <fog
         attach="fog"
-        args={[sceneLightOn ? "#FFFFFF" : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+        args={[sceneLightOn ? BACKDROP_COLOR : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
       />
 
       {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
