@@ -1,4 +1,4 @@
-import { Suspense, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Suspense, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -27,7 +27,7 @@ import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
-import { useWallsBehindCamera } from "./useWallsBehindCamera";
+import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -126,8 +126,10 @@ export function ThreeDCanvasScene({
 }) {
   // Which walls the camera is behind. A wall seen from outside is culled and
   // is not there; everything hung on it is ordinary geometry and stayed in
-  // mid-air, so these layers follow the wall.
-  const behind = useWallsBehindCamera(geometry, W, D);
+  // mid-air, so these layers follow the wall. The answer comes from inside the
+  // canvas (see WallsBehindCamera) — reading the camera needs useFrame, which
+  // only works in there — and lands here, where the layers that want it are.
+  const [behind, setBehind] = useState<ReadonlySet<string>>(() => new Set());
 
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
@@ -190,6 +192,8 @@ export function ThreeDCanvasScene({
       onPointerMissed={onPointerMissed}
       dpr={glAttempt === 0 ? dpr : 1}
     >
+      {/* Drop resolution during interaction, restore at rest */}
+      <WallsBehindCamera geometry={geometry} W={W} D={D} onChange={setBehind} />
       {/* Drop resolution during interaction, restore at rest */}
       <AdaptiveDpr />
       <AdaptiveEvents />
