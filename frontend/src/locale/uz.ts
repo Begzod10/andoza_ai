@@ -125,6 +125,8 @@ export const uz = {
     tayyor: "Render tayyor",
     yuklab_olish: "Yuklab olish",
     qayta: "Qayta render",
+    natija_joyi: "Natija shu yerda ko'rinadi",
+    vaqt: "Odatda 15–30 soniya",
     xato: "Render bajarilmadi",
     rasm_yoq: "Ko'rinishni olib bo'lmadi. Qayta urinib ko'ring.",
   },

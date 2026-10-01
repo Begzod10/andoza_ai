@@ -97,6 +97,9 @@ export interface StudioContext {
   /** A node inside the header's ⋮ dropdown, for this page's own menu rows.
    *  Null while the dropdown is closed. */
   menuSlot?: HTMLDivElement | null;
+  /** Closes the ⋮ dropdown — for a row that opens a sheet, which would
+   *  otherwise sit under the still-open menu. */
+  closeMenu?: () => void;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -104,7 +107,7 @@ export interface StudioContext {
 export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
-  const { room, onSave, tabSlot, menuSlot } = useOutletContext<StudioContext>();
+  const { room, onSave, tabSlot, menuSlot, closeMenu } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -618,6 +621,7 @@ export default function ThreeDPage() {
             old separate tab-nav row (see StudioPage.tsx). */}
         <ToolsDrawerPanel
           menuSlot={menuSlot}
+          closeMenu={closeMenu}
           hasScan={hasScan}
           showScan={showScan}
           setShowScan={setShowScan}
