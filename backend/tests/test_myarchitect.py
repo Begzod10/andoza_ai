@@ -201,3 +201,16 @@ async def test_set_atmosphere_sends_the_interior_mode_and_returns_the_first_imag
 async def test_set_atmosphere_rejects_an_unknown_mood_before_calling_the_api():
     with pytest.raises(ValueError):
         await _client(lambda r: httpx.Response(200, json={"output": ["u"]})).set_atmosphere("img", "disco")
+
+
+async def test_upscale_sends_the_target_resolution_and_format_and_returns_the_url():
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"output": "https://cdn.test/4k.jpg"})
+
+    assert await _client(handler).upscale("img", resolution="4k", output_format="jpg") == "https://cdn.test/4k.jpg"
+    assert seen["url"].endswith("/upscale")
+    assert seen["body"] == {"image": "img", "targetResolution": "4k", "outputFormat": "jpg"}

@@ -250,3 +250,66 @@ class TestRelightRoute:
             res = client.post("/api/v1/render/relight", json={"render_key": self._key(client), "lighting": "warm_lamps"})
         assert res.status_code == 429
         delay.assert_not_called()
+
+
+class TestUpscaleTask:
+    async def test_upscales_to_4k_jpg_and_keeps_the_result(self):
+        from app.tasks import media
+
+        client = MagicMock(upscale=AsyncMock(return_value="https://cdn.test/big.jpg"))
+        with patch("app.core.storage.download_file", new=AsyncMock(return_value=b"orig")) as dl, \
+             patch("app.core.storage.upload_file", new=AsyncMock(return_value="https://s3/big.jpg")) as up, \
+             patch("app.services.myarchitect.get_myarchitect_client", return_value=client), \
+             patch("httpx.AsyncClient", return_value=_http_returning(b"bigbytes")):
+            out = await media._upscale_render("u1", "renders/u1/a.jpg")
+
+        dl.assert_awaited_once_with("renders/u1/a.jpg")
+        assert client.upscale.await_args.kwargs == {"resolution": "4k", "output_format": "jpg"}
+        assert out["status"] == "ok" and out["resolution"] == "4k" and out["key"].startswith("renders/u1/")
+        assert up.await_args.args[0] == b"bigbytes"
+
+    async def test_a_provider_failure_is_reported(self):
+        from app.services.myarchitect import MyArchitectError
+        from app.tasks import media
+
+        client = MagicMock(upscale=AsyncMock(side_effect=MyArchitectError("nope", request_id=9)))
+        with patch("app.core.storage.download_file", new=AsyncMock(return_value=b"orig")), \
+             patch("app.services.myarchitect.get_myarchitect_client", return_value=client):
+            out = await media._upscale_render("u1", "renders/u1/a.jpg")
+        assert out == {"status": "failed", "error": "nope", "request_id": 9}
+
+
+class TestUpscaleRoute:
+    def _key(self, client):
+        return f"renders/{client.user.id}/abc.jpg"
+
+    def test_happy_path_enqueues_and_spends_one_allowance(self, client):
+        with patch("app.routers.render.check_and_increment_budget_for", new=AsyncMock()) as budget, \
+             patch("app.routers.render.upscale_render.delay", return_value=MagicMock(id="job-u")) as delay:
+            res = client.post("/api/v1/render/upscale", json={"render_key": self._key(client)})
+        assert res.status_code == 202 and res.json() == {"job_id": "job-u"}
+        budget.assert_awaited_once()
+        assert delay.call_args.args == (str(client.user.id), self._key(client))
+        client.db.add.assert_called_once()
+
+    @pytest.mark.parametrize("key", ["renders/someone-else/a.jpg", "render-sources/x/a.jpg", "thumbnails/x.jpg"])
+    def test_only_the_callers_own_renders(self, client, key):
+        with patch("app.routers.render.upscale_render.delay") as delay:
+            assert client.post("/api/v1/render/upscale", json={"render_key": key}).status_code == 404
+        delay.assert_not_called()
+
+    def test_path_traversal_is_refused(self, client):
+        key = f"renders/{client.user.id}/../../secrets.jpg"
+        assert client.post("/api/v1/render/upscale", json={"render_key": key}).status_code == 404
+
+    def test_over_the_limit_is_429_and_nothing_is_queued(self, client):
+        with patch("app.routers.render.check_and_increment_budget_for", new=AsyncMock(side_effect=BudgetExceededError())), \
+             patch("app.routers.render.upscale_render.delay") as delay:
+            assert client.post("/api/v1/render/upscale", json={"render_key": self._key(client)}).status_code == 429
+        delay.assert_not_called()
+
+    def test_off_when_the_render_service_is_off(self, client, monkeypatch):
+        from app.routers import render as render_router
+
+        monkeypatch.setattr(render_router.settings, "MYARCHITECT_API_KEY", "")
+        assert client.post("/api/v1/render/upscale", json={"render_key": self._key(client)}).status_code == 503

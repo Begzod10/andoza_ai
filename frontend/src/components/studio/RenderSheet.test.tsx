@@ -4,52 +4,78 @@ import { RenderSheet } from './RenderSheet'
 
 const createRender = vi.fn()
 const createRelight = vi.fn()
+const createUpscale = vi.fn()
 const waitForRender = vi.fn()
 vi.mock('@/lib/api', () => ({
   createRender: (...a: unknown[]) => createRender(...a),
   createRelight: (...a: unknown[]) => createRelight(...a),
+  createUpscale: (...a: unknown[]) => createUpscale(...a),
   waitForRender: (...a: unknown[]) => waitForRender(...a),
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   LIGHTING_MOODS: ['midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood'],
 }))
 
-function canvasRef(blob: Blob | null) {
-  const canvas = { toBlob: (cb: (b: Blob | null) => void) => cb(blob) } as unknown as HTMLCanvasElement
-  return { current: canvas }
-}
+const panoramaJpeg = vi.fn()
+vi.mock('@/lib/panoramaSnap', () => ({ panoramaJpeg: (...a: unknown[]) => panoramaJpeg(...a) }))
+// The viewer needs WebGL; the sheet only needs to hand it the picture.
+vi.mock('./PanoramaViewer', () => ({
+  PanoramaViewer: ({ src }: { src: string }) => <div data-testid="pano-viewer" data-src={src} />,
+}))
 
 const FIRST = { url: 'https://s3/r.jpg', key: 'renders/u/a.jpg', prompt: null }
 
+/** Opening the sheet is what starts the render: the 360 camera's button opens it. */
 async function renderOnce(outcome = FIRST) {
+  panoramaJpeg.mockResolvedValue(new Blob(['pano']))
   createRender.mockResolvedValue({ job_id: 'j1' })
   waitForRender.mockResolvedValueOnce(outcome)
-  render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
-  fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
-  await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toBeInTheDocument())
+  render(<RenderSheet open onOpenChange={() => {}} />)
+  await screen.findByTestId('pano-viewer')
 }
 
-beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); waitForRender.mockReset() })
+beforeEach(() => { createRender.mockReset(); createRelight.mockReset(); createUpscale.mockReset(); waitForRender.mockReset(); panoramaJpeg.mockReset() })
 
 describe('RenderSheet', () => {
-  it('captures the canvas, queues the render and shows the result', async () => {
+  it('takes the panorama and renders it as soon as it opens, with no button pressed', async () => {
     await renderOnce()
-    expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/r.jpg')
+    expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/r.jpg')
+    expect(panoramaJpeg).toHaveBeenCalledTimes(1)
     expect(createRender).toHaveBeenCalledTimes(1)
+    expect(createRender.mock.calls[0][0]).toBeInstanceOf(Blob)
     expect(waitForRender).toHaveBeenCalledWith('j1', expect.any(AbortSignal))
   })
 
+  it('does nothing while closed', () => {
+    render(<RenderSheet open={false} onOpenChange={() => {}} />)
+    expect(panoramaJpeg).not.toHaveBeenCalled()
+    expect(createRender).not.toHaveBeenCalled()
+  })
+
+  it('has no flat / 360 choice any more — it is always a panorama', async () => {
+    await renderOnce()
+    expect(screen.queryByRole('radio')).toBeNull()
+  })
+
   it('shows the reason when the render is refused', async () => {
+    panoramaJpeg.mockResolvedValue(new Blob(['pano']))
     createRender.mockRejectedValue(new Error("Bugun AI so'rovlar limiti tugadi."))
-    render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
-    fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
+    render(<RenderSheet open onOpenChange={() => {}} />)
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
   })
 
-  it('does not call the API when the canvas cannot be captured', async () => {
-    render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(null)} />)
-    fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+  it('says so when the panorama cannot be taken, and does not call the server', async () => {
+    panoramaJpeg.mockResolvedValue(null)
+    render(<RenderSheet open onOpenChange={() => {}} />)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Panoramani olib bo'))
     expect(createRender).not.toHaveBeenCalled()
+  })
+
+  it('renders again from the button once it has finished', async () => {
+    await renderOnce()
+    waitForRender.mockResolvedValueOnce({ url: 'https://s3/r2.jpg', key: 'renders/u/a2.jpg', prompt: null })
+    fireEvent.click(screen.getByRole('button', { name: /Qayta/ }))
+    await waitFor(() => expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/r2.jpg'))
+    expect(createRender).toHaveBeenCalledTimes(2)
   })
 
   it('puts the generated prompt in the box, marked as automatic, when the user wrote none', async () => {
@@ -58,22 +84,13 @@ describe('RenderSheet', () => {
     expect(screen.getByText(/Avtomatik tavsif/)).toBeInTheDocument()
   })
 
-  it('keeps the users own prompt and does not call it automatic', async () => {
-    createRender.mockResolvedValue({ job_id: 'j1' })
-    waitForRender.mockResolvedValueOnce({ ...FIRST, prompt: 'warm oak' })
-    render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'warm oak' } })
-    fireEvent.click(screen.getByRole('button', { name: /Render qilish/ }))
-    await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toBeInTheDocument())
-    expect(screen.getByRole('textbox')).toHaveValue('warm oak')
-    expect(screen.queryByText(/Avtomatik tavsif/)).toBeNull()
-  })
-
   it('offers lighting only once there is a render', async () => {
-    render(<RenderSheet open onOpenChange={() => {}} glCanvasRef={canvasRef(new Blob(['x']))} />)
+    panoramaJpeg.mockResolvedValue(new Blob(['x']))
+    createRender.mockResolvedValue({ job_id: 'j1' })
+    waitForRender.mockReturnValue(new Promise(() => {}))
+    render(<RenderSheet open onOpenChange={() => {}} />)
+    await screen.findByRole('status')
     expect(screen.queryByRole('button', { name: 'Iliq chiroqlar' })).toBeNull()
-    await renderOnce()
-    expect(screen.getByRole('button', { name: 'Iliq chiroqlar' })).toBeInTheDocument()
   })
 
   it('relights from the shown render, adds the result as a version and can step back', async () => {
@@ -83,12 +100,13 @@ describe('RenderSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Iliq chiroqlar' }))
 
-    await waitFor(() => expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/lit.jpg'))
+    // a relit panorama is still a panorama
+    await waitFor(() => expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/lit.jpg'))
     expect(createRelight).toHaveBeenCalledWith('renders/u/a.jpg', 'warm_lamps')
     expect(screen.getAllByRole('tab')).toHaveLength(2)
 
     fireEvent.click(screen.getByRole('tab', { name: /Asl/ }))
-    expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/r.jpg')
+    expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/r.jpg')
   })
 
   it('keeps the render and shows the reason when a relight fails', async () => {
@@ -98,6 +116,40 @@ describe('RenderSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Kunduzgi' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
-    expect(screen.getByRole('img', { name: /Realistik render/ })).toHaveAttribute('src', 'https://s3/r.jpg')
+    expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/r.jpg')
+  })
+
+  describe('4K', () => {
+    it('offers a 4K copy once there is a render, recommended for a panorama, and adds it as a version', async () => {
+      await renderOnce()
+      expect(screen.getByText(/360° panorama uchun tavsiya/)).toBeInTheDocument()
+      createUpscale.mockResolvedValue({ job_id: 'ju' })
+      waitForRender.mockResolvedValueOnce({ url: 'https://s3/big.jpg', key: 'renders/u/big.jpg', prompt: null })
+
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+
+      await waitFor(() => expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/big.jpg'))
+      expect(createUpscale).toHaveBeenCalledWith('renders/u/a.jpg')
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Asl'), expect.stringContaining('4K')]))
+      expect(screen.queryByText(/360° panorama uchun tavsiya/)).toBeNull()
+    })
+
+    it('does not offer 4K again on the 4K copy', async () => {
+      await renderOnce()
+      createUpscale.mockResolvedValue({ job_id: 'ju' })
+      waitForRender.mockResolvedValueOnce({ url: 'https://s3/big.jpg', key: 'renders/u/big.jpg', prompt: null })
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: '4K ✓' })).toBeDisabled())
+      expect(createUpscale).toHaveBeenCalledTimes(1)
+    })
+
+    it('says why it failed, keeping the render', async () => {
+      await renderOnce()
+      createUpscale.mockRejectedValue(new Error("Bugun AI so'rovlar limiti tugadi."))
+      fireEvent.click(screen.getByRole('button', { name: '4K ga oshirish' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('limiti tugadi'))
+      expect(screen.getByTestId('pano-viewer')).toHaveAttribute('data-src', 'https://s3/r.jpg')
+      expect(screen.getByRole('button', { name: '4K ga oshirish' })).toBeEnabled()
+    })
   })
 })

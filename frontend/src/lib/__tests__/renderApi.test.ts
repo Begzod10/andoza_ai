@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const apiClient = vi.fn()
 vi.mock('../api/client', () => ({ apiClient: (...a: unknown[]) => apiClient(...a) }))
 
-import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from '../api/render'
+import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from '../api/render'
 
 beforeEach(() => { apiClient.mockReset(); vi.useFakeTimers() })
 afterEach(() => vi.useRealTimers())
@@ -50,6 +50,17 @@ describe('createRelight', () => {
     expect([...LIGHTING_MOODS]).toEqual([
       'midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood',
     ])
+  })
+})
+
+describe('createUpscale', () => {
+  it('posts the render key as JSON to the upscale endpoint', async () => {
+    apiClient.mockResolvedValue({ job_id: 'j3' })
+    await expect(createUpscale('renders/u/a.jpg')).resolves.toEqual({ job_id: 'j3' })
+    const [path, opts] = apiClient.mock.calls[0]
+    expect(path).toBe('/render/upscale')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body)).toEqual({ render_key: 'renders/u/a.jpg' })
   })
 })
 

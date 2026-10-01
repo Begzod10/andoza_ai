@@ -51,6 +51,7 @@ import { SUN_INTENSITY } from "./three-d/SceneEnvironment";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
+import { uz } from "@/locale/uz";
 import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
@@ -620,16 +621,12 @@ export default function ThreeDPage() {
         <ToolsDrawerPanel
           menuSlot={menuSlot}
           closeMenu={closeMenu}
-          hasScan={hasScan}
-          showScan={showScan}
-          setShowScan={setShowScan}
           showQibla={showQibla}
           setShowQibla={setShowQibla}
           sceneLightOn={sceneLightOn}
           sunHour={sunHour}
           setSunHour={setSunHour}
           setShowAiSheet={setShowAiSheet}
-          setShowRender={setShowRender}
           setShowPanel={setShowPanel}
         />
 
@@ -804,13 +801,22 @@ export default function ThreeDPage() {
               )}
             </button>
             {panorama && (
-              <button
-                onClick={request360Capture}
-                title={`360 panorama saqlash (${PANO_WIDTH}x${PANO_HEIGHT})`}
-                className="px-4 h-12 rounded-full bg-white/95 text-brand text-[13px] font-bold shadow-lg ring-1 ring-black/5"
-              >
-                360 saqlash
-              </button>
+              <>
+                <button
+                  onClick={() => setShowRender(true)}
+                  title={uz.render.sarlavha}
+                  className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
+                >
+                  {uz.render.nomi}
+                </button>
+                <button
+                  onClick={request360Capture}
+                  title={`360 panorama saqlash (${PANO_WIDTH}x${PANO_HEIGHT})`}
+                  className="px-4 h-12 rounded-full bg-white/95 text-brand text-[13px] font-bold shadow-lg ring-1 ring-black/5"
+                >
+                  360 saqlash
+                </button>
+              </>
             )}
           </div>
 
@@ -912,7 +918,7 @@ export default function ThreeDPage() {
           DOM, and whichever item was held supplies its own label and action. */}
       <HoldDeleteButton />
 
-      <RenderSheet open={showRender} onOpenChange={setShowRender} glCanvasRef={glCanvasRef} />
+      <RenderSheet open={showRender} onOpenChange={setShowRender} />
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}
         setShowAddSheet={setShowAddSheet}

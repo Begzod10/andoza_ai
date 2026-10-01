@@ -20,7 +20,7 @@ from app.core.storage import upload_file
 from app.models.media_job import MediaJob
 from app.services.llm import check_and_increment_budget_for
 from app.services.myarchitect import INTERIOR_LIGHTING
-from app.tasks.media import relight_render, render_room_image
+from app.tasks.media import relight_render, render_room_image, upscale_render
 
 logger = structlog.get_logger(__name__)
 
@@ -83,6 +83,14 @@ async def create_render(
     return {"job_id": task.id}
 
 
+def _require_own_render(user, render_key: str) -> None:
+    """Only the caller's own renders — the key is a storage path, so it must stay
+    inside their folder and must not climb out of it. Anyone else's, or a made-up
+    one, is the same 404."""
+    if not render_key.startswith(f"renders/{user.id}/") or ".." in render_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Render not found")
+
+
 class RelightIn(BaseModel):
     render_key: str
     lighting: str
@@ -98,11 +106,7 @@ async def create_relight(body: RelightIn, current_user: CurrentUser, db: DbSessi
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Render xizmati mavjud emas")
     if body.lighting not in INTERIOR_LIGHTING:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown lighting mood")
-    # Only the caller's own renders — the key is a storage path, so it must stay
-    # inside their folder and must not climb out of it.
-    prefix = f"renders/{current_user.id}/"
-    if not body.render_key.startswith(prefix) or ".." in body.render_key:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Render not found")
+    _require_own_render(current_user, body.render_key)
 
     try:
         await check_and_increment_budget_for(str(current_user.id), "render", settings.RENDER_DAILY_LIMIT)
@@ -112,4 +116,29 @@ async def create_relight(body: RelightIn, current_user: CurrentUser, db: DbSessi
     task = relight_render.delay(str(current_user.id), body.render_key, body.lighting)
     db.add(MediaJob(id=task.id, user_id=current_user.id))
     logger.info("relight_enqueued", task_id=task.id, user_id=str(current_user.id), lighting=body.lighting)
+    return {"job_id": task.id}
+
+
+class UpscaleIn(BaseModel):
+    render_key: str
+
+
+@router.post(
+    "/render/upscale",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Upscale a finished render to 4K",
+)
+async def create_upscale(body: UpscaleIn, current_user: CurrentUser, db: DbSession) -> dict:
+    if not settings.MYARCHITECT_API_KEY or settings.RENDER_DAILY_LIMIT <= 0:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Render xizmati mavjud emas")
+    _require_own_render(current_user, body.render_key)
+
+    try:
+        await check_and_increment_budget_for(str(current_user.id), "render", settings.RENDER_DAILY_LIMIT)
+    except Exception as exc:  # BudgetExceededError carries a user-facing Uzbek message
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+
+    task = upscale_render.delay(str(current_user.id), body.render_key)
+    db.add(MediaJob(id=task.id, user_id=current_user.id))
+    logger.info("upscale_enqueued", task_id=task.id, user_id=str(current_user.id))
     return {"job_id": task.id}

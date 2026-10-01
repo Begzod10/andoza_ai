@@ -224,6 +224,12 @@ async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz
     name="app.tasks.media.render_room_image",
     bind=True,
     queue="media",
+    # Paid, and not safe to run twice. The app-wide default (acks_late +
+    # reject_on_worker_lost) re-delivers a job whose worker died — a deploy killed
+    # one mid-run, and it would have run again an hour later and been charged
+    # again. A lost job is better lost: the user sees it fail and presses again.
+    acks_late=False,
+    reject_on_worker_lost=False,
 )
 def render_room_image(self, user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
     """Render a studio screenshot with MyArchitectAI and keep the result.
@@ -293,6 +299,12 @@ async def _render_room_image(user_id: str, source_key: str, content_type: str, p
     name="app.tasks.media.relight_render",
     bind=True,
     queue="media",
+    # Paid, and not safe to run twice. The app-wide default (acks_late +
+    # reject_on_worker_lost) re-delivers a job whose worker died — a deploy killed
+    # one mid-run, and it would have run again an hour later and been charged
+    # again. A lost job is better lost: the user sees it fail and presses again.
+    acks_late=False,
+    reject_on_worker_lost=False,
 )
 def relight_render(self, user_id: str, render_key: str, lighting: str) -> dict:
     """Relight a finished render (a stored ``renders/{user}/...`` image) with one
@@ -321,9 +333,56 @@ async def _relight_render(user_id: str, render_key: str, lighting: str) -> dict:
 
 
 @app.task(
+    name="app.tasks.media.upscale_render",
+    bind=True,
+    queue="media",
+    # Paid, and not safe to run twice. The app-wide default (acks_late +
+    # reject_on_worker_lost) re-delivers a job whose worker died — a deploy killed
+    # one mid-run, and it would have run again an hour later and been charged
+    # again. A lost job is better lost: the user sees it fail and presses again.
+    acks_late=False,
+    reject_on_worker_lost=False,
+)
+def upscale_render(self, user_id: str, render_key: str) -> dict:
+    """Upscale a finished render to 4K (3840 px on the long side) and keep it.
+
+    The original is kept too, so the user can step back. Not retried, for the same
+    reason as ``render_room_image``.
+    """
+    import asyncio
+
+    return asyncio.run(_upscale_render(user_id, render_key))
+
+
+async def _upscale_render(user_id: str, render_key: str) -> dict:
+    from app.core.storage import download_file
+    from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
+
+    try:
+        source = await download_file(render_key)
+        result_url = await get_myarchitect_client().upscale(
+            to_data_uri(source, "image/jpeg"), resolution="4k", output_format="jpg",
+        )
+        key, url = await _keep_remote_image(user_id, result_url)
+        return {"status": "ok", "key": key, "url": url, "resolution": "4k"}
+    except MyArchitectError as exc:
+        logger.error("upscale_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
+        return {"status": "failed", "error": str(exc), "request_id": exc.request_id}
+    except Exception as exc:
+        logger.exception("upscale_render error user=%s", user_id)
+        return {"status": "failed", "error": str(exc)}
+
+
+@app.task(
     name="app.tasks.media.generate_model_from_photo",
     bind=True,
     queue="media",
+    # Paid, and not safe to run twice. The app-wide default (acks_late +
+    # reject_on_worker_lost) re-delivers a job whose worker died — a deploy killed
+    # one mid-run, and it would have run again an hour later and been charged
+    # again. A lost job is better lost: the user sees it fail and presses again.
+    acks_late=False,
+    reject_on_worker_lost=False,
 )
 def generate_model_from_photo(self, user_id: str, source_key: str, content_type: str) -> dict:
     """Build a 3D model (GLB) from a furniture photo with Tripo and keep it.

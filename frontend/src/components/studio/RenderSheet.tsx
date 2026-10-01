@@ -1,23 +1,21 @@
-import { useEffect, useRef, useState, type RefObject } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
-import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import { createRender, createRelight, createUpscale, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import { panoramaJpeg } from "@/lib/panoramaSnap"
+import { PanoramaViewer } from "./PanoramaViewer"
 import type { LightingMood } from "@/lib/api"
 
-type Phase = "idle" | "capturing" | "rendering" | "relighting" | "done" | "error"
+type Phase = "idle" | "capturing" | "rendering" | "relighting" | "upscaling" | "done" | "error"
 
 /** One picture the sheet can show: the render itself, or a relit copy of it. */
-interface Version { url: string; key: string; label: string; lighting?: LightingMood }
+interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
   if (/^https?:\/\//.test(url)) return url
   const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1"
   return new URL(url, new URL(base, window.location.href).origin).toString()
-}
-
-function captureJpeg(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92))
 }
 
 function Sparkle({ className = "" }: { className?: string }) {
@@ -31,8 +29,9 @@ function Sparkle({ className = "" }: { className?: string }) {
 }
 
 /**
- * "Render": turns what the studio is showing into a photorealistic image.
- * Captures the live canvas, queues it (POST /render) and polls the job. The
+ * "Render": turns a 360° panorama of the room into a photorealistic one.
+ * Opened from the 360 camera, it takes the panorama and queues it
+ * (POST /render) at once, then polls the job. The
  * card keeps the last result until the user renders again.
  *
  * A centred card on a wide screen, a bottom sheet on a phone. It is not the
@@ -41,11 +40,10 @@ function Sparkle({ className = "" }: { className?: string }) {
  * the studio's own overlays, including the ⋮ menu and the edge arrows.
  */
 export function RenderSheet({
-  open, onOpenChange, glCanvasRef,
+  open, onOpenChange,
 }: {
   open: boolean
   onOpenChange(open: boolean): void
-  glCanvasRef: RefObject<HTMLCanvasElement | null>
 }) {
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
@@ -61,17 +59,24 @@ export function RenderSheet({
   // Stop polling if the page goes away mid-render.
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // Opened from the 360 camera: the panorama is taken and sent at once, with
+  // no further button to press. Opening again renders again.
+  useEffect(() => {
+    if (open) void start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   async function start() {
     if (phase === "capturing" || phase === "rendering") return
     setError("")
     setRelightError("")
     setVersions([])
     setActive(0)
-    const canvas = glCanvasRef.current
     setPhase("capturing")
-    const blob = canvas ? await captureJpeg(canvas) : null
+    const panorama = true
+    const blob = await panoramaJpeg()
     if (!blob) {
-      setError(uz.render.rasm_yoq)
+      setError(uz.render.panorama_olinmadi)
       setPhase("error")
       return
     }
@@ -82,7 +87,7 @@ export function RenderSheet({
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt)
       const outcome = await waitForRender(job_id, controller.signal)
-      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl }])
+      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }])
       setActive(0)
       // The prompt the picture was actually made from: when the user wrote none
       // this is the generated one, ready to edit for the next go (and sent as
@@ -101,7 +106,7 @@ export function RenderSheet({
 
   async function relight(mood: LightingMood) {
     const base = versions[active]
-    if (!base || phase === "relighting") return
+    if (!base || phase === "relighting" || phase === "upscaling") return
     setRelightError("")
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -112,6 +117,34 @@ export function RenderSheet({
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
         url: absolute(outcome.url), key: outcome.key, label: uz.render.yorugliq[mood], lighting: mood,
+        panorama: base.panorama, // a relit panorama is still a panorama
+      }
+      setVersions((v) => [...v, next])
+      setActive(versions.length)
+    } catch (err) {
+      if (controller.signal.aborted) return
+      setRelightError(errorMessage(err))
+    } finally {
+      if (!controller.signal.aborted) setPhase("done")
+    }
+  }
+
+  /** A 4K copy of the picture being shown — sharper to zoom into, and what a
+   *  panorama wants, since a 360° picture spreads its pixels over the whole room. */
+  async function upscale() {
+    const base = versions[active]
+    if (!base || base.upscaled || phase === "relighting" || phase === "upscaling") return
+    setRelightError("")
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setPhase("upscaling")
+    try {
+      const { job_id } = await createUpscale(base.key)
+      const outcome = await waitForRender(job_id, controller.signal)
+      const next: Version = {
+        url: absolute(outcome.url), key: outcome.key, label: "4K", lighting: base.lighting,
+        panorama: base.panorama, upscaled: true,
       }
       setVersions((v) => [...v, next])
       setActive(versions.length)
@@ -124,8 +157,9 @@ export function RenderSheet({
   }
 
   const current = versions[active]
-  const busy = phase === "capturing" || phase === "rendering" || phase === "relighting"
-  const done = !!current && (phase === "done" || phase === "relighting")
+  const followingUp = phase === "relighting" || phase === "upscaling" // a change to a finished render
+  const busy = phase === "capturing" || phase === "rendering" || followingUp
+  const done = !!current && (phase === "done" || followingUp)
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -165,6 +199,8 @@ export function RenderSheet({
           </div>
 
           <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
+            <p className="text-xs text-gray-400">{uz.render.panorama_izoh}</p>
+
             <textarea
               value={prompt}
               onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
@@ -184,11 +220,17 @@ export function RenderSheet({
             <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-200">
               {done ? (
                 <>
-                  <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
-                  {phase === "relighting" && (
+                  {current.panorama ? (
+                    <PanoramaViewer key={current.url} src={current.url} alt={uz.render.viewer.nom} className="h-full w-full" />
+                  ) : (
+                    <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
+                  )}
+                  {followingUp && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
                       <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
-                      <p className="text-sm font-medium text-gray-700" role="status">{uz.render.yoritilmoqda}</p>
+                      <p className="text-sm font-medium text-gray-700" role="status">
+                        {phase === "upscaling" ? uz.render.oshirilmoqda : uz.render.yoritilmoqda}
+                      </p>
                     </div>
                   )}
                 </>
@@ -222,7 +264,7 @@ export function RenderSheet({
                     role="tab"
                     aria-selected={i === active}
                     onClick={() => setActive(i)}
-                    disabled={phase === "relighting"}
+                    disabled={followingUp}
                     className={`shrink-0 overflow-hidden rounded-xl text-left ring-2 transition ${
                       i === active ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
                     }`}
@@ -255,6 +297,24 @@ export function RenderSheet({
                   ))}
                 </div>
                 {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
+              </div>
+            )}
+
+            {done && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.sifat}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={upscale}
+                    disabled={busy || !!current?.upscaled}
+                    className="min-h-[36px] rounded-full bg-gray-100 px-3.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    {current?.upscaled ? "4K ✓" : uz.render.to4k}
+                  </button>
+                  {current?.panorama && !current.upscaled && (
+                    <span className="text-xs text-gray-400">{uz.render.to4k_izoh}</span>
+                  )}
+                </div>
               </div>
             )}
 

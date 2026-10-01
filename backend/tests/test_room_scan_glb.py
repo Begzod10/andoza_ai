@@ -311,19 +311,25 @@ def test_a_wall_without_openings_is_still_one_panel():
 def test_a_door_splits_the_wall_into_left_right_and_lintel():
     panels = rsg._panels(4.0, 2.5, rsg._holes_1d([DOOR], 4.0, 2.5))
     assert sorted(tuple(round(x, 4) for x in p) for p in panels) == [
-        (0.0, 0.55, 0.0, 2.5),    # left of the door, full height
-        (0.55, 1.45, 2.1, 2.5),   # over the lintel
-        (1.45, 4.0, 0.0, 2.5),    # right of the door, full height
+        (0.0, 0.55, 0.0, 2.1),    # left of the door
+        (0.0, 4.0, 2.1, 2.5),     # one full-width band over the door
+        (1.45, 4.0, 0.0, 2.1),    # right of the door
     ]
+
+
+def test_nothing_above_a_door_is_cut_vertically():
+    # A cut above the door shows as a dark line on the translucent overlay.
+    panels = rsg._panels(4.0, 2.5, rsg._holes_1d([DOOR], 4.0, 2.5))
+    assert [p for p in panels if p[3] > 2.1 and (p[0], p[1]) != (0.0, 4.0)] == []
 
 
 def test_a_window_also_leaves_a_panel_under_the_sill():
     panels = rsg._panels(4.0, 2.5, rsg._holes_1d([WINDOW], 4.0, 2.5))
     assert sorted(tuple(round(x, 4) for x in p) for p in panels) == [
-        (0.0, 1.25, 0.0, 2.5),
-        (1.25, 2.75, 0.0, 0.9),   # under the sill
-        (1.25, 2.75, 2.1, 2.5),   # over the head
-        (2.75, 4.0, 0.0, 2.5),
+        (0.0, 1.25, 0.9, 2.1),
+        (0.0, 4.0, 0.0, 0.9),     # under the sill, full width
+        (0.0, 4.0, 2.1, 2.5),     # over the head, full width
+        (2.75, 4.0, 0.9, 2.1),
     ]
 
 

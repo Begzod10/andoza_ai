@@ -81,6 +81,13 @@ services:
     volumes:
       # Shared with api — the media queue writes thumbnails/derived files here.
       - media_data:/app/media
+    # A deploy restarts this container, and Docker's default is to kill it after
+    # 10 s. The queue runs paid jobs that take one to two minutes (a Tripo model,
+    # a render): killed mid-job, the user waited for a result that never came and
+    # the job was paid for at the provider but lost. Celery's SIGTERM is a warm
+    # shutdown — it stops taking new jobs and finishes the running ones — so give
+    # it time to.
+    stop_grace_period: 300s
     restart: unless-stopped
 
   # Room-scan GLB overlays on the `converter` queue, built in-process from the
