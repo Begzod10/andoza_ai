@@ -325,7 +325,7 @@ export default function SmetaPage() {
               </button>
               <Link
                 to="/ustalar"
-                className="flex items-center gap-2 bg-success text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-success/90 transition-colors"
+                className="flex items-center gap-2 bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-800 transition-colors"
               >
                 {uz.ustalar.usta_chaqirish}
               </Link>

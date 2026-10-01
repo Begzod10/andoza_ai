@@ -482,7 +482,7 @@ export default function StudioPage() {
                 "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
                 "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
                 saveStatus === 'saved'
-                  ? "bg-success text-white"
+                  ? "bg-emerald-700 text-white"
                   : saveStatus === 'error'
                     ? "bg-red-600 text-white"
                     : (isDirty || fetchStatus === 'notfound')
@@ -592,7 +592,7 @@ export default function StudioPage() {
                           className={[
                             "shrink-0 text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-colors",
                             copyStatus === 'copied'
-                              ? "bg-success text-white"
+                              ? "bg-emerald-700 text-white"
                               : copyStatus === 'error'
                                 ? "bg-red-100 text-red-600"
                                 : "bg-brand text-white hover:bg-brand/90",
