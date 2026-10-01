@@ -157,13 +157,23 @@ export function flipRows(
  *
  * The same picture the 360 camera's own button writes out, for callers that
  * want it without being in the 360 camera: the render sheet sends it for
- * rendering. It needs only the renderer and the scene — where the studio's
- * camera is does not matter, a panorama is taken from `PANO_EYE_HEIGHT` at the
- * origin whatever the user is looking at.
+ * rendering. Where the studio's camera is does not matter — a panorama is
+ * taken from the middle of the room whatever the user is looking at.
+ *
+ * @param eye the middle of the room in world metres, from `roomCentreWorld`
+ *        (lib/roomCentre.ts). Omitting it falls back to the origin, which is
+ *        the middle only of a rectangular room; every caller inside the studio
+ *        passes the real centre, because in a drawn L-shaped room the origin is
+ *        the outline's vertex mean and lands in the cut-away notch — a
+ *        panorama of the inside of a wall.
  */
-export function capturePanoramaCanvas(renderer: THREE.WebGLRenderer, scene: THREE.Scene): HTMLCanvasElement {
+export function capturePanoramaCanvas(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  eye: { x: number; z: number } = { x: 0, z: 0 },
+): HTMLCanvasElement {
   const size = panoramaSizeFor(renderer.capabilities.maxTextureSize)
-  const { pixels, width, height } = renderPanorama(renderer, scene, new THREE.Vector3(0, PANO_EYE_HEIGHT, 0), size)
+  const { pixels, width, height } = renderPanorama(renderer, scene, new THREE.Vector3(eye.x, PANO_EYE_HEIGHT, eye.z), size)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height

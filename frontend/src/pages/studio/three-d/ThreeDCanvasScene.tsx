@@ -25,8 +25,9 @@ import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
-import { RealismEffects, SceneLighting, MoonriseSky } from "./SceneEnvironment";
+import { RealismEffects, SceneLighting, MoonriseSky, SUN_INTENSITY } from "./SceneEnvironment";
 import { MOONRISE_FOG_COLOR, STUDIO_TONE_MAPPING_EXPOSURE } from "@/lib/moonriseSky";
+import { skyPinnedSun } from "@/lib/skyPinnedSun";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { Panorama360 } from "./Panorama360";
@@ -256,18 +257,31 @@ export function ThreeDCanvasScene({
       <Suspense fallback={null}>
         {sceneLightOn && (
           <>
+            {/* `skyPinnedSun` is why the sun is aimed here and not in
+                ThreeDPage, where the SunState is built: it must be pinned to
+                the sky's own light source exactly where that sky is mounted,
+                and only here. The walkthrough and the shared-room view run the
+                same SceneLighting under two other HDRIs, so their suns still
+                follow the clock and have to. See lib/skyPinnedSun.ts — it
+                replaces the clock's sun with the one the photograph has, and
+                is a one-line revert. SUN_INTENSITY is the overhead peak the
+                air at the moon's altitude takes its cut from, so that knob
+                still means what it says. */}
             <SceneLighting
               width={W}
               depth={D}
               height={H}
               highQuality={highQuality3d}
-              sun={sun}
+              sun={skyPinnedSun(sun, SUN_INTENSITY)}
             />
             {/* The user's moonrise sky, in place of the flat white backdrop
                 that stood behind the room before it. It owns scene.background
                 and scene.environment both, at two different exposures; the sun
-                clock keeps driving the directional light and its shadows
-                above, which is still what actually lights the room. */}
+                above now points at the moon in it, so the shadows agree with
+                the glow the user can see through the window — and takes its
+                strength and its warmth from that altitude too, because a
+                photograph is one moment and a sun pinned to it cannot keep
+                moving through the day. */}
             <MoonriseSky />
           </>
         )}
@@ -281,8 +295,8 @@ export function ThreeDCanvasScene({
           </>
         )}
 
-        <Panorama360 active={panorama} onCaptured={onPanoramaCaptured} />
-        <PanoramaSnap />
+        <Panorama360 active={panorama} geometry={geometry} onCaptured={onPanoramaCaptured} />
+        <PanoramaSnap geometry={geometry} />
       <WallsBehindCamera geometry={geometry} W={W} D={D}>
           {(behind) => (
             <>

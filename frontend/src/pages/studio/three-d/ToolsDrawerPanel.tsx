@@ -4,6 +4,7 @@ import { uz } from "@/locale/uz";
 import { formatClock } from "./helpers";
 import { useRoomStore } from "@/store/roomStore";
 import { CITY_PRESETS, FACING_OPTIONS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
+import { SHOW_SUN_CLOCK } from "@/lib/skyPinnedSun";
 
 /**
  * What used to be the studio's "Asboblar" drawer, reduced to the three things
@@ -145,7 +146,25 @@ export function ToolsDrawerPanel({
 
           {/* What is left of the lighting cluster: the sun clock. The
               day/night and room-light toggles were removed with the rest of
-              the drawer's chrome. */}
+              the drawer's chrome.
+
+              Hidden, TEMPORARILY, at the user's request (2026-10-02): "hide
+              sunlight direction according to time button temporarily". The
+              studio's sky is now a single photograph, and the directional sun
+              has been aimed at the light source *in* that photograph, so a
+              slider that swings the sun around the room no longer means
+              anything — the shadows would stop agreeing with the glow the user
+              can see out of the window. lib/skyPinnedSun.ts owns both halves of
+              that decision and SHOW_SUN_CLOCK is derived there from the same
+              flag, so flipping PIN_SUN_TO_SKY off brings this back.
+
+              The whole section is guarded rather than just the control inside
+              it, because the ⋮ menu draws a divider between sections and an
+              empty padded row would be left behind. Nothing below was changed
+              or deleted — it is still wired to the same `sunHour` store state,
+              which is still live and still telling the sun how strong and how
+              warm to be. */}
+          {SHOW_SUN_CLOCK && (
           <div className="px-4 py-3">
             <div className="flex flex-col gap-2">
               {/* Sun clock. Only meaningful while the sun is the light source, so
@@ -173,6 +192,7 @@ export function ToolsDrawerPanel({
               )}
             </div>
           </div>
+          )}
 
           {/* AI builder button — stays visually distinct from the Kunduz/
               Yoqilgan brand-blue toggles (it's a one-shot special action,

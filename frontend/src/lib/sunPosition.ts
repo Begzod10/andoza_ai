@@ -252,17 +252,7 @@ export function sunPosition(input: SunInput): SunState {
   ]
 
   const isUp = altitudeDeg > 0
-
-  // Beam strength, not surface illumination: three.js applies the N·L falloff
-  // itself, so dimming by altitude here as well would darken the low sun twice.
-  const airMass = relativeAirMass(altitudeDeg)
-  const transmittance = Math.pow(0.7, Math.pow(airMass, 0.678))
-  const intensity = isUp ? peakIntensity * (transmittance / ZENITH_TRANSMITTANCE) : 0
-
-  const tintMass = Math.min(airMass, MAX_TINT_AIR_MASS)
-  const tint = RAYLEIGH.map((beta) => Math.exp(-beta * (tintMass - 1)))
-  const peak = Math.max(...tint) || 1
-  const color = `#${SUN_WHITE.map((base, i) => hex2((base * tint[i]) / peak)).join('')}`
+  const { intensity, color } = sunBeamAt(altitudeDeg, peakIntensity)
 
   return {
     altitude: altitudeDeg,
@@ -270,9 +260,41 @@ export function sunPosition(input: SunInput): SunState {
     direction,
     position: [direction[0] * distance, direction[1] * distance, direction[2] * distance],
     isUp,
-    intensity,
+    intensity: isUp ? intensity : 0,
     color,
   }
+}
+
+/**
+ * How strong the beam is, and what colour, at a given altitude.
+ *
+ * Split out of `sunPosition` because a sun that is not the clock's still needs
+ * it: the studio's sun is now aimed at the light source in its sky photograph
+ * (see `skyPinnedSun.ts`), which stands at a fixed altitude of its own, and
+ * the beam that arrives from it has to be reddened and dimmed by the same air
+ * the clock's sun crosses. Two sets of air-mass maths would be two answers to
+ * one question.
+ *
+ * Note this says nothing about whether the sun is UP — it is the strength the
+ * beam WOULD have at that altitude. `sunPosition` zeroes it below the horizon;
+ * a caller standing a sun somewhere deliberately does not have to.
+ */
+export function sunBeamAt(
+  altitudeDeg: number,
+  peakIntensity: number,
+): { intensity: number; color: string } {
+  // Beam strength, not surface illumination: three.js applies the N·L falloff
+  // itself, so dimming by altitude here as well would darken the low sun twice.
+  const airMass = relativeAirMass(altitudeDeg)
+  const transmittance = Math.pow(0.7, Math.pow(airMass, 0.678))
+  const intensity = peakIntensity * (transmittance / ZENITH_TRANSMITTANCE)
+
+  const tintMass = Math.min(airMass, MAX_TINT_AIR_MASS)
+  const tint = RAYLEIGH.map((beta) => Math.exp(-beta * (tintMass - 1)))
+  const peak = Math.max(...tint) || 1
+  const color = `#${SUN_WHITE.map((base, i) => hex2((base * tint[i]) / peak)).join('')}`
+
+  return { intensity, color }
 }
 
 /**

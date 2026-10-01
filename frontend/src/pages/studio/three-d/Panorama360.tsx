@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   PANO_EYE_HEIGHT, PANO_WIDTH, PANO_HEIGHT,
   panoramaSizeFor, renderPanorama, flipRows,
 } from "@/lib/panorama360";
+import { roomCentreWorld } from "@/lib/roomCentre";
+import type { RoomGeometry } from "@/store/roomStore";
 
 /**
  * The 360 camera: standing in the middle of the room at eye height, turning on
@@ -16,6 +18,14 @@ import {
  * there. It cannot be walked or zoomed out of the room, which is what keeps
  * the picture a panorama of that spot rather than of wherever the camera
  * drifted to.
+ *
+ * "The middle of the room" is `roomCentreWorld` (lib/roomCentre.ts), derived
+ * from the floor's own edges, and NOT the world origin this used to assume.
+ * The origin is where the 3D shell centres the outline, which for a drawn or
+ * scanned polygon is the mean of its vertices — a point that is simply not in
+ * an L-shaped room, so the camera stood in the notch and the panorama was a
+ * picture of the inside of a wall. See that file for which definition of
+ * "middle" and why.
  */
 
 /** How far a drag turns the view. Tuned so a full turn is a comfortable
@@ -25,8 +35,14 @@ const LOOK_SPEED = 0.0042;
 /** Looking straight up or down flips the horizon over; stop just short. */
 const PITCH_LIMIT = Math.PI / 2 - 0.02;
 
-export function Panorama360({ active, onCaptured }: {
+export function Panorama360({ active, geometry, onCaptured }: {
   active: boolean;
+  /** The room's outline, so the camera can be stood in the middle of the
+   *  floor rather than at the origin. Required rather than optional: an
+   *  optional one would have been left unwired in exactly the drawn rooms
+   *  that need it, which is how the door and window casings of every scanned
+   *  room ended up floating (see `hiddenAttachments` in RoomShell). */
+  geometry: RoomGeometry;
   /** Fired with the finished equirectangular image, 4000 x 2000 unless the
    *  GPU would not grant it. */
   onCaptured?: (canvas: HTMLCanvasElement) => void;
@@ -35,6 +51,21 @@ export function Panorama360({ active, onCaptured }: {
   const look = useRef({ yaw: 0, pitch: 0 });
   const dragging = useRef<{ x: number; y: number } | null>(null);
   const restore = useRef<{ position: THREE.Vector3; quaternion: THREE.Quaternion } | null>(null);
+
+  /**
+   * Where the camera stands, world metres. Memoised on the vertex and wall
+   * numbers rather than on the geometry object: the store hands out a fresh
+   * object on every unrelated design change, and the pole-of-inaccessibility
+   * search, while cheap, has no business running on each of them. The height
+   * is `PANO_EYE_HEIGHT` and stays that way — the user chose 1650 mm above the
+   * floor deliberately, and only the horizontal position was ever wrong.
+   */
+  const eyeKey = JSON.stringify([geometry.vertices ?? null, geometry.walls.map((w) => [w.id, w.length])]);
+  const eye = useMemo(() => {
+    const c = roomCentreWorld(geometry);
+    return new THREE.Vector3(c.x, PANO_EYE_HEIGHT, c.z);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eyeKey]);
 
   // Take the camera to the middle of the room on the way in, and put it back
   // exactly where it was on the way out — leaving the user's view of the room
@@ -45,8 +76,7 @@ export function Panorama360({ active, onCaptured }: {
       position: camera.position.clone(),
       quaternion: camera.quaternion.clone(),
     };
-    // The room is modelled centred on the origin, so its middle IS the origin.
-    camera.position.set(0, PANO_EYE_HEIGHT, 0);
+    camera.position.copy(eye);
     // Start facing the way the camera already faced, so entering the mode does
     // not spin the room.
     const dir = new THREE.Vector3();
@@ -62,7 +92,7 @@ export function Panorama360({ active, onCaptured }: {
       restore.current = null;
       invalidate();
     };
-  }, [active, camera, invalidate]);
+  }, [active, camera, eye, invalidate]);
 
   // Drag to turn. On the canvas itself rather than through R3F's object
   // events: there is nothing to hit — the point is to look around the room,
@@ -98,7 +128,11 @@ export function Panorama360({ active, onCaptured }: {
 
   useFrame(() => {
     if (!active) return;
-    camera.position.set(0, PANO_EYE_HEIGHT, 0);
+    // Pinned every frame, not just on entry: this is what stops anything else
+    // in the scene (an orbit control that is still mounted, a camera tween)
+    // from walking the panorama camera away from the spot it is taking the
+    // panorama from.
+    camera.position.copy(eye);
     camera.rotation.set(look.current.pitch, look.current.yaw, 0, 'YXZ');
   });
 
@@ -109,9 +143,9 @@ export function Panorama360({ active, onCaptured }: {
     const handler = () => {
       const max = gl.capabilities.maxTextureSize;
       const size = panoramaSizeFor(max);
-      const { pixels, width, height } = renderPanorama(
-        gl, scene, new THREE.Vector3(0, PANO_EYE_HEIGHT, 0), size,
-      );
+      // Rendered from the same spot the user is standing on, so the saved
+      // image is the view they were just turning around in.
+      const { pixels, width, height } = renderPanorama(gl, scene, eye, size);
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -128,7 +162,7 @@ export function Panorama360({ active, onCaptured }: {
     };
     window.addEventListener('andoza:capture-360', handler);
     return () => window.removeEventListener('andoza:capture-360', handler);
-  }, [active, gl, scene, onCaptured, invalidate]);
+  }, [active, gl, scene, eye, onCaptured, invalidate]);
 
   return null;
 }
