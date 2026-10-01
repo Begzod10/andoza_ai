@@ -86,6 +86,22 @@ export interface SunState {
 /** Tashkent — the app's home, and the default site. */
 export const DEFAULT_SITE = { latitude: 41.31, longitude: 69.24, utcOffset: 5 }
 
+/**
+ * The site a room's saved location stands for, in the form `sunPosition` takes.
+ * No location is Tashkent. Uzbekistan keeps one clock (UTC+5) from Termiz to
+ * Nukus, so a place inside it takes that rather than the 15°-per-hour guess,
+ * which would put Samarqand's noon on the wrong minute; anywhere else the
+ * guess is the best a bare coordinate allows.
+ */
+export function siteOf(
+  location?: { latitude: number; longitude: number } | null,
+): { latitude: number; longitude: number; utcOffset: number } {
+  if (!location) return DEFAULT_SITE
+  const { latitude, longitude } = location
+  const inUzbekistan = latitude >= 37 && latitude <= 46 && longitude >= 56 && longitude <= 74
+  return { latitude, longitude, utcOffset: inUzbekistan ? 5 : Math.round(longitude / 15) || 0 }
+}
+
 /** 21 March. The equinox arc, halfway between the solstices. */
 const DEFAULT_DAY_OF_YEAR = 80
 

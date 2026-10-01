@@ -218,3 +218,54 @@ async def _convert_room_scan_object_to_glb(room_id: str, object_index: int, usdz
         room_id, object_index, glb_key,
     )
     return {"status": "ok", "room_id": room_id, "object_index": object_index, "glb_path": glb_key}
+
+
+@app.task(
+    name="app.tasks.media.render_room_image",
+    bind=True,
+    queue="media",
+)
+def render_room_image(self, user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+    """Render a studio screenshot with MyArchitectAI and keep the result.
+
+    Not retried: the API refunds a failed generation, but a retry would be a
+    second charge for what the user asked for once. A failure comes back as
+    ``{"status": "failed", ...}`` so ``GET /jobs/{id}`` can show it — a raised
+    exception is not JSON-serialisable in that response.
+    """
+    import asyncio
+
+    return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt))
+
+
+async def _render_room_image(user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+    import uuid
+
+    import httpx
+
+    from app.core.storage import delete_file, download_file, upload_file
+    from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
+
+    try:
+        source = await download_file(source_key)
+        client = get_myarchitect_client()
+        result_url = await client.render_interior(to_data_uri(source, content_type), prompt=prompt, output_format="jpg")
+
+        # The provider's link is not ours to keep alive — copy the render into our storage.
+        async with httpx.AsyncClient(timeout=60.0) as http:
+            fetched = await http.get(result_url)
+            fetched.raise_for_status()
+        key = f"renders/{user_id}/{uuid.uuid4()}.jpg"
+        url = await upload_file(fetched.content, key, content_type="image/jpeg")
+        return {"status": "ok", "key": key, "url": url}
+    except MyArchitectError as exc:
+        logger.error("render_room_image failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
+        return {"status": "failed", "error": str(exc), "request_id": exc.request_id}
+    except Exception as exc:  # storage / download failures
+        logger.exception("render_room_image error user=%s", user_id)
+        return {"status": "failed", "error": str(exc)}
+    finally:
+        try:
+            await delete_file(source_key)
+        except Exception:
+            logger.warning("render_room_image: source cleanup failed key=%s", source_key)

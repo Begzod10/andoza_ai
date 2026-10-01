@@ -27,7 +27,7 @@ export interface TaskStatusResponse {
 export async function convertImageTo3D(
   req: ConvertImageTo3DRequest
 ): Promise<ConvertImageTo3DResponse> {
-  const MESHY_BASE_URL = "/api/meshy"; // Direct path without /api/v1 prefix
+  const MESHY_BASE_URL = "/meshy";
   return apiClient<ConvertImageTo3DResponse>(`${MESHY_BASE_URL}/convert`, {
     method: "POST",
     body: JSON.stringify(req),
@@ -37,7 +37,7 @@ export async function convertImageTo3D(
 export async function getMeshyTaskStatus(
   taskId: string
 ): Promise<TaskStatusResponse> {
-  const MESHY_BASE_URL = "/api/meshy";
+  const MESHY_BASE_URL = "/meshy";
   return apiClient<TaskStatusResponse>(`${MESHY_BASE_URL}/task/${taskId}`, {
     method: "GET",
   });
@@ -46,7 +46,7 @@ export async function getMeshyTaskStatus(
 export async function waitForMeshyTask(
   taskId: string
 ): Promise<ConvertImageTo3DResponse> {
-  const MESHY_BASE_URL = "/api/meshy";
+  const MESHY_BASE_URL = "/meshy";
   return apiClient<ConvertImageTo3DResponse>(`${MESHY_BASE_URL}/wait/${taskId}`, {
     method: "POST",
   });

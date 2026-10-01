@@ -274,12 +274,17 @@ export const WoodFloor = memo(function WoodFloor({
  * instead of the rectangular clipping planes, so drawn/scanned polygon
  * rooms — including L-shapes — get the same real-geometry floor.
  */
-export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon, floorType }: {
+export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon, floorType, baseAngleRad }: {
   pattern: FloorPatternState; width: number; depth: number; fallbackColor: string;
   clipPolygon?: [number, number][];
   /** Which material this is, so a tile reflects like a tile and a parquet
    *  like a parquet — see lib/surfaceFinish. */
   floorType?: string;
+  /** The room's own dominant wall angle (radians), for a scanned/drawn
+   *  polygon room whose walls aren't aligned to world X/Z — see
+   *  lib/floorGeometry's computeFloorPieces. Omit for the legacy rectangular
+   *  room, which is already axis-aligned. */
+  baseAngleRad?: number;
 }) {
   const { gl, invalidate } = useThree();
 
@@ -301,9 +306,9 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
   const built = useMemo(
     () => buildFloorGroup(
       laid, width, depth, fallbackColor, clipPolygon, finish,
-      boards.length || 1, rimColorFor(floorType),
+      boards.length || 1, rimColorFor(floorType), baseAngleRad ?? 0,
     ),
-    [laid, width, depth, fallbackColor, clipPolygon, finish, boards.length, floorType],
+    [laid, width, depth, fallbackColor, clipPolygon, finish, boards.length, floorType, baseAngleRad],
   );
 
   useEffect(() => {
@@ -390,13 +395,16 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
  * floor, so every plank and joint falls exactly where it would have: the only
  * difference between the two is where they are cut.
  */
-export function DoorwayFloors({ niches, pattern, width, depth, fallbackColor, floorType }: {
+export function DoorwayFloors({ niches, pattern, width, depth, fallbackColor, floorType, baseAngleRad }: {
   niches: { elId: string; polygon: [number, number][] }[];
   pattern: FloorPatternState;
   width: number;
   depth: number;
   fallbackColor: string;
   floorType?: string;
+  /** See PatternFloor — carried through so a doorway niche's planks line up
+   *  with the room's own floor instead of the world axes. */
+  baseAngleRad?: number;
 }) {
   if (!niches.length) return null;
   return (
@@ -410,6 +418,7 @@ export function DoorwayFloors({ niches, pattern, width, depth, fallbackColor, fl
           fallbackColor={fallbackColor}
           clipPolygon={n.polygon}
           floorType={floorType}
+          baseAngleRad={baseAngleRad}
         />
       ))}
     </>

@@ -377,6 +377,24 @@ function NWallRoomShell({
 
   const hiddenEdges = useHiddenPolyEdges(cutaway, edges)
 
+  // The laid floor pattern (Naqsh) is generated along the world X/Z axes and
+  // then rotated by the user's 0/45/90 choice — fine for the legacy ABCD room,
+  // which is built with its walls forced onto those axes, but a scanned/drawn
+  // polygon room keeps its actual physical orientation, which is essentially
+  // never axis-aligned. Left alone, the grid comes out diagonal to the walls.
+  // Aligning the pattern's local +X to the longest wall (the room's own
+  // dominant direction) instead of world +X fixes that; `edge.yaw` already
+  // rotates local +X to the edge direction using Three's Y-rotation sign
+  // convention (x' = x·cosθ + z·sinθ), while computeFloorPieces rotates with
+  // the opposite-handed convention (x' = x·cosθ − z·sinθ), so the matching
+  // angle here is the negation.
+  const floorBaseAngleRad = useMemo(() => {
+    if (edges.length === 0) return 0
+    let longest = edges[0]
+    for (const e of edges) if (e.length > longest.length) longest = e
+    return -longest.yaw
+  }, [edges])
+
   // The floor inside each doorway, in the same centred frame as the pattern.
   // The per-edge frames come from the outline this shell already draws from,
   // so a niche lands on its own wall however the room was drawn.
@@ -448,6 +466,7 @@ function NWallRoomShell({
             fallbackColor={floorBase}
             clipPolygon={filteredCentred}
             floorType={designState.floorType}
+            baseAngleRad={floorBaseAngleRad}
           />
           {/* ...and on under each door, from the same pattern, so the joints
               carry through rather than merely matching in colour. */}
@@ -458,6 +477,7 @@ function NWallRoomShell({
             depth={patternExtents.D}
             fallbackColor={floorBase}
             floorType={designState.floorType}
+            baseAngleRad={floorBaseAngleRad}
           />
         </>
       )}

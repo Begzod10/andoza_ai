@@ -16,9 +16,11 @@ from app.routers import (
     finishes,
     furniture_placements,
     room_state,
+    render,
 )
 
 __all__ = [
+    "render",
     "auth",
     "apartments",
     "rooms",

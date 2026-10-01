@@ -30,7 +30,7 @@ import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import type { PlacedElectrical } from "@/store/roomStore";
 import * as THREE from "three";
 import { roomExtents } from "@/lib/roomDims";
-import { sunPosition, dayOfYear } from "@/lib/sunPosition";
+import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
 import { ChiroqPlanView } from "@/features/studio/ChiroqPlanView";
 import type { LightTypeId } from "@/lib/lightCatalog";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
@@ -52,6 +52,7 @@ import { ModelToolbar } from "./three-d/ModelToolbar";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
+import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
 
@@ -157,15 +158,17 @@ export default function ThreeDPage() {
   const sunHour = useRoomStore((st) => st.sunHour);
   const setSunHour = useRoomStore((st) => st.setSunHour);
   const today = useMemo(() => dayOfYear(new Date()), []);
-  // Site defaults to Tashkent (sunPosition's DEFAULT_SITE), and the room sits
-  // in the app's own frame — wall A's outward face is north, the same north
-  // AddRoomButtons uses. Between them the arc is fully determined, so there is
-  // nothing here for the user to set.
+  // Site and orientation are the room's own (Qibla section of the ⋮ menu):
+  // Tashkent and wall A facing north until the user says otherwise.
+  const roomLocation = useRoomStore((st) => st.designState.location);
+  const facing = useRoomStore((st) => st.designState.facing);
   const sun = useMemo(() => sunPosition({
     hour: sunHour,
     dayOfYear: today,
+    ...siteOf(roomLocation),
+    facing,
     peakIntensity: highQuality3d ? 1.3 : 1.0,
-  }), [sunHour, today, highQuality3d]);
+  }), [sunHour, today, highQuality3d, roomLocation, facing]);
   const [showHelp, setShowHelp] = useState(false);
   // LiDAR scan reference layer (GLB overlay + object ghost boxes). ON by
   // default when the room actually has scan data, so a user who just
@@ -179,6 +182,7 @@ export default function ThreeDPage() {
   // useState lazy initializer here would freeze at false. Sync it in an
   // effect instead, once, the first time scan data actually arrives.
   const [showScan, setShowScan] = useState(false);
+  const [showQibla, setShowQibla] = useState(false);
   const hasScan = !!room.room_scan;
   const scanAutoShownRef = useRef(false);
   useEffect(() => {
@@ -282,6 +286,7 @@ export default function ThreeDPage() {
     wallId: string; point: { x: number; y: number; z: number }; initialSillHeight: number;
   } | null>(null);
   const [showAiSheet, setShowAiSheet] = useState(false);
+  const [showRender, setShowRender] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   // Desktop-only edge-collapse toggles for the phase-stepper rail and design
@@ -616,10 +621,13 @@ export default function ThreeDPage() {
           hasScan={hasScan}
           showScan={showScan}
           setShowScan={setShowScan}
+          showQibla={showQibla}
+          setShowQibla={setShowQibla}
           sceneLightOn={sceneLightOn}
           sunHour={sunHour}
           setSunHour={setSunHour}
           setShowAiSheet={setShowAiSheet}
+          setShowRender={setShowRender}
           setShowPanel={setShowPanel}
         />
 
@@ -845,6 +853,7 @@ export default function ThreeDPage() {
             selectedPart={selectedPart}
             selectFurniturePart={selectFurniturePart}
             showScan={showScan}
+            showQibla={showQibla}
             replacedGhosts={replacedGhosts}
             setScanSwap={setScanSwap}
             selectedDoorId={selectedDoorId}
@@ -884,6 +893,7 @@ export default function ThreeDPage() {
           DOM, and whichever item was held supplies its own label and action. */}
       <HoldDeleteButton />
 
+      <RenderSheet open={showRender} onOpenChange={setShowRender} glCanvasRef={glCanvasRef} />
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}
         setShowAddSheet={setShowAddSheet}

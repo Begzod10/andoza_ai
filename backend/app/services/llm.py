@@ -91,6 +91,20 @@ async def check_and_increment_budget(user_id: str, model_type: str) -> None:
         raise BudgetExceededError()
 
 
+async def check_and_increment_budget_for(user_id: str, pool: str, limit: int) -> None:
+    """Same daily counter as `check_and_increment_budget`, for a pool that is
+    not an LLM one (renders) and brings its own limit."""
+    key = _budget_key(user_id, pool)
+    redis = get_redis()
+
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, 86400)
+
+    if count > limit:
+        raise BudgetExceededError()
+
+
 # ---------------------------------------------------------------------------
 # OpenAI client
 # ---------------------------------------------------------------------------

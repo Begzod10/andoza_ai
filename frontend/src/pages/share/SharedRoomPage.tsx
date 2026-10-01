@@ -15,7 +15,7 @@ import { RoomScene, SceneLighting, BrandedSky, PlacedLights } from "@/pages/stud
 // "the read-only 3D view ... shared by the active room and the sibling-room
 // preview", as opposed to DraggableFurnitureModels which is edit-only.
 import { FurnitureModels } from "@/features/studio/StudioFurniture";
-import { sunPosition, dayOfYear } from "@/lib/sunPosition";
+import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
 
 /**
  * localStorage key zustand's `persist` middleware autosaves the studio draft
@@ -101,8 +101,8 @@ export default function SharedRoomPage() {
   // Fixed midday sun — there is no time-of-day slider on a read-only page.
   const today = useMemo(() => dayOfYear(new Date()), []);
   const sun = useMemo(
-    () => sunPosition({ hour: 13, dayOfYear: today, peakIntensity: highQuality3d ? 1.3 : 1.0 }),
-    [today, highQuality3d],
+    () => sunPosition({ hour: 13, dayOfYear: today, ...siteOf(designState.location), facing: designState.facing, peakIntensity: highQuality3d ? 1.3 : 1.0 }),
+    [today, highQuality3d, designState.location, designState.facing],
   );
 
   // Synthetic Room for RoomScene — mirrors StudioPage's localRoom memo (only

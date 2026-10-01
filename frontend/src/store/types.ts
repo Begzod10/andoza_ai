@@ -227,6 +227,17 @@ export interface DesignState {
   /** The ceiling profile and the numbers behind it. Optional: rooms designed
    *  before the picker existed read as the undropped slab they were drawn as. */
   ceiling?: { design: CeilingDesignId; settings?: Partial<CeilingSettings> }
+  /** Where this room is, in degrees — what the Qibla arrow is worked out from.
+   *  Optional: a room never given one reads as Tashkent (sunPosition's
+   *  DEFAULT_SITE). Rides in designState so it saves and restores with the
+   *  rest of the room without a schema change. `label` is the preset city's
+   *  name, absent for hand-typed coordinates. */
+  location?: { latitude: number; longitude: number; label?: string }
+  /** Compass bearing wall A's outward face points at, degrees clockwise from
+   *  north (see sunPosition's `facing`). Absent reads as 0 — north — which is
+   *  how every room drew before it could be set. Turns the sun and the Qibla
+   *  arrow; the walls themselves never move. */
+  facing?: number
 }
 
 /** Resolve the effective WallCovering for a given wall (falls back to ALL). */
