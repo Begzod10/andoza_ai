@@ -152,6 +152,42 @@ function ProjectCard({ apt }: { apt: Apartment }) {
 
 // ─── Empty state ──────────────────────────────────────────────────────────
 
+/**
+ * Shown when the projects could not be loaded at all.
+ *
+ * Deliberately not the empty state: "Hali loyiha yo'q" is a statement about
+ * the account, and showing it when the server is unreachable tells a user
+ * their work is gone. Nothing has been lost — the list simply never arrived —
+ * and the only useful thing to offer is another go.
+ */
+function ProjectsUnavailable({ onRetry, retrying }: {
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-5 text-center">
+      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B45309"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 9v4M12 17h.01" />
+          <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+        </svg>
+      </div>
+      <p className="text-[15px] font-bold text-amber-900">Loyihalar yuklanmadi</p>
+      <p className="text-[13px] text-amber-800 mt-1">
+        Serverga ulanib bo'lmadi. Loyihalaringiz joyida — ro'yxat kelmadi, xolos.
+      </p>
+      <button
+        onClick={onRetry}
+        disabled={retrying}
+        className="mt-4 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-[14px] font-bold disabled:opacity-60"
+      >
+        {retrying ? "Urinilmoqda..." : "Qayta urinish"}
+      </button>
+    </div>
+  );
+}
+
 function EmptyProjects({ onCreateClick }: { onCreateClick: () => void }) {
   return (
     <div className="rounded-xl p-8 flex flex-col items-center text-center border-2 border-dashed border-neutral-300 bg-neutral-50">
@@ -263,7 +299,7 @@ export default function ProjectsPage() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const { data: apartments = [], isLoading } = useQuery({
+  const { data: apartments = [], isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["apartments", showDeleted],
     queryFn: async () => {
       try {
@@ -298,7 +334,7 @@ export default function ProjectsPage() {
 
             {isLoading ? (
               <div className="rounded-[22px] bg-gray-200 h-64 animate-pulse mb-5" />
-            ) : (
+            ) : isError ? null : (
               <HeroCard apartment={latest} />
             )}
           </div>
@@ -324,6 +360,11 @@ export default function ProjectsPage() {
                   <div key={i} className="h-20 bg-gray-200 rounded-[18px] animate-pulse" />
                 ))}
               </div>
+            ) : isError ? (
+              // NOT the empty state. A request that failed used to fall
+              // through to "Hali loyiha yo'q", which tells a user with a
+              // server down that their work is gone.
+              <ProjectsUnavailable onRetry={() => refetch()} retrying={isFetching} />
             ) : apartments.length === 0 ? (
               <EmptyProjects onCreateClick={() => setShowCreateDialog(true)} />
             ) : (
@@ -339,7 +380,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Floating Create Button */}
-      {apartments.length > 0 && (
+      {apartments.length > 0 && !isError && (
         <button
           onClick={() => setShowCreateDialog(true)}
           className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-brand text-white flex items-center justify-center shadow-btn hover:shadow-hover hover:bg-brand/90 transition-all"
