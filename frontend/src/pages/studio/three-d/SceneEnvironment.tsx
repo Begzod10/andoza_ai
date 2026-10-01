@@ -78,12 +78,12 @@ export function BrandedSky({ sun }: { sun: SunState }) {
  * installed an HDRI on the same scene, and a leftover sky is the bug this is
  * here to fix.
  *
- * The colour is a hair off pure white on purpose. A flat's walls and ceiling
- * are near-white themselves, and against #FFF the room lost its silhouette —
- * the complaint was that nothing was visible at all. This still reads as a
- * white backdrop; it just lets the room have an edge against it.
+ * Pure white, as asked. It was briefly a hair off it, because a flat's walls
+ * and ceiling are near-white themselves and the room can lose its silhouette
+ * against #FFF — if that returns, this constant is the one thing to change,
+ * and the fog follows it.
  */
-export const BACKDROP_COLOR = '#EDEFF2'
+export const BACKDROP_COLOR = '#FFFFFF'
 
 export function WhiteBackdrop({ color = BACKDROP_COLOR }: { color?: string }) {
   const { scene } = useThree()
