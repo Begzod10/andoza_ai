@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
@@ -416,6 +417,13 @@ export default function ThreeDPage() {
       kind: 'texture', url, color: '#ffffff',
       repeatX: 1.0, repeatY: 1.0, offsetX: 0, offsetY: 0, rotation: 0,
     });
+  }
+
+  /** Tiles it instead — the same tile the floor would be laid in. */
+  function applyWallTileTo(wallId: string | undefined, size: TileSize, face: TileFace) {
+    useRoomStore.getState().setWallCovering(
+      resolveTargetWall(wallId ?? null), wallTileCovering(size, face),
+    );
   }
 
   /**
@@ -951,6 +959,7 @@ export default function ThreeDPage() {
           }),
           wallpapers,
           applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
+          applyWallTile: (size, face) => applyWallTileTo(r.wallId, size, face),
           applyWallColor: (hex) =>
             useRoomStore.getState().setWallCovering(resolveTargetWall(r.wallId ?? null), { kind: 'paint', color: hex }),
           createWindowStyled,

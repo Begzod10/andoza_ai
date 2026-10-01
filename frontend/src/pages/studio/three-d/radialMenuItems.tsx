@@ -10,7 +10,10 @@ import { DOOR_STYLES } from "@/lib/doorStyles";
 import { DoorPreview } from "@/lib/doorPreview";
 import { PatternThumb, TrimThumb } from "@/components/studio/design-panel/FloorControls";
 import { TileThumb } from "@/components/studio/TileThumb";
-import { TILE_SIZES, TILE_FACES, TILE_PATTERN_ID, tileSettings } from "@/lib/tileCatalog";
+import {
+  TILE_SIZES, TILE_FACES, TILE_PATTERN_ID, tileSettings, wallTileUrl,
+  type TileSize, type TileFace,
+} from "@/lib/tileCatalog";
 import { FLOOR_PATTERN_DEFS, type FloorPatternSettings } from "@/lib/floorGeometry";
 import { FLOOR_COLORS } from "./constants";
 import { WALL_COLORS, wallColorName } from "@/lib/wallPalette";
@@ -48,6 +51,8 @@ export function buildRadialItems(
     applyWallpaper: (url: string) => void;
     /** Paints it a flat colour instead. */
     applyWallColor: (hex: string) => void;
+    /** Tiles it, in the size and face picked off the ring. */
+    applyWallTile: (size: TileSize, face: TileFace) => void;
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
@@ -64,7 +69,8 @@ export function buildRadialItems(
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening,
-    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, createWindowStyled, createDoorStyled,
+    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, applyWallTile,
+    createWindowStyled, createDoorStyled,
     setFloorPattern, setSkirting, setCeilingDesign, restyleOpening,
   } = deps;
 
@@ -116,6 +122,35 @@ export function buildRadialItems(
               closesMenu: true,
               onSelect: () => openPaintPanel(r.wallId),
             }],
+      },
+      {
+        // The same tiles the floor is laid in, run up the wall — a bathroom
+        // or a kitchen is tiled, not papered, and until now the only way to
+        // get a tile onto a wall was to photograph one and upload it as a
+        // paper.
+        key: 'wall-kafel', label: 'Kafel', icon: RadialIcons.floor,
+        childLabel: 'Kafel',
+        onSelect: () => {},
+        children: TILE_SIZES.map((t) => ({
+          key: `wall-kafel:${t.label}`,
+          label: t.label,
+          icon: RadialIcons.floor,
+          fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
+          onSelect: () => {},
+          // Size then face, exactly as the floor asks: they are two halves of
+          // one tile.
+          childLabel: t.label,
+          children: TILE_FACES.map((face) => ({
+            key: `wall-kafel:${t.label}:${face.slug}`,
+            label: face.label,
+            icon: RadialIcons.floor,
+            // The baked tile itself, joint and all — the preview IS what goes
+            // on the wall.
+            fill: <img src={wallTileUrl(t, face)} alt="" loading="lazy" draggable={false}
+              className="absolute inset-0 w-full h-full object-cover" />,
+            onSelect: () => applyWallTile(t, face),
+          })),
+        })),
       },
       {
         // Window styles, straight from the ring. The sheet that asked for

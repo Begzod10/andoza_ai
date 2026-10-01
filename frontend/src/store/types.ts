@@ -168,7 +168,16 @@ export type WallCovering =
   | { kind: 'plaster' }
   | { kind: 'paint'; color: string }
   | { kind: 'oboy'; patternId: string; baseColor: string; accentColor: string }
-  | { kind: 'texture'; url: string; color: string; repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number }
+  | {
+      kind: 'texture'; url: string; color: string
+      repeatX: number; repeatY: number; offsetX: number; offsetY: number; rotation: number
+      /** 'tile' when the image is a baked wall tile rather than a paper or a
+       *  photograph — glazed porcelain reflects where paper does not, and it
+       *  is smooth where a papered wall still has the stucco under it. Absent
+       *  on every covering written before wall tiles existed, all of which
+       *  are papers. */
+      finish?: 'tile'
+    }
 
 export interface WallPanelSettings {
   enabled: boolean

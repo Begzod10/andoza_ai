@@ -25,13 +25,15 @@ export interface TileFace {
   label: string
   /** `null` is the plain glazed tile the pattern draws on its own. */
   url: string | null
+  /** Names this face's baked wall images — see `wallTileUrl`. */
+  slug: string
 }
 
 export const TILE_FACES: TileFace[] = [
-  { label: 'Oddiy', url: null },
-  { label: 'Marmar oq', url: '/floor/tile/marble-white.jpg' },
-  { label: 'Marmar qora', url: '/floor/tile/marble-black.jpg' },
-  { label: 'Marmar kulrang', url: '/floor/tile/marble-grey.jpg' },
+  { label: 'Oddiy', url: null, slug: 'plain' },
+  { label: 'Marmar oq', url: '/floor/tile/marble-white.jpg', slug: 'marble-white' },
+  { label: 'Marmar qora', url: '/floor/tile/marble-black.jpg', slug: 'marble-black' },
+  { label: 'Marmar kulrang', url: '/floor/tile/marble-grey.jpg', slug: 'marble-grey' },
 ]
 
 /** Tile is always laid in the same stack bond; the size and the face are the
@@ -60,5 +62,46 @@ export function tileSettings(size: TileSize, face: TileFace) {
     gapMm: 0.5,
     bevelMm: 1.5,
     colorVariation: 0.12,
+  }
+}
+
+/**
+ * The same tiles, up a wall.
+ *
+ * A tiled floor is real geometry — a slab per tile, with the grout showing in
+ * the gaps between them. A wall is a plane with an image on it, so a wall
+ * tile's joint has to be in the image: `scripts/wallTileImages.py` bakes one
+ * tile per file with half a joint along each edge, and repeating it lays the
+ * other half against it. That is also why there is a file per size: 2 mm is a
+ * different fraction of a 1200 mm tile than of a 300 mm one, and one image
+ * shared between them would stretch the joint along with the tile.
+ */
+export function wallTileUrl(size: TileSize, face: TileFace): string {
+  return `/wall/tile/${face.slug}-${size.lengthCm * 10}x${size.widthCm * 10}.jpg`
+}
+
+/**
+ * The wall covering for one tile: the picture, and how many of it fit.
+ *
+ * `repeatX` is tiles per metre across the wall, so a 600 tile is 1/0.6 of
+ * them. `repeatY` is a stretch ON TOP of the image's own aspect — and the
+ * image is cut to the tile's proportions — so it is 1: the tile is already
+ * the right shape, and anything else would squash it.
+ */
+export function wallTileCovering(size: TileSize, face: TileFace) {
+  return {
+    kind: 'texture' as const,
+    url: wallTileUrl(size, face),
+    // The face keeps its own colours; multiplied by the tile grey a white
+    // marble comes out grey.
+    color: '#ffffff',
+    repeatX: 100 / size.lengthCm,
+    repeatY: 1,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    // Glazed porcelain, not paper — what tells the wall to wear tile's gloss
+    // rather than a wallpaper's.
+    finish: 'tile' as const,
   }
 }

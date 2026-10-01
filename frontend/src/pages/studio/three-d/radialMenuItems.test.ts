@@ -13,6 +13,7 @@ import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
 import { DOOR_STYLES } from '@/lib/doorStyles'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
+import { TILE_SIZES, TILE_FACES } from '@/lib/tileCatalog'
 import { WALL_COLORS } from '@/lib/wallPalette'
 import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
 import type { RadialState } from './useSurfaceRadialMenu'
@@ -38,6 +39,8 @@ function harness() {
       wallpapers: [{ id: 7, name: 'Oq gul', url: '/media/oq-gul.jpg' }],
       applyWallpaper: (url: string) => calls.push(['paper', url]),
       applyWallColor: (hex: string) => calls.push(['color', hex]),
+      applyWallTile: (size: { label: string }, face: { slug: string }) =>
+        calls.push(['wallTile', size.label, face.slug]),
       createWindowStyled: (w: string, p: unknown, styleId: string) =>
         calls.push(['window', w, styleId]),
       createDoorStyled: (w: string, p: unknown, styleId: string) =>
@@ -59,10 +62,23 @@ const CEILING: RadialState = { surface: 'ceiling', point: { x: 0.4, y: 2.6, z: -
 const FLOOR: RadialState = { surface: 'floor', point: { x: 0.4, y: 0, z: -0.8 } }
 
 describe('tapping a wall', () => {
-  it('offers paint, paper, a window, a door and the electrics', () => {
+  it('offers paint, paper, tile, a window, a door and the electrics', () => {
     const { deps } = harness()
     expect(buildRadialItems(WALL!, deps as never).map((i) => i.label))
-      .toEqual(['Rang', 'Oboy', 'Oyna', 'Eshik', 'Elektr'])
+      .toEqual(['Rang', 'Oboy', 'Kafel', 'Oyna', 'Eshik', 'Elektr'])
+  })
+
+  it('tiles the wall with the size and the face that were picked', () => {
+    const { calls, deps } = harness()
+    const kafel = buildRadialItems(WALL!, deps as never).find((i) => i.key === 'wall-kafel')!
+    // Every size leads on to every face: a tile is both, and half of one is
+    // not a choice.
+    expect(kafel.children!.map((c) => c.label)).toEqual(TILE_SIZES.map((t) => t.label))
+    for (const size of kafel.children!) {
+      expect(size.children!.map((c) => c.label)).toEqual(TILE_FACES.map((f) => f.label))
+    }
+    kafel.children![1].children![2].onSelect()
+    expect(calls).toContainEqual(['wallTile', TILE_SIZES[1].label, TILE_FACES[2].slug])
   })
 
   it('keeps Rang to colours — every one of them, and nothing else', () => {

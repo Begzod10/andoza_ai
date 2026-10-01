@@ -21,6 +21,8 @@ import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
 const WALLPAPER = surfaceFinish('wallpaper');
 const PAINT_FINISH = surfaceFinish('paint');
 const PLASTER_FINISH = surfaceFinish('plaster');
+/** Wall tile is the same glazed porcelain as the floor's. */
+const TILE_FINISH = surfaceFinish('tile');
 import { trimSegments } from "./helpers";
 
 /**
@@ -244,6 +246,9 @@ function WallSegment({
       aoMap: plasterMaps.aoMap,
     }
     : {};
+  /** Paper and tile are both `texture` coverings but different materials, so
+   *  swapping one for the other has to recompile the same as a kind change. */
+  const coveringFinish = covering.kind === 'texture' ? covering.finish : undefined;
   const { invalidate } = useThree();
   useLayoutEffect(() => {
     const m = matRef.current;
@@ -252,7 +257,7 @@ function WallSegment({
     // The Elektr preview runs `frameloop="demand"` — a material that only
     // became correct outside a render pass needs a frame asking for it.
     invalidate();
-  }, [covering.kind, showPlaster, plasterMaps, imgMat, mat, invalidate]);
+  }, [covering.kind, coveringFinish, showPlaster, plasterMaps, imgMat, mat, invalidate]);
 
   return (
     <mesh position={[seg.px, seg.py, seg.pz]} rotation={[0, seg.ry, 0]} castShadow receiveShadow>
@@ -291,6 +296,17 @@ function WallSegment({
           // than the stucco's full 1.
           aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={PAINT_FINISH.envMapIntensity}
           emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
+      ) : covering.kind === 'texture' && covering.finish === 'tile' ? (
+        /* Tile is the one finish that is NOT the stucco wearing something:
+           porcelain is laid on the plaster and hides it, so this is the only
+           wall material without `surface`. The joint is the only relief it
+           has, and the tile's own picture is where that joint is — hence the
+           image doubling as the bump map. */
+        <meshStandardMaterial ref={matRef} map={imgMat ?? undefined}
+          bumpMap={imgMat ?? undefined} bumpScale={TILE_FINISH.bumpScale}
+          color="#ffffff" roughness={TILE_FINISH.roughness} metalness={TILE_FINISH.metalness}
+          envMapIntensity={TILE_FINISH.envMapIntensity}
+          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
       ) : covering.kind === 'texture' ? (
         <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} {...surface}
           aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity}
