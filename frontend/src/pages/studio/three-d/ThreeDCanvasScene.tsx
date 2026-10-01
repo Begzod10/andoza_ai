@@ -19,16 +19,13 @@ import { type CutawayMode } from "@/features/studio/diorama";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
-import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
-import { DEFAULT_HDRI } from "@/lib/hdri";
-import { skyFogColor } from "@/lib/skyEnvironment";
 import { computeOccupiedSides } from "./helpers";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
-import { RealismEffects, SceneLighting } from "./SceneEnvironment";
+import { RealismEffects, SceneLighting, WhiteBackdrop } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
@@ -182,16 +179,16 @@ export function ThreeDCanvasScene({
       <DevSceneHandle />
       {/* Return the WebGL context slot immediately on tab switches */}
       <ReleaseGLOnUnmount />
-      {/* Daylight shows the Kloofendal sky photo (SafeEnvironment below
-          owns scene.background); a flat colour here would simply paint
-          over it. With the scene light switched off there is no sky, so
-          the solid fill is still what stands in for one. */}
+      {/* Daylight's backdrop is WhiteBackdrop's, below — a flat colour here
+          would simply paint over it. With the scene light switched off there
+          is no daylight at all, so the dark fill still stands in for one. */}
       {!sceneLightOn && <color attach="background" args={["#14171F"]} />}
-      {/* Fog matches the background (night fog was beige on a dark scene)
-          and relaxes in top view where the camera legitimately sits far */}
+      {/* Fog matches the background, or distance reads as a grey halo against
+          white; it relaxes in top view, where the camera legitimately sits
+          far back. */}
       <fog
         attach="fog"
-        args={[sceneLightOn ? skyFogColor(sun) : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+        args={[sceneLightOn ? "#FFFFFF" : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
       />
 
       {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
@@ -238,11 +235,11 @@ export function ThreeDCanvasScene({
               highQuality={highQuality3d}
               sun={sun}
             />
-            {/* Real sky photo (Kloofendal, Poly Haven) — the product default
-                for every room. It owns scene.background and doubles as
-                image-based fill light; the sun clock keeps driving the
-                directional light and shadows above it. */}
-            <SafeEnvironment files={DEFAULT_HDRI} intensity={0.35} background />
+            {/* A plain white backdrop, in place of the sky photo that used to
+                stand behind the room and light it. It owns scene.background
+                and the environment both; the sun clock keeps driving the
+                directional light and its shadows above. */}
+            <WhiteBackdrop />
           </>
         )}
         {/* Scene light off: soft ambient + hemisphere fill keep the floor,

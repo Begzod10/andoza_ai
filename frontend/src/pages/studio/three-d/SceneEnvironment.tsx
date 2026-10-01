@@ -3,6 +3,9 @@ import type { SunState } from "@/lib/sunPosition";
 import { skyIntensity } from "@/lib/skyEnvironment";
 import { fitShadowFrustum } from "@/lib/shadowFrustum";
 import { SafeEnvironment } from "@/components/studio/SafeEnvironment";
+import { useEffect } from "react";
+import { useThree } from "@react-three/fiber";
+import * as THREE from "three";
 
 /** User-supplied HDRI (8K EXR downsized to 2048x1024 .hdr) used as the
  *  studio's sky + image-based lighting. Regenerate from a new source with
@@ -53,6 +56,51 @@ export function RealismEffects({ enabled }: { enabled: boolean }) {
  */
 export function BrandedSky({ sun }: { sun: SunState }) {
   return <SafeEnvironment files={STUDIO_HDRI} background intensity={skyIntensity(sun)} />
+}
+
+
+/**
+ * A plain white backdrop in place of the sky photo.
+ *
+ * The HDRI was doing two jobs: the view out of the window, and the room's
+ * image-based lighting. This does both, and neither is a photograph — the
+ * backdrop is white, and what surfaces reflect is a uniform white room rather
+ * than a sun, a horizon and a field.
+ *
+ * That second part matters as much as the first. An environment with a sun in
+ * it is a sun every glossy surface can see, through walls and ceiling alike,
+ * which is what put a blown highlight on the tiles. A constant colour has
+ * nothing to mirror, so a floor shows only what the room's own lights do.
+ *
+ * The analytic rig is untouched: the directional sun still comes through the
+ * windows and nowhere else, and the lamps still light the room.
+ */
+function whiteEnvironment(): THREE.DataTexture {
+  // 1x1 is enough for a constant: every mip of a flat colour is that colour,
+  // so there is nothing for PMREM filtering to do.
+  const tex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+  tex.mapping = THREE.EquirectangularReflectionMapping
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+export function WhiteBackdrop({ intensity = 0.35 }: { intensity?: number }) {
+  const { scene } = useThree()
+  useEffect(() => {
+    const tex = whiteEnvironment()
+    const prevEnv = scene.environment
+    const prevIntensity = scene.environmentIntensity
+    scene.environment = tex
+    scene.environmentIntensity = intensity
+    return () => {
+      scene.environment = prevEnv
+      scene.environmentIntensity = prevIntensity
+      tex.dispose()
+    }
+  }, [scene, intensity])
+
+  return <color attach="background" args={['#FFFFFF']} />
 }
 
 
