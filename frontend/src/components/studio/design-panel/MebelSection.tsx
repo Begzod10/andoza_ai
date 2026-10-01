@@ -4,6 +4,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { PhotoModelButton } from "@/components/studio/PhotoModelButton";
 import { useFileDrop, isImageFile, MODEL_FILE_RE } from "@/hooks/useFileDrop";
 import { useModelImport } from "@/hooks/useModelImport";
 import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
@@ -486,6 +487,10 @@ export function MebelSection() {
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 hover:border-brand/40 transition-colors h-full min-h-[130px]">
           <ModelImportButton
             compact
+            category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
+          />
+          <div className="my-1 h-px w-3/4 bg-gray-100" />
+          <PhotoModelButton
             category={furnitureCat === 'barchasi' || furnitureCat === 'mening' ? 'boshqa' : furnitureCat}
           />
         </div>

@@ -95,6 +95,7 @@ function QiblaLocation() {
 
 export function ToolsDrawerPanel({
   menuSlot,
+  closeMenu,
   hasScan, showScan, setShowScan,
   showQibla, setShowQibla,
   sceneLightOn,
@@ -105,6 +106,8 @@ export function ToolsDrawerPanel({
 }: {
   /** A node inside the header's ⋮ dropdown; null while it is closed. */
   menuSlot?: HTMLDivElement | null;
+  /** Closes the ⋮ dropdown. Rows that open a sheet call it first. */
+  closeMenu?: () => void;
   hasScan: boolean;
   showScan: boolean;
   setShowScan: Dispatch<SetStateAction<boolean>>;
@@ -210,7 +213,7 @@ export function ToolsDrawerPanel({
               than an unrelated purple with no other usage on the page. */}
           <div className="px-4 py-3">
             <button
-              onClick={() => setShowAiSheet(true)}
+              onClick={() => { closeMenu?.(); setShowAiSheet(true); }}
               title="AI bilan qurish"
               aria-label="AI bilan qurish"
               className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
@@ -225,7 +228,7 @@ export function ToolsDrawerPanel({
           {/* Realistic render of what the studio is showing (MyArchitectAI). */}
           <div className="px-4 py-3">
             <button
-              onClick={() => setShowRender(true)}
+              onClick={() => { closeMenu?.(); setShowRender(true); }}
               title={uz.render.sarlavha}
               aria-label={uz.render.sarlavha}
               className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-brand text-white hover:opacity-90 transition-opacity"

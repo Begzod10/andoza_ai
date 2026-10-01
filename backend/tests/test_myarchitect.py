@@ -163,3 +163,41 @@ async def test_render_rejects_an_unknown_output_format():
 
 def test_data_uri_round_trips():
     assert to_data_uri(b"hi", "image/png") == "data:image/png;base64,aGk="
+
+
+async def test_auto_prompt_posts_the_image_and_returns_trimmed_text():
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"output": "  oak floor, white walls  ", "cost": 0.01, "balance": 4, "requestId": 1})
+
+    text = await _client(handler).auto_prompt("data:image/jpeg;base64,AAA")
+    assert text == "oak floor, white walls"
+    assert seen["url"].endswith("/auto-prompt")
+    assert seen["body"] == {"image": "data:image/jpeg;base64,AAA"}
+
+
+async def test_auto_prompt_rejects_an_empty_answer():
+    with pytest.raises(MyArchitectError):
+        await _client(lambda r: httpx.Response(200, json={"output": "  "})).auto_prompt("x")
+
+
+async def test_set_atmosphere_sends_the_interior_mode_and_returns_the_first_image():
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"output": ["https://cdn.test/lit.jpg"]})
+
+    url = await _client(handler).set_atmosphere("img", "warm_lamps")
+    assert url == "https://cdn.test/lit.jpg"
+    assert seen["url"].endswith("/set-atmosphere")
+    assert seen["body"] == {"image": "img", "sceneType": "interior", "lighting": "warm_lamps"}
+
+
+async def test_set_atmosphere_rejects_an_unknown_mood_before_calling_the_api():
+    with pytest.raises(ValueError):
+        await _client(lambda r: httpx.Response(200, json={"output": ["u"]})).set_atmosphere("img", "disco")

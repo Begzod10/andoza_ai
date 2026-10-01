@@ -99,9 +99,10 @@ export function PhaseStageNav({
           // zIndex:5 got painted over by the R3F <canvas> (a sibling deep in
           // a different part of the tree, so a low z-index here didn't
           // reliably out-rank it — confirmed via elementFromPoint returning
-          // the canvas, not this button). Same z-tier as the mobile panel
-          // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
-          zIndex: 60,
+          // the canvas, not this button). 30 clears the canvas but stays
+          // BELOW every dialog backdrop (z-40+): at 60 this arrow painted on
+          // top of the Render and AI sheets and their dimmed overlay.
+          zIndex: 30,
           transition: 'left 0.2s ease',
         }}
       >

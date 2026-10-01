@@ -144,7 +144,7 @@ export function DesignPanelDock({
           // reliably out-rank it — confirmed via elementFromPoint returning
           // the canvas, not this button). Same z-tier as the mobile panel
           // sheet (z-50)/backdrop (z-40), comfortably above the canvas.
-          zIndex: 60,
+          zIndex: 30,
           transition: 'right 0.2s ease',
         }}
       >

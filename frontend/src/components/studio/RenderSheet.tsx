@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
-import { BottomSheet } from "@/components/ui/BottomSheet"
+import * as Dialog from "@radix-ui/react-dialog"
 import { uz } from "@/locale/uz"
-import { createRender, waitForRender, errorMessage } from "@/lib/api"
+import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
+import type { LightingMood } from "@/lib/api"
 
-type Phase = "idle" | "capturing" | "rendering" | "done" | "error"
+type Phase = "idle" | "capturing" | "rendering" | "relighting" | "done" | "error"
+
+/** One picture the sheet can show: the render itself, or a relit copy of it. */
+interface Version { url: string; key: string; label: string; lighting?: LightingMood }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
@@ -16,10 +20,25 @@ function captureJpeg(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92))
 }
 
+function Sparkle({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z" />
+    </svg>
+  )
+}
+
 /**
  * "Render": turns what the studio is showing into a photorealistic image.
  * Captures the live canvas, queues it (POST /render) and polls the job. The
- * sheet keeps the last result until the user renders again.
+ * card keeps the last result until the user renders again.
+ *
+ * A centred card on a wide screen, a bottom sheet on a phone. It is not the
+ * shared BottomSheet: that one is a full-width, 90vh slab, which for a prompt
+ * box and one picture was mostly empty white. Its z-index (80/70) sits above
+ * the studio's own overlays, including the ⋮ menu and the edge arrows.
  */
 export function RenderSheet({
   open, onOpenChange, glCanvasRef,
@@ -29,9 +48,14 @@ export function RenderSheet({
   glCanvasRef: RefObject<HTMLCanvasElement | null>
 }) {
   const [prompt, setPrompt] = useState("")
+  // True while the box holds the description the API wrote, not the user's own words.
+  const [generated, setGenerated] = useState(false)
   const [phase, setPhase] = useState<Phase>("idle")
-  const [imageUrl, setImageUrl] = useState("")
+  const [versions, setVersions] = useState<Version[]>([])
+  const [active, setActive] = useState(0)
   const [error, setError] = useState("")
+  // A relight that fails must not throw away the render underneath it.
+  const [relightError, setRelightError] = useState("")
   const abortRef = useRef<AbortController | null>(null)
 
   // Stop polling if the page goes away mid-render.
@@ -40,7 +64,9 @@ export function RenderSheet({
   async function start() {
     if (phase === "capturing" || phase === "rendering") return
     setError("")
-    setImageUrl("")
+    setRelightError("")
+    setVersions([])
+    setActive(0)
     const canvas = glCanvasRef.current
     setPhase("capturing")
     const blob = canvas ? await captureJpeg(canvas) : null
@@ -55,8 +81,16 @@ export function RenderSheet({
     try {
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt)
-      const url = await waitForRender(job_id, controller.signal)
-      setImageUrl(absolute(url))
+      const outcome = await waitForRender(job_id, controller.signal)
+      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl }])
+      setActive(0)
+      // The prompt the picture was actually made from: when the user wrote none
+      // this is the generated one, ready to edit for the next go (and sent as
+      // theirs, so the next render skips the description step).
+      if (!prompt.trim() && outcome.prompt) {
+        setPrompt(outcome.prompt)
+        setGenerated(true)
+      }
       setPhase("done")
     } catch (err) {
       if (controller.signal.aborted) return
@@ -65,54 +99,188 @@ export function RenderSheet({
     }
   }
 
-  const busy = phase === "capturing" || phase === "rendering"
+  async function relight(mood: LightingMood) {
+    const base = versions[active]
+    if (!base || phase === "relighting") return
+    setRelightError("")
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setPhase("relighting")
+    try {
+      const { job_id } = await createRelight(base.key, mood)
+      const outcome = await waitForRender(job_id, controller.signal)
+      const next: Version = {
+        url: absolute(outcome.url), key: outcome.key, label: uz.render.yorugliq[mood], lighting: mood,
+      }
+      setVersions((v) => [...v, next])
+      setActive(versions.length)
+    } catch (err) {
+      if (controller.signal.aborted) return
+      setRelightError(errorMessage(err))
+    } finally {
+      if (!controller.signal.aborted) setPhase("done")
+    }
+  }
+
+  const current = versions[active]
+  const busy = phase === "capturing" || phase === "rendering" || phase === "relighting"
+  const done = !!current && (phase === "done" || phase === "relighting")
 
   return (
-    <BottomSheet open={open} onOpenChange={onOpenChange} title={uz.render.sarlavha} defaultSnap="full">
-      <div className="flex flex-col gap-3 p-4">
-        <p className="text-sm text-gray-500">{uz.render.izoh}</p>
-
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={uz.render.placeholder}
-          maxLength={500}
-          rows={2}
-          disabled={busy}
-          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-        />
-
-        <button
-          onClick={start}
-          disabled={busy}
-          className="min-h-[44px] rounded-full bg-brand text-white text-sm font-semibold disabled:opacity-60"
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm" />
+        <Dialog.Content
+          className={[
+            "fixed z-[80] bg-white shadow-2xl outline-none flex flex-col",
+            // phone: bottom sheet
+            "inset-x-0 bottom-0 max-h-[92vh] rounded-t-[28px]",
+            // wide: centred card
+            "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:-translate-x-1/2 sm:-translate-y-1/2",
+            "sm:w-[min(92vw,560px)] sm:rounded-[28px]",
+          ].join(" ")}
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          {phase === "capturing" ? uz.render.tayyorlanmoqda
-            : phase === "rendering" ? uz.render.jarayonda
-            : phase === "done" ? uz.render.qayta
-            : uz.render.boshlash}
-        </button>
-
-        {phase === "error" && (
-          <p role="alert" className="text-sm text-red-600">{uz.render.xato}: {error}</p>
-        )}
-
-        {phase === "done" && imageUrl && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-emerald-700">{uz.render.tayyor}</p>
-            <img src={imageUrl} alt={uz.render.sarlavha} className="w-full rounded-xl" />
-            <a
-              href={imageUrl}
-              download="render.jpg"
-              target="_blank"
-              rel="noreferrer"
-              className="min-h-[44px] flex items-center justify-center rounded-full border border-gray-200 text-sm font-medium"
+          <div className="flex items-start justify-between gap-3 px-6 pt-6">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-brand">
+                <Sparkle />
+              </span>
+              <div>
+                <Dialog.Title className="text-base font-semibold text-gray-900">{uz.render.sarlavha}</Dialog.Title>
+                <Dialog.Description className="mt-0.5 text-sm leading-snug text-gray-500">
+                  {uz.render.izoh}
+                </Dialog.Description>
+              </div>
+            </div>
+            <Dialog.Close
+              aria-label={uz.common.yopish}
+              className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
             >
-              {uz.render.yuklab_olish}
-            </a>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </Dialog.Close>
           </div>
-        )}
-      </div>
-    </BottomSheet>
+
+          <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
+            <textarea
+              value={prompt}
+              onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
+              placeholder={uz.render.placeholder}
+              aria-label={uz.render.placeholder}
+              maxLength={2000}
+              rows={prompt.length > 120 ? 4 : 2}
+              disabled={busy}
+              className="w-full resize-none rounded-2xl border border-transparent bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+            />
+
+            {done && generated && prompt && (
+              <p className="-mt-2 text-xs text-gray-400">{uz.render.avtomatik_tavsif}</p>
+            )}
+
+            {/* Where the picture goes — present from the start so the card does not jump. */}
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-200">
+              {done ? (
+                <>
+                  <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
+                  {phase === "relighting" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
+                      <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
+                      <p className="text-sm font-medium text-gray-700" role="status">{uz.render.yoritilmoqda}</p>
+                    </div>
+                  )}
+                </>
+              ) : busy ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-gray-50 to-gray-100">
+                  <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
+                  <p className="text-sm font-medium text-gray-600" role="status">
+                    {phase === "capturing" ? uz.render.tayyorlanmoqda : uz.render.jarayonda}
+                  </p>
+                  <p className="text-xs text-gray-400">{uz.render.vaqt}</p>
+                </div>
+              ) : phase === "error" ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-red-50 px-8 text-center">
+                  <p role="alert" className="text-sm font-medium text-red-700">
+                    {uz.render.xato}: {error}
+                  </p>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400">
+                  <Sparkle className="h-7 w-7" />
+                  <p className="text-sm">{uz.render.natija_joyi}</p>
+                </div>
+              )}
+            </div>
+
+            {done && versions.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label={uz.render.sarlavha}>
+                {versions.map((v, i) => (
+                  <button
+                    key={v.key}
+                    role="tab"
+                    aria-selected={i === active}
+                    onClick={() => setActive(i)}
+                    disabled={phase === "relighting"}
+                    className={`shrink-0 overflow-hidden rounded-xl text-left ring-2 transition ${
+                      i === active ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={v.url} alt="" className="h-14 w-20 object-cover" />
+                    <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">{v.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {done && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.yoritish}</p>
+                <div className="flex flex-wrap gap-2">
+                  {LIGHTING_MOODS.map((mood) => (
+                    <button
+                      key={mood}
+                      onClick={() => relight(mood)}
+                      disabled={busy}
+                      aria-pressed={current?.lighting === mood}
+                      className={`min-h-[36px] rounded-full px-3.5 text-xs font-semibold transition disabled:opacity-50 ${
+                        current?.lighting === mood
+                          ? "bg-brand text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {uz.render.yorugliq[mood]}
+                    </button>
+                  ))}
+                </div>
+                {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              {done && (
+                <a
+                  href={current.url}
+                  download="render.jpg"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  {uz.render.yuklab_olish}
+                </a>
+              )}
+              <button
+                onClick={start}
+                disabled={busy}
+                className="min-h-[48px] flex-1 rounded-full bg-brand text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+              >
+                {phase === "capturing" || phase === "rendering" ? uz.render.jarayonda : done ? uz.render.qayta : uz.render.boshlash}
+              </button>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

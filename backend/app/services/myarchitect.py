@@ -37,6 +37,8 @@ _BASE_DELAY = 1.0
 _RETRYABLE = {429, 502}
 
 OUTPUT_FORMATS = ("webp", "jpg", "png", "avif")
+# The interior moods /set-atmosphere accepts (its "interior" mode).
+INTERIOR_LIGHTING = ("midday_light", "golden_light", "blue_hour_light", "ambient_light", "warm_lamps", "dimmed_mood")
 
 
 class MyArchitectError(Exception):
@@ -118,6 +120,23 @@ class MyArchitectClient:
         if prompt:
             payload["prompt"] = prompt
         return self._output(await self._post("/render/interior", payload))
+
+    async def auto_prompt(self, image: str) -> str:
+        """A detailed, comma-separated description of the image, for pre-filling
+        a render prompt. Returns text, not a URL."""
+        body = await self._post("/auto-prompt", {"image": image})
+        text = body["output"]
+        if not isinstance(text, str) or not text.strip():
+            raise MyArchitectError("MyArchitectAI returned an empty prompt", request_id=body.get("requestId"))
+        return text.strip()
+
+    async def set_atmosphere(self, image: str, lighting: str) -> str:
+        """Relight an interior while keeping its geometry and materials. Returns
+        the URL of the relit image."""
+        if lighting not in INTERIOR_LIGHTING:
+            raise ValueError(f"lighting must be one of {INTERIOR_LIGHTING}")
+        payload = {"image": image, "sceneType": "interior", "lighting": lighting}
+        return self._output(await self._post("/set-atmosphere", payload))
 
     async def upscale(self, image: str, *, resolution: str = "4k", output_format: str = "jpg") -> str:
         """Upscale to 4K or 8K. PNG is not available at 8K (the file would exceed

@@ -2,8 +2,27 @@ import { apiClient } from "./client";
 
 /** What the render task leaves in `result` once it is finished. */
 export type RenderResult =
-  | { status: "ok"; key: string; url: string }
-  | { status: "failed"; error: string; request_id?: string };
+  | { status: "ok"; key: string; url: string; prompt?: string | null; lighting?: string }
+  | { status: "failed"; error: string; request_id?: string | number };
+
+/** The interior lighting moods a finished render can be relit with. */
+export const LIGHTING_MOODS = [
+  "midday_light",
+  "golden_light",
+  "blue_hour_light",
+  "ambient_light",
+  "warm_lamps",
+  "dimmed_mood",
+] as const;
+export type LightingMood = (typeof LIGHTING_MOODS)[number];
+
+/** A finished render: where to see it, the storage key to relight it from, and
+ *  the prompt it was made with (the generated one, when the user wrote none). */
+export interface RenderOutcome {
+  url: string;
+  key: string;
+  prompt: string | null;
+}
 
 interface JobStatus {
   job_id: string;
@@ -32,6 +51,14 @@ export async function createRender(image: Blob, prompt?: string): Promise<{ job_
   return apiClient<{ job_id: string }>("/render", { method: "POST", body: form });
 }
 
+/** Queue a relit copy of a finished render. Returns the job to poll. */
+export async function createRelight(renderKey: string, lighting: LightingMood): Promise<{ job_id: string }> {
+  return apiClient<{ job_id: string }>("/render/relight", {
+    method: "POST",
+    body: JSON.stringify({ render_key: renderKey, lighting }),
+  });
+}
+
 export async function getRenderJob(jobId: string): Promise<JobStatus> {
   return apiClient<JobStatus>(`/jobs/${jobId}`);
 }
@@ -49,13 +76,15 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     });
   });
 
-/** Poll a render job to the end. Resolves with the image URL; rejects with a
- *  readable message if the render failed or never finished. */
-export async function waitForRender(jobId: string, signal?: AbortSignal): Promise<string> {
+/** Poll a render job to the end. Resolves with the finished render; rejects
+ *  with a readable message if it failed or never finished. */
+export async function waitForRender(jobId: string, signal?: AbortSignal): Promise<RenderOutcome> {
   for (let i = 0; i < MAX_POLLS; i++) {
     const job = await getRenderJob(jobId);
     if (job.status === "SUCCESS" && job.result) {
-      if (job.result.status === "ok") return job.result.url;
+      if (job.result.status === "ok") {
+        return { url: job.result.url, key: job.result.key, prompt: job.result.prompt ?? null };
+      }
       throw new Error(job.result.error);
     }
     if (job.status === "FAILURE" || job.status === "REVOKED") throw new Error("Render bajarilmadi");

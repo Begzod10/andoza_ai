@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const apiClient = vi.fn()
 vi.mock('../api/client', () => ({ apiClient: (...a: unknown[]) => apiClient(...a) }))
 
-import { createRender, waitForRender, errorMessage } from '../api/render'
+import { createRender, createRelight, waitForRender, errorMessage, LIGHTING_MOODS } from '../api/render'
 
 beforeEach(() => { apiClient.mockReset(); vi.useFakeTimers() })
 afterEach(() => vi.useRealTimers())
@@ -36,14 +36,39 @@ describe('createRender', () => {
   })
 })
 
+describe('createRelight', () => {
+  it('posts the render key and the mood as JSON', async () => {
+    apiClient.mockResolvedValue({ job_id: 'j2' })
+    await expect(createRelight('renders/u/a.jpg', 'warm_lamps')).resolves.toEqual({ job_id: 'j2' })
+    const [path, opts] = apiClient.mock.calls[0]
+    expect(path).toBe('/render/relight')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body)).toEqual({ render_key: 'renders/u/a.jpg', lighting: 'warm_lamps' })
+  })
+
+  it('offers the six interior moods the backend accepts', () => {
+    expect([...LIGHTING_MOODS]).toEqual([
+      'midday_light', 'golden_light', 'blue_hour_light', 'ambient_light', 'warm_lamps', 'dimmed_mood',
+    ])
+  })
+})
+
 describe('waitForRender', () => {
+  it('hands back the generated prompt when there is one', async () => {
+    apiClient.mockResolvedValue({
+      job_id: 'j', status: 'SUCCESS',
+      result: { status: 'ok', key: 'k', url: 'https://s3/r.jpg', prompt: 'oak floor, white walls' },
+    })
+    await expect(waitForRender('j')).resolves.toMatchObject({ prompt: 'oak floor, white walls' })
+  })
+
   it('polls until the job succeeds and returns the image url', async () => {
     apiClient
       .mockResolvedValueOnce({ job_id: 'j', status: 'PENDING', result: null })
       .mockResolvedValueOnce({ job_id: 'j', status: 'SUCCESS', result: { status: 'ok', key: 'k', url: 'https://s3/r.jpg' } })
     const p = waitForRender('j')
     await vi.advanceTimersByTimeAsync(3000)
-    await expect(p).resolves.toBe('https://s3/r.jpg')
+    await expect(p).resolves.toEqual({ url: 'https://s3/r.jpg', key: 'k', prompt: null })
     expect(apiClient).toHaveBeenCalledTimes(2)
   })
 
