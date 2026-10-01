@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     TRIPO_API_KEY: str = ""
     TRIPO_API_URL: str = "https://openapi.tripo3d.ai/v3"
     TRIPO_MODEL: str = "v3.1-20260211"
+    # Most triangles a built model may have (0 = Tripo's own adaptive count, which
+    # for a textured chair came out at 1.4 million triangles / 44 MB). 50 000 is
+    # Tripo's own figure for game-ready assets and looks the same at room scale.
+    TRIPO_FACE_LIMIT: int = 50000
     MODEL_FROM_PHOTO_DAILY_LIMIT: int = 3
 
     # MyArchitectAI — photorealistic renders of a studio screenshot. Every call

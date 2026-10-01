@@ -432,19 +432,27 @@ async def _upscale_render(user_id: str, render_key: str) -> dict:
     acks_late=False,
     reject_on_worker_lost=False,
 )
-def generate_model_from_photo(self, user_id: str, source_key: str, content_type: str) -> dict:
+def generate_model_from_photo(
+    self, user_id: str, source_key: str, content_type: str, extra_views: dict | None = None,
+) -> dict:
     """Build a 3D model (GLB) from a furniture photo with Tripo and keep it.
 
     Takes 1–2 minutes. Not retried: Tripo returns the credits of a failed task, but
     a retry would be a second charge for what the user asked for once. Failure
     comes back as ``{"status": "failed", ...}`` for ``GET /jobs/{id}``.
+
+    ``source_key`` is the front (or only) photo. ``extra_views`` maps ``left`` /
+    ``back`` / ``right`` to ``{"key": ..., "content_type": ...}``: with any, the
+    model is built from all the photos together instead of from one.
     """
     import asyncio
 
-    return asyncio.run(_generate_model_from_photo(user_id, source_key, content_type))
+    return asyncio.run(_generate_model_from_photo(user_id, source_key, content_type, extra_views))
 
 
-async def _generate_model_from_photo(user_id: str, source_key: str, content_type: str) -> dict:
+async def _generate_model_from_photo(
+    user_id: str, source_key: str, content_type: str, extra_views: dict | None = None,
+) -> dict:
     import uuid
 
     import httpx
@@ -453,11 +461,19 @@ async def _generate_model_from_photo(user_id: str, source_key: str, content_type
     from app.services.tripo import TripoError, get_tripo_client
 
     try:
-        photo = await download_file(source_key)
         client = get_tripo_client()
-        ext = "png" if content_type == "image/png" else "webp" if content_type == "image/webp" else "jpg"
-        token = await client.upload_image(photo, f"photo.{ext}", content_type)
-        task_id = await client.create_model_from_image(token)
+
+        async def _upload(view: str, key: str, ctype: str) -> str:
+            ext = "png" if ctype == "image/png" else "webp" if ctype == "image/webp" else "jpg"
+            return await client.upload_image(await download_file(key), f"{view}.{ext}", ctype)
+
+        if extra_views:
+            tokens = {"front": await _upload("front", source_key, content_type)}
+            for view, spec in extra_views.items():
+                tokens[view] = await _upload(view, spec["key"], spec["content_type"])
+            task_id = await client.create_model_from_views(tokens)
+        else:
+            task_id = await client.create_model_from_image(await _upload("photo", source_key, content_type))
         task = await client.wait_for_model(task_id)
 
         # Tripo's CDN link expires — copy the GLB into our storage.
@@ -474,7 +490,8 @@ async def _generate_model_from_photo(user_id: str, source_key: str, content_type
         logger.exception("generate_model_from_photo error user=%s", user_id)
         return {"status": "failed", "error": str(exc)}
     finally:
-        try:
-            await delete_file(source_key)
-        except Exception:
-            logger.warning("generate_model_from_photo: source cleanup failed key=%s", source_key)
+        for key in [source_key, *(spec["key"] for spec in (extra_views or {}).values())]:
+            try:
+                await delete_file(key)
+            except Exception:
+                logger.warning("generate_model_from_photo: source cleanup failed key=%s", key)

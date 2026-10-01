@@ -71,6 +71,10 @@ def _readable(code: int | None, message: str | None) -> str:
     return message or "Tripo xatosi"
 
 
+# The views multiview-to-model takes, in the order Tripo canonicalises them to.
+VIEWS = ("front", "left", "back", "right")
+
+
 class TripoClient:
     def __init__(self, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.api_key = settings.TRIPO_API_KEY
@@ -137,24 +141,56 @@ class TripoClient:
         pbr: bool = True,
         auto_size: bool = True,
     ) -> str:
-        """Start the build; returns the task id.
+        """Start the build from ONE photo; returns the task id.
 
-        ``auto_size`` scales the model to real-world metres, which is what a piece
-        of furniture placed in a room needs. ``delight`` (on by default) strips
-        the photo's baked-in shadows before texturing.
+        The sides and back are guessed. ``auto_size`` scales the model to real-world
+        metres, which is what a piece of furniture placed in a room needs.
         """
-        payload = {
-            "input": file_token,
+        payload = {"input": file_token, **self._build_options(texture, pbr, auto_size)}
+        return await self._start("/generation/image-to-model", payload)
+
+    async def create_model_from_views(
+        self,
+        tokens: dict[str, str],
+        *,
+        texture: bool = True,
+        pbr: bool = True,
+        auto_size: bool = True,
+    ) -> str:
+        """Start the build from SEVERAL photos of the same piece; returns the task id.
+
+        ``tokens`` maps a view (``front``, ``left``, ``back``, ``right``) to an
+        uploaded file token. The front is required and there must be at least two
+        views — Tripo refuses fewer. Every angle given is real detail it does not
+        have to invent.
+        """
+        unknown = set(tokens) - set(VIEWS)
+        if unknown:
+            raise TripoError(f"Noma'lum ko'rinish: {', '.join(sorted(unknown))}")
+        if "front" not in tokens or len(tokens) < 2:
+            raise TripoError("Old tomondan rasm va yana kamida bitta ko'rinish kerak")
+        inputs = [{view: tokens[view]} for view in VIEWS if view in tokens]
+        payload = {"inputs": inputs, **self._build_options(texture, pbr, auto_size)}
+        return await self._start("/generation/multiview-to-model", payload)
+
+    @staticmethod
+    def _build_options(texture: bool, pbr: bool, auto_size: bool) -> dict[str, Any]:
+        options: dict[str, Any] = {
             "model": settings.TRIPO_MODEL,
             "texture": texture,
             "pbr": pbr,
             "auto_size": auto_size,
         }
-        out = await self._request("POST", "/generation/image-to-model", json=payload)
+        if settings.TRIPO_FACE_LIMIT > 0:
+            options["face_limit"] = settings.TRIPO_FACE_LIMIT
+        return options
+
+    async def _start(self, path: str, payload: dict[str, Any]) -> str:
+        out = await self._request("POST", path, json=payload)
         task_id = out.get("task_id")
         if not task_id:
             raise TripoError("Tripo did not return a task id")
-        log.info("tripo_task_created", task_id=task_id)
+        log.info("tripo_task_created", task_id=task_id, path=path)
         return task_id
 
     async def get_task(self, task_id: str) -> dict[str, Any]:

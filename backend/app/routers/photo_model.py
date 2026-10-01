@@ -44,16 +44,7 @@ async def _require_model_builder(db: DbSession, user) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Faqat sotuvchi va administrator uchun")
 
 
-@router.post(
-    "/models/from-photo",
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Build a 3D model (GLB) from a furniture photo",
-)
-async def create_model_from_photo(file: UploadFile, current_user: CurrentUser, db: DbSession) -> dict:
-    await _require_model_builder(db, current_user)
-    if not settings.TRIPO_API_KEY or settings.MODEL_FROM_PHOTO_DAILY_LIMIT <= 0:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="3D model xizmati mavjud emas")
-
+async def _read_photo(file: UploadFile) -> bytes:
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -67,6 +58,33 @@ async def create_model_from_photo(file: UploadFile, current_user: CurrentUser, d
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File exceeds maximum allowed size of {_MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB",
         )
+    return data
+
+
+@router.post(
+    "/models/from-photo",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Build a 3D model (GLB) from one furniture photo, or from several views of it",
+)
+async def create_model_from_photo(
+    file: UploadFile,
+    current_user: CurrentUser,
+    db: DbSession,
+    left: UploadFile | None = None,
+    back: UploadFile | None = None,
+    right: UploadFile | None = None,
+) -> dict:
+    """``file`` is the front (or the only) photo. Sending any of ``left`` / ``back`` /
+    ``right`` as well builds from all of them together (Tripo's multiview endpoint):
+    the more real angles, the less the model has to invent."""
+    await _require_model_builder(db, current_user)
+    if not settings.TRIPO_API_KEY or settings.MODEL_FROM_PHOTO_DAILY_LIMIT <= 0:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="3D model xizmati mavjud emas")
+
+    # An empty file field (a browser sends one for an unfilled slot) is no view.
+    extras = {name: f for name, f in (("left", left), ("back", back), ("right", right)) if f is not None and f.filename}
+    uploads = {"front": file, **extras}
+    payloads = {view: await _read_photo(f) for view, f in uploads.items()}
 
     # Spend the day's allowance only once the request is known to be valid.
     try:
@@ -76,16 +94,22 @@ async def create_model_from_photo(file: UploadFile, current_user: CurrentUser, d
     except Exception as exc:  # BudgetExceededError carries a user-facing Uzbek message
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
 
-    source_key = f"photo-model-sources/{current_user.id}/{uuid_module.uuid4()}.{_EXT[file.content_type]}"
+    stored: dict[str, dict] = {}
     try:
-        await upload_file(data, source_key, content_type=file.content_type)
+        for view, f in uploads.items():
+            key = f"photo-model-sources/{current_user.id}/{uuid_module.uuid4()}.{_EXT[f.content_type]}"
+            await upload_file(payloads[view], key, content_type=f.content_type)
+            stored[view] = {"key": key, "content_type": f.content_type}
     except Exception as exc:
-        logger.error("photo_model_source_upload_failed", key=source_key, error=str(exc))
+        logger.error("photo_model_source_upload_failed", views=list(stored), error=str(exc))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to store the image") from exc
 
-    task = generate_model_from_photo.delay(str(current_user.id), source_key, file.content_type)
+    front = stored.pop("front")
+    task = generate_model_from_photo.delay(
+        str(current_user.id), front["key"], front["content_type"], stored or None,
+    )
     db.add(MediaJob(id=task.id, user_id=current_user.id))
-    logger.info("photo_model_enqueued", task_id=task.id, user_id=str(current_user.id))
+    logger.info("photo_model_enqueued", task_id=task.id, user_id=str(current_user.id), views=1 + len(stored))
     return {"job_id": task.id}
 
 
