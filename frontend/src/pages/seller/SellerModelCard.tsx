@@ -28,10 +28,10 @@ export function SellerModelCard({
       )}
 
       <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-semibold text-neutral-900 text-sm leading-tight truncate">{model.name_uz}</h4>
-          <StatusBadge status={model.status} />
-        </div>
+        {/* Name on its own line and the badge under it: side by side, the badge
+            wrapped to two lines and cut the name off on a narrow card. */}
+        <h4 className="font-semibold text-neutral-900 text-sm leading-tight truncate" title={model.name_uz}>{model.name_uz}</h4>
+        <div><StatusBadge status={model.status} /></div>
         <p className="text-xs text-neutral-400 truncate">
           {CATEGORY_LABELS[model.category] ?? model.category} · {PLACEMENT_LABELS[model.placement] ?? model.placement}
         </p>

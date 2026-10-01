@@ -202,6 +202,10 @@ async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSessi
     await db.delete(store)
     await db.flush()
     _invalidate_after_commit(db, "stores:")
+    # The cascade also deletes this shop's models, and the public models list is
+    # cached for ten minutes: without this its ghosts (with dead file links) kept
+    # showing in the catalog after the shop was gone.
+    _invalidate_after_commit(db, "furniture:")
     _delete_files_after_commit(db, stray_keys, "store_delete_file_failed")
 
     logger.info("store_deleted", id=str(store_id), admin_id=str(admin.id), files_removed=len(stray_keys))
