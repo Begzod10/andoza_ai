@@ -122,6 +122,15 @@ class Settings(BaseSettings):
     MESHY_API_KEY: str = ""
     MESHY_API_URL: str = "https://api.meshy.ai/openapi/v1"
 
+    # Tripo — 3D model from a photo (pay as you go, 1 credit = $0.01; a textured
+    # model is ~30 credits). MODEL_FROM_PHOTO_DAILY_LIMIT caps each user's models
+    # per day (0 turns the feature off). TRIPO_MODEL must be one of the ids Tripo
+    # lists as allowed — its docs name "tripo-v3.1", which the API rejects.
+    TRIPO_API_KEY: str = ""
+    TRIPO_API_URL: str = "https://openapi.tripo3d.ai/v3"
+    TRIPO_MODEL: str = "v3.1-20260211"
+    MODEL_FROM_PHOTO_DAILY_LIMIT: int = 3
+
     # MyArchitectAI — photorealistic renders of a studio screenshot. Every call
     # is billed to this one key, so RENDER_DAILY_LIMIT caps each user's renders
     # per day (0 turns the feature off).

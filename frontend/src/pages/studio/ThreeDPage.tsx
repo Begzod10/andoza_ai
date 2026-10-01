@@ -4,6 +4,7 @@ import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
 import { ModelImportButton } from "@/components/studio/ModelImportButton";
+import { PhotoModelButton } from "@/components/studio/PhotoModelButton";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
@@ -789,6 +790,7 @@ export default function ThreeDPage() {
               <div className="[&>button]:w-full">
                 <ModelImportButton compact />
               </div>
+              <PhotoModelButton />
             </div>
           )}
 

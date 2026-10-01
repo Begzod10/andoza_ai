@@ -16,7 +16,7 @@ from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, currency, admin_catalog, room_share, render,
+    orders, currency, admin_catalog, room_share, render, photo_model,
 )
 
 
@@ -76,6 +76,7 @@ def create_app() -> FastAPI:
     # Legacy path: the router was first mounted here, before it joined /api/v1.
     app.include_router(meshy.router, prefix="/api", include_in_schema=False)
     app.include_router(render.router, prefix="/api/v1", tags=["render"])
+    app.include_router(photo_model.router, prefix="/api/v1", tags=["photo-model"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
     app.include_router(user_models.router, prefix="/api/v1", tags=["user-models"])
     app.include_router(electrical.router, prefix="/api/v1", tags=["electrical"])

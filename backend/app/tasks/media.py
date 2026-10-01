@@ -238,26 +238,44 @@ def render_room_image(self, user_id: str, source_key: str, content_type: str, pr
     return asyncio.run(_render_room_image(user_id, source_key, content_type, prompt))
 
 
-async def _render_room_image(user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
+    """Copy a provider-hosted image into our storage. The provider's link is not
+    ours to keep alive. Returns (storage key, public url)."""
     import uuid
 
     import httpx
 
-    from app.core.storage import delete_file, download_file, upload_file
+    from app.core.storage import upload_file
+
+    async with httpx.AsyncClient(timeout=60.0) as http:
+        fetched = await http.get(url)
+        fetched.raise_for_status()
+    key = f"renders/{user_id}/{uuid.uuid4()}.jpg"
+    return key, await upload_file(fetched.content, key, content_type="image/jpeg")
+
+
+async def _render_room_image(user_id: str, source_key: str, content_type: str, prompt: str | None) -> dict:
+    from app.core.storage import delete_file, download_file
     from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
 
     try:
         source = await download_file(source_key)
         client = get_myarchitect_client()
-        result_url = await client.render_interior(to_data_uri(source, content_type), prompt=prompt, output_format="jpg")
+        image = to_data_uri(source, content_type)
 
-        # The provider's link is not ours to keep alive — copy the render into our storage.
-        async with httpx.AsyncClient(timeout=60.0) as http:
-            fetched = await http.get(result_url)
-            fetched.raise_for_status()
-        key = f"renders/{user_id}/{uuid.uuid4()}.jpg"
-        url = await upload_file(fetched.content, key, content_type="image/jpeg")
-        return {"status": "ok", "key": key, "url": url}
+        # No prompt from the user: have the API describe the scene (one cent).
+        # Best-effort — a failed description must not cost the user the render.
+        used_prompt = prompt
+        if not used_prompt:
+            try:
+                used_prompt = await client.auto_prompt(image)
+            except MyArchitectError as exc:
+                logger.warning("render_room_image auto_prompt skipped user=%s: %s", user_id, exc)
+                used_prompt = None
+
+        result_url = await client.render_interior(image, prompt=used_prompt, output_format="jpg")
+        key, url = await _keep_remote_image(user_id, result_url)
+        return {"status": "ok", "key": key, "url": url, "prompt": used_prompt}
     except MyArchitectError as exc:
         logger.error("render_room_image failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
         return {"status": "failed", "error": str(exc), "request_id": exc.request_id}
@@ -269,3 +287,87 @@ async def _render_room_image(user_id: str, source_key: str, content_type: str, p
             await delete_file(source_key)
         except Exception:
             logger.warning("render_room_image: source cleanup failed key=%s", source_key)
+
+
+@app.task(
+    name="app.tasks.media.relight_render",
+    bind=True,
+    queue="media",
+)
+def relight_render(self, user_id: str, render_key: str, lighting: str) -> dict:
+    """Relight a finished render (a stored ``renders/{user}/...`` image) with one
+    of the interior lighting moods. Not retried, for the same reason as
+    ``render_room_image``. The original is kept, so the user can step back."""
+    import asyncio
+
+    return asyncio.run(_relight_render(user_id, render_key, lighting))
+
+
+async def _relight_render(user_id: str, render_key: str, lighting: str) -> dict:
+    from app.core.storage import download_file
+    from app.services.myarchitect import MyArchitectError, get_myarchitect_client, to_data_uri
+
+    try:
+        source = await download_file(render_key)
+        result_url = await get_myarchitect_client().set_atmosphere(to_data_uri(source, "image/jpeg"), lighting)
+        key, url = await _keep_remote_image(user_id, result_url)
+        return {"status": "ok", "key": key, "url": url, "lighting": lighting}
+    except MyArchitectError as exc:
+        logger.error("relight_render failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
+        return {"status": "failed", "error": str(exc), "request_id": exc.request_id}
+    except Exception as exc:
+        logger.exception("relight_render error user=%s", user_id)
+        return {"status": "failed", "error": str(exc)}
+
+
+@app.task(
+    name="app.tasks.media.generate_model_from_photo",
+    bind=True,
+    queue="media",
+)
+def generate_model_from_photo(self, user_id: str, source_key: str, content_type: str) -> dict:
+    """Build a 3D model (GLB) from a furniture photo with Tripo and keep it.
+
+    Takes 1–2 minutes. Not retried: Tripo returns the credits of a failed task, but
+    a retry would be a second charge for what the user asked for once. Failure
+    comes back as ``{"status": "failed", ...}`` for ``GET /jobs/{id}``.
+    """
+    import asyncio
+
+    return asyncio.run(_generate_model_from_photo(user_id, source_key, content_type))
+
+
+async def _generate_model_from_photo(user_id: str, source_key: str, content_type: str) -> dict:
+    import uuid
+
+    import httpx
+
+    from app.core.storage import delete_file, download_file, upload_file
+    from app.services.tripo import TripoError, get_tripo_client
+
+    try:
+        photo = await download_file(source_key)
+        client = get_tripo_client()
+        ext = "png" if content_type == "image/png" else "webp" if content_type == "image/webp" else "jpg"
+        token = await client.upload_image(photo, f"photo.{ext}", content_type)
+        task_id = await client.create_model_from_image(token)
+        task = await client.wait_for_model(task_id)
+
+        # Tripo's CDN link expires — copy the GLB into our storage.
+        async with httpx.AsyncClient(timeout=120.0) as http:
+            fetched = await http.get(task["output"]["model_url"])
+            fetched.raise_for_status()
+        key = f"photo-models/{user_id}/{uuid.uuid4()}.glb"
+        url = await upload_file(fetched.content, key, content_type="model/gltf-binary")
+        return {"status": "ok", "key": key, "url": url, "credits": task.get("credits_consumed")}
+    except TripoError as exc:
+        logger.error("generate_model_from_photo failed user=%s code=%s request_id=%s: %s", user_id, exc.code, exc.request_id, exc)
+        return {"status": "failed", "error": str(exc), "request_id": exc.request_id}
+    except Exception as exc:  # storage / download failures
+        logger.exception("generate_model_from_photo error user=%s", user_id)
+        return {"status": "failed", "error": str(exc)}
+    finally:
+        try:
+            await delete_file(source_key)
+        except Exception:
+            logger.warning("generate_model_from_photo: source cleanup failed key=%s", source_key)
