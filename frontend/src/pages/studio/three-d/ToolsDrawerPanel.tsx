@@ -96,7 +96,6 @@ function QiblaLocation() {
 export function ToolsDrawerPanel({
   menuSlot,
   closeMenu,
-  hasScan, showScan, setShowScan,
   showQibla, setShowQibla,
   sceneLightOn,
   sunHour, setSunHour,
@@ -107,9 +106,6 @@ export function ToolsDrawerPanel({
   menuSlot?: HTMLDivElement | null;
   /** Closes the ⋮ dropdown. Rows that open a sheet call it first. */
   closeMenu?: () => void;
-  hasScan: boolean;
-  showScan: boolean;
-  setShowScan: Dispatch<SetStateAction<boolean>>;
   showQibla: boolean;
   setShowQibla: Dispatch<SetStateAction<boolean>>;
   /** The sun clock only means anything while the sun is the light source. */
@@ -122,32 +118,6 @@ export function ToolsDrawerPanel({
   if (!menuSlot) return null;
   return createPortal(
     <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
-          {/* The LiDAR reference layer: the scan GLB plus a ghost box per
-              detected object, over the modelled room. Only a scanned room has
-              one, so the whole section goes with it. */}
-          {hasScan && (
-            <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Skan</p>
-              <button
-                onClick={() => setShowScan(v => !v)}
-                title={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
-                aria-label={showScan ? uz.studio.skan.korinishi_yoq : uz.studio.skan.korinishi_bor}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                  showScan
-                    ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
-                    : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                }`}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
-                  <path d="M3 12h18" />
-                </svg>
-                <span>{uz.studio.skan.korinishi}</span>
-              </button>
-              {showScan && <p className="mt-2 text-xs text-amber-700">{uz.studio.skan.izoh}</p>}
-            </div>
-          )}
-
           {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
               checking which wall the room's Qibla falls on. */}
           <div className="px-4 py-3">

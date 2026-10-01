@@ -617,9 +617,6 @@ export default function ThreeDPage() {
         <ToolsDrawerPanel
           menuSlot={menuSlot}
           closeMenu={closeMenu}
-          hasScan={hasScan}
-          showScan={showScan}
-          setShowScan={setShowScan}
           showQibla={showQibla}
           setShowQibla={setShowQibla}
           sceneLightOn={sceneLightOn}
