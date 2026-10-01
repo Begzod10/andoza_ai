@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { RoomGeometry } from "@/store/roomStore";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
@@ -46,4 +46,27 @@ export function useWallsBehindCamera(
   });
 
   return hidden;
+}
+
+/**
+ * Runs {@link useWallsBehindCamera} and hands the set to `children`.
+ *
+ * The hook reads the camera through `useFrame`, which only works for a component
+ * rendered INSIDE the <Canvas>. ThreeDCanvasScene is the component that renders
+ * the Canvas, so calling the hook in its own body crashed the whole studio page
+ * ("R3F: Hooks can only be used within the Canvas component"). This wrapper sits
+ * inside the Canvas and passes the result down.
+ */
+export function WallsBehindCamera({
+  geometry,
+  W,
+  D,
+  children,
+}: {
+  geometry: RoomGeometry;
+  W: number;
+  D: number;
+  children: (behind: ReadonlySet<string>) => ReactNode;
+}) {
+  return <>{children(useWallsBehindCamera(geometry, W, D))}</>;
 }

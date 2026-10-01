@@ -27,7 +27,7 @@ import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
-import { useWallsBehindCamera } from "./useWallsBehindCamera";
+import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -124,11 +124,6 @@ export function ThreeDCanvasScene({
   setDpr: Dispatch<SetStateAction<number | [number, number]>>;
   setDeclineCount: Dispatch<SetStateAction<number>>;
 }) {
-  // Which walls the camera is behind. A wall seen from outside is culled and
-  // is not there; everything hung on it is ordinary geometry and stayed in
-  // mid-air, so these layers follow the wall.
-  const behind = useWallsBehindCamera(geometry, W, D);
-
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -270,6 +265,9 @@ export function ThreeDCanvasScene({
           </>
         )}
 
+        <WallsBehindCamera geometry={geometry} W={W} D={D}>
+          {(behind) => (
+            <>
         {/* No phase-forced wall material: entering Suvoq used to force
             the photo-real plaster PBR onto every wall (plasterWalls was
             `activePhase === 'suvoq'`). The default is bare plaster again,
@@ -371,6 +369,9 @@ export function ThreeDCanvasScene({
           // was tapped — the same plumbing the trim runs use.
           openMenu={openOpeningMenu}
         />
+            </>
+          )}
+        </WallsBehindCamera>
         <DraggableLightModels controlsRef={controlsRef} roomW={W} roomD={D} roomH={H} toolMode={toolMode} lightsOn={lightsOn} highQuality={highQuality3d} selectedId={selectedLightId} onSelect={selectLight} />
 
         <RealismEffects enabled={useComposer} />
