@@ -133,10 +133,11 @@ class Settings(BaseSettings):
 
     # MyArchitectAI — photorealistic renders of a studio screenshot. Every call
     # is billed to this one key, so RENDER_DAILY_LIMIT caps each user's renders
-    # per day (0 turns the feature off).
+    # per day (0 turns the feature off). Render, relight and 4K each count one, and
+    # the 360 button renders at once, so one room is several calls: 30 a day.
     MYARCHITECT_API_KEY: str = ""
     MYARCHITECT_API_URL: str = "https://api.myarchitectai.com/v1"
-    RENDER_DAILY_LIMIT: int = 10
+    RENDER_DAILY_LIMIT: int = 30
 
     # ------------------------------------------------------------------ #
     # Application
