@@ -203,16 +203,20 @@ export function ThreeDCanvasScene({
       <DevSceneHandle />
       {/* Return the WebGL context slot immediately on tab switches */}
       <ReleaseGLOnUnmount />
-      {/* Daylight's backdrop is WhiteBackdrop's, below — a flat colour here
-          would simply paint over it. With the scene light switched off there
-          is no daylight at all, so the dark fill still stands in for one. */}
+      {/* Daylight's backdrop is MoonriseSky's, below — a flat colour here
+          would simply paint over the sky. With the scene light switched off
+          there is no daylight at all, so the dark fill still stands in for
+          one. */}
       {!sceneLightOn && <color attach="background" args={["#14171F"]} />}
-      {/* Fog matches the background, or distance reads as a grey halo against
-          white; it relaxes in top view, where the camera legitimately sits
-          far back. */}
+      {/* Fog matches the background, or distance reads as a halo against it —
+          a white fog under the moonrise sky would hang a bright grey veil
+          across a night room, which is why MOONRISE_FOG_COLOR is derived from
+          the same horizon radiance the backdrop is drawn from rather than
+          written down next to it. It relaxes in top view, where the camera
+          legitimately sits far back. */}
       <fog
         attach="fog"
-        args={[sceneLightOn ? BACKDROP_COLOR : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
+        args={[sceneLightOn ? MOONRISE_FOG_COLOR : "#14171F", topView ? 40 : 12, topView ? 120 : 30]}
       />
 
       {/* Infinite workspace grid — only shown in top-down (Yuqori) view */}
@@ -259,11 +263,12 @@ export function ThreeDCanvasScene({
               highQuality={highQuality3d}
               sun={sun}
             />
-            {/* A plain white backdrop, in place of the sky photo that used to
-                stand behind the room and light it. It owns scene.background
-                and the environment both; the sun clock keeps driving the
-                directional light and its shadows above. */}
-            <WhiteBackdrop />
+            {/* The user's moonrise sky, in place of the flat white backdrop
+                that stood behind the room before it. It owns scene.background
+                and scene.environment both, at two different exposures; the sun
+                clock keeps driving the directional light and its shadows
+                above, which is still what actually lights the room. */}
+            <MoonriseSky />
           </>
         )}
         {/* Scene light off: soft ambient + hemisphere fill keep the floor,
