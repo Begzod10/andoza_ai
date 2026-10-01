@@ -14,7 +14,7 @@ from starlette.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import (
-    auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai, meshy,
+    auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
     orders, currency, admin_catalog, room_share, render, photo_model, seller, admin_moderation,
 )
@@ -72,9 +72,6 @@ def create_app() -> FastAPI:
     app.include_router(estimate.estimates_router, prefix="/api/v1", tags=["estimate"])
     app.include_router(draft_rooms.router, prefix="/api/v1", tags=["draft-rooms"])
     app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
-    app.include_router(meshy.router, prefix="/api/v1", tags=["meshy"])
-    # Legacy path: the router was first mounted here, before it joined /api/v1.
-    app.include_router(meshy.router, prefix="/api", include_in_schema=False)
     app.include_router(render.router, prefix="/api/v1", tags=["render"])
     app.include_router(photo_model.router, prefix="/api/v1", tags=["photo-model"])
     app.include_router(seller.router, prefix="/api/v1", tags=["seller"])

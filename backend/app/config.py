@@ -118,10 +118,6 @@ class Settings(BaseSettings):
     AI_MODEL_BUILDER: str = "gpt-4-turbo"
     AI_MODEL_EXPLAINER: str = "gpt-4-mini"
 
-    # Meshy API — Image to 3D conversion
-    MESHY_API_KEY: str = ""
-    MESHY_API_URL: str = "https://api.meshy.ai/openapi/v1"
-
     # Tripo — 3D model from a photo (pay as you go, 1 credit = $0.01; a textured
     # model is ~30 credits). MODEL_FROM_PHOTO_DAILY_LIMIT caps each user's models
     # per day (0 turns the feature off). TRIPO_MODEL must be one of the ids Tripo
