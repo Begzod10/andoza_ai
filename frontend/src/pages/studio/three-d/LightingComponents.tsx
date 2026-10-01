@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -10,43 +10,156 @@ import type { PlacedLight } from "@/store/roomStore";
 import type { ToolMode } from "@/features/studio/StudioFurniture";
 import { lightType, kelvinToHex, lumensToIntensity, type LightType } from "@/lib/lightCatalog";
 import { LightFixture, fixturePose } from "@/components/studio/LightFixtures";
-import { computeDiskLightPositions } from "./helpers";
+import {
+  DEFAULT_LIGHT_COLOR_K,
+  DEFAULT_LIGHT_MAX_EMITTERS_HIGH,
+  DEFAULT_LIGHT_MAX_EMITTERS_LOW,
+  defaultLightIntensity,
+  defaultLightPlan,
+  defaultLightWorldSpots,
+} from "@/lib/defaultRoomLights";
+import { loadDefaultIesSpot, type IesSpotSetup } from "@/lib/iesSpotMap";
 
 /**
- * Ceiling lighting: the auto-placed disk grid, the pooled real-light
+ * Ceiling lighting: the room's own default lamps, the pooled real-light
  * emitters shared by every view, and the draggable user-placed fixtures used
  * by the editor. Split out of ThreeDPage.tsx — see that file's header
  * comment for the full picture.
  */
 
-function CeilingLightDisk({ x, z, height, emit = true }: {
-  x: number; z: number; height: number; emit?: boolean
-}) {
-  return (
-    <group>
-      <mesh position={[x, height - 0.009, z]}>
-        <cylinderGeometry args={[0.068, 0.062, 0.018, 24]} />
-        <meshStandardMaterial color="#BFBBB0" metalness={0.65} roughness={0.28} />
-      </mesh>
-      <mesh position={[x, height - 0.002, z]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.05, 24]} />
-        <meshStandardMaterial
-          color={emit ? "#F0F8FF" : "#707070"}
-          emissive={emit ? "#C8E8FF" : "#000000"}
-          emissiveIntensity={emit ? 1.9 : 0}
-          roughness={1}
-        />
-      </mesh>
-    </group>
-  );
+// ─── Aiming a spot light ──────────────────────────────────────────────────────
+
+/**
+ * Point a spot light somewhere, for real.
+ *
+ * three aims a `SpotLight` at `light.target` and reads that object's
+ * `matrixWorld` (`LightShadow.updateMatrices`) — and an Object3D's
+ * `matrixWorld` is only ever recomputed for objects the renderer walks, which
+ * means objects in the scene graph. A fresh `SpotLight.target` is in nobody's
+ * graph, so it keeps an identity matrix for ever: setting `target.position`,
+ * which is what a `target-position={[...]}` prop does, changes nothing at all
+ * and every spot light in the scene goes on pointing at the world origin. That
+ * was the state of the user-placed spot/IES/downlight fixtures below — a lamp
+ * over the bed lit the middle of the room.
+ *
+ * Parenting the target to the light itself is the fix that needs nothing added
+ * to the scene from outside: it is then in the graph, gets its matrix updated
+ * with everything else, and rides along with the lamp, so `ox`/`oy`/`oz` are
+ * an aim direction in the lamp's own space rather than a world position that
+ * would have to be recomputed every time the lamp moved.
+ */
+function useSpotAim(
+  ref: RefObject<THREE.SpotLight | null>,
+  ox: number,
+  oy: number,
+  oz: number,
+) {
+  useLayoutEffect(() => {
+    const light = ref.current
+    if (!light) return
+    light.target.position.set(ox, oy, oz)
+    light.add(light.target)
+    return () => { light.remove(light.target) }
+  }, [ref, ox, oy, oz])
 }
 
 
-// CeilingLights renders auto-grid ONLY when no user lights are placed.
-// User-placed lights are rendered + made draggable by DraggableLightModels (in Canvas).
-// Real pointLights are pooled: max 4 on highQuality, max 2 on mobile, evenly spread
-// across the fixture grid so total output stays constant regardless of fixture count.
-// Fixture disks always react to lightsOn via emissiveIntensity (uniform visual toggle).
+// ─── The room's own default lamps ─────────────────────────────────────────────
+
+/**
+ * How soft the cone's own edge is.
+ *
+ * Small but not zero. The IES profile has already fallen to 2 cd by 72.5
+ * degrees and to nothing by 75, which is where the cone ends, so there is no
+ * hard edge left for a penumbra to hide and anything larger would only blur a
+ * measured distribution with an invented one. It is not zero because
+ * `getSpotAttenuation` is `smoothstep(coneCos, penumbraCos, angleCos)`, and
+ * with penumbra 0 those two edges are the same number — a case GLSL explicitly
+ * leaves undefined. 0.04 of a 75 degree cone ramps over the last three
+ * degrees, where the fixture emits essentially nothing anyway.
+ */
+const IES_PENUMBRA = 0.04
+
+/**
+ * One default lamp: light, and nothing else.
+ *
+ * The user asked for these to be "invisible directly, in reflections, in
+ * refractions" — Corona/V-Ray light-visibility language for "I want to see
+ * what it lights, not the light". In three.js terms that is satisfied by there
+ * being no emitter geometry at all, which is what this is: a `SpotLight` is an
+ * Object3D with no geometry and no material, so there is nothing to rasterise
+ * for the camera to see directly, nothing for a reflection to find (the scene's
+ * only reflections come from the environment map, which cannot contain scene
+ * objects — there is no SSR and no Reflector in this app), and nothing to show
+ * through a refractive surface (`modelMaterials.ts` converts every imported
+ * `transmission` to plain alpha, so nothing in the scene refracts in the first
+ * place). There is no Bloom in `RealismEffects` either, so nothing to bait.
+ *
+ * What it replaces is the opposite of all three: a metal ring plus a disc of
+ * `#F0F8FF` at `emissiveIntensity` 1.9, which tone-maps to flat white and is
+ * exactly the row of blown-out blobs the user circled on their ceiling.
+ */
+function IesCeilingLamp({
+  position, color, intensity, setup,
+}: {
+  position: [number, number, number]
+  color: string
+  intensity: number
+  setup: IesSpotSetup
+}) {
+  const ref = useRef<THREE.SpotLight>(null)
+  // Straight down. A recessed downlight is not aimable, and the IES file is
+  // axially symmetric, so there is nothing to aim.
+  useSpotAim(ref, 0, -1, 0)
+  return (
+    <spotLight
+      ref={ref}
+      position={position}
+      color={color}
+      intensity={intensity}
+      angle={setup.angleRad}
+      penumbra={IES_PENUMBRA}
+      // The profile and the inverse square are the whole falloff. `distance`
+      // would add a second, invented one — the old defaults cut off at
+      // 1.9 x the room's long side and quietly darkened its far corners — and
+      // it buys nothing in three's forward renderer, which evaluates every
+      // light for every fragment whether it reaches it or not.
+      distance={0}
+      decay={2}
+      map={setup.map}
+      // No shadow map, deliberately. Each shadow-casting spot light is another
+      // full render of the scene every frame, and this one would be a VSM pass
+      // (`shadows="soft"`) over a scene that already pays for the sun's 2048
+      // map at radius 15, ContactShadows every frame and `castShadow` on every
+      // mesh of every imported model. The sun's shadows plus the contact
+      // shadows plus N8AO already ground everything in the room; what is lost
+      // is furniture casting its own shadow from the ceiling lamps, which is
+      // not worth two to four extra scene passes to a user who is already
+      // reporting the studio as slow.
+      castShadow={false}
+      // The map is sampled through the light's shadow camera even with the
+      // shadow itself off, so a fragment nearer than that camera's near plane
+      // falls outside the map and would be lit WITHOUT the profile. Pulling
+      // the plane in to 5 cm keeps everything below the ceiling inside it.
+      // `shadow.mapSize` is deliberately left at its square 512 default: the
+      // camera's aspect comes from it, and the radial profile in
+      // `iesSpotMapField` is built for aspect 1.
+      shadow-camera-near={0.05}
+    />
+  )
+}
+
+/**
+ * The lamps a room has before the user places any.
+ *
+ * Stands down entirely as soon as there is a user-placed fixture, as it always
+ * has — `DraggableLightModels` / `PlacedLights` take over then.
+ *
+ * `geometry` comes from the store rather than from a prop so this stays a
+ * drop-in for `RoomScene`, which already renders it with the room's W/D/H;
+ * those are passed on as the extents fallback, which is what `roomExtents`
+ * wants for a room whose geometry carries no usable walls.
+ */
 export function CeilingLights({
   width, depth, height, lightsOn, highQuality,
 }: {
@@ -55,48 +168,67 @@ export function CeilingLights({
   highQuality: boolean;
 }) {
   const userLightsCount = useRoomStore((s) => s.lights.length);
-  const autoPositions = useMemo(
-    () => computeDiskLightPositions(width, depth),
-    [width, depth],
-  );
+  const geometry = useRoomStore((s) => s.geometry);
+  const setup = useIesSpotProfile();
 
-  if (userLightsCount > 0) return null;
+  const maxEmitters = highQuality
+    ? DEFAULT_LIGHT_MAX_EMITTERS_HIGH
+    : DEFAULT_LIGHT_MAX_EMITTERS_LOW;
 
-  const spread = Math.max(width, depth) * 1.9;
-  const nLights = highQuality
-    ? Math.min(4, autoPositions.length)
-    : Math.min(2, autoPositions.length);
-  const perIntensity = 1.6 / Math.max(1, nLights);
+  const lamps = useMemo(() => {
+    const plan = defaultLightPlan(geometry, maxEmitters, { W: width, D: depth });
+    // `ideal` is how many the floor wants and `spots.length` how many it got;
+    // the intensity carries the difference, so capping the emitter count
+    // changes how the light is distributed and not how much there is.
+    return { spots: defaultLightWorldSpots(plan), ideal: plan.ideal };
+  }, [geometry, maxEmitters, width, depth]);
 
-  // Pick evenly-spaced positions from the auto-grid for the real pointLights
-  const poolPositions: [number, number][] = [];
-  if (autoPositions.length > 0 && nLights > 0) {
-    const step = autoPositions.length / nLights;
-    for (let k = 0; k < nLights; k++) {
-      const idx = Math.min(Math.round(k * step), autoPositions.length - 1);
-      poolPositions.push(autoPositions[idx]);
-    }
-  }
+  // Nothing to draw with the lights off: with the fixtures gone there is no
+  // body left to render dark, which is the point of them being invisible.
+  if (userLightsCount > 0 || !lightsOn || !setup) return null;
+
+  // 6500 K, as the user asked for — see DEFAULT_LIGHT_COLOR_K, which also
+  // records why this is a constant of the default array rather than a change
+  // to the catalogue's own `ies` fixture.
+  const color = kelvinToHex(DEFAULT_LIGHT_COLOR_K);
+  const intensity = defaultLightIntensity(setup.lumens, lamps.ideal, lamps.spots.length);
 
   return (
     <group>
-      {/* Emissive disks — always rendered, brightness follows lightsOn */}
-      {autoPositions.map(([x, z], i) => (
-        <CeilingLightDisk key={i} x={x} z={z} height={height} emit={lightsOn} />
-      ))}
-      {/* Pooled real pointLights — only when on */}
-      {lightsOn && poolPositions.map(([x, z], k) => (
-        <pointLight
-          key={k}
-          position={[x, height - 0.06, z]}
-          color="#D8EEFF"
-          intensity={perIntensity}
-          distance={spread}
-          decay={2}
+      {lamps.spots.map((p, i) => (
+        <IesCeilingLamp
+          key={i}
+          // Just below the ceiling plane: the aperture of a recessed fixture
+          // sits flush with it, and a few centimetres of clearance keeps the
+          // ceiling itself out of the lamp's own near plane.
+          position={[p.x, height - 0.05, p.z]}
+          color={color}
+          intensity={intensity}
+          setup={setup}
         />
       ))}
     </group>
   );
+}
+
+/**
+ * The shipped IES profile, once it has arrived.
+ *
+ * Deliberately not a Suspense resource: suspending here would blank the whole
+ * `<RoomScene>` subtree it is mounted in behind `ThreeDCanvasScene`'s `null`
+ * fallback. Until the 622-byte file has been fetched and its profile texture
+ * built, the room renders with the sun and the ambient fill it already has and
+ * simply gains its lamps a frame later — which is less jarring than a flash of
+ * a hard-edged 75 degree cone with no profile in it.
+ */
+function useIesSpotProfile(): IesSpotSetup | null {
+  const [setup, setSetup] = useState<IesSpotSetup | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadDefaultIesSpot().then((s) => { if (alive) setSetup(s); });
+    return () => { alive = false };
+  }, []);
+  return setup;
 }
 
 
@@ -145,20 +277,24 @@ function PooledLightEmitters({
           const yaw = l.rotation ?? 0
           const reach = Math.max(1.5, pose.y)
           return (
-            <spotLight
+            <AimedSpotEmitter
               key={k}
               position={[pose.x, pose.y - 0.05, pose.z]}
-              target-position={[
-                pose.x + Math.sin(tilt) * Math.sin(yaw) * reach,
-                Math.max(0, pose.y - reach),
-                pose.z + Math.sin(tilt) * Math.cos(yaw) * reach,
+              // The aim as an offset in the lamp's own space, which is what
+              // `useSpotAim` needs — the absolute target position this used to
+              // pass never took effect at all, see that hook. Same geometry as
+              // before: straight down by `reach`, swung out by the fixture's
+              // tilt in the direction its body is yawed to.
+              aim={[
+                Math.sin(tilt) * Math.sin(yaw) * reach,
+                Math.max(0, pose.y - reach) - (pose.y - 0.05),
+                Math.sin(tilt) * Math.cos(yaw) * reach,
               ]}
               color={color}
               intensity={intensity * 2.2}
               angle={THREE.MathUtils.degToRad(beam) / 2}
               penumbra={0.45}
               distance={spread}
-              decay={2}
             />
           )
         }
@@ -174,6 +310,42 @@ function PooledLightEmitters({
         )
       })}
     </>
+  )
+}
+
+
+/**
+ * A pooled emitter for a user-placed fixture that has a beam angle.
+ *
+ * A component of its own only because the aim needs a ref, and a ref needs
+ * something to be a component — see `useSpotAim` for why the aim cannot just
+ * be a prop. The fixture's own body is still drawn, by `LightFixture`; it is
+ * only the default array that has no visible emitter.
+ */
+function AimedSpotEmitter({
+  position, aim, color, intensity, angle, penumbra, distance,
+}: {
+  position: [number, number, number]
+  aim: [number, number, number]
+  color: string
+  intensity: number
+  angle: number
+  penumbra: number
+  distance: number
+}) {
+  const ref = useRef<THREE.SpotLight>(null)
+  useSpotAim(ref, aim[0], aim[1], aim[2])
+  return (
+    <spotLight
+      ref={ref}
+      position={position}
+      color={color}
+      intensity={intensity}
+      angle={angle}
+      penumbra={penumbra}
+      distance={distance}
+      decay={2}
+    />
   )
 }
 

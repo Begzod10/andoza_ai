@@ -78,39 +78,15 @@ export function boardSegments(
 }
 
 
-// ─── Ceiling disk lights ──────────────────────────────────────────────────────
-
-export function computeDiskLightPositions(W: number, D: number): [number, number][] {
-  const minSpacing = 0.6;
-  const usableX = W * 0.5;  // 25% offset from each side wall
-  const usableZ = D * 0.5;
-  const maxNx = Math.max(1, Math.floor(usableX / minSpacing) + 1);
-  const maxNz = Math.max(1, Math.floor(usableZ / minSpacing) + 1);
-  const target = Math.max(1, Math.round((W * D) / 4));
-  const aspect = W / D;
-
-  let bestNx = 1, bestNz = 1, bestScore = Infinity;
-  for (let nx = 1; nx <= Math.min(target, maxNx); nx++) {
-    for (const nz of [Math.round(target / nx), Math.ceil(target / nx)]) {
-      if (nz < 1 || nz > maxNz) continue;
-      const spacingX = nx === 1 ? Infinity : usableX / (nx - 1);
-      const spacingZ = nz === 1 ? Infinity : usableZ / (nz - 1);
-      if (spacingX < minSpacing || spacingZ < minSpacing) continue;
-      const score = Math.abs(Math.log((nx / nz) / aspect)) + Math.abs(nx * nz - target) / target * 0.5;
-      if (score < bestScore) { bestScore = score; bestNx = nx; bestNz = nz; }
-    }
-  }
-
-  const positions: [number, number][] = [];
-  for (let ix = 0; ix < bestNx; ix++) {
-    const x = bestNx === 1 ? 0 : -usableX / 2 + ix * (usableX / (bestNx - 1));
-    for (let iz = 0; iz < bestNz; iz++) {
-      const z = bestNz === 1 ? 0 : -usableZ / 2 + iz * (usableZ / (bestNz - 1));
-      positions.push([x, z]);
-    }
-  }
-  return positions;
-}
+// ─── Ceiling lights ───────────────────────────────────────────────────────────
+// The room's default ceiling lamps used to be laid out here, by a
+// `computeDiskLightPositions(W, D)` that only ever saw the room's bounding box
+// and built a grid about the world origin — right for a legacy A-B-C-D
+// rectangle, wrong for every drawn or scanned polygon, whose outline is
+// centred on its vertex mean instead. That, plus the way a handful of the grid
+// were pooled into real lights, is what the user saw as lamps "bunched into a
+// corner". The layout now comes from the room's real outline; it lives in
+// `lib/defaultRoomLights.ts`, with tests, and is rendered by `CeilingLights`.
 
 
 // ─── Draggable electrical items (3D) ─────────────────────────────────────────
