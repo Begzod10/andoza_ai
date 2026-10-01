@@ -38,6 +38,13 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Activate a freshly-deployed service worker immediately and take
+        // control of open tabs, instead of waiting for every tab to close.
+        // Combined with registerType:"autoUpdate" above, this means a new
+        // deploy reaches users on their next load — no stale cached build,
+        // no manual hard refresh.
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
         // The three-vendor / react-three-vendor chunks (Three.js + R3F
         // ecosystem, 1MB+ combined) are only needed by the lazy-loaded 3D
