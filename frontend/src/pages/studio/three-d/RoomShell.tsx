@@ -241,6 +241,7 @@ function NWallRoomShell({
   holdBind,
   cutaway = 'off',
   plasterWalls = false,
+  hiddenAttachments,
 }: {
   geometry: RoomGeometry;
   H: number;
@@ -261,6 +262,10 @@ function NWallRoomShell({
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
   cutaway?: CutawayMode;
   plasterWalls?: boolean;
+  /** Walls the camera stands behind. The WALL itself needs no help — it is a
+   *  single-sided plane and culls on its own — but everything hung on it is
+   *  ordinary geometry and stayed in mid-air once the wall had gone. */
+  hiddenAttachments?: ReadonlySet<string>;
 }) {
   // Skirting: undefined means the user never touched it, which still renders
   // the default board; only an explicit null takes it off.
@@ -592,7 +597,10 @@ function NWallRoomShell({
                 onClick={() => onWallClick?.(e.wallId)}
                 panelSettings={resolveWallPanel(designState.wallPanels, e.wallId)}
               />
-              {resolvedEls.map((el) =>
+              {/* The wall is a single-sided plane and culls on its own from
+                  outside; its casings are not, so they go with it rather than
+                  hanging in the air where it was. */}
+              {!hiddenAttachments?.has(e.wallId) && resolvedEls.map((el) =>
                 el.type === 'eshik' ? (
                   <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
                 ) : (
@@ -604,7 +612,7 @@ function NWallRoomShell({
                   its profile toward the room — yaw 0 when the room is on the
                   local +Z side, π when it is not (which also reverses local
                   +X, hence the swapped mitre flags). */}
-              {cornice && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
+              {cornice && !hiddenAttachments?.has(e.wallId) && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
                 const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
                 const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
                 const fwd = e.faceDir > 0;
@@ -623,7 +631,7 @@ function NWallRoomShell({
                   />
                 );
               })}
-              {trim && baseSegs.map((s, si) => {
+              {trim && !hiddenAttachments?.has(e.wallId) && baseSegs.map((s, si) => {
                 const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
                 const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
                 const fwd = e.faceDir > 0;
@@ -674,6 +682,7 @@ export const RoomScene = memo(function RoomScene({
   onCorniceClick,
   holdBind,
   plasterWalls = false,
+  hiddenAttachments,
 }: {
   room: Room;
   geometry: RoomGeometry;
@@ -703,6 +712,11 @@ export const RoomScene = memo(function RoomScene({
   holdBind?: (surface: RadialSurface, wallId?: string) => Record<string, unknown>;
   /** Suvoq bosqichi ko'rinishi: barcha devorlar photo-real plaster bilan */
   plasterWalls?: boolean;
+  /** Walls the camera stands behind. The WALL itself needs no help — it is a
+   *  single-sided plane and culls on its own — but its door, its window, its
+   *  skirting and its faceplates are ordinary geometry, and hung in mid-air
+   *  once the wall had gone. */
+  hiddenAttachments?: ReadonlySet<string>;
 }) {
   // Legacy 4-wall ABCD rectangle — use the existing precise rendering.
   // Any other layout (N-wall from RoomPlan) uses NWallRoomShell.
@@ -820,7 +834,13 @@ export const RoomScene = memo(function RoomScene({
   const ceilingRef = useRef<THREE.Mesh | null>(null)
 
   // Cutaway: which walls are currently hidden (camera-facing ones)
-  const hiddenWalls = useHiddenWalls(cutaway)
+  const cutawayHidden = useHiddenWalls(cutaway)
+  // Fading a wall is the cutaway's business; hiding what hangs on it is also
+  // the camera's, since a culled wall leaves its door behind.
+  const hiddenWalls = useMemo(
+    () => new Set([...cutawayHidden, ...(hiddenAttachments ?? [])]),
+    [cutawayHidden, hiddenAttachments],
+  )
 
   // Skirting: `undefined` is "never touched", which still draws the default
   // board so rooms designed before the picker existed are unchanged; only an
@@ -932,7 +952,7 @@ export const RoomScene = memo(function RoomScene({
 
           {/* All walls re-enabled */}
           {/* Wall A — back, inner width W only, inner face at z = -D/2 */}
-          <WallFade hidden={hiddenWalls.has('A')}>
+          <WallFade hidden={cutawayHidden.has('A')}>
             <group {...(holdBind?.('wall', 'A') ?? {})}>
               <Wall plaster={plasterWalls} wallId="A" length={W} height={H} thickness={T} covering={coveringA}
                 elements={wallA?.elements ?? EMPTY_ELEMENTS} axis="X" cx={0} cz={-(D / 2 + T / 2)}
@@ -942,7 +962,7 @@ export const RoomScene = memo(function RoomScene({
           </WallFade>
 
           {/* Wall B — right, full outer depth D+2T (owns corners), inner face at x = +W/2 */}
-          <WallFade hidden={hiddenWalls.has('B')}>
+          <WallFade hidden={cutawayHidden.has('B')}>
             <group {...(holdBind?.('wall', 'B') ?? {})}>
               <Wall plaster={plasterWalls} wallId="B" length={D + 2 * T} height={H} thickness={T} covering={coveringB}
                 elements={elementsBOuter} axis="Z" cx={W / 2 + T / 2} cz={0}
@@ -952,7 +972,7 @@ export const RoomScene = memo(function RoomScene({
           </WallFade>
 
           {/* Wall C — front, inner width W only, inner face at z = +D/2 */}
-          <WallFade hidden={hiddenWalls.has('C')}>
+          <WallFade hidden={cutawayHidden.has('C')}>
             <group {...(holdBind?.('wall', 'C') ?? {})}>
               <Wall plaster={plasterWalls} wallId="C" length={W} height={H} thickness={T} covering={coveringC}
                 elements={wallC?.elements ?? EMPTY_ELEMENTS} axis="X" cx={0} cz={D / 2 + T / 2}
@@ -962,7 +982,7 @@ export const RoomScene = memo(function RoomScene({
           </WallFade>
 
           {/* Wall D — left, full outer depth D+2T (owns corners), inner face at x = -W/2 */}
-          <WallFade hidden={hiddenWalls.has('D')}>
+          <WallFade hidden={cutawayHidden.has('D')}>
             <group {...(holdBind?.('wall', 'D') ?? {})}>
               <Wall plaster={plasterWalls} wallId="D" length={D + 2 * T} height={H} thickness={T} covering={coveringD}
                 elements={elementsDOuter} axis="Z" cx={-(W / 2 + T / 2)} cz={0}

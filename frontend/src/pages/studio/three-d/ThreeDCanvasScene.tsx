@@ -27,6 +27,7 @@ import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, WhiteBackdrop, BACKDROP_COLOR } from "./SceneEnvironment";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
+import { useWallsBehindCamera } from "./useWallsBehindCamera";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom } from "@/lib/orbitZoom";
@@ -123,6 +124,11 @@ export function ThreeDCanvasScene({
   setDpr: Dispatch<SetStateAction<number | [number, number]>>;
   setDeclineCount: Dispatch<SetStateAction<number>>;
 }) {
+  // Which walls the camera is behind. A wall seen from outside is culled and
+  // is not there; everything hung on it is ordinary geometry and stayed in
+  // mid-air, so these layers follow the wall.
+  const behind = useWallsBehindCamera(geometry, W, D);
+
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -296,6 +302,7 @@ export function ThreeDCanvasScene({
           isCorniceSelected={selectedWall === 'CORNICE'}
           onCorniceClick={(e) => trimTap('cornice').onClick(e)}
           holdBind={holdBind}
+          hiddenAttachments={behind}
         />
         {/* Interactive window/door editing layer (select → toolbar → drag
             with live meter labels + Canva-style snap guides). */}
@@ -310,6 +317,7 @@ export function ThreeDCanvasScene({
           removeElement={removeElement}
           onInteracting={(active) => { if (controlsRef.current) controlsRef.current.enabled = !active; }}
           openMenu={openOpeningMenu}
+          hiddenWalls={behind}
           armedId={armedOpeningId}
         />
         <SwapButtons W={W} D={D} H={H} />
@@ -348,12 +356,13 @@ export function ThreeDCanvasScene({
           onReplace={setScanSwap}
         />
         <QiblaMarker W={W} D={D} visible={showQibla} />
-        <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} />
+        <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} hiddenWalls={behind} />
         <OpeningLayer
           geometry={geometry}
           W={W}
           D={D}
           cutaway={topView ? 'off' : cutaway}
+          hiddenWalls={behind}
           toolMode={toolMode}
           controlsRef={controlsRef}
           selectedId={selectedDoorId}

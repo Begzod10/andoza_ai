@@ -240,7 +240,7 @@ export function SiblingRooms({
 /** Mounts the interactive 3D doors and windows. The wrapper is what lets the
  *  cutaway hook run inside the Canvas while its controls live on the page. */
 export function OpeningLayer({
-  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect, openMenu,
+  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect, openMenu, hiddenWalls: alsoHidden,
 }: {
   geometry: RoomGeometry;
   W: number;
@@ -252,8 +252,14 @@ export function OpeningLayer({
   onSelect: (id: string | null) => void;
   /** Opens the tapped opening's own ring — see DoorLeaves' `openMenu`. */
   openMenu?: (kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void;
+  /** Walls the camera is behind. A culled wall takes its door with it. */
+  hiddenWalls?: ReadonlySet<string>;
 }) {
-  const hiddenWalls = useHiddenWalls(cutaway);
+  const cutawayHidden = useHiddenWalls(cutaway);
+  const hiddenWalls = useMemo(
+    () => new Set([...cutawayHidden, ...(alsoHidden ?? [])]),
+    [cutawayHidden, alsoHidden],
+  );
   const shared = {
     geometry,
     wallWidth: W,

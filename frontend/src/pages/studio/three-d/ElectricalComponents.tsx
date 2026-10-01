@@ -136,10 +136,13 @@ function DraggableElectricalItem({
 
 
 export function DraggableElectricalModels({
-  controlsRef, W, D,
+  controlsRef, W, D, hiddenWalls,
 }: {
   controlsRef: React.RefObject<OrbitControlsImpl | null>
   W: number; D: number
+  /** Walls the camera is behind. Their faceplates go with them — a socket
+   *  hanging in mid-air where its wall was is worse than no socket. */
+  hiddenWalls?: ReadonlySet<string>
 }) {
   const { bind: holdBind } = useHoldToDelete()
   const electricals = useRoomStore(s => s.electricals)
@@ -236,7 +239,7 @@ export function DraggableElectricalModels({
   if (electricals.length === 0) return null
   return (
     <>
-      {electricals.map(el => (
+      {electricals.filter(el => !hiddenWalls?.has(el.wallId)).map(el => (
         <DraggableElectricalItem
           key={el.id}
           el={el} W={W} D={D} polyDefs={polyDefs}
