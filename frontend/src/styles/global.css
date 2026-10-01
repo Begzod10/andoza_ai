@@ -138,6 +138,21 @@
     --color-app-bg: #2a2438;
   }
 
+  /* Text that sits straight on the app background (a page heading, a section
+     title) rather than inside a white card. The toggle recolours only the
+     background, so such text needs its own pair of colours or it goes
+     dark-on-dark at night. Contrast: day ~12:1 / ~6.5:1 muted, night ~13:1 /
+     ~8:1 muted. */
+  :root,
+  :root[data-app-theme='day'] {
+    --color-on-app: #1f2937;
+    --color-on-app-muted: #4b5563;
+  }
+  :root[data-app-theme='night'] {
+    --color-on-app: #f4effb;
+    --color-on-app-muted: #c4b8d9;
+  }
+
   /* Focus states for accessibility */
   :focus-visible {
     outline: 2px solid var(--color-primary);
@@ -380,6 +395,16 @@
    over Tailwind's @layer utilities `.bg-paper`. */
 .bg-paper {
   background-color: var(--color-app-bg);
+}
+/* Unlayered like .bg-paper, so they win over a stray text-neutral-* on the element. */
+.text-on-app {
+  color: var(--color-on-app);
+}
+.text-on-app-muted {
+  color: var(--color-on-app-muted);
+}
+.hover\:text-on-app:hover {
+  color: var(--color-on-app);
 }
 
 /* ── Custom 3D cursor across the whole app ─────────────────────────────────

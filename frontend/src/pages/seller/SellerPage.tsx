@@ -74,8 +74,10 @@ export default function SellerPage() {
   return (
     <div className="min-h-screen bg-paper pb-24">
       <div className="max-w-4xl mx-auto p-4 space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} aria-label="Orqaga" className="h-9 w-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500">‹</button>
+        {/* Text sits on white, not on the page: the night theme recolours only the
+            background, so loose dark text there would vanish. */}
+        <div className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2 shadow-subtle">
+          <button onClick={() => navigate(-1)} aria-label="Orqaga" className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">‹</button>
           <h1 className="text-lg font-semibold text-neutral-900">Sotuvchi paneli</h1>
         </div>
 
@@ -123,7 +125,7 @@ export default function SellerPage() {
 
             {store.status === "approved" && (
               <section className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-2.5 shadow-subtle">
                   <h2 className="text-base font-semibold text-neutral-900">
                     3D modellar{modelsQuery.data ? ` (${modelsQuery.data.total})` : ""}
                   </h2>

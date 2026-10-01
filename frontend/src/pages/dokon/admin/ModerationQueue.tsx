@@ -51,7 +51,7 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
 
   return (
     <section className="space-y-3" aria-label="Ko'rib chiqishni kutayotganlar">
-      <h2 className="text-base font-semibold text-neutral-800">
+      <h2 className="text-base font-semibold text-on-app">
         Ko'rib chiqishni kutmoqda <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{total}</span>
       </h2>
 

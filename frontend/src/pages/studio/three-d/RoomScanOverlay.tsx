@@ -345,15 +345,15 @@ function ScanGhostBox({
             onClick={() => onActivate(index)}
             style={{
               pointerEvents: "all",
-              width: 16,
-              height: 16,
+              width: 20,
+              height: 20,
               padding: 0,
               borderRadius: "50%",
-              border: "1.5px solid rgba(255,251,235,0.95)",
+              border: "2px solid rgba(255,251,235,0.95)",
               background: GHOST_COLOR,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
               cursor: "pointer",
               display: "block",
+              animation: "scanGhostPulse 2.2s ease-in-out infinite",
             }}
           />
         ) : (
@@ -442,6 +442,20 @@ export function RoomScanReference({
   if (!visible || !roomScan) return null;
   return (
     <group>
+      {/* One-time keyframes for the collapsed ghost dots' pulse — a scanned
+          room can carry 15-20 objects, so the dot itself has to stay tiny
+          (see ScanGhostBox), and a static tiny dot was easy to miss entirely.
+          A slow glow pulse makes "there's something tappable here" readable
+          at a glance without expanding into the clutter the dot was built to
+          avoid. Html wrapper because this is DOM/CSS, not a Three.js node. */}
+      <Html prepend zIndexRange={[0, 0]} style={{ pointerEvents: "none" }}>
+        <style>{`
+          @keyframes scanGhostPulse {
+            0%, 100% { box-shadow: 0 1px 4px rgba(0,0,0,0.35), 0 0 0 0 rgba(245,158,11,0.55); }
+            50% { box-shadow: 0 1px 4px rgba(0,0,0,0.35), 0 0 0 7px rgba(245,158,11,0); }
+          }
+        `}</style>
+      </Html>
       {roomScan.glb_path && <ScanGlbOverlay roomId={roomId} offset={offset} />}
       {roomScan.objects.map((obj, i) =>
         replaced.has(i) ? null : (
