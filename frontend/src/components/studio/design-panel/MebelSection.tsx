@@ -12,7 +12,9 @@ import { useGLTF } from "@react-three/drei";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
 import type { GlbMaterialInfo } from "@/lib/modelConverter";
 import { furniturePlacementMm } from "@/lib/placement";
-import { deleteUserModel, updateUserModel } from "@/lib/api";
+import { deleteUserModel, getStores, updateUserModel } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { StoreContactLinks } from "@/components/studio/StoreContactLinks";
 
 /**
  * One row of the material editor. Accepts image drops so a texture can be
@@ -87,6 +89,8 @@ interface ModelCardEntry {
   /** Shop name badge — only set (and only meaningful) when isShop is true;
    *  null for a shop model an admin hasn't assigned to any store. */
   storeName?: string | null;
+  /** How to reach that shop (phone / Telegram) — shop models only. */
+  storeContact?: { phone: string | null; telegram: string | null } | null;
 }
 
 /**
@@ -152,6 +156,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
             {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
           </p>
         )}
+        {entry.isShop && <StoreContactLinks store={entry.storeContact} />}
         {entry.isUser && onRecategorize && (
           <select
             value={entry.category ?? 'boshqa'}
@@ -250,6 +255,9 @@ export function MebelSection() {
   const setUserFurniturePlacement = useRoomStore((s) => s.setUserFurniturePlacement);
   const setUserFurniturePrice = useRoomStore((s) => s.setUserFurniturePrice);
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture);
+  // Public shop details, to put a call / Telegram shortcut on each shop's models.
+  const { data: shops = [] } = useQuery({ queryKey: ['stores'], queryFn: getStores, staleTime: 5 * 60_000 });
+  const shopById = new Map(shops.map((st) => [st.id, st]));
   const geometry = useRoomStore((s) => s.geometry);
 
   const [colorEditorId, setColorEditorId] = React.useState<string | null>(null);
@@ -370,6 +378,7 @@ export function MebelSection() {
       category: f.category as FurnitureCategory,
       priceUzs: f.price_uzs ?? undefined,
       storeName: f.store_name,
+      storeContact: f.store_id ? shopById.get(f.store_id) ?? null : null,
     })),
   ]
 
