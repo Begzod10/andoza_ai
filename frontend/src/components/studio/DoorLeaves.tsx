@@ -12,7 +12,7 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { OPENING_REVEAL_D, WINDOW_SASH_RECESS, noRaycast } from "@/pages/studio/three-d/constants";
+import { WINDOW_SASH_RECESS, noRaycast } from "@/pages/studio/three-d/constants";
 import { DOOR_IVORY, doorStyle, panelFlutes } from "@/lib/doorStyles";
 import { buildPanelGeometry, innerPanel } from "@/lib/doorPanelGeometry";
 
@@ -24,15 +24,21 @@ const LEAF_T = 0.04; // leaf thickness in metres
 /** The sheet's door furniture is brass, not the chrome the studio drew. */
 const BRASS = "#B8985A";
 /**
- * How far OUT of the room (along the wall normal) the door leaf — and with it
- * its hinge axis — is pushed, so the leaf hangs at the outer edge of the
- * 200 mm reveal WallComponents cuts around the opening, exactly as the window
- * glass hangs at the outer edge of its own reveal. Derived from LEAF_T so the
- * leaf's OUTER face lands flush with the reveal's exterior face and nothing
- * pokes out the far side of the wall; a door leaf is a real slab, so unlike a
- * window sash it keeps its thickness and cannot use WINDOW_SASH_RECESS.
+ * How far behind the room's wall face a closed leaf sits.
+ *
+ * A door is hung at the ROOM end of its opening, in a lining just inside the
+ * architrave — not at the far end of it. The leaf used to hang at the outer
+ * edge of the 200 mm reveal, like the window glass does, which left a 200 mm
+ * shaft of jamb between the casing and the door: from any angle but dead-on
+ * the two read as two separate things, which is what "there is some offset
+ * between door and frame" was.
+ *
+ * 12 mm, so the leaf sits just behind the 10 mm architrave standing proud of
+ * the wall — the step a fitted door actually has. A window keeps its own
+ * setback: a sash IS deep in the reveal, which is why the two differ.
  */
-const DOOR_LEAF_RECESS = OPENING_REVEAL_D - LEAF_T / 2;
+const DOOR_LEAF_SETBACK = 0.012;
+const DOOR_LEAF_RECESS = DOOR_LEAF_SETBACK + LEAF_T / 2;
 
 /**
  * How deep in the niche the room-facing surface of a closed leaf or sash sits,
