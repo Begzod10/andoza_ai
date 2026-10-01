@@ -1058,7 +1058,8 @@ function OpeningReveal({
   /** Bottom surface: a windowsill for a window, the doorway floor for a door.
    *  Both close the bottom of the niche — without one you see straight through
    *  the 200 mm gap, since the room's floor stops at the wall plane. */
-  floorMat: React.ReactElement;
+  /** Omit where another layer floors the opening — see the bottom plane. */
+  floorMat?: React.ReactElement;
 }) {
   const R = OPENING_REVEAL_D;
   return (
@@ -1082,11 +1083,16 @@ function OpeningReveal({
       </mesh>
 
       {/* Bottom — faces up, flush with the opening's own bottom (no ledge past
-          the reveal's inner edge: that overhang was rejected on the window) */}
-      <mesh position={[0, 0, -R / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
-        <planeGeometry args={[w, R]} />
-        {floorMat}
-      </mesh>
+          the reveal's inner edge: that overhang was rejected on the window).
+          Omitted where something else floors the niche: a doorway is carpeted
+          by the room's own laying pattern now, and two floors at one height
+          is a pale band across the threshold and a z-fight behind it. */}
+      {floorMat && (
+        <mesh position={[0, 0, -R / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow={false} receiveShadow>
+          <planeGeometry args={[w, R]} />
+          {floorMat}
+        </mesh>
+      )}
     </group>
   );
 }
@@ -1202,6 +1208,7 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   const [px, py, pz] = frameGroupOrigin(wd, el);
   const { out, revealYaw, v } = openingAxes(wd);
 
+  const hasPattern = !!useRoomStore((st) => st.designState.floorPattern);
   // The casing is painted with the door, so it follows the leaf's colour.
   const leafColor = el.leafColor ?? DOOR_IVORY;
   // Where the casing's legs stand: on the skirting, or on the floor when the
@@ -1223,9 +1230,13 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
           room's floor plane stops at the wall, so without this you would see
           straight through the 200 mm gap under the leaf. Threshold tone, flush
           with floor level — a plate to walk over, never a step up. */}
+      {/* The doorway's floor comes from the room's own laying pattern
+          (DoorwayFloors), which continues the real planks or tiles through the
+          opening. Only a floor with no pattern — a plain colour or a single
+          image — still needs a patch of its own here. */}
       <OpeningReveal
         w={elW} h={elH} yaw={revealYaw}
-        floorMat={<DoorwayFloorMat wM={elW} dM={OPENING_REVEAL_D} />}
+        floorMat={hasPattern ? undefined : <DoorwayFloorMat wM={elW} dM={OPENING_REVEAL_D} />}
       />
 
       {/* Left frame */}
