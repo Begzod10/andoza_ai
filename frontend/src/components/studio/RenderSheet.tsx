@@ -51,6 +51,9 @@ export function RenderSheet({
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
   const [generated, setGenerated] = useState(false)
+  // The description is written for the user and rarely touched, so its box
+  // stays folded away until asked for — the panorama gets the room instead.
+  const [editPrompt, setEditPrompt] = useState(false)
   const [phase, setPhase] = useState<Phase>("idle")
   const [versions, setVersions] = useState<Version[]>([])
   const [active, setActive] = useState(0)
@@ -115,7 +118,8 @@ export function RenderSheet({
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt, roomId)
       const outcome = await waitForRender(job_id, controller.signal)
-      setVersions([{ url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }])
+      const first: Version = { url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }
+      setVersions([first])
       setActive(0)
       // The prompt the picture was actually made from: when the user wrote none
       // this is the generated one, ready to edit for the next go (and sent as
@@ -125,6 +129,10 @@ export function RenderSheet({
         setGenerated(true)
       }
       setPhase("done")
+      // A 360° picture spreads its pixels over the whole room, so the first
+      // render is too soft to look around in. The 4K copy is made at once and
+      // takes its place — the user can already turn the first one meanwhile.
+      void upscale(first, 1)
     } catch (err) {
       if (controller.signal.aborted) return
       setError(errorMessage(err))
@@ -157,10 +165,11 @@ export function RenderSheet({
     }
   }
 
-  /** A 4K copy of the picture being shown — sharper to zoom into, and what a
-   *  panorama wants, since a 360° picture spreads its pixels over the whole room. */
-  async function upscale() {
-    const base = versions[active]
+  /** A 4K copy of a picture — sharper to zoom into, and what a panorama wants.
+   *  By default the one being shown; `start` passes the render it has just made
+   *  (and how many versions exist) because state has not caught up with it yet.
+   *  Never wire this straight to onClick: React would pass the event as `base`. */
+  async function upscale(base: Version | undefined = versions[active], count: number = versions.length) {
     if (!base || base.upscaled || phase === "relighting" || phase === "upscaling") return
     setRelightError("")
     abortRef.current?.abort()
@@ -175,7 +184,7 @@ export function RenderSheet({
         panorama: base.panorama, upscaled: true,
       }
       setVersions((v) => [...v, next])
-      setActive(versions.length)
+      setActive(count)
     } catch (err) {
       if (controller.signal.aborted) return
       setRelightError(errorMessage(err))
@@ -198,8 +207,10 @@ export function RenderSheet({
             "fixed z-[80] bg-white shadow-2xl outline-none flex flex-col",
             // phone: bottom sheet
             "inset-x-0 bottom-0 max-h-[92vh] rounded-t-[28px]",
-            // wide: centred card
-            "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:-translate-x-1/2 sm:-translate-y-1/2",
+            // wide: centred card. Centred with auto margins, not a translate: a
+            // transformed ancestor would become the containing block of the
+            // panorama's full-screen mode (position: fixed) and shrink it to the card.
+            "sm:inset-0 sm:m-auto sm:h-fit",
             "sm:w-[min(92vw,560px)] sm:rounded-[28px]",
           ].join(" ")}
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -227,25 +238,14 @@ export function RenderSheet({
           </div>
 
           <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
-            <p className="text-xs text-gray-400">{uz.render.panorama_izoh}</p>
+            {/* Only while there is nothing to look at yet — once the picture is
+                there, the room it takes is better spent on the picture. */}
+            {!done && <p className="text-xs text-gray-400">{uz.render.panorama_izoh}</p>}
 
-            <textarea
-              value={prompt}
-              onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
-              placeholder={uz.render.placeholder}
-              aria-label={uz.render.placeholder}
-              maxLength={2000}
-              rows={prompt.length > 120 ? 4 : 2}
-              disabled={busy}
-              className="w-full resize-none rounded-2xl border border-transparent bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
-            />
-
-            {done && generated && prompt && (
-              <p className="-mt-2 text-xs text-gray-400">{uz.render.avtomatik_tavsif}</p>
-            )}
-
-            {/* Where the picture goes — present from the start so the card does not jump. */}
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-200">
+            {/* Where the picture goes — present from the start so the card does not jump.
+                On a phone it is the main thing on the card, so it is tall; a wide
+                card keeps the 16:10 frame. */}
+            <div className="relative h-[48vh] min-h-[260px] w-full overflow-hidden rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-200 sm:aspect-[16/10] sm:h-auto sm:min-h-0">
               {done ? (
                 <>
                   {current.panorama ? (
@@ -253,12 +253,22 @@ export function RenderSheet({
                   ) : (
                     <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
                   )}
-                  {followingUp && (
+                  {phase === "relighting" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
                       <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
-                      <p className="text-sm font-medium text-gray-700" role="status">
-                        {phase === "upscaling" ? uz.render.oshirilmoqda : uz.render.yoritilmoqda}
-                      </p>
+                      <p className="text-sm font-medium text-gray-700" role="status">{uz.render.yoritilmoqda}</p>
+                    </div>
+                  )}
+                  {/* The 4K copy is made while the first render is already on
+                      screen, so this is a small badge, not a cover: the user
+                      keeps looking around. */}
+                  {phase === "upscaling" && (
+                    <div
+                      role="status"
+                      className="pointer-events-none absolute left-2 top-10 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm"
+                    >
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+                      {uz.render.oshirilmoqda}
                     </div>
                   )}
                 </>
@@ -304,17 +314,19 @@ export function RenderSheet({
               </div>
             )}
 
+            {/* Lighting and quality in one scrolling row. The first render is
+                made 4K on its own (see `start`), so the 4K chip here is only
+                for a relit picture, which is not. */}
             {done && (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.yoritish}</p>
-                <div className="flex flex-wrap gap-2">
+                <div role="group" aria-label={uz.render.yoritish} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                   {LIGHTING_MOODS.map((mood) => (
                     <button
                       key={mood}
                       onClick={() => relight(mood)}
                       disabled={busy}
                       aria-pressed={current?.lighting === mood}
-                      className={`min-h-[36px] rounded-full px-3.5 text-xs font-semibold transition disabled:opacity-50 ${
+                      className={`min-h-[36px] shrink-0 whitespace-nowrap rounded-full px-3.5 text-xs font-semibold transition disabled:opacity-50 ${
                         current?.lighting === mood
                           ? "bg-brand text-white"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -323,26 +335,15 @@ export function RenderSheet({
                       {uz.render.yorugliq[mood]}
                     </button>
                   ))}
-                </div>
-                {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
-              </div>
-            )}
-
-            {done && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.sifat}</p>
-                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={upscale}
+                    onClick={() => void upscale()}
                     disabled={busy || !!current?.upscaled}
-                    className="min-h-[36px] rounded-full bg-gray-100 px-3.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
+                    className="min-h-[36px] shrink-0 whitespace-nowrap rounded-full border border-gray-200 px-3.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
                   >
                     {current?.upscaled ? "4K ✓" : uz.render.to4k}
                   </button>
-                  {current?.panorama && !current.upscaled && (
-                    <span className="text-xs text-gray-400">{uz.render.to4k_izoh}</span>
-                  )}
                 </div>
+                {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
               </div>
             )}
 
@@ -370,6 +371,41 @@ export function RenderSheet({
                 </div>
               </div>
             )}
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setEditPrompt((v) => !v)}
+                aria-expanded={editPrompt}
+                className="flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <svg
+                  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden
+                  className={`transition-transform ${editPrompt ? "rotate-90" : ""}`}
+                >
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+                {uz.render.tavsifni_tahrirlash}
+              </button>
+              {editPrompt && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
+                    placeholder={uz.render.placeholder}
+                    aria-label={uz.render.placeholder}
+                    maxLength={2000}
+                    rows={prompt.length > 120 ? 4 : 2}
+                    disabled={busy}
+                    className="w-full resize-none rounded-2xl border border-transparent bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+                  />
+                  {done && generated && prompt && (
+                    <p className="text-xs text-gray-400">{uz.render.avtomatik_tavsif}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-3">
               {done && (

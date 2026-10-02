@@ -232,12 +232,26 @@ export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt:
   // The draw loop sleeps when nothing moves; turning auto-rotate on has to wake it.
   useEffect(() => { kickRef.current(); }, [autoRotate]);
 
-  const fullscreen = useCallback(() => {
-    const el = hostRef.current?.parentElement;
-    if (!el) return;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void el.requestFullscreen?.();
-  }, []);
+  // Full screen is a CSS takeover of the whole viewport, not the Fullscreen
+  // API: iPhone Safari and the app's WebView only allow that API on a <video>,
+  // so on the phones this is mostly used on the button did nothing. The same
+  // element (and so the same WebGL context and texture) just changes frame; the
+  // renderer's ResizeObserver follows it.
+  const [expanded, setExpanded] = useState(false);
+  const fullscreen = useCallback(() => setExpanded((v) => !v), []);
+
+  // Esc backs out of full screen first. Captured on window and stopped there,
+  // or the dialog around the viewer would take the same Esc and close itself.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [expanded]);
 
   if (status === "failed") {
     return (
@@ -250,8 +264,17 @@ export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt:
     );
   }
 
+  // Full screen reaches under the notch and the home bar, so the corners keep
+  // clear of them there; framed in the card, plain 8 px.
+  const topInset = expanded ? { top: "max(8px, env(safe-area-inset-top))" } : undefined;
+  const bottomInset = expanded ? { bottom: "max(8px, env(safe-area-inset-bottom))" } : undefined;
+
   return (
-    <div className={`relative overflow-hidden bg-[#1b1b24] ${className}`} role="group" aria-label={alt}>
+    <div
+      className={expanded ? "fixed inset-0 z-[100] overflow-hidden bg-black" : `relative overflow-hidden bg-[#1b1b24] ${className}`}
+      role="group"
+      aria-label={alt}
+    >
       <div ref={hostRef} tabIndex={0} aria-label={alt} className="h-full w-full cursor-grab outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-brand" />
 
       {status === "loading" && (
@@ -260,19 +283,29 @@ export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt:
         </div>
       )}
 
-      <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">
+      <span style={topInset} className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">
         360°
       </span>
+      {/* Labelled and in the corner where the eye goes — the small glyph this
+          used to be, among the other round buttons, went unnoticed. */}
+      <button
+        type="button"
+        onClick={fullscreen}
+        style={topInset}
+        className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-black/70"
+      >
+        <span aria-hidden>{expanded ? "✕" : "⛶"}</span>
+        {expanded ? uz.common.yopish : uz.render.viewer.toliq}
+      </button>
       {status === "ready" && (
-        <p className="pointer-events-none absolute bottom-2 left-2 max-w-[60%] rounded-lg bg-black/45 px-2 py-1 text-[10px] leading-tight text-white/90">
+        <p style={bottomInset} className="pointer-events-none absolute bottom-2 left-2 max-w-[60%] rounded-lg bg-black/45 px-2 py-1 text-[10px] leading-tight text-white/90">
           {uz.render.viewer.maslahat}
         </p>
       )}
-      <div className="absolute bottom-2 right-2 flex gap-1.5">
+      <div style={bottomInset} className="absolute bottom-2 right-2 flex gap-1.5">
         {([
           [uz.render.viewer.avto, () => setAutoRotate((v) => !v), autoRotate, "↻"],
           [uz.render.viewer.boshiga, () => resetRef.current(), undefined, "⟲"],
-          [uz.render.viewer.toliq, fullscreen, undefined, "⛶"],
         ] as const).map(([label, onClick, pressed, icon]) => (
           <button
             key={label}

@@ -138,6 +138,7 @@ export const uz = {
     asl: "Asl",
     saqlangan: "Saqlangan renderlar",
     avtomatik_tavsif: "Avtomatik tavsif — xohlasangiz tahrirlang",
+    tavsifni_tahrirlash: "Tavsifni tahrirlash",
     yoritish: "Yoritish",
     yoritilmoqda: "Yorug'lik o'zgartirilmoqda...",
     yorugliq: {
