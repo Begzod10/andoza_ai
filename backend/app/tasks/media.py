@@ -457,6 +457,7 @@ async def _generate_model_from_photo(
 
     import httpx
 
+    from app.core.glb_materials import soften_metal
     from app.core.storage import delete_file, download_file, upload_file
     from app.services.tripo import TripoError, get_tripo_client
 
@@ -481,7 +482,8 @@ async def _generate_model_from_photo(
             fetched = await http.get(task["output"]["model_url"])
             fetched.raise_for_status()
         key = f"photo-models/{user_id}/{uuid.uuid4()}.glb"
-        url = await upload_file(fetched.content, key, content_type="model/gltf-binary")
+        glb = soften_metal(fetched.content)  # chrome would otherwise render black
+        url = await upload_file(glb, key, content_type="model/gltf-binary")
         return {"status": "ok", "key": key, "url": url, "credits": task.get("credits_consumed")}
     except TripoError as exc:
         logger.error("generate_model_from_photo failed user=%s code=%s request_id=%s: %s", user_id, exc.code, exc.request_id, exc)
