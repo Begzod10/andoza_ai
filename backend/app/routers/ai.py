@@ -312,7 +312,7 @@ async def smeta_ask(
             cheaper_context = "\n\nArzonroq alternativlar:\n" + "\n".join(cheaper_options)
 
     system = (
-        "Siz UyTamir ilovasi uchun smeta yordamchisisiz. "
+        "Siz andoza.ai ilovasi uchun smeta yordamchisisiz. "
         "Faqat quyidagi haqiqiy smeta ma'lumotlari asosida O'zbek tilida javob bering. "
         "Narxlarni HECH QACHON o'zingiz hisoblang yoki taxmin qilmang — "
         "faqat berilgan raqamlardan foydalaning.\n\n"

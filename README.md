@@ -1,4 +1,4 @@
-# AndozaAI
+# andoza.ai
 
 AI-powered home renovation and room design platform for Uzbekistan.
 

@@ -41,7 +41,7 @@ def _configure_structlog() -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="UyTa'mir API",
+        title="andoza.ai API",
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",

@@ -36,6 +36,7 @@ from __future__ import annotations
 import dataclasses
 import io
 import uuid
+from pathlib import Path
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -47,6 +48,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -572,7 +574,10 @@ async def get_estimate(
 # PDF generation (ReportLab)
 # ---------------------------------------------------------------------------
 
-_BRAND_BLUE = colors.HexColor("#1E88E5")
+_BRAND_BLUE = colors.HexColor("#2F55D4")
+# The andoza.ai horizontal logo (900 x 279 px), trimmed; the PDF header scales it by width.
+_LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "logo-horizontal.png"
+_LOGO_RATIO = 279 / 900
 _AMBER = colors.HexColor("#FB8C00")
 _LIGHT_GREY = colors.HexColor("#F5F5F5")
 _MID_GREY = colors.HexColor("#9E9E9E")
@@ -588,8 +593,8 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
         leftMargin=2 * cm,
         topMargin=2.5 * cm,
         bottomMargin=2.5 * cm,
-        title=f"UyTa'mir Smeta — {room.name}",
-        author="UyTa'mir",
+        title=f"andoza.ai Smeta — {room.name}",
+        author="andoza.ai",
     )
 
     styles = getSampleStyleSheet()
@@ -632,7 +637,12 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story: list[Any] = []
 
     # ---- Header -------------------------------------------------------
-    story.append(Paragraph("UyTa'mir — Smeta", h1))
+    if _LOGO_PATH.exists():
+        logo = Image(str(_LOGO_PATH), width=5 * cm, height=5 * cm * _LOGO_RATIO)
+        logo.hAlign = "LEFT"
+        story.append(logo)
+        story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("Smeta", h1))
     story.append(Paragraph(
         f"Xona: <b>{room.name}</b> &nbsp;|&nbsp; Sana: {date.today():%d.%m.%Y}",
         normal,
@@ -790,7 +800,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
 
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph(
-        f"Tuzilgan: UyTa'mir &nbsp;|&nbsp; {datetime.now(tz=timezone.utc):%d.%m.%Y %H:%M} UTC",
+        f"Tuzilgan: andoza.ai &nbsp;|&nbsp; {datetime.now(tz=timezone.utc):%d.%m.%Y %H:%M} UTC",
         small,
     ))
 

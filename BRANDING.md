@@ -1,4 +1,4 @@
-# AndozaAI Branding Guidelines
+# andoza.ai Branding Guidelines
 
 **Last Updated:** 2026-07-24  
 **Version:** 1.0.0
@@ -7,7 +7,7 @@
 
 ## Brand Identity
 
-**Name:** AndozaAI  
+**Name:** andoza.ai  
 **Tagline:** AI-powered home renovation and room design platform for Uzbekistan  
 **Mission:** Empower homeowners and designers to visualize and plan room renovations with AI assistance
 
@@ -15,23 +15,25 @@
 
 ## Logo & Visual Identity
 
+The mark is a stepladder that reads as the letter **A**, with an orange middle rung (logo blue `#2F55D4`, orange `#F97316`). The UI palette below is separate from the logo colours.
+
 ### Primary Logo
 - **File:** `/frontend/public/logo.svg`
-- **Dimensions:** 240×80px (3:1 aspect ratio)
+- **Dimensions:** viewBox 1018×360 (≈2.8:1), the stepladder-A mark + `andoza.ai` wordmark
 - **Usage:** Main branding, headers, hero sections
-- **Variants:** Light theme (blue), Dark theme (white)
+- **Variants:** Light and dark backgrounds
 
 ### Icon Logo
 - **File:** `/frontend/public/icon.svg`
-- **Dimensions:** 64×64px
+- **Dimensions:** 512×512 viewBox (blue rounded tile with the ladder)
 - **Usage:** Sidebar, buttons, favicons, app shortcuts
-- **Variants:** Light theme (blue), Dark theme (white)
+- **Variants:** Light and dark backgrounds
 
 ### Vertical Logo
 - **File:** `/frontend/public/logo-vertical.svg`
-- **Dimensions:** 80×120px (2:3 aspect ratio)
+- **Dimensions:** viewBox 606×396 (mark above the wordmark)
 - **Usage:** Stacked layouts, mobile, sidebars
-- **Variants:** Light theme (blue), Dark theme (white)
+- **Variants:** Light and dark backgrounds
 
 **👉 See [LOGO_GUIDE.md](./LOGO_GUIDE.md) for complete logo documentation**
 
@@ -327,7 +329,7 @@ frontend/
 
 ## Brand Assets
 
-All brand assets are proprietary to AndozaAI. Use only within the AndozaAI project.
+All brand assets are proprietary to andoza.ai. Use only within the andoza.ai project.
 
 For external use, contact the design team.
 
@@ -347,10 +349,10 @@ For external use, contact the design team.
 
 ## Contact
 
-For branding questions or asset requests, contact the AndozaAI team.
+For branding questions or asset requests, contact the andoza.ai team.
 
 **Email:** rimefara22@gmail.com
 
 ---
 
-**AndozaAI © 2026 — All Rights Reserved**
+**andoza.ai © 2026 — All Rights Reserved**

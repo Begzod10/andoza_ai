@@ -27,7 +27,7 @@ log = structlog.get_logger(__name__)
 MAX_TOOL_CALLS = 25
 MAX_CONSECUTIVE_FAILURES = 3
 
-_SYSTEM_PROMPT = """Siz UyTamir ilovasi uchun xona dizayn assistentisiz.
+_SYSTEM_PROMPT = """Siz andoza.ai ilovasi uchun xona dizayn assistentisiz.
 Foydalanuvchi o'zbek tilida yozadi va siz ham O'zbek tilida javob berasiz.
 
 Qoidalar (MAJBURIY):
