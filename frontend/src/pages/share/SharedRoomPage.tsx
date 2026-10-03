@@ -149,7 +149,7 @@ export default function SharedRoomPage() {
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
       <header className="bg-white border-b border-neutral-100 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
         <h1 className="text-[16px] font-extrabold text-gray-900 truncate min-w-0">{room.name}</h1>
-        <span className="text-[11px] text-muted font-semibold shrink-0">AndozaAI</span>
+        <span className="text-[11px] text-muted font-semibold shrink-0">andoza.ai</span>
       </header>
 
       <main className="flex-1 relative overflow-hidden">
@@ -203,7 +203,7 @@ export default function SharedRoomPage() {
       </main>
 
       <footer className="bg-white border-t border-neutral-100 px-4 py-2 text-center shrink-0">
-        <span className="text-[11px] text-neutral-600">AndozaAI orqali yaratilgan dizayn</span>
+        <span className="text-[11px] text-neutral-600">andoza.ai orqali yaratilgan dizayn</span>
       </footer>
     </div>
   );

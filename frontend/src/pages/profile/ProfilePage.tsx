@@ -62,7 +62,7 @@ export default function ProfilePage() {
               {loggedIn ? "Foydalanuvchi" : "Mehmon"}
             </p>
             <p className="text-white/60 text-sm mt-0.5">
-              {loggedIn ? "AndozaAI foydalanuvchisi" : "Kirish qilinmagan"}
+              {loggedIn ? "andoza.ai foydalanuvchisi" : "Kirish qilinmagan"}
             </p>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function ProfilePage() {
 
       {/* App version */}
       <p className="text-center text-xs text-muted mt-8 opacity-50">
-        AndozaAI v1.0.0
+        andoza.ai v1.0.0
       </p>
     </div>
   );

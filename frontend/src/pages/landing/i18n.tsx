@@ -237,7 +237,7 @@ const uz: Dict = {
   footer: {
     tagline: "Ta'mir uchun raqamli yordamchi",
     links: { dokon: "Do'kon", ustalar: "Ustalar", kirish: "Kirish" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 
@@ -399,7 +399,7 @@ const ru: Dict = {
   footer: {
     tagline: "Цифровой помощник для ремонта",
     links: { dokon: "Магазин", ustalar: "Мастера", kirish: "Войти" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 
@@ -561,7 +561,7 @@ const en: Dict = {
   footer: {
     tagline: "Your digital assistant for renovation",
     links: { dokon: "Store", ustalar: "Workers", kirish: "Log in" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 
