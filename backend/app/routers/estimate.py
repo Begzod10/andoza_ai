@@ -37,7 +37,6 @@ import dataclasses
 import io
 import uuid
 from datetime import date, datetime, timezone
-from itertools import groupby
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -76,6 +75,7 @@ from app.services.currency import get_usd_rate, uzs_to_usd
 from app.services.room_finishes import apply_finishes_to_room
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 from app.services.smeta_ai import fill_ai_price_gaps
+from app.services.smeta_groups import GROUP_COLOUR, format_share, group_lines, share
 
 router = APIRouter(prefix="/rooms/{room_id}")
 
@@ -641,20 +641,52 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story.append(HRFlowable(width="100%", thickness=1, color=_BRAND_BLUE))
     story.append(Spacer(1, 0.3 * cm))
 
-    # ---- Lines grouped by store ---------------------------------------
-    col_widths = [5.5 * cm, 5.5 * cm, 1.5 * cm, 1.3 * cm, 2.5 * cm, 2.5 * cm]
+    # ---- Cost breakdown + lines grouped by category -------------------
+    # The same seven groups the web page shows (app.services.smeta_groups); each line keeps its
+    # store under its name, since that is what is needed to go and buy it.
+    groups = group_lines(est.lines)
+    grand = sum(g.subtotal for g in groups)
+
+    def _fmt_num(n: int | float) -> str:
+        return f"{int(n):,}".replace(",", " ")
+
+    if groups:
+        story.append(Paragraph("Xarajat taqsimoti", h2))
+        summary = [["", "Toifa", "Ulushi", "Summa (UZS)"]]
+        for g in groups:
+            summary.append(["", g.label, format_share(share(g.subtotal, grand)), _fmt_num(g.subtotal)])
+        summary_tbl = Table(summary, colWidths=[0.5 * cm, 9.5 * cm, 2.5 * cm, 4.5 * cm])
+        summary_style = [
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _BRAND_BLUE),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.5, _BRAND_BLUE),
+            ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]
+        for i, g in enumerate(groups, start=1):
+            summary_style.append(("BACKGROUND", (0, i), (0, i), colors.HexColor(GROUP_COLOUR[g.key])))
+            summary_style.append(("LINEBELOW", (0, i), (-1, i), 0.25, _LIGHT_GREY))
+        summary_tbl.setStyle(TableStyle(summary_style))
+        story.append(summary_tbl)
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Widths add up to the 17 cm between the margins (they used to be 18.8 and ran over).
+    col_widths = [5.2 * cm, 4.4 * cm, 1.5 * cm, 1.3 * cm, 2.3 * cm, 2.3 * cm]
 
     def _header_row() -> list[str]:
         return ["Material / Xizmat", "Formula", "Miqdor", "Birlik",
                 "Narx (UZS)", "Jami (UZS)"]
 
-    def _fmt_num(n: int | float) -> str:
-        return f"{int(n):,}".replace(",", " ")
-
     def _line_row(ln: ComputedLine) -> list[Any]:
         prefix = "≈ " if ln.is_approximate else ""
+        name = Paragraph(ln.label, normal)
+        if ln.store_name:
+            name = Paragraph(f"{ln.label}<br/><font size='7' color='#9E9E9E'>Do'kon: {ln.store_name}</font>", normal)
         return [
-            Paragraph(ln.label, normal),
+            name,
             Paragraph(f"<font size='7'>{ln.formula}</font>", normal),
             _fmt_num(ln.qty),
             ln.unit,
@@ -677,18 +709,13 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ])
 
-    # Group by store (None store goes to "Boshqa")
-    def _store_key(ln: ComputedLine) -> str:
-        return ln.store_name or "Boshqa / Umumiy"
-
-    sorted_lines = sorted(est.lines, key=_store_key)
-
-    for store_name, group in groupby(sorted_lines, key=_store_key):
-        group_list = list(group)
-        story.append(Paragraph(f"Do'kon: {store_name}", h2))
+    for g in groups:
+        story.append(Paragraph(
+            f"{g.label} <font size='9' color='#9E9E9E'>({len(g.lines)} ta qator)</font>", h2,
+        ))
 
         table_data: list[list[Any]] = [_header_row()]
-        for ln in group_list:
+        for ln in g.lines:
             table_data.append(_line_row(ln))
             if ln.warning:
                 table_data.append([
@@ -698,9 +725,17 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
                     ),
                     "", "", "", "", "",
                 ])
+        table_data.append([f"Jami: {g.label}", "", "", "", "", _fmt_num(g.subtotal)])
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         tbl.setStyle(_table_style())
+        # the group's subtotal: one spanning cell, then the amount
+        tbl.setStyle(TableStyle([
+            ("SPAN", (0, -1), (4, -1)),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E3F2FD")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (0, -1), (4, -1), "RIGHT"),
+        ]))
         story.append(tbl)
         story.append(Spacer(1, 0.3 * cm))
 
