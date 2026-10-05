@@ -117,20 +117,10 @@ export function SellerModelFormDialog({
           <Input label="Narxi (so'm)" type="number" min={0} value={priceUzs} onChange={(e) => setPriceUzs(e.target.value)} placeholder="4500000" />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-neutral-900 mb-1.5">3D model (.glb)</label>
-            <input type="file" accept=".glb" onChange={(e) => pickModel(e.target.files?.[0] ?? null)} disabled={building} className="text-xs w-full" />
-            {file && <p className="mt-1 text-xs text-neutral-500 truncate">{file.name}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-900 mb-1.5">Rasm (ixtiyoriy)</label>
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
-          </div>
-        </div>
-
-        {/* No 3D file but a photo: let the server build one (Tripo). */}
+        {/* Most sellers have photos, not a 3D file: the photo is the main way in
+            and the server builds the model (Tripo). */}
         <PhotoToModelField
+          title="Mebel rasmini yuklang — 3D modelni o'zimiz yaratamiz"
           onBusyChange={setBuilding}
           onError={setError}
           onBuilt={({ file: built, thumbnail: pic, baseName }) => {
@@ -139,6 +129,20 @@ export function SellerModelFormDialog({
             if (!nameUz.trim()) setNameUz(baseName);
           }}
         />
+
+        {file && <p className="text-xs text-neutral-500 truncate">3D model tayyor: <span>{file.name}</span></p>}
+
+        <details className="rounded-xl border border-neutral-200 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-neutral-700">Menda tayyor 3D fayl (.glb) bor</summary>
+          <div className="mt-2">
+            <input type="file" accept=".glb" onChange={(e) => pickModel(e.target.files?.[0] ?? null)} disabled={building} className="text-xs w-full" />
+          </div>
+        </details>
+
+        <div>
+          <label className="block text-sm font-medium text-neutral-900 mb-1.5">Katalog uchun rasm (ixtiyoriy)</label>
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
+        </div>
 
         <ModelPreview3D file={file} />
 
