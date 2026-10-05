@@ -1,296 +1,225 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   PAINT STORY — scroll-scrubbed paint roller section
-   Everything you are likely to tweak is a CSS variable in the block below.
+   PAINT STORY v2 — scroll-scrubbed roller painting a flowing cobalt ribbon.
+   Most things you'll tweak are CSS variables in `.paint-story` below, or in
+   config.ts (path, timing, content). Assets are 3 separate layers:
+     /wall-background.webp  /blue-paint-stroke.webp  /paint-roller.webp
    ══════════════════════════════════════════════════════════════════════════ */
-
 .paint-story {
-  /* ── COLOURS ─────────────────────────────────────────────────────────── */
-  --paint-color: #175cd3; /* roller + wall paint  (try #246bfd for a brighter blue) */
-  --wall-color: #f7f7f4; /* the bare wall */
+  /* colours */
+  --paint-color: #176bff;
+  --wall-color: #f7f6f2;
+  /* driven by the timeline (0..1): how much of the ribbon is revealed, L→R */
+  --reveal: 0;
 
-  /* ── ROLLER ──────────────────────────────────────────────────────────── */
-  /* Roller length == thickness of every painted band. Smaller roller → more
-     passes are generated automatically so the wall still ends up covered.   */
-  --roller-size: 37svh;
+  /* ── PAINT RIBBON placement (tune to sit under the roller path) ── */
+  --trail-center: 50%; /* vertical centre of the ribbon band */
+  --trail-height: 62%; /* ribbon band height (relative to stage)  */
+  --trail-width: 118%; /* a touch wider than the stage so edges bleed off */
 
-  /* ── SCROLL DURATION ─────────────────────────────────────────────────── */
-  /* How much scrolling the whole painting takes (section stays pinned).     */
-  --scroll-length: 520vh;
+  /* ── ROLLER ── */
+  --roller-w: 30vw; /* whole roller image width (desktop)            */
+  --roller-off-x: 70px; /* image nudge so the drum's wall-contact sits */
+  --roller-off-y: 150px; /* on the element origin (the path point)      */
 
-  /* ── PAINT OVER CARDS (SECTION 5) ────────────────────────────────────── */
-  /* Strength of the light-blue film on top of a card.  0.12 = barely there,
-     0.25 = clearly painted but still very readable.                         */
-  --paint-over-card: 0.18;
-
-  /* ── PAINT EDGE ──────────────────────────────────────────────────────── */
-  --edge-roughness: 5; /* px of displacement on the paint edge. 0 = perfectly clean */
-
-  /* ── CARD SIZE / LOOK (SECTION 3) ────────────────────────────────────── */
+  /* ── CARDS ── */
   --card-w: 300px;
-  --card-h: 196px;
-  --card-radius: 24px;
-  --card-paper: #fdfdfb;
-  --card-ink: #111827;
-  --card-muted: #5d6573;
-
-  /* ── CARD POSITIONS: centre point of each card, as % of the wall ─────── */
-  /* alternating sides, deliberately uneven vertical rhythm                  */
-  --card-1-x: 73%;
-  --card-1-y: 18%;
-  --card-2-x: 21%;
-  --card-2-y: 30%;
-  --card-3-x: 71%;
-  --card-3-y: 53%;
-  --card-4-x: 27%;
-  --card-4-y: 80%;
+  --card-h-half: 96px; /* approx half card height, for vertical centring */
 
   position: relative;
-  height: 100vh;
+  background: var(--wall-color);
+}
+
+/* the pinned viewport */
+.ps-stage {
+  position: relative;
+  width: 100%;
   height: 100svh;
   overflow: hidden;
-  isolation: isolate;
   background: var(--wall-color);
-  color: var(--card-ink);
 }
 
-/* subtle cinematic vignette over everything (cards & roller included) */
-.paint-story::after {
-  content: "";
+/* Layer 1 — wall */
+.ps-wall {
   position: absolute;
   inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  background: radial-gradient(120% 95% at 50% 45%, transparent 55%, rgba(8, 18, 48, 0.1) 100%);
+  background: url("/wall-background.webp") center / cover no-repeat;
 }
 
-/* ── wall paint (SECTION 4) ─────────────────────────────────────────────── */
-.paint-layer {
+/* Layer 2 — paint ribbon, revealed L→R by --reveal */
+.ps-trail {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none;
+  clip-path: inset(0 calc((1 - var(--reveal)) * 100%) 0 0);
+  will-change: clip-path;
 }
-.paint-layer__fill {
-  fill: var(--paint-color);
+.ps-trail__img {
+  position: absolute;
+  left: 50%;
+  top: var(--trail-center);
+  width: var(--trail-width);
+  height: var(--trail-height);
+  object-fit: fill;
+  transform: translate(-50%, -50%);
+  user-select: none;
 }
 
-/* plaster grain over wall + paint, under the cards */
-.paint-story__grain {
+/* Layer 3 + 4 — cards and the paint film over them */
+.ps-cards {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0.5;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
-
-/* ── cards (SECTION 3) ──────────────────────────────────────────────────── */
-.paint-story__cards {
-  display: contents;
-}
-
-.pcard {
-  position: absolute;
-  z-index: 3;
-  left: calc(var(--cx) - var(--card-w) / 2);
-  top: calc(var(--cy) - var(--card-h) / 2);
+.ps-card {
+  position: absolute; /* left/top set by JS from the path anchor */
   width: var(--card-w);
-  height: var(--card-h);
-  box-sizing: border-box;
-  border-radius: var(--card-radius);
-  overflow: hidden; /* clips the paint film to the rounded card */
-  isolation: isolate; /* so multiply only blends with the card itself */
-  background: var(--card-paper);
-  box-shadow:
-    0 0 0 1px rgba(17, 24, 39, 0.07),
-    0 1px 2px rgba(17, 24, 39, 0.06),
-    0 18px 38px -16px rgba(17, 24, 39, 0.28),
-    0 40px 70px -40px rgba(17, 24, 39, 0.3);
+  margin-left: calc(var(--card-w) / -2); /* centre horizontally (margin, not transform) */
+  margin-top: calc(var(--card-h-half) * -1);
+  padding: 22px 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(20, 40, 90, 0.08);
+  box-shadow: 0 24px 50px -24px rgba(20, 40, 90, 0.35), 0 2px 6px -2px rgba(20, 40, 90, 0.12);
+  backdrop-filter: blur(6px);
   will-change: transform, opacity;
+  opacity: 0;
 }
-.pcard__paper {
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(246, 246, 241, 0.6)),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 .4  0 0 0 0 .38  0 0 0 0 .34  0 0 0 .12 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
-}
-.pcard__body {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-  padding: 26px 28px 24px;
-}
-.pcard__top {
+.ps-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: auto;
+  margin-bottom: 14px;
 }
-.pcard__number {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  color: var(--card-muted);
-  font-variant-numeric: tabular-nums;
+.ps-card__num {
+  font: 700 13px/1 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--paint-color);
+  letter-spacing: 0.08em;
 }
-.pcard__icon {
+.ps-card__icon {
   display: grid;
-  height: 38px;
-  width: 38px;
   place-items: center;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  color: var(--card-ink);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(23, 107, 255, 0.1);
+  color: var(--paint-color);
 }
-.pcard__icon svg {
-  height: 18px;
+.ps-card__icon svg {
   width: 18px;
+  height: 18px;
 }
-.pcard__title {
+.ps-card__title {
+  margin: 0 0 6px;
+  font: 700 19px/1.2 "Archivo", system-ui, sans-serif;
+  color: #16233f;
+}
+.ps-card__desc {
   margin: 0;
-  font-size: 21px;
-  font-weight: 650;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
+  font: 400 14px/1.5 "Instrument Sans", system-ui, sans-serif;
+  color: #5a6a86;
 }
-.pcard__text {
-  margin: 10px 0 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--card-muted);
-}
-
-/* ── paint film over the card (SECTION 5) ───────────────────────────────── */
-.pcard__film {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-  opacity: var(--paint-over-card);
-  mix-blend-mode: multiply; /* tints the white paper, keeps dark text dark */
-}
-.pcard__film path {
-  stroke: var(--paint-color);
-}
-
-/* ── roller ─────────────────────────────────────────────────────────────── */
-.paint-roller {
-  --u: calc(var(--roller-size) / 280); /* 1 art unit in px (drum is 280 units tall) */
-  position: absolute;
-  z-index: 5;
-  left: 0;
-  top: 0;
-  width: calc(260 * var(--u));
-  height: calc(330 * var(--u));
-  /* put the drum centre (48,150) at the element's translate origin */
-  margin-left: calc(-48 * var(--u));
-  margin-top: calc(-150 * var(--u));
-  transform-origin: calc(48 * var(--u)) calc(150 * var(--u));
-  pointer-events: none;
-  will-change: transform;
-  filter: drop-shadow(0 22px 22px rgba(8, 20, 60, 0.32));
-}
-
-/* ── reduced motion / static layout ─────────────────────────────────────── */
-.paint-story.is-static {
-  height: auto;
-  min-height: 0;
-  overflow: visible;
-  padding: 96px 24px;
-  background: var(--paint-color);
-}
-.is-static .paint-layer,
-.is-static .pcard__film {
-  display: none;
-}
-.is-static .paint-story__cards {
-  position: relative;
-  z-index: 3;
-  display: grid;
-  gap: 24px;
-  justify-content: center;
-  margin: 0 auto;
-  max-width: calc(var(--card-w) * 2 + 24px);
-  grid-template-columns: repeat(auto-fit, minmax(0, var(--card-w)));
-}
-.is-static .pcard {
-  position: relative;
-  left: auto;
-  top: auto;
-  width: 100%;
-  opacity: 1 !important;
-  transform: none !important;
-}
-.is-static .pcard::after {
-  content: "";
+/* Layer 4 — translucent paint film left over the card after the roller passes */
+.ps-card__film {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
+  border-radius: inherit;
   background: var(--paint-color);
-  opacity: var(--paint-over-card);
-  mix-blend-mode: multiply;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   SECTION 6 — MOBILE / TABLET RESPONSIVE BEHAVIOUR
-   Same story, smaller roller, narrower cards, repositioned so nothing is
-   clipped, and a longer scroll so the extra (thinner) passes aren't rushed.
-   The route generator adds passes automatically for a smaller roller.
-   ══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 1024px) {
-  .paint-story {
-    --roller-size: 30svh;
-    --scroll-length: 560vh;
-    --card-w: 270px;
-    --card-h: 190px;
-    --card-1-x: 69%;
-    --card-1-y: 16%;
-    --card-2-x: 29%;
-    --card-2-y: 35%;
-    --card-3-x: 69%;
-    --card-3-y: 55%;
-    --card-4-x: 29%;
-    --card-4-y: 78%;
-  }
+/* Layer 5 — the roller (transform set by JS: x/y along path + slight rotation) */
+.ps-roller {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--roller-w);
+  transform-origin: 0 0;
+  z-index: 6;
+  pointer-events: none;
+  filter: drop-shadow(0 26px 26px rgba(10, 25, 70, 0.3));
+  will-change: transform;
+}
+.ps-roller__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-left: calc(var(--roller-off-x) * -1);
+  margin-top: calc(var(--roller-off-y) * -1);
 }
 
-@media (max-width: 640px) {
+/* Layer 6 — splashes at first contact */
+.ps-splashes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+}
+.ps-splash {
+  position: absolute;
+  width: 16vw;
+  transform: translate(-40%, -50%);
+  opacity: 0.9;
+}
+
+/* motion path — hidden unless debug */
+.ps-path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+.is-debug .ps-path {
+  opacity: 1;
+}
+.is-debug .ps-path path {
+  stroke: #ff2d8e;
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
+}
+.ps-dbg {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 20;
+  font: 600 12px/1 "IBM Plex Mono", monospace;
+  color: #ff2d8e;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* ── 6. MOBILE ── smaller roller + cards, tighter band */
+@media (max-width: 768px) {
   .paint-story {
-    --roller-size: 20svh;
-    --scroll-length: 640vh;
-    --edge-roughness: 0; /* skip the displacement filter on phones (performance) */
-    --card-w: min(64vw, 260px);
-    --card-h: 158px;
-    --card-radius: 20px;
-    --card-1-x: 63%;
-    --card-1-y: 16%;
-    --card-2-x: 37%;
-    --card-2-y: 36%;
-    --card-3-x: 63%;
-    --card-3-y: 56%;
-    --card-4-x: 37%;
-    --card-4-y: 79%;
+    --roller-w: 56vw;
+    --roller-off-x: 46px;
+    --roller-off-y: 96px;
+    --card-w: 230px;
+    --card-h-half: 86px;
+    --trail-height: 46%;
   }
-  .pcard__body {
-    padding: 20px 20px 18px;
+  .ps-card {
+    padding: 16px 16px 18px;
+    border-radius: 18px;
   }
-  .pcard__title {
-    font-size: 18px;
+  .ps-card__title {
+    font-size: 16px;
   }
-  .pcard__text {
-    margin-top: 8px;
+  .ps-card__desc {
     font-size: 13px;
-    line-height: 1.5;
   }
-  .pcard__icon {
-    height: 32px;
-    width: 32px;
-  }
+}
+
+/* ── Reduced motion: static finished composition ── */
+.paint-story.is-static .ps-stage {
+  height: auto;
+  min-height: 70svh;
+  padding: 8svh 0;
+}
+.paint-story.is-static .ps-trail {
+  clip-path: none;
 }
