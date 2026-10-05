@@ -25,6 +25,7 @@ from app.models.norm import Norm
 from app.models.room import Room
 from app.schemas.estimate import EstimateResponse
 from app.services.ai_builder import RoomDraft, run_ai_builder
+from app.services.estimate_catalog import load_estimate_catalog
 from app.services.smeta import compute_estimate
 
 log = structlog.get_logger(__name__)
@@ -132,6 +133,7 @@ async def ai_build(
     furniture_list = await _load_all_furniture(db)
     norms_map = await _load_norms(db)
     wiring_meters = await _load_wiring_meters(room.id, db)
+    catalog = await load_estimate_catalog(db)
 
     room_state: dict = {
         "id": str(room.id),
@@ -184,7 +186,7 @@ async def ai_build(
             patched_room.furniture_layout = list(patched_room.furniture_layout or []) + draft.furniture
 
         computed = compute_estimate(
-            patched_room, materials_map, norms_map, wiring_meters=wiring_meters
+            patched_room, materials_map, norms_map, wiring_meters=wiring_meters, catalog=catalog
         )
         return {
             "total_uzs": computed.total_uzs,
@@ -263,8 +265,9 @@ async def smeta_ask(
 
     norms_map = await _load_norms(db)
     wiring_meters = await _load_wiring_meters(room.id, db)
+    catalog = await load_estimate_catalog(db)
     computed = compute_estimate(
-        room, materials_map_full, norms_map, wiring_meters=wiring_meters
+        room, materials_map_full, norms_map, wiring_meters=wiring_meters, catalog=catalog
     )
 
     # Build a compact estimate summary for the context

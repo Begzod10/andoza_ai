@@ -191,3 +191,89 @@ describe('SmetaPage (lines grouped by category)', () => {
     expect(screen.queryByText('Xarajat taqsimoti')).toBeNull()
   })
 })
+
+describe('SmetaPage (market prices)', () => {
+  const marketLine = {
+    label: 'Suvoq (gips) 30 kg qop', formula: '', quantity: 2, unit: 'qop', unit_price: 70_000, total_uzs: 140_000,
+    is_approximate: false, store_id: null, category: 'suvoq', price_source: 'market', store_name: 'Stroy Master',
+    source_url: 'https://shop.uz/p/1', price_checked_at: '2026-10-05',
+  }
+
+  it('offers no market button when the server cannot look prices up', async () => {
+    renderSmetaPage()
+    await screen.findByText('Jami xarajat')
+    expect(screen.queryByText('Bozor narxlarini yangilash')).toBeNull()
+  })
+
+  it('reprices on click, labels the line with its shop and a source link, and offers to go back', async () => {
+    previewEstimate.mockResolvedValueOnce({ ...ESTIMATE_RESPONSE, market_prices_available: true })
+    renderSmetaPage()
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE, lines: [marketLine], total_uzs: 140_000, market_prices_available: true, market_checked: 1, market_updated: 1,
+    })
+
+    fireEvent.click(await screen.findByText('Bozor narxlarini yangilash'))
+
+    await waitFor(() => expect(previewEstimate).toHaveBeenCalledWith('room-1', { market: true }))
+    expect(await screen.findByText('1 ta qator do\'kon narxi bilan yangilandi')).toBeInTheDocument()
+    expect(screen.getByText('bozor narxi')).toBeInTheDocument()
+    const source = screen.getByText('manba') as HTMLAnchorElement
+    expect(source.getAttribute('href')).toBe('https://shop.uz/p/1')
+    expect(source.getAttribute('rel')).toContain('noopener')
+    expect(screen.getByText(/Stroy Master/)).toBeInTheDocument()
+
+    previewEstimate.mockResolvedValueOnce({ ...ESTIMATE_RESPONSE, market_prices_available: true })
+    fireEvent.click(screen.getByText('Katalog narxlariga qaytish'))
+    await waitFor(() => expect(screen.queryByText('bozor narxi')).toBeNull())
+  })
+
+  it('says so when nothing trustworthy was found, and keeps the catalog estimate', async () => {
+    previewEstimate.mockResolvedValueOnce({ ...ESTIMATE_RESPONSE, market_prices_available: true })
+    renderSmetaPage()
+    previewEstimate.mockResolvedValueOnce({ ...ESTIMATE_RESPONSE, market_prices_available: true, market_checked: 3, market_updated: 0 })
+    fireEvent.click(await screen.findByText('Bozor narxlarini yangilash'))
+    expect(await screen.findByText(/Ishonchli bozor narxi topilmadi/)).toBeInTheDocument()
+    expect(screen.queryByText('Katalog narxlariga qaytish')).toBeNull()
+  })
+
+  it("shows the server's own message when the lookup is refused", async () => {
+    previewEstimate.mockResolvedValueOnce({ ...ESTIMATE_RESPONSE, market_prices_available: true })
+    renderSmetaPage()
+    previewEstimate.mockRejectedValueOnce(new Error(JSON.stringify({ detail: 'Bugun AI so\'rovlar limiti tugadi.' })))
+    fireEvent.click(await screen.findByText('Bozor narxlarini yangilash'))
+    expect(await screen.findByText('Bugun AI so\'rovlar limiti tugadi.')).toBeInTheDocument()
+    expect(screen.getByText('Jami xarajat')).toBeInTheDocument() // the estimate stays
+  })
+
+  it('does not render a source link for a non-web URL', async () => {
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE, lines: [{ ...marketLine, source_url: 'javascript:alert(1)' }], total_uzs: 140_000,
+    })
+    renderSmetaPage()
+    await screen.findByText('bozor narxi')
+    expect(screen.queryByText('manba')).toBeNull()
+  })
+})
+
+describe('SmetaPage (shop on each line)', () => {
+  it('names the shop a catalog-priced line came from', async () => {
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE, total_uzs: 792_000,
+      lines: [{ label: 'Suvoq: Rotband (30 kg qop)', formula: '', quantity: 12, unit: 'qop', unit_price: 66_000, total_uzs: 792_000,
+        is_approximate: false, store_id: null, category: 'suvoq', store_name: 'Leroy Merlin Tashkent' }],
+    })
+    renderSmetaPage()
+    expect(await screen.findByText("Do'kon: Leroy Merlin Tashkent")).toBeInTheDocument()
+  })
+
+  it('shows no shop line when the price is a default', async () => {
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE,
+      lines: [{ label: 'Suvoq (gips) 30 kg qop', formula: '', quantity: 12, unit: 'qop', unit_price: 65_000, total_uzs: 780_000,
+        is_approximate: true, store_id: null, category: 'suvoq' }],
+    })
+    renderSmetaPage()
+    await screen.findByText('Suvoq (gips) 30 kg qop')
+    expect(screen.queryByText(/Do'kon:/)).toBeNull()
+  })
+})

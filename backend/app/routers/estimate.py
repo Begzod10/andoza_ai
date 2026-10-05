@@ -39,6 +39,7 @@ import uuid
 from pathlib import Path
 from datetime import date, datetime, timezone
 from typing import Any
+from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -74,6 +75,9 @@ from app.schemas.estimate import (
     PaginatedEstimates,
 )
 from app.services.currency import get_usd_rate, uzs_to_usd
+from app.services.estimate_catalog import load_estimate_catalog
+from app.services.llm import BudgetExceededError
+from app.services.market_prices import apply_market_prices, market_prices_available
 from app.services.room_finishes import apply_finishes_to_room
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 from app.services.smeta_ai import fill_ai_price_gaps
@@ -235,6 +239,10 @@ def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
             store_id=None,
             category=ln.category,
             warning=ln.warning,
+            price_source=ln.price_source,
+            source_url=ln.source_url,
+            store_name=ln.store_name,
+            price_checked_at=ln.price_checked_at,
         )
         for ln in lines
     ]
@@ -254,6 +262,10 @@ def _jsonb_lines_to_schema(raw_lines: list[dict]) -> list[EstimateLine]:
             store_id=None,
             category=ln.get("category", ""),
             warning=ln.get("warning"),
+            price_source=ln.get("price_source"),
+            source_url=ln.get("source_url"),
+            store_name=ln.get("store_name"),
+            price_checked_at=ln.get("price_checked_at"),
         )
         for ln in raw_lines
     ]
@@ -306,6 +318,26 @@ def _totals_from_raw_lines(raw_lines: list[dict]) -> dict[str, int]:
     }
 
 
+async def _with_market_prices(
+    computed: ComputedEstimate, market: bool, user_id: str
+) -> tuple[ComputedEstimate, int, int]:
+    """Optionally reprice lines with real shop prices (see app.services.market_prices).
+
+    Returns (estimate, lines_checked, lines_updated); (computed, 0, 0) when not asked for.
+    """
+    if not market:
+        return computed, 0, 0
+    if not market_prices_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bozor narxlarini tekshirish hozircha yoqilmagan",
+        )
+    try:
+        return await apply_market_prices(computed, user_id=user_id)
+    except BudgetExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+
+
 # ---------------------------------------------------------------------------
 # POST /rooms/{room_id}/estimate/preview  (live preview, no persistence)
 # ---------------------------------------------------------------------------
@@ -320,6 +352,7 @@ async def preview_estimate(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> EstimateResponse:
     """Compute a smeta for the room and return it without creating an Estimate row.
 
@@ -332,13 +365,17 @@ async def preview_estimate(
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
+    computed, market_checked, market_updated = await _with_market_prices(
+        computed, market, str(current_user.id)
+    )
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
@@ -357,6 +394,9 @@ async def preview_estimate(
         electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
+        market_prices_available=market_prices_available(),
+        market_checked=market_checked,
+        market_updated=market_updated,
     )
 
 
@@ -380,11 +420,12 @@ async def create_estimate(
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
@@ -417,6 +458,7 @@ async def create_estimate(
         electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
+        market_prices_available=market_prices_available(),
     )
 
 
@@ -469,19 +511,22 @@ async def _generate_estimate_pdf(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = False,
 ) -> StreamingResponse:
     room, priced_room, materials_map, wiring_meters = await _load_room_for_pricing(
         room_id, current_user.id, db
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
+    computed, _, _ = await _with_market_prices(computed, market, str(current_user.id))
 
     pdf_bytes = _build_pdf(room, computed)
 
@@ -502,8 +547,9 @@ async def get_estimate_pdf(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> StreamingResponse:
-    return await _generate_estimate_pdf(room_id, current_user, db)
+    return await _generate_estimate_pdf(room_id, current_user, db, market)
 
 
 @router.get(
@@ -515,8 +561,9 @@ async def get_estimate_pdf_alias(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> StreamingResponse:
-    return await _generate_estimate_pdf(room_id, current_user, db)
+    return await _generate_estimate_pdf(room_id, current_user, db, market)
 
 
 # ---------------------------------------------------------------------------
@@ -693,7 +740,13 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     def _line_row(ln: ComputedLine) -> list[Any]:
         prefix = "≈ " if ln.is_approximate else ""
         name = Paragraph(ln.label, normal)
-        if ln.store_name:
+        if ln.price_source == "market" and ln.store_name:
+            checked = f", {date.fromisoformat(ln.price_checked_at):%d.%m.%Y}" if ln.price_checked_at else ""
+            name = Paragraph(
+                f"{ln.label}<br/><font size='7' color='#9E9E9E'>Bozor narxi: {xml_escape(ln.store_name)}{checked}</font>",
+                normal,
+            )
+        elif ln.store_name:
             name = Paragraph(f"{ln.label}<br/><font size='7' color='#9E9E9E'>Do'kon: {ln.store_name}</font>", normal)
         return [
             name,

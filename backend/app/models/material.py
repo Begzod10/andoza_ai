@@ -80,6 +80,19 @@ class Material(Base):
     roll_length_m: Mapped[float | None] = mapped_column(
         Numeric(6, 2), nullable=True, comment="oboy only: real roll length, m"
     )
+    # What one selling unit (`unit`) contains: 30 "kg" in a qop, 2.5 "m" in a plintus dona,
+    # 3 "m2" in a gipsokarton list. Both set or both unset (CHECK in the migration). The
+    # estimate needs it to turn a kg/m/m² requirement into whole packs at the shop's price.
+    pack_qty: Mapped[float | None] = mapped_column(
+        Numeric(10, 3), nullable=True, comment="content of one selling unit, in pack_unit"
+    )
+    pack_unit: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, comment="kg | litr | m | m2 | dona"
+    )
+    # Which line of the estimate this product is the shop price for ("suvoq", "grunt",
+    # "shpatlyovka", "plintus", "kabel", "gipsokarton", "profil", "led_lenta", "light:<type>").
+    # Unset for the products a user picks by hand (paint, wallpaper, floor).
+    smeta_key: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

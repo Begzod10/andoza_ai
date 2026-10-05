@@ -20,6 +20,17 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/** The server's own (Uzbek) message from an error, when the failed request carried one. */
+function errorDetail(err: unknown): string | null {
+  const raw = err instanceof Error ? err.message : "";
+  try {
+    const detail = JSON.parse(raw)?.detail;
+    return typeof detail === "string" ? detail : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SmetaPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
@@ -30,6 +41,10 @@ export default function SmetaPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
   // Groups the reader has folded away; everything starts open, so the whole bill is there to read.
   const [folded, setFolded] = useState<Set<GroupKey>>(new Set());
+  // Whether the estimate on screen was repriced with real shop prices, and what that lookup found.
+  const [marketMode, setMarketMode] = useState(false);
+  const [marketNote, setMarketNote] = useState<string | null>(null);
+  const [marketError, setMarketError] = useState<string | null>(null);
 
   // Format a so'm amount in whichever currency the user picked — every price
   // in this page routes through this so the toggle stays in sync everywhere.
@@ -54,7 +69,26 @@ export default function SmetaPage() {
   // time and pollutes the room's estimate history.
   const mutation = useMutation({
     mutationFn: () => previewEstimate(roomId!),
-    onSuccess: (data) => setEstimate(data),
+    onSuccess: (data) => {
+      setEstimate(data);
+      setMarketMode(false);
+      setMarketNote(null);
+      setMarketError(null);
+    },
+  });
+
+  // Reprice with real shop prices (server: Gemini + Google Search, cached, limited per day). Only offered
+  // when the server says it can; a failure keeps the catalog estimate on screen.
+  const marketMutation = useMutation({
+    mutationFn: () => previewEstimate(roomId!, { market: true }),
+    onMutate: () => setMarketError(null),
+    onSuccess: (data) => {
+      setEstimate(data);
+      const updated = data.market_updated ?? 0;
+      setMarketMode(updated > 0);
+      setMarketNote(updated > 0 ? `${updated} ${uz.smeta.bozor_yangilandi}` : uz.smeta.bozor_topilmadi);
+    },
+    onError: (err) => setMarketError(errorDetail(err) ?? uz.smeta.bozor_xato),
   });
 
   // Explicit save — the only path that persists a snapshot. A separate
@@ -91,7 +125,7 @@ export default function SmetaPage() {
     if (!roomId) return;
     setPdfLoading(true);
     try {
-      const blob = await getEstimatePDF(roomId);
+      const blob = await (marketMode ? getEstimatePDF(roomId, { market: true }) : getEstimatePDF(roomId));
       downloadBlob(blob, `smeta-${roomId}.pdf`);
     } catch {
       alert(uz.errors.pdf_xato);
@@ -244,6 +278,26 @@ export default function SmetaPage() {
               )}
             </section>
 
+            {marketNote && (
+              <div
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-sm ${
+                  marketMode ? "bg-emerald-50 text-emerald-800" : "bg-neutral-100 text-neutral-700"
+                }`}
+              >
+                <span>{marketNote}</span>
+                {marketMode && (
+                  <button
+                    type="button"
+                    onClick={() => mutation.mutate()}
+                    className="text-xs font-semibold underline"
+                  >
+                    {uz.smeta.bozor_qaytish}
+                  </button>
+                )}
+              </div>
+            )}
+            {marketError && <p className="text-sm text-red-600">{marketError}</p>}
+
             {/* Line items, by group */}
             {groups.length > 0 && (
               <div className="space-y-3">
@@ -285,6 +339,15 @@ export default function SmetaPage() {
               >
                 {uz.smeta.qayta_hisoblash}
               </button>
+              {estimate.market_prices_available && (
+                <button
+                  onClick={() => marketMutation.mutate()}
+                  disabled={marketMutation.isPending}
+                  className="flex items-center gap-2 border-2 border-emerald-700 text-emerald-800 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                >
+                  {marketMutation.isPending ? uz.smeta.bozor_qidirilmoqda : uz.smeta.bozor_yangilash}
+                </button>
+              )}
               {/* Only this button persists an Estimate row — opening the
                   page or hitting "Qayta hisoblash" is preview-only. */}
               <button

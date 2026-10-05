@@ -80,6 +80,11 @@ export function CategorySection({
               <div className="min-w-0">
                 <p className="font-medium text-neutral-900">
                   {line.label}
+                  {line.price_source === "market" && (
+                    <span className="ml-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 align-middle text-[11px] font-medium text-emerald-700">
+                      {uz.smeta.bozor_belgi}
+                    </span>
+                  )}
                   {line.is_approximate && (
                     // orange-cta is the brand orange darkened to 5.2:1 on white (the plain brand orange is 2.8:1). The default Tailwind orange-700 does not exist here: `orange` is a single colour in the config.
                     <span className="ml-2 inline-block rounded-full bg-orange-tint px-2 py-0.5 align-middle text-[11px] font-medium text-orange-cta">
@@ -90,6 +95,25 @@ export function CategorySection({
                 <p className="mt-0.5 text-sm tabular-nums text-neutral-600">
                   {formatQuantity(line.quantity)} {line.unit} × {fmt(line.unit_price)}
                 </p>
+                {line.price_source === "market" && (
+                  <p className="mt-0.5 text-xs leading-snug text-emerald-700">
+                    {line.store_name}
+                    {line.price_checked_at && ` · ${new Date(line.price_checked_at).toLocaleDateString("uz-UZ")}`}
+                    {line.source_url && /^https?:\/\//i.test(line.source_url) && (
+                      <>
+                        {" · "}
+                        <a href={line.source_url} target="_blank" rel="noopener noreferrer" className="underline">
+                          {uz.smeta.bozor_manba}
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
+                {line.price_source !== "market" && line.store_name && (
+                  <p className="mt-0.5 text-xs leading-snug text-muted">
+                    {uz.smeta.dokon}: {line.store_name}
+                  </p>
+                )}
                 {line.formula && <p className="mt-0.5 text-xs leading-snug text-muted">{line.formula}</p>}
                 {line.warning && <p className="mt-1 text-xs leading-snug text-orange-cta">{line.warning}</p>}
               </div>

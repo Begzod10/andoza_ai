@@ -26,6 +26,7 @@ from app.models.room_state import RoomState
 from app.schemas.delta import DeltaResponse, DeltaStage
 from app.schemas.estimate import EstimateLine
 from app.schemas.room_state import RoomStateIn, RoomStateOut, RoomStatePatch
+from app.services.estimate_catalog import load_estimate_catalog
 from app.services.delta import compute_delta
 from app.services.smeta import ComputedLine
 from app.services.room_access import get_owned_room
@@ -182,7 +183,8 @@ async def get_room_delta(room_id: UUID, db: DbSession, current_user: CurrentUser
 
     wiring_meters = await _load_wiring_meters(room.id, db)
 
-    result = compute_delta(room, state, materials_map, norms_map, wiring_meters)
+    catalog = await load_estimate_catalog(db)
+    result = compute_delta(room, state, materials_map, norms_map, wiring_meters, catalog)
 
     return DeltaResponse(
         room_id=room.id,

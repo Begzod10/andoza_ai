@@ -16,6 +16,12 @@ export interface EstimateLine {
    * taxminiy narx ishlatildi" or an AI-estimated price's builder note.
    * Previously computed but never sent past the PDF export. */
   warning?: string | null;
+  /** "market" when the price was read off a real shop page (see source_url). */
+  price_source?: string | null;
+  source_url?: string | null;
+  store_name?: string | null;
+  /** ISO date the market price was read. */
+  price_checked_at?: string | null;
 }
 
 export interface EstimateResponse {
@@ -39,6 +45,11 @@ export interface EstimateResponse {
   /** so'm-per-1-USD this estimate was converted at (live CBU rate, cached ~1h). */
   usd_rate: number;
   total_usd: number;
+  /** Whether this server can look up real shop prices at all (off until a billing-enabled key is set). */
+  market_prices_available?: boolean;
+  /** On a response that asked for market prices: lines looked up / repriced. */
+  market_checked?: number;
+  market_updated?: number;
 }
 
 // ---------- Estimate ----------
@@ -51,12 +62,17 @@ export async function createEstimate(
   });
 }
 
-export async function previewEstimate(roomId: string): Promise<EstimateResponse> {
-  return apiClient<EstimateResponse>(`/rooms/${roomId}/estimate/preview`, { method: "POST" });
+export async function previewEstimate(
+  roomId: string,
+  opts?: { market?: boolean }
+): Promise<EstimateResponse> {
+  const query = opts?.market ? "?market=true" : "";
+  return apiClient<EstimateResponse>(`/rooms/${roomId}/estimate/preview${query}`, { method: "POST" });
 }
 
-export async function getEstimatePDF(roomId: string): Promise<Blob> {
-  const response = await fetch(`${BASE_URL}/rooms/${roomId}/estimate/pdf`, {
+export async function getEstimatePDF(roomId: string, opts?: { market?: boolean }): Promise<Blob> {
+  const query = opts?.market ? "?market=true" : "";
+  const response = await fetch(`${BASE_URL}/rooms/${roomId}/estimate/pdf${query}`, {
     credentials: "include",
     headers: { Accept: "application/pdf" },
   });

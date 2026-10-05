@@ -66,6 +66,15 @@ export const uz = {
     hammasini_yoyish: "Hammasini yoyish",
     hammasini_yigish: "Hammasini yig'ish",
     taxminiy: "taxminiy",
+    dokon: "Do'kon",
+    bozor_yangilash: "Bozor narxlarini yangilash",
+    bozor_qidirilmoqda: "Narxlar qidirilmoqda…",
+    bozor_belgi: "bozor narxi",
+    bozor_manba: "manba",
+    bozor_yangilandi: "ta qator do'kon narxi bilan yangilandi",
+    bozor_topilmadi: "Ishonchli bozor narxi topilmadi: katalog narxlari qoldi.",
+    bozor_qaytish: "Katalog narxlariga qaytish",
+    bozor_xato: "Bozor narxlarini tekshirib bo'lmadi.",
     // The seven groups the estimate's lines are folded into (see lib/smetaGroups.ts).
     toifa: {
       tayyorlash: "Devorni tayyorlash",

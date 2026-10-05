@@ -18,6 +18,9 @@ class MaterialOut(BaseModel):
     image_url: str | None = None
     roll_width_cm: float | None = None
     roll_length_m: float | None = None
+    pack_qty: float | None = None
+    pack_unit: str | None = None
+    smeta_key: str | None = None
 
     model_config = {"from_attributes": True}
 
