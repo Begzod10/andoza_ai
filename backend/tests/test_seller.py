@@ -316,7 +316,7 @@ class TestModeration:
         store = _store(owner, "pending")
         m = _model(store, "pending")
         m.store = store
-        _as(_user(is_admin=True), [_R(many=[store]), _R(many=[m])])
+        _as(_user(is_admin=True), [_R(many=[store]), _R(many=[m]), _R(many=[])])  # shops, models, ustalar
         body = client.get("/api/v1/admin/moderation/pending").json()
         assert [s["id"] for s in body["stores"]] == [str(store.id)]
         assert body["furniture"][0]["store_name"] == "Mebel Plus"

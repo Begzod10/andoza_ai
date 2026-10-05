@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.admin_catalog import FURNITURE_CATEGORIES, PLACEMENTS, ROOM_TYPES  # noqa: F401  (re-exported for the router)
+from app.schemas.usta_profile import PendingUstaOut
 
 _HEX_COLOR = r"^#[0-9A-Fa-f]{6}$"
 
@@ -101,3 +102,5 @@ class PendingFurnitureOut(SellerFurnitureOut):
 class PendingOut(BaseModel):
     stores: list[PendingStoreOut]
     furniture: list[PendingFurnitureOut]
+    # Craftsman applications. Defaulted so a client that predates them still parses.
+    ustalar: list[PendingUstaOut] = []

@@ -19,11 +19,15 @@ from app.routers import (
     photo_model,
     seller,
     admin_moderation,
+    usta_profile,
+    account,
 )
 
 __all__ = [
     "seller",
     "admin_moderation",
+    "usta_profile",
+    "account",
     "photo_model",
     "render",
     "auth",

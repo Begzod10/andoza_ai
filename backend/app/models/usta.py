@@ -3,11 +3,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Integer, Numeric, String, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.store import MODERATION_STATUSES
 
 # ---------------------------------------------------------------------------
 # Enum
@@ -31,6 +32,12 @@ class Usta(Base):
     """Craftsman / contractor profile."""
 
     __tablename__ = "ustalar"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN (%s)" % ", ".join(f"'{t}'" for t in MODERATION_STATUSES),
+            name="ck_ustalar_status",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -69,6 +76,26 @@ class Usta(Base):
         Boolean, default=False, nullable=False, comment="Admin-verified profile"
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        comment="The user who runs this profile; null for craftsmen the admins "
+                "typed in. A user has at most one profile. Having one is what "
+                "makes someone an usta.",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="approved",
+        server_default="approved",
+        index=True,
+        comment="pending | approved | rejected — see MODERATION_STATUSES",
+    )
+    moderation_note: Mapped[str | None] = mapped_column(
+        String(300), nullable=True, comment="Why an admin rejected it, shown to the usta"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
