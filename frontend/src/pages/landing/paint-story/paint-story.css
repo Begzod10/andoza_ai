@@ -13,6 +13,14 @@
      passes are generated automatically so the wall still ends up covered.   */
   --roller-size: 37svh;
 
+  /* ── 3D ROLLER ART (image placement — tune these to line the render up) ──
+     The art box is 260×330 units; the drum axis the paint follows is (48,150).
+     Nudge these until the roller's drum sits on the leading paint edge.        */
+  --roller-art-w: 300;        /* image width in art units (× --u)     */
+  --roller-art-x: -34;        /* image left offset in art units       */
+  --roller-art-y: -24;        /* image top offset in art units        */
+  --roller-art-rotate: -26deg;/* orient the render's drum to vertical  */
+
   /* ── SCROLL DURATION ─────────────────────────────────────────────────── */
   /* How much scrolling the whole painting takes (section stays pinned).     */
   --scroll-length: 520vh;
@@ -195,6 +203,25 @@
   pointer-events: none;
   will-change: transform;
   filter: drop-shadow(0 22px 22px rgba(8, 20, 60, 0.32));
+}
+
+/* 3D roller render. [data-roller-arm] is flipped (scaleX) by the timeline on
+   direction change; its origin is the drum axis so the mirror looks natural. */
+.paint-roller__art {
+  position: absolute;
+  inset: 0;
+  transform-origin: calc(48 * var(--u)) calc(150 * var(--u));
+}
+.paint-roller__img {
+  position: absolute;
+  left: calc(var(--roller-art-x) * var(--u));
+  top: calc(var(--roller-art-y) * var(--u));
+  width: calc(var(--roller-art-w) * var(--u));
+  height: auto;
+  transform: rotate(var(--roller-art-rotate));
+  transform-origin: calc(48 * var(--u)) calc(150 * var(--u));
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* ── reduced motion / static layout ─────────────────────────────────────── */

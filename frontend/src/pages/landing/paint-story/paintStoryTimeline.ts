@@ -34,7 +34,7 @@ function build(section: HTMLElement): () => void {
   const rough = parseFloat(getComputedStyle(section).getPropertyValue("--edge-roughness")) || 0;
 
   const roller = section.querySelector<HTMLElement>("[data-roller]")!;
-  const arm = section.querySelector<SVGGElement>("[data-roller-arm]")!;
+  const arm = section.querySelector<HTMLElement>("[data-roller-arm]")!;
   const paths = Array.from(section.querySelectorAll<SVGPathElement>("[data-paint-path]"));
   const cardEls = Array.from(section.querySelectorAll<HTMLElement>(".pcard"));
   const layer = section.querySelector<SVGSVGElement>("[data-paint-layer]")!;
@@ -80,7 +80,7 @@ function build(section: HTMLElement): () => void {
   const lut = sampleRoute(paths[0], TIMING.sampleStepPx);
 
   /* ── per-frame renderer (no React, no layout reads) ──────────────────── */
-  gsap.set(arm, { svgOrigin: "48 150" });
+  // flip origin (drum axis) is set in CSS on .paint-roller__art
   const setX = gsap.quickSetter(roller, "x", "px");
   const setY = gsap.quickSetter(roller, "y", "px");
   const setRot = gsap.quickSetter(roller, "rotation", "deg");
