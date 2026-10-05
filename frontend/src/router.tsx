@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { AppShell } from "@/components/layout/AppShell";
 import { BrandLoader } from "@/components/BrandLoader";
+import { LandingIntro } from "@/components/LandingIntro";
 
 // ---------- Auth guard ----------
 
@@ -25,7 +26,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function LandingGate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   if (isAuthenticated) return <Navigate to="/projects" replace />;
-  return withSuspense(<LandingPage />);
+  return (
+    <>
+      <LandingIntro />
+      {withSuspense(<LandingPage />)}
+    </>
+  );
 }
 
 // ---------- Loading fallback ----------
