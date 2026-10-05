@@ -12,6 +12,7 @@ import { furniturePlacementMm } from "@/lib/placement";
 import { deleteUserModel, getStores, updateUserModel } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { StoreContactLinks } from "@/components/studio/StoreContactLinks";
+import { ShopInquiryDialog } from "@/components/studio/ShopInquiryDialog";
 
 /**
  * One row of the material editor. Accepts image drops so a texture can be
@@ -86,6 +87,8 @@ interface ModelCardEntry {
   /** Shop name badge — only set (and only meaningful) when isShop is true;
    *  null for a shop model an admin hasn't assigned to any store. */
   storeName?: string | null;
+  /** The owning shop's id — shop models only; enables "Do'konga murojaat". */
+  storeId?: string | null;
   /** How to reach that shop (phone / Telegram) — shop models only. */
   storeContact?: { phone: string | null; telegram: string | null } | null;
 }
@@ -108,6 +111,8 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
   onSetPrice?(priceUzs: number): void;
 }) {
   const ready = (!entry.isUser && !entry.isShop) || !!entry.modelPath;
+  const roomId = useRoomStore((s) => s.roomId);
+  const [inquiryOpen, setInquiryOpen] = React.useState(false);
   const canTexture = entry.isUser && !!entry.modelPath;
   const { isOver, dropProps } = useFileDrop({
     onDrop: onFiles,
@@ -154,6 +159,25 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
           </p>
         )}
         {entry.isShop && <StoreContactLinks store={entry.storeContact} />}
+        {entry.isShop && entry.storeId && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setInquiryOpen(true); }}
+              className="mt-1 w-full rounded-md border border-brand/30 px-1.5 py-0.5 text-center text-[10px] font-semibold text-brand hover:bg-brand/5"
+            >
+              Do'konga murojaat
+            </button>
+            <ShopInquiryDialog
+              open={inquiryOpen}
+              onOpenChange={setInquiryOpen}
+              storeId={entry.storeId}
+              storeName={entry.storeName}
+              furnitureId={entry.id}
+              roomId={roomId}
+            />
+          </>
+        )}
         {entry.isUser && onRecategorize && (
           <select
             value={entry.category ?? 'boshqa'}
@@ -356,6 +380,7 @@ export function MebelSection() {
       category: f.category as FurnitureCategory,
       priceUzs: f.price_uzs ?? undefined,
       storeName: f.store_name,
+      storeId: f.store_id,
       storeContact: f.store_id ? shopById.get(f.store_id) ?? null : null,
     })),
   ]
@@ -415,6 +440,7 @@ export function MebelSection() {
                 priceUzs: 'priceUzs' in entry ? entry.priceUzs : undefined,
                 thumbnailUrl: 'thumbnailUrl' in entry ? entry.thumbnailUrl : undefined,
                 storeName: 'storeName' in entry ? entry.storeName : undefined,
+                storeId: 'storeId' in entry ? entry.storeId : undefined,
                 storeContact: 'storeContact' in entry ? entry.storeContact : undefined,
               }}
               count={count}
