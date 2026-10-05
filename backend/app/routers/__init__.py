@@ -21,6 +21,7 @@ from app.routers import (
     admin_moderation,
     usta_profile,
     account,
+    shop_inquiries,
 )
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "admin_moderation",
     "usta_profile",
     "account",
+    "shop_inquiries",
     "photo_model",
     "render",
     "auth",
