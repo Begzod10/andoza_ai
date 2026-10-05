@@ -93,3 +93,32 @@ class PendingUstaOut(UstaProfileOut):
     """What a moderator sees: the application plus who sent it."""
 
     owner_user_id: UUID | None = None
+
+
+LEAD_STATUSES: tuple[str, ...] = ("new", "viewed", "contacted", "closed")
+
+
+class UstaLeadOut(BaseModel):
+    """A customer who asked this usta for work, as the usta's inbox shows it. The
+    client's phone is here because contacting the usta is what created the lead."""
+
+    id: UUID
+    status: str
+    created_at: datetime
+    client_name: str | None
+    client_phone: str | None
+    room_name: str | None
+    total_uzs: int | None
+    lines_count: int
+
+
+class UstaLeadUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def _status(cls, v: str) -> str:
+        # "new" is what a lead starts as, not something the usta moves it back to.
+        if v not in LEAD_STATUSES[1:]:
+            raise ValueError(f"Holat {', '.join(LEAD_STATUSES[1:])} dan biri bo'lishi kerak")
+        return v

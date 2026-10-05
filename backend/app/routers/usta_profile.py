@@ -9,13 +9,18 @@ approves it (see ``routers/admin_moderation.py``).
 from __future__ import annotations
 
 import structlog
+import uuid as uuid_module
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.models.lead import Lead
+from app.models.room import Room
 from app.models.usta import Usta
+from app.models.user import User
 from app.routers.admin_catalog import _invalidate_after_commit
-from app.schemas.usta_profile import UstaApply, UstaProfileOut, UstaProfileUpdate
+from app.schemas.usta_profile import UstaApply, UstaLeadOut, UstaLeadUpdate, UstaProfileOut, UstaProfileUpdate
 
 logger = structlog.get_logger(__name__)
 
@@ -110,3 +115,51 @@ async def update_profile(body: UstaProfileUpdate, current_user: CurrentUser, db:
     if usta.status == "approved":
         _invalidate_after_commit(db, "ustalar:")
     return usta
+
+
+# --------------------------------------------------------------------------- #
+# Customer requests (leads)
+# --------------------------------------------------------------------------- #
+
+def _lead_out(lead: Lead, client: User | None, room: Room | None) -> UstaLeadOut:
+    snap = lead.smeta_snapshot or {}
+    return UstaLeadOut(
+        id=lead.id,
+        status=lead.status,
+        created_at=lead.created_at,
+        client_name=client.name if client else None,
+        client_phone=client.phone if client else None,
+        room_name=room.name if room else None,
+        total_uzs=snap.get("total_uzs"),
+        lines_count=len(snap.get("lines") or []),
+    )
+
+
+@router.get("/leads", response_model=list[UstaLeadOut], summary="Customer requests sent to the caller's usta profile")
+async def list_leads(current_user: CurrentUser, db: DbSession) -> list[UstaLeadOut]:
+    usta = await _require_profile(db, current_user)
+    rows = (await db.execute(
+        select(Lead, User, Room)
+        .join(User, User.id == Lead.user_id)
+        .outerjoin(Room, Room.id == Lead.room_id)
+        .where(Lead.usta_id == usta.id)
+        .order_by(Lead.created_at.desc())
+        .limit(200)
+    )).all()
+    return [_lead_out(lead, client, room) for lead, client, room in rows]
+
+
+@router.patch("/leads/{lead_id}", response_model=UstaLeadOut, summary="Mark one of the caller's leads viewed / contacted / closed")
+async def update_lead(lead_id: uuid_module.UUID, body: UstaLeadUpdate, current_user: CurrentUser, db: DbSession) -> UstaLeadOut:
+    usta = await _require_profile(db, current_user)
+    # Someone else's lead and a missing one answer the same 404, so ids cannot be probed.
+    lead = (await db.execute(select(Lead).where(Lead.id == lead_id, Lead.usta_id == usta.id))).scalar_one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="So'rov topilmadi")
+    lead.status = body.status
+    await db.flush()
+    client = (await db.execute(select(User).where(User.id == lead.user_id))).scalar_one_or_none()
+    room = None
+    if lead.room_id is not None:
+        room = (await db.execute(select(Room).where(Room.id == lead.room_id))).scalar_one_or_none()
+    return _lead_out(lead, client, room)

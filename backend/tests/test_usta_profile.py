@@ -204,3 +204,45 @@ class TestAccountRoles:
         _as(_user(), [_R(None), _R(None)])
         body = client.get("/api/v1/account/roles").json()
         assert body == {"roles": ["user"], "store_status": None, "store_name": None, "usta_status": None, "usta_name": None}
+
+
+class TestUstaLeads:
+    def _lead(self, usta, **kw):
+        from app.models.lead import Lead
+        lead = Lead(id=uuid.uuid4(), usta_id=usta.id, user_id=uuid.uuid4(), room_id=None, status="new",
+                    smeta_snapshot={"total_uzs": 5_000_000, "lines": [{}, {}]}, created_at=datetime.now(timezone.utc))
+        for k, v in kw.items():
+            setattr(lead, k, v)
+        return lead
+
+    def test_inbox_lists_requests_with_the_client_and_the_estimate_total(self, client):
+        from app.models.user import User
+        u = _user()
+        usta = _usta(u)
+        lead = self._lead(usta)
+        customer = User(id=lead.user_id, name="Vali", phone="+998909998877")
+        _as(u, [_R(usta), _R(many=[(lead, customer, None)])])
+        body = client.get("/api/v1/usta/leads").json()
+        assert len(body) == 1
+        assert (body[0]["client_name"], body[0]["client_phone"]) == ("Vali", "+998909998877")
+        assert (body[0]["total_uzs"], body[0]["lines_count"], body[0]["status"]) == (5_000_000, 2, "new")
+
+    def test_no_profile_means_no_inbox(self, client):
+        _as(_user(), [_R(None)])
+        assert client.get("/api/v1/usta/leads").status_code == 404
+
+    def test_a_lead_moves_forward_but_never_back_to_new(self, client):
+        from app.models.user import User
+        u = _user()
+        usta = _usta(u)
+        lead = self._lead(usta)
+        _as(u, [_R(usta), _R(lead), _R(User(id=lead.user_id, name="Vali", phone=None))])
+        res = client.patch(f"/api/v1/usta/leads/{lead.id}", json={"status": "contacted"})
+        assert res.status_code == 200 and lead.status == "contacted"
+        _as(u, [_R(usta)])
+        assert client.patch(f"/api/v1/usta/leads/{lead.id}", json={"status": "new"}).status_code == 422
+
+    def test_someone_elses_lead_is_a_404(self, client):
+        u = _user()
+        _as(u, [_R(_usta(u)), _R(None)])
+        assert client.patch(f"/api/v1/usta/leads/{uuid.uuid4()}", json={"status": "closed"}).status_code == 404
