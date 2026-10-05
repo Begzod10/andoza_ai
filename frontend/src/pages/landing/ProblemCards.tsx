@@ -30,7 +30,7 @@ function Card({
       }}
       whileHover={reduce ? undefined : { y: -8, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="relative flex min-h-[210px] flex-col overflow-hidden rounded-[26px] p-6 text-white"
+      className="relative flex h-full min-h-[277px] w-full max-w-[340px] flex-col overflow-hidden rounded-[28px] p-7 text-white"
       style={{
         background: `radial-gradient(120% 90% at 0% 0%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 55%), linear-gradient(${ANGLES[index % 4]}deg,#6b8bf5 0%,#2F55D4 52%,#1b327f 100%)`,
         boxShadow:
@@ -51,13 +51,12 @@ function Card({
         />
       )}
 
-      <div className="relative flex flex-1 flex-col">
-        <span className="text-[44px] font-extrabold leading-none tracking-tight text-white/90 tabular-nums">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <div className="my-4 h-px w-full bg-gradient-to-r from-white/35 via-white/15 to-transparent" />
-        <h3 className="text-[18px] font-bold leading-snug tracking-tight">{title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-white/75">{desc}</p>
+      <div className="relative flex flex-1 flex-col justify-between gap-6">
+        <h3 className="text-[22px] font-extrabold leading-snug tracking-tight">{title}</h3>
+        <div>
+          <div className="mb-4 h-px w-full bg-gradient-to-r from-white/35 via-white/15 to-transparent" />
+          <p className="min-h-[3.5rem] text-[15px] leading-relaxed text-white/80">{desc}</p>
+        </div>
       </div>
     </motion.article>
   );
@@ -73,7 +72,7 @@ export default function ProblemCards({ className }: { className?: string }) {
   return (
     <motion.div
       ref={ref}
-      className={`grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 ${className ?? ""}`}
+      className={`grid grid-cols-1 justify-center justify-items-center gap-6 sm:grid-cols-[repeat(2,340px)] ${className ?? ""}`}
       initial="hidden"
       animate={inView ? "show" : "hidden"}
       variants={{ show: { transition: { staggerChildren: reduce ? 0 : 0.15 } } }}
