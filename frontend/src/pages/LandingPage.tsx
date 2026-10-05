@@ -3,6 +3,7 @@ import Nav from "./landing/Nav";
 import Hero from "./landing/Hero";
 import ReferenceStory from "./landing/ReferenceStory";
 import Problem from "./landing/Problem";
+import PaintStorySection from "./landing/paint-story/PaintStorySection";
 import Solution from "./landing/Solution";
 import HowItWorks from "./landing/HowItWorks";
 import Pricing from "./landing/Pricing";
@@ -36,6 +37,7 @@ export default function LandingPage() {
         <Hero />
         <ReferenceStory />
         <Problem />
+        <PaintStorySection />
         <Solution />
         <HowItWorks />
         <Pricing />
