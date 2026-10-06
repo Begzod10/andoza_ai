@@ -88,6 +88,10 @@ run_seed app.seed_partners "partner stores/materials/ustalar"
 # both in one transaction, so a bad material row would take the norms with
 # it — see app/seed_norms.py for the full reasoning.
 run_seed app.seed_norms "smeta norms"
+# Shop products the estimate prices its own lines from (plaster, primer, putty, skirting,
+# cable, ceiling board/profile/LED strip, light fittings), with what one pack holds. After
+# the catalog seeders so their stores exist; a bad row here cannot take the others down.
+run_seed app.seed_estimate_catalog "estimate shop products"
 # The /materials response is cached 10 min; drop those keys so freshly seeded
 # rows appear immediately.
 docker compose -f "$COMPOSE_FILE" exec -T redis sh -c "redis-cli --scan --pattern 'materials:*' | xargs -r redis-cli DEL" || true

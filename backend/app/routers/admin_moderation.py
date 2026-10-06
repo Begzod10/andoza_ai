@@ -16,9 +16,11 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.deps import AdminUser, DbSession
 from app.models.furniture import Furniture
 from app.models.store import Store
+from app.models.usta import Usta
 from app.routers.admin_catalog import _invalidate_after_commit
 from app.routers.seller import _out as _furniture_out
 from app.schemas.seller import PendingFurnitureOut, PendingOut, PendingStoreOut, RejectIn
+from app.schemas.usta_profile import PendingUstaOut
 
 logger = structlog.get_logger(__name__)
 
@@ -34,8 +36,12 @@ async def pending(request: Request, admin: AdminUser, db: DbSession) -> PendingO
         select(Furniture).options(selectinload(Furniture.store))
         .where(Furniture.status == "pending").order_by(Furniture.created_at)
     )).scalars().all()
+    ustalar = (await db.execute(
+        select(Usta).where(Usta.status == "pending").order_by(Usta.created_at)
+    )).scalars().all()
     return PendingOut(
         stores=[PendingStoreOut.model_validate(s, from_attributes=True) for s in stores],
+        ustalar=[PendingUstaOut.model_validate(u, from_attributes=True) for u in ustalar],
         furniture=[
             PendingFurnitureOut(
                 **_furniture_out(f, request).model_dump(),
@@ -52,6 +58,13 @@ async def _store(db: DbSession, store_id: uuid_module.UUID) -> Store:
     if s is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Do'kon topilmadi")
     return s
+
+
+async def _usta(db: DbSession, usta_id: uuid_module.UUID) -> Usta:
+    u = (await db.execute(select(Usta).where(Usta.id == usta_id))).scalar_one_or_none()
+    if u is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usta topilmadi")
+    return u
 
 
 async def _model(db: DbSession, furniture_id: uuid_module.UUID) -> Furniture:
@@ -102,3 +115,23 @@ async def reject_furniture(furniture_id: uuid_module.UUID, body: RejectIn, admin
     await db.flush()
     _invalidate_after_commit(db, "furniture:")
     logger.info("model_rejected", id=str(furniture_id), admin_id=str(admin.id))
+
+
+@router.post("/ustalar/{usta_id}/approve", status_code=status.HTTP_204_NO_CONTENT)
+async def approve_usta(usta_id: uuid_module.UUID, admin: AdminUser, db: DbSession) -> None:
+    usta = await _usta(db, usta_id)
+    _decide(usta, True, None)
+    usta.verified = True  # approving an application is what verifies a craftsman
+    await db.flush()
+    _invalidate_after_commit(db, "ustalar:")
+    logger.info("usta_approved", id=str(usta_id), admin_id=str(admin.id))
+
+
+@router.post("/ustalar/{usta_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_usta(usta_id: uuid_module.UUID, body: RejectIn, admin: AdminUser, db: DbSession) -> None:
+    usta = await _usta(db, usta_id)
+    _decide(usta, False, body.note.strip())
+    usta.verified = False
+    await db.flush()
+    _invalidate_after_commit(db, "ustalar:")
+    logger.info("usta_rejected", id=str(usta_id), admin_id=str(admin.id))

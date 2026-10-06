@@ -66,6 +66,18 @@ log = logging.getLogger(__name__)
 
 NORMS: list[dict] = [
     {
+        "material_key": "suvoq",
+        "coverage_per_unit": 8.5,
+        "coats": 1,
+        "waste_factor": 1.0,
+        "notes": "8.5 kg/m² (≈10 mm qatlam)",
+        "params": {
+            "rate_kg_m2": 8.5,
+            "bag_kg": 30,
+            "bag_price_uzs": 65000,
+        },
+    },
+    {
         "material_key": "boyoq",
         "coverage_per_unit": 9.0,
         "coats": 2,

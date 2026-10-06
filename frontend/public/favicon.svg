@@ -1,22 +1,3 @@
-<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" fill="none">
-  <!-- Background circle for favicon -->
-  <rect width="128" height="128" rx="24" fill="#1E40AF"/>
-
-  <!-- House shape with design elements -->
-  <g transform="translate(64, 64)">
-    <!-- Main house outline -->
-    <path d="M -24 8 L 0 -20 L 24 8 L 24 24 L -24 24 Z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
-
-    <!-- Roof accent (design line) -->
-    <line x1="-8" y1="0" x2="8" y2="0" stroke="white" stroke-width="2" stroke-linecap="round"/>
-
-    <!-- Door with design frame -->
-    <rect x="-6" y="8" width="12" height="16" rx="2" stroke="white" stroke-width="2" fill="none"/>
-
-    <!-- Light/vision rays (design elements) -->
-    <circle cx="0" cy="-28" r="4" fill="white" opacity="0.8"/>
-    <line x1="0" y1="-24" x2="0" y2="-20" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-    <line x1="12" y1="-18" x2="16" y2="-14" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-    <line x1="-12" y1="-18" x2="-16" y2="-14" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-  </g>
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#2F55D4"/><g transform="translate(256 256) scale(0.92) translate(-256.0 -241.0)"><path d="M216,96 L112.0,400" stroke="#FFFFFF" stroke-width="50" stroke-linecap="round"/><path d="M296,96 L400.0,400" stroke="#FFFFFF" stroke-width="50" stroke-linecap="round"/><path d="M184.9,187 L327.1,187" stroke="#9DB8FF" stroke-width="40" stroke-linecap="round"/><path d="M156.8,269 L355.2,269" stroke="#FDBA74" stroke-width="40" stroke-linecap="round"/><path d="M128.8,351 L383.2,351" stroke="#9DB8FF" stroke-width="40" stroke-linecap="round"/><rect x="186" y="58" width="140" height="38" rx="19" fill="#FFFFFF"/></g>
 </svg>

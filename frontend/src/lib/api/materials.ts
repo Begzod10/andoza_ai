@@ -15,6 +15,10 @@ export interface Material {
   /** oboy only: this product's real roll size, when known. Unset falls back
    * to the smeta engine's generic default (1.06 x 10.05 m). */
   roll_width_cm?: number | null;
+  /** What one selling unit holds (30 kg in a qop, 2.5 m in a plintus dona) and which estimate line the product prices. */
+  pack_qty?: number | null;
+  pack_unit?: string | null;
+  smeta_key?: string | null;
   roll_length_m?: number | null;
 }
 

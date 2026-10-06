@@ -36,9 +36,10 @@ from __future__ import annotations
 import dataclasses
 import io
 import uuid
+from pathlib import Path
 from datetime import date, datetime, timezone
-from itertools import groupby
 from typing import Any
+from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -48,6 +49,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -73,9 +75,13 @@ from app.schemas.estimate import (
     PaginatedEstimates,
 )
 from app.services.currency import get_usd_rate, uzs_to_usd
+from app.services.estimate_catalog import load_estimate_catalog
+from app.services.llm import BudgetExceededError
+from app.services.market_prices import apply_market_prices, market_prices_available
 from app.services.room_finishes import apply_finishes_to_room
 from app.services.smeta import ComputedEstimate, ComputedLine, compute_estimate
 from app.services.smeta_ai import fill_ai_price_gaps
+from app.services.smeta_groups import GROUP_COLOUR, format_share, group_lines, share
 
 router = APIRouter(prefix="/rooms/{room_id}")
 
@@ -233,6 +239,10 @@ def _computed_to_schema_lines(lines: list[ComputedLine]) -> list[EstimateLine]:
             store_id=None,
             category=ln.category,
             warning=ln.warning,
+            price_source=ln.price_source,
+            source_url=ln.source_url,
+            store_name=ln.store_name,
+            price_checked_at=ln.price_checked_at,
         )
         for ln in lines
     ]
@@ -252,6 +262,10 @@ def _jsonb_lines_to_schema(raw_lines: list[dict]) -> list[EstimateLine]:
             store_id=None,
             category=ln.get("category", ""),
             warning=ln.get("warning"),
+            price_source=ln.get("price_source"),
+            source_url=ln.get("source_url"),
+            store_name=ln.get("store_name"),
+            price_checked_at=ln.get("price_checked_at"),
         )
         for ln in raw_lines
     ]
@@ -304,6 +318,26 @@ def _totals_from_raw_lines(raw_lines: list[dict]) -> dict[str, int]:
     }
 
 
+async def _with_market_prices(
+    computed: ComputedEstimate, market: bool, user_id: str
+) -> tuple[ComputedEstimate, int, int]:
+    """Optionally reprice lines with real shop prices (see app.services.market_prices).
+
+    Returns (estimate, lines_checked, lines_updated); (computed, 0, 0) when not asked for.
+    """
+    if not market:
+        return computed, 0, 0
+    if not market_prices_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bozor narxlarini tekshirish hozircha yoqilmagan",
+        )
+    try:
+        return await apply_market_prices(computed, user_id=user_id)
+    except BudgetExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+
+
 # ---------------------------------------------------------------------------
 # POST /rooms/{room_id}/estimate/preview  (live preview, no persistence)
 # ---------------------------------------------------------------------------
@@ -318,6 +352,7 @@ async def preview_estimate(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> EstimateResponse:
     """Compute a smeta for the room and return it without creating an Estimate row.
 
@@ -330,13 +365,17 @@ async def preview_estimate(
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
+    computed, market_checked, market_updated = await _with_market_prices(
+        computed, market, str(current_user.id)
+    )
     usd_rate = await get_usd_rate()
 
     return EstimateResponse(
@@ -355,6 +394,9 @@ async def preview_estimate(
         electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
+        market_prices_available=market_prices_available(),
+        market_checked=market_checked,
+        market_updated=market_updated,
     )
 
 
@@ -378,11 +420,12 @@ async def create_estimate(
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
 
@@ -415,6 +458,7 @@ async def create_estimate(
         electrical_confirmed=computed.electrical_confirmed,
         usd_rate=usd_rate,
         total_usd=round(uzs_to_usd(computed.total_uzs, usd_rate)),
+        market_prices_available=market_prices_available(),
     )
 
 
@@ -467,19 +511,22 @@ async def _generate_estimate_pdf(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = False,
 ) -> StreamingResponse:
     room, priced_room, materials_map, wiring_meters = await _load_room_for_pricing(
         room_id, current_user.id, db
     )
     norms_map = await _load_norms(db)
     current_state, floor_state, ceiling_state = await _load_stage(room_id, db)
+    catalog = await load_estimate_catalog(db)
 
     computed: ComputedEstimate = compute_estimate(
         priced_room, materials_map, norms_map,
         current_state=current_state, floor_state=floor_state, ceiling_state=ceiling_state,
-        wiring_meters=wiring_meters,
+        wiring_meters=wiring_meters, catalog=catalog,
     )
     computed = await fill_ai_price_gaps(computed, user_id=str(current_user.id))
+    computed, _, _ = await _with_market_prices(computed, market, str(current_user.id))
 
     pdf_bytes = _build_pdf(room, computed)
 
@@ -500,8 +547,9 @@ async def get_estimate_pdf(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> StreamingResponse:
-    return await _generate_estimate_pdf(room_id, current_user, db)
+    return await _generate_estimate_pdf(room_id, current_user, db, market)
 
 
 @router.get(
@@ -513,8 +561,9 @@ async def get_estimate_pdf_alias(
     room_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
+    market: bool = Query(default=False, description="Reprice materials with real shop prices"),
 ) -> StreamingResponse:
-    return await _generate_estimate_pdf(room_id, current_user, db)
+    return await _generate_estimate_pdf(room_id, current_user, db, market)
 
 
 # ---------------------------------------------------------------------------
@@ -572,7 +621,10 @@ async def get_estimate(
 # PDF generation (ReportLab)
 # ---------------------------------------------------------------------------
 
-_BRAND_BLUE = colors.HexColor("#1E88E5")
+_BRAND_BLUE = colors.HexColor("#2F55D4")
+# The andoza.ai horizontal logo (900 x 279 px), trimmed; the PDF header scales it by width.
+_LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "logo-horizontal.png"
+_LOGO_RATIO = 279 / 900
 _AMBER = colors.HexColor("#FB8C00")
 _LIGHT_GREY = colors.HexColor("#F5F5F5")
 _MID_GREY = colors.HexColor("#9E9E9E")
@@ -588,8 +640,8 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
         leftMargin=2 * cm,
         topMargin=2.5 * cm,
         bottomMargin=2.5 * cm,
-        title=f"UyTa'mir Smeta — {room.name}",
-        author="UyTa'mir",
+        title=f"andoza.ai Smeta — {room.name}",
+        author="andoza.ai",
     )
 
     styles = getSampleStyleSheet()
@@ -632,7 +684,12 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story: list[Any] = []
 
     # ---- Header -------------------------------------------------------
-    story.append(Paragraph("UyTa'mir — Smeta", h1))
+    if _LOGO_PATH.exists():
+        logo = Image(str(_LOGO_PATH), width=5 * cm, height=5 * cm * _LOGO_RATIO)
+        logo.hAlign = "LEFT"
+        story.append(logo)
+        story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("Smeta", h1))
     story.append(Paragraph(
         f"Xona: <b>{room.name}</b> &nbsp;|&nbsp; Sana: {date.today():%d.%m.%Y}",
         normal,
@@ -641,20 +698,58 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
     story.append(HRFlowable(width="100%", thickness=1, color=_BRAND_BLUE))
     story.append(Spacer(1, 0.3 * cm))
 
-    # ---- Lines grouped by store ---------------------------------------
-    col_widths = [5.5 * cm, 5.5 * cm, 1.5 * cm, 1.3 * cm, 2.5 * cm, 2.5 * cm]
+    # ---- Cost breakdown + lines grouped by category -------------------
+    # The same seven groups the web page shows (app.services.smeta_groups); each line keeps its
+    # store under its name, since that is what is needed to go and buy it.
+    groups = group_lines(est.lines)
+    grand = sum(g.subtotal for g in groups)
+
+    def _fmt_num(n: int | float) -> str:
+        return f"{int(n):,}".replace(",", " ")
+
+    if groups:
+        story.append(Paragraph("Xarajat taqsimoti", h2))
+        summary = [["", "Toifa", "Ulushi", "Summa (UZS)"]]
+        for g in groups:
+            summary.append(["", g.label, format_share(share(g.subtotal, grand)), _fmt_num(g.subtotal)])
+        summary_tbl = Table(summary, colWidths=[0.5 * cm, 9.5 * cm, 2.5 * cm, 4.5 * cm])
+        summary_style = [
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _BRAND_BLUE),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.5, _BRAND_BLUE),
+            ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]
+        for i, g in enumerate(groups, start=1):
+            summary_style.append(("BACKGROUND", (0, i), (0, i), colors.HexColor(GROUP_COLOUR[g.key])))
+            summary_style.append(("LINEBELOW", (0, i), (-1, i), 0.25, _LIGHT_GREY))
+        summary_tbl.setStyle(TableStyle(summary_style))
+        story.append(summary_tbl)
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Widths add up to the 17 cm between the margins (they used to be 18.8 and ran over).
+    col_widths = [5.2 * cm, 4.4 * cm, 1.5 * cm, 1.3 * cm, 2.3 * cm, 2.3 * cm]
 
     def _header_row() -> list[str]:
         return ["Material / Xizmat", "Formula", "Miqdor", "Birlik",
                 "Narx (UZS)", "Jami (UZS)"]
 
-    def _fmt_num(n: int | float) -> str:
-        return f"{int(n):,}".replace(",", " ")
-
     def _line_row(ln: ComputedLine) -> list[Any]:
         prefix = "≈ " if ln.is_approximate else ""
+        name = Paragraph(ln.label, normal)
+        if ln.price_source == "market" and ln.store_name:
+            checked = f", {date.fromisoformat(ln.price_checked_at):%d.%m.%Y}" if ln.price_checked_at else ""
+            name = Paragraph(
+                f"{ln.label}<br/><font size='7' color='#9E9E9E'>Bozor narxi: {xml_escape(ln.store_name)}{checked}</font>",
+                normal,
+            )
+        elif ln.store_name:
+            name = Paragraph(f"{ln.label}<br/><font size='7' color='#9E9E9E'>Do'kon: {ln.store_name}</font>", normal)
         return [
-            Paragraph(ln.label, normal),
+            name,
             Paragraph(f"<font size='7'>{ln.formula}</font>", normal),
             _fmt_num(ln.qty),
             ln.unit,
@@ -677,18 +772,13 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ])
 
-    # Group by store (None store goes to "Boshqa")
-    def _store_key(ln: ComputedLine) -> str:
-        return ln.store_name or "Boshqa / Umumiy"
-
-    sorted_lines = sorted(est.lines, key=_store_key)
-
-    for store_name, group in groupby(sorted_lines, key=_store_key):
-        group_list = list(group)
-        story.append(Paragraph(f"Do'kon: {store_name}", h2))
+    for g in groups:
+        story.append(Paragraph(
+            f"{g.label} <font size='9' color='#9E9E9E'>({len(g.lines)} ta qator)</font>", h2,
+        ))
 
         table_data: list[list[Any]] = [_header_row()]
-        for ln in group_list:
+        for ln in g.lines:
             table_data.append(_line_row(ln))
             if ln.warning:
                 table_data.append([
@@ -698,9 +788,17 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
                     ),
                     "", "", "", "", "",
                 ])
+        table_data.append([f"Jami: {g.label}", "", "", "", "", _fmt_num(g.subtotal)])
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         tbl.setStyle(_table_style())
+        # the group's subtotal: one spanning cell, then the amount
+        tbl.setStyle(TableStyle([
+            ("SPAN", (0, -1), (4, -1)),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E3F2FD")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (0, -1), (4, -1), "RIGHT"),
+        ]))
         story.append(tbl)
         story.append(Spacer(1, 0.3 * cm))
 
@@ -755,7 +853,7 @@ def _build_pdf(room: Room, est: ComputedEstimate) -> bytes:
 
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph(
-        f"Tuzilgan: UyTa'mir &nbsp;|&nbsp; {datetime.now(tz=timezone.utc):%d.%m.%Y %H:%M} UTC",
+        f"Tuzilgan: andoza.ai &nbsp;|&nbsp; {datetime.now(tz=timezone.utc):%d.%m.%Y %H:%M} UTC",
         small,
     ))
 

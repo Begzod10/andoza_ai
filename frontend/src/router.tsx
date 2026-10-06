@@ -7,6 +7,8 @@ import {
 } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { AppShell } from "@/components/layout/AppShell";
+import { BrandLoader } from "@/components/BrandLoader";
+import { LandingIntro } from "@/components/LandingIntro";
 
 // ---------- Auth guard ----------
 
@@ -24,26 +26,18 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function LandingGate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   if (isAuthenticated) return <Navigate to="/projects" replace />;
-  return withSuspense(<LandingPage />);
-}
-
-// ---------- Skeleton fallback ----------
-
-function PageSkeleton() {
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center">
-      <div className="space-y-3 w-full max-w-md px-4">
-        <div className="h-8 bg-gray-200 rounded-card animate-pulse" />
-        <div className="h-4 bg-gray-200 rounded-card animate-pulse w-3/4" />
-        <div className="h-4 bg-gray-200 rounded-card animate-pulse w-1/2" />
-        <div className="mt-6 h-48 bg-gray-200 rounded-card animate-pulse" />
-      </div>
-    </div>
+    <>
+      <LandingIntro />
+      {withSuspense(<LandingPage />)}
+    </>
   );
 }
 
+// ---------- Loading fallback ----------
+
 function withSuspense(node: ReactNode) {
-  return <Suspense fallback={<PageSkeleton />}>{node}</Suspense>;
+  return <Suspense fallback={<BrandLoader />}>{node}</Suspense>;
 }
 
 // ---------- 404 ----------

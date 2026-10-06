@@ -16,7 +16,8 @@ from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, currency, admin_catalog, room_share, render, photo_model, seller, admin_moderation,
+    orders, currency, admin_catalog, room_share, render, photo_model, seller, admin_moderation, usta_profile, account,
+    shop_inquiries,
 )
 
 
@@ -41,7 +42,7 @@ def _configure_structlog() -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="UyTa'mir API",
+        title="andoza.ai API",
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
@@ -76,6 +77,10 @@ def create_app() -> FastAPI:
     app.include_router(photo_model.router, prefix="/api/v1", tags=["photo-model"])
     app.include_router(seller.router, prefix="/api/v1", tags=["seller"])
     app.include_router(admin_moderation.router, prefix="/api/v1", tags=["admin-moderation"])
+    app.include_router(usta_profile.router, prefix="/api/v1", tags=["usta"])
+    app.include_router(account.router, prefix="/api/v1", tags=["account"])
+    app.include_router(shop_inquiries.router, prefix="/api/v1", tags=["shops"])
+    app.include_router(shop_inquiries.seller_router, prefix="/api/v1", tags=["seller"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])
     app.include_router(user_models.router, prefix="/api/v1", tags=["user-models"])
     app.include_router(electrical.router, prefix="/api/v1", tags=["electrical"])

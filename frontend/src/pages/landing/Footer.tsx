@@ -14,8 +14,8 @@ export default function Footer() {
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 py-10 sm:flex-row sm:justify-between">
         <div className="flex flex-col items-center gap-2 sm:items-start">
           <div className="flex items-center gap-2.5">
-            <img src="/icon.svg" alt="AndozaAI" className="h-8 w-8" />
-            <span className="text-base font-bold tracking-tight">AndozaAI</span>
+            <img src="/icon.svg" alt="andoza.ai" className="h-8 w-8" />
+            <span className="text-base font-bold tracking-tight">andoza.ai</span>
           </div>
           <p className="text-sm text-neutral-500">{t.footer.tagline}</p>
         </div>

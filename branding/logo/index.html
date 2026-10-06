@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>andoza.ai logo</title>
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 Manrope, Inter, system-ui, sans-serif; color:var(--ink); background:#f8fafc; }
+  main { max-width:1100px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:28px; letter-spacing:-.02em; margin:0 0 4px; } p.lead { color:var(--muted); margin:0 0 8px; max-width:760px; }
+  h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:40px 0 12px; }
+  .grid { display:grid; gap:16px; } .g2 { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .card { position:relative; border:1px solid var(--line); border-radius:16px; display:flex; align-items:center; justify-content:center; padding:34px 28px 28px; min-height:170px; }
+  .card .tag { position:absolute; left:14px; top:10px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .dark .tag { color:#94a3b8; }
+  .light { background:#fff; } .dark { background:#0b1220; } .tint { background:#f1f5ff; } .stamp { background:#f4efe6; } .photo { background:linear-gradient(135deg,#fde68a,#fb923c); }
+  .card img { display:block; max-width:100%; }
+  .h img { width:min(100%,440px); } .v img { height:260px; width:auto; } .m img { height:170px; width:auto; }
+  .row { display:flex; align-items:flex-end; gap:22px; flex-wrap:wrap; justify-content:center; }
+  .row figure { margin:0; text-align:center; font-size:12px; color:var(--muted); } .row img { display:block; margin:0 auto 6px; }
+  .dark .row figure { color:#94a3b8; }
+  .tab { display:flex; align-items:center; gap:8px; background:#e8eaed; border-radius:10px 10px 0 0; padding:7px 14px; font-size:12px; color:#3c4043; width:220px; margin-top:6px; }
+  .tab img { width:16px; height:16px; }
+  .note { font-size:13px; color:var(--muted); margin:8px 2px 0; }
+  .clear { border:1.5px dashed #94a3b8; padding:44px; position:relative; } .clear img { height:80px; width:auto; }
+  .clear::after { content:"= belgi balandligining chorak qismi"; position:absolute; left:6px; top:-20px; font-size:11px; color:#64748b; }
+  .home { display:grid; grid-template-columns:repeat(4,64px); gap:18px 22px; }
+  .home figure { margin:0; text-align:center; font-size:11px; color:#334155; } .home img { width:64px; height:64px; border-radius:14px; display:block; margin:0 auto 4px; }
+  .dummy { width:64px; height:64px; border-radius:14px; background:#ffffffaa; margin:0 auto 4px; }
+  .phone { background:linear-gradient(160deg,#c7d2fe,#e9d5ff); }
+  .mask { border-radius:50%; overflow:hidden; width:120px; height:120px; } .mask img { width:120px; height:120px; }
+  .why { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:14px; }
+  .why div { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 16px; font-size:14px; color:#334155; } .why b { color:var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <h1>andoza.ai</h1>
+  <p class="lead">Zinapoya ayni paytda «A» harfi: ta'mir asbobi va nomning bosh harfi bitta belgida. O'rta pog'ona to'q sariq: yozuvdagi nuqta rangi.</p>
+  <div class="why">
+    <div><b>Zinapoya = «A».</b> Ikki oyoq va pog'onalar: harf va asbob bir shaklda.</div>
+    <div><b>Ta'mir asbobi.</b> Ilova ta'mirga yordam beradi: narvon uning eng tanish belgisi.</div>
+    <div><b>To'q sariq pog'ona.</b> Yozuvdagi nuqta bilan bir rang: andoza<b>.</b>ai.</div>
+    <div><b>Oddiy shakl.</b> Faqat chiziqlar: kichik o'lchamda ham «A» o'qiladi.</div>
+  </div>
+
+  <h2>Gorizontal va vertikal</h2>
+  <div class="grid g2">
+    <div class="card light h"><span class="tag">Yorug'</span><img src="logo-horizontal.svg" alt=""></div>
+    <div class="card dark h"><span class="tag">Qorong'i</span><img src="logo-horizontal-dark.svg" alt=""></div>
+    <div class="card light v"><span class="tag">Yorug'</span><img src="logo-vertical.svg" alt=""></div>
+    <div class="card dark v"><span class="tag">Qorong'i</span><img src="logo-vertical-dark.svg" alt=""></div>
+  </div>
+
+  <h2>Yolg'iz belgi</h2>
+  <div class="grid g2">
+    <div class="card tint m"><span class="tag">Yorug'</span><div class="row"><img src="mark.svg" alt=""><img src="mark.svg" style="height:56px" alt=""><img src="mark.svg" style="height:28px" alt=""></div></div>
+    <div class="card dark m"><span class="tag">Qorong'i</span><div class="row"><img src="mark-dark.svg" alt=""><img src="mark-dark.svg" style="height:56px" alt=""><img src="mark-dark.svg" style="height:28px" alt=""></div></div>
+  </div>
+
+  <h2>Bir rangli: shtamp, kashta, hujjat, faks</h2>
+  <div class="grid g2">
+    <div class="card stamp h"><span class="tag">Qora</span><img src="logo-horizontal-mono-black.svg" alt=""></div>
+    <div class="card dark h"><span class="tag">Oq</span><img src="logo-horizontal-mono-white.svg" alt=""></div>
+    <div class="card photo m"><span class="tag">Rasm ustida</span><img src="mark-mono-black.svg" alt=""></div>
+    <div class="card stamp v"><span class="tag">Vertikal, qora</span><img src="logo-vertical-mono-black.svg" alt=""></div>
+  </div>
+
+  <h2>Ilova belgisi va favicon</h2>
+  <div class="grid g2">
+    <div class="card light"><span class="tag">Gradientli</span><div class="row">
+      <figure><img src="icon.svg" width="150" height="150" alt="">512</figure>
+      <figure><img src="icon.svg" width="64" height="64" alt="">64</figure>
+      <figure><img src="icon.svg" width="48" height="48" alt="">48</figure>
+      <figure><img src="icon.svg" width="32" height="32" alt="">32</figure>
+      <figure><img src="icon.svg" width="16" height="16" alt="">16</figure></div></div>
+    <div class="card light"><span class="tag">Tekis va brauzer yorlig'i</span><div>
+      <div class="row">
+        <figure><img src="icon-flat.svg" width="150" height="150" alt="">tekis</figure>
+        <figure><img src="favicon.svg" width="32" height="32" alt="">favicon 32</figure>
+        <figure><img src="favicon.svg" width="16" height="16" alt="">16</figure></div>
+      <div class="tab"><img src="favicon.svg" alt="">andoza.ai</div></div></div>
+  </div>
+
+  <h2>Telefonda va Android maskable</h2>
+  <div class="grid g2">
+    <div class="card phone"><div class="home">
+      <figure><div class="dummy"></div>Kamera</figure><figure><div class="dummy"></div>Xarita</figure>
+      <figure><img src="icon.svg" alt="">andoza.ai</figure><figure><div class="dummy"></div>Pochta</figure></div></div>
+    <div class="card light"><div class="row">
+      <figure><div class="mask"><img src="icon-maskable.svg" alt=""></div>doira</figure>
+      <figure><img src="icon-maskable.svg" width="120" height="120" style="border-radius:28px" alt="">yumaloq kvadrat</figure>
+      <figure><img src="apple-touch-icon.svg" width="120" height="120" style="border-radius:27px" alt="">iPhone</figure></div></div>
+  </div>
+
+  <h2>Bo'sh joy va minimal o'lcham</h2>
+  <div class="grid g2">
+    <div class="card light"><div class="clear"><img src="logo-horizontal.svg" alt=""></div></div>
+    <div class="card light"><div class="row">
+      <figure><img src="logo-horizontal.svg" width="110" alt="">gorizontal: eng kami 110 px</figure>
+      <figure><img src="mark.svg" width="16" alt="">belgi: eng kami 16 px</figure></div></div>
+  </div>
+  <p class="note">Logotip atrofida kamida belgi balandligining to'rtdan biricha bo'sh joy qoldiring. Cho'zmang, rangini almashtirmang, ustiga boshqa narsa qo'ymang.</p>
+</main>
+</body>
+</html>

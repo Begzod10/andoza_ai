@@ -118,6 +118,23 @@ class Settings(BaseSettings):
     AI_MODEL_BUILDER: str = "gpt-4-turbo"
     AI_MODEL_EXPLAINER: str = "gpt-4-mini"
 
+    # Market prices — Gemini with Google Search finds a shop's real price for a
+    # material (app/services/market_prices.py). Off until a billing-enabled key
+    # is set: Google does not offer Search grounding on the free tier. The
+    # estimate works without it, from catalog prices.
+    MARKET_PRICES_ENABLED: bool = False
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.8-flash"
+    # Refreshes (not lookups) a user may ask for per day, and how long a found
+    # price is reused before the web is searched again.
+    MARKET_PRICES_DAILY_LIMIT: int = 10
+    MARKET_PRICE_CACHE_DAYS: int = 5
+    # Most lines looked up per refresh (each is one billed search on a cache miss).
+    MARKET_PRICE_MAX_LINES: int = 15
+    # A found price more than this many times above or below the catalog price is
+    # distrusted and ignored: it is probably another product or a mis-read page.
+    MARKET_PRICE_MAX_DEVIATION: float = 3.0
+
     # Tripo — 3D model from a photo (pay as you go, 1 credit = $0.01; a textured
     # model is ~30 credits). MODEL_FROM_PHOTO_DAILY_LIMIT caps each user's models
     # per day (0 turns the feature off). TRIPO_MODEL must be one of the ids Tripo

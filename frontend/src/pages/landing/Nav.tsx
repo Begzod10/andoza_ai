@@ -49,8 +49,8 @@ export default function Nav() {
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#top" className="flex items-center gap-2.5">
-          <img src="/icon.svg" alt="AndozaAI" className="h-9 w-9" />
-          <span className="text-lg font-bold tracking-tight">AndozaAI</span>
+          <img src="/icon.svg" alt="andoza.ai" className="h-9 w-9" />
+          <span className="text-lg font-bold tracking-tight">andoza.ai</span>
         </a>
         <div className="flex items-center gap-2 sm:gap-3">
           <LanguageSwitcher />

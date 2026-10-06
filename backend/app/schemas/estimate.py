@@ -17,6 +17,12 @@ class EstimateLine(BaseModel):
     store_id: UUID | None = None
     category: str = ""
     warning: str | None = None
+    # "market" when the price came from a live shop page (see
+    # app.services.market_prices); the page and the day it was read.
+    price_source: str | None = None
+    source_url: str | None = None
+    store_name: str | None = None
+    price_checked_at: str | None = None
 
 
 class EstimateResponse(BaseModel):
@@ -44,6 +50,11 @@ class EstimateResponse(BaseModel):
     # without a second round trip, and show the rate it priced against.
     usd_rate: float = 0.0
     total_usd: int = 0
+    # Market-price lookup: whether this server can do it at all, and, on a
+    # response that asked for it, how many lines were checked / repriced.
+    market_prices_available: bool = False
+    market_checked: int = 0
+    market_updated: int = 0
 
 
 class EstimateSummary(BaseModel):

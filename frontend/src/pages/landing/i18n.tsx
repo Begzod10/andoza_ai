@@ -15,6 +15,12 @@ interface CardItem {
   desc: string;
 }
 
+/** A pain-point note; fixTitle/fixDesc are shown on the flipped (back) side. */
+export interface ProblemItem extends CardItem {
+  fixTitle: string;
+  fixDesc: string;
+}
+
 interface PricingTier {
   name: string;
   price: string;
@@ -60,7 +66,7 @@ export interface Dict {
     };
   };
   conveyor: ConveyorDict;
-  problem: { heading: string; items: CardItem[] };
+  problem: { heading: string; items: ProblemItem[] };
   solution: { heading: string; items: CardItem[] };
   how: { heading: string; steps: CardItem[] };
   pricing: {
@@ -152,18 +158,26 @@ const uz: Dict = {
       {
         title: "Xarajat noaniq",
         desc: "Materiallar va ish haqi qancha turishini oldindan bilib bo'lmaydi",
+        fixTitle: "Narx avtomatik",
+        fixDesc: "Material va ish haqi narxi bir zumda hisoblanadi",
       },
       {
         title: "Ko'p joyni aylanish",
         desc: "Har bir material uchun boshqa do'kon, boshqa narx",
+        fixTitle: "Hammasi bir joyda",
+        fixDesc: "Do'konlar va narxlar bitta ilovada",
       },
       {
         title: "Ishonchsiz usta",
         desc: "Kim sifatli ishlashini oldindan bilish qiyin",
+        fixTitle: "Tekshirilgan ustalar",
+        fixDesc: "Reyting va sharhlar bo'yicha usta tanlang",
       },
       {
         title: "Rejalashtirish uzoq",
         desc: "Hammasini qo'lda hisoblash haftalab cho'ziladi",
+        fixTitle: "Daqiqalarda tayyor",
+        fixDesc: "Reja va hisob-kitob bir necha daqiqada",
       },
     ],
   },
@@ -237,7 +251,7 @@ const uz: Dict = {
   footer: {
     tagline: "Ta'mir uchun raqamli yordamchi",
     links: { dokon: "Do'kon", ustalar: "Ustalar", kirish: "Kirish" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 
@@ -314,18 +328,26 @@ const ru: Dict = {
       {
         title: "Непонятные расходы",
         desc: "Заранее не узнать, сколько будут стоить материалы и работа",
+        fixTitle: "Цена сразу",
+        fixDesc: "Стоимость материалов и работы считается автоматически",
       },
       {
         title: "Беготня по магазинам",
         desc: "Для каждого материала — другой магазин и другая цена",
+        fixTitle: "Всё в одном месте",
+        fixDesc: "Магазины и цены — в одном приложении",
       },
       {
         title: "Ненадёжные мастера",
         desc: "Трудно заранее понять, кто работает качественно",
+        fixTitle: "Проверенные мастера",
+        fixDesc: "Выбирайте по рейтингу и отзывам",
       },
       {
         title: "Долгое планирование",
         desc: "Всё считать вручную — это недели работы",
+        fixTitle: "Готово за минуты",
+        fixDesc: "План и расчёт — за несколько минут",
       },
     ],
   },
@@ -399,7 +421,7 @@ const ru: Dict = {
   footer: {
     tagline: "Цифровой помощник для ремонта",
     links: { dokon: "Магазин", ustalar: "Мастера", kirish: "Войти" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 
@@ -476,18 +498,26 @@ const en: Dict = {
       {
         title: "Unclear costs",
         desc: "There's no way to know upfront what materials and labor will cost",
+        fixTitle: "Instant pricing",
+        fixDesc: "Materials and labor are calculated automatically",
       },
       {
         title: "Running around stores",
         desc: "A different store and a different price for every material",
+        fixTitle: "One place for all",
+        fixDesc: "Stores and prices in a single app",
       },
       {
         title: "Unreliable workers",
         desc: "It's hard to know in advance who does quality work",
+        fixTitle: "Vetted pros",
+        fixDesc: "Choose by ratings and reviews",
       },
       {
         title: "Slow planning",
         desc: "Calculating everything by hand drags on for weeks",
+        fixTitle: "Ready in minutes",
+        fixDesc: "Plan and estimate in a few minutes",
       },
     ],
   },
@@ -561,7 +591,7 @@ const en: Dict = {
   footer: {
     tagline: "Your digital assistant for renovation",
     links: { dokon: "Store", ustalar: "Workers", kirish: "Log in" },
-    copyright: "© 2026 AndozaAI",
+    copyright: "© 2026 andoza.ai",
   },
 };
 

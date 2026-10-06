@@ -39,12 +39,15 @@ export function PhotoToModelField({
   onBuilt,
   onBusyChange,
   onError,
+  title = "Faylingiz yo'qmi? Rasmdan yarating",
 }: {
   onBuilt: (built: BuiltFromPhoto) => void;
   /** True while a model is being built — the form should not submit meanwhile. */
   onBusyChange?: (busy: boolean) => void;
   /** A message when it fails or the photo is refused; null when a new attempt starts. */
   onError: (message: string | null) => void;
+  /** The heading; the sellers' dialog makes the photo the main way in. */
+  title?: string;
 }) {
   const [building, setBuilding] = useState(false);
   const [mode, setMode] = useState<"one" | "many">("one");
@@ -98,7 +101,7 @@ export function PhotoToModelField({
 
   return (
     <div className="rounded-xl border border-dashed border-neutral-300 p-3 space-y-2">
-      <label className="block text-sm font-medium text-neutral-900">Faylingiz yo'qmi? Rasmdan yarating</label>
+      <label className="block text-sm font-medium text-neutral-900">{title}</label>
       <div role="radiogroup" aria-label="Rasmlar soni" className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
         {([["one", "1 ta rasm"], ["many", "Bir nechta rasm"]] as const).map(([key, label]) => (
           <button

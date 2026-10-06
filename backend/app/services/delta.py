@@ -73,6 +73,7 @@ def compute_delta(
     materials_map: dict[str, "Material"],
     norms_map: dict[str, "Norm"],
     wiring_meters: float | None = None,
+    catalog: "dict[str, Material] | None" = None,
 ) -> DeltaResult:
     """Compute the material DIFFERENCE between the room's current state and
     a fully-finished room.
@@ -102,6 +103,7 @@ def compute_delta(
         floor_state="xom",
         ceiling_state="xom",
         wiring_meters=wiring_meters,
+        catalog=catalog,
     )
     delta = compute_estimate(
         room,
@@ -111,6 +113,7 @@ def compute_delta(
         floor_state=room_state.floor_state or room_state.current_state,
         ceiling_state=room_state.ceiling_state or room_state.current_state,
         wiring_meters=wiring_meters,
+        catalog=catalog,
     )
 
     savings = max(0, full.total_uzs - delta.total_uzs)

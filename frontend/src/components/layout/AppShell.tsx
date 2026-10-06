@@ -195,8 +195,8 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
       {/* Logo + day/night toggle */}
       <div className="px-5 pt-8 pb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="AndozaAI" className="w-9 h-9 flex-shrink-0" />
-          <span className="text-lg font-bold text-neutral-900">AndozaAI</span>
+          <img src="/icon.svg" alt="andoza.ai" className="w-9 h-9 flex-shrink-0" />
+          <span className="text-lg font-bold text-neutral-900">andoza.ai</span>
         </div>
         <ThemeToggle />
       </div>

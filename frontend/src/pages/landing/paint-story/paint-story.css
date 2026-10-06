@@ -1,0 +1,225 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   PAINT STORY v2 — scroll-scrubbed roller painting a flowing cobalt ribbon.
+   Most things you'll tweak are CSS variables in `.paint-story` below, or in
+   config.ts (path, timing, content). Assets are 3 separate layers:
+     /wall-background.webp  /blue-paint-stroke.webp  /paint-roller.webp
+   ══════════════════════════════════════════════════════════════════════════ */
+.paint-story {
+  /* colours */
+  --paint-color: #176bff;
+  --wall-color: #f7f6f2;
+  /* driven by the timeline (0..1): how much of the ribbon is revealed, L→R */
+  --reveal: 0;
+
+  /* ── PAINT RIBBON placement (tune to sit under the roller path) ── */
+  --trail-center: 50%; /* vertical centre of the ribbon band */
+  --trail-height: 62%; /* ribbon band height (relative to stage)  */
+  --trail-width: 118%; /* a touch wider than the stage so edges bleed off */
+
+  /* ── ROLLER ── */
+  --roller-w: 30vw; /* whole roller image width (desktop)            */
+  --roller-off-x: 70px; /* image nudge so the drum's wall-contact sits */
+  --roller-off-y: 150px; /* on the element origin (the path point)      */
+
+  /* ── CARDS ── */
+  --card-w: 300px;
+  --card-h-half: 96px; /* approx half card height, for vertical centring */
+
+  position: relative;
+  background: var(--wall-color);
+}
+
+/* the pinned viewport */
+.ps-stage {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--wall-color);
+}
+
+/* Layer 1 — wall */
+.ps-wall {
+  position: absolute;
+  inset: 0;
+  background: url("/wall-background.webp") center / cover no-repeat;
+}
+
+/* Layer 2 — paint ribbon, revealed L→R by --reveal */
+.ps-trail {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc((1 - var(--reveal)) * 100%) 0 0);
+  will-change: clip-path;
+}
+.ps-trail__img {
+  position: absolute;
+  left: 50%;
+  top: var(--trail-center);
+  width: var(--trail-width);
+  height: var(--trail-height);
+  object-fit: fill;
+  transform: translate(-50%, -50%);
+  user-select: none;
+}
+
+/* Layer 3 + 4 — cards and the paint film over them */
+.ps-cards {
+  position: absolute;
+  inset: 0;
+}
+.ps-card {
+  position: absolute; /* left/top set by JS from the path anchor */
+  width: var(--card-w);
+  margin-left: calc(var(--card-w) / -2); /* centre horizontally (margin, not transform) */
+  margin-top: calc(var(--card-h-half) * -1);
+  padding: 22px 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(20, 40, 90, 0.08);
+  box-shadow: 0 24px 50px -24px rgba(20, 40, 90, 0.35), 0 2px 6px -2px rgba(20, 40, 90, 0.12);
+  backdrop-filter: blur(6px);
+  will-change: transform, opacity;
+  opacity: 0;
+}
+.ps-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ps-card__num {
+  font: 700 13px/1 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--paint-color);
+  letter-spacing: 0.08em;
+}
+.ps-card__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(23, 107, 255, 0.1);
+  color: var(--paint-color);
+}
+.ps-card__icon svg {
+  width: 18px;
+  height: 18px;
+}
+.ps-card__title {
+  margin: 0 0 6px;
+  font: 700 19px/1.2 "Archivo", system-ui, sans-serif;
+  color: #16233f;
+}
+.ps-card__desc {
+  margin: 0;
+  font: 400 14px/1.5 "Instrument Sans", system-ui, sans-serif;
+  color: #5a6a86;
+}
+/* Layer 4 — translucent paint film left over the card after the roller passes */
+.ps-card__film {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--paint-color);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Layer 5 — the roller (transform set by JS: x/y along path + slight rotation) */
+.ps-roller {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--roller-w);
+  transform-origin: 0 0;
+  z-index: 6;
+  pointer-events: none;
+  filter: drop-shadow(0 26px 26px rgba(10, 25, 70, 0.3));
+  will-change: transform;
+}
+.ps-roller__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-left: calc(var(--roller-off-x) * -1);
+  margin-top: calc(var(--roller-off-y) * -1);
+}
+
+/* Layer 6 — splashes at first contact */
+.ps-splashes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+}
+.ps-splash {
+  position: absolute;
+  width: 16vw;
+  transform: translate(-40%, -50%);
+  opacity: 0.9;
+}
+
+/* motion path — hidden unless debug */
+.ps-path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+.is-debug .ps-path {
+  opacity: 1;
+}
+.is-debug .ps-path path {
+  stroke: #ff2d8e;
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
+}
+.ps-dbg {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 20;
+  font: 600 12px/1 "IBM Plex Mono", monospace;
+  color: #ff2d8e;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* ── 6. MOBILE ── smaller roller + cards, tighter band */
+@media (max-width: 768px) {
+  .paint-story {
+    --roller-w: 56vw;
+    --roller-off-x: 46px;
+    --roller-off-y: 96px;
+    --card-w: 230px;
+    --card-h-half: 86px;
+    --trail-height: 46%;
+  }
+  .ps-card {
+    padding: 16px 16px 18px;
+    border-radius: 18px;
+  }
+  .ps-card__title {
+    font-size: 16px;
+  }
+  .ps-card__desc {
+    font-size: 13px;
+  }
+}
+
+/* ── Reduced motion: static finished composition ── */
+.paint-story.is-static .ps-stage {
+  height: auto;
+  min-height: 70svh;
+  padding: 8svh 0;
+}
+.paint-story.is-static .ps-trail {
+  clip-path: none;
+}

@@ -158,8 +158,8 @@ export default function LoginPage() {
       >
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center">
-        <img src="/icon.svg" alt="AndozaAI" className="w-14 h-14 mb-3" />
-        <span className="text-xl font-bold tracking-tight text-neutral-800">AndozaAI</span>
+        <img src="/icon.svg" alt="andoza.ai" className="w-14 h-14 mb-3" />
+        <span className="text-xl font-bold tracking-tight text-neutral-800">andoza.ai</span>
       </div>
 
       <div className="w-full max-w-sm bg-[#e9eaf0] rounded-3xl p-8 shadow-[10px_10px_28px_#c7c8d1,-10px_-10px_28px_#ffffff]">
@@ -279,7 +279,7 @@ export default function LoginPage() {
         )}
       </div>
 
-      <p className="text-xs text-muted mt-6 text-center opacity-60">AndozaAI v1.0.0</p>
+      <p className="text-xs text-muted mt-6 text-center opacity-60">andoza.ai v1.0.0</p>
       </motion.div>
     </div>
   );

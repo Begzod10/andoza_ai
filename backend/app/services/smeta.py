@@ -68,6 +68,8 @@ ELEC_CABLE_PRICE_UZS: int = 10_000   # UZS per cable-metre estimate
 
 TILE_WASTE: float = 1.10
 LAMINAT_WASTE_DEFAULT: float = 1.07
+# Material.unit values meaning "the price is for one whole box/set" rather than per m².
+_PER_PACK_UNITS: frozenset[str] = frozenset({"dona", "komplekt"})
 
 # A painted wall whose covering never resolved to a real boyoq Material at
 # all (no material anywhere in materials_map, not even a same-room fallback)
@@ -237,6 +239,11 @@ class ComputedLine:
     # stays at 0 with this context intact, never blocking the estimate.
     needs_ai_price: bool = False
     ai_price_context: str | None = None
+    # Set only when app.services.market_prices replaced the price with one
+    # found on a real shop page: where it came from and when it was checked.
+    price_source: str | None = None
+    source_url: str | None = None
+    price_checked_at: str | None = None
 
 
 @dataclass
@@ -386,11 +393,57 @@ def _store_name(material: "Material") -> str | None:
         return None
 
 
+# Units in which a shop sells one whole pack (a bag, a strip, a sheet) at one price.
+_SOLD_BY_PACK_UNITS: frozenset[str] = frozenset({"qop", "dona", "komplekt", "rulon"})
+
+
+def _pack_of(material: "Material | None", unit: str) -> float | None:
+    """How much of *unit* ("kg", "m", "m2") one selling unit of *material* holds, when the
+    product says so; None when it does not (the engine then keeps its own default)."""
+    if material is None or getattr(material, "pack_unit", None) != unit:
+        return None
+    qty = _float(getattr(material, "pack_qty", None))
+    return qty if qty > 0 else None
+
+
+def _price_per(material: "Material | None", base: str) -> int | None:
+    """The shop's price for one *base* unit ("m", "m2") of *material*, however it sells it:
+    per metre outright, or per pack of known length/area (price / pack size)."""
+    if material is None:
+        return None
+    unit = str(getattr(material, "unit", ""))
+    price = int(material.price_uzs)
+    if unit == base:
+        return price
+    pack = _pack_of(material, base)
+    if pack and unit in _SOLD_BY_PACK_UNITS:
+        return round(price / pack)
+    return None
+
+
+def _shop(material: "Material | None") -> dict:
+    """The line fields that say which shop product a price came from."""
+    if material is None or getattr(material, "id", None) is None:
+        return {}
+    return {"material_id": str(material.id), "store_name": _store_name(material)}
+
+
 # ---------------------------------------------------------------------------
 # Wall-prep line-item computation functions (suvoq → shpaklovka stages)
 # ---------------------------------------------------------------------------
 
-def _plaster_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+def _bag_from_shop(material: "Material | None") -> tuple[float, int] | None:
+    """(kg per bag, price per bag) of a catalog product sold by the bag, when it says how
+    many kg a bag holds; None otherwise (the caller keeps the norm's defaults)."""
+    kg = _pack_of(material, "kg")
+    if kg and str(getattr(material, "unit", "")) in _SOLD_BY_PACK_UNITS:
+        return kg, int(material.price_uzs)
+    return None
+
+
+def _plaster_line(
+    room: "Room", norms_map: "dict[str, Norm]", material: "Material | None" = None
+) -> ComputedLine:
     """Suvoq (wet plaster) — required only when a room starts from 'xom'."""
     net_wall = _float(room.net_wall_area)
     plaster_norm = norms_map.get("suvoq")
@@ -401,10 +454,15 @@ def _plaster_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     approximate = plaster_norm is None
     warning = APPROXIMATE_NORM_NOTE if plaster_norm is None else None
 
+    label = f"Suvoq (gips) {bag_kg} kg qop"
+    shop = _bag_from_shop(material)
+    if shop:
+        (bag_kg, price), label = shop, f"Suvoq: {material.name_uz} ({shop[0]:g} kg qop)"
+
     kg = net_wall * rate
     bags = math.ceil(kg / bag_kg) if bag_kg > 0 else 0
     return _make_line(
-        label=f"Suvoq (gips) {bag_kg} kg qop",
+        label=label,
         formula=(
             f"{net_wall:.1f} m² × {rate} kg/m² = {kg:.1f} kg → {bags} qop"
         ),
@@ -414,10 +472,13 @@ def _plaster_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
         category="suvoq",
         is_approximate=approximate,
         warning=warning,
+        **(_shop(material) if shop else {}),
     )
 
 
-def _grunt_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+def _grunt_line(
+    room: "Room", norms_map: "dict[str, Norm]", material: "Material | None" = None
+) -> ComputedLine:
     """Grunt (primer) — required until a room reaches 'shpaklovka'."""
     net_wall = _float(room.net_wall_area)
     grunt_norm = norms_map.get("grunt")
@@ -428,10 +489,15 @@ def _grunt_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     grunt_approximate = grunt_norm is None
     grunt_warning = APPROXIMATE_NORM_NOTE if grunt_norm is None else None
 
+    label = f"Grunt (asosiy qatlam) {primer_bag_kg} kg qop"
+    shop = _bag_from_shop(material)
+    if shop:
+        (primer_bag_kg, primer_price), label = shop, f"Grunt: {material.name_uz} ({shop[0]:g} kg)"
+
     kg_primer = math.ceil(net_wall * primer_rate)
     bags_primer = math.ceil(kg_primer / primer_bag_kg)
     return _make_line(
-        label=f"Grunt (asosiy qatlam) {primer_bag_kg} kg qop",
+        label=label,
         formula=(
             f"{net_wall:.1f} m² × {primer_rate} kg/m² "
             f"= {kg_primer} kg → {bags_primer} qop"
@@ -442,10 +508,13 @@ def _grunt_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
         category="grunt",
         is_approximate=grunt_approximate,
         warning=grunt_warning,
+        **(_shop(material) if shop else {}),
     )
 
 
-def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+def _putty_line(
+    room: "Room", norms_map: "dict[str, Norm]", material: "Material | None" = None
+) -> ComputedLine:
     """Shpatlyovka (putty) — required until a room reaches 'shpaklovka'."""
     net_wall = _float(room.net_wall_area)
     putty_norm = norms_map.get("shpatlyovka")
@@ -456,10 +525,15 @@ def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     putty_approximate = putty_norm is None
     putty_warning = APPROXIMATE_NORM_NOTE if putty_norm is None else None
 
+    label = f"Shpatlyovka {putty_bag_kg} kg qop"
+    shop = _bag_from_shop(material)
+    if shop:
+        (putty_bag_kg, putty_price), label = shop, f"Shpatlyovka: {material.name_uz} ({shop[0]:g} kg qop)"
+
     kg_putty = net_wall * putty_rate
     bags_putty = math.ceil(kg_putty / putty_bag_kg)
     return _make_line(
-        label=f"Shpatlyovka {putty_bag_kg} kg qop",
+        label=label,
         formula=(
             f"{net_wall:.1f} m² × {putty_rate} kg/m² "
             f"= {kg_putty:.1f} kg → {bags_putty} qop"
@@ -470,6 +544,7 @@ def _putty_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
         category="shpatlyovka",
         is_approximate=putty_approximate,
         warning=putty_warning,
+        **(_shop(material) if shop else {}),
     )
 
 
@@ -820,6 +895,7 @@ def _laminate_lines(
     material: "Material",
     norm: "Norm | None",
     norms_map: "dict[str, Norm]",
+    plinth_material: "Material | None" = None,
 ) -> list[ComputedLine]:
     """Laminat qoplamasi + plinth."""
     lines: list[ComputedLine] = []
@@ -829,28 +905,41 @@ def _laminate_lines(
 
     packs = math.ceil(floor_area * waste / pack_m2)
     area_with_waste = floor_area * waste
+    formula = (
+        f"{floor_area:.2f} m² × {waste:.2f} (chiqindi) "
+        f"= {area_with_waste:.2f} m² "
+        f"÷ {pack_m2:.2f} m²/quti = {packs} quti"
+    )
+
+    # A shop prices laminate per m² (every laminat row in the catalog is unit "m2"), but it is
+    # sold in whole boxes. Multiplying the box count by a per-m² price understated the floor by
+    # a factor of pack_m2 (~2x), so price the boxes' m² instead. Only a material the shop prices
+    # per box ("dona"/"komplekt") is multiplied by the box count.
+    if getattr(material, "unit", None) in _PER_PACK_UNITS:
+        qty, unit = packs, "quti"
+    else:
+        qty, unit = round(packs * pack_m2, 2), "m²"
+        formula += f" = {qty:.2f} m²"
 
     lines.append(_make_line(
         label=f"Laminat: {material.name_uz}",
-        formula=(
-            f"{floor_area:.2f} m² × {waste:.2f} (chiqindi) "
-            f"= {area_with_waste:.2f} m² "
-            f"÷ {pack_m2:.2f} m²/quti = {packs} quti"
-        ),
-        qty=packs,
-        unit="quti",
+        formula=formula,
+        qty=qty,
+        unit=unit,
         price_uzs=material.price_uzs,
         category="laminat",
         material_id=str(material.id),
         store_name=_store_name(material),
     ))
 
-    lines.append(_plinth_line(room, norms_map))
+    lines.append(_plinth_line(room, norms_map, plinth_material))
 
     return lines
 
 
-def _plinth_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
+def _plinth_line(
+    room: "Room", norms_map: "dict[str, Norm]", material: "Material | None" = None
+) -> ComputedLine:
     """Plintus (skirting board) — floor perimeter minus door widths.
 
     Shared by every floor covering that needs a skirting board: laminate
@@ -867,13 +956,33 @@ def _plinth_line(room: "Room", norms_map: "dict[str, Norm]") -> ComputedLine:
     door_m = _door_widths_m(room)
     perimeter = _float(room.perimeter)
     plinth_m = max(0.0, perimeter - door_m)
+    working = (
+        f"Perimetr {perimeter:.2f} m − eshiklar {door_m:.2f} m "
+        f"= {plinth_m:.2f} m"
+    )
+
+    # The shop's own plinth: sold by the metre, or in strips of a known length.
+    if material is not None and str(getattr(material, "unit", "")) == "m":
+        metres = math.ceil(plinth_m)
+        return _make_line(
+            label=f"Plintus: {material.name_uz}", formula=f"{working} → {metres} m",
+            qty=metres, unit="m", price_uzs=int(material.price_uzs), category="plintus",
+            is_approximate=False, **_shop(material),
+        )
+    strip_m = _pack_of(material, "m")
+    if strip_m and str(getattr(material, "unit", "")) in _SOLD_BY_PACK_UNITS:
+        pieces = math.ceil(plinth_m / strip_m)
+        return _make_line(
+            label=f"Plintus: {material.name_uz} ({strip_m:g} m dona)",
+            formula=f"{working} → {pieces} dona",
+            qty=pieces, unit="dona", price_uzs=int(material.price_uzs), category="plintus",
+            is_approximate=False, **_shop(material),
+        )
+
     pieces = math.ceil(plinth_m / plinth_piece_m)
     return _make_line(
         label=f"Plintus ({plinth_piece_m:.1f} m dona)",
-        formula=(
-            f"Perimetr {perimeter:.2f} m − eshiklar {door_m:.2f} m "
-            f"= {plinth_m:.2f} m → {pieces} dona"
-        ),
+        formula=f"{working} → {pieces} dona",
         qty=pieces,
         unit="dona",
         price_uzs=plinth_price,
@@ -887,6 +996,7 @@ def _tile_lines(
     room: "Room",
     material: "Material",
     norms_map: "dict[str, Norm]",
+    plinth_material: "Material | None" = None,
 ) -> list[ComputedLine]:
     """Plitka (floor tile) + plinth — a tiled room's walls meet the floor
     same as a laminate one's; it used to get no skirting board line at all."""
@@ -914,7 +1024,7 @@ def _tile_lines(
         material_id=str(material.id),
         store_name=_store_name(material),
     )
-    return [tile_line, _plinth_line(room, norms_map)]
+    return [tile_line, _plinth_line(room, norms_map, plinth_material)]
 
 
 def _furniture_lines(room: "Room") -> list[ComputedLine]:
@@ -977,7 +1087,7 @@ def _furniture_lines(room: "Room") -> list[ComputedLine]:
     return lines
 
 
-def _light_lines(room: "Room") -> list[ComputedLine]:
+def _light_lines(room: "Room", catalog: "dict[str, Material] | None" = None) -> list[ComputedLine]:
     """One line per distinct placed light fixture kind (qty = how many placed).
 
     Reads room.state['lights'] — the array of PlacedLight entries the studio
@@ -1004,11 +1114,13 @@ def _light_lines(room: "Room") -> list[ComputedLine]:
 
     lines: list[ComputedLine] = []
     for light_type, qty in sorted(counts.items()):
-        price = LIGHT_CATALOG_PRICES_UZS.get(light_type)
+        shop_mat = (catalog or {}).get(f"light:{light_type}")
+        shop_price = int(shop_mat.price_uzs) if shop_mat is not None else None
+        price = shop_price or LIGHT_CATALOG_PRICES_UZS.get(light_type)
         is_approximate = price is None
         if price is None:
             price = LIGHT_FALLBACK_PRICE_UZS
-        label = LIGHT_TYPE_NAMES.get(light_type, light_type)
+        label = shop_mat.name_uz if shop_price else LIGHT_TYPE_NAMES.get(light_type, light_type)
         lines.append(_make_line(
             label=f"Chiroq: {label}",
             formula=f"{qty} dona × {price:,} so'm".replace(",", " "),
@@ -1021,6 +1133,7 @@ def _light_lines(room: "Room") -> list[ComputedLine]:
                 "Narx taxminiy — bu chiroq turi uchun aniq narx bazada yo'q."
                 if is_approximate else None
             ),
+            **(_shop(shop_mat) if shop_price else {}),
         ))
     return lines
 
@@ -1029,6 +1142,7 @@ def _electrical_line(
     room: "Room",
     norms_map: "dict[str, Norm]",
     wiring_meters: float | None = None,
+    cable: "Material | None" = None,
 ) -> ComputedLine:
     """Electrical cable estimate.
 
@@ -1049,6 +1163,11 @@ def _electrical_line(
     avg_run_m = float(elec_params.get("avg_run_m", ELEC_AVG_RUN_M))
     slack = float(elec_params.get("slack", ELEC_SLACK))
     price_per_m = int(elec_params.get("price_per_m_uzs", ELEC_CABLE_PRICE_UZS))
+    # The shop's cable (per metre, or a coil of known length) beats the norm's default price.
+    shop_price = _price_per(cable, "m")
+    shop = _shop(cable) if shop_price else {}
+    if shop_price:
+        price_per_m = shop_price
 
     norm_warning_suffix = (
         f" {APPROXIMATE_NORM_NOTE}" if elec_norm is None else ""
@@ -1073,6 +1192,7 @@ def _electrical_line(
             price_uzs=price_per_m,
             category="elektr",
             is_approximate=False,
+            **shop,
             warning=(
                 "Kabel uzunligi joylashtirilgan elektr sxemasi bo'yicha "
                 "o'lchangan. Elektrik sxemasini elektrik ustasi bilan "
@@ -1115,12 +1235,14 @@ def _electrical_line(
         category="elektr",
         is_approximate=is_approximate,
         warning=warning_text,
+        **shop,
     )
 
 
 def _ceiling_construction_lines(
     room: "Room",
     norms_map: "dict[str, Norm]",
+    catalog: "dict[str, Material] | None" = None,
 ) -> list[ComputedLine]:
     """Suspended-ceiling construction: gips karton box + karkas profili, plus
     a hidden LED strip line when the design uses one.
@@ -1173,19 +1295,36 @@ def _ceiling_construction_lines(
     )
 
     lines: list[ComputedLine] = []
+    catalog = catalog or {}
 
     if panel_area > 0:
+        # The shop's own board: a sheet of known area at one price, or priced per m².
+        board = catalog.get("gipsokarton")
+        board_sheet_m2 = _pack_of(board, "m2") if str(getattr(board, "unit", "")) in _SOLD_BY_PACK_UNITS else None
+        board_per_m2 = _price_per(board, "m2") if str(getattr(board, "unit", "")) == "m2" else None
+        board_label, board_shop = "Shift gipsokartoni", {}
+        if board_sheet_m2:
+            sheet_m2, sheet_price = board_sheet_m2, int(board.price_uzs)
+            board_label, board_shop = f"Shift: {board.name_uz}", _shop(board)
         sheets = math.ceil(panel_area * waste / sheet_m2)
+        board_qty, board_unit = sheets, "list"
+        board_formula = (
+            f"{panel_area:.1f} m² × {waste:.2f} (chiqindi) "
+            f"÷ {sheet_m2:.1f} m²/list = {sheets} list"
+        )
+        if board_per_m2:
+            board_qty, board_unit = round(panel_area * waste, 2), "m²"
+            sheet_price = board_per_m2
+            board_label, board_shop = f"Shift: {board.name_uz}", _shop(board)
+            board_formula = f"{panel_area:.1f} m² × {waste:.2f} (chiqindi) = {board_qty:.2f} m²"
         lines.append(_make_line(
-            label="Shift gipsokartoni",
-            formula=(
-                f"{panel_area:.1f} m² × {waste:.2f} (chiqindi) "
-                f"÷ {sheet_m2:.1f} m²/list = {sheets} list"
-            ),
-            qty=sheets,
-            unit="list",
+            label=board_label,
+            formula=board_formula,
+            qty=board_qty,
+            unit=board_unit,
             price_uzs=sheet_price,
             category="shift",
+            **board_shop,
             is_approximate=True,
             warning=(
                 "Taxminiy hisob — shift konstruksiyasi murakkab shakl, "
@@ -1199,8 +1338,9 @@ def _ceiling_construction_lines(
             formula=f"Perimetr {perimeter:.2f} m × 2 (yuqori/pastki karkas) = {profile_m} m",
             qty=profile_m,
             unit="m",
-            price_uzs=PROFILE_PRICE_PER_M_UZS,
+            price_uzs=_price_per(catalog.get("profil"), "m") or PROFILE_PRICE_PER_M_UZS,
             category="shift",
+            **(_shop(catalog.get("profil")) if _price_per(catalog.get("profil"), "m") else {}),
             is_approximate=True,
             warning="Taxminiy hisob — karkas miqdorini ustaga tasdiqlang.",
         ))
@@ -1212,8 +1352,9 @@ def _ceiling_construction_lines(
             formula=f"Perimetr {perimeter:.2f} m ≈ {strip_m} m lenta",
             qty=strip_m,
             unit="m",
-            price_uzs=LED_STRIP_PRICE_PER_M_UZS,
+            price_uzs=_price_per(catalog.get("led_lenta"), "m") or LED_STRIP_PRICE_PER_M_UZS,
             category="shift",
+            **(_shop(catalog.get("led_lenta")) if _price_per(catalog.get("led_lenta"), "m") else {}),
             is_approximate=True,
             warning="Taxminiy hisob — lenta uzunligi dizayn shakliga qarab farq qiladi.",
         ))
@@ -1268,6 +1409,7 @@ def compute_estimate(
     floor_state: str | None = None,
     ceiling_state: str | None = None,
     wiring_meters: float | None = None,
+    catalog: "dict[str, Material] | None" = None,
 ) -> ComputedEstimate:
     """Compute a full smeta for *room*.
 
@@ -1300,11 +1442,20 @@ def compute_estimate(
         function is sync and pure and never touches the DB. Omitting it
         falls back to the per-point average estimate.
 
+    catalog:
+        The shop products the estimate prices its own lines from, by ``smeta_key``
+        ("suvoq", "grunt", "shpatlyovka", "plintus", "kabel", "gipsokarton", "profil",
+        "led_lenta", "light:<type>"): the cheapest active product for each, see
+        app.services.estimate_catalog. A line whose key is missing (or whose product
+        does not say how much a pack holds) keeps the norm/constant price and its
+        "taxminiy" flag, exactly as before.
+
     Returns
     -------
     ComputedEstimate
         All line items and rolled-up totals.  No DB writes.
     """
+    catalog = catalog or {}
     surfaces: dict[str, str] = room.surfaces or {}
     lines: list[ComputedLine] = []
 
@@ -1361,10 +1512,10 @@ def compute_estimate(
     if needs_wall_prep and _float(room.net_wall_area) > 0:
         idx = stage_index(current_state)
         if idx < stage_index(STAGE_SUVOQ):
-            lines.append(_plaster_line(room, norms_map))
+            lines.append(_plaster_line(room, norms_map, catalog.get("suvoq")))
         if idx < stage_index(STAGE_SHPAKLOVKA):
-            lines.append(_grunt_line(room, norms_map))
-            lines.append(_putty_line(room, norms_map))
+            lines.append(_grunt_line(room, norms_map, catalog.get("grunt")))
+            lines.append(_putty_line(room, norms_map, catalog.get("shpatlyovka")))
 
     # ------------------------------------------------------------------ #
     # 1. Paint (boyoq) finish — triggered by EITHER a resolved boyoq       #
@@ -1426,10 +1577,10 @@ def compute_estimate(
         if floor_mat.category in ("laminat", "parket"):
             laminat_norm = norms_map.get("laminat") or norms_map.get("parket")
             if _float(room.floor_area) > 0:
-                lines.extend(_laminate_lines(room, floor_mat, laminat_norm, norms_map))
+                lines.extend(_laminate_lines(room, floor_mat, laminat_norm, norms_map, catalog.get("plintus")))
         elif floor_mat.category == "plitka":
             if _float(room.floor_area) > 0:
-                lines.extend(_tile_lines(room, floor_mat, norms_map))
+                lines.extend(_tile_lines(room, floor_mat, norms_map, catalog.get("plintus")))
 
     # ------------------------------------------------------------------ #
     # 3b. Ceiling construction — skipped entirely when ceiling_state is   #
@@ -1437,7 +1588,7 @@ def compute_estimate(
     # ------------------------------------------------------------------ #
     ceiling_already_done = ceiling_state == "tayyor"
     if not ceiling_already_done:
-        lines.extend(_ceiling_construction_lines(room, norms_map))
+        lines.extend(_ceiling_construction_lines(room, norms_map, catalog))
 
     # ------------------------------------------------------------------ #
     # 4. Furniture ("jihoz") — every distinct item the user has placed     #
@@ -1448,13 +1599,13 @@ def compute_estimate(
     # 4b. Light fixtures — the purchase price of each placed light. Separate #
     #     from the electrical line below, which only prices the wiring.    #
     # ------------------------------------------------------------------ #
-    lines.extend(_light_lines(room))
+    lines.extend(_light_lines(room, catalog))
 
     # ------------------------------------------------------------------ #
     # 5. Electrical — measured cable run when the room has a placed plan,  #
     #    otherwise actual point counts from state, otherwise a guess.      #
     # ------------------------------------------------------------------ #
-    elec_line = _electrical_line(room, norms_map, wiring_meters)
+    elec_line = _electrical_line(room, norms_map, wiring_meters, catalog.get("kabel"))
     lines.append(elec_line)
 
     # Totals — total_uzs is the FULL expected spend (exact + approximate).

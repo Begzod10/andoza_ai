@@ -17,7 +17,7 @@ export function Logo({
   theme = 'light',
   width,
   height,
-  alt = 'AndozaAI',
+  alt = 'andoza.ai',
   className = '',
 }: LogoProps): React.ReactNode {
   const getSrc = (): string => {
@@ -37,13 +37,13 @@ export function Logo({
   const getDefaultDimensions = (): { w: string; h: string } => {
     switch (variant) {
       case 'horizontal':
-        return { w: '240px', h: '80px' }
+        return { w: '240px', h: '85px' }
       case 'vertical':
-        return { w: '80px', h: '120px' }
+        return { w: '150px', h: '98px' }
       case 'icon':
         return { w: '64px', h: '64px' }
       default:
-        return { w: '240px', h: '80px' }
+        return { w: '240px', h: '85px' }
     }
   }
 

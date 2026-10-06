@@ -56,7 +56,7 @@ async def send_otp(phone: str, code: str) -> bool:
 
 
 async def _send_via_eskiz(phone: str, code: str) -> bool:
-    message = f"UyTa'mir: your OTP is {code}. Valid for 5 minutes."
+    message = f"andoza.ai: your OTP is {code}. Valid for 5 minutes."
     token = await _get_eskiz_token()
     if token is None:
         return False
@@ -92,14 +92,14 @@ async def _get_eskiz_token() -> str | None:
 
 
 async def _send_via_playmobile(phone: str, code: str) -> bool:
-    message = f"UyTa'mir: your OTP is {code}. Valid for 5 minutes."
+    message = f"andoza.ai: your OTP is {code}. Valid for 5 minutes."
     payload = {
         "messages": [
             {
                 "recipient": phone.lstrip("+"),
                 "message-id": f"otp-{phone}",
                 "sms": {
-                    "originator": settings.SMS_SENDER_ID or "UyTamir",
+                    "originator": settings.SMS_SENDER_ID or "andoza.ai",
                     "content": {"text": message},
                 },
             }
