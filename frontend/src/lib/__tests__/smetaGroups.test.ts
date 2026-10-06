@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { EstimateLine } from '../api'
-import { GROUP_ORDER, formatQuantity, formatShare, groupEstimateLines, groupKeyFor } from '../smetaGroups'
+import { GROUP_ORDER, formatQuantity, formatShare, groupEstimateLines, groupKeyFor, totalsFor } from '../smetaGroups'
 
 const line = (category: string | undefined, total: number, label = category ?? 'x'): EstimateLine => ({
   label, formula: '', quantity: 1, unit: 'dona', unit_price: total, total_uzs: total,
@@ -72,5 +72,33 @@ describe('formatShare / formatQuantity', () => {
     expect(formatQuantity(34.48)).toBe('34.48')
     expect(formatQuantity(8.5)).toBe('8.5')
     expect(formatQuantity(2.004)).toBe('2')
+  })
+})
+
+describe('leaving a group out of the headline figure', () => {
+  const lines = [
+    { label: 'Suvoq', formula: '', quantity: 1, unit: 'qop', unit_price: 100_000, total_uzs: 100_000, is_approximate: false, store_id: null, category: 'suvoq' },
+    { label: 'Elektr', formula: '', quantity: 1, unit: 'm', unit_price: 100_000, total_uzs: 100_000, is_approximate: true, store_id: null, category: 'elektr' },
+    { label: 'Divan', formula: '', quantity: 1, unit: 'dona', unit_price: 800_000, total_uzs: 800_000, is_approximate: false, store_id: null, category: 'jihoz' },
+  ]
+
+  it('drops the group and recomputes the shares without it', () => {
+    const groups = groupEstimateLines(lines, new Set(['jihoz']))
+    expect(groups.map((g) => g.key)).toEqual(['tayyorlash', 'elektr'])
+    expect(groups.map((g) => g.share)).toEqual([0.5, 0.5])
+  })
+
+  it('keeps every line at its position in the original array', () => {
+    const groups = groupEstimateLines(lines, new Set(['tayyorlash']))
+    expect(groups.find((g) => g.key === 'jihoz')!.items[0].index).toBe(2)
+  })
+
+  it('totals by the server formula: 10% under, 30% on the approximate part plus 10% over', () => {
+    expect(totalsFor(lines)).toEqual({ total: 1_000_000, min: 900_000, max: Math.floor((900_000 + 100_000 * 1.3) * 1.1), approx: 100_000 })
+    expect(totalsFor(lines, new Set(['jihoz']))).toEqual({ total: 200_000, min: 180_000, max: Math.floor((100_000 + 100_000 * 1.3) * 1.1), approx: 100_000 })
+  })
+
+  it('is zero for no lines', () => {
+    expect(totalsFor([])).toEqual({ total: 0, min: 0, max: 0, approx: 0 })
   })
 })

@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, previewEstimate, getEstimatePDF, getRoom } from "@/lib/api";
 import { formatUZS, formatUSDFromUZS } from "@/lib/utils";
-import { groupEstimateLines, groupKeyFor, type GroupKey } from "@/lib/smetaGroups";
+import { groupEstimateLines, groupKeyFor, totalsFor, type GroupKey } from "@/lib/smetaGroups";
 import { uz } from "@/locale/uz";
 import type { EstimateResponse } from "@/lib/api";
 import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
@@ -31,6 +31,10 @@ function errorDetail(err: unknown): string | null {
   }
 }
 
+/** The quiet buttons under the two main ones: all alike, readable, and clearly enabled. */
+const secondaryButton =
+  "inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-surface px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-brand hover:text-brand disabled:opacity-60";
+
 export default function SmetaPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
@@ -54,7 +58,40 @@ export default function SmetaPage() {
       : formatUZS(soum);
   }
 
-  const groups = useMemo(() => groupEstimateLines(estimate?.lines ?? []), [estimate]);
+  // Furniture is a purchase, not renovation work, and one sofa can be half the bill: the reader may
+  // leave it out of the headline figure. Everything else on the page follows the same choice.
+  const [includeFurniture, setIncludeFurniture] = useState(true);
+  const exclude = useMemo<ReadonlySet<GroupKey>>(
+    () => (includeFurniture ? new Set() : new Set<GroupKey>(["jihoz"])),
+    [includeFurniture],
+  );
+  const furnitureTotal = useMemo(
+    () => (estimate?.lines ?? []).filter((l) => groupKeyFor(l.category) === "jihoz").reduce((sum, l) => sum + l.total_uzs, 0),
+    [estimate],
+  );
+  const hasFurniture = furnitureTotal > 0;
+  const groups = useMemo(() => groupEstimateLines(estimate?.lines ?? [], exclude), [estimate, exclude]);
+  // The server's own figures when everything counts; recomputed with its formula when a group is left out.
+  const view = useMemo(
+    () =>
+      !estimate
+        ? null
+        : includeFurniture
+          ? { total: estimate.total_uzs, min: estimate.total_min, max: estimate.total_max, approx: estimate.total_approx_uzs }
+          : totalsFor(estimate.lines, exclude),
+    [estimate, includeFurniture, exclude],
+  );
+
+  // A slim total that appears once the big one has scrolled out of sight.
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [heroVisible, setHeroVisible] = useState(true);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setHeroVisible(entry.isIntersecting));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [estimate]);
 
   const { data: room } = useQuery({
     queryKey: ["room", roomId],
@@ -159,6 +196,23 @@ export default function SmetaPage() {
 
   return (
     <div className="min-h-screen bg-paper">
+      {estimate && view && !heroVisible && (
+        <div className="fixed inset-x-0 top-0 z-30 border-b border-neutral-200 bg-surface/95 shadow-subtle backdrop-blur">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">{uz.smeta.jami}</span>
+            <span className="text-lg font-extrabold tabular-nums text-brand">{fmt(view.total)}</span>
+            <button
+              type="button"
+              onClick={() => window.scrollTo?.({ top: 0, behavior: "smooth" })}
+              aria-label={uz.smeta.tepaga}
+              className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-700 hover:border-brand hover:text-brand"
+            >
+              ↑
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-surface shadow-subtle">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
@@ -212,20 +266,20 @@ export default function SmetaPage() {
             {/* The total, with everything that qualifies it, in one card: the figure
                 (total_uzs is the FULL expected spend, exact + approximate lines combined),
                 the range around it, how much of it is a guess, and where it goes. */}
-            <section className="rounded-3xl bg-surface p-5 shadow-subtle sm:p-6">
+            <section ref={heroRef} className="rounded-3xl bg-surface p-5 shadow-subtle sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">{uz.smeta.jami}</p>
                   <p className="mt-1 text-3xl font-extrabold tabular-nums text-brand sm:text-4xl">
-                    {fmt(estimate.total_uzs)}
+                    {fmt(view!.total)}
                   </p>
                   {/* Full-opacity brand is 7.4:1 on white; the /70 it replaced was 3.65:1. */}
                   <p className="mt-1 text-sm text-brand">
-                    {uz.smeta.diapazon}: {fmt(estimate.total_min)} – {fmt(estimate.total_max)}
+                    {uz.smeta.diapazon}: {fmt(view!.min)} – {fmt(view!.max)}
                   </p>
-                  {estimate.total_approx_uzs > 0 && (
+                  {view!.approx > 0 && (
                     <p className="mt-0.5 text-sm text-orange-cta">
-                      {uz.smeta.shundan_taxminiy}: ~{fmt(estimate.total_approx_uzs)}
+                      {uz.smeta.shundan_taxminiy}: ~{fmt(view!.approx)}
                     </p>
                   )}
                 </div>
@@ -250,14 +304,39 @@ export default function SmetaPage() {
                 </div>
               </div>
 
+              {hasFurniture && (
+                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <div className="inline-flex rounded-full bg-neutral-100 p-0.5 text-xs font-semibold">
+                    {([true, false] as const).map((on) => (
+                      <button
+                        key={String(on)}
+                        type="button"
+                        onClick={() => setIncludeFurniture(on)}
+                        aria-pressed={includeFurniture === on}
+                        className={`rounded-full px-3 py-1.5 transition-colors ${
+                          includeFurniture === on ? "bg-brand text-white shadow-sm" : "text-muted hover:text-neutral-900"
+                        }`}
+                      >
+                        {on ? uz.smeta.mebel_bilan : uz.smeta.faqat_tamir}
+                      </button>
+                    ))}
+                  </div>
+                  {!includeFurniture && (
+                    <span className="text-xs text-muted">
+                      {uz.smeta.mebel_kirmagan}: {fmt(furnitureTotal)}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
                   <p className="text-xs text-muted">{uz.smeta.minimal}</p>
-                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(estimate.total_min)}</p>
+                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(view!.min)}</p>
                 </div>
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
                   <p className="text-xs text-muted">{uz.smeta.maksimal}</p>
-                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(estimate.total_max)}</p>
+                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(view!.max)}</p>
                 </div>
                 <div className="col-span-2 rounded-xl bg-neutral-50 px-4 py-3 sm:col-span-1">
                   <p className="text-xs text-muted">{uz.smeta.elektr_ishlari}</p>
@@ -323,60 +402,49 @@ export default function SmetaPage() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={handlePDF}
-                disabled={pdfLoading}
-                className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
-              >
-                {pdfLoading ? uz.common.yuklanmoqda : uz.smeta.pdf_yuklab}
-              </button>
-              <button
-                onClick={() => mutation.mutate()}
-                disabled={mutation.isPending}
-                className="flex items-center gap-2 border-2 border-neutral-300 px-5 py-2.5 rounded-full text-sm font-semibold hover:border-brand transition-colors disabled:opacity-60"
-              >
-                {uz.smeta.qayta_hisoblash}
-              </button>
-              {estimate.market_prices_available && (
+            {/* One main action (the file), one to keep the figures, and the rest quieter. */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => marketMutation.mutate()}
-                  disabled={marketMutation.isPending}
-                  className="flex items-center gap-2 border-2 border-emerald-700 text-emerald-800 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                  onClick={handlePDF}
+                  disabled={pdfLoading}
+                  className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
                 >
-                  {marketMutation.isPending ? uz.smeta.bozor_qidirilmoqda : uz.smeta.bozor_yangilash}
+                  {pdfLoading ? uz.common.yuklanmoqda : uz.smeta.pdf_yuklab}
                 </button>
-              )}
-              {/* Only this button persists an Estimate row — opening the
-                  page or hitting "Qayta hisoblash" is preview-only. */}
-              <button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="flex items-center gap-2 border-2 border-brand text-brand px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-brand/10 transition-colors disabled:opacity-60"
-              >
-                {saveMutation.isPending
-                  ? uz.common.yuklanmoqda
-                  : saveStatus === "saved"
-                    ? uz.smeta.saqlandi
-                    : uz.smeta.saqlash}
-              </button>
-              {/* AI ask button — only shown when estimate is available */}
-              <button
-                onClick={() => setAskOpen(true)}
-                className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
-                </svg>
-                {uz.ai.smeta_sarlavha}
-              </button>
-              <Link
-                to="/ustalar"
-                className="flex items-center gap-2 bg-emerald-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-emerald-800 transition-colors"
-              >
-                {uz.ustalar.usta_chaqirish}
-              </Link>
+                {/* Only this button persists an Estimate row — opening the
+                    page or hitting "Qayta hisoblash" is preview-only. */}
+                <button
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                  className="flex items-center gap-2 border-2 border-brand text-brand px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-brand/10 transition-colors disabled:opacity-60"
+                >
+                  {saveMutation.isPending
+                    ? uz.common.yuklanmoqda
+                    : saveStatus === "saved"
+                      ? uz.smeta.saqlandi
+                      : uz.smeta.saqlash}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className={secondaryButton}>
+                  {uz.smeta.qayta_hisoblash}
+                </button>
+                {estimate.market_prices_available && (
+                  <button onClick={() => marketMutation.mutate()} disabled={marketMutation.isPending} className={secondaryButton}>
+                    {marketMutation.isPending ? uz.smeta.bozor_qidirilmoqda : uz.smeta.bozor_yangilash}
+                  </button>
+                )}
+                <button onClick={() => setAskOpen(true)} className={secondaryButton}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
+                  </svg>
+                  {uz.ai.smeta_sarlavha}
+                </button>
+                <Link to="/ustalar" className={secondaryButton}>
+                  {uz.ustalar.usta_chaqirish}
+                </Link>
+              </div>
             </div>
 
             <p className="text-xs text-on-app-muted">

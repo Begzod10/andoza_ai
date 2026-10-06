@@ -117,16 +117,34 @@ export interface PendingModel extends SellerModel {
   store_name: string | null;
 }
 
+/** A craftsman's application (`ustalar` row), as the moderator sees it. */
+export interface PendingUsta {
+  id: string;
+  name: string;
+  category: string;
+  district: string | null;
+  phone: string;
+  telegram: string | null;
+  price_min: number | null;
+  price_max: number | null;
+  status: ModerationStatus;
+  moderation_note: string | null;
+  owner_user_id: string | null;
+  created_at: string;
+}
+
 export interface PendingQueue {
   stores: PendingStore[];
   furniture: PendingModel[];
+  /** Absent on a server that predates self-service ustalar. */
+  ustalar?: PendingUsta[];
 }
 
 export async function getPendingQueue(): Promise<PendingQueue> {
   return apiClient<PendingQueue>("/admin/moderation/pending");
 }
 
-export type ModerationTarget = "stores" | "furniture";
+export type ModerationTarget = "stores" | "furniture" | "ustalar";
 
 export async function approvePending(target: ModerationTarget, id: string): Promise<void> {
   return apiClient<void>(`/admin/moderation/${target}/${id}/approve`, { method: "POST" });

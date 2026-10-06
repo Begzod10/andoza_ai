@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SmetaPage from './SmetaPage'
@@ -275,5 +275,88 @@ describe('SmetaPage (shop on each line)', () => {
     renderSmetaPage()
     await screen.findByText('Suvoq (gips) 30 kg qop')
     expect(screen.queryByText(/Do'kon:/)).toBeNull()
+  })
+})
+
+describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
+  const base = { is_approximate: false, store_id: null }
+  const withFurniture = {
+    ...ESTIMATE_RESPONSE, total_uzs: 1_000_000, total_min: 900_000, total_max: 1_100_000,
+    lines: [
+      { ...base, label: 'Suvoq', formula: '', quantity: 1, unit: 'qop', unit_price: 200_000, total_uzs: 200_000, category: 'suvoq' },
+      { ...base, label: 'Jihoz: Divan', formula: "1 dona × 800 000 so'm", quantity: 1, unit: 'dona', unit_price: 800_000, total_uzs: 800_000, category: 'jihoz' },
+    ],
+  }
+
+  it('has no toggle when there is no furniture', async () => {
+    renderSmetaPage()
+    await screen.findByText('Jami xarajat')
+    expect(screen.queryByText("Faqat ta'mir")).toBeNull()
+  })
+
+  it('leaves furniture out of the total, the breakdown and the sections, and says how much it left out', async () => {
+    previewEstimate.mockResolvedValueOnce(withFurniture)
+    const { container } = renderSmetaPage()
+    await screen.findByText('Jihoz: Divan')
+    expect(container.textContent).toContain(formatUZS(1_000_000))
+
+    fireEvent.click(screen.getByText("Faqat ta'mir"))
+    expect(container.textContent).toContain(formatUZS(200_000))
+    expect(screen.queryByText('Jihoz: Divan')).toBeNull()
+    expect(container.querySelector('[data-group="jihoz"]')).toBeNull()
+    expect(screen.getByText(`Mebel va jihozlar jamiga kirmagan: ${formatUZS(800_000)}`.replace(/\s/g, ' '))).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Mebel bilan'))
+    expect(await screen.findByText('Jihoz: Divan')).toBeInTheDocument()
+  })
+
+  it('does not repeat the quantity line as a formula', async () => {
+    previewEstimate.mockResolvedValueOnce(withFurniture)
+    renderSmetaPage()
+    await screen.findByText('Jihoz: Divan')
+    expect(screen.queryByText("1 dona × 800 000 so'm")).toBeNull()
+  })
+
+  it('keeps a formula that says more than the quantity line', async () => {
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE,
+      lines: [{ ...base, label: 'Suvoq', formula: '40 m² × 8.5 kg/m² = 340 kg → 12 qop', quantity: 12, unit: 'qop', unit_price: 66_000, total_uzs: 792_000, category: 'suvoq' }],
+    })
+    renderSmetaPage()
+    expect(await screen.findByText('40 m² × 8.5 kg/m² = 340 kg → 12 qop')).toBeInTheDocument()
+  })
+
+  it('shows a slim total only once the big one has scrolled out of view', async () => {
+    let notify: (visible: boolean) => void = () => {}
+    class FakeObserver {
+      constructor(cb: (entries: { isIntersecting: boolean }[]) => void) { notify = (v) => cb([{ isIntersecting: v }]) }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver)
+    try {
+      renderSmetaPage()
+      await screen.findByText('Jami xarajat')
+      expect(screen.queryByLabelText('Tepaga')).toBeNull()
+
+      act(() => notify(false))
+      expect(screen.getByLabelText('Tepaga')).toBeInTheDocument()
+      expect(screen.getAllByText(formatUZS(100_000).replace(/\s/g, ' ')).length).toBeGreaterThan(1) // the hero's and the slim one
+
+      act(() => notify(true))
+      expect(screen.queryByLabelText('Tepaga')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('offers the file and the save as the two main actions, and the rest as quiet ones', async () => {
+    renderSmetaPage()
+    const pdf = await screen.findByText('PDF yuklab olish')
+    expect(pdf.className).toContain('bg-primary')
+    expect(screen.getByText('Saqlash').className).toContain('border-brand')
+    for (const label of ['Qayta hisoblash', 'Usta chaqirish']) {
+      expect(screen.getByText(label).className).toContain('border-neutral-300')
+    }
   })
 })
