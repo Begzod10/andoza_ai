@@ -408,9 +408,12 @@ export default function ThreeDPage() {
     }, 'image/png');
   }, [room.name]);
 
-  /** Papers the tapped wall — or every wall, when the tap carried none. */
-  function applyWallpaperTo(wallId: string | undefined, url: string) {
-    useRoomStore.getState().setWallCovering(resolveTargetWall(wallId ?? null), {
+  /**
+   * Papers the tapped wall — or every wall, when the tap carried none, or when
+   * the user tapped the same swatch twice to say they meant the whole room.
+   */
+  function applyWallpaperTo(wallId: string | undefined, url: string, allWalls = false) {
+    useRoomStore.getState().setWallCovering(allWalls ? 'ALL' : resolveTargetWall(wallId ?? null), {
       // The design panel's own default mapping: repeatX is tiles per metre,
       // so 1.0 is a 100 x 100 cm sheet, undistorted.
       kind: 'texture', url, color: '#ffffff',
@@ -419,9 +422,11 @@ export default function ThreeDPage() {
   }
 
   /** Tiles it instead — the same tile the floor would be laid in. */
-  function applyWallTileTo(wallId: string | undefined, size: TileSize, face: TileFace) {
+  function applyWallTileTo(
+    wallId: string | undefined, size: TileSize, face: TileFace, allWalls = false,
+  ) {
     useRoomStore.getState().setWallCovering(
-      resolveTargetWall(wallId ?? null), wallTileCovering(size, face),
+      allWalls ? 'ALL' : resolveTargetWall(wallId ?? null), wallTileCovering(size, face),
     );
   }
 
@@ -948,10 +953,13 @@ export default function ThreeDPage() {
             ceiling: { design: id, settings: useRoomStore.getState().designState.ceiling?.settings },
           }),
           wallpapers,
-          applyWallpaper: (url) => applyWallpaperTo(r.wallId, url),
-          applyWallTile: (size, face) => applyWallTileTo(r.wallId, size, face),
-          applyWallColor: (hex) =>
-            useRoomStore.getState().setWallCovering(resolveTargetWall(r.wallId ?? null), { kind: 'paint', color: hex }),
+          applyWallpaper: (url, allWalls) => applyWallpaperTo(r.wallId, url, allWalls),
+          applyWallTile: (size, face, allWalls) => applyWallTileTo(r.wallId, size, face, allWalls),
+          applyWallColor: (hex, allWalls) =>
+            useRoomStore.getState().setWallCovering(
+              allWalls ? 'ALL' : resolveTargetWall(r.wallId ?? null),
+              { kind: 'paint', color: hex },
+            ),
           createWindowStyled,
           createDoorStyled,
           restyleOpening: (wallId, elId, styleId) => updateElement(wallId, elId, { styleId }),

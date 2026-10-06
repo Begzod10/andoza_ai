@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { angleAt, arcSlots, slotsFromAngleDelta, wrapArcOffset } from '@/lib/arcMenu'
+import { isDoubleTap, nextTapRecord, type TapRecord } from '@/lib/doubleTapSelect'
 
 export type RadialSurface = 'wall' | 'ceiling' | 'floor' | 'skirting' | 'cornice' | 'door' | 'window'
 
@@ -32,6 +33,16 @@ export interface RadialItem {
   /** Show the thumbnail alone. For a set the user picks by eye — ceiling
    *  profiles — a name under each is noise. */
   hideLabel?: boolean
+  /**
+   * What a second tap on this same button does, when there is something more
+   * to do than repeat the first. The wall ring's colours, papers and tiles use
+   * it to carry the finish to every wall — see `lib/doubleTapSelect.ts` for
+   * why the first tap still acts immediately rather than waiting to find out.
+   *
+   * Without it a second tap simply repeats `onSelect`, which is what it has
+   * always done and is harmless.
+   */
+  onSelectAll?: () => void
   /** Dismiss the ring on picking this. Default is to stay: choosing a finish
    *  is a matter of trying a few, and a ring that shut after every pick had
    *  to be reopened for each one. Set for the items that hand over to a panel
@@ -85,6 +96,10 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
   const drill = trail[trail.length - 1] ?? null
   /** How far the ring has been turned, in slots. */
   const [offset, setOffset] = useState(0)
+  /** The last button tapped and when, so a second tap on the same one can mean
+   *  something more than the first. Cleared on a double so a third tap starts
+   *  over — see `lib/doubleTapSelect.ts`. */
+  const lastTap = useRef<TapRecord | null>(null)
   /** Live turn gesture; `moved` is what stops a scroll also picking something. */
   const drag = useRef<{ startAngle: number; startOffset: number; moved: boolean } | null>(null)
   const didDrag = useRef(false)
@@ -244,7 +259,13 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               // An item with children opens them in place; only a leaf acts
               // and dismisses.
               if (item.children?.length) { setOffset(0); setTrail((t) => [...t, item]); return }
-              item.onSelect()
+              // A second tap on the same choice means more than the first —
+              // for a finish, "and every other wall as well".
+              const now = Date.now()
+              const second = isDoubleTap(lastTap.current, key, now)
+              lastTap.current = nextTapRecord(lastTap.current, key, now)
+              if (second && item.onSelectAll) item.onSelectAll()
+              else item.onSelect()
               // Stays open on purpose — see `closesMenu`.
               if (item.closesMenu) onClose()
             }}

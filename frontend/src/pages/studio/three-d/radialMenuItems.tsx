@@ -47,12 +47,18 @@ export function buildRadialItems(
     /** The wallpapers the design panel's Oboy tab lists — the same query, so
      *  one upload shows up in both. */
     wallpapers: { id: string | number; name: string; url: string }[];
-    /** Papers the tapped wall (or every wall, when none is picked). */
-    applyWallpaper: (url: string) => void;
-    /** Paints it a flat colour instead. */
-    applyWallColor: (hex: string) => void;
+    /**
+     * Papers the tapped wall (or every wall, when none is picked).
+     *
+     * `allWalls` is the second tap of a double tap: a room is usually finished
+     * in one paper, and doing the other three walls meant opening each one's
+     * ring and finding the same swatch again.
+     */
+    applyWallpaper: (url: string, allWalls?: boolean) => void;
+    /** Paints it a flat colour instead, with the same second-tap rule. */
+    applyWallColor: (hex: string, allWalls?: boolean) => void;
     /** Tiles it, in the size and face picked off the ring. */
-    applyWallTile: (size: TileSize, face: TileFace) => void;
+    applyWallTile: (size: TileSize, face: TileFace, allWalls?: boolean) => void;
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
@@ -99,6 +105,8 @@ export function buildRadialItems(
           icon: RadialIcons.paint,
           fill: <span className="absolute inset-0" style={{ background: hex }} />,
           onSelect: () => applyWallColor(hex),
+          // Tap again and the whole room goes that colour.
+          onSelectAll: () => applyWallColor(hex, true),
         })),
       },
       {
@@ -113,6 +121,7 @@ export function buildRadialItems(
               fill: <img src={w.url} alt="" loading="lazy" draggable={false}
                 className="absolute inset-0 w-full h-full object-cover" />,
               onSelect: () => applyWallpaper(w.url),
+              onSelectAll: () => applyWallpaper(w.url, true),
             }))
           // Only when nothing has been uploaded: an empty ring is a dead end,
           // and the panel is where a paper comes from. With papers to show,
@@ -149,6 +158,7 @@ export function buildRadialItems(
             fill: <img src={wallTileUrl(t, face)} alt="" loading="lazy" draggable={false}
               className="absolute inset-0 w-full h-full object-cover" />,
             onSelect: () => applyWallTile(t, face),
+            onSelectAll: () => applyWallTile(t, face, true),
           })),
         })),
       },

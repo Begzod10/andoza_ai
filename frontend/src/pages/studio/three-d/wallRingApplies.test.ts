@@ -32,13 +32,19 @@ function realDeps(wallId: string | undefined) {
     setSkirting: (trim: { id: string; heightMm: number; widthMm: number }) =>
       useRoomStore.getState().setDesignState({ skirting: trim }),
     wallpapers: [PAPER],
-    applyWallpaper: (url: string) =>
-      useRoomStore.getState().setWallCovering(resolveTargetWall(wallId ?? null), {
+    applyWallpaper: (url: string, allWalls?: boolean) =>
+      useRoomStore.getState().setWallCovering(allWalls ? 'ALL' : resolveTargetWall(wallId ?? null), {
         kind: 'texture', url, color: '#ffffff',
         repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0,
       }),
-    applyWallColor: (hex: string) =>
-      useRoomStore.getState().setWallCovering(resolveTargetWall(wallId ?? null), { kind: 'paint', color: hex }),
+    applyWallColor: (hex: string, allWalls?: boolean) =>
+      useRoomStore.getState().setWallCovering(
+        allWalls ? 'ALL' : resolveTargetWall(wallId ?? null), { kind: 'paint', color: hex },
+      ),
+    applyWallTile: (_size: unknown, _face: unknown, allWalls?: boolean) =>
+      useRoomStore.getState().setWallCovering(
+        allWalls ? 'ALL' : resolveTargetWall(wallId ?? null), { kind: 'paint', color: '#TILE' },
+      ),
     createWindowStyled: noop,
     setFloorPattern: (floorType: 'parquet' | 'tile', id: string, settings: object) =>
       useRoomStore.getState().setDesignState({
@@ -120,5 +126,51 @@ describe('the floor and trim rings, against the real store', () => {
     // A skirting board is 119-168 mm tall. Anything near 40 is a bead, and
     // read as a thin line in the room.
     expect(trim!.heightMm).toBeGreaterThanOrEqual(119)
+  })
+})
+
+describe('the second tap carries a finish to every wall', () => {
+  beforeEach(() => { useRoomStore.getState().resetDesignState() })
+
+  /** The three wall finishes that offer it, and how to reach one from the ring. */
+  const FINISHES = [
+    { parent: 'paint', child: (items: ReturnType<typeof buildRadialItems>) =>
+        items.find((i) => i.key === 'paint')!.children!.find((c) => c.key === `color:${WALL_COLORS[1]}`)! },
+    { parent: 'oboy', child: (items: ReturnType<typeof buildRadialItems>) =>
+        items.find((i) => i.key === 'oboy')!.children![0] },
+    { parent: 'wall-kafel', child: (items: ReturnType<typeof buildRadialItems>) =>
+        items.find((i) => i.key === 'wall-kafel')!.children![0].children![1] },
+  ]
+
+  it('offers it on all three, and only where there is a choice to carry', () => {
+    const items = buildRadialItems(wallTap('B'), realDeps('B') as never)
+    for (const f of FINISHES) {
+      expect(typeof f.child(items).onSelectAll).toBe('function')
+    }
+    // The parents open a submenu; there is nothing for a second tap to apply.
+    for (const key of ['paint', 'oboy', 'wall-kafel']) {
+      expect(items.find((i) => i.key === key)!.onSelectAll).toBeUndefined()
+    }
+  })
+
+  it('paints only the tapped wall on one tap, and every wall on two', () => {
+    const items = buildRadialItems(wallTap('B'), realDeps('B') as never)
+    const swatch = FINISHES[0].child(items)
+
+    swatch.onSelect()
+    const after = useRoomStore.getState().designState.wallCoverings
+    expect(after.B).toEqual({ kind: 'paint', color: WALL_COLORS[1] })
+
+    swatch.onSelectAll!()
+    const all = useRoomStore.getState().designState.wallCoverings.ALL
+    expect(all).toEqual({ kind: 'paint', color: WALL_COLORS[1] })
+  })
+
+  it('papers every wall on the second tap', () => {
+    const items = buildRadialItems(wallTap('C'), realDeps('C') as never)
+    FINISHES[1].child(items).onSelectAll!()
+    const all = useRoomStore.getState().designState.wallCoverings.ALL
+    expect(all?.kind).toBe('texture')
+    if (all?.kind === 'texture') expect(all.url).toBe(PAPER.url)
   })
 })
