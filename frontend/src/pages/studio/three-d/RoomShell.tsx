@@ -20,7 +20,7 @@ import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor, CeilingProfile, DoorwayFloors } from "./FloorCeiling";
 import { doorwayNiches } from "@/lib/doorwayNiches";
-import { isAxisAlignedRectangle, outlineSpan } from "@/lib/roomOutline";
+import { rectangleFrame } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
 import { surfaceFinish } from "@/lib/surfaceFinish";
@@ -447,16 +447,23 @@ function NWallRoomShell({
   }, [filteredCentred, geometry.walls])
 
   // The ceiling design, for an outline the rectangular builder can serve.
+  //
+  // Any rectangle, not only one squared to the axes. The axis test used to
+  // gate this, and a room drawn or scanned at an angle — which is most of
+  // them — got an empty parts list: Shift turi opened, the choice was saved,
+  // and the room went on showing a flat slab, because there was no geometry
+  // to show. The boxes are still built for a W x D room; the group below
+  // turns them onto the room's own frame.
+  const ceilingFrame = useMemo(() => rectangleFrame(filteredCentred), [filteredCentred])
   const ceilingParts = useMemo(() => {
-    if (!isAxisAlignedRectangle(filteredCentred)) return []
-    const { W: bw, D: bd } = outlineSpan(filteredCentred)
+    if (!ceilingFrame) return []
     const design = ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN)
     return buildCeilingParts(
       design,
       resolveCeilingSettings(design, designState.ceiling?.settings),
-      bw, bd, H,
+      ceilingFrame.W, ceilingFrame.D, H,
     )
-  }, [filteredCentred, designState.ceiling?.design, designState.ceiling?.settings, H])
+  }, [ceilingFrame, designState.ceiling?.design, designState.ceiling?.settings, H])
 
   // Real-geometry laying pattern (Naqsh) for a drawn/scanned polygon room:
   // the flat polygon becomes the dark under-slab and the instanced planks
@@ -541,20 +548,25 @@ function NWallRoomShell({
       <group {...(holdBind?.('ceiling') ?? {})}>
       {/* The chosen ceiling design hangs under the slab — the drawn-room shell
           used to ignore it entirely, so Shift turi did nothing here while it
-          worked in a rectangular room. The parts are axis-aligned boxes built
-          for a W x D room, so they are only hung where the outline IS one:
-          on an L-shaped room they would cut through a wall, and a flat slab
-          is better than a ceiling through the wall. */}
-      {ceilingParts.length > 0 && (
-        <CeilingProfile
-          parts={ceilingParts}
-          color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
-          stripK={resolveCeilingSettings(
-            ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN),
-            designState.ceiling?.settings,
-          ).stripK}
-          selected={!!isCeilingSelected}
-        />
+          worked in a rectangular room. The parts are boxes built for a W x D
+          room, so they are only hung where the outline is a rectangle, at
+          whatever angle: on an L-shaped room they would cut through a wall,
+          and a flat slab is better than a ceiling through the wall. */}
+      {ceilingParts.length > 0 && ceilingFrame && (
+        // Turned onto the room's own frame. The outline is centred on its
+        // middle, which for a rectangle is its vertex mean, so the turn is the
+        // whole transform — no offset to go with it.
+        <group rotation={[0, ceilingFrame.yaw, 0]}>
+          <CeilingProfile
+            parts={ceilingParts}
+            color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
+            stripK={resolveCeilingSettings(
+              ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN),
+              designState.ceiling?.settings,
+            ).stripK}
+            selected={!!isCeilingSelected}
+          />
+        </group>
       )}
       <mesh
         geometry={polyGeo}
