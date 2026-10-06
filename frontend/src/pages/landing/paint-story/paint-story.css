@@ -53,6 +53,14 @@
   color: var(--card-ink);
 }
 
+/* self-contained sizing: don't depend on a global reset being present */
+.paint-story,
+.paint-story *,
+.paint-story *::before,
+.paint-story *::after {
+  box-sizing: border-box;
+}
+
 /* subtle cinematic vignette over everything (cards & roller included) */
 .paint-story::after {
   content: "";
