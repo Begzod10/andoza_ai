@@ -393,6 +393,11 @@ def _store_name(material: "Material") -> str | None:
         return None
 
 
+def _named(name: str, pack: str) -> str:
+    """A product's name with its pack size, unless the name already says it ("... 30 kg")."""
+    return name if pack.lower() in name.lower() else f"{name} ({pack})"
+
+
 # Units in which a shop sells one whole pack (a bag, a strip, a sheet) at one price.
 _SOLD_BY_PACK_UNITS: frozenset[str] = frozenset({"qop", "dona", "komplekt", "rulon"})
 
@@ -457,7 +462,7 @@ def _plaster_line(
     label = f"Suvoq (gips) {bag_kg} kg qop"
     shop = _bag_from_shop(material)
     if shop:
-        (bag_kg, price), label = shop, f"Suvoq: {material.name_uz} ({shop[0]:g} kg qop)"
+        (bag_kg, price), label = shop, f"Suvoq: {_named(material.name_uz, f'{shop[0]:g} kg')}"
 
     kg = net_wall * rate
     bags = math.ceil(kg / bag_kg) if bag_kg > 0 else 0
@@ -492,7 +497,7 @@ def _grunt_line(
     label = f"Grunt (asosiy qatlam) {primer_bag_kg} kg qop"
     shop = _bag_from_shop(material)
     if shop:
-        (primer_bag_kg, primer_price), label = shop, f"Grunt: {material.name_uz} ({shop[0]:g} kg)"
+        (primer_bag_kg, primer_price), label = shop, f"Grunt: {_named(material.name_uz, f'{shop[0]:g} kg')}"
 
     kg_primer = math.ceil(net_wall * primer_rate)
     bags_primer = math.ceil(kg_primer / primer_bag_kg)
@@ -528,7 +533,7 @@ def _putty_line(
     label = f"Shpatlyovka {putty_bag_kg} kg qop"
     shop = _bag_from_shop(material)
     if shop:
-        (putty_bag_kg, putty_price), label = shop, f"Shpatlyovka: {material.name_uz} ({shop[0]:g} kg qop)"
+        (putty_bag_kg, putty_price), label = shop, f"Shpatlyovka: {_named(material.name_uz, f'{shop[0]:g} kg')}"
 
     kg_putty = net_wall * putty_rate
     bags_putty = math.ceil(kg_putty / putty_bag_kg)
@@ -973,7 +978,7 @@ def _plinth_line(
     if strip_m and str(getattr(material, "unit", "")) in _SOLD_BY_PACK_UNITS:
         pieces = math.ceil(plinth_m / strip_m)
         return _make_line(
-            label=f"Plintus: {material.name_uz} ({strip_m:g} m dona)",
+            label=f"Plintus: {_named(material.name_uz, f'{strip_m:g} m')}",
             formula=f"{working} → {pieces} dona",
             qty=pieces, unit="dona", price_uzs=int(material.price_uzs), category="plintus",
             is_approximate=False, **_shop(material),

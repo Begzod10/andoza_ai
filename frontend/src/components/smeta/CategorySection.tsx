@@ -12,6 +12,13 @@ const GROUP_ICON: Record<GroupKey, LucideIcon> = {
   boshqa: Package,
 };
 
+const digits = (text: string) => text.replace(/\D/g, "");
+
+/** "2 dona × 250 000 so'm" under a line that already says "2 dona × 250 000 so'm" adds nothing. */
+function repeatsQuantityLine(line: LineGroup["items"][number]["line"]): boolean {
+  return digits(line.formula) === digits(`${formatQuantity(line.quantity)}${line.unit_price}`);
+}
+
 /**
  * One group of the estimate: a header that folds the group away (its name, how many lines, its
  * subtotal and share) and the lines under it. A line is a name with its working underneath
@@ -114,7 +121,7 @@ export function CategorySection({
                     {uz.smeta.dokon}: {line.store_name}
                   </p>
                 )}
-                {line.formula && <p className="mt-0.5 text-xs leading-snug text-muted">{line.formula}</p>}
+                {line.formula && !repeatsQuantityLine(line) && <p className="mt-0.5 text-xs leading-snug text-muted">{line.formula}</p>}
                 {line.warning && <p className="mt-1 text-xs leading-snug text-orange-cta">{line.warning}</p>}
               </div>
               <p className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-neutral-900">{fmt(line.total_uzs)}</p>

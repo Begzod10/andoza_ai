@@ -60,6 +60,11 @@ class TestWallPrep:
         assert putty.qty == math.ceil(40 * 1.2 / 25) and putty.unit_price_uzs == 82_000
         assert grunt.store_name and putty.store_name
 
+    def test_the_pack_size_is_not_repeated_when_the_name_already_has_it(self):
+        assert _plaster_line(room(), {}, mat("suvoq", 66_000, "qop", 30, "kg", "Rotband suvoq 30 kg")).label == "Suvoq: Rotband suvoq 30 kg"
+        assert _plaster_line(room(), {}, mat("suvoq", 66_000, "qop", 30, "kg", "Rotband suvoq")).label == "Suvoq: Rotband suvoq (30 kg)"
+        assert _plinth_line(room(), {}, mat("plintus", 36_000, "dona", 2.5, "m", "PVX plintus 2.5 m")).label == "Plintus: PVX plintus 2.5 m"
+
     @pytest.mark.parametrize("product", [
         None,
         mat("suvoq", 66_000, "qop"),                       # shop did not say what a bag holds

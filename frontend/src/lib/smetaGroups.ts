@@ -61,8 +61,12 @@ export interface LineGroup {
   share: number;
 }
 
-/** Groups in GROUP_ORDER, empty groups left out, lines in their original order within a group. */
-export function groupEstimateLines(lines: EstimateLine[]): LineGroup[] {
+/**
+ * Groups in GROUP_ORDER, empty groups left out, lines in their original order within a group.
+ * `exclude` leaves whole groups out and takes them out of the shares too; every line keeps its
+ * position in the original array, which the AI helper points at.
+ */
+export function groupEstimateLines(lines: EstimateLine[], exclude?: ReadonlySet<GroupKey>): LineGroup[] {
   const buckets = new Map<GroupKey, IndexedLine[]>();
   lines.forEach((line, index) => {
     const key = groupKeyFor(line.category);
@@ -71,7 +75,7 @@ export function groupEstimateLines(lines: EstimateLine[]): LineGroup[] {
     else buckets.set(key, [{ line, index }]);
   });
 
-  const groups = GROUP_ORDER.filter((key) => buckets.has(key)).map((key) => {
+  const groups = GROUP_ORDER.filter((key) => buckets.has(key) && !exclude?.has(key)).map((key) => {
     const items = buckets.get(key)!;
     return { key, items, subtotal: items.reduce((sum, { line }) => sum + line.total_uzs, 0), share: 0 };
   });
@@ -88,4 +92,28 @@ export function formatShare(share: number): string {
 /** 15 -> "15", 34.48 -> "34.48", 8.5 -> "8.5": no trailing zeros. */
 export function formatQuantity(quantity: number): string {
   return String(Math.round(quantity * 100) / 100);
+}
+
+export interface Totals {
+  total: number;
+  min: number;
+  max: number;
+  approx: number;
+}
+
+/**
+ * The totals of the lines outside `exclude`, by the same formula as the server (a 10% band
+ * under, and 30% on the approximate part plus 10% over): used when the page leaves a group
+ * (furniture) out of the headline figure.
+ */
+export function totalsFor(lines: EstimateLine[], exclude?: ReadonlySet<GroupKey>): Totals {
+  let exact = 0;
+  let approx = 0;
+  for (const line of lines) {
+    if (exclude?.has(groupKeyFor(line.category))) continue;
+    if (line.is_approximate) approx += line.total_uzs;
+    else exact += line.total_uzs;
+  }
+  const total = exact + approx;
+  return { total, min: Math.floor(total * 0.9), max: Math.floor((exact + approx * 1.3) * 1.1), approx };
 }
