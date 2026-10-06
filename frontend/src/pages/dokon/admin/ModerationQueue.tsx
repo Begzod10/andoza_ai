@@ -14,8 +14,18 @@ import { errorMessage } from "./errorMessage";
 
 const KEY = ["admin", "moderation"] as const;
 
-/** What sellers have submitted and is waiting for a decision: shop applications
- *  and uploaded 3D models. Approving makes it live; rejecting needs a reason the
+const USTA_TRADES: Record<string, string> = {
+  elektrik: "Elektrik",
+  elektrik_loyihachi: "Elektr loyihachi",
+  santexnik: "Santexnik",
+  malyar: "Malyar",
+  oboy: "Oboychi",
+  laminat: "Laminatchi",
+  brigada: "Brigada",
+};
+
+/** What sellers have submitted and is waiting for a decision: shop applications,
+ *  craftsman (usta) applications and uploaded 3D models. Approving makes it live; rejecting needs a reason the
  *  seller will see. */
 export function ModerationQueue({ onError }: { onError: (msg: string | null) => void }) {
   const queryClient = useQueryClient();
@@ -46,7 +56,8 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
 
   const stores = queue.data?.stores ?? [];
   const models = queue.data?.furniture ?? [];
-  const total = stores.length + models.length;
+  const ustalar = queue.data?.ustalar ?? [];
+  const total = stores.length + models.length + ustalar.length;
   if (queue.isLoading || total === 0) return null;
 
   return (
@@ -65,6 +76,27 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
           </div>
           <Button size="sm" onClick={() => approve.mutate({ target: "stores", id: s.id })} disabled={approve.isPending}>Tasdiqlash</Button>
           <Button size="sm" variant="tertiary" onClick={() => setRejecting({ target: "stores", id: s.id, label: s.name })}>Rad etish</Button>
+        </Card>
+      ))}
+
+      {ustalar.map((u) => (
+        <Card key={u.id} size="sm" className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-neutral-900 truncate">{u.name}</p>
+            <p className="text-xs text-neutral-500 truncate">
+              Usta arizasi · {[
+                USTA_TRADES[u.category] ?? u.category,
+                u.district,
+                u.phone,
+                u.telegram,
+                u.price_min != null || u.price_max != null
+                  ? `${(u.price_min ?? 0).toLocaleString("uz-UZ")}–${(u.price_max ?? 0).toLocaleString("uz-UZ")} so'm`
+                  : null,
+              ].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <Button size="sm" onClick={() => approve.mutate({ target: "ustalar", id: u.id })} disabled={approve.isPending}>Tasdiqlash</Button>
+          <Button size="sm" variant="tertiary" onClick={() => setRejecting({ target: "ustalar", id: u.id, label: u.name })}>Rad etish</Button>
         </Card>
       ))}
 
