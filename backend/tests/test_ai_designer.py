@@ -213,3 +213,16 @@ class TestEndpoint:
         monkeypatch.setattr(settings, "AI_FEATURES_ENABLED", True)
         room = self._setup(client)
         assert client.post(f"/api/v1/rooms/{room.id}/ai-design", json={"prompt": "a"}).status_code == 422
+
+
+class TestClientBaseUrl:
+    def test_an_empty_openai_base_url_env_line_does_not_break_the_client(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "")
+        monkeypatch.setattr(settings, "OPENAI_BASE_URL", "")
+        monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+        monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
+        monkeypatch.setattr(llm, "_client", None)
+        try:
+            assert str(llm.get_client().base_url).startswith("https://api.openai.com")
+        finally:
+            llm._client = None

@@ -110,6 +110,10 @@ async def check_and_increment_budget_for(user_id: str, pool: str, limit: int) ->
 # ---------------------------------------------------------------------------
 
 GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+# Always passed explicitly. With base_url=None the SDK reads the OPENAI_BASE_URL environment
+# variable itself, and an empty `OPENAI_BASE_URL=` line in an env file ("unset") is then taken
+# as a URL with no scheme: every call fails with "Connection error".
+OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
 
 def _provider() -> tuple[str, str | None]:
@@ -139,7 +143,7 @@ def get_client() -> AsyncOpenAI:
         api_key, base_url = _provider()
         _client = AsyncOpenAI(
             api_key=api_key,
-            base_url=base_url,
+            base_url=base_url or OPENAI_DEFAULT_BASE_URL,
             timeout=timeout,
         )
     return _client
