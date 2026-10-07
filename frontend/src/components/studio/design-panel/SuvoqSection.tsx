@@ -86,7 +86,7 @@ export function SuvoqSection({
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq</h3>
           <p className="text-[11px] text-gray-500 leading-snug">
-            Rasm yuklang yoki kutubxonadan tanlang — tekstura barcha devorlarga qo'llanadi.
+            Xom devor suvog'i: rasm yuklang yoki kutubxonadan tanlang. U barcha devorlarga qo'llanadi.
           </p>
         </div>
 
@@ -135,9 +135,9 @@ export function SuvoqSection({
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq / Beton</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Shpaklovka / Beton</h3>
         <p className="text-[11px] text-gray-500 leading-snug">
-          Devor yuzasini tanlang. Tanlov saqlanadi va sahifa yangilangandan keyin ham qoladi.
+          Shpaklovkadan keyingi yuza: beton teksturasini tanlang yoki o'z rasmingizni yuklang. Tanlov saqlanadi.
         </p>
       </div>
 
@@ -200,7 +200,7 @@ export function SuvoqSection({
 
       {/* Own image — goes to the shared library so the URL keeps resolving */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900">Suvoq rasmi</h3>
+        <h3 className="text-sm font-semibold text-gray-900">Shpaklovka rasmi</h3>
         {renderTexturePicker(
           'plaster',
           (url) => applyWallCovering(plasterUploadCovering(url)),
