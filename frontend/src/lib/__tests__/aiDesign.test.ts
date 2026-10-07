@@ -104,8 +104,36 @@ describe('applyDesignPlan', () => {
     expect(counts.furniture).toBe(1)
   })
 
-  it('in a drawn room with no A-D walls, falls back to the studio\'s own placement', () => {
-    useRoomStore.setState({ geometry: { walls: [{ id: 'W1', length: 3000, elements: [] }, { id: 'W2', length: 3000, elements: [] }, { id: 'W3', length: 3000, elements: [] }], vertices: [[0, 0], [3, 0], [3, 3]] } as unknown as RoomGeometry })
+  it('in a drawn L-shaped room the zones are its own walls, and nothing piles up in the middle', () => {
+    useRoomStore.setState({
+      geometry: {
+        walls: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'].map((id) => ({ id, length: 3000, elements: [] })),
+        vertices: [[0, 0], [5000, 0], [5000, 2500], [2500, 2500], [2500, 4500], [0, 4500]],
+      } as unknown as RoomGeometry,
+    })
+    const p = plan()
+    p.furniture = [
+      { id: 'sofa', name: 'Divan', zone: 'wall_W1' }, { id: 'table', name: 'Kofe stoli', zone: 'wall_W5' },
+      { id: 'rug', name: 'Gilam', zone: 'center' }, { id: 'sofa', name: 'Divan', zone: 'corner_W2_W3' },
+    ]
+    p.lights = [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_W2' }]
+    p.walls = { main: { type: 'paint', color: '#222222' }, accent: { wall: 'W3', color: '#111111' } }
+    const counts = applyDesignPlan(p, ALL_PARTS, catalog)
+    expect(counts.furniture).toBe(4) && expect(counts.lights).toBe(2)
+    const placed = useRoomStore.getState().furniture
+    // No two pieces (the rug aside) sit on top of each other: this is what used to happen in such rooms.
+    const solid = placed.filter((f) => f.furniture_id !== 'rug')
+    for (let i = 0; i < solid.length; i++) {
+      for (let j = i + 1; j < solid.length; j++) {
+        expect(Math.hypot(solid[i].x - solid[j].x, solid[i].y - solid[j].y)).toBeGreaterThan(800)
+      }
+    }
+    expect(useRoomStore.getState().lights[1].wallId).toBe('W2')
+    expect(useRoomStore.getState().designState.wallCoverings.W3).toEqual({ kind: 'paint', color: '#111111' })
+  })
+
+  it('a room with no usable outline still gets its pieces, in the middle', () => {
+    useRoomStore.setState({ geometry: { walls: [{ id: 'W1', length: 3000, elements: [] }] } as unknown as RoomGeometry })
     const counts = applyDesignPlan(plan(), ALL_PARTS, catalog)
     expect(counts.furniture).toBe(3) && expect(counts.lights).toBe(2)
   })

@@ -27,9 +27,12 @@ GOOD = {
 }
 
 
-def plan(**changes):
+WALLS = ["A", "B", "C", "D"]
+
+
+def plan(wall_ids=WALLS, **changes):
     data = {**GOOD, **changes}
-    return ad.validate_plan(data, BY_LABEL)
+    return ad.validate_plan(data, BY_LABEL, wall_ids)
 
 
 class TestExtractJson:
@@ -81,6 +84,27 @@ class TestValidate:
         assert [lt["type"] for lt in p.lights] == ["pendant"]
         assert p.floor is None and len(p.warnings) >= 3
 
+    def test_zones_are_the_rooms_own_wall_ids_and_neighbouring_corners(self):
+        assert ad.zones_for(["A", "B", "C", "D"]) == [
+            "center", "wall_A", "wall_B", "wall_C", "wall_D", "corner_A_B", "corner_B_C", "corner_C_D", "corner_D_A"]
+        assert ad.zones_for(["W1", "W2", "W3"])[-3:] == ["corner_W1_W2", "corner_W2_W3", "corner_W3_W1"]
+        assert ad.zones_for([]) == ["center"]
+
+    def test_a_drawn_room_accepts_its_own_walls_and_refuses_a_d_names(self):
+        walls = ["W1", "W2", "W3", "W4", "W5"]
+        p = ad.validate_plan({
+            **GOOD,
+            "walls": {"main": {"type": "paint", "color": "#222222"}, "accent": {"wall": "W3", "color": "#111111"}},
+            "lights": [{"type": "pendant", "zone": "corner_W2_W3"}, {"type": "bra", "zone": "wall_W4"}, {"type": "downlight", "zone": "wall_A"}],
+            "furniture": [{"id": "F1", "zone": "wall_W5"}, {"id": "F2", "zone": "wall_A"}],
+        }, BY_LABEL, walls)
+        assert p.walls["accent"]["wall"] == "W3"
+        assert [(lt["type"], lt["zone"]) for lt in p.lights] == [("pendant", "corner_W2_W3"), ("bra", "wall_W4"), ("downlight", "center")]
+        assert [f["zone"] for f in p.furniture] == ["wall_W5", "center"]  # wall_A does not exist in this room
+
+    def test_an_accent_on_a_wall_the_room_does_not_have_is_dropped(self):
+        assert "accent" not in ad.validate_plan({**GOOD, "walls": {"main": GOOD["walls"]["main"], "accent": {"wall": "C", "color": "#111"}}}, BY_LABEL, ["W1", "W2", "W3"]).walls
+
     def test_wall_lights_are_forced_onto_a_wall_and_others_default_to_the_centre(self):
         p = plan(lights=[{"type": "bra", "zone": "center"}, {"type": "pendant", "zone": "nonsense"}, {"type": "bath"}])
         assert [(lt["type"], lt["zone"]) for lt in p.lights] == [("bra", "wall_A"), ("pendant", "center"), ("bath", "wall_A")]
@@ -109,11 +133,12 @@ class TestValidate:
 
     def test_nothing_usable_at_all_is_an_error(self):
         with pytest.raises(ad.DesignError):
-            ad.validate_plan({"title": "x", "walls": {}, "floor": {"type": "marble"}, "lights": [], "furniture": []}, BY_LABEL)
+            ad.validate_plan({"title": "x", "walls": {}, "floor": {"type": "marble"}, "lights": [], "furniture": []}, BY_LABEL, WALLS)
 
 
 ROOM = {"name": "Xona", "room_type": "mehmonxona", "width": 4.0, "depth": 3.0, "ceiling_h": 2.7,
-        "walls": [{"id": "A", "length": 4.0, "openings": ["deraza"]}, {"id": "B", "length": 3.0, "openings": []}]}
+        "walls": [{"id": "A", "length": 4.0, "openings": ["deraza"]}, {"id": "B", "length": 3.0, "openings": []},
+                  {"id": "C", "length": 4.0, "openings": []}, {"id": "D", "length": 3.0, "openings": []}]}
 
 
 class TestDesignRoom:
@@ -128,7 +153,7 @@ class TestDesignRoom:
         sent = call.await_args.kwargs
         assert sent["model_type"] == "builder" and sent["user_id"] == "u"
         message = sent["messages"][0]["content"]
-        assert "qorong'i atmosfera" in message and "F1: Divan" in message and "A 4 m (deraza)" in message
+        assert "qorong'i atmosfera" in message and "F1: Divan" in message and "A 4 m (deraza)" in message and "wall_A" in message and "corner_A_B" in message
         assert "4 x 3 m" in message and "chandelier" in message
 
     async def test_an_unreadable_answer_is_a_design_error(self):

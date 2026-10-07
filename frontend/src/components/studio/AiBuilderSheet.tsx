@@ -32,7 +32,12 @@ function errorText(err: unknown): string {
 export function zoneLabel(zone: string): string {
   if (zone === "center") return uz.ai.markaz
   if (zone.startsWith("wall_")) return `${zone.slice(5)} ${uz.ai.chetki_devor}`
-  if (zone.startsWith("corner_")) return `${zone.slice(7, 8)}–${zone.slice(8)} ${uz.ai.burchak}`
+  if (zone.startsWith("corner_")) {
+    const rest = zone.slice(7)
+    // corner_<a>_<b>; the old four-wall spelling is corner_AB.
+    const [a, b] = rest.includes("_") ? rest.split("_") : [rest.slice(0, 1), rest.slice(1)]
+    return `${a}–${b} ${uz.ai.burchak}`
+  }
   return zone
 }
 
@@ -83,6 +88,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
   const [notice, setNotice] = React.useState("")
   const [undo, setUndo] = React.useState<DesignSnapshot | null>(null)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
+  const wallIds = useRoomStore((s) => s.geometry.walls.map((w) => w.id).join('|'))
 
   async function generate(e?: React.FormEvent) {
     e?.preventDefault()
@@ -106,7 +112,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
 
   /** A ready-made style: no request, so it works with the AI down and costs nothing. */
   function usePreset(id: string) {
-    const next = presetPlan(id, catalogFurniture, roomType)
+    const next = presetPlan(id, catalogFurniture, roomType, wallIds ? wallIds.split('|') : undefined)
     if (!next) return
     setError("")
     setNotice("")

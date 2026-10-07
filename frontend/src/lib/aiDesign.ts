@@ -7,8 +7,7 @@ import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import type { FloorPatternId } from '@/lib/floorGeometry'
 import { lightType } from '@/lib/lightCatalog'
 import type { LightTypeId } from '@/lib/lightCatalog'
-import { furniturePlacementMm, nextLightPositionMm } from '@/lib/placement'
-import { furnitureSpot, isFourWallRoom, isZone, lightSpot, type Rect } from '@/lib/aiDesignLayout'
+import { furnitureSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
 export interface DesignParts { walls: boolean; floor: boolean; lights: boolean; furniture: boolean }
@@ -81,21 +80,16 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
   }
 
   const geometry = useRoomStore.getState().geometry
-  const fourWalls = isFourWallRoom(geometry)
+  const model = roomModel(geometry)
 
   if (parts.lights) {
     const nthByZone = new Map<string, number>()
-    for (const [i, light] of plan.lights.entries()) {
+    for (const light of plan.lights) {
       const type = lightType(light.type)
-      let spot: { xMm: number; zMm: number; wallId?: string }
-      if (fourWalls && isZone(light.zone)) {
-        const key = `${light.zone}:${type.mount === 'wall'}`
-        const nth = nthByZone.get(key) ?? 0
-        nthByZone.set(key, nth + 1)
-        spot = lightSpot(light.zone, type.mount, geometry, nth)
-      } else {
-        spot = nextLightPositionMm(geometry, useRoomStore.getState().lights.length + i)
-      }
+      const key = `${light.zone}:${type.mount === 'wall'}`
+      const nth = nthByZone.get(key) ?? 0
+      nthByZone.set(key, nth + 1)
+      const spot = lightSpot(light.zone, type.mount, model, nth)
       store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot })
       applied.lights++
     }
@@ -105,7 +99,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     const byId = new Map(catalog.map((c) => [c.id, c]))
     const taken: Rect[] = useRoomStore.getState().furniture.map((f) => {
       const size = sizeOf(byId.get(f.furniture_id))
-      return { x: f.x / 1000, z: f.y / 1000, hw: size.w / 2, hd: size.d / 2 }
+      return { x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }
     })
     // Rugs lie under everything and block nothing; the rest go largest first, so the sofa gets its wall.
     const items = plan.furniture.map((p) => ({ p, item: byId.get(p.id) }))
@@ -113,17 +107,14 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     const area = (i: (typeof items)[number]) => sizeOf(i.item).w * sizeOf(i.item).d
     items.sort((a, b) => Number(isRug(b)) - Number(isRug(a)) || area(b) - area(a))
 
-    for (const [i, entry] of items.entries()) {
+    for (const entry of items) {
       const size = sizeOf(entry.item)
-      let x: number, y: number, rotation = 0
-      if (fourWalls && isZone(entry.p.zone)) {
-        const spot = furnitureSpot(isRug(entry) ? 'center' : entry.p.zone, size, geometry, isRug(entry) ? [] : taken)
-        x = spot.x * 1000; y = spot.z * 1000; rotation = spot.rotation
-        if (!isRug(entry)) taken.push(spot.rect)
-      } else {
-        ;({ x, y } = furniturePlacementMm(geometry, useRoomStore.getState().furniture.length + i, size))
-      }
-      store.placeFurniture({ id: nanoid(), furniture_id: entry.p.id, x, y, rotation })
+      const rug = isRug(entry)
+      const spot = furnitureSpot(rug ? 'center' : entry.p.zone, size, model, rug ? [] : taken)
+      if (!rug) taken.push(spot.rect)
+      store.placeFurniture({
+        id: nanoid(), furniture_id: entry.p.id, x: spot.x * 1000, y: spot.z * 1000, rotation: spot.rotation,
+      })
       applied.furniture++
     }
   }

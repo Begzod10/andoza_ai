@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
-import { ZONES } from '../aiDesignLayout'
 import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
 
 const item = (id: string, name: string, category: string, room_type: string | null = null): CatalogFurniture => ({
@@ -30,11 +29,12 @@ describe('design presets', () => {
     expect(['parquet', 'tile', 'laminate', 'concrete']).toContain(plan.floor!.type)
     if (plan.floor!.pattern) expect(FLOOR_PATTERN_DEFS.map((d) => d.id)).toContain(plan.floor!.pattern)
     if (plan.floor!.tint) expect(plan.floor!.tint).toMatch(hex)
+    const zones = new Set(['center', ...['A', 'B', 'C', 'D'].map((w) => `wall_${w}`), 'corner_A_B', 'corner_B_C', 'corner_C_D', 'corner_D_A'])
     for (const l of plan.lights) {
       expect(LIGHT_TYPES.map((t) => t.id)).toContain(l.type)
-      expect(ZONES as readonly string[]).toContain(l.zone)
+      expect(zones).toContain(l.zone)
     }
-    for (const f of plan.furniture) expect(ZONES as readonly string[]).toContain(f.zone)
+    for (const f of plan.furniture) expect(zones).toContain(f.zone)
     expect(plan.title && plan.summary).toBeTruthy()
   })
 
@@ -64,6 +64,22 @@ describe('design presets', () => {
     const bare = presetPlan('loft', [], undefined)!
     expect(bare.furniture).toEqual([])
     expect(bare.walls.main && bare.floor && bare.lights.length).toBeTruthy() // the room itself still gets its style
+  })
+
+  it("in a drawn room the preset's walls become the room's own: first to fourth wall, wrapping round", () => {
+    const plan = presetPlan('dark', CATALOG, 'mehmonxona', ['W1', 'W2', 'W3'])!
+    expect(plan.walls.accent!.wall).toBe('W3')
+    expect(plan.furniture.find((f) => f.id === 'sofa')!.zone).toBe('wall_W1')
+    expect(plan.lights.find((l) => l.type === 'floor_lamp')!.zone).toBe('corner_W2_W3')
+    expect(plan.lights.find((l) => l.type === 'led_linear')!.zone).toBe('wall_W3')
+    const classic = presetPlan('klassik', CATALOG, undefined, ['W1', 'W2', 'W3'])!
+    expect(classic.lights.find((l) => l.type === 'bra')!.zone).toBe('wall_W2')
+    expect(classic.furniture.find((f) => f.id === 'kreslo' || f.id === 'chair')!.zone).toBe('corner_W3_W1') // D wraps to W1
+  })
+
+  it('a room with no walls puts everything in the middle', () => {
+    const plan = presetPlan('dark', CATALOG, undefined, [])!
+    expect(plan.furniture.every((f) => f.zone === 'center')).toBe(true)
   })
 
   it('is undefined for an unknown style', () => {

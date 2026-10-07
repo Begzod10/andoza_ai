@@ -81,8 +81,25 @@ function pick(kind: Kind, catalog: CatalogFurniture[], roomType: string | undefi
   return fits.find((c) => c.room_type === roomType) ?? fits.find((c) => c.room_type === null) ?? fits[0]
 }
 
+/**
+ * A preset is written with walls A-D meaning "the first to fourth wall". In a room whose walls are
+ * called something else (a drawn room's W1..Wn) they are the walls at those positions, wrapping round
+ * when the room has fewer.
+ */
+function resolveWalls(zone: string, wallIds: string[]): string {
+  if (wallIds.length === 0) return 'center'
+  const at = (letter: string) => wallIds[('ABCD'.indexOf(letter) + wallIds.length) % wallIds.length]
+  const wall = zone.match(/^wall_([A-D])$/)
+  if (wall) return `wall_${at(wall[1])}`
+  const corner = zone.match(/^corner_([A-D])([A-D])$/)
+  if (corner) return `corner_${at(corner[1])}_${at(corner[2])}`
+  return zone
+}
+
 /** The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id. */
-export function presetPlan(id: string, catalog: CatalogFurniture[], roomType?: string): AiDesignPlan | undefined {
+export function presetPlan(
+  id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],
+): AiDesignPlan | undefined {
   const preset = DESIGN_PRESETS.find((p) => p.id === id)
   if (!preset) return undefined
   const used = new Set<string>()
@@ -91,10 +108,17 @@ export function presetPlan(id: string, catalog: CatalogFurniture[], roomType?: s
     const item = pick(want.kind, catalog, roomType, used)
     if (!item) continue
     used.add(item.id)
-    furniture.push({ id: item.id, name: item.name_uz, zone: want.zone })
+    furniture.push({ id: item.id, name: item.name_uz, zone: resolveWalls(want.zone, wallIds) })
   }
+  const accent = preset.walls.accent
   return {
-    title: preset.title, summary: preset.summary, walls: preset.walls, floor: preset.floor,
-    lights: preset.lights, furniture, warnings: [],
+    title: preset.title, summary: preset.summary,
+    walls: {
+      ...preset.walls,
+      ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),
+    },
+    floor: preset.floor,
+    lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
+    furniture, warnings: [],
   }
 }

@@ -176,5 +176,7 @@ describe('zoneLabel', () => {
     expect(zoneLabel('center')).toBe('markaz')
     expect(zoneLabel('wall_B')).toBe('B devor')
     expect(zoneLabel('corner_CD')).toBe('C–D burchak')
+    expect(zoneLabel('corner_W2_W3')).toBe('W2–W3 burchak')
+    expect(zoneLabel('wall_W4')).toBe('W4 devor')
   })
 })

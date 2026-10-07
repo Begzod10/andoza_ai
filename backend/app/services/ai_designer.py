@@ -38,8 +38,6 @@ WOOD_FLOORS = ("parquet", "laminate")
 OBOY_PATTERNS = ("yolli", "damask", "geometrik", "gul", "tekstura", "bolalar")
 LIGHT_TYPES = tuple(LIGHT_TYPE_NAMES)
 WALL_MOUNTED_LIGHTS = ("bra", "bath")
-WALL_IDS = ("A", "B", "C", "D")
-ZONES = ("center", *(f"wall_{w}" for w in WALL_IDS), "corner_AB", "corner_BC", "corner_CD", "corner_DA")
 
 MAX_LIGHTS = 6
 MAX_FURNITURE = 8
@@ -47,6 +45,19 @@ MAX_PER_ITEM = 2
 MAX_CATALOG_IN_PROMPT = 60
 
 _HEX = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def zones_for(wall_ids: list[str]) -> list[str]:
+    """Where in THIS room a piece can go, by the room's own wall ids.
+
+    "center"; "wall_<id>" for each wall; "corner_<a>_<b>" for each pair of neighbouring walls
+    (the last wall meets the first). A drawn or scanned room has walls W1..Wn, a plain one A-D:
+    the model is told the real names, so its answer needs no translating.
+    """
+    zones = ["center", *(f"wall_{w}" for w in wall_ids)]
+    if len(wall_ids) >= 3:
+        zones += [f"corner_{a}_{b}" for a, b in zip(wall_ids, wall_ids[1:] + wall_ids[:1])]
+    return zones
 
 
 class DesignError(Exception):
@@ -98,9 +109,11 @@ def extract_json(text: str) -> dict:
     return data
 
 
-def validate_plan(data: dict, furniture_by_label: dict[str, dict]) -> DesignPlan:
+def validate_plan(data: dict, furniture_by_label: dict[str, dict], wall_ids: list[str]) -> DesignPlan:
     """Keep only what the studio can apply; note what was dropped. Never raises on a bad
-    field, only when nothing at all is left."""
+    field, only when nothing at all is left. *wall_ids* are the room's own wall ids."""
+    zones = set(zones_for(wall_ids))
+    first_wall_zone = f"wall_{wall_ids[0]}" if wall_ids else "center"
     plan = DesignPlan(
         title=str(data.get("title") or "")[:80].strip(),
         summary=str(data.get("summary") or "")[:600].strip(),
@@ -125,7 +138,7 @@ def validate_plan(data: dict, furniture_by_label: dict[str, dict]) -> DesignPlan
     elif main:
         warn("Devor turi noma'lum, o'tkazib yuborildi")
     accent = walls.get("accent")
-    if isinstance(accent, dict) and accent.get("wall") in WALL_IDS and _hex(accent.get("color")):
+    if isinstance(accent, dict) and accent.get("wall") in wall_ids and _hex(accent.get("color")):
         plan.walls["accent"] = {"wall": accent["wall"], "color": _hex(accent["color"])}
 
     # --- floor ---
@@ -153,9 +166,9 @@ def validate_plan(data: dict, furniture_by_label: dict[str, dict]) -> DesignPlan
             warn("Noma'lum chiroq turi o'tkazib yuborildi")
             continue
         ltype = raw["type"]
-        zone = raw.get("zone") if raw.get("zone") in ZONES else None
+        zone = raw.get("zone") if raw.get("zone") in zones else None
         if ltype in WALL_MOUNTED_LIGHTS:
-            zone = zone if zone and zone.startswith("wall_") else "wall_A"
+            zone = zone if zone and zone.startswith("wall_") else first_wall_zone
         else:
             zone = zone or "center"
         plan.lights.append({"type": ltype, "zone": zone})
@@ -174,7 +187,7 @@ def validate_plan(data: dict, furniture_by_label: dict[str, dict]) -> DesignPlan
         if counts.get(label, 0) >= MAX_PER_ITEM:
             continue
         counts[label] = counts.get(label, 0) + 1
-        zone = raw.get("zone") if raw.get("zone") in ZONES else "center"
+        zone = raw.get("zone") if raw.get("zone") in zones else "center"
         plan.furniture.append({"id": item["id"], "name": item["name"], "zone": zone})
 
     if plan.is_empty():
@@ -214,9 +227,9 @@ Qoidalar:
 - Ranglar '#RRGGBB' ko'rinishida. Atmosferaga mos, bir-biri bilan uyg'un palitra tuzing: devor, pol, mebel va yorug'lik BIR G'OYAGA xizmat qilsin.
 - Atmosfera yorug'ligini (iliq/sovuq, yorqin/xira) chiroq turi va devor rangi orqali bering. Qorong'i atmosfera: to'q devor, to'q pol, kam va iliq chiroqlar. Yorqin: och ranglar, ko'proq yorug'lik.
 - Devorni yo'p bo'yoq (paint) yoki oboy (oboy) bilan qoplang. Bitta devorni boshqa rangda (accent) ajratish mumkin.
-- Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_A..wall_D.
-- Mebel: xona turi va o'lchamiga mos 3-6 ta narsa tanlang (xona kichik bo'lsa kamroq). Zonalar: center, wall_A..wall_D (devor oldida), corner_AB, corner_BC, corner_CD, corner_DA.
-  Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) devor oldiga qo'ying.
+- Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_<devor id>.
+- Mebel: xona turi va o'lchamiga mos 3-6 ta narsa tanlang (xona kichik bo'lsa kamroq). Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
+  Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) eng uzun devor oldiga qo'ying. Har bir mebelga BOSHQA joy bering: ikki mebelni bir joyga qo'ymang.
 - title: 2-4 so'zli nom. summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring.
 
 JSON shakli:
@@ -225,7 +238,7 @@ JSON shakli:
   "summary": "...",
   "walls": {
     "main": {"type": "paint", "color": "#RRGGBB"}  yoki  {"type": "oboy", "pattern": "<oboy naqshi>", "base_color": "#RRGGBB", "accent_color": "#RRGGBB"},
-    "accent": {"wall": "A|B|C|D", "color": "#RRGGBB"}   (ixtiyoriy, bo'lmasa null)
+    "accent": {"wall": "<devor id>", "color": "#RRGGBB"}   (ixtiyoriy, bo'lmasa null; devor id "Devorlar" ro'yxatidan)
   },
   "floor": {"type": "<pol turi>", "pattern": "<yog'och pol naqshi yoki null>", "tint": "#RRGGBB yoki null"},
   "lights": [{"type": "<chiroq turi>", "zone": "<zona>"}],
@@ -247,7 +260,8 @@ def build_user_message(
         "",
         f"Xona: {room['name']} ({room_type}), "
         f"o'lchami {room['width']:g} x {room['depth']:g} m, shift {room['ceiling_h']:g} m.",
-        f"Devorlar: {walls}",
+        f"Devorlar (id va uzunligi): {walls}",
+        f"Zonalar: {', '.join(zones_for([w['id'] for w in room['walls']]))}",
         "",
         f"Pol turlari: {', '.join(FLOOR_TYPES)}",
         f"Yog'och pol naqshlari: {', '.join(FLOOR_PATTERNS)}",
@@ -278,4 +292,4 @@ async def design_room(
     )
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     log.info("ai_design.answered", chars=len(text))
-    return validate_plan(extract_json(text), by_label)
+    return validate_plan(extract_json(text), by_label, [w["id"] for w in room["walls"]])
