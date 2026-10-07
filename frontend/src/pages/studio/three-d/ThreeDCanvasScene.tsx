@@ -1,5 +1,5 @@
-import { Suspense, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Suspense, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
   PerformanceMonitor,
@@ -36,7 +36,7 @@ import type { RenderAspect } from "@/lib/roomCameras";
 import { PanoramaSnap } from "./PanoramaSnap";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
-import { applyUniformZoom } from "@/lib/orbitZoom";
+import { applyUniformZoom, fitRoomDistance } from "@/lib/orbitZoom";
 
 /**
  * Vertical field of view, degrees.
@@ -47,6 +47,42 @@ import { applyUniformZoom } from "@/lib/orbitZoom";
  * corners from across a small room, without the bulge a phone-camera 90 has.
  */
 const CAMERA_FOV = 68
+/**
+ * Holds the zoom-out limit at "the whole room is visible", and no further.
+ *
+ * Its own component, and inside the Canvas, because it needs the viewport's
+ * size and `useThree` only works in a component the Canvas renders — calling
+ * it in the one that RENDERS the Canvas is a crash, and this app has shipped
+ * that crash to production once already.
+ *
+ * It writes the limit onto the controls rather than passing it as a prop so
+ * that the one place the fit is computed is the one place that knows both the
+ * room and the viewport. Both matter: a taller room needs more distance, and
+ * so does a narrower window — a phone held upright is much narrower across
+ * than it is tall, and the limit has to answer to whichever direction runs out
+ * of frame first.
+ */
+function OrbitZoomLimit({ controlsRef, W, D, H }: {
+  controlsRef: MutableRefObject<OrbitControlsImpl | null>
+  W: number; D: number; H: number
+}) {
+  const { size, invalidate } = useThree()
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) return
+    controls.maxDistance = fitRoomDistance(
+      { W, D, H }, CAMERA_FOV, size.width / Math.max(size.height, 1),
+    )
+    // A camera already further out than the new limit has to come back in, or
+    // the room stays a postage stamp until the user happens to zoom.
+    if (controls.getDistance() > controls.maxDistance) {
+      controls.dollyIn(controls.getDistance() / controls.maxDistance)
+      controls.update()
+      invalidate()
+    }
+  }, [controlsRef, W, D, H, size.width, size.height, invalidate])
+  return null
+}
 
 /**
  * The 3D studio's R3F <Canvas> tree: lighting/environment, the room shell
@@ -424,6 +460,8 @@ export function ThreeDCanvasScene({
 
         <RealismEffects enabled={useComposer} />
 
+        {/* Holds the zoom-out limit at "the whole room is visible". */}
+        <OrbitZoomLimit controlsRef={controlsRef} W={W} D={D} H={H} />
         <OrbitControls
           ref={controlsRef}
           makeDefault
@@ -453,7 +491,12 @@ export function ThreeDCanvasScene({
           // hide for that — the walls are single-sided planes and the shadow
           // shell writes no colour, so from outside you simply look in.
           minDistance={topView ? topMinDist : 0.25}
-          maxDistance={topView ? Math.max(W, D) * 4 : Math.max(W, D) * 4 + 6}
+          // maxDistance is NOT set here: OrbitZoomLimit below owns it, because
+          // the fit depends on the viewport as well as the room. It used to be
+          // `max(W, D) * 4 + 6` — nearly 29 m for an ordinary 5.7 m room,
+          // which is a postage stamp in an empty sky, and every notch past the
+          // point where the room already fits spent the screen on nothing.
+          maxDistance={topView ? Math.max(W, D) * 4 : undefined}
           maxPolarAngle={topView ? Math.PI * 0.3 : maxPolarAngle}
           minPolarAngle={topView ? 0 : 0.08}
           rotateSpeed={topView ? 0.6 : 0.45}

@@ -33,3 +33,47 @@ export function applyUniformZoom(
   if (!controls) return;
   controls.zoomSpeed = uniformZoomSpeed(controls.getDistance(), roomSpan);
 }
+
+/**
+ * How far out the camera may go: exactly far enough to see the whole room, and
+ * not one step further.
+ *
+ * The limit used to be `max(W, D) * 4 + 6`, which for an ordinary 5.7 x 3.85 m
+ * room is nearly 29 metres. A 5.7 m room seen from 29 m is a postage stamp in
+ * the middle of an empty sky, and every notch of zoom-out past the point where
+ * the room already fits spends the screen on nothing. Zooming out should stop
+ * where there is nothing left to reveal.
+ *
+ * The room is treated as the sphere that contains it, which is what makes one
+ * number right at every camera angle: an orbiting camera sees the room's
+ * diagonal from some directions and its short side from others, and a limit
+ * derived from the footprint alone would clip the corners from exactly the
+ * angles people orbit to.
+ *
+ * The binding constraint is the NARROWER of the two half-angles. A phone held
+ * upright is much narrower across than it is tall, so a distance that fits the
+ * room vertically still cuts its sides off; taking the smaller of the two is
+ * what makes "fully visible" true in both directions.
+ */
+export function fitRoomDistance(
+  room: { W: number; D: number; H: number },
+  verticalFovDeg: number,
+  aspect: number,
+): number {
+  // Half the room's space diagonal — the radius of the sphere it sits in,
+  // about its own centre, which is what the camera orbits.
+  const radius = 0.5 * Math.hypot(
+    Math.max(room.W, 0.1),
+    Math.max(room.H, 0.1),
+    Math.max(room.D, 0.1),
+  );
+
+  const vHalf = (Math.max(verticalFovDeg, 1) * Math.PI) / 360;
+  const hHalf = Math.atan(Math.tan(vHalf) * Math.max(aspect, 0.01));
+  const half = Math.min(vHalf, hHalf);
+
+  // A hair of air around the room, so the walls are not jammed against the
+  // edge of the frame at full zoom-out.
+  const MARGIN = 1.06;
+  return (radius / Math.sin(half)) * MARGIN;
+}

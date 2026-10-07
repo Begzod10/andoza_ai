@@ -266,3 +266,33 @@ export function roomCameraPoses(
     }
   })
 }
+
+/** One entry in the camera button's list. */
+export interface CameraChoice {
+  /** 1-based station, or null for the 360 camera, which has no station. */
+  station: number | null
+  /** A short mark for the button's own badge. */
+  badge: string
+  /** What it is called, in Uzbek. */
+  title: string
+  /** For a tooltip and a screen reader. */
+  label: string
+}
+
+/**
+ * The cameras the room offers, in the order the list shows them.
+ *
+ * The 360 camera is first because it is the one that answers "what is it like
+ * in here", and the four stations follow it in their own order. Kept here
+ * rather than in the page so the list and the cameras it names cannot drift
+ * apart — adding a fifth station is then one constant, not two.
+ */
+export const CAMERA_CHOICES: CameraChoice[] = [
+  { station: null, badge: '360', title: '360', label: "360 kamera — xona o'rtasidan" },
+  ...Array.from({ length: ROOM_CAMERA_COUNT }, (_, i) => ({
+    station: i + 1,
+    badge: String(i + 1),
+    title: `${i + 1}-kamera`,
+    label: `${i + 1}-kamera — burchakdan`,
+  })),
+]

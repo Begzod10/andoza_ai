@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
-import { RENDER_ASPECTS, ROOM_CAMERA_COUNT, type RenderAspect } from "@/lib/roomCameras";
+import { CAMERA_CHOICES, RENDER_ASPECTS, type RenderAspect } from "@/lib/roomCameras";
 import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
@@ -290,6 +290,27 @@ export default function ThreeDPage() {
   /** Which fixed render camera the user is standing at, 1-based, or null. */
   const [cameraStation, setCameraStation] = useState<number | null>(null);
   const [cameraAspect, setCameraAspect] = useState<RenderAspect>(RENDER_ASPECTS[0]);
+  /** Whether the camera button has its list open. */
+  const [cameraListOpen, setCameraListOpen] = useState(false);
+
+  /**
+   * Stand at a camera — `null` for the 360 one, a number for a fixed station.
+   *
+   * Picking the camera already stood at steps back out to the free view, so
+   * the list is also the way back; without that the only way out of a camera
+   * would be to pick a different one.
+   *
+   * The two modes are exclusive by construction rather than by remembering to
+   * clear the other: both want to own where the camera stands, and leaving one
+   * set while entering the other left the 360 camera fighting a fixed station
+   * for the same matrix every frame.
+   */
+  const enterCamera = useCallback((station: number | null) => {
+    const leaving = station == null ? panorama : cameraStation === station;
+    setPanorama(!leaving && station == null);
+    setCameraStation(leaving || station == null ? null : station);
+    setCameraListOpen(false);
+  }, [panorama, cameraStation]);
   // Wall tap → "Oyna" (radial menu) opens the same type/size/color chooser
   // RoomSettingsSheet's "+ Deraza" already uses, instead of dropping a
   // default-sized window immediately — holds where the wall was tapped so
@@ -805,32 +826,70 @@ export default function ThreeDPage() {
               for it to go (2026-09-28). The corner arc offers the same things
               and the sheet is still reachable from the design panel. */}
 
-          {/* Bottom-left: the 360 camera. In, and out again — the only two
-              things to say about a mode that otherwise has no chrome of its
-              own, since looking around IS the mode. */}
-          <div className="absolute bottom-5 left-4 z-20 flex items-center gap-2">
-            <button
-              onClick={() => { setCameraStation(null); setPanorama((on) => !on); }}
-              title={panorama ? "Oddiy ko'rinishga qaytish" : "360 kamera — xona o'rtasidan"}
-              aria-label={panorama ? "360 kameradan chiqish" : "360 kameraga kirish"}
-              aria-pressed={panorama}
-              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
-                panorama ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'
-              }`}
-            >
-              {panorama ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              ) : (
+          {/* Bottom-left: the cameras.
+
+              One button, and everything else behind it. The five cameras and
+              the two picture shapes used to sit in the corner permanently —
+              nine controls lying across the room the user was trying to look
+              at, in the one view whose whole job is to be looked at. So the
+              button opens a list, the list closes the moment a camera is
+              chosen, and the only thing left on screen after that is the one
+              control that camera still needs: render. */}
+          <div className="absolute bottom-5 left-4 z-20 flex items-end gap-2">
+            <div className="flex flex-col items-start gap-2">
+              {/* The list rises from the button rather than running across the
+                  foot of the screen: a column keeps it clear of the arc menu in
+                  the opposite corner, and it reads as having come OUT of the
+                  button it is anchored to. */}
+              {cameraListOpen && (
+                <div className="flex flex-col-reverse items-start gap-1.5 animate-[radialpop_120ms_ease-out]">
+                  {CAMERA_CHOICES.map((c) => {
+                    const active = c.station == null ? panorama : cameraStation === c.station
+                    return (
+                      <button
+                        key={c.label}
+                        onClick={() => enterCamera(c.station)}
+                        title={c.label}
+                        aria-pressed={active}
+                        className={`h-10 pl-3 pr-4 rounded-full flex items-center gap-2 text-[13px] font-bold shadow-lg ring-1 transition-colors ${
+                          active ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'
+                        }`}
+                      >
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
+                          active ? 'bg-white/20' : 'bg-brand/10'
+                        }`}>
+                          {c.badge}
+                        </span>
+                        {c.title}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              <button
+                onClick={() => setCameraListOpen((open) => !open)}
+                title="Kameralar"
+                aria-label="Kameralar"
+                aria-expanded={cameraListOpen}
+                className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
+                  cameraListOpen || panorama || cameraStation != null
+                    ? 'bg-brand text-white ring-brand/40'
+                    : 'bg-white/95 text-brand ring-black/5'
+                }`}
+              >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" />
                   <circle cx="12" cy="12.5" r="3.5" />
                 </svg>
-              )}
-            </button>
+              </button>
+            </div>
+
+            {/* Render, once a camera is chosen — and only then, because it is
+                the picture from THAT camera it would make. The 360 camera goes
+                to the render sheet; a fixed one saves its own still, so it also
+                needs to be asked which shape. */}
             {panorama && (
               <button
                 onClick={() => setShowRender(true)}
@@ -839,30 +898,6 @@ export default function ThreeDPage() {
               >
                 {uz.render.nomi}
               </button>
-            )}
-
-            {/* The four fixed cameras. Numbered rather than named: they are
-                the four corners of this room and nothing else, and a number is
-                the shortest thing that says which. Entering one leaves the 360
-                camera, since both want to own where the camera stands. */}
-            {!panorama && (
-              <div className="flex items-center gap-1.5">
-                {Array.from({ length: ROOM_CAMERA_COUNT }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setCameraStation((cur) => (cur === n ? null : n))}
-                    title={`${n}-kamera`}
-                    aria-pressed={cameraStation === n}
-                    className={`w-9 h-9 rounded-full text-[13px] font-bold shadow-lg ring-1 transition-colors ${
-                      cameraStation === n
-                        ? 'bg-brand text-white ring-brand/40'
-                        : 'bg-white/95 text-brand ring-black/5'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
             )}
 
             {cameraStation != null && (
@@ -876,7 +911,7 @@ export default function ThreeDPage() {
                       key={a.label}
                       onClick={() => setCameraAspect(a)}
                       aria-pressed={cameraAspect.label === a.label}
-                      className={`px-2.5 h-9 text-[12px] font-bold transition-colors ${
+                      className={`px-2.5 h-12 text-[12px] font-bold transition-colors ${
                         cameraAspect.label === a.label ? 'bg-brand text-white' : 'text-brand'
                       }`}
                     >
@@ -887,9 +922,9 @@ export default function ThreeDPage() {
                 <button
                   onClick={requestViewCapture}
                   title={`${cameraAspect.width} x ${cameraAspect.height}`}
-                  className="px-4 h-9 rounded-full bg-brand text-white text-[12px] font-bold shadow-lg ring-1 ring-brand/40"
+                  className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
                 >
-                  Saqlash
+                  {uz.render.nomi}
                 </button>
               </>
             )}

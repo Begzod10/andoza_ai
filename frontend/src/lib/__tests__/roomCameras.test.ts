@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import {
   roomCameraPoses, roomCameraStations, renderSizeFor, verticalFovFor,
   RENDER_ASPECTS, RENDER_EYE_HEIGHT, ROOM_CAMERA_COUNT, CAMERA_WALL_OFFSET,
-  RENDER_HFOV_DEG,
+  RENDER_HFOV_DEG, CAMERA_CHOICES,
 } from '../roomCameras'
 import { pointInPolygon } from '../planPolygon'
 import type { RoomBounds } from '../furnitureBounds'
@@ -182,5 +182,31 @@ describe('renderSizeFor', () => {
   it('offers the two shapes the user asked for, and only those', () => {
     expect(RENDER_ASPECTS.map((a) => a.label)).toEqual(['9:16', '16:9'])
     expect(RENDER_ASPECTS.map((a) => `${a.width}x${a.height}`)).toEqual(['1080x1920', '1920x1080'])
+  })
+})
+
+describe('CAMERA_CHOICES', () => {
+  it('offers the 360 camera and every station, once each', () => {
+    expect(CAMERA_CHOICES).toHaveLength(ROOM_CAMERA_COUNT + 1)
+    expect(CAMERA_CHOICES.filter((c) => c.station == null)).toHaveLength(1)
+    expect(CAMERA_CHOICES.map((c) => c.station)).toEqual([null, 1, 2, 3, 4])
+  })
+
+  it('names every station the poses actually provide', () => {
+    // The list and the cameras it names must not drift apart: a button for a
+    // station `roomCameraPoses` does not return would stand the user nowhere.
+    const poses = roomCameraPoses(geometryFor(RECT_OUTLINE))
+    for (const c of CAMERA_CHOICES) {
+      if (c.station == null) continue
+      expect(poses.some((p) => p.index === c.station)).toBe(true)
+    }
+  })
+
+  it('gives each one something to show and something to read', () => {
+    for (const c of CAMERA_CHOICES) {
+      expect(c.badge.length).toBeGreaterThan(0)
+      expect(c.title.length).toBeGreaterThan(0)
+      expect(c.label.length).toBeGreaterThan(c.title.length)
+    }
   })
 })

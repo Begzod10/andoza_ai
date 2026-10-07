@@ -115,7 +115,12 @@ services:
       # Only read by vite.config.ts's dev-server proxy when VITE_API_URL
       # above is switched to a relative path (e.g. /api/v1) — see root
       # .env.example for how to point local dev at the production backend.
-      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://localhost:8000}
+      #
+      # `api`, not `localhost`: this is resolved INSIDE the frontend container,
+      # where localhost is that container and nothing is listening on 8000.
+      # The old default could only ever fail, silently, as a proxy error in a
+      # log nobody reads while the page sat on its loading skeletons.
+      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://api:8000}
     restart: unless-stopped
 
 volumes:
