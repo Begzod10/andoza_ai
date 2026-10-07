@@ -129,6 +129,48 @@ describe('AiBuilderSheet', () => {
   })
 })
 
+describe('ready-made styles', () => {
+  it('shows a style at once with no request, and applies it like an AI plan', () => {
+    renderSheet()
+    fireEvent.click(screen.getByText('Qorong\'i'))
+    expect(aiDesign).not.toHaveBeenCalled()
+    expect(screen.getByText("Qorong'i, iliq atmosfera")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("Qo'llash"))
+    const s = useRoomStore.getState()
+    expect(s.designState.wallCoverings.ALL).toEqual({ kind: 'paint', color: '#2c2c2c' })
+    expect(s.designState.floorType).toBe('parquet')
+    expect(s.lights.length).toBeGreaterThan(0)
+  })
+
+  it('says the furniture is skipped when the catalog has none, and still styles the room', () => {
+    renderSheet()
+    fireEvent.click(screen.getByText('Skandinav'))
+    expect(screen.getByText(/mos mebel topilmadi/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Mebel/)).toBeDisabled()
+    fireEvent.click(screen.getByText("Qo'llash"))
+    expect(useRoomStore.getState().furniture).toHaveLength(0)
+    expect(useRoomStore.getState().designState.floorType).toBe('laminate')
+  })
+
+  it('points to the styles when the AI does not answer', async () => {
+    aiDesign.mockRejectedValueOnce(new Error('<html>502</html>'))
+    renderSheet()
+    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: "qorong'i xona" } })
+    fireEvent.click(screen.getByText('Dizayn yaratish'))
+    expect(await screen.findByText(/tayyor uslublardan birini tanlang/)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Loft'))
+    expect(screen.getByText("Loft: beton va g'isht")).toBeInTheDocument()
+  })
+
+  it('a style can be undone like any other', () => {
+    renderSheet()
+    fireEvent.click(screen.getByText('Minimalist'))
+    fireEvent.click(screen.getByText("Qo'llash"))
+    fireEvent.click(screen.getByText('Qaytarish'))
+    expect(useRoomStore.getState().lights).toHaveLength(0)
+  })
+})
+
 describe('zoneLabel', () => {
   it('names zones for a person', () => {
     expect(zoneLabel('center')).toBe('markaz')

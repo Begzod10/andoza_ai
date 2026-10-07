@@ -7,6 +7,7 @@ import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
 import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
+import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 
 interface AiBuilderSheetProps {
   open: boolean
@@ -103,6 +104,16 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
     }
   }
 
+  /** A ready-made style: no request, so it works with the AI down and costs nothing. */
+  function usePreset(id: string) {
+    const next = presetPlan(id, catalogFurniture, roomType)
+    if (!next) return
+    setError("")
+    setNotice("")
+    setPlan(next)
+    setParts({ walls: true, floor: true, lights: true, furniture: next.furniture.length > 0 })
+  }
+
   function apply() {
     if (!plan) return
     const before = snapshotDesign()
@@ -128,6 +139,22 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
   return (
     <BottomSheet open={open} onOpenChange={close} title={uz.ai.builder_title} defaultSnap="full">
       <div className="flex h-full flex-col gap-3 overflow-y-auto px-4 pb-4">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-gray-500">{uz.ai.tayyor_uslublar}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DESIGN_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => usePreset(preset.id)}
+                className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form onSubmit={generate} className="space-y-2">
           <textarea
             value={prompt}
@@ -139,6 +166,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
             aria-label={uz.ai.dizayn_tavsifi}
             className="w-full resize-none rounded-2xl bg-soft px-3 py-2 text-sm shadow-soft-pressed focus:outline-none focus:shadow-soft-pressed-deep disabled:opacity-60"
           />
+          <p className="pt-1 text-xs font-semibold text-gray-500">{uz.ai.ai_namunalari}</p>
           <div className="flex flex-wrap gap-1.5">
             {uz.ai.dizayner_misollar.map((example) => (
               <button
@@ -161,7 +189,12 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
           </button>
         </form>
 
-        {error && !running && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && !running && (
+          <div role="alert" className="space-y-1">
+            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-xs text-gray-600">{uz.ai.ai_ishlamadi_uslub}</p>
+          </div>
+        )}
 
         {plan && !running && (
           <section className="space-y-3" aria-label={plan.title}>
@@ -203,6 +236,7 @@ export function AiBuilderSheet({ open, onOpenChange, roomId, roomType }: AiBuild
               {plan.furniture.map((f) => `${f.name} (${zoneLabel(f.zone)})`).join(", ")}
             </PartRow>
 
+            {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{uz.ai.mebel_topilmadi}</p>}
             <p className="text-[11px] leading-snug text-gray-500">{uz.ai.izoh_qoshimcha}</p>
 
             <div className="flex gap-2">
