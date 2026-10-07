@@ -123,12 +123,16 @@ export function MoonriseSky() {
 // ─── Lighting ─────────────────────────────────────────────────────────────────
 
 /**
- * The sun, as the user specified it (2026-10-02): intensity 1.5, size 15.
+ * The sun, as the user specified it: intensity 1.0, size 15.
  *
- * Raised from the 0.5 they first asked for, on the same day and at their
- * request: with the white backdrop replaced by a night sky that deliberately
- * contributes almost no ambient light (see lib/moonriseSky.ts), 0.5 of sun was
- * the only daylight left in the room and it was not enough.
+ * Settled at 1.0 on 2026-10-07, between the 0.5 first asked for and the 1.5
+ * that followed it. The swing was about how much daylight the room has left:
+ * the white backdrop that used to fill it with light is now a night sky
+ * contributing almost none by design (see lib/moonriseSky.ts), so this is very
+ * nearly the only daylight there is, and it is also no longer the whole story
+ * — the sun is pinned to the sky's own light source at 13.8 degrees (see
+ * lib/skyPinnedSun.ts), which is a low, raking beam the air takes a large bite
+ * out of before it ever reaches the floor.
  *
  * The intensity is a PEAK — the beam thins as it crosses more air through the
  * day and goes out at night, so this is the strength at its highest, not a
@@ -139,7 +143,7 @@ export function MoonriseSky() {
  * penumbra. three's directional light has no disc, so size lands on the shadow
  * blur, which is the same picture from the other end.
  */
-export const SUN_INTENSITY = 1.5
+export const SUN_INTENSITY = 1.0
 export const SUN_SIZE = 15
 
 
