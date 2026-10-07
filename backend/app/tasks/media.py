@@ -258,8 +258,13 @@ async def _keep_remote_image(user_id: str, url: str) -> tuple[str, str]:
     async with httpx.AsyncClient(timeout=60.0) as http:
         fetched = await http.get(url)
         fetched.raise_for_status()
+    from app.services.pano_seam import make_wrap_seamless
+
     key = f"renders/{user_id}/{uuid.uuid4()}.jpg"
-    return key, await upload_file(fetched.content, key, content_type="image/jpeg")
+    # The render service does not know a 360 picture's edges meet, so its left and right
+    # edge differ in tone and show as a line through the room: see pano_seam.
+    content = make_wrap_seamless(fetched.content)
+    return key, await upload_file(content, key, content_type="image/jpeg")
 
 
 async def _save_render(
