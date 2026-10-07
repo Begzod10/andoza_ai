@@ -190,61 +190,55 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
     navigate('/login')
   }
 
+  // A slim rail of icons, not a wide menu: the page beside it is a grid of cards and wants the width.
+  // Each icon keeps its name as a label and a tooltip.
+  const railItem = 'flex h-11 w-11 items-center justify-center rounded-2xl transition-colors'
   return (
-    <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-neutral-200 z-30">
-      {/* Logo + day/night toggle */}
-      <div className="px-5 pt-8 pb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="andoza.ai" className="w-9 h-9 flex-shrink-0" />
-          <span className="text-lg font-bold text-neutral-900">andoza.ai</span>
-        </div>
-        <ThemeToggle />
-      </div>
+    <aside
+      aria-label="Asosiy navigatsiya"
+      className="hidden lg:flex flex-col items-center fixed left-3 top-3 bottom-3 w-[68px] rounded-3xl bg-white border border-neutral-200 shadow-subtle z-30 py-4"
+    >
+      <img src="/icon.svg" alt="andoza.ai" className="w-10 h-10 flex-shrink-0" />
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 flex flex-col gap-1">
+      <nav className="mt-6 flex flex-1 flex-col items-center gap-2">
         {SIDEBAR_NAV.map(({ to, label, icon }) => (
           <NavLink
             key={to}
             to={to}
+            title={label}
+            aria-label={label}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              `${railItem} ${
                 isActive
-                  ? 'bg-blue-50 text-blue-900'
-                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+                  ? 'bg-brand text-white shadow-btn'
+                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
               }`
             }
           >
-            {({ isActive }) => (
-              <>
-                <span className={isActive ? 'text-brand' : 'text-neutral-400'}>
-                  {icon(isActive)}
-                </span>
-                {label}
-              </>
-            )}
+            {({ isActive }) => <span>{icon(isActive)}</span>}
           </NavLink>
         ))}
-
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-neutral-600 hover:bg-red-50 hover:text-red-600 transition-colors"
-        >
-          <span className="text-neutral-400"><IconLogout /></span>
-          Chiqish
-        </button>
       </nav>
 
-      {/* New project button */}
-      <div className="p-4">
+      <div className="flex flex-col items-center gap-2">
+        <ThemeToggle />
         <button
           onClick={onNew}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-brand text-white text-sm font-bold hover:bg-blue-900 transition-colors shadow-btn"
+          title="Yangi loyiha"
+          aria-label="Yangi loyiha"
+          className={`${railItem} bg-brand text-white shadow-btn hover:bg-blue-900`}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 2v12M2 8h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
-          Yangi loyiha
+        </button>
+        <button
+          onClick={handleLogout}
+          title="Chiqish"
+          aria-label="Chiqish"
+          className={`${railItem} text-neutral-500 hover:bg-red-50 hover:text-red-600`}
+        >
+          <IconLogout />
         </button>
       </div>
     </aside>
@@ -342,7 +336,7 @@ export function AppShell() {
       <DesktopSidebar onNew={() => setSheetOpen(true)} />
 
       {/* Content shifts right on desktop */}
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-[92px] flex flex-col min-h-screen">
         <main className="flex-1 pb-[94px] lg:pb-0">
           <Outlet />
         </main>

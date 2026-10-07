@@ -30,6 +30,23 @@ export interface AiRoomPatch {
   }>;
 }
 
+/** One piece of an AI design's plan: the model chose WHAT, and a zone for roughly WHERE. */
+export interface AiDesignPlan {
+  title: string;
+  summary: string;
+  walls: {
+    main?:
+      | { type: "paint"; color: string }
+      | { type: "oboy"; pattern: string; base_color: string; accent_color: string };
+    accent?: { wall: string; color: string };
+  };
+  floor: { type: string; pattern: string | null; tint: string | null } | null;
+  lights: Array<{ type: string; zone: string }>;
+  furniture: Array<{ id: string; name: string; zone: string }>;
+  /** What the server dropped from the model's answer (an invented id, a bad colour). */
+  warnings: string[];
+}
+
 export interface SmetaAskResponse {
   answer_uz: string;
   related_line_ids: string[];
@@ -74,6 +91,14 @@ export async function* aiBuildStream(
       }
     }
   }
+}
+
+/** A whole-room design from one sentence. The plan is only a proposal: nothing is changed until the studio applies it. */
+export async function aiDesign(roomId: string, prompt: string, roomType?: string): Promise<AiDesignPlan> {
+  return apiClient<AiDesignPlan>(`/rooms/${roomId}/ai-design`, {
+    method: "POST",
+    body: JSON.stringify({ prompt, room_type: roomType ?? null }),
+  });
 }
 
 export async function smetaAsk(

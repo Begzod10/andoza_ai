@@ -1,10 +1,12 @@
 """AI feature endpoints.
 
+POST /rooms/{room_id}/ai-design — a whole-room design from one sentence
 POST /rooms/{room_id}/ai-build  — room-builder agent (Phase A)
 POST /rooms/{room_id}/smeta/ask — smeta explainer assistant (Phase B)
 """
 from __future__ import annotations
 
+import dataclasses
 import uuid
 from typing import Any
 
@@ -25,6 +27,7 @@ from app.models.norm import Norm
 from app.models.room import Room
 from app.schemas.estimate import EstimateResponse
 from app.services.ai_builder import RoomDraft, run_ai_builder
+from app.services.ai_designer import DesignError, design_room
 from app.services.estimate_catalog import load_estimate_catalog
 from app.services.smeta import compute_estimate
 
@@ -101,6 +104,84 @@ async def _load_wiring_meters(room_id: uuid.UUID, db: DbSession) -> float | None
     )
     value = result.scalar_one_or_none()
     return float(value) if value is not None else None
+
+
+# ---------------------------------------------------------------------------
+# AI designer — a whole-room design from one sentence
+# ---------------------------------------------------------------------------
+
+class AiDesignRequest(BaseModel):
+    prompt: str = Field(min_length=3, max_length=500)
+    # The studio knows the room's kind; the stored room does not. Used to put the pieces
+    # made for that kind of room first in the catalog the model sees.
+    room_type: str | None = Field(default=None, max_length=20)
+
+
+def _room_summary(room: Room, room_type: str | None) -> dict:
+    """What the model needs to know about the room: size, and what is on each wall."""
+    walls = [
+        {
+            "id": str(w.get("id")),
+            "length": float(w.get("length") or 0),
+            "openings": [str(e.get("type")) for e in (w.get("elements") or []) if isinstance(e, dict)],
+        }
+        for w in ((room.geometry or {}).get("walls") or [])
+        if isinstance(w, dict)
+    ]
+    lengths = {w["id"]: w["length"] for w in walls}
+    return {
+        "name": room.name,
+        "room_type": room_type,
+        "width": lengths.get("A") or (walls[0]["length"] if walls else 4.0),
+        "depth": lengths.get("B") or (walls[1]["length"] if len(walls) > 1 else 3.0),
+        "ceiling_h": float(room.ceiling_h or 2.7),
+        "walls": walls,
+    }
+
+
+@router.post(
+    "/rooms/{room_id}/ai-design",
+    summary="Bitta jumladan butun xona dizayni (devor, pol, chiroq, mebel)",
+)
+async def ai_design(
+    room_id: uuid.UUID,
+    body: AiDesignRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> dict:
+    from app.services.llm import BudgetExceededError
+
+    if not settings.AI_FEATURES_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI xususiyatlari hozircha yoqilmagan.",
+        )
+    room = await _get_owned_room(room_id, current_user.id, db)
+    result = await db.execute(select(Furniture).where(Furniture.is_active.is_(True)))
+    furniture = [
+        {
+            "id": str(f.id), "name_uz": f.name_uz, "category": f.category, "room_type": f.room_type,
+            "placement": f.placement,
+            "footprint_w": float(f.footprint_w) if f.footprint_w else None,
+            "footprint_d": float(f.footprint_d) if f.footprint_d else None,
+        }
+        for f in result.scalars().all()
+    ]
+    try:
+        plan = await design_room(
+            body.prompt, _room_summary(room, body.room_type), furniture, user_id=str(current_user.id),
+        )
+    except BudgetExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+    except DesignError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except Exception as exc:  # provider down, bad key, timeout
+        log.warning("ai_design.failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI hozir javob bermadi. Birozdan keyin qayta urinib ko'ring.",
+        )
+    return dataclasses.asdict(plan)
 
 
 # ---------------------------------------------------------------------------

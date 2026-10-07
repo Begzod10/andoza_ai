@@ -16,9 +16,70 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
   const navigate = useNavigate();
 
   const firstRoom = apartment?.rooms?.[0];
+  const open = () => (firstRoom ? navigate(`/studio/${firstRoom.id}/ichkarida`) : navigate("/wizard"));
 
   return (
-    <div className="rounded-xl border border-neutral-200 p-4 mb-5 bg-white shadow-sm">
+    <>
+    {/* Desktop: the picture fills the card, the greeting, the stage and the play button sit on it. */}
+    <div className="relative hidden h-full min-h-[300px] overflow-hidden rounded-3xl bg-neutral-800 lg:block">
+      {firstRoom?.thumbnail_url ? (
+        <img src={firstRoom.thumbnail_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900">
+          <svg width="220" height="165" viewBox="0 0 160 120" fill="none" aria-hidden="true" opacity="0.55">
+            <polygon points="80,10 150,50 150,110 80,110 10,110 10,50" fill="#C9CFDD" stroke="#A0AAC0" strokeWidth="1.5"/>
+            <polygon points="80,10 150,50 80,50" fill="#D8DEE9" stroke="#A0AAC0" strokeWidth="1.5"/>
+            <polygon points="80,10 10,50 80,50" fill="#BFC8D9" stroke="#A0AAC0" strokeWidth="1.5"/>
+          </svg>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/5 to-black/75" aria-hidden="true" />
+
+      <div className="absolute inset-x-7 top-6 flex items-start justify-between text-white">
+        <div>
+          <p className="text-sm font-medium text-white/70">Xush kelibsiz</p>
+          <p className="text-3xl font-extrabold leading-tight">Salom! 👋</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur">
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-warning" />
+          <span className="text-sm font-bold">UyRemont</span>
+        </div>
+      </div>
+
+      <div className="absolute inset-x-7 bottom-6 flex items-end justify-between gap-6 text-white">
+        <div className="min-w-0">
+          {apartment && (
+            <p className="mb-1 truncate text-sm text-white/70">
+              {apartment.name}{firstRoom ? ` · ${firstRoom.name}` : ""}
+            </p>
+          )}
+          <p className="text-xs font-semibold text-white/70">Bosqich {activeStage + 1} / {STAGES.length}</p>
+          <p className="text-2xl font-bold">{activeStage + 1}-bosqich: {STAGES[activeStage]}</p>
+          <div className="mt-3 flex items-center gap-2">
+            {STAGES.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                aria-label={`${i + 1}-bosqich: ${name}`}
+                onClick={() => setActiveStage(i)}
+                className={`h-2 rounded-full transition-all ${i === activeStage ? "w-7 bg-white" : "w-2 bg-white/40 hover:bg-white/70"}`}
+              />
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={open}
+          aria-label={firstRoom ? "Loyihani ochish" : "Yangi loyiha boshlash"}
+          className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-btn transition-transform hover:scale-105"
+        >
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M6 4l8 5-8 5V4z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    {/* Phone: the card as it was. */}
+    <div className="rounded-xl border border-neutral-200 p-4 mb-5 bg-white shadow-sm lg:hidden">
       {/* 3D room placeholder */}
       <div className="rounded-2xl bg-neutral-100 h-48 flex items-center justify-center mb-4 overflow-hidden relative">
         {apartment ? (
@@ -106,6 +167,53 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
         </button>
       </div>
     </div>
+    </>
+  );
+}
+
+// ─── Desktop bento: the cards under the hero ──────────────────────────────────
+
+function BentoCard({ className = "", children }: { className?: string; children: React.ReactNode }) {
+  return <div className={`hidden min-h-0 flex-col rounded-3xl bg-surface p-5 shadow-subtle lg:flex ${className}`}>{children}</div>;
+}
+
+/** How much there is: projects, rooms, and where the latest one stands. */
+function OverviewCard({ apartments }: { apartments: Apartment[] }) {
+  const rooms = apartments.reduce((n, a) => n + (a.rooms?.length ?? 0), 0);
+  return (
+    <BentoCard>
+      <p className="text-[13px] font-semibold text-muted">Umumiy ko'rinish</p>
+      <div className="mt-3 flex items-end gap-8">
+        <div>
+          <p className="text-4xl font-extrabold tabular-nums text-neutral-900">{apartments.length}</p>
+          <p className="text-xs text-muted">loyiha</p>
+        </div>
+        <div>
+          <p className="text-4xl font-extrabold tabular-nums text-neutral-900">{rooms}</p>
+          <p className="text-xs text-muted">xona</p>
+        </div>
+      </div>
+      <p className="mt-auto pt-4 text-xs text-muted">
+        {apartments[0] ? `Oxirgisi: ${new Date(apartments[0].created_at).toLocaleDateString("uz-UZ")}` : ""}
+      </p>
+    </BentoCard>
+  );
+}
+
+function LinkCard({ title, text, action, to }: { title: string; text: string; action: string; to: string }) {
+  const navigate = useNavigate();
+  return (
+    <BentoCard>
+      <p className="text-[17px] font-extrabold text-neutral-900">{title}</p>
+      <p className="mt-1.5 text-sm leading-snug text-muted">{text}</p>
+      <button
+        type="button"
+        onClick={() => navigate(to)}
+        className="mt-auto rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-btn transition-colors hover:bg-brand/90"
+      >
+        {action}
+      </button>
+    </BentoCard>
   );
 }
 
@@ -315,45 +423,47 @@ export default function ProjectsPage() {
   const latest = apartments.find(a => a.rooms && a.rooms.length > 0) ?? apartments[0];
 
   return (
-    <div className="min-h-screen bg-paper relative pb-20">
-      <div className="px-5 pt-12 pb-4 lg:max-w-6xl lg:mx-auto lg:px-8 lg:pt-10">
+    <div className="relative min-h-screen bg-paper pb-20 lg:h-screen lg:overflow-hidden lg:pb-0">
+      {/* Phone: a column. Desktop: a grid of cards: the hero, the projects, and three smaller ones. */}
+      <div className="px-5 pt-12 pb-4 lg:grid lg:h-full lg:grid-cols-12 lg:grid-rows-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-4 lg:p-4 lg:pt-4">
 
-        <div className="lg:grid lg:grid-cols-5 lg:gap-10">
-
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <p className="text-[15px] text-on-app-muted font-medium">Xush kelibsiz</p>
-                <p className="text-[25px] font-extrabold text-on-app">Salom! 👋</p>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100">
-                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-warning" />
-                <span className="text-sm font-bold text-brand">UyRemont</span>
-              </div>
+        <div className="lg:col-span-8 lg:row-start-1 lg:min-h-0">
+          <div className="mb-5 flex items-center justify-between lg:hidden">
+            <div>
+              <p className="text-[15px] text-on-app-muted font-medium">Xush kelibsiz</p>
+              <p className="text-[25px] font-extrabold text-on-app">Salom! 👋</p>
             </div>
-
-            {isLoading ? (
-              <div className="rounded-[22px] bg-gray-200 h-64 animate-pulse mb-5" />
-            ) : isError ? null : (
-              <HeroCard apartment={latest} />
-            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100">
+              <span className="w-2 h-2 rounded-full flex-shrink-0 bg-warning" />
+              <span className="text-sm font-bold text-brand">UyRemont</span>
+            </div>
           </div>
 
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-3 lg:mt-0 lg:pt-0">
-              <h2 className="text-[17px] font-extrabold text-on-app">Mening loyihalarim</h2>
-              <button
-                onClick={() => setShowDeleted(!showDeleted)}
-                className={`text-[13px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                  showDeleted
-                    ? "bg-red-100 text-red-600"
-                    : "bg-white text-brand hover:bg-blue-50"
-                }`}
-              >
-                {showDeleted ? "🗑️ O'chirilganlar" : "Barchasi"}
-              </button>
+          {isLoading ? (
+            <div className="mb-5 h-64 animate-pulse rounded-[22px] bg-gray-200 lg:mb-0 lg:h-full lg:rounded-3xl" />
+          ) : isError ? null : (
+            <div className="lg:h-full">
+              <HeroCard apartment={latest} />
             </div>
+          )}
+        </div>
 
+        <div className="lg:col-span-4 lg:row-start-1 lg:flex lg:min-h-0 lg:flex-col lg:rounded-3xl lg:bg-surface lg:p-5 lg:shadow-subtle">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[17px] font-extrabold text-on-app lg:text-neutral-900">Mening loyihalarim</h2>
+            <button
+              onClick={() => setShowDeleted(!showDeleted)}
+              className={`text-[13px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                showDeleted
+                  ? "bg-red-100 text-red-600"
+                  : "bg-white text-brand hover:bg-blue-50 lg:bg-primary-tint"
+              }`}
+            >
+              {showDeleted ? "🗑️ O'chirilganlar" : "Barchasi"}
+            </button>
+          </div>
+
+          <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {isLoading ? (
               <div className="flex flex-col gap-3">
                 {[1, 2].map((i) => (
@@ -375,7 +485,18 @@ export default function ProjectsPage() {
               </div>
             )}
           </div>
+        </div>
 
+        {/* Desktop only: the row of smaller cards under the hero and the list. */}
+        <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
+          {/* Not while loading or after a failed load: with no list, "0 loyiha" would say the account is empty. */}
+          {isLoading || isError ? <BentoCard>{null}</BentoCard> : <OverviewCard apartments={apartments} />}
+        </div>
+        <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
+          <LinkCard title="Do'kon" text="Material va mebel narxlarini do'konlar bo'yicha solishtiring." action="Do'konni ochish" to="/dokon" />
+        </div>
+        <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
+          <LinkCard title="Ustalar" text="Tasdiqlangan ustalarni toping va ular bilan bog'laning." action="Ustalarni ko'rish" to="/ustalar" />
         </div>
       </div>
 
@@ -383,7 +504,7 @@ export default function ProjectsPage() {
       {apartments.length > 0 && !isError && (
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-brand text-white flex items-center justify-center shadow-btn hover:shadow-hover hover:bg-brand/90 transition-all"
+          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-brand lg:hidden text-white flex items-center justify-center shadow-btn hover:shadow-hover hover:bg-brand/90 transition-all"
         >
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
             <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2" strokeLinecap="round"/>

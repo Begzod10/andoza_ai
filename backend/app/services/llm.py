@@ -109,6 +109,24 @@ async def check_and_increment_budget_for(user_id: str, pool: str, limit: int) ->
 # OpenAI client
 # ---------------------------------------------------------------------------
 
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
+def _provider() -> tuple[str, str | None]:
+    """(api key, base url) for the client.
+
+    OPENAI_BASE_URL empty means api.openai.com. When the configured models are Gemini's and
+    only a GEMINI_API_KEY is set (no explicit base URL), talk to Gemini's OpenAI-compatible
+    endpoint with that key, so one Gemini key is all a deployment needs.
+    """
+    if (
+        not settings.OPENAI_BASE_URL
+        and settings.GEMINI_API_KEY
+        and settings.AI_MODEL_BUILDER.startswith("gemini")
+    ):
+        return settings.GEMINI_API_KEY, GEMINI_OPENAI_BASE_URL
+    return settings.OPENAI_API_KEY, settings.OPENAI_BASE_URL or None
+
 _client: Optional[AsyncOpenAI] = None
 
 
@@ -118,11 +136,10 @@ def get_client() -> AsyncOpenAI:
         from httpx import Timeout
         # Set longer timeout for AI calls (default 60s → 120s)
         timeout = Timeout(120.0)
+        api_key, base_url = _provider()
         _client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            # Empty → SDK default (api.openai.com). Set to use any
-            # OpenAI-compatible provider (e.g. Gemini's compat endpoint).
-            base_url=settings.OPENAI_BASE_URL or None,
+            api_key=api_key,
+            base_url=base_url,
             timeout=timeout,
         )
     return _client

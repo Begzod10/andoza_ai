@@ -1015,6 +1015,7 @@ export default function ThreeDPage() {
         showAiSheet={showAiSheet}
         setShowAiSheet={setShowAiSheet}
         roomId={room.id}
+        roomType={room.room_type}
         radial={radial}
         radialItems={(r) => buildRadialItems(r, {
           setSelectedWall, setActivePhase, setShowPanel, createOpening,
