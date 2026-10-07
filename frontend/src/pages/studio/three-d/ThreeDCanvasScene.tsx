@@ -31,6 +31,8 @@ import { skyPinnedSun } from "@/lib/skyPinnedSun";
 import { DoubleClickFocus, KeepAutoClear, DevSceneHandle, CameraAnimator } from "./CameraControls";
 import { WallsBehindCamera } from "./useWallsBehindCamera";
 import { Panorama360 } from "./Panorama360";
+import { RoomCameras } from "./RoomCameras";
+import type { RenderAspect } from "@/lib/roomCameras";
 import { PanoramaSnap } from "./PanoramaSnap";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
@@ -59,7 +61,8 @@ export function ThreeDCanvasScene({
   topView, sceneLightOn, sun, W, D, H, highQuality3d,
   room, geometry, designState,
   showContactShadows, useComposer, lightsOn, cutaway,
-  selectedWall, focusSurface, holdBind, panorama, onPanoramaCaptured, armedOpeningId,
+  selectedWall, focusSurface, holdBind, panorama, onPanoramaCaptured,
+  cameraStation, cameraAspect, onViewCaptured, armedOpeningId,
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
@@ -96,6 +99,11 @@ export function ThreeDCanvasScene({
   /** The 360 camera: standing in the middle of the room, turning on the spot. */
   panorama: boolean;
   onPanoramaCaptured: (canvas: HTMLCanvasElement) => void;
+  /** Which of the four fixed render cameras the user is standing at, 1-based,
+   *  or null when they are not at one. */
+  cameraStation: number | null;
+  cameraAspect: RenderAspect;
+  onViewCaptured: (canvas: HTMLCanvasElement, aspect: RenderAspect) => void;
   /** The opening a double tap has armed for dragging, if any. */
   armedOpeningId?: string | null;
   selOpening: OpeningSel | null;
@@ -296,6 +304,14 @@ export function ThreeDCanvasScene({
         )}
 
         <Panorama360 active={panorama} geometry={geometry} onCaptured={onPanoramaCaptured} />
+        {/* The four fixed cameras, for an ordinary picture of the room rather
+            than a panorama nobody can put in a quote. */}
+        <RoomCameras
+          station={cameraStation}
+          aspect={cameraAspect}
+          geometry={geometry}
+          onCaptured={onViewCaptured}
+        />
         <PanoramaSnap geometry={geometry} />
       <WallsBehindCamera geometry={geometry} W={W} D={D}>
           {(behind) => (
@@ -413,7 +429,7 @@ export function ThreeDCanvasScene({
           makeDefault
           // The 360 camera turns on the spot and has no pivot; an orbit rig
           // reaching for one would fight it for every drag.
-          enabled={!panorama}
+          enabled={!panorama && cameraStation == null}
           target={initCam.target}
           enableDamping
           dampingFactor={0.06}

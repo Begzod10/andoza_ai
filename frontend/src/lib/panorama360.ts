@@ -11,8 +11,18 @@ import * as THREE from 'three'
  * expects, since the image wraps 360 degrees across and 180 up and down.
  */
 
-/** Eye height, metres. A person's eyes, not a camera on a tripod. */
-export const PANO_EYE_HEIGHT = 1.65
+/**
+ * Eye height, metres.
+ *
+ * 1650 mm at first — a standing person's eyes. Lowered 300 mm on the user's
+ * ask (2026-10-07), which is roughly where an interior photographer puts a
+ * tripod: a touch below eye level, so the picture looks across the room rather
+ * than down into it, and the floor keeps its share of the frame.
+ *
+ * Shared with the fixed render cameras (`lib/roomCameras.ts`), so every
+ * picture of a room is taken from the same height and the set hangs together.
+ */
+export const PANO_EYE_HEIGHT = 1.35
 
 export const PANO_WIDTH = 4000
 export const PANO_HEIGHT = 2000
@@ -181,6 +191,67 @@ export function capturePanoramaCanvas(
   if (ctx) {
     const image = ctx.createImageData(width, height)
     image.data.set(flipRows(pixels, width, height))
+    ctx.putImageData(image, 0, 0)
+  }
+  return canvas
+}
+
+/**
+ * One ordinary perspective picture of the scene, from a fixed camera.
+ *
+ * The same read-and-flip as the panorama above, with a plain camera instead of
+ * a cube: render into an offscreen target at the picture's own resolution so
+ * the shot is never limited by the size of the viewport the user happens to
+ * have, then read the pixels back and turn them the right way up.
+ *
+ * Deliberately NOT `renderer.render` to the screen followed by reading the
+ * canvas: the canvas is the user's viewport, with its own aspect, its own
+ * device pixel ratio and the UI composited over it on some browsers.
+ */
+export function captureViewCanvas(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  pose: {
+    position: { x: number; y: number; z: number }
+    target: { x: number; y: number; z: number }
+  },
+  size: { width: number; height: number },
+  verticalFovDeg: number,
+): HTMLCanvasElement {
+  const camera = new THREE.PerspectiveCamera(
+    verticalFovDeg,
+    size.width / size.height,
+    0.05,
+    200,
+  )
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z)
+  camera.lookAt(pose.target.x, pose.target.y, pose.target.z)
+  camera.updateProjectionMatrix()
+
+  const target = new THREE.WebGLRenderTarget(size.width, size.height, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    colorSpace: THREE.SRGBColorSpace,
+  })
+
+  const previousTarget = renderer.getRenderTarget()
+  const pixels = new Uint8Array(size.width * size.height * 4)
+  try {
+    renderer.setRenderTarget(target)
+    renderer.render(scene, camera)
+    renderer.readRenderTargetPixels(target, 0, 0, size.width, size.height, pixels)
+  } finally {
+    renderer.setRenderTarget(previousTarget)
+    target.dispose()
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = size.width
+  canvas.height = size.height
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    const image = ctx.createImageData(size.width, size.height)
+    image.data.set(flipRows(pixels, size.width, size.height))
     ctx.putImageData(image, 0, 0)
   }
   return canvas

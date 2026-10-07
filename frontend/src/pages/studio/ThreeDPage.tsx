@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
+import { RENDER_ASPECTS, ROOM_CAMERA_COUNT, type RenderAspect } from "@/lib/roomCameras";
+import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
@@ -285,6 +287,9 @@ export default function ThreeDPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   /** The 360 camera: standing in the middle of the room at eye height. */
   const [panorama, setPanorama] = useState(false);
+  /** Which fixed render camera the user is standing at, 1-based, or null. */
+  const [cameraStation, setCameraStation] = useState<number | null>(null);
+  const [cameraAspect, setCameraAspect] = useState<RenderAspect>(RENDER_ASPECTS[0]);
   // Wall tap → "Oyna" (radial menu) opens the same type/size/color chooser
   // RoomSettingsSheet's "+ Deraza" already uses, instead of dropping a
   // default-sized window immediately — holds where the wall was tapped so
@@ -407,6 +412,20 @@ export default function ThreeDPage() {
       URL.revokeObjectURL(url);
     }, 'image/png');
   }, [room.name]);
+
+  /** Hands a finished still to the user as a file, named by the camera and the
+   *  shape so a set of four does not overwrite itself in the downloads folder. */
+  const saveView = useCallback((canvas: HTMLCanvasElement, aspect: RenderAspect) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${room.name || 'xona'}-kamera${cameraStation ?? 1}-${aspect.label.replace(':', 'x')}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }, [room.name, cameraStation]);
 
   /**
    * Papers the tapped wall — or every wall, when the tap carried none, or when
@@ -791,7 +810,7 @@ export default function ThreeDPage() {
               own, since looking around IS the mode. */}
           <div className="absolute bottom-5 left-4 z-20 flex items-center gap-2">
             <button
-              onClick={() => setPanorama((on) => !on)}
+              onClick={() => { setCameraStation(null); setPanorama((on) => !on); }}
               title={panorama ? "Oddiy ko'rinishga qaytish" : "360 kamera — xona o'rtasidan"}
               aria-label={panorama ? "360 kameradan chiqish" : "360 kameraga kirish"}
               aria-pressed={panorama}
@@ -821,6 +840,59 @@ export default function ThreeDPage() {
                 {uz.render.nomi}
               </button>
             )}
+
+            {/* The four fixed cameras. Numbered rather than named: they are
+                the four corners of this room and nothing else, and a number is
+                the shortest thing that says which. Entering one leaves the 360
+                camera, since both want to own where the camera stands. */}
+            {!panorama && (
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: ROOM_CAMERA_COUNT }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCameraStation((cur) => (cur === n ? null : n))}
+                    title={`${n}-kamera`}
+                    aria-pressed={cameraStation === n}
+                    className={`w-9 h-9 rounded-full text-[13px] font-bold shadow-lg ring-1 transition-colors ${
+                      cameraStation === n
+                        ? 'bg-brand text-white ring-brand/40'
+                        : 'bg-white/95 text-brand ring-black/5'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {cameraStation != null && (
+              <>
+                {/* Portrait or landscape. Both framings of the same view —
+                    the horizontal angle is fixed, so switching turns the
+                    picture rather than cropping the room out of its sides. */}
+                <div className="flex items-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/5 overflow-hidden">
+                  {RENDER_ASPECTS.map((a) => (
+                    <button
+                      key={a.label}
+                      onClick={() => setCameraAspect(a)}
+                      aria-pressed={cameraAspect.label === a.label}
+                      className={`px-2.5 h-9 text-[12px] font-bold transition-colors ${
+                        cameraAspect.label === a.label ? 'bg-brand text-white' : 'text-brand'
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={requestViewCapture}
+                  title={`${cameraAspect.width} x ${cameraAspect.height}`}
+                  className="px-4 h-9 rounded-full bg-brand text-white text-[12px] font-bold shadow-lg ring-1 ring-brand/40"
+                >
+                  Saqlash
+                </button>
+              </>
+            )}
           </div>
 
           {/* Bottom-right corner: the arc menu, mobile only — desktop reaches
@@ -840,6 +912,9 @@ export default function ThreeDPage() {
           armedOpeningId={armedOpening?.elId ?? null}
             panorama={panorama}
             onPanoramaCaptured={savePanorama}
+            cameraStation={cameraStation}
+            cameraAspect={cameraAspect}
+            onViewCaptured={saveView}
             glAttempt={glAttempt}
             setGlAttempt={setGlAttempt}
             initCam={initCam}

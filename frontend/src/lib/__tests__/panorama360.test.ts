@@ -8,10 +8,21 @@ import { describe, it, expect } from 'vitest'
 import {
   PANO_EYE_HEIGHT, PANO_WIDTH, PANO_HEIGHT, panoramaSizeFor, flipRows, EQUIRECT_FRAGMENT,
 } from '../panorama360'
+import { RENDER_EYE_HEIGHT } from '../roomCameras'
 
 describe('the panorama camera', () => {
-  it('stands at eye height, not on a tripod', () => {
-    expect(PANO_EYE_HEIGHT).toBeCloseTo(1.65, 10)
+  it('stands a little below eye level, where a tripod goes', () => {
+    // 1650 mm at first — a standing person's eyes. Lowered 300 mm at the
+    // user's request, which is about where an interior photographer sets a
+    // tripod: the picture looks across the room rather than down into it, and
+    // the floor keeps its share of the frame.
+    expect(PANO_EYE_HEIGHT).toBeCloseTo(1.35, 10)
+  })
+
+  it('is the height the fixed render cameras use too', () => {
+    // Two cameras in one room at two heights make a set of pictures that do
+    // not sit together.
+    expect(RENDER_EYE_HEIGHT).toBeCloseTo(PANO_EYE_HEIGHT, 10)
   })
 
   it('is asked for 4000 x 2000', () => {
