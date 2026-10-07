@@ -366,6 +366,34 @@ def _raw_opening(s: ScanSurface, el_type: str, wall_index: int, position: float,
     }
 
 
+def _surface_dump(s: ScanSurface) -> dict:
+    return {
+        "dims": [_r(s.dimensions.x), _r(s.dimensions.y), _r(s.dimensions.z)],
+        "t": [_r(v) for v in s.transform.m],
+        "c": s.confidence.value,
+    }
+
+
+def _captured_dump(room: CapturedRoom) -> dict:
+    """The scan as RoomPlan reported it: every wall, door, window, opening and
+    object with its size, 4x4 transform and confidence.
+
+    The processed geometry above is a tidied polygon, which cannot show what the
+    scan saw between the corners: a pipe shaft or niche in a new-build flat is a
+    short wall piece or a "storage" box that corner merging and straightening
+    fold away. Keeping the surfaces themselves lets such features be found, and
+    the detector tuned, on real rooms later. Numbers only, rounded like the rest
+    of `raw` (a room is a few dozen surfaces, a few KB).
+    """
+    return {
+        "walls": [_surface_dump(w) for w in room.walls],
+        "doors": [_surface_dump(d) for d in room.doors],
+        "windows": [_surface_dump(w) for w in room.windows],
+        "openings": [_surface_dump(o) for o in room.openings],
+        "objects": [{**_surface_dump(o), "category": o.category.value} for o in room.objects],
+    }
+
+
 def _raw_capture(room: CapturedRoom, raw_corners: list[Point],
                  corners: list[Point], walls: list[Wall], ceiling: float,
                  floor_y: float | None, closure_gap: Point,
@@ -400,6 +428,7 @@ def _raw_capture(room: CapturedRoom, raw_corners: list[Point],
         "floor_y": _r(floor_y),
         "openings": raw_openings,
         "deltas": deltas,
+        "captured": _captured_dump(room),
     }
 
 

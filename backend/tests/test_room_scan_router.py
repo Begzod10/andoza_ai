@@ -133,6 +133,25 @@ def test_stores_raw_pre_tidy_measurements_next_to_the_processed_geometry(ctx):
     assert "closure_gap" in raw["deltas"] and "area_m2" in raw["deltas"]
 
 
+def test_keeps_every_scanned_surface_so_hidden_features_can_be_found_later(ctx):
+    """The tidied polygon cannot show a pipe niche; the surfaces RoomPlan reported
+    are kept verbatim (rounded) in `raw.captured`, furniture included."""
+    client, room, _ = ctx
+    resp = client.post(
+        f"/api/v1/rooms/{room.id}/room-scan",
+        data={"room_json": _FIXTURE},
+        files=_usdz(),
+    )
+    assert resp.status_code == 200, resp.text
+    captured = resp.json()["room_scan"]["raw"]["captured"]
+    assert len(captured["walls"]) == 4
+    assert len(captured["doors"]) == 1 and len(captured["windows"]) == 1
+    assert {o["category"] for o in captured["objects"]} == {"table", "chair"}
+    wall = captured["walls"][0]
+    assert len(wall["dims"]) == 3 and len(wall["t"]) == 16
+    assert wall["c"] in {"high", "medium", "low"}
+
+
 def test_rejects_non_usdz_file(ctx):
     client, room, _ = ctx
     resp = client.post(
