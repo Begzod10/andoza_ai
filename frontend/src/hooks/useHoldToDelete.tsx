@@ -112,7 +112,14 @@ export function HoldDeleteButton() {
       <div
         className="absolute flex flex-col items-center gap-1"
         style={{ left: x, top: y, transform: 'translate(-50%, -120%)' }}
+        // BOTH halves of the press have to stop here, and forgetting the
+        // second one is what broke deleting: the release on the delete button
+        // bubbled to the backdrop above, which closed on pointerUp and
+        // unmounted this whole tree — so the `click` that does the deleting
+        // was never dispatched. The button looked alive, pressed, and did
+        // nothing at all.
         onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       >
         <span className="px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-semibold max-w-[170px] truncate">
           {pending.item.label}
