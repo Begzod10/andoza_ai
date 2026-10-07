@@ -143,7 +143,7 @@ export default function ThreeDPage() {
   // The top-down "Yuqori" preset was removed from this page — the 3D framing
   // is the only view now, so `preset` never changes. Kept as ViewPreset state
   // (not a narrowed literal) so the topView plumbing below stays type-correct.
-  const [preset] = useState<ViewPreset>('back');
+  const [preset] = useState<ViewPreset>('corner');
   // One-time cleanup of the legacy add-room entry-view stash so a stale 'top'
   // written by an older session can't linger in sessionStorage.
   useEffect(() => {

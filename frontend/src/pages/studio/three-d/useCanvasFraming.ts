@@ -11,6 +11,9 @@ import { getCamera, fitFramingToAspect } from "./helpers";
  * mode changes. Split out of ThreeDPage.tsx — see that file's header
  * comment for the full picture.
  */
+/** Canvas aspect (width / height) the framing presets are written for. */
+const REF_ASPECT = 1.6;
+
 export function useCanvasFraming(params: {
   preset: ViewPreset;
   W: number;
@@ -40,6 +43,11 @@ export function useCanvasFraming(params: {
       lastCanvasWidth.current = width;
       if (prev > 0 && Math.abs(width - prev) / prev > 0.05) {
         setPresetVersion((n) => n + 1);
+      } else if (prev === 0 && width / height < REF_ASPECT) {
+        // The first measurement of a narrow canvas (a phone held upright): the
+        // camera was placed before the size was known, for a wide one, so it
+        // would stay too close to show the room. Re-frame once.
+        setPresetVersion((n) => n + 1);
       }
     });
     ro.observe(el);
@@ -50,18 +58,18 @@ export function useCanvasFraming(params: {
   // 1 on a comfortably wide canvas, growing as it narrows. Capped so a very
   // slim viewport doesn't fling the camera into the far plane.
   const fitScale = useMemo(() => {
-    const REF_ASPECT = 1.6;
     return canvasAspect >= REF_ASPECT ? 1 : Math.min(REF_ASPECT / canvasAspect, 2.2);
   }, [canvasAspect]);
 
   const cam = useMemo(() => {
     const base = getCamera(preset, W, D, H);
-    // Only the aerial framing is re-fitted: the corner/front/back presets stand
-    // the camera inside the room, where pulling back would push it through a
-    // wall rather than reveal more of the floor.
-    return preset === 'top'
-      ? fitFramingToAspect(base, fitScale, Math.max(W, D) * 4)
-      : base;
+    // The aerial framing and the corner overview are re-fitted to a narrow
+    // canvas. The overview stands in the corner behind two single-sided walls
+    // that are not drawn, so pulling back from it never pushes the camera
+    // through a wall. Front/back stand inside the room and are left alone.
+    if (preset === 'top') return fitFramingToAspect(base, fitScale, Math.max(W, D) * 4);
+    if (preset === 'corner') return fitFramingToAspect(base, fitScale, Math.max(W, D) * 4 + 6);
+    return base;
   }, [preset, W, D, H, fitScale]);
 
   // Initial camera position — only used on first mount
@@ -70,6 +78,17 @@ export function useCanvasFraming(params: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
+  // The room arrives after the viewport mounts (loaded from the server, or its
+  // size edited in the settings), and initCam was placed for whatever size the
+  // store held at mount. Frame again when the size really changes.
+  const sizeKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${W.toFixed(2)}|${D.toFixed(2)}|${H.toFixed(2)}`;
+    const prev = sizeKeyRef.current;
+    sizeKeyRef.current = key;
+    if (prev && prev !== key) setPresetVersion((n) => n + 1);
+  }, [W, D, H, setPresetVersion]);
 
   // Top view: keep camera above ceiling — ceiling is hidden so user can scroll "through" it
   const topMinDist = H * 2.4;

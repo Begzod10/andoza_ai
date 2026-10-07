@@ -19,6 +19,9 @@ export function FloorSection({ onSetFloorType }: {
 }) {
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
+  // Until the user picks something the 3D view shows a neutral floor, not the
+  // schema default ('parquet'), so no type is highlighted as if it were chosen.
+  const floorConfigured = useRoomStore((s) => s.designState.floorConfigured);
   const floorPattern = useRoomStore((s) => s.designState.floorPattern);
   const setFloorTexture = useRoomStore((s) => s.setFloorTexture);
   const setDesignState = useRoomStore((s) => s.setDesignState);
@@ -94,6 +97,11 @@ export function FloorSection({ onSetFloorType }: {
   return (
     <section>
       <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
+      {!floorConfigured && !floorTexture && !floorPattern && (
+        <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          Pol hali tanlanmagan. Tur tanlang, u 3D da darhol ko'rinadi.
+        </p>
+      )}
       <div className="space-y-2">
         {FLOOR_TYPES.map((ft) => (
           <button
@@ -101,7 +109,7 @@ export function FloorSection({ onSetFloorType }: {
             // Picking a preset clears any custom image so the type takes effect.
             onClick={() => { if (floorTexture) setFloorTexture(null); onSetFloorType(ft.key); }}
             className={`w-full text-left px-3 py-2.5 rounded-card text-sm border-2 transition-colors ${
-              floorType === ft.key && !floorTexture
+              floorConfigured && floorType === ft.key && !floorTexture
                 ? "border-brand bg-brand/10 text-brand font-semibold"
                 : "border-gray-200 hover:border-brand/40 text-gray-700"
             }`}

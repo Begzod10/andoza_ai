@@ -262,14 +262,19 @@ export function shadeCovering(covering: WallCovering, factor: number): WallCover
  */
 export function getCamera(preset: ViewPreset, W: number, D: number, H: number) {
   const eyeH  = H * 0.56;          // eye-level height inside the room
-  const cx     = W * 0.34;          // ~34% from centre toward a side wall
   const cz     = D * 0.34;
   const lookH  = H * 0.42;          // look-at height (slightly below eye)
   switch (preset) {
-    // Interior corner: standing near back-left, looking toward front-right
+    // Overview: above the back-left corner, looking down across the room at
+    // its middle. Both far walls, the floor and what stands on it are in view
+    // at once. The camera sits a hair beyond the corner and above the walls —
+    // they are single-sided, so the two it is behind are simply not drawn (see
+    // useWallsBehindCamera) and nothing blocks the view. Looking steeply down
+    // matters: from eye height the floor is seen at a grazing angle, where it
+    // mirrors the bright sky and washes out, hiding the very boards being chosen.
     case "corner": return {
-      position: [-cx, eyeH, -cz] as [number,number,number],
-      target:   [ cx * 0.3, lookH, cz * 0.3] as [number,number,number],
+      position: [-W * 0.52, H * 1.05, -D * 0.52] as [number,number,number],
+      target:   [ W * 0.04, H * 0.22,  D * 0.04] as [number,number,number],
     };
     // Front wall: standing near front, looking toward back
     case "front": return {
