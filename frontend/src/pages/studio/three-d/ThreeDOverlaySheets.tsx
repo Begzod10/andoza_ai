@@ -22,7 +22,7 @@ export function ThreeDOverlaySheets({
   elementsSheetOpen, setElementsSheetOpen,
   pendingWindowSpot, setPendingWindowSpot,
   wallGeom, computeOpeningRect, addElement, setSelectedWall,
-  showAiSheet, setShowAiSheet, roomId,
+  showAiSheet, setShowAiSheet, roomId, roomType,
   radial, radialItems, closeRadial,
 }: {
   showAddSheet: boolean;
@@ -48,6 +48,7 @@ export function ThreeDOverlaySheets({
   showAiSheet: boolean;
   setShowAiSheet: Dispatch<SetStateAction<boolean>>;
   roomId: string;
+  roomType?: string;
   radial: RadialState;
   radialItems: (r: NonNullable<RadialState>) => RadialItem[];
   closeRadial: () => void;
@@ -90,7 +91,7 @@ export function ThreeDOverlaySheets({
         initialSillHeight={pendingWindowSpot?.initialSillHeight}
         onConfirm={handleNewWindowConfirm}
       />
-      <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={roomId} />
+      <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} roomId={roomId} roomType={roomType} />
 
       {/* Surface long-press radial menu ("aylana") */}
       {radial && (
