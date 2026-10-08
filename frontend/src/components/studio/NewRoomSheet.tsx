@@ -28,6 +28,9 @@ const FIELDS: { key: RoomDimensionKey; label: string }[] = [
   { key: 'width', label: 'Eni' },
   { key: 'depth', label: "Bo‘yi" },
   { key: 'height', label: 'Balandligi' },
+  // Last, and set apart below: the first three describe the room, this one
+  // describes the wall between it and the room it is being added to.
+  { key: 'wallThickness', label: 'Devor qalinligi' },
 ];
 
 /** Keeps Tab cycling inside the sheet instead of leaking to the page behind
@@ -54,6 +57,9 @@ export interface NewRoomValues {
   widthMm: number;
   depthMm: number;
   heightMm: number;
+  /** The shared wall between this room and the one it is added to — which is
+   *  also exactly how far apart the two are placed. */
+  wallThicknessMm: number;
 }
 
 export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onConfirm }: {
@@ -71,6 +77,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
     widthMm: NEW_ROOM_DEFAULT_MM.width,
     depthMm: NEW_ROOM_DEFAULT_MM.depth,
     heightMm: defaultHeightMm ?? NEW_ROOM_DEFAULT_MM.height,
+    wallThicknessMm: NEW_ROOM_DEFAULT_MM.wallThickness,
   });
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +89,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
       widthMm: NEW_ROOM_DEFAULT_MM.width,
       depthMm: NEW_ROOM_DEFAULT_MM.depth,
       heightMm: clampRoomDimension(defaultHeightMm ?? NEW_ROOM_DEFAULT_MM.height, 'height'),
+      wallThicknessMm: NEW_ROOM_DEFAULT_MM.wallThickness,
     });
   }, [isOpen, defaultHeightMm]);
 
@@ -95,14 +103,12 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  const value = (key: RoomDimensionKey) =>
-    key === 'width' ? dims.widthMm : key === 'depth' ? dims.depthMm : dims.heightMm;
+  const FIELD_OF: Record<RoomDimensionKey, keyof NewRoomValues> = {
+    width: 'widthMm', depth: 'depthMm', height: 'heightMm', wallThickness: 'wallThicknessMm',
+  };
+  const value = (key: RoomDimensionKey) => dims[FIELD_OF[key]];
   const setValue = (key: RoomDimensionKey, mm: number) =>
-    setDims((d) => ({
-      ...d,
-      [key === 'width' ? 'widthMm' : key === 'depth' ? 'depthMm' : 'heightMm']:
-        clampRoomDimension(mm, key),
-    }));
+    setDims((d) => ({ ...d, [FIELD_OF[key]]: clampRoomDimension(mm, key) }));
 
   const iso = useMemo(
     () => isometricRoom(dims.widthMm, dims.depthMm, dims.heightMm),
@@ -156,12 +162,14 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
         <div className="px-4 pb-1">
           {FIELDS.map(({ key, label }) => {
             const { min, max } = NEW_ROOM_LIMITS_MM[key];
+            // A wall moves in centimetres; a room in tenths of a metre.
+            const step = key === 'wallThickness' ? 10 : 100;
             return (
               <div key={key} className="flex items-center justify-between py-2.5 border-b border-[#EDEEF1] last:border-0">
                 <p className="text-[14px] font-semibold text-gray-800">{label}</p>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setValue(key, value(key) - 100)}
+                    onClick={() => setValue(key, value(key) - step)}
                     aria-label={`${label} kamaytirish`}
                     disabled={value(key) <= min}
                     className="w-9 h-9 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center disabled:opacity-40"
@@ -178,12 +186,12 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
                     value={value(key)}
                     min={min}
                     max={max}
-                    step={100}
+                    step={step}
                     onChange={(e) => setValue(key, Number(e.target.value))}
                     className="w-[72px] h-9 rounded-lg bg-[#F6F7F9] text-center text-[14px] font-bold text-gray-900 ring-1 ring-black/5"
                   />
                   <button
-                    onClick={() => setValue(key, value(key) + 100)}
+                    onClick={() => setValue(key, value(key) + step)}
                     aria-label={`${label} oshirish`}
                     disabled={value(key) >= max}
                     className="w-9 h-9 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center disabled:opacity-40"

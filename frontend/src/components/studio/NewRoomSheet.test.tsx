@@ -59,7 +59,11 @@ describe('NewRoomSheet', () => {
     fireEvent.change(screen.getByLabelText('Eni, mm'), { target: { value: '4200' } })
     fireEvent.change(screen.getByLabelText("Bo‘yi, mm"), { target: { value: '2600' } })
     fireEvent.click(screen.getByRole('button', { name: 'Yaratish' }))
-    expect(onConfirm).toHaveBeenCalledWith({ widthMm: 4200, depthMm: 2600, heightMm: NEW_ROOM_DEFAULT_MM.height })
+    expect(onConfirm).toHaveBeenCalledWith({
+      widthMm: 4200, depthMm: 2600,
+      heightMm: NEW_ROOM_DEFAULT_MM.height,
+      wallThicknessMm: NEW_ROOM_DEFAULT_MM.wallThickness,
+    })
   })
 
   it('will not let a typed number out of range', () => {
@@ -89,5 +93,18 @@ describe('NewRoomSheet', () => {
   it('cannot be confirmed twice while the room is being made', () => {
     render(<NewRoomSheet isOpen side="north" busy onClose={noop} onConfirm={noop} />)
     expect((screen.getByRole('button', { name: /Yaratilmoqda/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+  it('offers the wall between the two rooms, 100 mm by default', () => {
+    render(<NewRoomSheet isOpen side="north" onClose={noop} onConfirm={noop} />)
+    expect((screen.getByLabelText('Devor qalinligi, mm') as HTMLInputElement).value)
+      .toBe(String(NEW_ROOM_DEFAULT_MM.wallThickness))
+  })
+
+  it('steps the wall in centimetres, not tenths of a metre', () => {
+    // A room moves in 100 mm; a wall that did would go 100 -> 200, which is
+    // not a thickness anyone picks.
+    render(<NewRoomSheet isOpen side="north" onClose={noop} onConfirm={noop} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Devor qalinligi oshirish' }))
+    expect((screen.getByLabelText('Devor qalinligi, mm') as HTMLInputElement).value).toBe('110')
   })
 })

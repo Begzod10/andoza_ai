@@ -65,7 +65,7 @@ export function useAddRoomNavigation(params: {
    */
   async function createRoomThroughWall(
     side: RoomSide,
-    dims: { widthMm: number; depthMm: number; heightMm: number },
+    dims: { widthMm: number; depthMm: number; heightMm: number; wallThicknessMm: number },
   ): Promise<void> {
     if (addingRoom) return;
 
@@ -103,14 +103,20 @@ export function useAddRoomNavigation(params: {
         geometry: newRoomGeometry(dims.widthMm, dims.depthMm),
       });
 
+      // The distance between the two rooms IS the wall between them.
       const pos = newRoomLayoutPos(
         myPos, side,
         { widthM: W, depthM: D },
         { widthM: dims.widthMm / 1000, depthM: dims.depthMm / 1000 },
+        dims.wallThicknessMm / 1000,
       );
       // Best-effort: a room without a stored position still opens, it just
       // falls back to the legacy layout guess until it is saved again.
-      try { await updateRoom(created.id, { state: { layoutPos: pos } }); } catch { /* ignore */ }
+      try {
+        await updateRoom(created.id, {
+          state: { layoutPos: pos, wallThicknessMm: dims.wallThicknessMm },
+        });
+      } catch { /* ignore */ }
 
       // The studio bails out of creating a room when roomId is already set, so
       // the store has to be cleared before navigating into the new one.

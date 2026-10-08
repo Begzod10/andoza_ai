@@ -220,3 +220,32 @@ describe('isometricRoom', () => {
     expect([r.top, r.left, r.right].join(' ')).not.toContain('NaN')
   })
 })
+
+describe('wall thickness', () => {
+  const self = { widthM: 5, depthM: 4 }
+  const added = { widthM: 3.5, depthM: 3 }
+  const anchor = { x: 0, z: 0 }
+
+  it('is the distance between the two rooms', () => {
+    // The gap is not a gap, it is the shared wall — so a 100 mm partition has
+    // to put the two rooms' inner faces exactly 100 mm apart.
+    const p = newRoomLayoutPos(anchor, 'east', self, added, 0.1)
+    expect((p.x - added.widthM / 2) - (anchor.x + self.widthM / 2)).toBeCloseTo(0.1, 9)
+  })
+
+  it('keeps the old default when nobody states one', () => {
+    const p = newRoomLayoutPos(anchor, 'east', self, added)
+    expect((p.x - added.widthM / 2) - (anchor.x + self.widthM / 2)).toBeCloseTo(ROOM_LAYOUT_GAP_M, 9)
+  })
+
+  it('never pulls the rooms into each other', () => {
+    const p = newRoomLayoutPos(anchor, 'west', self, added, -5)
+    expect((anchor.x - self.widthM / 2) - (p.x + added.widthM / 2)).toBeCloseTo(0, 9)
+  })
+
+  it('has a default and limits of its own', () => {
+    expect(NEW_ROOM_DEFAULT_MM.wallThickness).toBe(100)
+    expect(clampRoomDimension(10, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.min)
+    expect(clampRoomDimension(9999, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.max)
+  })
+})

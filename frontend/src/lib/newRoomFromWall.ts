@@ -27,7 +27,7 @@ export type RoomSide = 'north' | 'south' | 'east' | 'west'
 /** What a new room starts as, millimetres. A bedroom-ish 3.5 x 3.0 under a
  *  2.7 m ceiling — the sizes the wizard already defaults to, so a room added
  *  from the wall is the same room you would have got the long way round. */
-export const NEW_ROOM_DEFAULT_MM = { width: 3500, depth: 3000, height: 2700 }
+export const NEW_ROOM_DEFAULT_MM = { width: 3500, depth: 3000, height: 2700, wallThickness: 100 }
 
 /** What the dimension fields accept, millimetres. Wide enough for a corridor
  *  at one end and a hall at the other; narrow enough that a stray keystroke
@@ -36,6 +36,10 @@ export const NEW_ROOM_LIMITS_MM = {
   width: { min: 1200, max: 12000 },
   depth: { min: 1200, max: 12000 },
   height: { min: 2000, max: 4500 },
+  /** A single partition at the thin end, a structural external wall at the
+   *  thick. 100 mm is the ordinary plastered block partition between two
+   *  rooms of one flat. */
+  wallThickness: { min: 50, max: 500 },
 }
 
 export type RoomDimensionKey = keyof typeof NEW_ROOM_LIMITS_MM
@@ -84,10 +88,13 @@ const LEGACY_WALL_SIDE: Record<string, RoomSide> = {
  * Where the new room's centre goes, in the apartment's shared layout frame
  * (metres), given where this room sits and how big both are.
  *
- * Lifted verbatim from the wizard's `persistLayoutPos` so the two cannot
- * drift: rooms sit 20 mm apart, which is not a gap but the thickness of the
- * two walls that meet there. The 150 mm this once used read as a dead strip
- * of floor between rooms — a rendering bug, not an architectural boundary.
+ * The distance between them is the WALL between them — that is what the gap
+ * is, and why it is a dimension the user can set rather than a constant. The
+ * wizard's `persistLayoutPos` uses 20 mm as a stand-in for "two walls meet
+ * here"; a room created with a stated thickness uses that instead, so a
+ * 100 mm partition really does put the two rooms' inner faces 100 mm apart.
+ * (The 150 mm this once used read as a dead strip of floor between rooms — a
+ * rendering bug, not an architectural boundary.)
  */
 export const ROOM_LAYOUT_GAP_M = 0.02
 
@@ -96,8 +103,9 @@ export function newRoomLayoutPos(
   side: RoomSide,
   self: { widthM: number; depthM: number },
   added: { widthM: number; depthM: number },
+  gapM: number = ROOM_LAYOUT_GAP_M,
 ): { x: number; z: number } {
-  const g = ROOM_LAYOUT_GAP_M
+  const g = Math.max(0, gapM)
   switch (side) {
     case 'east': return { x: anchor.x + self.widthM / 2 + g + added.widthM / 2, z: anchor.z }
     case 'west': return { x: anchor.x - self.widthM / 2 - g - added.widthM / 2, z: anchor.z }
