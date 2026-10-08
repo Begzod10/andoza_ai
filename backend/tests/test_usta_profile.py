@@ -36,6 +36,9 @@ class _R:
     def scalar_one_or_none(self):
         return self._one
 
+    def scalar_one(self):
+        return self._one
+
     def scalars(self):
         return self
 
@@ -226,6 +229,30 @@ class TestUstaLeads:
         assert len(body) == 1
         assert (body[0]["client_name"], body[0]["client_phone"]) == ("Vali", "+998909998877")
         assert (body[0]["total_uzs"], body[0]["lines_count"], body[0]["status"]) == (5_000_000, 2, "new")
+
+    def test_client_message_is_returned_in_the_inbox(self, client):
+        from app.models.user import User
+        u = _user()
+        usta = _usta(u)
+        lead = self._lead(usta, message="Ertaga qo'ng'iroq qiling")
+        customer = User(id=lead.user_id, name="Vali", phone="+998909998877")
+        _as(u, [_R(usta), _R(many=[(lead, customer, None)])])
+        assert client.get("/api/v1/usta/leads").json()[0]["message"] == "Ertaga qo'ng'iroq qiling"
+
+    def test_lead_create_stores_a_stripped_message(self, client):
+        u = _user()
+        usta = _usta(u)
+        db = _as(u, [_R(usta)])
+
+        async def _flush():  # what the database fills in on insert
+            lead = db.add.call_args.args[0]
+            lead.id, lead.created_at = uuid.uuid4(), datetime.now(timezone.utc)
+
+        db.flush = AsyncMock(side_effect=_flush)
+        res = client.post("/api/v1/leads", json={"usta_id": str(usta.id), "message": "  Salom  "})
+        assert res.status_code == 201 and res.json()["message"] == "Salom"
+        assert db.add.call_args.args[0].message == "Salom"
+        assert client.post("/api/v1/leads", json={"usta_id": str(usta.id), "message": "x" * 501}).status_code == 422
 
     def test_no_profile_means_no_inbox(self, client):
         _as(_user(), [_R(None)])

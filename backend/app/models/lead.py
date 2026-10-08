@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -61,6 +61,9 @@ class Lead(Base):
         JSONB,
         nullable=True,
         comment="Immutable snapshot of the estimate at lead creation time",
+    )
+    message: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, comment="Free-text note from the client to the usta"
     )
     status: Mapped[str] = mapped_column(
         LeadStatus,

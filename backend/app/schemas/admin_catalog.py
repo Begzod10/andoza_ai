@@ -31,6 +31,12 @@ USTA_CATEGORIES = {
     "oboy",
     "laminat",
     "brigada",
+    "plitkachi",
+    "shtukatur",
+    "gipsokartonchi",
+    "eshik_oyna",
+    "isitish_konditsioner",
+    "demontaj",
 }
 
 

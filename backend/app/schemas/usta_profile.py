@@ -108,6 +108,7 @@ class UstaLeadOut(BaseModel):
     client_name: str | None
     client_phone: str | None
     room_name: str | None
+    message: str | None = None
     total_uzs: int | None
     lines_count: int
 
