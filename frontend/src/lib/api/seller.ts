@@ -167,6 +167,8 @@ export interface SellerOrder {
   delivery_address: string | null;
   phone: string | null;
   payment_method: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
   created_at: string;
   lines: OrderLine[];
 }
@@ -180,5 +182,13 @@ export async function advanceMyOrder(id: string, status: OrderStatus): Promise<S
   return apiClient<SellerOrder>(`/seller/orders/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+/** Cancel an order the shop cannot fill; the reason is shown to the buyer. Allowed until it has left. */
+export async function cancelMyOrder(id: string, reason: string): Promise<SellerOrder> {
+  return apiClient<SellerOrder>(`/seller/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "cancelled", reason }),
   });
 }

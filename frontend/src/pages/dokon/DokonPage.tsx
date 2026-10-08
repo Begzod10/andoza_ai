@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createOrder, getOrder } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { cancelOrder, createOrder, getOrder, listOrders } from "@/lib/api";
 import type { Material, Order } from "@/lib/api";
 import { errorMessage } from "./admin/errorMessage";
+import { formatWhen } from "@/lib/orderStatus";
 import { useAuthStore } from "@/store/authStore";
 import {
   S1_ShopHome,
@@ -12,6 +13,7 @@ import {
   S5_Cart,
   S6_Payment,
   S7_OrderTracking,
+  S8_MyOrders,
 } from "@/components/dokon/screens";
 import AdminCatalogPanel from "./AdminCatalogPanel";
 
@@ -22,7 +24,9 @@ type Screen =
   | "dealer-comparison"
   | "cart"
   | "payment"
-  | "order-tracking";
+  | "order-tracking"
+  | "orders"
+  | "order-detail";
 
 interface CartItem {
   id: string;
@@ -81,6 +85,7 @@ export default function DokonPage() {
 
   // Orders placed in this visit (one per shop) and the state of the checkout
   const [placedOrders, setPlacedOrders] = useState<Order[]>([]);
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -297,6 +302,7 @@ export default function DokonPage() {
         cartCount={cart.length}
         onCart={() => setScreen("cart")}
         onProductSelect={handleProductSelect}
+        onOrders={() => setScreen("orders")}
       />
     );
   }
@@ -375,6 +381,22 @@ export default function DokonPage() {
     );
   }
 
+  if (screen === "orders") {
+    return (
+      <MyOrders
+        onBack={() => setScreen("shop")}
+        onOpen={(id) => {
+          setOpenOrderId(id);
+          setScreen("order-detail");
+        }}
+      />
+    );
+  }
+
+  if (screen === "order-detail" && openOrderId) {
+    return <OrderDetail id={openOrderId} onBack={() => setScreen("orders")} />;
+  }
+
   if (screen === "project-materials") {
     return (
       <S2_ProjectMaterials
@@ -389,8 +411,9 @@ export default function DokonPage() {
   return null;
 }
 
-/** One placed order, its status kept fresh while the screen is open. */
+/** One placed order, its status kept fresh while the screen is open, and cancellable while the shop has not started on it. */
 function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
+  const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["order", order.id],
     queryFn: () => getOrder(order.id),
@@ -398,18 +421,59 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
     refetchInterval: 30_000,
   });
 
+  const cancel = useMutation({
+    mutationFn: () => cancelOrder(order.id),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["order", order.id], updated);
+      void queryClient.invalidateQueries({ queryKey: ["my-orders"] });
+    },
+    // The shop may have started on it a moment ago: show where it stands now.
+    onError: () => void queryClient.invalidateQueries({ queryKey: ["order", order.id] }),
+  });
+
   return (
     <S7_OrderTracking
       orderId={`№ ${data.id.slice(0, 8).toUpperCase()}`}
       dealerName={data.dealer_name}
       status={data.status}
-      orderDate={new Date(data.created_at).toLocaleDateString("uz-UZ")}
+      orderDate={formatWhen(data.created_at)}
       address={data.delivery_address}
       phone={data.phone}
       paymentMethod={data.payment_method}
       items={data.lines.map((l) => ({ name: l.product_name, quantity: l.quantity, price: l.unit_price_uzs }))}
       total={data.total_uzs}
+      cancelledBy={data.cancelled_by}
+      cancelReason={data.cancel_reason}
+      onCancel={() => {
+        if (window.confirm("Buyurtmani bekor qilasizmi?")) cancel.mutate();
+      }}
+      cancelling={cancel.isPending}
+      cancelError={cancel.isError ? errorMessage(cancel.error, "Buyurtmani bekor qilib bo'lmadi") : null}
       onBack={onBack}
     />
   );
+}
+
+/** The user's orders, newest first. */
+function MyOrders({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
+  const orders = useQuery({ queryKey: ["my-orders"], queryFn: listOrders });
+  return (
+    <S8_MyOrders
+      orders={orders.data}
+      loading={orders.isLoading}
+      error={orders.isError ? errorMessage(orders.error, "Buyurtmalarni yuklab bo'lmadi") : null}
+      onOpen={onOpen}
+      onBack={onBack}
+    />
+  );
+}
+
+/** One of the user's earlier orders, fetched by id. */
+function OrderDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const order = useQuery({ queryKey: ["order", id], queryFn: () => getOrder(id) });
+  if (order.isError) {
+    return <S8_MyOrders orders={[]} loading={false} error={errorMessage(order.error, "Buyurtmani yuklab bo'lmadi")} onOpen={() => {}} onBack={onBack} />;
+  }
+  if (!order.data) return <S8_MyOrders orders={undefined} loading onOpen={() => {}} error={null} onBack={onBack} />;
+  return <TrackedOrder order={order.data} onBack={onBack} />;
 }

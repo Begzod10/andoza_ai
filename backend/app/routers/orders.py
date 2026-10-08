@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 import structlog
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
@@ -9,7 +11,8 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.order import Order, OrderLine
-from app.schemas.order import OrderCreate, OrderLineCreate, OrderOut
+from app.schemas.order import OrderCancel, OrderCreate, OrderLineCreate, OrderOut
+from app.services.order_status import BUYER_CAN_CANCEL, change_status
 
 logger = structlog.get_logger(__name__)
 
@@ -184,4 +187,33 @@ async def get_order(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
         )
+    return OrderOut.model_validate(order)
+
+
+@router.post(
+    "/{order_id}/cancel",
+    response_model=OrderOut,
+    summary="Cancel one of the current user's orders, while the shop has not yet started on it",
+)
+async def cancel_order(
+    order_id: uuid.UUID,
+    body: OrderCancel,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> OrderOut:
+    # Locked: a cancel racing the shop's "start gathering" must see one outcome, not both.
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id, Order.user_id == current_user.id)
+        .options(selectinload(Order.lines))
+        .with_for_update(of=Order)
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
+
+    reason = (body.reason or "").strip() or "Xaridor bekor qildi"
+    if change_status(order, "cancelled", by="buyer", cancellable=BUYER_CAN_CANCEL, reason=reason):
+        await db.flush()
+        logger.info("order_cancelled", order_id=str(order.id), user_id=str(current_user.id), by="buyer")
     return OrderOut.model_validate(order)

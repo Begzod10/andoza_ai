@@ -25,7 +25,8 @@ from app.routers.admin_catalog import (
     _delete_files_after_commit,
     _invalidate_after_commit,
 )
-from app.schemas.order import NEXT_ORDER_STATUS, OrderStatusUpdate, SellerOrderOut
+from app.schemas.order import OrderStatusUpdate, SellerOrderOut
+from app.services.order_status import SELLER_CAN_CANCEL, change_status
 from app.schemas.seller import (
     FURNITURE_CATEGORIES,
     PLACEMENTS,
@@ -393,15 +394,9 @@ async def advance_order(
         # Someone else's order looks exactly like one that does not exist.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
 
-    if body.status == order.status:
+    changed = change_status(order, body.status, by="seller", cancellable=SELLER_CAN_CANCEL, reason=body.reason)
+    if not changed:
         return SellerOrderOut.model_validate(order)  # a repeated tap changes nothing
-    if NEXT_ORDER_STATUS.get(order.status) != body.status:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Buyurtma holatini faqat keyingi bosqichga o'tkazish mumkin.",
-        )
-
-    order.status = body.status
     await db.flush()
     logger.info("order_status_changed", order_id=str(order.id), store_id=str(store.id), status=body.status)
     return SellerOrderOut.model_validate(order)

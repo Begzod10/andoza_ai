@@ -4,10 +4,13 @@
 
 import { useState, type ReactNode } from "react";
 import {
-  Check, ChevronLeft, Minus, Package, Phone, Plus, ShoppingCart, Trash2, Truck,
+  Check, ChevronLeft, Minus, Package, Phone, Plus, ShoppingCart, Trash2, Truck, XCircle,
 } from "lucide-react";
 import { formatUZS } from "@/lib/utils";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/orderStatus";
+import {
+  CANCELLED_BY_LABELS, ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, formatWhen,
+} from "@/lib/orderStatus";
+import type { OrderStatus } from "@/lib/api/orders";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
@@ -82,6 +85,7 @@ export function S1_ShopHome(props: {
   cartCount: number;
   onCart: () => void;
   onProductSelect: (product: any) => void;
+  onOrders?: () => void;
 }) {
   return <ShopHome {...props} />;
 }
@@ -414,8 +418,6 @@ const ORDER_STEPS: Array<{ key: string; label: string }> = ORDER_STATUSES.map((k
   label: ORDER_STATUS_LABELS[key],
 }));
 
-const PAYMENT_LABEL: Record<string, string> = { cash: "Naqd pul", card: "Karta" };
-
 export function S7_OrderTracking(props: {
   orderId: string;
   /** The shop it was ordered from. */
@@ -428,7 +430,15 @@ export function S7_OrderTracking(props: {
   items: Array<{ name: string; quantity: number; price: number }>;
   total: number;
   onBack: () => void;
+  /** When the order was cancelled: by whom and why. */
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+  /** Given to the buyer's view only: cancelling is offered while the shop has not started on the order. */
+  onCancel?: () => void;
+  cancelling?: boolean;
+  cancelError?: string | null;
 }) {
+  const cancelled = props.status === "cancelled";
   const current = Math.max(0, ORDER_STEPS.findIndex((s) => s.key === props.status));
 
   return (
@@ -436,6 +446,17 @@ export function S7_OrderTracking(props: {
       <ScreenHeader title="Buyurtma holati" subtitle={props.orderId} onBack={props.onBack} />
 
       <Panel className="p-5">
+        {cancelled ? (
+          <div role="status" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+            <p className="flex items-center gap-2 text-base font-extrabold text-red-500">
+              <XCircle size={18} aria-hidden="true" /> Buyurtma bekor qilindi
+            </p>
+            {props.cancelledBy && (
+              <p className="mt-1 text-xs text-ink-muted">Bekor qilgan: {CANCELLED_BY_LABELS[props.cancelledBy] ?? props.cancelledBy}</p>
+            )}
+            {props.cancelReason && <p className="mt-2 text-sm text-ink">Sabab: {props.cancelReason}</p>}
+          </div>
+        ) : (
         <ol className="space-y-0">
           {ORDER_STEPS.map((s, i) => {
             const done = i < current;
@@ -459,7 +480,8 @@ export function S7_OrderTracking(props: {
             );
           })}
         </ol>
-        <div className="mt-1 grid grid-cols-2 gap-2.5">
+        )}
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
           <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Buyurtma sanasi</p><p className="text-sm font-bold text-ink">{props.orderDate}</p></Tile>
           {props.dealerName && (
             <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Do'kon</p><p className="truncate text-sm font-bold text-ink">{props.dealerName}</p></Tile>
@@ -468,10 +490,10 @@ export function S7_OrderTracking(props: {
             <Tile className="col-span-2 px-3.5 py-3"><p className="text-[11px] text-ink-muted">Manzil</p><p className="text-sm font-bold text-ink">{props.address}</p></Tile>
           )}
           {props.phone && (
-            <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Telefon</p><p className="text-sm font-bold text-ink">{props.phone}</p></Tile>
+            <Tile className="col-span-2 px-3.5 py-3"><p className="text-[11px] text-ink-muted">Telefon</p><p className="text-sm font-bold text-ink">{props.phone}</p></Tile>
           )}
           {props.paymentMethod && (
-            <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">To'lov usuli</p><p className="text-sm font-bold text-ink">{PAYMENT_LABEL[props.paymentMethod] ?? props.paymentMethod}</p></Tile>
+            <Tile className="col-span-2 px-3.5 py-3"><p className="text-[11px] text-ink-muted">To'lov usuli</p><p className="text-sm font-bold text-ink">{PAYMENT_LABELS[props.paymentMethod] ?? props.paymentMethod}</p></Tile>
           )}
         </div>
       </Panel>
@@ -487,8 +509,76 @@ export function S7_OrderTracking(props: {
         <div className="border-t border-line pt-3">
           <SummaryRow label="Jami" value={formatUZS(props.total)} strong />
         </div>
-        <Button variant="soft" className="w-full" onClick={props.onBack}>Do'konga qaytish</Button>
+        {props.cancelError && (
+          <p role="alert" className="rounded-2xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{props.cancelError}</p>
+        )}
+        {props.onCancel && props.status === "accepted" && (
+          <Button variant="danger" className="w-full" loading={props.cancelling} onClick={props.onCancel}>
+            Buyurtmani bekor qilish
+          </Button>
+        )}
+        {props.onCancel && (props.status === "gathering" || props.status === "on_the_way") && (
+          <p className="text-center text-xs text-ink-muted">
+            Do'kon buyurtmani yig'ishga kirishgan: bekor qilish uchun do'kon bilan bog'laning.
+          </p>
+        )}
+        <Button variant="soft" className="w-full" onClick={props.onBack}>Ortga</Button>
       </Panel>
+    </Screen>
+  );
+}
+
+// ─── 8. My orders ─────────────────────────────────────────────────────────────
+
+export function S8_MyOrders(props: {
+  orders: Array<{ id: string; dealer_name: string; total_uzs: number; status: string; created_at: string; lines: Array<{ product_name: string }> }> | undefined;
+  loading: boolean;
+  error: string | null;
+  onOpen: (id: string) => void;
+  onBack: () => void;
+}) {
+  const orders = props.orders ?? [];
+  return (
+    <Screen>
+      <ScreenHeader title="Buyurtmalarim" onBack={props.onBack} />
+      {props.loading ? (
+        <div className="h-32 animate-pulse rounded-3xl bg-card" />
+      ) : props.error ? (
+        <Panel className="p-6 text-center text-sm font-medium text-red-500" role="alert">{props.error}</Panel>
+      ) : orders.length === 0 ? (
+        <Panel className="flex flex-col items-center gap-3 p-10 text-center">
+          <IconBubble tone="blue" className="h-14 w-14"><Package size={24} aria-hidden="true" /></IconBubble>
+          <p className="text-base font-extrabold text-ink">Hali buyurtma yo'q</p>
+          <p className="text-sm text-ink-muted">Bergan buyurtmalaringiz shu yerda ko'rinadi.</p>
+          <Button className="mt-2" onClick={props.onBack}>Do'konga qaytish</Button>
+        </Panel>
+      ) : (
+        <div className="space-y-3">
+          {orders.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => props.onOpen(o.id)}
+              aria-label={`Buyurtma ${o.id.slice(0, 8).toUpperCase()}, ${ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}`}
+              className="block w-full text-left"
+            >
+              <Panel interactive className="space-y-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-ink">{o.dealer_name}</p>
+                    <p className="text-xs text-ink-muted">№ {o.id.slice(0, 8).toUpperCase()} · {formatWhen(o.created_at)}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${ORDER_STATUS_STYLES[o.status as OrderStatus] ?? ORDER_STATUS_STYLES.accepted}`}>
+                    {ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}
+                  </span>
+                </div>
+                <p className="truncate text-xs text-ink-muted">{o.lines.map((l) => l.product_name).join(", ")}</p>
+                <p className="text-base font-extrabold text-ink">{formatUZS(o.total_uzs)}</p>
+              </Panel>
+            </button>
+          ))}
+        </div>
+      )}
     </Screen>
   );
 }

@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 
-export type OrderStatus = "accepted" | "gathering" | "on_the_way" | "delivered";
+export type OrderStatus = "accepted" | "gathering" | "on_the_way" | "delivered" | "cancelled";
 export type PaymentMethod = "cash" | "card";
 
 export interface OrderLine {
@@ -22,6 +22,9 @@ export interface Order {
   delivery_address: string | null;
   phone: string | null;
   payment_method: PaymentMethod | string | null;
+  /** Set when the order was cancelled: by "buyer", "seller" or "admin", and why. */
+  cancelled_by: string | null;
+  cancel_reason: string | null;
   created_at: string;
   lines: OrderLine[];
 }
@@ -52,4 +55,17 @@ export async function createOrder(input: OrderInput): Promise<Order> {
 
 export async function getOrder(id: string): Promise<Order> {
   return apiClient<Order>(`/orders/${encodeURIComponent(id)}`);
+}
+
+/** The current user's orders, newest first. */
+export async function listOrders(): Promise<Order[]> {
+  return apiClient<Order[]>("/orders?per_page=100");
+}
+
+/** Cancel one of your own orders; the server allows it only before the shop has started on it. */
+export async function cancelOrder(id: string, reason?: string): Promise<Order> {
+  return apiClient<Order>(`/orders/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+  });
 }

@@ -19,6 +19,7 @@ OrderStatus = Enum(
     "gathering",
     "on_the_way",
     "delivered",
+    "cancelled",
     name="order_status",
 )
 
@@ -57,6 +58,9 @@ class Order(Base):
     )
     # Where and how the buyer wants it — optional so orders placed without a
     # checkout form (older clients, API users) stay valid.
+    # Set when the order is cancelled: by whom ('buyer' | 'seller' | 'admin') and why.
+    cancelled_by: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
     delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)

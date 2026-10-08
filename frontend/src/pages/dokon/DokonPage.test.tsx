@@ -11,11 +11,15 @@ const listCatalogFurniture = vi.fn()
 const getMaterials = vi.fn()
 const createOrder = vi.fn()
 const getOrder = vi.fn()
+const listOrders = vi.fn()
+const cancelOrder = vi.fn()
 vi.mock('@/lib/api', () => ({
   listCatalogFurniture: (...a: unknown[]) => listCatalogFurniture(...a),
   getMaterials: (...a: unknown[]) => getMaterials(...a),
   createOrder: (...a: unknown[]) => createOrder(...a),
   getOrder: (...a: unknown[]) => getOrder(...a),
+  listOrders: (...a: unknown[]) => listOrders(...a),
+  cancelOrder: (...a: unknown[]) => cancelOrder(...a),
 }))
 
 const FURNITURE = {
@@ -120,5 +124,60 @@ describe('DokonPage checkout', () => {
     fireEvent.click(screen.getByLabelText('Orqaga'))
     fireEvent.click(await screen.findByLabelText('Orqaga'))
     expect(await screen.findByRole('button', { name: /Savat \(1\)/ })).toBeInTheDocument()
+  })
+})
+
+
+describe('DokonPage: my orders', () => {
+  const mine = (over: object = {}) => orderOut('Mebel Plus', {
+    id: 'aaaabbbb-0000-0000-0000-000000000001', total_uzs: 4_500_000,
+    lines: [{ id: 'l1', material_id: null, furniture_id: 'f1', product_name: 'Divan', unit: 'dona', unit_price_uzs: 4_500_000, quantity: 1 }],
+    ...over,
+  })
+
+  it('lists earlier orders and opens one', async () => {
+    listOrders.mockResolvedValue([mine({ status: 'gathering' })])
+    getOrder.mockResolvedValue(mine({ status: 'gathering' }))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
+    expect((await screen.findByText("Yig'ilmoqda")).closest('li')).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByText('Divan', { exact: false })).toBeInTheDocument()
+  })
+
+  it('cancels an order the shop has not started, after confirming', async () => {
+    listOrders.mockResolvedValue([mine()])
+    getOrder.mockResolvedValue(mine())
+    cancelOrder.mockResolvedValue(mine({ status: 'cancelled', cancelled_by: 'buyer', cancel_reason: 'Xaridor bekor qildi' }))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    await waitFor(() => expect(cancelOrder).toHaveBeenCalledWith('aaaabbbb-0000-0000-0000-000000000001'))
+    expect(await screen.findByText('Buyurtma bekor qilindi')).toBeInTheDocument()
+  })
+
+  it('does nothing when the user declines the confirmation', async () => {
+    listOrders.mockResolvedValue([mine()])
+    getOrder.mockResolvedValue(mine())
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    expect(cancelOrder).not.toHaveBeenCalled()
+  })
+
+  it('shows why a cancel was refused, and where the order stands now', async () => {
+    listOrders.mockResolvedValue([mine()])
+    getOrder.mockResolvedValue(mine())
+    cancelOrder.mockRejectedValue(new Error(JSON.stringify({ detail: "Bu bosqichda buyurtmani bekor qilib bo'lmaydi." })))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("bekor qilib bo'lmaydi")
   })
 })

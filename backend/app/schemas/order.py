@@ -54,7 +54,7 @@ class OrderLineOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-ORDER_STATUSES = ("accepted", "gathering", "on_the_way", "delivered")
+ORDER_STATUSES = ("accepted", "gathering", "on_the_way", "delivered", "cancelled")
 
 # A shop moves an order forward one stage at a time; there is no way back and no
 # skipping, so the buyer's tracking never jumps or un-delivers.
@@ -66,7 +66,13 @@ NEXT_ORDER_STATUS = {
 
 
 class OrderStatusUpdate(BaseModel):
-    status: Literal["accepted", "gathering", "on_the_way", "delivered"]
+    status: Literal["accepted", "gathering", "on_the_way", "delivered", "cancelled"]
+    # Why, when cancelling: the buyer is shown it.
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class OrderCancel(BaseModel):
+    reason: str | None = Field(default=None, max_length=300)
 
 
 class SellerOrderOut(BaseModel):
@@ -79,10 +85,31 @@ class SellerOrderOut(BaseModel):
     delivery_address: str | None = None
     phone: str | None = None
     payment_method: str | None = None
+    cancelled_by: str | None = None
+    cancel_reason: str | None = None
     created_at: datetime
     lines: list[OrderLineOut]
 
     model_config = {"from_attributes": True}
+
+
+class AdminOrderOut(BaseModel):
+    """An order as the administrators see it: whose it is, which shop must fulfil it, and all the details."""
+
+    id: UUID
+    user_id: UUID
+    store_id: UUID | None = None
+    store_name: str | None = None
+    dealer_name: str
+    total_uzs: int
+    status: str
+    delivery_address: str | None = None
+    phone: str | None = None
+    payment_method: str | None = None
+    cancelled_by: str | None = None
+    cancel_reason: str | None = None
+    created_at: datetime
+    lines: list[OrderLineOut]
 
 
 class OrderOut(BaseModel):
@@ -94,6 +121,8 @@ class OrderOut(BaseModel):
     delivery_address: str | None = None
     phone: str | None = None
     payment_method: str | None = None
+    cancelled_by: str | None = None
+    cancel_reason: str | None = None
     created_at: datetime
     lines: list[OrderLineOut]
 

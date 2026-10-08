@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ShoppingCart } from "lucide-react";
+import { ReceiptText, Search, ShoppingCart } from "lucide-react";
 import { getMaterials, listCatalogFurniture } from "@/lib/api";
 import type { CatalogFurniture, Material } from "@/lib/api";
 import { formatUZS } from "@/lib/utils";
@@ -44,8 +44,8 @@ function Tile({
 }
 
 export function ShopHome({
-  cartCount, onCart, onProductSelect,
-}: { cartCount: number; onCart: () => void; onProductSelect: (product: any) => void }) {
+  cartCount, onCart, onProductSelect, onOrders,
+}: { cartCount: number; onCart: () => void; onProductSelect: (product: any) => void; onOrders?: () => void }) {
   const [tab, setTab] = useState<Tab>("mebel");
   const [category, setCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -104,6 +104,11 @@ export function ShopHome({
               className="h-11 w-full rounded-full bg-card-soft pl-10 pr-4 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand-light"
             />
           </label>
+          {onOrders && (
+            <Button variant="soft" onClick={onOrders} leftIcon={<ReceiptText size={16} aria-hidden="true" />}>
+              Buyurtmalarim
+            </Button>
+          )}
           <Button variant="accent" onClick={onCart} leftIcon={<ShoppingCart size={16} aria-hidden="true" />}>
             Savat{cartCount > 0 ? ` (${cartCount})` : ""}
           </Button>
@@ -160,15 +165,15 @@ export function ShopHome({
           {/* The first match, large: the one to look at first. */}
           <Panel className="relative overflow-hidden lg:col-span-2 lg:row-span-2">
             <button type="button" onClick={() => onProductSelect(featured)} className="group block h-full w-full text-left" aria-label={`${featured.name_uz}, ${formatUZS(featured.price_uzs ?? 0)}`}>
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-card-soft lg:aspect-auto lg:h-full lg:min-h-[320px]">
+              <div className={`relative aspect-[4/3] w-full overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[320px] ${featured.thumbnail_url ? "bg-card-soft" : "bg-gradient-to-br from-[#3B4A8C] to-[#1F2A5E]"}`}>
                 {featured.thumbnail_url && (
                   <img src={featured.thumbnail_url} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" aria-hidden="true" />
-                <div className="absolute inset-x-6 bottom-6 flex items-end justify-between gap-4 text-white">
+                <div className="absolute inset-x-5 bottom-5 flex flex-col items-start gap-3 text-white sm:inset-x-6 sm:bottom-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{label(featured.category)}{featured.store_name ? ` · ${featured.store_name}` : ""}</p>
-                    <p className="truncate text-2xl font-extrabold">{featured.name_uz}</p>
+                    <p className="line-clamp-2 text-2xl font-extrabold leading-tight">{featured.name_uz}</p>
                   </div>
                   <span className="flex-shrink-0 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#2F55D4]">
                     {featured.price_uzs ? formatUZS(featured.price_uzs) : "Narx so'rang"}
