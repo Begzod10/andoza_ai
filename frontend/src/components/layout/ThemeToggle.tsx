@@ -33,7 +33,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={isNight ? 'Kunduzgi rejimga o‘tish' : 'Tungi rejimga o‘tish'}
       title={isNight ? 'Kunduzgi rejim' : 'Tungi rejim'}
-      className="w-9 h-9 rounded-lg flex items-center justify-center text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+      className="flex h-11 w-11 items-center justify-center rounded-2xl text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
     >
       {isNight ? <SunIcon /> : <MoonIcon />}
     </button>

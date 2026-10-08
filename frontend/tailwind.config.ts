@@ -45,6 +45,19 @@ const config: Config = {
           800: "#1F2937",
           900: "#111827",
         },
+        // Platform-page surfaces: follow the day/night theme (see global.css). Not `surface`,
+        // which stays white for the studio and the dialogs.
+        card: {
+          DEFAULT: "rgb(var(--card) / <alpha-value>)",
+          soft: "rgb(var(--card-soft) / <alpha-value>)",
+        },
+        ink: {
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          muted: "rgb(var(--ink-muted) / <alpha-value>)",
+        },
+        line: "rgb(var(--line) / <alpha-value>)",
+        // Blue text and links on a card: dark blue by day, a light blue by night, where the brand blue would vanish.
+        accent: "rgb(var(--accent) / <alpha-value>)",
         // Semantic UI colors
         surface: "#FFFFFF",
         paper: "#F9F9F9",
@@ -137,6 +150,9 @@ const config: Config = {
       },
       boxShadow: {
         none: "none",
+        panel: "var(--card-shadow)",
+        glow: "0 12px 28px -10px rgba(47, 85, 212, 0.65), inset 0 1px 0 rgba(255,255,255,0.28)",
+        "glow-orange": "0 12px 28px -10px rgba(249, 115, 22, 0.6), inset 0 1px 0 rgba(255,255,255,0.3)",
         subtle: "0 2px 4px rgba(17, 24, 39, 0.06)",
         card: "0 8px 20px -12px rgba(17, 24, 39, 0.16)",
         "card-hero": "0 18px 40px -18px rgba(30, 64, 175, 0.28)",

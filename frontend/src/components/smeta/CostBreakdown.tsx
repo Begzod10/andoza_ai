@@ -12,8 +12,8 @@ export function CostBreakdown({ groups, fmt }: { groups: LineGroup[]; fmt: (soum
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{uz.smeta.taqsimot}</p>
-      <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-neutral-100" aria-hidden="true">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted mb-2">{uz.smeta.taqsimot}</p>
+      <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-card-soft" aria-hidden="true">
         {visible.map((g) => (
           <div
             key={g.key}
@@ -26,9 +26,9 @@ export function CostBreakdown({ groups, fmt }: { groups: LineGroup[]; fmt: (soum
         {visible.map((g) => (
           <li key={g.key} className="flex items-center gap-2 text-sm">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: GROUP_COLOUR[g.key] }} aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-neutral-700">{uz.smeta.toifa[g.key]}</span>
-            <span className="tabular-nums text-muted">{formatShare(g.share)}</span>
-            <span className="w-28 text-right font-medium tabular-nums text-neutral-900">{fmt(g.subtotal)}</span>
+            <span className="min-w-0 flex-1 truncate text-ink">{uz.smeta.toifa[g.key]}</span>
+            <span className="tabular-nums text-ink-muted">{formatShare(g.share)}</span>
+            <span className="w-28 text-right font-medium tabular-nums text-ink">{fmt(g.subtotal)}</span>
           </li>
         ))}
       </ul>

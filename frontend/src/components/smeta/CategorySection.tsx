@@ -44,13 +44,13 @@ export function CategorySection({
   const panelId = `smeta-group-${group.key}`;
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-surface shadow-subtle" data-group={group.key}>
+    <section className="overflow-hidden rounded-2xl border border-line bg-card shadow-panel" data-group={group.key}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 sm:px-5"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-card-soft sm:px-5"
       >
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -60,50 +60,50 @@ export function CategorySection({
           <Icon size={20} strokeWidth={2.2} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-neutral-900">{uz.smeta.toifa[group.key]}</span>
-          <span className="block text-xs text-muted">
+          <span className="block font-semibold text-ink">{uz.smeta.toifa[group.key]}</span>
+          <span className="block text-xs text-ink-muted">
             {group.items.length} {uz.smeta.qator} · {formatShare(group.share)}
           </span>
         </span>
-        <span className="text-right font-bold tabular-nums text-neutral-900">{fmt(group.subtotal)}</span>
+        <span className="text-right font-bold tabular-nums text-ink">{fmt(group.subtotal)}</span>
         <ChevronDown
           size={18}
-          className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
       </button>
 
       {open && (
-        <ul id={panelId} className="divide-y divide-neutral-100 border-t border-neutral-100">
+        <ul id={panelId} className="divide-y divide-line border-t border-line">
           {group.items.map(({ line, index }) => (
             <li
               key={index}
               data-line-index={index}
               className={[
                 "flex items-start justify-between gap-4 px-4 py-3.5 transition-colors sm:px-5",
-                highlighted.has(String(index)) ? "bg-yellow-50 ring-1 ring-inset ring-yellow-300" : "",
+                highlighted.has(String(index)) ? "bg-yellow-400/15 ring-1 ring-inset ring-yellow-400/50" : "",
               ].join(" ")}
             >
               <div className="min-w-0">
-                <p className="font-medium text-neutral-900">
+                <p className="font-medium text-ink">
                   {line.label}
                   {line.price_source === "market" && (
-                    <span className="ml-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 align-middle text-[11px] font-medium text-emerald-700">
+                    <span className="ml-2 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 align-middle text-[11px] font-medium text-emerald-500">
                       {uz.smeta.bozor_belgi}
                     </span>
                   )}
                   {line.is_approximate && (
                     // orange-cta is the brand orange darkened to 5.2:1 on white (the plain brand orange is 2.8:1). The default Tailwind orange-700 does not exist here: `orange` is a single colour in the config.
-                    <span className="ml-2 inline-block rounded-full bg-orange-tint px-2 py-0.5 align-middle text-[11px] font-medium text-orange-cta">
+                    <span className="ml-2 inline-block rounded-full bg-orange-500/15 px-2 py-0.5 align-middle text-[11px] font-medium text-orange-500">
                       {uz.smeta.taxminiy}
                     </span>
                   )}
                 </p>
-                <p className="mt-0.5 text-sm tabular-nums text-neutral-600">
+                <p className="mt-0.5 text-sm tabular-nums text-ink-muted">
                   {formatQuantity(line.quantity)} {line.unit} × {fmt(line.unit_price)}
                 </p>
                 {line.price_source === "market" && (
-                  <p className="mt-0.5 text-xs leading-snug text-emerald-700">
+                  <p className="mt-0.5 text-xs leading-snug text-emerald-500">
                     {line.store_name}
                     {line.price_checked_at && ` · ${new Date(line.price_checked_at).toLocaleDateString("uz-UZ")}`}
                     {line.source_url && /^https?:\/\//i.test(line.source_url) && (
@@ -117,14 +117,14 @@ export function CategorySection({
                   </p>
                 )}
                 {line.price_source !== "market" && line.store_name && (
-                  <p className="mt-0.5 text-xs leading-snug text-muted">
+                  <p className="mt-0.5 text-xs leading-snug text-ink-muted">
                     {uz.smeta.dokon}: {line.store_name}
                   </p>
                 )}
-                {line.formula && !repeatsQuantityLine(line) && <p className="mt-0.5 text-xs leading-snug text-muted">{line.formula}</p>}
-                {line.warning && <p className="mt-1 text-xs leading-snug text-orange-cta">{line.warning}</p>}
+                {line.formula && !repeatsQuantityLine(line) && <p className="mt-0.5 text-xs leading-snug text-ink-muted">{line.formula}</p>}
+                {line.warning && <p className="mt-1 text-xs leading-snug text-orange-500">{line.warning}</p>}
               </div>
-              <p className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-neutral-900">{fmt(line.total_uzs)}</p>
+              <p className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-ink">{fmt(line.total_uzs)}</p>
             </li>
           ))}
         </ul>

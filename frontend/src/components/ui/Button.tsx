@@ -5,12 +5,14 @@ import { cn } from '@/lib/utils'
 
 /**
  * Button variant type.
- * - primary: Solid brand color for primary actions
+ * - primary: Brand gradient with a glow, for the main action
+ * - accent: The logo's orange, for a call to action that should stand out
+ * - soft: A tinted pill that follows the day/night theme, for the quieter actions beside a primary one
  * - secondary: Outlined brand color for secondary actions
  * - tertiary: Text-only for low-priority actions
  * - danger: Red background for destructive actions
  */
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger'
+type ButtonVariant = 'primary' | 'accent' | 'soft' | 'secondary' | 'tertiary' | 'danger'
 type ButtonSize = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -27,28 +29,33 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const base =
-  'inline-flex items-center justify-center gap-2 font-medium rounded-lg ' +
-  'transition-all duration-150 select-none focus-visible:outline-none ' +
-  'focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ' +
-  'disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]'
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-full ' +
+  'transition-all duration-200 select-none focus-visible:outline-none ' +
+  'focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 ' +
+  'disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97]'
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand text-white hover:bg-blue-900 active:bg-blue-950 ' +
-    'shadow-btn hover:shadow-lg',
+    'bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow ' +
+    'hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:brightness-95',
+  accent:
+    'bg-gradient-to-br from-[#FB923C] to-[#EA580C] text-white shadow-glow-orange ' +
+    'hover:-translate-y-px hover:brightness-105 active:translate-y-0',
+  soft:
+    'bg-card-soft text-ink hover:bg-ink/10',
   secondary:
     'border-2 border-brand text-brand bg-transparent hover:bg-blue-50',
   tertiary:
     'text-brand bg-transparent hover:bg-blue-50 focus-visible:ring-1',
   danger:
-    'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 ' +
-    'shadow-md shadow-red-600/25 hover:shadow-lg',
+    'bg-gradient-to-br from-red-500 to-red-700 text-white ' +
+    'shadow-md shadow-red-600/25 hover:-translate-y-px hover:brightness-110',
 }
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-sm gap-1.5',
-  md: 'h-10 px-4 text-sm gap-2',
-  lg: 'h-12 px-6 text-base gap-2.5',
+  sm: 'h-9 px-4 text-sm gap-1.5',
+  md: 'h-11 px-5 text-sm gap-2',
+  lg: 'h-12 px-7 text-base gap-2.5',
 }
 
 // ─── Spinner ──────────────────────────────────────────────────────────────────

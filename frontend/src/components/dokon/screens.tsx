@@ -8,6 +8,7 @@
 // implemented.
 
 import type { ReactNode } from "react";
+import { ShopHome } from "./ShopHome";
 
 function Placeholder({
   title,
@@ -19,14 +20,14 @@ function Placeholder({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
       <div className="text-4xl mb-3">🛒</div>
-      <h2 className="text-lg font-semibold text-neutral-800">{title}</h2>
-      <p className="text-sm text-neutral-500 mt-1 max-w-xs">
+      <h2 className="text-lg font-semibold text-on-app">{title}</h2>
+      <p className="mt-1 max-w-xs text-sm text-on-app-muted">
         Do'kon bo'limi tez orada ishga tushadi.
       </p>
       {onBack && (
         <button
           onClick={onBack}
-          className="mt-6 px-5 py-2 rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 transition-colors"
+          className="mt-6 rounded-full bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] px-6 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform active:scale-95"
         >
           Orqaga
         </button>
@@ -35,12 +36,12 @@ function Placeholder({
   );
 }
 
-export function S1_ShopHome(_props: {
+export function S1_ShopHome(props: {
   cartCount: number;
   onCart: () => void;
   onProductSelect: (product: any) => void;
 }) {
-  return <Placeholder title="Do'kon" />;
+  return <ShopHome {...props} />;
 }
 
 export function S2_ProjectMaterials(props: {

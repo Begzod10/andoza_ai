@@ -4,12 +4,15 @@ import { getUstalar, createLead } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { cn } from "@/lib/utils";
 import type { Usta, UstalarParams } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { Panel, Tile } from "@/components/ui/Panel";
 
 function StarRating({ rating }: { rating: number }) {
+  const full = Math.round(rating);
   return (
-    <span className="text-amber-warn font-semibold text-sm">
-      {"★".repeat(Math.round(rating))}
-      {"☆".repeat(5 - Math.round(rating))} {rating.toFixed(1)}
+    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-500">
+      <span aria-hidden="true">{"★".repeat(full)}<span className="text-ink/20">{"★".repeat(5 - full)}</span></span>
+      <span className="text-ink-muted">{rating.toFixed(1)}</span>
     </span>
   );
 }
@@ -22,57 +25,48 @@ function UstaCard({
   onContact: (usta: Usta) => void;
 }) {
   return (
-    <div className="bg-surface rounded-lg shadow-subtle p-4 flex flex-col gap-3 animate-pop-in">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+    <Panel interactive className="flex animate-pop-in flex-col gap-4 p-5">
+      <div className="flex items-start gap-3.5">
+        <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] shadow-glow">
           {usta.avatar_url ? (
-            <img
-              src={usta.avatar_url}
-              alt={usta.name}
-              className="w-full h-full object-cover"
-            />
+            <img src={usta.avatar_url} alt={usta.name} className="h-full w-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-xl font-bold text-muted">
+            <div className="flex h-full w-full items-center justify-center text-2xl font-extrabold text-white">
               {usta.name?.[0] ?? "U"}
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-neutral-900 truncate">{usta.name}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[17px] font-extrabold text-ink">{usta.name}</h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <StarRating rating={usta.rating} />
             {usta.verified && (
-              <span className="bg-success/10 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-chip">
-                {uz.ustalar.verified}
+              <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-500">
+                ✓ {uz.ustalar.verified}
               </span>
             )}
           </div>
-          <StarRating rating={usta.rating} />
         </div>
       </div>
 
-      {/* Meta */}
-      <div className="text-sm text-muted space-y-1">
-        <p>
-          {uz.ustalar.tajriba}: {usta.jobs_count}{" "}
-          
-        </p>
-        <p>
-          {uz.ustalar.narx}: {usta.price_min.toLocaleString()}{" "}
-          – {usta.price_max.toLocaleString()}{" "}
-          {uz.ustalar.soum_m2}
-        </p>
-
+      <div className="grid grid-cols-2 gap-2.5">
+        <Tile className="p-3">
+          <p className="text-xs font-medium text-ink-muted">{uz.ustalar.tajriba}</p>
+          <p className="mt-0.5 text-lg font-extrabold tabular-nums text-ink">{usta.jobs_count}</p>
+        </Tile>
+        <Tile className="p-3">
+          <p className="text-xs font-medium text-ink-muted">{uz.ustalar.narx}</p>
+          <p className="mt-0.5 text-sm font-extrabold tabular-nums text-ink">
+            {usta.price_min.toLocaleString()} – {usta.price_max.toLocaleString()}
+          </p>
+          <p className="text-[11px] text-ink-muted">{uz.ustalar.soum_m2}</p>
+        </Tile>
       </div>
 
-      {/* Action */}
-      <button
-        onClick={() => onContact(usta)}
-        className="w-full bg-brand text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors"
-      >
+      <Button variant="primary" className="w-full" onClick={() => onContact(usta)}>
         {uz.ustalar.usta_chaqirish}
-      </button>
-    </div>
+      </Button>
+    </Panel>
   );
 }
 
@@ -97,19 +91,14 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-slide">
+      <div className="w-full max-w-md animate-fade-slide rounded-3xl bg-surface p-6 shadow-xl">
         {success ? (
           <div className="text-center py-6">
             <p className="text-4xl mb-4">✓</p>
             <h3 className="text-lg font-bold text-success mb-2">
               {uz.ustalar.muvaffaqiyat}
             </h3>
-            <button
-              onClick={onClose}
-              className="mt-4 bg-brand text-white px-6 py-2 rounded-lg text-sm font-semibold"
-            >
-              {uz.common.yopish}
-            </button>
+            <Button className="mt-4" onClick={onClose}>{uz.common.yopish}</Button>
           </div>
         ) : (
           <>
@@ -126,7 +115,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder={uz.auth.telefon_placeholder}
-                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1 block w-full rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </label>
               <label className="block">
@@ -137,7 +126,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={3}
-                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
+                  className="mt-1 block w-full resize-none rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                   placeholder="Xona haqida ma'lumot..."
                 />
               </label>
@@ -146,19 +135,14 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
               <p className="mt-3 text-sm text-red-600">{uz.errors.nomalum_xato}</p>
             )}
             <div className="mt-5 flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 border-2 border-neutral-300 py-2 rounded-lg text-sm font-medium hover:border-brand transition-colors"
-              >
-                {uz.common.bekor}
-              </button>
-              <button
+              <Button variant="secondary" className="flex-1" onClick={onClose}>{uz.common.bekor}</Button>
+              <Button
+                className="flex-1"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending || !phone}
-                className="flex-1 bg-brand text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand/90 disabled:opacity-60 transition-colors"
               >
                 {mutation.isPending ? uz.common.yuklanmoqda : uz.ustalar.yuborish}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -184,64 +168,60 @@ export default function UstalarPage() {
   });
 
   return (
-    <div className="min-h-screen bg-paper">
-      {/* Header */}
-      <header className="bg-surface shadow-subtle">
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-neutral-900">{uz.ustalar.sarlavha}</h1>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* Sort bar */}
-        <div className="flex gap-2 flex-wrap mb-6">
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={String(opt.key)}
-              onClick={() => setSort(opt.key)}
-              className={cn(
-                "px-4 py-1.5 rounded-chip text-sm font-medium border-2 transition-colors",
-                sort === opt.key
-                  ? "border-brand bg-white text-brand"
-                  : "border-neutral-200 bg-white text-neutral-700 hover:border-brand/40"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-surface rounded-lg shadow-subtle p-4 animate-pulse h-48"
-              />
+    <div className="min-h-screen bg-paper pb-28 lg:pb-8">
+      <div className="mx-auto max-w-6xl px-5 pt-10 lg:px-6 lg:pt-6">
+        {/* The title, what the page is for, and how the list is ordered. */}
+        <Panel className="mb-5 flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-[28px] font-extrabold leading-tight text-ink">{uz.ustalar.sarlavha}</h1>
+            <p className="mt-1 text-sm text-ink-muted">Tasdiqlangan ustalarni toping va ular bilan bog'laning.</p>
+          </div>
+          <div role="group" aria-label="Saralash" className="inline-flex flex-wrap gap-1 self-start rounded-full bg-card-soft p-1">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={String(opt.key)}
+                type="button"
+                onClick={() => setSort(opt.key)}
+                aria-pressed={sort === opt.key}
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm font-semibold transition-all",
+                  sort === opt.key
+                    ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow"
+                    : "text-ink-muted hover:text-ink"
+                )}
+              >
+                {opt.label}
+              </button>
             ))}
           </div>
-        )}
+        </Panel>
 
-        {isError && (
-          <p className="text-center text-red-600 py-8">{uz.errors.tarmoq_xatosi}</p>
-        )}
+        <main>
+          {isLoading && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Panel key={i} className="h-56 animate-pulse" />
+              ))}
+            </div>
+          )}
 
-        {!isLoading && !isError && ustalar.length === 0 && (
-          <p className="text-center text-muted py-12">{uz.empty.ustalar_yoq}</p>
-        )}
+          {isError && (
+            <p className="py-8 text-center text-red-500">{uz.errors.tarmoq_xatosi}</p>
+          )}
 
-        {!isLoading && !isError && ustalar.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {ustalar.map((usta) => (
-              <UstaCard
-                key={usta.id}
-                usta={usta}
-                onContact={setSelectedUsta}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+          {!isLoading && !isError && ustalar.length === 0 && (
+            <p className="py-12 text-center text-on-app-muted">{uz.empty.ustalar_yoq}</p>
+          )}
+
+          {!isLoading && !isError && ustalar.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {ustalar.map((usta) => (
+                <UstaCard key={usta.id} usta={usta} onContact={setSelectedUsta} />
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
 
       {selectedUsta && (
         <ContactModal
