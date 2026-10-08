@@ -18,6 +18,7 @@ import {
   type RoomSide,
 } from "./constants";
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
+import { isRoomVisible } from "@/lib/roomFocus";
 
 /**
  * The apartment floor plan around the active room: "+ add room" buttons,
@@ -135,6 +136,49 @@ function SiblingWall({
 }
 
 
+/**
+ * Look at one room on its own.
+ *
+ * Four corner brackets, which is the camera-viewfinder mark for "frame this"
+ * — the same thing the button does. It is a toggle, and the pressed state is
+ * what tells the user they are in focus rather than in a flat that has
+ * mysteriously lost its other rooms.
+ */
+export function FocusButton({ focused, onClick }: { focused: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={focused ? "Barcha xonalarni ko'rsatish" : "Faqat shu xonani ko'rsatish"}
+      aria-pressed={focused}
+      style={{
+        width: 26, height: 26, borderRadius: 8, border: 'none', padding: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', pointerEvents: 'auto',
+        background: focused ? '#1E40AF' : 'rgba(255,255,255,0.95)',
+        color: focused ? '#fff' : '#1E40AF',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" />
+      </svg>
+    </button>
+  );
+}
+
+/** The same button for the room the user is actually editing, floated above
+ *  it. The active room has no sibling label bar to live in. */
+export function ActiveRoomFocusButton({ H, focused, onClick }: {
+  H: number; focused: boolean; onClick: () => void;
+}) {
+  return (
+    <Html position={[0, H + 0.3, 0]} center zIndexRange={[90, 0]} style={{ pointerEvents: 'none' }}>
+      <FocusButton focused={focused} onClick={onClick} />
+    </Html>
+  );
+}
+
 export function SiblingRooms({
   rooms,
   activeId,
@@ -143,6 +187,8 @@ export function SiblingRooms({
   activePos,
   onOpen,
   onDelete,
+  focusedRoomId,
+  onToggleFocus,
 }: {
   rooms: Room[];
   activeId: string;
@@ -151,6 +197,9 @@ export function SiblingRooms({
   activePos: { x: number; z: number } | null;
   onOpen: (roomId: string) => void;
   onDelete: (roomId: string, name: string) => void;
+  /** The room being looked at alone, or null for the whole flat. */
+  focusedRoomId: string | null;
+  onToggleFocus: (roomId: string) => void;
 }) {
   const layout = useMemo(() => {
     if (rooms.length < 2) return [];
@@ -168,7 +217,8 @@ export function SiblingRooms({
 
   return (
     <>
-      {layout.map(({ room: sib, w, d, x, z }) => {
+      {layout.filter(({ room: sib }) => isRoomVisible(focusedRoomId, sib.id))
+        .map(({ room: sib, w, d, x, z }) => {
         const open = () => onOpen(sib.id);
         const h = sib.ceiling_h ?? 2.7;
         // Wall id ↔ side matches getWallPlane(): A back (z<0), C front (z>0),
@@ -220,6 +270,10 @@ export function SiblingRooms({
                 <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">
                   {sib.name} ↗
                 </button>
+                <FocusButton
+                  focused={focusedRoomId === sib.id}
+                  onClick={() => onToggleFocus(sib.id)}
+                />
                 <button
                   style={SIBLING_DELETE_STYLE}
                   onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}

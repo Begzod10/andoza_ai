@@ -1,4 +1,4 @@
-import { Suspense, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Suspense, useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -24,7 +24,7 @@ import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
-import { AddRoomButtons, SiblingRooms, OpeningLayer } from "./SiblingRoomLayout";
+import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, MoonriseSky, SUN_INTENSITY } from "./SceneEnvironment";
 import { MOONRISE_FOG_COLOR, STUDIO_TONE_MAPPING_EXPOSURE } from "@/lib/moonriseSky";
 import { skyPinnedSun } from "@/lib/skyPinnedSun";
@@ -37,6 +37,7 @@ import { PanoramaSnap } from "./PanoramaSnap";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom, fitRoomDistance } from "@/lib/orbitZoom";
+import { isRoomVisible, toggleRoomFocus } from "@/lib/roomFocus";
 
 /**
  * Vertical field of view, degrees.
@@ -175,6 +176,9 @@ export function ThreeDCanvasScene({
   setDpr: Dispatch<SetStateAction<number | [number, number]>>;
   setDeclineCount: Dispatch<SetStateAction<number>>;
 }) {
+  /** Which room the user is looking at alone, or null for the whole flat.
+   *  Local to the canvas: nothing outside it cares which room is focused. */
+  const [focusedRoomId, setFocusedRoomId] = useState<string | null>(null);
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -360,6 +364,10 @@ export function ThreeDCanvasScene({
             actually clicks a texture/color, so each wall simply renders
             its real covering; a 'plaster'-kind covering still gets the
             plaster PBR via WallSegment's own `covering.kind` check. */}
+        {/* The active room, hidden while another room is the one being looked
+            at. `visible={false}` also takes it out of raycasting, so a hidden
+            room cannot be tapped through. */}
+        <group visible={isRoomVisible(focusedRoomId, room.id)}>
         <RoomScene
           room={room}
           geometry={geometry}
@@ -402,6 +410,17 @@ export function ThreeDCanvasScene({
           hiddenWalls={behind}
           armedId={armedOpeningId}
         />
+        </group>
+        {/* The active room's own focus button, floated above it like the
+            siblings' — it is a room in the flat too, and isolating the one you
+            are editing is the most likely thing to want. */}
+        {aptRooms && aptRooms.length > 1 && (
+          <ActiveRoomFocusButton
+            H={H}
+            focused={focusedRoomId === room.id}
+            onClick={() => setFocusedRoomId((cur) => toggleRoomFocus(cur, room.id))}
+          />
+        )}
         <SwapButtons W={W} D={D} H={H} />
         {topView && (
           <AddRoomButtons
@@ -409,13 +428,20 @@ export function ThreeDCanvasScene({
             occupiedSides={aptRooms ? computeOccupiedSides(aptRooms, room.id, W, D, activeLayoutPos) : undefined}
           />
         )}
-        {topView && aptRooms && (
+        {/* The rest of the flat, in BOTH views. These used to be drawn only
+            from the top down, so stepping into a room made every other room
+            vanish — which reads exactly like the room you just left having
+            been deleted, and was reported as that. Nothing was ever deleted;
+            the neighbours simply were not rendered. */}
+        {aptRooms && (
           <SiblingRooms
             rooms={aptRooms}
             activeId={room.id}
             activeW={W}
             activeD={D}
             activePos={activeLayoutPos}
+            focusedRoomId={focusedRoomId}
+            onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
             onOpen={async (id) => {
               // Persist the current room before switching so edits survive
               try { await onSave(); } catch { /* offline — switch anyway */ }
@@ -424,6 +450,7 @@ export function ThreeDCanvasScene({
             onDelete={handleDeleteSibling}
           />
         )}
+        <group visible={isRoomVisible(focusedRoomId, room.id)}>
         <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
           onDelete={(id) => { useRoomStore.getState().removeFurniture(id); selectFurniture(null); }}
           selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
@@ -453,6 +480,7 @@ export function ThreeDCanvasScene({
           // was tapped — the same plumbing the trim runs use.
           openMenu={openOpeningMenu}
         />
+        </group>
             </>
           )}
         </WallsBehindCamera>
