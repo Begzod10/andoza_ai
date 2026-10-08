@@ -19,6 +19,8 @@ interface MetricCardProps {
    * Opt-in — omit to keep the original plain-icon look.
    */
   iconBgClassName?: string
+  /** Follow the app's day/night theme (cards on the themed pages) instead of the fixed light card. */
+  themed?: boolean
   className?: string
 }
 
@@ -62,6 +64,7 @@ export function MetricCard({
   decimals = 1,
   icon,
   iconBgClassName,
+  themed = false,
   className,
 }: MetricCardProps) {
   const displayed = useCountUp(value, decimals)
@@ -69,9 +72,8 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        'rounded-2xl bg-white',
-        'border border-neutral-200',
-        'shadow-card hover:shadow-lg transition-shadow',
+        'rounded-2xl',
+        themed ? 'border border-line bg-card-soft' : 'border border-neutral-200 bg-white shadow-card hover:shadow-lg transition-shadow',
         'px-5 py-5 flex flex-col gap-3',
         className,
       )}
@@ -90,19 +92,19 @@ export function MetricCard({
 
       <div className="flex items-baseline gap-2">
         <motion.span
-          className="text-3xl font-bold tracking-tight text-neutral-900"
+          className={cn('text-3xl font-bold tracking-tight', themed ? 'text-ink' : 'text-neutral-900')}
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
           {displayed}
         </motion.span>
         {unit && (
-          <span className="text-sm font-medium text-neutral-600">
+          <span className={cn('text-sm font-medium', themed ? 'text-ink-muted' : 'text-neutral-600')}>
             {unit}
           </span>
         )}
       </div>
 
-      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+      <p className={cn('text-xs font-semibold uppercase tracking-wider', themed ? 'text-ink-muted' : 'text-neutral-500')}>
         {label}
       </p>
     </div>

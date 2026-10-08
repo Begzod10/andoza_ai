@@ -16,6 +16,9 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { createApartment, createRoom, createDraftRoom, getDraftRoom, updateDraftRoom, deleteDraftRoom, updateRoom } from '@/lib/api'
 import { wallElementsToApiPositions } from '@/lib/wallPositions'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { Panel } from '@/components/ui/Panel'
+import { useThemeStore } from '@/store/themeStore'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -95,23 +98,23 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-surface overflow-hidden">
+    <div className="rounded-2xl border border-line bg-card-soft overflow-hidden">
       {/* Header row */}
       <div className="flex items-center gap-1 px-3 py-1.5">
         <button
           onClick={() => setExpanded((e) => !e)}
-          className="flex-1 text-left text-xs font-medium text-neutral-700 flex items-center gap-1.5"
+          className="flex-1 text-left text-xs font-medium text-ink flex items-center gap-1.5"
         >
           <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
           {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}m
         </button>
-        <button onClick={onRemove} aria-label="O'chirish" className="text-neutral-400 hover:text-red-500 transition-colors text-xs leading-none">✕</button>
+        <button onClick={onRemove} aria-label="O'chirish" className="text-ink-muted hover:text-red-400 transition-colors text-xs leading-none">✕</button>
       </div>
 
       {/* Position controls */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-2 border-t border-neutral-100">
-          <p className="text-[10px] text-neutral-400 pt-2">Joylashuv</p>
+        <div className="px-3 pb-3 space-y-2 border-t border-line">
+          <p className="text-[10px] text-ink-muted pt-2">Joylashuv</p>
 
           {/* Slider */}
           <input
@@ -127,7 +130,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           {/* Left / right dimension inputs */}
           <div className="flex items-center gap-2 text-xs">
             <label className="flex-1">
-              <span className="text-neutral-500 block mb-0.5">← Sol (m)</span>
+              <span className="text-ink-muted block mb-0.5">← Sol (m)</span>
               <input
                 type="number"
                 value={leftM.toFixed(2)}
@@ -138,14 +141,14 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
                 className="w-full rounded-lg border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </label>
-            <div className="text-center text-neutral-400 pt-4">{(element.width / 1000).toFixed(2)}m</div>
+            <div className="text-center text-ink-muted pt-4">{(element.width / 1000).toFixed(2)}m</div>
             <label className="flex-1">
-              <span className="text-neutral-500 block mb-0.5">O'ng → (m)</span>
+              <span className="text-ink-muted block mb-0.5">O'ng → (m)</span>
               <input
                 type="number"
                 readOnly
                 value={Math.max(0, rightM).toFixed(2)}
-                className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-500"
+                className="w-full rounded-lg border border-line bg-card px-2 py-1 text-ink-muted"
               />
             </label>
           </div>
@@ -269,7 +272,7 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Shiftning balandligi?</h1>
+        <h1 className="text-2xl font-extrabold text-ink">Shiftning balandligi?</h1>
         <p className="text-sm text-muted mt-1">Odatda 2.5–3.2 metr oralig'ida</p>
       </div>
 
@@ -280,10 +283,10 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
             key={v}
             onClick={() => handlePreset(v)}
             className={cn(
-              'rounded-lg px-4 py-2 text-sm font-semibold border-2 transition-all',
+              'rounded-full px-5 py-2.5 text-sm font-bold border transition-all',
               Math.round(v * 1000) === ceilingHeight
-                ? 'border-brand bg-brand text-white'
-                : 'border-neutral-200 text-neutral-700 hover:border-brand/50',
+                ? 'border-transparent bg-gradient-to-br from-[#5B84F5] to-[#3D5FD6] text-white shadow-glow'
+                : 'border-line bg-card-soft text-ink hover:border-[#5B84F5]/60',
             )}
           >
             {v.toFixed(1)} m
@@ -293,7 +296,7 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
 
       {/* Numeric input */}
       <label className="block">
-        <span className="text-sm font-medium text-neutral-700">Aniq qiymat (m)</span>
+        <span className="text-sm font-medium text-ink">Aniq qiymat (m)</span>
         <input
           type="number"
           value={inputVal}
@@ -301,10 +304,10 @@ function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
           max={4.0}
           step={0.01}
           onChange={(e) => handleInput(e.target.value)}
-          className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="mt-1 block w-full rounded-xl border border-line bg-card-soft px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
         />
         {(parseFloat(inputVal) < 2.0 || parseFloat(inputVal) > 4.0) && !isNaN(parseFloat(inputVal)) && (
-          <p className="mt-1 text-xs text-red-500">2.0 dan 4.0 m oralig'ida bo'lishi kerak</p>
+          <p className="mt-1 text-xs text-red-400">2.0 dan 4.0 m oralig'ida bo'lishi kerak</p>
         )}
       </label>
     </div>
@@ -364,20 +367,22 @@ function WallStep({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-neutral-900">{label}</h2>
+        <h2 className="text-xl font-extrabold text-ink">{label}</h2>
         <p className="text-sm text-muted mt-0.5">Uzunligini kiriting</p>
       </div>
 
-      <WallElevationPreview
-        wall={wall}
-        ceilingHeight={ceilingHeight}
-        wallLabel={label}
-      />
+      <div className="rounded-2xl bg-[#F4F6FB] p-2">
+        <WallElevationPreview
+          wall={wall}
+          ceilingHeight={ceilingHeight}
+          wallLabel={label}
+        />
+      </div>
 
       {/* Length slider + input */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-700">Uzunlik</span>
+          <span className="text-sm font-medium text-ink">Uzunlik</span>
           <div className="flex items-center gap-1">
             <input
               type="number"
@@ -387,7 +392,7 @@ function WallStep({
               step={0.1}
               disabled={isC && copyA}
               onChange={(e) => handleInput(e.target.value)}
-              className="w-16 rounded-md border border-neutral-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+              className="w-16 rounded-lg border border-line bg-card-soft px-2 py-1 text-sm text-right text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
             />
             <span className="text-sm text-muted">m</span>
           </div>
@@ -413,7 +418,7 @@ function WallStep({
             onChange={(e) => handleCopyA(e.target.checked)}
             className="w-4 h-4 accent-brand rounded"
           />
-          <span className="text-sm text-neutral-700">A devor bilan bir xil ({(wallA.length / 1000).toFixed(1)} m)</span>
+          <span className="text-sm text-ink">A devor bilan bir xil ({(wallA.length / 1000).toFixed(1)} m)</span>
         </label>
       )}
 
@@ -433,7 +438,7 @@ function WallStep({
             <button
               type="button"
               onClick={() => onSwapElements(wall.id)}
-              className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:border-brand hover:text-brand transition-colors"
+              className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line py-2 text-xs text-ink-muted hover:border-brand hover:text-brand transition-colors"
             >
               ⇄ Eshik va derazani almashtirish
             </button>
@@ -444,7 +449,7 @@ function WallStep({
       {/* Add element button */}
       <button
         onClick={() => setSheetOpen(true)}
-        className="flex items-center gap-2 text-sm font-medium text-brand hover:text-brand/80 transition-colors"
+        className="flex items-center gap-2 rounded-full bg-card-soft px-4 py-2.5 text-sm font-bold text-accent transition-colors hover:bg-card-soft/70"
       >
         <span className="text-lg leading-none">+</span>
         Eshik / Deraza qo'shish
@@ -499,7 +504,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       </motion.div>
 
       <div className="text-center">
-        <h2 className="text-xl font-bold text-neutral-900">O'lchamlar saqlandi!</h2>
+        <h2 className="text-xl font-extrabold text-ink">O'lchamlar saqlandi!</h2>
         <p className="text-sm text-muted mt-1">Xona parametrlari muvaffaqiyatli qayd etildi</p>
       </div>
 
@@ -531,6 +536,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
               value={card.value}
               unit={card.unit}
               decimals={card.decimals}
+              themed
             />
           </motion.div>
         ))}
@@ -538,23 +544,26 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
 
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
-        <button
+        <Button
+          size="lg"
+          className="w-full"
           onClick={() => roomId && navigate(`/studio/${roomId}/ichkarida?phase=suvoq`)}
           disabled={!roomId}
-          className="w-full bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-50"
         >
           Bezashni boshlash
-        </button>
-        <button
+        </Button>
+        <Button
+          size="lg"
+          variant="soft"
+          className="w-full"
           onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
-          className="w-full border-2 border-brand text-brand rounded-lg py-3 text-sm font-semibold hover:bg-brand/5 transition-colors disabled:opacity-50"
         >
           Smeta ko'rish
-        </button>
+        </Button>
         <button
           onClick={onNewRoom}
-          className="w-full text-sm text-neutral-500 hover:text-neutral-800 transition-colors py-2"
+          className="w-full py-2 text-sm text-ink-muted transition-colors hover:text-ink"
         >
           + Yangi xona qo'shish
         </button>
@@ -587,6 +596,13 @@ export default function WizardPage() {
     resetRoom,
     resetDesignState,
   } = useRoomStore()
+
+  // The wizard sits outside AppShell, which is what normally applies the theme;
+  // without this a fresh load of /wizard ignores a night choice.
+  const appTheme = useThemeStore((st) => st.theme)
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-app-theme', appTheme)
+  }, [appTheme])
 
   const [searchParams] = useSearchParams()
   const existingApartmentId = searchParams.get('apartmentId') ?? null
@@ -829,60 +845,61 @@ export default function WizardPage() {
   const progressPct = totalSteps > 1 ? (step / (totalSteps - 1)) * 100 : 0
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
+    <div className="min-h-screen bg-paper pb-4 lg:pb-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 pt-3 lg:min-h-0 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-4 lg:px-6 lg:pt-6">
 
       {/* Draft resume banner */}
       {resumePrompt && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-5 animate-fade-slide">
+          <div className="w-full max-w-sm rounded-3xl border border-line bg-card shadow-panel p-5 animate-fade-slide">
             <div className="text-2xl mb-3">🏗️</div>
-            <h2 className="text-base font-bold text-gray-900 mb-1">
+            <h2 className="text-base font-extrabold text-ink mb-1">
               Saqlangan loyiha bor
             </h2>
-            <p className="text-sm text-muted mb-5">
+            <p className="text-sm text-ink-muted mb-5">
               Siz ilgari xona o'lchamlarini kiritayotgan edingiz. Davom etasizmi?
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={handleRestart}
-                className="flex-1 border-2 border-neutral-300 text-neutral-700 py-2.5 rounded-lg text-sm font-medium hover:border-red-300 hover:text-red-600 transition-colors"
-              >
+              <Button variant="soft" className="flex-1" onClick={handleRestart}>
                 Yangi boshlash
-              </button>
-              <button
-                onClick={handleResume}
-                className="flex-1 bg-brand text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors"
-              >
+              </Button>
+              <Button className="flex-1" onClick={handleResume}>
                 Davom etish
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
-      {/* Isometric preview — pinned top, ~40vh */}
-      <div
-        className="w-full bg-white border-b border-neutral-100 flex items-center justify-center px-4 py-3"
-        style={{ height: '40vh', maxHeight: 320 }}
-      >
-        <IsometricRoomPreview
-          geometry={geometry}
-          ceilingHeight={ceilingHeight}
-          activeWall={activeWall as 'A' | 'B' | 'C' | 'D' | null}
-        />
-      </div>
+      {/* Isometric preview — the drawing is light, so it sits on its own pale board */}
+      <Panel className="flex items-center justify-center p-3 lg:sticky lg:top-6">
+        <div
+          className="flex h-[22vh] min-h-[150px] w-full items-center justify-center overflow-hidden rounded-2xl bg-[#F4F6FB] px-3 py-2 [&>svg]:!max-h-full [&>svg]:h-full lg:h-[34vh] lg:max-h-[460px] lg:min-h-[200px] lg:py-3"
+        >
+          <IsometricRoomPreview
+            geometry={geometry}
+            ceilingHeight={ceilingHeight}
+            activeWall={activeWall as 'A' | 'B' | 'C' | 'D' | null}
+          />
+        </div>
+      </Panel>
 
-      {/* Progress bar */}
-      <div className="w-full h-1 bg-neutral-200">
-        <motion.div
-          className="h-full bg-brand"
-          animate={{ width: `${progressPct}%` }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-        />
-      </div>
+      {/* Steps */}
+      <Panel className="flex flex-col overflow-hidden">
+        {/* Progress */}
+        <div className="flex items-center gap-3 px-5 pt-4">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-card-soft">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-[#5B84F5] to-[#F59E4B]"
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-ink-muted">
+            {Math.min(step + 1, totalSteps)}/{totalSteps}
+          </span>
+        </div>
 
-      {/* Step area */}
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 overflow-y-auto px-4 py-5">
+        <div className="flex-1 px-5 py-5">
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
               key={step}
@@ -929,24 +946,18 @@ export default function WizardPage() {
 
         {/* Navigation */}
         {step < totalSteps - 1 && (
-          <div className="px-4 pb-6 pt-2 flex items-center gap-3 border-t border-neutral-100 bg-white">
+          <div className="flex items-center gap-3 border-t border-line px-5 pb-5 pt-4">
             {step > 0 && (
-              <button
-                onClick={goBack}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-2"
-              >
+              <Button variant="soft" size="lg" onClick={goBack}>
                 Ortga
-              </button>
+              </Button>
             )}
-            <button
-              onClick={goNext}
-              disabled={saving}
-              className="flex-1 bg-brand text-white rounded-lg py-3 text-sm font-semibold hover:bg-brand/90 transition-colors disabled:opacity-60"
-            >
+            <Button size="lg" className="flex-1" onClick={goNext} disabled={saving}>
               {saving ? 'Saqlanmoqda...' : 'Keyingi'}
-            </button>
+            </Button>
           </div>
         )}
+      </Panel>
       </div>
     </div>
   )
