@@ -22,6 +22,19 @@
  *
  * Attaching this as `onClick` makes the object a handler for the click too,
  * so R3F stops there instead of looking behind it.
+ *
+ * One condition comes with it, and it is easy to break: react-three-fiber only
+ * calls a click handler on an object the PRESS already hit. A pointerdown
+ * records the objects it hit in `internal.interaction`'s initial-hit list, and
+ * for a click r3f checks `initialHits.includes(eventObject)` before calling
+ * the handler (see @react-three/fiber's `onIntersect`). That check is by
+ * object identity, so anything whose Object3D is REPLACED between the press
+ * and the click — a `<primitive object={...} />` whose object is rebuilt by a
+ * re-render, most of all one the press itself triggers by selecting — loses
+ * this `onClick` silently and the tap carries on to the surface behind. That
+ * is the bug where one tap on a chair standing against a wall opened the
+ * wall's "Devor" ring and left the chair unselected; see lib/furnitureEntry.ts
+ * for how the model's clone came to be rebuilt on every render.
  */
 export function swallowPickClick(e: { stopPropagation: () => void }): void {
   e.stopPropagation()

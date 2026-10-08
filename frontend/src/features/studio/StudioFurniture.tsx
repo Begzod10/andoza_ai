@@ -19,7 +19,8 @@ import { holdCameraStill, swallowPickClick } from '@/lib/pickEvents'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
-import { FURNITURE_CATALOG, catalogToFurnitureEntry } from "@/lib/furnitureCatalog";
+import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
+import { resolveCatalogEntry } from "@/lib/furnitureEntry";
 import { planPolygon, offsetPolygon } from "@/lib/planPolygon";
 import { roomExtents } from "@/lib/roomDims";
 import {
@@ -51,13 +52,22 @@ type AnyFurnitureEntry = {
   autoScale?: boolean
 }
 
+/**
+ * The catalogue/library entry a placement refers to.
+ *
+ * `resolveCatalogEntry` rather than `catalogToFurnitureEntry` because the
+ * RETURNED OBJECT'S IDENTITY is load-bearing here: it is a dependency of the
+ * `useMemo` that holds the model's `scene.clone(true)`, and a clone that is
+ * rebuilt on every render costs the model its click handling. See the doc
+ * comment on resolveCatalogEntry for the whole chain.
+ */
 function useFurnitureEntry(furnitureId: string): AnyFurnitureEntry | undefined {
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   return (
     FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
     userFurniture.find((f) => f.id === furnitureId) ??
-    catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
+    resolveCatalogEntry(catalogFurniture.find((f) => f.id === furnitureId))
   )
 }
 
@@ -138,13 +148,19 @@ export function FurnitureItem({ item }: { item: PlacedFurniture }) {
   const entry = useFurnitureEntry(item.furniture_id)
   const modelPath = entry?.modelPath ?? ''
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
+  // Only user-imported models are worth reporting on — catalog GLBs are known good
+  const debugLabel = entry && 'blobId' in entry ? entry.id : undefined
+  // Depends on `debugLabel` (a string), NOT on `entry` (an object): the clone's
+  // own identity has to survive an ordinary re-render, or react-three-fiber
+  // reconstructs the <primitive> around a new object and the model loses the
+  // click that keeps a tap from falling through to the wall behind it. See
+  // lib/furnitureEntry.ts for the bug that came of it.
   const cloned = useMemo(() => {
     const c = scene.clone(true)
     applyHiddenParts(c, item.hiddenParts)
-    // Only user-imported models are worth reporting on — catalog GLBs are known good
-    prepareMesh(c, entry && 'blobId' in entry ? entry.id : undefined)
+    prepareMesh(c, debugLabel)
     return c
-  }, [scene, entry, item.hiddenParts]);
+  }, [scene, debugLabel, item.hiddenParts]);
 
   // Compute bottom offset ONCE per clone, before R3F touches the object's position.
   // Storing scale-independent value so it stays correct when scaleOverride changes.
@@ -243,13 +259,19 @@ function DraggableFurnitureItem({
   const entry = useFurnitureEntry(item.furniture_id)
   const modelPath = entry?.modelPath ?? ''
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
+  // Only user-imported models are worth reporting on — catalog GLBs are known good
+  const debugLabel = entry && 'blobId' in entry ? entry.id : undefined
+  // Depends on `debugLabel` (a string), NOT on `entry` (an object): the clone's
+  // own identity has to survive an ordinary re-render, or react-three-fiber
+  // reconstructs the <primitive> around a new object and the model loses the
+  // click that keeps a tap from falling through to the wall behind it. See
+  // lib/furnitureEntry.ts for the bug that came of it.
   const cloned = useMemo(() => {
     const c = scene.clone(true)
     applyHiddenParts(c, item.hiddenParts)
-    // Only user-imported models are worth reporting on — catalog GLBs are known good
-    prepareMesh(c, entry && 'blobId' in entry ? entry.id : undefined)
+    prepareMesh(c, debugLabel)
     return c
-  }, [scene, entry, item.hiddenParts])
+  }, [scene, debugLabel, item.hiddenParts])
   const groupRef = useRef<THREE.Group>(null)
   const primitiveRef = useRef<THREE.Object3D>(null)
   const selRef = useRef<THREE.Group>(null)
@@ -659,7 +681,7 @@ export function DraggableFurnitureModels({
     return (
       FURNITURE_CATALOG.find((f) => f.id === furnitureId) ??
       (userFurniture as UserFurnitureEntry[]).find((f) => f.id === furnitureId) ??
-      catalogToFurnitureEntry(catalogFurniture.find((f) => f.id === furnitureId))
+      resolveCatalogEntry(catalogFurniture.find((f) => f.id === furnitureId))
     )
   }
 
