@@ -1049,6 +1049,7 @@ export default function ThreeDPage() {
         setSelectedWall={setSelectedWall}
         showAiSheet={showAiSheet}
         setShowAiSheet={setShowAiSheet}
+        onSave={onSave}
         roomId={room.id}
         roomType={room.room_type}
         radial={radial}
