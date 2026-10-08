@@ -41,6 +41,14 @@ class Order(Base):
         index=True,
     )
     dealer_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # The shop that fulfils it, worked out by the server from the ordered items
+    # (never taken from the client). Null for items that belong to no shop.
+    store_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("stores.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     total_uzs: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[str] = mapped_column(
         OrderStatus,

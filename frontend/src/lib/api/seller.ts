@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { AdminFurnitureCategory, AdminPlacement, AdminRoomType } from "./admin";
+import type { OrderLine, OrderStatus } from "./orders";
 
 /** Where a shop or a model stands with the admins. Anything but "approved" is
  *  hidden from the public catalog. */
@@ -154,5 +155,30 @@ export async function rejectPending(target: ModerationTarget, id: string, note: 
   return apiClient<void>(`/admin/moderation/${target}/${id}/reject`, {
     method: "POST",
     body: JSON.stringify({ note }),
+  });
+}
+
+/** An order as the shop that must fulfil it sees it. */
+export interface SellerOrder {
+  id: string;
+  dealer_name: string;
+  total_uzs: number;
+  status: OrderStatus | string;
+  delivery_address: string | null;
+  phone: string | null;
+  payment_method: string | null;
+  created_at: string;
+  lines: OrderLine[];
+}
+
+export async function listMyOrders(): Promise<SellerOrder[]> {
+  return apiClient<SellerOrder[]>("/seller/orders?per_page=100");
+}
+
+/** Move an order to its next stage; the server refuses anything but the next one. */
+export async function advanceMyOrder(id: string, status: OrderStatus): Promise<SellerOrder> {
+  return apiClient<SellerOrder>(`/seller/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }

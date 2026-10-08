@@ -16,6 +16,7 @@ import {
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { ModelEditDialog } from "./ModelEditDialog";
 import { SellerModelCard } from "./SellerModelCard";
+import { SellerOrders } from "./SellerOrders";
 import { SellerModelFormDialog } from "./SellerModelFormDialog";
 import { StatusBadge } from "./StatusBadge";
 import { StoreApplyForm } from "./StoreApplyForm";
@@ -124,6 +125,8 @@ export default function SellerPage() {
                 <Button variant="soft" size="sm" onClick={() => setEditingStore(true)}>Ma'lumotlarni tahrirlash</Button>
               </div>
             </Panel>
+
+            {store.status === "approved" && <SellerOrders />}
 
             {store.status === "approved" && (
               <section className="space-y-3">

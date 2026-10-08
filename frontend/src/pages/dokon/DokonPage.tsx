@@ -30,6 +30,8 @@ interface CartItem {
   materialId: string | null;
   /** Set for catalog furniture; likewise priced by the server. */
   furnitureId: string | null;
+  /** The shop it belongs to — one order goes to one shop. Null for shop-less items. */
+  storeId: string | null;
   name: string;
   price: number;
   quantity: number;
@@ -186,6 +188,7 @@ export default function DokonPage() {
       // Furniture carries a placement; materials do not.
       materialId: "placement" in selectedProduct ? null : productId,
       furnitureId: "placement" in selectedProduct ? productId : null,
+      storeId: selectedProduct.store_id ?? null,
       name: selectedProduct.name_uz,
       price: selectedProduct.price_uzs ?? 0,
       quantity,
@@ -240,14 +243,17 @@ export default function DokonPage() {
     setSubmitting(true);
     setCheckoutError(null);
 
+    // Grouped by shop id, not by name: two shops can share a name, and the
+    // server refuses an order that mixes shops.
+    const shopKey = (i: CartItem) => i.storeId ?? `name:${i.dealer}`;
     const byDealer = new Map<string, CartItem[]>();
-    for (const item of cart) byDealer.set(item.dealer, [...(byDealer.get(item.dealer) ?? []), item]);
+    for (const item of cart) byDealer.set(shopKey(item), [...(byDealer.get(shopKey(item)) ?? []), item]);
 
     const created: Order[] = [];
     try {
-      for (const [dealer, items] of byDealer) {
+      for (const [key, items] of byDealer) {
         const order = await createOrder({
-          dealer_name: dealer,
+          dealer_name: items[0].dealer,
           delivery_address: data.address,
           phone: data.phone,
           payment_method: data.paymentMethod,
@@ -261,7 +267,7 @@ export default function DokonPage() {
           })),
         });
         created.push(order);
-        setCart((prev) => prev.filter((i) => i.dealer !== dealer));
+        setCart((prev) => prev.filter((i) => shopKey(i) !== key));
       }
       setPlacedOrders(created);
       setScreen("order-tracking");

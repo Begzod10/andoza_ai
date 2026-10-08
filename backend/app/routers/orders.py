@@ -18,7 +18,7 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 async def _resolve_line_prices(
     db: DbSession, lines: list[OrderLineCreate]
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, object]:
     """Look up the authoritative price for every line: materials by
     material_id, furniture by furniture_id. The client-submitted
     unit_price_uzs is never trusted, so a line that references neither is
@@ -32,10 +32,15 @@ async def _resolve_line_prices(
     material_ids = {line.material_id for line in lines if line.material_id is not None}
     furniture_ids = {line.furniture_id for line in lines if line.furniture_id is not None}
 
+    # Which shop each ordered item belongs to (None: it belongs to no shop).
+    store_ids: set = set()
+
     material_prices: dict = {}
     if material_ids:
         result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
-        material_prices = {m.id: m.price_uzs for m in result.scalars().all()}
+        materials = result.scalars().all()
+        material_prices = {m.id: m.price_uzs for m in materials}
+        store_ids |= {m.store_id for m in materials}
         if material_ids - material_prices.keys():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -66,8 +71,16 @@ async def _resolve_line_prices(
                 detail=f"Narxi belgilanmagan, buyurtma berib bo'lmaydi: {', '.join(unpriced)}.",
             )
         furniture_prices = {fid: f.price_uzs for fid, f in found.items()}
+        store_ids |= {f.store_id for f in found.values()}
 
-    return material_prices, furniture_prices
+    # One order goes to one shop: it is that shop that fulfils it and moves its
+    # status along, so items of several shops cannot share an order.
+    if len(store_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bitta buyurtmada faqat bitta do'kon mahsulotlari bo'lishi mumkin.",
+        )
+    return material_prices, furniture_prices, next(iter(store_ids), None)
 
 
 @router.post(
@@ -81,7 +94,7 @@ async def create_order(
     current_user: CurrentUser,
     db: DbSession,
 ) -> OrderOut:
-    material_prices, furniture_prices = await _resolve_line_prices(db, body.lines)
+    material_prices, furniture_prices, store_id = await _resolve_line_prices(db, body.lines)
 
     def _authoritative_price(line: OrderLineCreate) -> int:
         if line.material_id is not None:
@@ -95,6 +108,7 @@ async def create_order(
     order = Order(
         user_id=current_user.id,
         dealer_name=body.dealer_name,
+        store_id=store_id,
         total_uzs=total_uzs,
         status="accepted",
         delivery_address=body.delivery_address,

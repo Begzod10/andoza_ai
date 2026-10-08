@@ -17,6 +17,8 @@ const api = vi.hoisted(() => ({
   createPhotoModel: vi.fn(),
   waitForRender: vi.fn(),
   fetchPhotoModelGlb: vi.fn(),
+  listMyOrders: vi.fn(),
+  advanceMyOrder: vi.fn(),
 }))
 vi.mock('@/lib/api', () => ({
   ...Object.fromEntries(Object.entries(api).map(([k, v]) => [k, (...a: unknown[]) => v(...a)])),
@@ -44,7 +46,10 @@ function renderPage() {
   )
 }
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()))
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset())
+  api.listMyOrders.mockResolvedValue([])
+})
 
 describe('SellerPage', () => {
   it('offers the application form to someone with no shop, and sends it', async () => {

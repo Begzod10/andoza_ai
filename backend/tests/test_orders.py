@@ -303,8 +303,9 @@ class TestFurniturePriceComesFromTheCatalog:
         assert response.status_code == 422
 
     def test_material_and_furniture_lines_together(self, client):
-        material = _material(price_uzs=20_000)
-        piece = _furniture(price_uzs=1_000_000)
+        shop = uuid.uuid4()
+        material = _material(price_uzs=20_000, store_id=shop)
+        piece = _furniture(price_uzs=1_000_000, store_id=shop)
         db = _db()
         db.execute = AsyncMock(side_effect=[_Result(many=[material]), _Result(many=[piece])])
         _as(_user(), db)
@@ -315,3 +316,49 @@ class TestFurniturePriceComesFromTheCatalog:
         ]})
         assert response.status_code == 201
         assert response.json()["total_uzs"] == 1_020_000
+
+
+class TestOrderBelongsToOneShop:
+    def _post(self, client, db, lines):
+        _as(_user(), db)
+        return client.post("/api/v1/orders", json={"dealer_name": "Dealer", "lines": lines})
+
+    def _line(self, **ref):
+        return {"product_name": "x", "unit": "dona", "unit_price_uzs": 1, "quantity": 1, **ref}
+
+    def test_the_order_is_recorded_against_the_shop_of_its_items(self, client):
+        shop = uuid.uuid4()
+        piece = _furniture(store_id=shop)
+        db = _db(_Result(many=[piece]))
+        assert self._post(client, db, [self._line(furniture_id=str(piece.id))]).status_code == 201
+        order = db.add.call_args[0][0]
+        assert order.store_id == shop
+
+    def test_the_shop_is_never_taken_from_the_client(self, client):
+        piece = _furniture(store_id=uuid.uuid4())
+        db = _db(_Result(many=[piece]))
+        _as(_user(), db)
+        response = client.post("/api/v1/orders", json={
+            "dealer_name": "Dealer", "store_id": str(uuid.uuid4()), "lines": [self._line(furniture_id=str(piece.id))],
+        })
+        assert response.status_code == 201
+        assert db.add.call_args[0][0].store_id == piece.store_id
+
+    def test_items_of_two_shops_cannot_share_an_order(self, client):
+        a, b = _furniture(store_id=uuid.uuid4()), _furniture(store_id=uuid.uuid4())
+        db = _db(_Result(many=[a, b]))
+        response = self._post(client, db, [self._line(furniture_id=str(a.id)), self._line(furniture_id=str(b.id))])
+        assert response.status_code == 400
+        assert "bitta do'kon" in response.json()["detail"]
+        db.add.assert_not_called()
+
+    def test_a_shopless_item_does_not_mix_with_a_shops_item(self, client):
+        a, b = _furniture(store_id=uuid.uuid4()), _furniture(store_id=None)
+        db = _db(_Result(many=[a, b]))
+        assert self._post(client, db, [self._line(furniture_id=str(a.id)), self._line(furniture_id=str(b.id))]).status_code == 400
+
+    def test_an_order_of_shopless_items_has_no_shop(self, client):
+        piece = _furniture(store_id=None)
+        db = _db(_Result(many=[piece]))
+        assert self._post(client, db, [self._line(furniture_id=str(piece.id))]).status_code == 201
+        assert db.add.call_args[0][0].store_id is None

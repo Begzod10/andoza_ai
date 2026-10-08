@@ -59,6 +59,22 @@ beforeEach(() => {
   getOrder.mockImplementation(async (id: string) => orderOut(id.split('-')[0]))
 })
 
+describe('DokonPage checkout by shop', () => {
+  it('sends one order per shop, even when two shops share a name', async () => {
+    const twin = { ...FURNITURE, id: 'f2', name_uz: 'Stol', price_uzs: 1_000_000, store_id: 's9' } // same store_name, other shop
+    listCatalogFurniture.mockResolvedValue({ items: [FURNITURE, twin], total: 2, page: 1, per_page: 100 })
+    createOrder.mockImplementation(async (o: { dealer_name: string }) => orderOut(o.dealer_name, { id: `${Math.random()}-x` }))
+    mount()
+    await addFromShop(/Divan, 4\s500\s000/)
+    await addFromShop(/Stol, 1\s000\s000/)
+    await fillAndConfirm()
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2))
+    const lineCounts = createOrder.mock.calls.map((c) => c[0].lines.length)
+    expect(lineCounts).toEqual([1, 1])
+  })
+})
+
 describe('DokonPage checkout', () => {
   it('sends the order with delivery details and shows what the server answered', async () => {
     const placed = orderOut('Mebel Plus', {

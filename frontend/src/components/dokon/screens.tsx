@@ -7,6 +7,7 @@ import {
   Check, ChevronLeft, Minus, Package, Phone, Plus, ShoppingCart, Trash2, Truck,
 } from "lucide-react";
 import { formatUZS } from "@/lib/utils";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/orderStatus";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
@@ -408,12 +409,10 @@ export function S6_Payment(props: {
 
 // ─── 7. Order tracking ────────────────────────────────────────────────────────
 
-const ORDER_STEPS: Array<{ key: string; label: string }> = [
-  { key: "accepted", label: "Qabul qilindi" },
-  { key: "gathering", label: "Yig'ilmoqda" },
-  { key: "on_the_way", label: "Yo'lda" },
-  { key: "delivered", label: "Yetkazildi" },
-];
+const ORDER_STEPS: Array<{ key: string; label: string }> = ORDER_STATUSES.map((key) => ({
+  key,
+  label: ORDER_STATUS_LABELS[key],
+}));
 
 const PAYMENT_LABEL: Record<string, string> = { cash: "Naqd pul", card: "Karta" };
 

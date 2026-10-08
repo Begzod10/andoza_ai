@@ -14,15 +14,18 @@ import uuid as uuid_module
 import structlog
 from fastapi import APIRouter, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.models.furniture import Furniture
+from app.models.order import Order
 from app.models.store import Store
 from app.routers.admin_catalog import (
     _delete_files_after_commit,
     _invalidate_after_commit,
 )
+from app.schemas.order import NEXT_ORDER_STATUS, OrderStatusUpdate, SellerOrderOut
 from app.schemas.seller import (
     FURNITURE_CATEGORIES,
     PLACEMENTS,
@@ -337,3 +340,68 @@ async def delete_furniture(furniture_id: uuid_module.UUID, current_user: Current
     _invalidate_after_commit(db, "furniture:")
     _delete_files_after_commit(db, keys, "seller_model_file_delete_failed")
     logger.info("seller_model_deleted", id=str(furniture_id), user_id=str(current_user.id))
+
+
+# ── Orders for the caller's shop ─────────────────────────────────────────────
+
+
+@router.get(
+    "/orders",
+    response_model=list[SellerOrderOut],
+    summary="Orders placed with the caller's shop, newest first",
+)
+async def list_orders(
+    current_user: CurrentUser,
+    db: DbSession,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
+) -> list[SellerOrderOut]:
+    store = await _require_approved_store(db, current_user)
+    result = await db.execute(
+        select(Order)
+        .where(Order.store_id == store.id)
+        .options(selectinload(Order.lines))
+        .order_by(Order.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    return [SellerOrderOut.model_validate(o) for o in result.scalars().all()]
+
+
+@router.patch(
+    "/orders/{order_id}/status",
+    response_model=SellerOrderOut,
+    summary="Move one of the shop's orders to its next stage",
+)
+async def advance_order(
+    order_id: uuid_module.UUID,
+    body: OrderStatusUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> SellerOrderOut:
+    store = await _require_approved_store(db, current_user)
+    # Locked for the update: two taps (or two devices) must not both read
+    # "accepted" and each move it on, skipping a stage.
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id, Order.store_id == store.id)
+        .options(selectinload(Order.lines))
+        .with_for_update(of=Order)
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        # Someone else's order looks exactly like one that does not exist.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
+
+    if body.status == order.status:
+        return SellerOrderOut.model_validate(order)  # a repeated tap changes nothing
+    if NEXT_ORDER_STATUS.get(order.status) != body.status:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Buyurtma holatini faqat keyingi bosqichga o'tkazish mumkin.",
+        )
+
+    order.status = body.status
+    await db.flush()
+    logger.info("order_status_changed", order_id=str(order.id), store_id=str(store.id), status=body.status)
+    return SellerOrderOut.model_validate(order)
