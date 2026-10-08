@@ -1,29 +1,26 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useMemo, type RefObject } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import * as THREE from "three";
 import type { Room } from "@/lib/api";
-import { resolveWallCovering, resolveWallColor, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
-import type { DesignState, PlacedFurniture, RoomGeometry } from "@/store/roomStore";
-import { createOboyTexture } from "@/lib/oboyPatterns";
-import type { OboyPatternId } from "@/lib/oboyPatterns";
-import { requestSharedTexture } from "@/lib/sharedWallTexture";
-import { FurnitureItem, type ToolMode } from "@/features/studio/StudioFurniture";
+import type { RoomGeometry } from "@/store/roomStore";
+import { type ToolMode } from "@/features/studio/StudioFurniture";
 import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio/DoorLeaves";
 import { useHiddenWalls, type CutawayMode } from "@/features/studio/diorama";
 import {
   ADD_ROOM_BTN_STYLE, SIBLING_LABEL_STYLE, SIBLING_DELETE_STYLE,
-  SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT,
   type RoomSide,
 } from "./constants";
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
 import { isRoomVisible } from "@/lib/roomFocus";
+import { SiblingRoomBody } from "./SiblingRoomScene";
 
 /**
  * The apartment floor plan around the active room: "+ add room" buttons,
- * sibling rooms rendered as clickable outlines, and the interactive
- * door/window layer. Split out of ThreeDPage.tsx — see that file's header
+ * the apartment's other rooms placed around it, and the interactive
+ * door/window layer. What each of those rooms LOOKS like is
+ * SiblingRoomScene's job — this file owns where they go and the chrome
+ * around them. Split out of ThreeDPage.tsx — see that file's header
  * comment for the full picture.
  */
 
@@ -61,80 +58,11 @@ export function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W:
 
 
 // ─── Sibling rooms (top view floor plan) ──────────────────────────────────────
-// Renders the apartment's other rooms as flat clickable outlines beside the
-// active room. Data and navigation come in as props: router/query contexts
-// don't bridge into the R3F Canvas tree.
-
-/** One sibling-room wall — resolves that wall's OWN covering (not just the
- *  room-wide "ALL" default) and actually shows an oboy/texture image or
- *  procedural pattern instead of a flat placeholder tint, same as the active
- *  room. Its own component (not inlined in the .map() below) because a
- *  `kind: 'texture'` covering needs async image loading with its own state. */
-function SiblingWall({
-  wallId, position, size, coverings,
-}: {
-  wallId: 'A' | 'B' | 'C' | 'D'
-  position: [number, number, number]
-  size: [number, number, number]
-  coverings: DesignState['wallCoverings'] | undefined
-}) {
-  // A brand-new room has no saved coverings blob yet, but opened in the studio
-  // it renders DEFAULT_DESIGN_STATE. Fall back to that same default here so a
-  // fresh neighbour reads the way opening it would, rather than some other
-  // colour that contradicts it.
-  const covering = coverings
-    ? resolveWallCovering(coverings, wallId)
-    : DEFAULT_DESIGN_STATE.wallCoverings.ALL
-  const textureUrl = covering?.kind === 'texture' ? covering.url : null
-  const texRepeatPerM = covering?.kind === 'texture' ? covering.repeatX : 1
-  const [loadedTex, setLoadedTex] = useState<THREE.Texture | null>(null)
-
-  useEffect(() => {
-    if (!textureUrl) { setLoadedTex(null); return }
-    let clone: THREE.Texture | null = null
-    const unsub = requestSharedTexture(
-      textureUrl,
-      (entry) => {
-        // Clone (shares the image) so this wall's repeat doesn't fight other
-        // users of the shared texture; scale by the covering's tiles-per-metre
-        // so a pattern renders near true size instead of one stretched tile.
-        clone = entry.tex.clone()
-        const along = Math.max(size[0], size[2])
-        clone.repeat.set(
-          Math.max(0.25, along * texRepeatPerM),
-          Math.max(0.25, size[1] * texRepeatPerM),
-        )
-        clone.needsUpdate = true
-        setLoadedTex(clone)
-      },
-      () => setLoadedTex(null),
-    )
-    return () => { unsub(); clone?.dispose() }
-    // size is a fresh array literal per render; its values are stable per wall
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textureUrl, texRepeatPerM])
-
-  const oboyTex = useMemo(() => {
-    if (covering?.kind !== 'oboy') return null
-    return createOboyTexture(covering.patternId as OboyPatternId, covering.baseColor, covering.accentColor)
-  }, [covering])
-
-  // Read the default's own colour rather than naming a second one here: a
-  // hardcoded fallback is how this drifted out of step with the default in the
-  // first place.
-  const flatColor = coverings
-    ? resolveWallColor(coverings, wallId)
-    : resolveWallColor(DEFAULT_DESIGN_STATE.wallCoverings, wallId)
-  const map = covering?.kind === 'texture' ? loadedTex : covering?.kind === 'oboy' ? oboyTex : null
-
-  return (
-    <mesh position={position}>
-      <boxGeometry args={size} />
-      <meshStandardMaterial map={map ?? undefined} color={map ? '#ffffff' : flatColor} />
-    </mesh>
-  )
-}
-
+// Places the apartment's other rooms around the active one and hangs each
+// one's label, focus toggle and delete button above it; the room itself is
+// drawn by SiblingRoomScene, with the same shell the active room uses. Data
+// and navigation come in as props: router/query contexts don't bridge into
+// the R3F Canvas tree.
 
 /**
  * Look at one room on its own.
@@ -179,40 +107,10 @@ export function ActiveRoomFocusButton({ H, focused, onClick }: {
   );
 }
 
-/**
- * How far the whole flat reaches around the active room, metres.
- *
- * The zoom-out limit was fitted to the ACTIVE room — correct when it was the
- * only thing on screen, and wrong the moment the neighbours started being
- * drawn: the camera stopped the instant one room filled the frame, so the
- * rooms next door were rendered somewhere the user could not pull back far
- * enough to see. "Where is my old room" was partly that.
- *
- * Returns half-extents about the active room's own centre, so the caller can
- * ask for a distance that fits all of it.
- */
-export function flatExtent(
-  rooms: Room[] | undefined,
-  activeId: string,
-  activeW: number,
-  activeD: number,
-  activePos: { x: number; z: number } | null,
-): { W: number; D: number } {
-  if (!rooms || rooms.length < 2) return { W: activeW, D: activeD };
-  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
-  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
-  let reachX = activeW / 2;
-  let reachZ = activeD / 2;
-  for (const r of rooms) {
-    const { w, d } = roomFootprint(r, activeId, activeW, activeD);
-    const p = abs.get(r.id) ?? { x: 0, z: 0 };
-    reachX = Math.max(reachX, Math.abs(p.x - anchor.x) + w / 2);
-    reachZ = Math.max(reachZ, Math.abs(p.z - anchor.z) + d / 2);
-  }
-  // Doubled because the caller wants a full span about the centre, the same
-  // shape as the room's own W/D.
-  return { W: reachX * 2, D: reachZ * 2 };
-}
+// `flatExtent` (how far the flat reaches around the active room, which is what
+// the zoom-out limit has to clear) moved to ./helpers, next to the layout pass
+// it is built on: it is pure math, and keeping it here meant a test of it had
+// to import this file's whole R3F/drei tree.
 
 export function SiblingRooms({
   rooms,
@@ -256,50 +154,26 @@ export function SiblingRooms({
         .map(({ room: sib, w, d, x, z }) => {
         const open = () => onOpen(sib.id);
         const h = sib.ceiling_h ?? 2.7;
-        // Wall id ↔ side matches getWallPlane(): A back (z<0), C front (z>0),
-        // D left (x<0), B right (x>0) — each wall resolves its OWN covering
-        // instead of only ever falling back to the room-wide "ALL" default.
-        const walls: Array<{ id: 'A' | 'C' | 'D' | 'B'; p: [number, number, number]; s: [number, number, number] }> = [
-          { id: 'A', p: [0, h / 2, -d / 2], s: [w + 0.08, h, 0.08] },
-          { id: 'C', p: [0, h / 2, d / 2], s: [w + 0.08, h, 0.08] },
-          { id: 'D', p: [-w / 2, h / 2, 0], s: [0.08, h, d] },
-          { id: 'B', p: [w / 2, h / 2, 0], s: [0.08, h, d] },
-        ];
-        // Real design state, when the sibling has been saved with one —
-        // shows this room's actual wall colour/oboy/floor finish instead of a
-        // fixed placeholder tint. Furniture placements referencing a custom
-        // (user-uploaded) model still won't resolve here — those blobs live
-        // only in the browser that imported them — but built-in catalog and
-        // do'kon (shop) furniture render for real, same as FurnitureItem
-        // does for the active room.
-        const design = sib.state?.designState as DesignState | undefined
-        const floorColor = design?.floorType
-          ? SIBLING_FLOOR_COLOR_BY_TYPE[design.floorType] ?? SIBLING_FLOOR_COLOR_DEFAULT
-          : SIBLING_FLOOR_COLOR_DEFAULT
-        const placedFurniture = (sib.state?.furniture as PlacedFurniture[] | undefined) ?? []
         return (
           <group key={sib.id} position={[x, 0, z]}>
-            <mesh
-              position={[0, 0.02, 0]}
-              onClick={(e) => { e.stopPropagation(); open(); }}
-              onPointerOver={() => { document.body.style.cursor = 'pointer'; }}
-              onPointerOut={() => { document.body.style.cursor = 'auto'; }}
-            >
-              <boxGeometry args={[w, 0.04, d]} />
-              <meshStandardMaterial color={floorColor} />
-            </mesh>
-            {walls.map((seg) => (
-              <SiblingWall
-                key={seg.id}
-                wallId={seg.id}
-                position={seg.p}
-                size={seg.s}
-                coverings={design?.wallCoverings}
-              />
-            ))}
-            {placedFurniture.map((item) => (
-              <FurnitureItem key={item.id} item={item} />
-            ))}
+            {/* What the room IS lives in SiblingRoomScene: the real room shell,
+                read-only, built from this room's own saved geometry and design
+                state. It used to be a solid-colour slab and four tinted boxes
+                here — no ceiling, no trims, no openings — which is what the
+                user meant by having to re-specify, room by room, everything
+                they had already specified once. This component keeps what it
+                is good at: where each room goes in the flat, and the chrome
+                around it (name, focus, delete). */}
+            <SiblingRoomBody
+              room={sib}
+              wM={w}
+              dM={d}
+              hM={h}
+              offsetXM={x}
+              offsetZM={z}
+              siblingCount={layout.length}
+              onOpen={open}
+            />
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">

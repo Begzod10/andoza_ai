@@ -242,10 +242,14 @@ function NWallRoomShell({
   cutaway = 'off',
   plasterWalls = false,
   hiddenAttachments,
+  readOnly = false,
 }: {
   geometry: RoomGeometry;
   H: number;
   designState: DesignState;
+  /** See `RoomScene`'s own `readOnly` — a sibling room of the flat, drawn for
+   *  real but not editable in place. */
+  readOnly?: boolean;
   selectedWall?: string | null;
   onWallClick?: (id: string) => void;
   isFloorSelected?: boolean;
@@ -593,8 +597,13 @@ function NWallRoomShell({
       </group>
 
       {/* The sun's occluder. Only rectangular rooms had one, so a drawn room
-          took the sun through all four walls at once — see shadowShell.tsx. */}
-      <PolyShadowShell edges={shellEdges} outline={filteredCentred} H={H} />
+          took the sun through all four walls at once — see shadowShell.tsx.
+          Left out of a read-only sibling: the sun's shadow frustum is fitted
+          to the room being edited (see SceneEnvironment's fitShadowFrustum),
+          so an occluder for a room next door either falls outside it entirely
+          or, for the immediate neighbours, throws that room's shadows across
+          the one the user is working in. Either way it is pure cost. */}
+      {!readOnly && <PolyShadowShell edges={shellEdges} outline={filteredCentred} H={H} />}
 
       {/* One carved wall + frames + baseboard per polygon edge, rotated into place */}
       {edges.map((e) => {
@@ -675,7 +684,11 @@ function NWallRoomShell({
                     // The rectangular path has always passed this; the drawn
                     // one never did, so holding a drawn room's cornice fell
                     // through to the wall behind it and put up a WALL ring.
-                    onHoldDown={holdCornice.onPointerDown}
+                    // Unbound in a sibling: `setDesign` writes to the store,
+                    // which holds the room being EDITED, so holding a
+                    // neighbour's cornice would take the cornice off the
+                    // active room instead.
+                    onHoldDown={readOnly ? undefined : holdCornice.onPointerDown}
                     trim={cornice}
                     lengthM={s.len}
                     flipY
@@ -695,7 +708,8 @@ function NWallRoomShell({
                     key={`base-${si}`}
                     onClick={onSkirtingClick}
                     isSelected={isSkirtingSelected}
-                    onHoldDown={holdSkirting.onPointerDown}
+                    // Unbound in a sibling — see the cornice above.
+                    onHoldDown={readOnly ? undefined : holdSkirting.onPointerDown}
                     trim={trim}
                     lengthM={s.len}
                     mitreStart={fwd ? atLeft : atRight}
@@ -739,11 +753,34 @@ export const RoomScene = memo(function RoomScene({
   holdBind,
   plasterWalls = false,
   hiddenAttachments,
+  readOnly = false,
 }: {
   room: Room;
   geometry: RoomGeometry;
   topView: boolean;
   designState: DesignState;
+  /**
+   * Draw this room, but do not let anything in it be edited in place.
+   *
+   * This is how the apartment's OTHER rooms are rendered: the whole point of
+   * several rooms in one project is to design a flat and see it as one, so a
+   * sibling room has to be the same shell with the same walls, floor, ceiling,
+   * trims and openings — not a stand-in. It is a read-only MODE on this
+   * component rather than a second renderer, because a second renderer is
+   * precisely how the old sibling stand-in ended up with no ceiling, no trims
+   * and no openings: two of them cannot be kept in step.
+   *
+   * Leaving the selection and menu callbacks out already makes a sibling inert
+   * for everything that is passed IN. This flag covers the two things this
+   * component reaches for ITSELF, which no caller can switch off:
+   *
+   *  - the press-and-hold trim deletes, which write to the Zustand store and
+   *    so would edit the room being edited, not the one held;
+   *  - the sun's occluder shell, which is cost with no benefit for a room
+   *    outside the sun's room-fitted shadow frustum, and actively wrong for a
+   *    neighbour inside it.
+   */
+  readOnly?: boolean;
   showContactShadows: boolean;
   composerActive: boolean;
   highQuality: boolean;
@@ -1051,24 +1088,33 @@ export const RoomScene = memo(function RoomScene({
           <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
           {skirting && (
             <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting}
-              onClick={onSkirtingClick} isSelected={isSkirtingSelected} onHoldDown={holdSkirting.onPointerDown} />
+              onClick={onSkirtingClick} isSelected={isSkirtingSelected}
+              // Unbound in a read-only sibling: the delete writes to the store,
+              // which holds the room being EDITED — see `readOnly`.
+              onHoldDown={readOnly ? undefined : holdSkirting.onPointerDown} />
           )}
           {cornice && (
             <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
               trim={cornice} junctionY={corniceY}
-              onClick={onCorniceClick} isSelected={isCorniceSelected} onHoldDown={holdCornice.onPointerDown} />
+              onClick={onCorniceClick} isSelected={isCorniceSelected}
+              onHoldDown={readOnly ? undefined : holdCornice.onPointerDown} />
           )}
           {/* CornerShadows disabled: real directional shadows now provide corner depth */}
           {false && <CornerShadows width={W} depth={D} composerActive={composerActive} />}
 
-          {/* The sun's occluder. Outside the fades on purpose — see shadowShell.tsx. */}
-          <ShadowShell
-            W={W} D={D} H={H}
-            elementsA={elementsAResolved}
-            elementsB={elementsBOuter}
-            elementsC={elementsCResolved}
-            elementsD={elementsDOuter}
-          />
+          {/* The sun's occluder. Outside the fades on purpose — see shadowShell.tsx.
+              Not built for a read-only sibling: the sun's shadow frustum is
+              fitted to the room being edited, so a neighbour's occluder is
+              either outside it or casting that room's shadows into this one. */}
+          {!readOnly && (
+            <ShadowShell
+              W={W} D={D} H={H}
+              elementsA={elementsAResolved}
+              elementsB={elementsBOuter}
+              elementsC={elementsCResolved}
+              elementsD={elementsDOuter}
+            />
+          )}
         </>
       ) : (
         /* N-wall polygon room — only available when geometry.vertices is set */
@@ -1091,11 +1137,26 @@ export const RoomScene = memo(function RoomScene({
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}
             hiddenAttachments={hiddenAttachments}
+            readOnly={readOnly}
           />
         ) : null
       )}
 
-      <CeilingLights width={W} depth={D} height={H} lightsOn={lightsOn} highQuality={highQuality} />
+      {/* Gated on `lightsOn` here as well as inside, which changes nothing for
+          the active room — CeilingLights already renders null with the lights
+          off — but does stop a room drawn with them off paying for the lamp
+          LAYOUT. That matters now the shell is mounted once per room of the
+          flat: the layout is computed from the STORE's geometry (the active
+          room's, by definition), so for a sibling it was both wasted work and
+          the wrong room's answer. A sibling is deliberately drawn with
+          `lightsOn={false}`: the default lamp is a bare `SpotLight` with no
+          emitter geometry at all, so nothing visible is lost, while three's
+          forward renderer evaluates every light for every fragment of every
+          material — N rooms' worth of lamps is the single most expensive thing
+          the sibling layer could possibly add. */}
+      {lightsOn && (
+        <CeilingLights width={W} depth={D} height={H} lightsOn={lightsOn} highQuality={highQuality} />
+      )}
 
       {/* Ground contact shadows for furniture grounding */}
       {showContactShadows && (

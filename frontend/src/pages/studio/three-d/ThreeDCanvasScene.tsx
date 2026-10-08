@@ -19,12 +19,12 @@ import { type CutawayMode } from "@/features/studio/diorama";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
-import { computeOccupiedSides } from "./helpers";
+import { computeOccupiedSides, flatExtent } from "./helpers";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
-import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton, flatExtent } from "./SiblingRoomLayout";
+import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, MoonriseSky, SUN_INTENSITY } from "./SceneEnvironment";
 import { MOONRISE_FOG_COLOR, STUDIO_TONE_MAPPING_EXPOSURE } from "@/lib/moonriseSky";
 import { skyPinnedSun } from "@/lib/skyPinnedSun";
@@ -179,6 +179,18 @@ export function ThreeDCanvasScene({
   /** Which room the user is looking at alone, or null for the whole flat.
    *  Local to the canvas: nothing outside it cares which room is focused. */
   const [focusedRoomId, setFocusedRoomId] = useState<string | null>(null);
+  // Focus is a way of looking at THIS flat from THIS room, so it must not
+  // outlive the room — and it would. `/studio/:roomId` has no key on its route
+  // element, so switching rooms only changes the param: React Router keeps
+  // StudioPage → ThreeDPage → ThreeDCanvasScene mounted and this useState
+  // survives. Focus a sibling, tap its label to open it, and you arrive in it
+  // with focusedRoomId still pointing at it — every OTHER room hidden, the
+  // zoom-out limit collapsed to one room so you cannot even pull back to look
+  // for them. Focus the room you are IN and then add a neighbour, and you
+  // arrive in the new room with the OLD one focused, which hides the new room
+  // itself. Both are the "my other room disappeared" report reached a
+  // different way, so the focus is dropped whenever the room changes.
+  useEffect(() => { setFocusedRoomId(null); }, [room.id]);
   /** How far the flat reaches around this room — what the zoom-out limit has
    *  to clear now that the neighbours are on screen. */
   const flatSpan = useMemo(
@@ -370,10 +382,18 @@ export function ThreeDCanvasScene({
             actually clicks a texture/color, so each wall simply renders
             its real covering; a 'plaster'-kind covering still gets the
             plaster PBR via WallSegment's own `covering.kind` check. */}
-        {/* The active room, hidden while another room is the one being looked
-            at. `visible={false}` also takes it out of raycasting, so a hidden
-            room cannot be tapped through. */}
-        <group visible={isRoomVisible(focusedRoomId, room.id)}>
+        {/* The active room, not rendered at all while another room is the one
+            being looked at.
+            
+            Unmounted rather than hidden with `visible={false}`: that flag does
+            NOT remove an object from raycasting — three's Raycaster tests
+            `layers` and nothing else — so a hidden room stayed fully
+            clickable, and a tap meant for the focused room landed on the
+            invisible one in front of it. Toggling focus is a deliberate press,
+            not per-frame work, so the remount costs nothing that matters (the
+            GLTFs stay in drei's cache). */}
+        {isRoomVisible(focusedRoomId, room.id) && (
+        <group>
         <RoomScene
           room={room}
           geometry={geometry}
@@ -417,6 +437,7 @@ export function ThreeDCanvasScene({
           armedId={armedOpeningId}
         />
         </group>
+        )}
         {/* The active room's own focus button, floated above it like the
             siblings' — it is a room in the flat too, and isolating the one you
             are editing is the most likely thing to want. */}
@@ -456,7 +477,8 @@ export function ThreeDCanvasScene({
             onDelete={handleDeleteSibling}
           />
         )}
-        <group visible={isRoomVisible(focusedRoomId, room.id)}>
+        {isRoomVisible(focusedRoomId, room.id) && (
+        <group>
         <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
           onDelete={(id) => { useRoomStore.getState().removeFurniture(id); selectFurniture(null); }}
           selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
@@ -487,6 +509,7 @@ export function ThreeDCanvasScene({
           openMenu={openOpeningMenu}
         />
         </group>
+        )}
             </>
           )}
         </WallsBehindCamera>

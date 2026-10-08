@@ -147,14 +147,31 @@ export function roomLayoutPos(r: Room | undefined): { x: number; z: number } | u
 /**
  * Absolute apartment position for every room, in ONE shared frame:
  * rooms with a stored layoutPos use it verbatim; legacy rooms (no position)
- * form a row along X, starting past every stored room's footprint — the same
- * origin the "+ add room" flow assumes for unpositioned anchors ONLY when
- * nothing else already claims it.
+ * are packed into a block that starts past every stored room's footprint —
+ * the same origin the "+ add room" flow assumes for unpositioned anchors ONLY
+ * when nothing else already claims it.
  *
  * A legacy row that always started back at x=0 used to land exactly on top
  * of a sibling that already has a real stored position there (the "two rooms
  * merged into one" bug) — any apartment with one positioned room and one
- * unpositioned room reproduced it, not just a specific stale pair.
+ * unpositioned room reproduced it, not just a specific stale pair. So the
+ * fallback has to stay clear of the stored footprints along x; that part is
+ * load-bearing and must not be reverted.
+ *
+ * What it must NOT do is stretch to the horizon or sit off on its own. The
+ * apartment the "my first room disappeared" report came from has six rooms
+ * with stored positions marching along x to 17.89, all at z = 4.55, and nine
+ * rooms with no position at all. A single unbounded row at z = 0 put those
+ * nine in a 32-metre conga line reaching x ≈ 50, in a band 4.55 m away from
+ * the real flat — a flat 53 m long and 8.6 m deep, read as a corridor rather
+ * than a home, and the zoom-out limit (which is fitted to the whole flat) had
+ * to allow 98 m, where one 3.5 m room is under 3% of the frame. Two rules
+ * bring that to a 32 x 12 m block and a 60 m limit instead:
+ *
+ *  - the block continues the flat's own band — it inherits the z of the
+ *    stored room it starts next to, rather than defaulting to z = 0;
+ *  - it wraps into a roughly square grid instead of one endless row, so N
+ *    legacy rooms grow as sqrt(N) in each direction.
  */
 export function computeAbsolutePositions(
   rooms: Room[],
@@ -169,35 +186,101 @@ export function computeAbsolutePositions(
   const abs = new Map<string, { x: number; z: number }>();
 
   // Pass 1: place every room that already has a real position, and note how
-  // far right their footprints reach so the legacy row can start beyond them.
+  // far right their footprints reach so the legacy block can start beyond
+  // them — and at what z, so it continues their band instead of starting a
+  // second one.
   let storedMaxX = -Infinity;
+  let storedEdgeZ = 0;
   for (const r of rooms) {
     const stored = roomLayoutPos(r);
     if (!stored) continue;
     abs.set(r.id, stored);
     const { w } = roomFootprint(r, activeId, activeW, activeD);
-    storedMaxX = Math.max(storedMaxX, stored.x + w / 2);
-  }
-
-  // Pass 2: lay out every remaining (unpositioned) room in a row. With no
-  // stored rooms at all, the row starts at 0 (a lone unpositioned room reads
-  // as the origin, same as before); otherwise it starts clear of them.
-  let cursor = storedMaxX === -Infinity ? 0 : storedMaxX + GAP;
-  let originOffset: number | null = null;
-  for (const r of rooms) {
-    if (abs.has(r.id)) continue;
-    const { w } = roomFootprint(r, activeId, activeW, activeD);
-    const slot = cursor + w / 2;
-    cursor += w + GAP;
-    if (storedMaxX === -Infinity) {
-      // No anchor to measure from — keep the first legacy room at the origin.
-      if (originOffset === null) originOffset = slot;
-      abs.set(r.id, { x: slot - originOffset, z: 0 });
-    } else {
-      abs.set(r.id, { x: slot, z: 0 });
+    const reach = stored.x + w / 2;
+    if (reach > storedMaxX) {
+      storedMaxX = reach;
+      storedEdgeZ = stored.z;
     }
   }
+
+  // Pass 2: pack every remaining (unpositioned) room into a grid. With no
+  // stored rooms at all, it starts at the origin (a lone unpositioned room
+  // reads as the origin, same as before); otherwise it starts clear of them.
+  const legacy = rooms.filter((r) => !abs.has(r.id));
+  if (legacy.length === 0) return abs;
+
+  const sizes = legacy.map((r) => roomFootprint(r, activeId, activeW, activeD));
+  // One pitch for every row, taken from the deepest room in the block: a
+  // per-row pitch would let a shallow row be followed by a deep one that
+  // reaches back into it.
+  const rowPitch = Math.max(...sizes.map((s) => s.d)) + GAP;
+  // sqrt, so the block is about as wide as it is deep. ceil keeps a single
+  // legacy room in a single 1x1 "grid", i.e. exactly where it used to go.
+  const cols = Math.max(1, Math.ceil(Math.sqrt(legacy.length)));
+  const anchored = storedMaxX !== -Infinity;
+  const startX = anchored ? storedMaxX + GAP : 0;
+  const startZ = anchored ? storedEdgeZ : 0;
+
+  let cursor = startX;
+  let col = 0;
+  let row = 0;
+  // With nothing stored to measure from, the first legacy room has to come
+  // out at the origin itself, so the whole block is shifted by that room's
+  // own half-width.
+  let originOffset: number | null = anchored ? 0 : null;
+  legacy.forEach((r, i) => {
+    if (col === cols) { col = 0; row += 1; cursor = startX; }
+    const { w } = sizes[i];
+    const slot = cursor + w / 2;
+    cursor += w + GAP;
+    col += 1;
+    if (originOffset === null) originOffset = slot;
+    abs.set(r.id, { x: slot - originOffset, z: startZ + row * rowPitch });
+  });
   return abs;
+}
+
+
+/**
+ * How far the whole flat reaches around the active room, metres.
+ *
+ * The zoom-out limit was fitted to the ACTIVE room — correct when it was the
+ * only thing on screen, and wrong the moment the neighbours started being
+ * drawn: the camera stopped the instant one room filled the frame, so the
+ * rooms next door were rendered somewhere the user could not pull back far
+ * enough to see. "Where is my old room" was partly that.
+ *
+ * Returns a full span about the active room's own centre — twice the furthest
+ * reach on each axis — because that centre is what the camera orbits, and
+ * `fitRoomDistance` turns the span into the radius of the sphere it has to
+ * contain. A real bounding box would be tighter but wrong here: a flat that
+ * reaches 30 m west of the active room still needs 30 m of radius, whichever
+ * side the camera happens to be orbiting on.
+ *
+ * Lives beside `computeAbsolutePositions` rather than in the component file
+ * so it can be tested without pulling the whole R3F tree into the test.
+ */
+export function flatExtent(
+  rooms: Room[] | undefined,
+  activeId: string,
+  activeW: number,
+  activeD: number,
+  activePos: { x: number; z: number } | null,
+): { W: number; D: number } {
+  if (!rooms || rooms.length < 2) return { W: activeW, D: activeD };
+  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+  let reachX = activeW / 2;
+  let reachZ = activeD / 2;
+  for (const r of rooms) {
+    const { w, d } = roomFootprint(r, activeId, activeW, activeD);
+    const p = abs.get(r.id) ?? { x: 0, z: 0 };
+    reachX = Math.max(reachX, Math.abs(p.x - anchor.x) + w / 2);
+    reachZ = Math.max(reachZ, Math.abs(p.z - anchor.z) + d / 2);
+  }
+  // Doubled because the caller wants a full span about the centre, the same
+  // shape as the room's own W/D.
+  return { W: reachX * 2, D: reachZ * 2 };
 }
 
 

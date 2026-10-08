@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand'
-import { nanoid } from 'nanoid'
-import { apiPositionToStoreMm } from '@/lib/wallPositions'
+import { apiGeometryToStoreGeometry, randomElementId } from '@/lib/apiRoomGeometry'
 import type {
   AppliedSurfaces,
   DesignState,
@@ -10,7 +9,6 @@ import type {
   RoomGeometry,
   RoomPayload,
   UserFurnitureEntry,
-  WallElement,
 } from '../types'
 import { defaultGeometry } from '../utils/geometryHelpers'
 import { DEFAULT_DESIGN_STATE, repairDesignState } from '../utils/designStateHelpers'
@@ -39,45 +37,13 @@ export const createLifecycleSlice: StateCreator<
     // measured to the opening's left edge (see apiPositionToStoreMm).
     // Sets only identity + authoritative geometry — design state, furniture and
     // lights are per-room data restored separately from the room's state blob.
-    const geometry: RoomGeometry = room.geometry?.walls?.length
-      ? {
-          walls: room.geometry.walls.map((w) => {
-            const lengthMm = Math.round(w.length * 1000)
-            return {
-              id: w.id,
-              length: lengthMm,
-              elements: (w.elements ?? []).map((e) => {
-                const widthMm = Math.round(e.width * 1000)
-                return {
-                  // API elements carry no id — mint one so selection, drag and
-                  // removal stay per-element (undefined ids match each other)
-                  id: nanoid(),
-                  type: e.type as WallElement['type'],
-                  width: widthMm,
-                  height: Math.round(e.height * 1000),
-                  sill_height: Math.round((e.sill_height ?? 0) * 1000),
-                  // Centre fraction → left-edge mm. This is the one place the
-                  // API's convention is translated on the way in.
-                  position: apiPositionToStoreMm(e.position ?? 0.5, lengthMm, widthMm),
-                  // A saved element is a real placement, never a placeholder.
-                  // Without this, the legacy `position <= 0` fallback would
-                  // re-centre any opening whose centre sits within half its
-                  // width of the start corner — exactly where the conversion
-                  // above legitimately puts a corner door, at a negative
-                  // left edge.
-                  positionAuto: false,
-                  ...(e.style_id ? { styleId: e.style_id } : {}),
-                  ...(e.sashes === 1 || e.sashes === 2 ? { sashes: e.sashes as 1 | 2 } : {}),
-                }
-              }),
-            }
-          }),
-          vertices: room.geometry.vertices?.map(([x, z]: [number, number]) => [
-            Math.round(x * 1000),
-            Math.round(z * 1000),
-          ]) as [number, number][] | undefined,
-        }
-      : defaultGeometry()
+    // The conversion itself lives in lib/apiRoomGeometry so the OTHER rooms of
+    // the apartment can be built from the same code — see that module's header
+    // for why having it only here is what let the sibling-room renderer drift
+    // into a flat coloured slab. `null` means "no walls to convert", and the
+    // room the user is standing in must always have something to edit.
+    const geometry: RoomGeometry =
+      apiGeometryToStoreGeometry(room.geometry, randomElementId) ?? defaultGeometry()
     set({
       roomId: room.id ?? null,
       apartmentId: room.apartment_id ?? null,

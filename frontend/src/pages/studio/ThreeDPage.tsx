@@ -12,7 +12,7 @@ import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
-import { getRooms, deleteRoom, listCatalogFurniture } from "@/lib/api";
+import { getRooms, deleteRoom, updateRoom, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
@@ -603,14 +603,23 @@ export default function ThreeDPage() {
 
   const topView = preset === "top";
 
-  // Sibling rooms for the top-view floor plan (fetched outside the Canvas —
-  // contexts don't bridge into the R3F tree)
+  // The rest of the flat (fetched outside the Canvas — contexts don't bridge
+  // into the R3F tree).
+  //
+  // NOT gated on `topView` any more, and that gate is why the neighbouring
+  // rooms had stopped appearing at all: `preset` has been pinned to 'corner'
+  // since the top-down view was removed from this page, so `topView` is a
+  // constant false, so this query never ran and `aptRooms` was permanently
+  // undefined. Every consumer of it — the sibling rooms, the "+ add room"
+  // occupancy check, and the layout backfill below — was dead code. Creating a
+  // second room then looked exactly like the first one being deleted: it was
+  // simply never drawn.
   const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
   const queryClient = useQueryClient();
   const { data: aptRooms } = useQuery({
     queryKey: ['apt-rooms', aptId],
     queryFn: () => getRooms(aptId!),
-    enabled: topView && !!aptId,
+    enabled: !!aptId,
     staleTime: 5_000,
   });
 
@@ -632,7 +641,22 @@ export default function ThreeDPage() {
     const s = useRoomStore.getState();
     if (s.layoutPos || s.roomId !== room.id) return;
     const pos = computeAbsolutePositions(aptRooms, room.id, W, D).get(room.id);
-    if (pos) s.setLayoutPos(pos);
+    if (!pos) return;
+    s.setLayoutPos(pos);
+    // And PERSIST it, which this never did. The slot an unpositioned room is
+    // given depends on every other room in the flat, so leaving it in memory
+    // only meant the room was handed a different place each time the list
+    // changed — in particular it shifted one slot along every time a
+    // neighbour was created, drifting away from the room it had just been put
+    // next to. Writing it once settles it.
+    //
+    // The whole state goes back, not just this key: the API replaces `state`
+    // wholesale (`room.state = body.state`), so a one-key write would delete
+    // the room's finishes, furniture and lights.
+    const keptState = (room.state ?? {}) as Record<string, unknown>;
+    void updateRoom(room.id, { state: { ...keptState, layoutPos: pos } }).catch(() => {
+      /* offline — the position is still right for this session */
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aptRooms, room.id]);
 

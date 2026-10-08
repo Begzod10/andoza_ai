@@ -18,6 +18,18 @@ describe('isRoomVisible', () => {
     expect(isRoomVisible('b', 'a')).toBe(false)
   })
 
+  it('hides every room when the focus names one that is not in the flat', () => {
+    // Why ThreeDCanvasScene now drops its focus on every room change:
+    // `/studio/:roomId` carries no key on its route element, so the canvas —
+    // and the focusedRoomId useState inside it — survives a room switch. Land
+    // in a room list that no longer contains the focused id and this rule
+    // correctly hides everything, leaving a blank scene that reads as "my
+    // rooms are gone". The rule is right; a stale input is the bug, so it is
+    // the state's owner that has to clear it.
+    const rooms = ['a', 'b', 'c']
+    expect(rooms.some((id) => isRoomVisible('gone', id))).toBe(false)
+  })
+
   it('never hides everything — something is always on screen', () => {
     // An inverted check would leave an empty scene with no way to tell why.
     const rooms = ['a', 'b', 'c']
