@@ -30,9 +30,15 @@ interface CartItem {
   unit: string;
 }
 
+/** What the shop home hands over: a catalog material, or a piece of furniture (no unit, maybe no price). */
 interface MockMaterial extends Material {
   stage?: string;
   quantity?: number;
+  store_name?: string | null;
+  thumbnail_url?: string | null;
+  placement?: string;
+  footprint_w?: number | null;
+  footprint_d?: number | null;
 }
 
 interface MockDealer {
@@ -179,10 +185,10 @@ export default function DokonPage() {
     const newItem: CartItem = {
       id: productId,
       name: selectedProduct.name_uz,
-      price: selectedProduct.price_uzs,
+      price: selectedProduct.price_uzs ?? 0,
       quantity,
-      dealer: mockStores.find((s) => s.id === selectedProduct.store_id)?.name || "Do'kon",
-      unit: selectedProduct.unit,
+      dealer: selectedProduct.store_name ?? mockStores.find((s) => s.id === selectedProduct.store_id)?.name ?? "Do'kon",
+      unit: selectedProduct.unit ?? "dona",
     };
 
     if (existingItem) {
@@ -266,34 +272,26 @@ export default function DokonPage() {
   }
 
   if (screen === "product-detail" && selectedProduct) {
-    const dealersForDetail: Array<{
-      id: string;
-      name: string;
-      phone: string;
-      url: string;
-      badge?: string;
-    }> = mockDealers.slice(0, 2).map((d) => ({
-      id: d.id,
-      name: d.name,
-      phone: d.phone,
-      url: d.url,
-      badge: d.badge,
-    }));
+    const p = selectedProduct;
+    // Only what the catalog actually knows — no invented volume, composition or certificate.
+    const specs: Array<{ label: string; value: string }> = [
+      { label: "Kategoriya", value: p.category },
+      ...(p.store_name ? [{ label: "Do'kon", value: p.store_name }] : []),
+      ...(p.unit ? [{ label: "Birlik", value: p.unit }] : []),
+      ...(p.footprint_w && p.footprint_d
+        ? [{ label: "O'lcham", value: `${p.footprint_w} × ${p.footprint_d} m` }]
+        : []),
+    ];
 
     return (
       <S3_ProductDetail
-        id={selectedProduct.id}
-        name={selectedProduct.name_uz}
-        price={selectedProduct.price_uzs}
-        images={[]}
-        specs={[
-          { label: "Hajm", value: "10 litr" },
-          { label: "Tarkibi", value: "Akrilik" },
-          { label: "Rangi", value: "Oq" },
-          { label: "Sertifikat", value: "ISO 9001" },
-        ]}
-        dealers={dealersForDetail}
-        description="Bu mahsulot samarali va uzun davom etadi. Professional uy egalari tomonidan tavsiya etiladi."
+        id={p.id}
+        name={p.name_uz}
+        price={p.price_uzs ?? null}
+        images={p.thumbnail_url ? [p.thumbnail_url] : []}
+        specs={specs}
+        dealers={[]}
+        description=""
         onAddToCart={handleAddToCart}
         onBack={() => setScreen("shop")}
       />
@@ -336,7 +334,8 @@ export default function DokonPage() {
   }
 
   if (screen === "order-tracking" && currentOrder) {
-    const mockOrderItems = cart.map((item) => ({
+    // The cart was emptied when the order was placed — read the order's own lines.
+    const mockOrderItems = (currentOrder.items as CartItem[]).map((item) => ({
       name: item.name,
       quantity: item.quantity,
       price: item.price,
