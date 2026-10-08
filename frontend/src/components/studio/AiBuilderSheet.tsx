@@ -191,7 +191,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
   return (
     <>
     <BottomSheet open={open} onOpenChange={close} title={uz.ai.builder_title} defaultSnap="full">
-      <div className="flex h-full flex-col gap-3 overflow-y-auto px-4 pb-4">
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto px-4 pb-4">
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-gray-500">{uz.ai.tayyor_uslublar}</p>
           <div className="flex flex-wrap gap-1.5">
@@ -312,12 +312,15 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     {!open && undo && !barHidden && (
       <div
         role="status"
-        className="fixed bottom-24 left-1/2 z-30 flex w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-lg"
+        className="fixed bottom-24 left-1/2 z-30 flex w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-lg"
       >
-        <div className="min-w-0 flex-1">
+        {/* The message is what says whether it was saved: it wraps rather than being cut, and on a narrow
+            screen the buttons drop to a row of their own. */}
+        <div className="min-w-0 flex-1 basis-[11rem]">
           <p className="truncate text-sm font-bold text-gray-900">{plan?.title ?? uz.ai.qollandi_sarlavha}</p>
-          <p className="truncate text-xs text-gray-600">{notice}</p>
+          <p className="text-xs leading-snug text-gray-600">{notice}</p>
         </div>
+        <div className="ml-auto flex items-center gap-1">
         <button type="button" onClick={() => void revert()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">
           {uz.ai.qaytarish}
         </button>
@@ -325,6 +328,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
           {uz.ai.batafsil}
         </button>
         <button type="button" onClick={() => setBarHidden(true)} aria-label={uz.common.yopish} className="px-1 text-gray-400 hover:text-gray-700">✕</button>
+        </div>
       </div>
     )}
     </>
