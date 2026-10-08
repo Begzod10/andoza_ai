@@ -99,6 +99,11 @@ class OrderLine(Base):
         nullable=True,
         comment="Soft reference to a material; no hard FK so mock/products don't break inserts",
     )
+    furniture_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        comment="Soft reference to a catalog furniture piece, like material_id",
+    )
     product_name: Mapped[str] = mapped_column(String(200), nullable=False)
     unit: Mapped[str] = mapped_column(String(50), nullable=False)
     unit_price_uzs: Mapped[int] = mapped_column(BigInteger, nullable=False)

@@ -26,8 +26,10 @@ type Screen =
 
 interface CartItem {
   id: string;
-  /** Set for catalog materials, whose price the server then looks up itself; null for furniture. */
+  /** Set for catalog materials; the server looks their price up itself. */
   materialId: string | null;
+  /** Set for catalog furniture; likewise priced by the server. */
+  furnitureId: string | null;
   name: string;
   price: number;
   quantity: number;
@@ -183,6 +185,7 @@ export default function DokonPage() {
       id: productId,
       // Furniture carries a placement; materials do not.
       materialId: "placement" in selectedProduct ? null : productId,
+      furnitureId: "placement" in selectedProduct ? productId : null,
       name: selectedProduct.name_uz,
       price: selectedProduct.price_uzs ?? 0,
       quantity,
@@ -250,6 +253,7 @@ export default function DokonPage() {
           payment_method: data.paymentMethod,
           lines: items.map((i) => ({
             material_id: i.materialId,
+            furniture_id: i.furnitureId,
             product_name: i.name,
             unit: i.unit,
             unit_price_uzs: i.price,

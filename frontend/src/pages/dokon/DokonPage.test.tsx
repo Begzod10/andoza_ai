@@ -63,7 +63,7 @@ describe('DokonPage checkout', () => {
   it('sends the order with delivery details and shows what the server answered', async () => {
     const placed = orderOut('Mebel Plus', {
       status: 'gathering', total_uzs: 4_500_000,
-      lines: [{ id: 'l1', material_id: null, product_name: 'Divan', unit: 'dona', unit_price_uzs: 4_500_000, quantity: 1 }],
+      lines: [{ id: 'l1', material_id: null, furniture_id: 'f1', product_name: 'Divan', unit: 'dona', unit_price_uzs: 4_500_000, quantity: 1 }],
     })
     createOrder.mockResolvedValue(placed)
     getOrder.mockResolvedValue(placed) // the refresh of the tracking screen
@@ -77,7 +77,7 @@ describe('DokonPage checkout', () => {
       delivery_address: 'Chilonzor 5',
       phone: '+998901234567',
       payment_method: 'cash',
-      lines: [{ material_id: null, product_name: 'Divan', unit: 'dona', unit_price_uzs: 4_500_000, quantity: 1 }],
+      lines: [{ material_id: null, furniture_id: 'f1', product_name: 'Divan', unit: 'dona', unit_price_uzs: 4_500_000, quantity: 1 }],
     })
     // The status shown is the server's, not an invented one.
     expect((await screen.findByText("Yig'ilmoqda")).closest('li')).toHaveAttribute('aria-current', 'step')
@@ -91,7 +91,7 @@ describe('DokonPage checkout', () => {
     await fillAndConfirm()
 
     await waitFor(() => expect(createOrder).toHaveBeenCalled())
-    expect(createOrder.mock.calls[0][0].lines[0]).toMatchObject({ material_id: 'm1', unit: 'litr' })
+    expect(createOrder.mock.calls[0][0].lines[0]).toMatchObject({ material_id: 'm1', furniture_id: null, unit: 'litr' })
   })
 
   it('keeps the cart and says why when the order is refused', async () => {

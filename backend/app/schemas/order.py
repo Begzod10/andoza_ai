@@ -4,15 +4,22 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class OrderLineCreate(BaseModel):
     material_id: UUID | None = None
+    furniture_id: UUID | None = None
     product_name: str
     unit: str
     unit_price_uzs: int
     quantity: float
+
+    @model_validator(mode="after")
+    def _one_catalog_reference(self) -> "OrderLineCreate":
+        if self.material_id is not None and self.furniture_id is not None:
+            raise ValueError("A line is either a material or a piece of furniture, not both.")
+        return self
 
 
 PaymentMethod = Literal["cash", "card"]
@@ -38,6 +45,7 @@ class OrderCreate(BaseModel):
 class OrderLineOut(BaseModel):
     id: UUID
     material_id: UUID | None
+    furniture_id: UUID | None = None
     product_name: str
     unit: str
     unit_price_uzs: int

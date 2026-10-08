@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.order import Order, OrderLine
 from app.schemas.order import OrderCreate, OrderLineCreate, OrderOut
@@ -17,25 +18,50 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 async def _resolve_line_prices(
     db: DbSession, lines: list[OrderLineCreate]
-) -> dict:
+) -> tuple[dict, dict]:
     """Look up the authoritative price for every line that references a
-    catalog material, keyed by material_id. Client-submitted unit_price_uzs
-    is never trusted for these lines — it is only used as-is for genuine
-    free-text lines that carry no material_id."""
+    catalog item: materials by material_id, furniture by furniture_id. The
+    client-submitted unit_price_uzs is never trusted for these lines — it is
+    only used as-is for genuine free-text lines that reference nothing."""
     material_ids = {line.material_id for line in lines if line.material_id is not None}
-    if not material_ids:
-        return {}
+    furniture_ids = {line.furniture_id for line in lines if line.furniture_id is not None}
 
-    result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
-    price_by_material_id = {m.id: m.price_uzs for m in result.scalars().all()}
+    material_prices: dict = {}
+    if material_ids:
+        result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
+        material_prices = {m.id: m.price_uzs for m in result.scalars().all()}
+        if material_ids - material_prices.keys():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Noto'g'ri material ID.",
+            )
 
-    missing_ids = material_ids - price_by_material_id.keys()
-    if missing_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Noto'g'ri material ID.",
+    furniture_prices: dict = {}
+    if furniture_ids:
+        # Only what a shopper can actually see in the shop: live and approved.
+        result = await db.execute(
+            select(Furniture).where(
+                Furniture.id.in_(furniture_ids),
+                Furniture.is_active.is_(True),
+                Furniture.status == "approved",
+            )
         )
-    return price_by_material_id
+        found = {f.id: f for f in result.scalars().all()}
+        if furniture_ids - found.keys():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Noto'g'ri mebel ID.",
+            )
+        unpriced = [f.name_uz for f in found.values() if not f.price_uzs]
+        if unpriced:
+            # No price on file means there is nothing to charge: ask the shop.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Narxi belgilanmagan, buyurtma berib bo'lmaydi: {', '.join(unpriced)}.",
+            )
+        furniture_prices = {fid: f.price_uzs for fid, f in found.items()}
+
+    return material_prices, furniture_prices
 
 
 @router.post(
@@ -49,11 +75,13 @@ async def create_order(
     current_user: CurrentUser,
     db: DbSession,
 ) -> OrderOut:
-    price_by_material_id = await _resolve_line_prices(db, body.lines)
+    material_prices, furniture_prices = await _resolve_line_prices(db, body.lines)
 
     def _authoritative_price(line: OrderLineCreate) -> int:
         if line.material_id is not None:
-            return price_by_material_id[line.material_id]
+            return material_prices[line.material_id]
+        if line.furniture_id is not None:
+            return furniture_prices[line.furniture_id]
         return line.unit_price_uzs
 
     total_uzs = round(
@@ -71,6 +99,7 @@ async def create_order(
         lines=[
             OrderLine(
                 material_id=line.material_id,
+                furniture_id=line.furniture_id,
                 product_name=line.product_name,
                 unit=line.unit,
                 unit_price_uzs=_authoritative_price(line),
