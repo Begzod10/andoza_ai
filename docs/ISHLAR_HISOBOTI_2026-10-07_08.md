@@ -104,6 +104,24 @@ Migratsiya **`1786000023`**: `orders.store_id` (nullable FK, `ON DELETE SET NULL
 
 ---
 
+### 8. Kechqurun (8-oktabr): AI dizayner, bekor qilish va tozalash
+- **AI joylashtirish eshik va derazani hisobga oladi** (`b26d373f`): eshik oldidagi ochilish zonasi bo'sh qoladi, baland yoki devorga osiladigan mebel deraza oldiga qo'yilmaydi, devor chiroqlari va burchak torsheri ochiqliklardan chetda. Joy yetmasa avval deraza, keyin eshik qoidasi bekor qilinadi.
+- **AI matni rejaga mos** (`bc73f457`): prompt qat'iylashdi (matn oxirida, faqat tanlangan narsa, mebel va chiroqqa rang yo'q). Javobdan keyin matn rejaga solishtiriladi (`ai_design_text.py`); mos kelmasa matn rejaning o'zidan yoziladi. 600 belgidan uzun matn to'liq jumlada kesiladi.
+- **Buyurtmani bekor qilish** (migratsiya `1786000031`: `order_status` enumiga `cancelled`, `orders.cancelled_by`, `orders.cancel_reason`):
+  - xaridor faqat "Qabul qilindi"da, sababsiz ham bekor qila oladi;
+  - do'kon "Yig'ilmoqda"gacha, sabab majburiy (xaridorga ko'rsatiladi);
+  - administrator yetkazilmaganini hammasini, sabab majburiy.
+  Qoidalar bitta joyda (`services/order_status.py`). `delivered` va `cancelled` yakuniy.
+- **Xaridorning buyurtmalar tarixi:** Do'konda "Buyurtmalarim" ro'yxati va tafsilot ekrani.
+- **Admin "Buyurtmalar" bo'limi:** `GET /admin/orders` (holat bo'yicha filtr), `PATCH /admin/orders/{id}/status`. Do'konsiz mahsulotlar buyurtmasini faqat administrator boshqaradi.
+- **Yangi buyurtma belgisi:** sotuvchi sahifasida "Yangi" belgisi va brauzer yorlig'ida soni. SMS yuborilmaydi (Eskiz shablonlari va narxi tekshirib bo'lmaydi).
+- **Dialoglar:** `Dialog`, `Select`, `PhotoToModelField` uchun ixtiyoriy `themed` parametri; sotuvchining uch dialogi tunda ham mos.
+- **Telefon va kunduz tekshiruvi:** Ustalar saralash tugmalari chipga o'tdi, Do'kon asosiy kartasida nom kesilmaydi va rasmsiz karta to'q fonda.
+- **Yiqilayotgan test tuzatildi:** `ShopInquiryDialog.test.tsx` kodida emas, testning `beforeEach`ida xato bor edi (mock funksiyasini qaytarib, vitest uni "tozalash" deb chaqirardi).
+- **Production:**
+  - eski 360° renderlar tuzatildi: 46 tadan 45 tasi (chiziq ko'rsatkichi 70–90% kamaydi; asl nusxalar `renders-backup/` ostida);
+  - serverdagi `.env`, uning zaxiralari va buyurtmalar zaxirasi `chmod 600` (faqat root).
+
 ## Migratsiyalar
 
 | Revision | Nima qiladi | Qaytarish |
@@ -131,15 +149,15 @@ Uchalasi ham nullable ustun qo'shadi, mavjud ma'lumotga tegmaydi. Lokal bazada y
 
 ## Ochiq masalalar
 
-1. **Yiqilayotgan test:** `src/components/studio/ShopInquiryDialog.test.tsx` ("shows the server's message when the daily limit is reached"). Commit `1d1f87d6`dan beri bor, bu ishlarga aloqasi yo'q.
+1. ~~Yiqilayotgan test~~ — tuzatildi (yuqorida).
 2. **Haqiqiy to'lov yo'q:** "Karta" faqat tanlov sifatida saqlanadi.
-3. **Xabarnoma yo'q:** sotuvchiga yangi buyurtma haqida SMS yoki Telegram bormaydi (ro'yxat 30 soniyada o'zi yangilanadi).
-4. **Admin tomoni:** adminning buyurtmalarni ko'rish yoki holatini o'zgartirish ekrani yo'q. Do'konsiz (`store_id` bo'sh) katalog mahsulotlarining buyurtmasini hech bir sotuvchi ko'rmaydi.
+3. **SMS/Telegram xabarnoma yo'q:** sotuvchi sahifada "Yangi" belgisini va yorliqdagi sonni ko'radi, lekin telefoniga xabar bormaydi.
+4. ~~Admin tomoni~~ — qilindi (yuqorida). Do'konsiz mahsulot buyurtmasini faqat administrator boshqaradi.
 5. **Sotuvchi oqimi productionda sinalmagan:** buning uchun haqiqiy sotuvchi hisobi va admin tasdiqlagan do'kon kerak.
-6. **OpenAI kaliti** chatda ko'rsatilgan: almashtirish tavsiya qilinadi. Serverdagi `.env` va uning zaxirasiga `chmod 600` berish hali qilinmagan.
-7. **Eski 360 renderlar** (seam tuzatishidan oldingi) qayta ishlanmagan.
-8. **Hali yangilanmagan oynalar:** model qo'shish/tahrirlash va do'kon dialoglari (sotuvchi va admin) oq ko'rinishda qoldi. Admin panellari va 3D studio ataylab tegilmagan.
-9. **Tekshirilmagan holatlar:** yangi sahifalarning ko'pi tun rejimida va kompyuter o'lchamida ko'rilgan; telefon o'lchami va kunduz rejimi hamma sahifada alohida tekshirilmagan.
+6. **OpenAI kaliti** chatda ko'rsatilgan: almashtirish tavsiya qilinadi (hali qilinmagan). Serverdagi `.env` va zaxiralariga `chmod 600` berildi.
+7. ~~Eski 360 renderlar~~ — qayta ishlandi. Ularning 27 tasida qoldiq farq 3–9 daraja (asl 4–44 dan): qayta ishga tushirish ularni yana o'zgartiradi, shuning uchun bir marta ishlatildi.
+8. **Hali yangilanmagan oynalar:** admin dialoglari (model, do'kon, oboy qo'shish/tahrirlash) oq ko'rinishda qoldi (sotuvchining dialoglari yangilandi). Admin panellari va 3D studio ataylab tegilmagan.
+9. **Tekshirilmagan holatlar:** kunduz rejimi va telefon o'lchami Seller, Do'kon, Profil, Ustalar, Wizard va Login uchun ko'rilgan; Smeta, Share va Loyihalar sahifalari alohida ko'rilmagan.
 
 ## Ishlash muhiti bo'yicha eslatma
 

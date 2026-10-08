@@ -8,6 +8,8 @@ interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>
   helperText?: string
   error?: string
   selectSize?: 'sm' | 'md' | 'lg'
+  /** Follow the app's day/night theme (fields on a themed surface). */
+  themed?: boolean
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -24,6 +26,8 @@ const baseSelect =
   'disabled:bg-neutral-100 ' +
   'disabled:text-neutral-500 disabled:cursor-not-allowed'
 
+const themedSelect = 'border-line bg-card-soft text-ink focus:ring-[#5B84F5]/70'
+
 const selectSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-8 px-2.5 py-1.5 text-sm rounded',
   md: 'h-10 px-3 py-2 text-sm rounded-md',
@@ -37,18 +41,19 @@ const baseErrorText = 'text-xs text-red-600 mt-1'
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  function Select({ label, helperText, error, selectSize = 'md', className, children, id: idProp, ...rest }, ref) {
+  function Select({ label, helperText, error, selectSize = 'md', themed = false, className, children, id: idProp, ...rest }, ref) {
     // Point the label at its field (see Input).
     const autoId = React.useId()
     const id = idProp ?? autoId
     return (
       <div className="w-full">
-        {label && <label htmlFor={id} className={baseLabel}>{label}</label>}
+        {label && <label htmlFor={id} className={cn(baseLabel, themed && 'text-ink')}>{label}</label>}
         <select
           ref={ref}
           id={id}
           className={cn(
             baseSelect,
+            themed && themedSelect,
             selectSizes[selectSize],
             error && 'border-red-500 focus:ring-red-500 focus:ring-offset-0',
             className,

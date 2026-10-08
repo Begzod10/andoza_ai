@@ -38,6 +38,7 @@ export interface BuiltFromPhoto {
 export function PhotoToModelField({
   onBuilt,
   onBusyChange,
+  themed = false,
   onError,
   title = "Faylingiz yo'qmi? Rasmdan yarating",
 }: {
@@ -48,6 +49,8 @@ export function PhotoToModelField({
   onError: (message: string | null) => void;
   /** The heading; the sellers' dialog makes the photo the main way in. */
   title?: string;
+  /** Follow the app's day/night theme (inside a themed dialog). */
+  themed?: boolean;
 }) {
   const [building, setBuilding] = useState(false);
   const [mode, setMode] = useState<"one" | "many">("one");
@@ -100,9 +103,9 @@ export function PhotoToModelField({
   const canBuildMany = !!slots.front && chosen >= 2;
 
   return (
-    <div className="rounded-xl border border-dashed border-neutral-300 p-3 space-y-2">
-      <label className="block text-sm font-medium text-neutral-900">{title}</label>
-      <div role="radiogroup" aria-label="Rasmlar soni" className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+    <div className={`rounded-xl border border-dashed p-3 space-y-2 ${themed ? "border-line" : "border-neutral-300"}`}>
+      <label className={`block text-sm font-medium ${themed ? "text-ink" : "text-neutral-900"}`}>{title}</label>
+      <div role="radiogroup" aria-label="Rasmlar soni" className={`grid grid-cols-2 gap-1 rounded-xl p-1 ${themed ? "bg-card-soft" : "bg-neutral-100"}`}>
         {([["one", "1 ta rasm"], ["many", "Bir nechta rasm"]] as const).map(([key, label]) => (
           <button
             key={key}
@@ -112,7 +115,7 @@ export function PhotoToModelField({
             disabled={building}
             onClick={() => setMode(key)}
             className={`min-h-[34px] rounded-lg text-xs font-semibold transition disabled:opacity-60 ${
-              mode === key ? "bg-white text-brand shadow-sm" : "text-neutral-500"
+              mode === key ? (themed ? "bg-card text-ink shadow-sm" : "bg-white text-brand shadow-sm") : themed ? "text-ink-muted" : "text-neutral-500"
             }`}
           >
             {label}
@@ -122,7 +125,7 @@ export function PhotoToModelField({
 
       {mode === "one" ? (
         <>
-          <p className="text-xs text-neutral-500">
+          <p className={`text-xs ${themed ? "text-ink-muted" : "text-neutral-500"}`}>
             Mebelning aniq rasmini yuklang (toza fon yaxshi) — yon va orqa tomonlari taxminan chiziladi. Taxminan 1–2 daqiqa.
           </p>
           <input
@@ -140,13 +143,13 @@ export function PhotoToModelField({
         </>
       ) : (
         <>
-          <p className="text-xs text-neutral-500">
+          <p className={`text-xs ${themed ? "text-ink-muted" : "text-neutral-500"}`}>
             Bitta mebelning turli tomondan rasmlari (bir xil yorug'lik, toza fon). Old tomon majburiy, yana kamida bittasi kerak —
             rasm qancha ko'p bo'lsa, detallar shuncha aniq chiqadi.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {VIEW_SLOTS.map(({ key, label }) => (
-              <label key={key} className="block text-xs text-neutral-700">
+              <label key={key} className={`block text-xs ${themed ? "text-ink" : "text-neutral-700"}`}>
                 <span className="block mb-0.5 font-medium">{label}</span>
                 <input
                   type="file"

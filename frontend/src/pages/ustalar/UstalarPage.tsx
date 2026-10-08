@@ -176,7 +176,7 @@ export default function UstalarPage() {
             <h1 className="text-[28px] font-extrabold leading-tight text-ink">{uz.ustalar.sarlavha}</h1>
             <p className="mt-1 text-sm text-ink-muted">Tasdiqlangan ustalarni toping va ular bilan bog'laning.</p>
           </div>
-          <div role="group" aria-label="Saralash" className="inline-flex flex-wrap gap-1 self-start rounded-full bg-card-soft p-1">
+          <div role="group" aria-label="Saralash" className="flex flex-wrap gap-2 self-start">
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={String(opt.key)}
@@ -187,7 +187,7 @@ export default function UstalarPage() {
                   "rounded-full px-4 py-2 text-sm font-semibold transition-all",
                   sort === opt.key
                     ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow"
-                    : "text-ink-muted hover:text-ink"
+                    : "bg-card-soft text-ink-muted hover:text-ink"
                 )}
               >
                 {opt.label}

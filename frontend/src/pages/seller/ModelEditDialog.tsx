@@ -31,7 +31,7 @@ export function ModelEditDialog({
   });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()} title="Modelni tahrirlash">
+    <Dialog open onOpenChange={(open) => !open && onClose()} title="Modelni tahrirlash" themed>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -40,11 +40,11 @@ export function ModelEditDialog({
         }}
         className="space-y-4"
       >
-        <Input label="Nomi" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input label="Narxi (so'm)" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input themed label="Narxi (so'm)" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={onClose}>Bekor qilish</Button>
+          <Button type="button" variant="soft" onClick={onClose}>Bekor qilish</Button>
           <Button type="submit" disabled={!name.trim()} loading={save.isPending}>Saqlash</Button>
         </div>
       </form>
