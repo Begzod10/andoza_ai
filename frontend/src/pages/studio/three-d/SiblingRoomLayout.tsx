@@ -179,6 +179,41 @@ export function ActiveRoomFocusButton({ H, focused, onClick }: {
   );
 }
 
+/**
+ * How far the whole flat reaches around the active room, metres.
+ *
+ * The zoom-out limit was fitted to the ACTIVE room — correct when it was the
+ * only thing on screen, and wrong the moment the neighbours started being
+ * drawn: the camera stopped the instant one room filled the frame, so the
+ * rooms next door were rendered somewhere the user could not pull back far
+ * enough to see. "Where is my old room" was partly that.
+ *
+ * Returns half-extents about the active room's own centre, so the caller can
+ * ask for a distance that fits all of it.
+ */
+export function flatExtent(
+  rooms: Room[] | undefined,
+  activeId: string,
+  activeW: number,
+  activeD: number,
+  activePos: { x: number; z: number } | null,
+): { W: number; D: number } {
+  if (!rooms || rooms.length < 2) return { W: activeW, D: activeD };
+  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+  let reachX = activeW / 2;
+  let reachZ = activeD / 2;
+  for (const r of rooms) {
+    const { w, d } = roomFootprint(r, activeId, activeW, activeD);
+    const p = abs.get(r.id) ?? { x: 0, z: 0 };
+    reachX = Math.max(reachX, Math.abs(p.x - anchor.x) + w / 2);
+    reachZ = Math.max(reachZ, Math.abs(p.z - anchor.z) + d / 2);
+  }
+  // Doubled because the caller wants a full span about the centre, the same
+  // shape as the room's own W/D.
+  return { W: reachX * 2, D: reachZ * 2 };
+}
+
 export function SiblingRooms({
   rooms,
   activeId,

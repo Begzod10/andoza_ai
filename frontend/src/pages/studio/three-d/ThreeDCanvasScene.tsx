@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -24,7 +24,7 @@ import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
-import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton } from "./SiblingRoomLayout";
+import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton, flatExtent } from "./SiblingRoomLayout";
 import { RealismEffects, SceneLighting, MoonriseSky, SUN_INTENSITY } from "./SceneEnvironment";
 import { MOONRISE_FOG_COLOR, STUDIO_TONE_MAPPING_EXPOSURE } from "@/lib/moonriseSky";
 import { skyPinnedSun } from "@/lib/skyPinnedSun";
@@ -179,6 +179,12 @@ export function ThreeDCanvasScene({
   /** Which room the user is looking at alone, or null for the whole flat.
    *  Local to the canvas: nothing outside it cares which room is focused. */
   const [focusedRoomId, setFocusedRoomId] = useState<string | null>(null);
+  /** How far the flat reaches around this room — what the zoom-out limit has
+   *  to clear now that the neighbours are on screen. */
+  const flatSpan = useMemo(
+    () => flatExtent(aptRooms, room.id, W, D, activeLayoutPos),
+    [aptRooms, room.id, W, D, activeLayoutPos],
+  );
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -489,7 +495,16 @@ export function ThreeDCanvasScene({
         <RealismEffects enabled={useComposer} />
 
         {/* Holds the zoom-out limit at "the whole room is visible". */}
-        <OrbitZoomLimit controlsRef={controlsRef} W={W} D={D} H={H} />
+        {/* Fitted to the whole flat, not just this room — with the
+            neighbours drawn, a limit that stopped at one room's edge made
+            them unreachable. While one room is focused the others are hidden,
+            so it goes back to fitting that room alone. */}
+        <OrbitZoomLimit
+          controlsRef={controlsRef}
+          W={focusedRoomId ? W : flatSpan.W}
+          D={focusedRoomId ? D : flatSpan.D}
+          H={H}
+        />
         <OrbitControls
           ref={controlsRef}
           makeDefault
