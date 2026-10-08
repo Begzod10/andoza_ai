@@ -16,7 +16,7 @@ from app.config import settings
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, currency, admin_catalog, room_share, render, photo_model, seller, admin_moderation, usta_profile, account,
+    orders, admin_orders, currency, admin_catalog, room_share, render, photo_model, seller, admin_moderation, usta_profile, usta_portfolio, account,
     shop_inquiries,
 )
 
@@ -78,6 +78,8 @@ def create_app() -> FastAPI:
     app.include_router(seller.router, prefix="/api/v1", tags=["seller"])
     app.include_router(admin_moderation.router, prefix="/api/v1", tags=["admin-moderation"])
     app.include_router(usta_profile.router, prefix="/api/v1", tags=["usta"])
+    app.include_router(usta_portfolio.router, prefix="/api/v1", tags=["usta"])
+    app.include_router(usta_portfolio.public_router, prefix="/api/v1", tags=["ustalar"])
     app.include_router(account.router, prefix="/api/v1", tags=["account"])
     app.include_router(shop_inquiries.router, prefix="/api/v1", tags=["shops"])
     app.include_router(shop_inquiries.seller_router, prefix="/api/v1", tags=["seller"])
@@ -89,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(furniture_placements.router, prefix="/api/v1", tags=["furniture"])
     app.include_router(room_state.router, prefix="/api/v1", tags=["room-state"])
     app.include_router(orders.router, prefix="/api/v1", tags=["orders"])
+    app.include_router(admin_orders.router, prefix="/api/v1", tags=["admin-orders"])
     app.include_router(currency.router, prefix="/api/v1", tags=["currency"])
     app.include_router(admin_catalog.router, prefix="/api/v1", tags=["admin-catalog"])
     app.include_router(room_share.router, prefix="/api/v1", tags=["room-share"])

@@ -138,6 +138,7 @@ def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=f.footprint_w,
         footprint_d=f.footprint_d,
+        height_cm=f.height_cm,
     )
 
 

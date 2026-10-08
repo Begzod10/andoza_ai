@@ -74,33 +74,33 @@ export function CatalogOverview({
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricCard
+        <MetricCard themed
           label="Jami do'konlar"
           value={stores.length}
           decimals={0}
           icon={<StoreIcon size={18} />}
           iconBgClassName="bg-primary-tint text-primary"
         />
-        <MetricCard
+        <MetricCard themed
           label="Faol do'konlar"
           value={activeStoreCount}
           decimals={0}
           icon={<StoreIcon size={18} />}
           iconBgClassName="bg-success-tint text-success-dark"
         />
-        <MetricCard
+        <MetricCard themed
           label="Jami 3D modellar"
           value={models.length}
           decimals={0}
           icon={<Package size={18} />}
           iconBgClassName="bg-warning-tint text-warning-dark"
         />
-        <MetricCard
+        <MetricCard themed
           label="Jami oboylar"
           value={wallpapers.length}
           decimals={0}
           icon={<ImageIcon size={18} />}
-          iconBgClassName="bg-indigo-100 text-indigo-600"
+          iconBgClassName="bg-indigo-500/15 text-indigo-400"
         />
       </div>
 
@@ -114,7 +114,7 @@ export function CatalogOverview({
           </div>
 
           {stores.length === 0 ? (
-            <Card className="text-center text-sm text-neutral-400 py-8">Hali do'kon yo'q</Card>
+            <Card className="text-center text-sm text-ink-muted py-8">Hali do'kon yo'q</Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {stores.map((store) => (
@@ -140,11 +140,11 @@ export function CatalogOverview({
           {unassignedModels.length > 0 && <ModelFilterBar filters={filters} onChange={setFilters} />}
 
           {unassignedModels.length === 0 ? (
-            <Card size="sm" className="text-center text-sm text-neutral-400 py-8">
+            <Card size="sm" className="text-center text-sm text-ink-muted py-8">
               Barcha modellar biror do'konga biriktirilgan
             </Card>
           ) : filteredUnassignedModels.length === 0 ? (
-            <Card size="sm" className="text-center text-sm text-neutral-400 py-8">
+            <Card size="sm" className="text-center text-sm text-ink-muted py-8">
               Filtrga mos model topilmadi
             </Card>
           ) : (

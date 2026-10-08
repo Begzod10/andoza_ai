@@ -196,7 +196,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
   return (
     <aside
       aria-label="Asosiy navigatsiya"
-      className="hidden lg:flex flex-col items-center fixed left-3 top-3 bottom-3 w-[68px] rounded-3xl bg-white border border-neutral-200 shadow-subtle z-30 py-4"
+      className="hidden lg:flex flex-col items-center fixed left-3 top-3 bottom-3 w-[68px] rounded-3xl bg-card border border-line shadow-panel z-30 py-4"
     >
       <img src="/icon.svg" alt="andoza.ai" className="w-10 h-10 flex-shrink-0" />
 
@@ -210,8 +210,8 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
             className={({ isActive }) =>
               `${railItem} ${
                 isActive
-                  ? 'bg-brand text-white shadow-btn'
-                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                  ? 'bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow'
+                  : 'text-ink-muted hover:bg-card-soft hover:text-ink'
               }`
             }
           >
@@ -226,7 +226,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
           onClick={onNew}
           title="Yangi loyiha"
           aria-label="Yangi loyiha"
-          className={`${railItem} bg-brand text-white shadow-btn hover:bg-blue-900`}
+          className={`${railItem} bg-gradient-to-br from-[#FB923C] to-[#EA580C] text-white shadow-glow-orange hover:brightness-105`}
         >
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 2v12M2 8h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -236,7 +236,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
           onClick={handleLogout}
           title="Chiqish"
           aria-label="Chiqish"
-          className={`${railItem} text-neutral-500 hover:bg-red-50 hover:text-red-600`}
+          className={`${railItem} text-ink-muted hover:bg-red-500/10 hover:text-red-500`}
         >
           <IconLogout />
         </button>
@@ -251,7 +251,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
   return (
     <nav
       aria-label="Asosiy navigatsiya"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white h-[94px] border-t border-neutral-200 shadow-nav"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card h-[94px] border-t border-line shadow-nav"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
@@ -261,14 +261,14 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/projects"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand' : 'text-neutral-500'
+              isActive ? 'text-brand-light' : 'text-ink-muted'
             }`
           }
         >
           {({ isActive }) => (
             <>
               <IconHome filled={isActive} />
-              <span className={`text-xs ${isActive ? 'font-bold text-brand' : 'font-semibold text-neutral-500'}`}>
+              <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
                 Uy
               </span>
             </>
@@ -280,7 +280,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           <button
             onClick={onFab}
             aria-label="Yangi loyiha qo'shish"
-            className="w-16 h-16 rounded-full flex items-center justify-center border-4 border-white bg-gradient-to-br from-blue-600 to-brand shadow-fab"
+            className="w-16 h-16 rounded-full flex items-center justify-center border-4 border-card bg-gradient-to-br from-[#FB923C] to-[#EA580C] shadow-glow-orange"
           >
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
               <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
@@ -292,14 +292,14 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           to="/dokon"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand' : 'text-neutral-500'
+              isActive ? 'text-brand-light' : 'text-ink-muted'
             }`
           }
         >
           {({ isActive }) => (
             <>
               <IconShop filled={isActive} />
-              <span className={`text-xs ${isActive ? 'font-bold text-brand' : 'font-semibold text-neutral-500'}`}>
+              <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
                 Do'kon
               </span>
             </>

@@ -18,6 +18,7 @@ import type { PlacedLight, PlacedFurniture } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
 import { PlanFurnitureLayer } from './PlanFurniture'
 import type { Hull } from '@/lib/modelFootprint'
+import { LightSymbol } from '@/lib/catalogIcons'
 import { lightType, kelvinToHex, type LightType, type LightTypeId } from '@/lib/lightCatalog'
 import {
   isAbcdRoom, nearestEdge, offsetPolygon, planPolygon, pointAtWallPosition, pointInPolygon,
@@ -390,7 +391,7 @@ export function ChiroqPlanView({
       <div className="shrink-0 px-3 py-2 border-t border-gray-200 bg-white/70">
         {armedType ? (
           <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
-            <span>{lightType(armedType).emoji}</span>
+            <LightSymbol type={armedType} size={14} />
             {lightType(armedType).name} — rejada joyni bosing
           </p>
         ) : (
@@ -458,9 +459,16 @@ function LightGlyph({ light, selected, onPointerDown, onKeyDown }: {
       {selected && (
         <circle cx={light.xMm} cy={light.zMm} r={r + 120} fill="none" stroke={BLUE} strokeWidth={26} strokeDasharray="70 50" />
       )}
-      <text x={light.xMm} y={light.zMm + 70} fontSize={190} textAnchor="middle" style={{ pointerEvents: 'none' }}>
-        {t.emoji}
-      </text>
+      <LightSymbol
+        type={t.id}
+        x={light.xMm - 115}
+        y={light.zMm - 115}
+        width={230}
+        height={230}
+        stroke="#334155"
+        strokeWidth={1.8}
+        style={{ pointerEvents: 'none' }}
+      />
     </g>
   )
 }
@@ -544,7 +552,7 @@ function CoordinateBar({ light, x0, z0, W, D, onMove, onPatch }: {
   return (
     <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex flex-wrap items-center gap-2">
       <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
-        <span>{t.emoji}</span>{t.name}
+        <LightSymbol type={t.id} size={14} />{t.name}
       </span>
       <NumField label="X" value={light.xMm} min={x0} max={x0 + W} onCommit={(v) => onMove(v, light.zMm)} />
       <NumField label="Y" value={light.zMm} min={z0} max={z0 + D} onCommit={(v) => onMove(light.xMm, v)} />

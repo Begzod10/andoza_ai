@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UstaOut(BaseModel):
@@ -28,7 +28,7 @@ class UstaOut(BaseModel):
 class LeadCreate(BaseModel):
     usta_id: UUID
     room_id: UUID | None = None
-    message: str | None = None
+    message: str | None = Field(default=None, max_length=500)
 
 
 class LeadOut(BaseModel):
@@ -37,6 +37,7 @@ class LeadOut(BaseModel):
     user_id: UUID
     room_id: UUID | None
     smeta_snapshot: dict | None
+    message: str | None = None
     status: str
     created_at: datetime
 

@@ -26,6 +26,7 @@ from typing import Any
 import structlog
 
 from app.config import settings
+from app.services.ai_design_text import reconcile_summary
 from app.services.llm import call_llm
 from app.services.smeta import LIGHT_TYPE_NAMES
 
@@ -109,6 +110,20 @@ def extract_json(text: str) -> dict:
     return data
 
 
+SUMMARY_MAX = 600
+
+
+def _clip_summary(text: str) -> str:
+    """The summary, cut at a full sentence if it is too long. A text with no sentence end to cut at is
+    dropped (the plan's own description is written instead): half a sentence helps nobody."""
+    text = text.strip()
+    if len(text) <= SUMMARY_MAX:
+        return text
+    cut = text[:SUMMARY_MAX]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "), cut.rfind(".") if cut.endswith(".") else -1)
+    return cut[: end + 1].strip() if end >= SUMMARY_MAX // 3 else ""
+
+
 def validate_plan(data: dict, furniture_by_label: dict[str, dict], wall_ids: list[str]) -> DesignPlan:
     """Keep only what the studio can apply; note what was dropped. Never raises on a bad
     field, only when nothing at all is left. *wall_ids* are the room's own wall ids."""
@@ -116,7 +131,7 @@ def validate_plan(data: dict, furniture_by_label: dict[str, dict], wall_ids: lis
     first_wall_zone = f"wall_{wall_ids[0]}" if wall_ids else "center"
     plan = DesignPlan(
         title=str(data.get("title") or "")[:80].strip(),
-        summary=str(data.get("summary") or "")[:600].strip(),
+        summary=_clip_summary(str(data.get("summary") or "")),
     )
     warn = plan.warnings.append
 
@@ -230,19 +245,25 @@ Qoidalar:
 - Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_<devor id>.
 - Mebel: xona turi va o'lchamiga mos 3-6 ta narsa tanlang (xona kichik bo'lsa kamroq). Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
   Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) eng uzun devor oldiga qo'ying. Har bir mebelga BOSHQA joy bering: ikki mebelni bir joyga qo'ymang.
-- title: 2-4 so'zli nom. summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring.
+- title: 2-4 so'zli nom.
+- summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring. Uni ENG OXIRIDA, hamma narsani tanlab bo'lgach yozing.
+  summary FAQAT siz yuqorida tanlagan narsalarni tasvirlasin: devor va pol rangini/materialini, tanlangan chiroq va mebel nomlarini.
+  Tanlamagan narsangizni (ro'yxatdagi boshqa mebel, boshqa rang, boshqa pol) tilga olmang va va'da bermang.
+  Chiroq va mebelning RANGINI tanlab bo'lmaydi (faqat turini), shuning uchun ularga rang bermang ("oltin chiroq", "qora divan" demang).
+  Agar so'rovdagi biror narsani bajarib bo'lmasa (masalan, "oltin detallar"), buni yashirmang: nima qilganingizni ayting
+  (masalan, "oltin rang faqat devor aksentida aks etdi") yoki shu narsa haqida jim turing.
 
 JSON shakli:
 {
   "title": "...",
-  "summary": "...",
   "walls": {
     "main": {"type": "paint", "color": "#RRGGBB"}  yoki  {"type": "oboy", "pattern": "<oboy naqshi>", "base_color": "#RRGGBB", "accent_color": "#RRGGBB"},
     "accent": {"wall": "<devor id>", "color": "#RRGGBB"}   (ixtiyoriy, bo'lmasa null; devor id "Devorlar" ro'yxatidan)
   },
   "floor": {"type": "<pol turi>", "pattern": "<yog'och pol naqshi yoki null>", "tint": "#RRGGBB yoki null"},
   "lights": [{"type": "<chiroq turi>", "zone": "<zona>"}],
-  "furniture": [{"id": "F1", "zone": "<zona>"}]
+  "furniture": [{"id": "F1", "zone": "<zona>"}],
+  "summary": "..."
 }
 Pol naqshi va tint faqat parquet va laminate uchun; plitka va beton uchun null."""
 
@@ -292,4 +313,10 @@ async def design_room(
     )
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     log.info("ai_design.answered", chars=len(text))
-    return validate_plan(extract_json(text), by_label, [w["id"] for w in room["walls"]])
+    plan = validate_plan(extract_json(text), by_label, [w["id"] for w in room["walls"]])
+    # The summary must say only what the plan holds: the model promises colours it cannot apply and
+    # pieces that validation dropped. Where it does, the plan's own description is shown instead.
+    wrong = reconcile_summary(plan, [item["name"] for item in by_label.values()])
+    if wrong:
+        log.info("ai_design.summary_replaced", problems=wrong)
+    return plan

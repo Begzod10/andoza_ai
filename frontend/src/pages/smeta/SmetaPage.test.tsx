@@ -353,10 +353,10 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
   it('offers the file and the save as the two main actions, and the rest as quiet ones', async () => {
     renderSmetaPage()
     const pdf = await screen.findByText('PDF yuklab olish')
-    expect(pdf.className).toContain('bg-primary')
-    expect(screen.getByText('Saqlash').className).toContain('border-brand')
+    expect(pdf.className).toContain('bg-gradient-to-br') // the filled, glowing main action
+    expect(screen.getByText('Saqlash').className).toContain('border-brand-light')
     for (const label of ['Qayta hisoblash', 'Usta chaqirish']) {
-      expect(screen.getByText(label).className).toContain('border-neutral-300')
+      expect(screen.getByText(label).className).toContain('border-line')
     }
   })
 })

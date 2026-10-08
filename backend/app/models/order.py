@@ -19,6 +19,7 @@ OrderStatus = Enum(
     "gathering",
     "on_the_way",
     "delivered",
+    "cancelled",
     name="order_status",
 )
 
@@ -41,12 +42,28 @@ class Order(Base):
         index=True,
     )
     dealer_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # The shop that fulfils it, worked out by the server from the ordered items
+    # (never taken from the client). Null for items that belong to no shop.
+    store_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("stores.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     total_uzs: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[str] = mapped_column(
         OrderStatus,
         nullable=False,
         default="accepted",
     )
+    # Where and how the buyer wants it — optional so orders placed without a
+    # checkout form (older clients, API users) stay valid.
+    # Set when the order is cancelled: by whom ('buyer' | 'seller' | 'admin') and why.
+    cancelled_by: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -93,6 +110,11 @@ class OrderLine(Base):
         UUID(as_uuid=True),
         nullable=True,
         comment="Soft reference to a material; no hard FK so mock/products don't break inserts",
+    )
+    furniture_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        comment="Soft reference to a catalog furniture piece, like material_id",
     )
     product_name: Mapped[str] = mapped_column(String(200), nullable=False)
     unit: Mapped[str] = mapped_column(String(50), nullable=False)

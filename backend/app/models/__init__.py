@@ -15,6 +15,7 @@ from app.models.norm import Norm  # noqa: F401
 from app.models.furniture import Furniture  # noqa: F401
 from app.models.usta import Usta  # noqa: F401
 from app.models.lead import Lead  # noqa: F401
+from app.models.usta_portfolio import UstaPortfolioItem  # noqa: F401
 from app.models.shop_inquiry import ShopInquiry  # noqa: F401
 from app.models.estimate import Estimate  # noqa: F401
 from app.models.draft_room import DraftRoom  # noqa: F401
@@ -40,6 +41,7 @@ __all__ = [
     "Furniture",
     "Usta",
     "Lead",
+    "UstaPortfolioItem",
     "ShopInquiry",
     "Estimate",
     "DraftRoom",

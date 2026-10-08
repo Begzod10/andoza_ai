@@ -130,6 +130,7 @@ def _lead_out(lead: Lead, client: User | None, room: Room | None) -> UstaLeadOut
         client_name=client.name if client else None,
         client_phone=client.phone if client else None,
         room_name=room.name if room else None,
+        message=lead.message,
         total_uzs=snap.get("total_uzs"),
         lines_count=len(snap.get("lines") or []),
     )

@@ -31,6 +31,12 @@ USTA_CATEGORIES = {
     "oboy",
     "laminat",
     "brigada",
+    "plitkachi",
+    "shtukatur",
+    "gipsokartonchi",
+    "eshik_oyna",
+    "isitish_konditsioner",
+    "demontaj",
 }
 
 
@@ -82,6 +88,7 @@ class FurnitureUpdate(BaseModel):
     price_uzs: int | None = Field(default=None, ge=0)
     footprint_w: float | None = Field(default=None, gt=0)
     footprint_d: float | None = Field(default=None, gt=0)
+    height_cm: float | None = Field(default=None, gt=0, le=1000)
     is_active: bool | None = None
 
 
@@ -98,6 +105,7 @@ class FurnitureAdminOut(BaseModel):
     thumbnail_url: str | None
     footprint_w: float | None
     footprint_d: float | None
+    height_cm: float | None = None
     is_active: bool
     created_at: datetime
 

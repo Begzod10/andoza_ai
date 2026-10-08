@@ -101,7 +101,6 @@ function EnterOverlay({ onEnter }: { onEnter: () => void }) {
       onClick={onEnter}
     >
       <div className="bg-white/10 border border-white/20 rounded-2xl px-10 py-8 text-center text-white max-w-xs">
-        <div className="text-4xl mb-3">🚶</div>
         <h2 className="text-xl font-semibold mb-1">Yurish rejimi</h2>
         <p className="text-sm opacity-70 mb-6">Xonani birinchi shaxs ko'rinishida aylanib chiqing</p>
         <div className="bg-white/15 rounded-xl px-5 py-3 text-sm space-y-1 mb-6 text-left">

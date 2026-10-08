@@ -7,9 +7,11 @@
  */
 import { useEffect } from "react";
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from "framer-motion";
+import { useThemeStore } from "@/store/themeStore";
 
 export default function RegisterBackground() {
   const reduce = useReducedMotion();
+  const night = useThemeStore((s) => s.theme) === "night";
   const px = useMotionValue(0);
   const py = useMotionValue(0);
   const sx = useSpring(px, { stiffness: 55, damping: 18, mass: 0.7 });
@@ -39,12 +41,13 @@ export default function RegisterBackground() {
           backgroundImage: "url('/register-bg.webp')",
         }}
       />
-      {/* soft scrim — brighten the centre so the neumorphic card stays legible */}
+      {/* soft scrim — keeps the card and brand legible: bright by day, deep indigo by night */}
       <div
         className="absolute inset-0"
         style={{
-          background:
-            "radial-gradient(70% 60% at 50% 50%, rgba(247,250,255,0.55) 0%, rgba(230,240,252,0.25) 45%, rgba(210,228,248,0.12) 100%)",
+          background: night
+            ? "radial-gradient(70% 60% at 50% 50%, rgba(29,26,46,0.72) 0%, rgba(29,26,46,0.82) 55%, rgba(29,26,46,0.92) 100%)"
+            : "radial-gradient(70% 60% at 50% 50%, rgba(247,250,255,0.55) 0%, rgba(230,240,252,0.25) 45%, rgba(210,228,248,0.12) 100%)",
         }}
       />
     </div>

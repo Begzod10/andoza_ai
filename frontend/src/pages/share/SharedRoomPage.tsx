@@ -16,6 +16,9 @@ import { RoomScene, SceneLighting, BrandedSky, PlacedLights } from "@/pages/stud
 // preview", as opposed to DraggableFurnitureModels which is edit-only.
 import { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
+import { Link2Off, Loader2 } from "lucide-react";
+import { IconBubble, Panel } from "@/components/ui/Panel";
+import { useThemeStore } from "@/store/themeStore";
 
 /**
  * localStorage key zustand's `persist` middleware autosaves the studio draft
@@ -49,14 +52,16 @@ function withDraftBackup(mutate: () => void): void {
   }
 }
 
-function CenteredMessage({ title, subtitle }: { title: string; subtitle?: string }) {
+function CenteredMessage({ title, subtitle, loading = false }: { title: string; subtitle?: string; loading?: boolean }) {
   return (
-    <div className="min-h-[100dvh] bg-paper flex flex-col items-center justify-center gap-2 p-6 text-center">
-      <h1 className="text-neutral-500 text-lg font-semibold">{title}</h1>
-      {/* text-neutral-400 (#9CA3AF) was 2.54:1 against this background — under
-          the 4.5:1 minimum, and this is the only message a visitor sees on a
-          broken/expired link. neutral-600 passes comfortably. */}
-      {subtitle && <p className="text-neutral-600 text-sm max-w-sm">{subtitle}</p>}
+    <div className="min-h-[100dvh] bg-paper flex items-center justify-center p-5">
+      <Panel className="flex w-full max-w-sm flex-col items-center gap-3 p-8 text-center">
+        <IconBubble tone={loading ? "blue" : "orange"} className="h-14 w-14">
+          {loading ? <Loader2 size={24} className="animate-spin" aria-hidden="true" /> : <Link2Off size={24} aria-hidden="true" />}
+        </IconBubble>
+        <h1 className="text-lg font-extrabold text-ink">{title}</h1>
+        {subtitle && <p className="text-sm text-ink-muted">{subtitle}</p>}
+      </Panel>
     </div>
   );
 }
@@ -64,6 +69,12 @@ function CenteredMessage({ title, subtitle }: { title: string; subtitle?: string
 export default function SharedRoomPage() {
   const { token } = useParams<{ token: string }>();
   const [hydrated, setHydrated] = useState(false);
+
+  // This page is outside AppShell, which is what normally applies the theme.
+  const appTheme = useThemeStore((st) => st.theme);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-app-theme", appTheme);
+  }, [appTheme]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["public-room", token],
@@ -138,7 +149,7 @@ export default function SharedRoomPage() {
   }
 
   if (isLoading || !hydrated) {
-    return <CenteredMessage title="Yuklanmoqda…" />;
+    return <CenteredMessage title="Yuklanmoqda…" loading />;
   }
 
   const W = room.length;
@@ -147,12 +158,16 @@ export default function SharedRoomPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
-      <header className="bg-white border-b border-neutral-100 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
-        <h1 className="text-[16px] font-extrabold text-gray-900 truncate min-w-0">{room.name}</h1>
-        <span className="text-[11px] text-muted font-semibold shrink-0">andoza.ai</span>
-      </header>
-
       <main className="flex-1 relative overflow-hidden">
+        {/* The scene runs edge to edge; the title and credit float over it. */}
+        <Panel className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-3 rounded-full px-5 py-2.5 backdrop-blur-xl sm:left-4 sm:right-4 sm:top-4">
+          <h1 className="min-w-0 truncate text-[16px] font-extrabold text-ink">{room.name}</h1>
+          <span className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-ink-muted">
+            <img src="/icon.svg" alt="" className="h-5 w-5 rounded-md" aria-hidden="true" />
+            andoza.ai
+          </span>
+        </Panel>
+
         <Canvas
           shadows="soft"
           camera={{ position: [W * 0.9, H * 1.1, D * 1.3], fov: 45, near: 0.1, far: 60 }}
@@ -200,11 +215,13 @@ export default function SharedRoomPage() {
             <MultiTouchPan />
           </Suspense>
         </Canvas>
-      </main>
 
-      <footer className="bg-white border-t border-neutral-100 px-4 py-2 text-center shrink-0">
-        <span className="text-[11px] text-neutral-600">andoza.ai orqali yaratilgan dizayn</span>
-      </footer>
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3 sm:bottom-4">
+          <span className="rounded-full border border-line bg-card/90 px-4 py-1.5 text-[11px] font-semibold text-ink-muted shadow-panel backdrop-blur-xl">
+            andoza.ai orqali yaratilgan dizayn
+          </span>
+        </div>
+      </main>
     </div>
   );
 }

@@ -397,7 +397,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={armReset}
               className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
             >
-              🔄 Dizaynni Bekor Qilish
+              Dizaynni bekor qilish
             </button>
           ) : (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">

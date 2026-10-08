@@ -17,6 +17,8 @@ const api = vi.hoisted(() => ({
   createPhotoModel: vi.fn(),
   waitForRender: vi.fn(),
   fetchPhotoModelGlb: vi.fn(),
+  listMyOrders: vi.fn(),
+  advanceMyOrder: vi.fn(),
 }))
 vi.mock('@/lib/api', () => ({
   ...Object.fromEntries(Object.entries(api).map(([k, v]) => [k, (...a: unknown[]) => v(...a)])),
@@ -25,7 +27,18 @@ vi.mock('@/lib/api', () => ({
   ADMIN_PLACEMENTS: ['pol', 'devor', 'shift'],
 }))
 // The 3D preview needs WebGL; the page logic does not.
-vi.mock('@/pages/dokon/admin/ModelPreview3D', () => ({ ModelPreview3D: () => null }))
+// A stand-in that "measures" any file it is given, as the real one does once the model has loaded.
+vi.mock('@/pages/dokon/admin/ModelPreview3D', async () => {
+  const { useEffect } = await import('react')
+  return {
+    ModelPreview3D: ({ file, onMeasured }: { file: File | null; onMeasured?: (s: unknown) => void }) => {
+      useEffect(() => {
+        onMeasured?.(file ? { width_cm: 210, depth_cm: 90, height_cm: 85 } : null)
+      }, [file, onMeasured])
+      return null
+    },
+  }
+})
 
 const store = (over: Record<string, unknown> = {}) => ({
   id: 's1', name: 'Mebel Plus', district: 'Chilonzor', phone: null, telegram: null, logo_color: null,
@@ -44,7 +57,10 @@ function renderPage() {
   )
 }
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()))
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset())
+  api.listMyOrders.mockResolvedValue([])
+})
 
 describe('SellerPage', () => {
   it('offers the application form to someone with no shop, and sends it', async () => {
@@ -171,6 +187,20 @@ describe('building the 3D model from a photo (inside the upload dialog)', () => 
     const sent = api.uploadMyModel.mock.calls[0][0]
     expect(sent.file.name).toBe('sofa.glb')
     expect(sent.thumbnail.name).toBe('sofa.jpg')
+  })
+
+  it("stores the model's measured size with it, so the layout knows what is tall", async () => {
+    api.createPhotoModel.mockResolvedValue({ job_id: 'j1' })
+    api.waitForRender.mockResolvedValue({ url: 'u', key: 'photo-models/u/m.glb', prompt: null })
+    api.fetchPhotoModelGlb.mockResolvedValue(new Blob(['glb']))
+    api.uploadMyModel.mockResolvedValue(model({ status: 'pending', is_active: false }))
+    const input = await openDialog()
+    fireEvent.change(input, { target: { files: [photo()] } })
+    await waitFor(() => expect(screen.getByText('sofa.glb')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yuklash' }))
+    await waitFor(() => expect(api.uploadMyModel).toHaveBeenCalled())
+    expect(api.uploadMyModel.mock.calls[0][0]).toMatchObject({ footprint_w: 210, footprint_d: 90, height_cm: 85 })
   })
 
   it('keeps the name the seller already typed', async () => {

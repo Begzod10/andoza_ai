@@ -13,7 +13,11 @@ function renderDialog(roomId: string | null = ROOM) {
   )
 }
 
-beforeEach(() => createShopInquiry.mockReset())
+// Braces matter: an arrow that returns the mock makes vitest call it as the test's cleanup, which
+// re-runs a rejecting mock outside any catch and fails the test with the rejection.
+beforeEach(() => {
+  createShopInquiry.mockReset()
+})
 
 describe('ShopInquiryDialog', () => {
   it('sends the model, the room and the message to the shop, then confirms', async () => {

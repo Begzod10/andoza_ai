@@ -3,6 +3,7 @@ import type { AdminStore } from "@/lib/api";
 import { CatalogOverview } from "./admin/CatalogOverview";
 import { StoreProfile } from "./admin/StoreProfile";
 import { ModerationQueue } from "./admin/ModerationQueue";
+import { AdminOrders } from "./admin/AdminOrders";
 
 /**
  * Admin-only surface on the Do'kon page: create shops, and upload the 3D
@@ -21,12 +22,14 @@ export default function AdminCatalogPanel() {
       <h1 className="text-lg font-semibold text-on-app">Do'kon boshqaruvi</h1>
 
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm px-3 py-2">
           {error}
         </div>
       )}
 
       {!selectedStore && <ModerationQueue onError={setError} />}
+
+      {!selectedStore && <AdminOrders onError={setError} />}
 
       {selectedStore ? (
         <StoreProfile

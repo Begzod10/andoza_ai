@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { AdminFurnitureCategory, AdminPlacement, AdminRoomType } from "./admin";
+import type { OrderLine, OrderStatus } from "./orders";
 
 /** Where a shop or a model stands with the admins. Anything but "approved" is
  *  hidden from the public catalog. */
@@ -30,6 +31,8 @@ export interface SellerModel {
   thumbnail_url: string | null;
   footprint_w: number | null;
   footprint_d: number | null;
+  /** Centimetres; measured from the model on upload, null for older models. */
+  height_cm?: number | null;
   is_active: boolean;
   status: ModerationStatus;
   moderation_note: string | null;
@@ -80,6 +83,10 @@ export interface UploadModelInput {
   room_type?: AdminRoomType | null;
   placement?: AdminPlacement;
   price_uzs?: number | null;
+  /** The model's real size in centimetres, measured from the file. */
+  footprint_w?: number | null;
+  footprint_d?: number | null;
+  height_cm?: number | null;
 }
 
 /** Upload a .glb into the caller's shop. It waits for an admin before it shows. */
@@ -92,6 +99,9 @@ export async function uploadMyModel(input: UploadModelInput): Promise<SellerMode
   if (input.room_type) form.append("room_type", input.room_type);
   if (input.placement) form.append("placement", input.placement);
   if (input.price_uzs != null) form.append("price_uzs", String(input.price_uzs));
+  if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
+  if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
+  if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
   return apiClient<SellerModel>("/seller/furniture", { method: "POST", body: form });
 }
 
@@ -154,5 +164,40 @@ export async function rejectPending(target: ModerationTarget, id: string, note: 
   return apiClient<void>(`/admin/moderation/${target}/${id}/reject`, {
     method: "POST",
     body: JSON.stringify({ note }),
+  });
+}
+
+/** An order as the shop that must fulfil it sees it. */
+export interface SellerOrder {
+  id: string;
+  dealer_name: string;
+  total_uzs: number;
+  status: OrderStatus | string;
+  delivery_address: string | null;
+  phone: string | null;
+  payment_method: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  created_at: string;
+  lines: OrderLine[];
+}
+
+export async function listMyOrders(page = 1, perPage = 50): Promise<SellerOrder[]> {
+  return apiClient<SellerOrder[]>(`/seller/orders?page=${page}&per_page=${perPage}`);
+}
+
+/** Move an order to its next stage; the server refuses anything but the next one. */
+export async function advanceMyOrder(id: string, status: OrderStatus): Promise<SellerOrder> {
+  return apiClient<SellerOrder>(`/seller/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** Cancel an order the shop cannot fill; the reason is shown to the buyer. Allowed until it has left. */
+export async function cancelMyOrder(id: string, reason: string): Promise<SellerOrder> {
+  return apiClient<SellerOrder>(`/seller/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "cancelled", reason }),
   });
 }

@@ -49,12 +49,11 @@ export class CanvasErrorBoundary extends React.Component<
     if (this.state.failed) {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[#EEF1F7] text-center p-6">
-          <p className="text-3xl">🎨</p>
           <p className="text-sm font-semibold text-gray-800">
             3D ko'rinishni ochib bo'lmadi
           </p>
           <p className="text-xs text-gray-500 max-w-xs leading-5">
-            Brauzer grafik xotirasi band (WebGL). Sahifani yangilasangiz, hammasi joyiga tushadi.
+            Brauzer grafik xotirasi band (WebGL). Sahifani yangilab ko'ring.
           </p>
           <button
             onClick={() => window.location.reload()}

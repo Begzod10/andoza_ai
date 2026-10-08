@@ -84,7 +84,7 @@ export function WallpaperSection({
       </div>
 
       {wallpapers.length === 0 ? (
-        <Card className="text-center text-sm text-neutral-400 py-8">
+        <Card className="text-center text-sm text-ink-muted py-8">
           {storeId ? "Bu do'konda hali oboy yo'q" : "Barcha oboylar biror do'konga biriktirilgan"}
         </Card>
       ) : (
@@ -103,24 +103,24 @@ export function WallpaperSection({
                   handleDelete(w);
                 }}
                 title="O'chirish"
-                className="absolute top-2.5 right-2.5 z-10 w-6 h-6 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-400 hover:text-red-500 transition-colors"
+                className="absolute top-2.5 right-2.5 z-10 w-6 h-6 rounded-full bg-card/90 border border-line shadow-sm flex items-center justify-center text-ink-muted hover:text-red-500 transition-colors"
               >
                 <Trash2 size={13} />
               </button>
               <img
                 src={w.url}
                 alt={w.name}
-                className="w-full aspect-square rounded-lg object-cover border border-neutral-200"
+                className="w-full aspect-square rounded-lg object-cover border border-line"
               />
-              <p className="text-xs font-medium text-neutral-700 truncate" title={w.name}>{w.name}</p>
+              <p className="text-xs font-medium text-ink truncate" title={w.name}>{w.name}</p>
               {dimensionsLabel(w) && (
-                <p className="text-[11px] text-neutral-400">{dimensionsLabel(w)}</p>
+                <p className="text-[11px] text-ink-muted">{dimensionsLabel(w)}</p>
               )}
               {w.price_uzs != null && (
-                <p className="text-xs text-neutral-500">{w.price_uzs.toLocaleString("uz-UZ")} so'm</p>
+                <p className="text-xs text-ink-muted">{w.price_uzs.toLocaleString("uz-UZ")} so'm</p>
               )}
               {w.description && (
-                <p className="text-[11px] text-neutral-400 line-clamp-2" title={w.description}>
+                <p className="text-[11px] text-ink-muted line-clamp-2" title={w.description}>
                   {w.description}
                 </p>
               )}

@@ -19,9 +19,9 @@ import { EMPTY_MODEL_FILTERS, filterModels } from "./modelFilters";
 import { WallpaperSection } from "./WallpaperSection";
 
 const TIER_STYLES: Record<string, string> = {
-  standard: "bg-neutral-100 text-neutral-600",
-  gold: "bg-amber-100 text-amber-700",
-  platinum: "bg-indigo-100 text-indigo-700",
+  standard: "bg-card-soft text-ink-muted",
+  gold: "bg-amber-500/15 text-amber-500",
+  platinum: "bg-indigo-500/15 text-indigo-400",
 };
 
 /** A single shop's page: its own details plus only the 3D models that
@@ -89,23 +89,23 @@ export function StoreProfile({
       <Card className="flex items-start justify-between">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-neutral-900">{store.name}</h2>
+            <h2 className="text-lg font-semibold text-ink">{store.name}</h2>
             <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${TIER_STYLES[store.partner_tier] ?? TIER_STYLES.standard}`}>
               {store.partner_tier}
             </span>
             {!store.is_active && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
                 nofaol
               </span>
             )}
           </div>
           {store.district && (
-            <div className="flex items-center gap-1.5 text-sm text-neutral-500">
+            <div className="flex items-center gap-1.5 text-sm text-ink-muted">
               <MapPin size={14} />
               {store.district}
             </div>
           )}
-          <div className="flex items-center gap-1.5 text-sm text-neutral-400">
+          <div className="flex items-center gap-1.5 text-sm text-ink-muted">
             <Package size={14} />
             {models.length} ta 3D model
           </div>
@@ -113,7 +113,7 @@ export function StoreProfile({
         <button
           onClick={handleDeleteStore}
           title="Do'konni o'chirish"
-          className="text-neutral-300 hover:text-red-500 transition-colors p-1.5"
+          className="text-ink-muted hover:text-red-500 transition-colors p-1.5"
         >
           <Trash2 size={18} />
         </button>
@@ -130,11 +130,11 @@ export function StoreProfile({
         {models.length > 0 && <ModelFilterBar filters={filters} onChange={setFilters} />}
 
         {models.length === 0 ? (
-          <Card size="sm" className="text-center text-sm text-neutral-400 py-8">
+          <Card size="sm" className="text-center text-sm text-ink-muted py-8">
             Bu do'konda hali model yo'q
           </Card>
         ) : filteredModels.length === 0 ? (
-          <Card size="sm" className="text-center text-sm text-neutral-400 py-8">
+          <Card size="sm" className="text-center text-sm text-ink-muted py-8">
             Filtrga mos model topilmadi
           </Card>
         ) : (

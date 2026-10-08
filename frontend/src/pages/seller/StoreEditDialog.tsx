@@ -39,7 +39,7 @@ export function StoreEditDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Do'kon ma'lumotlari">
+    <Dialog open={open} onOpenChange={onOpenChange} title="Do'kon ma'lumotlari" themed>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -48,15 +48,15 @@ export function StoreEditDialog({
         }}
         className="space-y-4"
       >
-        <Input label="Do'kon nomi" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input themed label="Do'kon nomi" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Tuman" value={district} onChange={(e) => setDistrict(e.target.value)} />
-          <Input label="Telefon" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input themed label="Tuman" value={district} onChange={(e) => setDistrict(e.target.value)} />
+          <Input themed label="Telefon" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
-        <Input label="Telegram" value={telegram} onChange={(e) => setTelegram(e.target.value)} />
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        <Input themed label="Telegram" value={telegram} onChange={(e) => setTelegram(e.target.value)} />
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
           <Button type="submit" disabled={!name.trim()} loading={save.isPending}>Saqlash</Button>
         </div>
       </form>

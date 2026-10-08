@@ -126,9 +126,9 @@ export default function PlacementPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 bg-surface border-b border-gray-200 text-xs shrink-0">
         {([
-          ['elektr',    '⚡ Elektr qurilmalar'],
-          ['chiroq',    '💡 Chiroqlar'],
-          ['olchamlar', '📐 O\'lchamlar'],
+          ['elektr',    'Elektr qurilmalar'],
+          ['chiroq',    'Chiroqlar'],
+          ['olchamlar', 'O\'lchamlar'],
         ] as [TabId, string][]).map(([t, label]) => (
           <button
             key={t}

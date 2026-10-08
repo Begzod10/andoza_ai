@@ -67,6 +67,7 @@ async def create_lead(
         user_id=current_user.id,
         room_id=body.room_id,
         smeta_snapshot=smeta_snapshot,
+        message=(body.message or "").strip() or None,
         status="new",
     )
     db.add(lead)

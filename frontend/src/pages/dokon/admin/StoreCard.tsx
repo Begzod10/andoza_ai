@@ -3,9 +3,9 @@ import { Card } from "@/components/ui/Card";
 import type { AdminStore } from "@/lib/api";
 
 const TIER_STYLES: Record<string, string> = {
-  standard: "bg-neutral-100 text-neutral-600",
-  gold: "bg-amber-100 text-amber-700",
-  platinum: "bg-indigo-100 text-indigo-700",
+  standard: "bg-card-soft text-ink-muted",
+  gold: "bg-amber-500/15 text-amber-500",
+  platinum: "bg-indigo-500/15 text-indigo-400",
 };
 
 /** Clickable shop tile in the overview grid — opens that shop's profile. */
@@ -28,19 +28,19 @@ export function StoreCard({
           {store.partner_tier}
         </span>
       </div>
-      <h3 className="font-semibold text-neutral-900 text-sm leading-tight">{store.name}</h3>
+      <h3 className="font-semibold text-ink text-sm leading-tight">{store.name}</h3>
       {store.district && (
-        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+        <div className="flex items-center gap-1.5 text-xs text-ink-muted">
           <MapPin size={13} />
           {store.district}
         </div>
       )}
-      <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+      <div className="flex items-center gap-1.5 text-xs text-ink-muted">
         <Package size={13} />
         {modelCount} ta model
       </div>
       {!store.is_active && (
-        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
           nofaol
         </span>
       )}

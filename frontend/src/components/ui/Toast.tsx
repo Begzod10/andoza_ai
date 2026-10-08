@@ -41,7 +41,7 @@ const variantStyles: Record<ToastVariant, string> = {
 }
 
 const variantIconMap: Record<ToastVariant, string> = {
-  default: '💬',
+  default: 'i',
   success: '✓',
   warning: '⚠',
   error: '✕',

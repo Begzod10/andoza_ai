@@ -39,9 +39,28 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
 const FLOOR_COVERINGS = /gilam|rug|carpet|kovrolin/i
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
-/** A catalog item's footprint in metres (the catalog stores centimetres). */
-function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number } {
-  return item?.footprint_w && item.footprint_d ? { w: item.footprint_w / 100, d: item.footprint_d / 100 } : FALLBACK_SIZE
+/** Pieces that stand tall: they would shut out a window. (Wall-hung pieces count too, see tallOf.) */
+const TALL_PIECES = /shkaf|garderob|vitrina|stellaj|kitob|javon|pianino|bufet|komod|wardrobe|bookcase|cabinet/i
+
+/** A piece at least this tall reaches a window's sill, so it stands in front of the glass (centimetres). */
+const SILL_CM = 90
+
+/**
+ * Would this piece stand in the light of a window? One hung on the wall does. Otherwise its measured
+ * height decides when the catalog has it (models uploaded since heights were measured); the older ones,
+ * with no height, are judged by what they are called.
+ */
+function tallOf(item: CatalogFurniture | undefined): boolean {
+  if (!item) return false
+  if (item.placement === 'devor') return true
+  if (item.height_cm != null && item.height_cm > 0) return item.height_cm >= SILL_CM
+  return TALL_PIECES.test(`${item.category} ${item.name_uz}`)
+}
+
+/** A catalog item's footprint in metres (the catalog stores centimetres), and whether it is tall. */
+function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tall: boolean } {
+  const tall = tallOf(item)
+  return item?.footprint_w && item.footprint_d ? { w: item.footprint_w / 100, d: item.footprint_d / 100, tall } : { ...FALLBACK_SIZE, tall }
 }
 
 /**

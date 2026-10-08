@@ -33,7 +33,7 @@ function errorDetail(err: unknown): string | null {
 
 /** The quiet buttons under the two main ones: all alike, readable, and clearly enabled. */
 const secondaryButton =
-  "inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-surface px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-brand hover:text-brand disabled:opacity-60";
+  "inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand-light hover:text-accent disabled:opacity-60";
 
 export default function SmetaPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -197,15 +197,15 @@ export default function SmetaPage() {
   return (
     <div className="min-h-screen bg-paper">
       {estimate && view && !heroVisible && (
-        <div className="fixed inset-x-0 top-0 z-30 border-b border-neutral-200 bg-surface/95 shadow-subtle backdrop-blur">
+        <div className="fixed inset-x-0 top-0 z-30 border-b border-line bg-card/95 shadow-panel backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted">{uz.smeta.jami}</span>
-            <span className="text-lg font-extrabold tabular-nums text-brand">{fmt(view.total)}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{uz.smeta.jami}</span>
+            <span className="text-lg font-extrabold tabular-nums text-accent">{fmt(view.total)}</span>
             <button
               type="button"
               onClick={() => window.scrollTo?.({ top: 0, behavior: "smooth" })}
               aria-label={uz.smeta.tepaga}
-              className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-700 hover:border-brand hover:text-brand"
+              className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-ink hover:border-brand-light hover:text-accent"
             >
               ↑
             </button>
@@ -214,17 +214,17 @@ export default function SmetaPage() {
       )}
 
       {/* Header */}
-      <header className="bg-surface shadow-subtle">
+      <header className="border-b border-line bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
           <Link
             to={`/studio/${roomId}`}
-            className="text-muted hover:text-neutral-900 text-sm"
+            className="text-ink-muted hover:text-ink text-sm"
           >
             ← {uz.common.orqaga}
           </Link>
-          <h1 className="text-xl font-bold text-neutral-900">{uz.smeta.sarlavha}</h1>
+          <h1 className="text-xl font-bold text-ink">{uz.smeta.sarlavha}</h1>
           {room && (
-            <span className="ml-auto text-sm text-muted">
+            <span className="ml-auto text-sm text-ink-muted">
               {room.name} · {room.area} m²
             </span>
           )}
@@ -242,13 +242,13 @@ export default function SmetaPage() {
         {!estimate && (
           <div className="text-center py-12">
             {mutation.isPending ? (
-              <p className="text-muted animate-pulse">{uz.common.yuklanmoqda}</p>
+              <p className="text-ink-muted animate-pulse">{uz.common.yuklanmoqda}</p>
             ) : (
               <>
-                <p className="text-muted mb-6">{uz.empty.smeta_yoq}</p>
+                <p className="text-ink-muted mb-6">{uz.empty.smeta_yoq}</p>
                 <button
                   onClick={() => mutation.mutate()}
-                  className="bg-brand text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand/90 transition-colors"
+                  className="bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow px-8 py-3 rounded-full font-semibold transition-all hover:-translate-y-px"
                 >
                   {uz.smeta.hisoblash}
                 </button>
@@ -266,19 +266,19 @@ export default function SmetaPage() {
             {/* The total, with everything that qualifies it, in one card: the figure
                 (total_uzs is the FULL expected spend, exact + approximate lines combined),
                 the range around it, how much of it is a guess, and where it goes. */}
-            <section ref={heroRef} className="rounded-3xl bg-surface p-5 shadow-subtle sm:p-6">
+            <section ref={heroRef} className="rounded-3xl border border-line bg-card p-5 shadow-panel sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">{uz.smeta.jami}</p>
-                  <p className="mt-1 text-3xl font-extrabold tabular-nums text-brand sm:text-4xl">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{uz.smeta.jami}</p>
+                  <p className="mt-1 text-3xl font-extrabold tabular-nums text-accent sm:text-4xl">
                     {fmt(view!.total)}
                   </p>
                   {/* Full-opacity brand is 7.4:1 on white; the /70 it replaced was 3.65:1. */}
-                  <p className="mt-1 text-sm text-brand">
+                  <p className="mt-1 text-sm text-accent">
                     {uz.smeta.diapazon}: {fmt(view!.min)} – {fmt(view!.max)}
                   </p>
                   {view!.approx > 0 && (
-                    <p className="mt-0.5 text-sm text-orange-cta">
+                    <p className="mt-0.5 text-sm text-orange-500">
                       {uz.smeta.shundan_taxminiy}: ~{fmt(view!.approx)}
                     </p>
                   )}
@@ -286,14 +286,14 @@ export default function SmetaPage() {
 
                 {/* Currency toggle */}
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <div className="inline-flex rounded-full bg-neutral-100 p-0.5 text-xs font-semibold">
+                  <div className="inline-flex rounded-full bg-card-soft p-0.5 text-xs font-semibold">
                     {(["UZS", "USD"] as const).map((c) => (
                       <button
                         key={c}
                         onClick={() => setCurrency(c)}
                         aria-pressed={currency === c}
                         className={`rounded-full px-3 py-1.5 transition-colors ${
-                          currency === c ? "bg-brand text-white shadow-sm" : "text-muted hover:text-neutral-900"
+                          currency === c ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow" : "text-ink-muted hover:text-ink"
                         }`}
                       >
                         {c}
@@ -306,7 +306,7 @@ export default function SmetaPage() {
 
               {hasFurniture && (
                 <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <div className="inline-flex rounded-full bg-neutral-100 p-0.5 text-xs font-semibold">
+                  <div className="inline-flex rounded-full bg-card-soft p-0.5 text-xs font-semibold">
                     {([true, false] as const).map((on) => (
                       <button
                         key={String(on)}
@@ -314,7 +314,7 @@ export default function SmetaPage() {
                         onClick={() => setIncludeFurniture(on)}
                         aria-pressed={includeFurniture === on}
                         className={`rounded-full px-3 py-1.5 transition-colors ${
-                          includeFurniture === on ? "bg-brand text-white shadow-sm" : "text-muted hover:text-neutral-900"
+                          includeFurniture === on ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow" : "text-ink-muted hover:text-ink"
                         }`}
                       >
                         {on ? uz.smeta.mebel_bilan : uz.smeta.faqat_tamir}
@@ -322,7 +322,7 @@ export default function SmetaPage() {
                     ))}
                   </div>
                   {!includeFurniture && (
-                    <span className="text-xs text-muted">
+                    <span className="text-xs text-ink-muted">
                       {uz.smeta.mebel_kirmagan}: {fmt(furnitureTotal)}
                     </span>
                   )}
@@ -330,17 +330,17 @@ export default function SmetaPage() {
               )}
 
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-xs text-muted">{uz.smeta.minimal}</p>
-                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(view!.min)}</p>
+                <div className="rounded-2xl bg-card-soft px-4 py-3">
+                  <p className="text-xs text-ink-muted">{uz.smeta.minimal}</p>
+                  <p className="mt-0.5 font-bold tabular-nums text-ink">{fmt(view!.min)}</p>
                 </div>
-                <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-xs text-muted">{uz.smeta.maksimal}</p>
-                  <p className="mt-0.5 font-bold tabular-nums text-neutral-900">{fmt(view!.max)}</p>
+                <div className="rounded-2xl bg-card-soft px-4 py-3">
+                  <p className="text-xs text-ink-muted">{uz.smeta.maksimal}</p>
+                  <p className="mt-0.5 font-bold tabular-nums text-ink">{fmt(view!.max)}</p>
                 </div>
-                <div className="col-span-2 rounded-xl bg-neutral-50 px-4 py-3 sm:col-span-1">
-                  <p className="text-xs text-muted">{uz.smeta.elektr_ishlari}</p>
-                  <p className="mt-0.5 font-bold text-neutral-900">
+                <div className="col-span-2 rounded-2xl bg-card-soft px-4 py-3 sm:col-span-1">
+                  <p className="text-xs text-ink-muted">{uz.smeta.elektr_ishlari}</p>
+                  <p className="mt-0.5 font-bold text-ink">
                     {estimate.has_electrical
                       ? estimate.electrical_confirmed
                         ? "Ha"
@@ -351,7 +351,7 @@ export default function SmetaPage() {
               </div>
 
               {groups.length > 0 && (
-                <div className="mt-5 border-t border-neutral-100 pt-5">
+                <div className="mt-5 border-t border-line pt-5">
                   <CostBreakdown groups={groups} fmt={fmt} />
                 </div>
               )}
@@ -360,7 +360,7 @@ export default function SmetaPage() {
             {marketNote && (
               <div
                 className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-sm ${
-                  marketMode ? "bg-emerald-50 text-emerald-800" : "bg-neutral-100 text-neutral-700"
+                  marketMode ? "bg-emerald-500/15 text-emerald-500" : "bg-card-soft text-ink"
                 }`}
               >
                 <span>{marketNote}</span>
@@ -384,7 +384,7 @@ export default function SmetaPage() {
                   <button
                     type="button"
                     onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))}
-                    className="text-xs font-semibold text-brand hover:underline"
+                    className="text-xs font-semibold text-accent hover:underline"
                   >
                     {allFolded ? uz.smeta.hammasini_yoyish : uz.smeta.hammasini_yigish}
                   </button>
@@ -408,7 +408,7 @@ export default function SmetaPage() {
                 <button
                   onClick={handlePDF}
                   disabled={pdfLoading}
-                  className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+                  className="flex items-center gap-2 bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow px-6 py-2.5 rounded-full text-sm font-semibold transition-all hover:-translate-y-px disabled:opacity-60"
                 >
                   {pdfLoading ? uz.common.yuklanmoqda : uz.smeta.pdf_yuklab}
                 </button>
@@ -417,7 +417,7 @@ export default function SmetaPage() {
                 <button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
-                  className="flex items-center gap-2 border-2 border-brand text-brand px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-brand/10 transition-colors disabled:opacity-60"
+                  className="flex items-center gap-2 border-2 border-brand-light text-accent px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-brand-light/10 transition-colors disabled:opacity-60"
                 >
                   {saveMutation.isPending
                     ? uz.common.yuklanmoqda

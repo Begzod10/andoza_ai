@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { startNativeScan, isNativeScanAvailable, type RoomScanErrorCode } from '@/lib/native/roomScan'
 import { scanToApiGeometry } from '@/lib/roomScanImport'
 import { useRoomStore } from '@/store/roomStore'
+import { Button } from '@/components/ui/Button'
 
 type Phase = 'idle' | 'scanning' | 'error'
 
@@ -22,25 +23,21 @@ function UnsupportedView() {
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center px-8 gap-6"
-      style={{ background: 'radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)' }}
+      style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
     >
       <LidarIcon />
       <div className="flex flex-col items-center gap-2 text-center">
-        <p className="text-white text-[18px] font-semibold leading-snug">
+        <p className="text-white text-[18px] font-extrabold leading-snug">
           LiDAR skaneri faqat<br />iPhone/iPad Pro qurilmalarida mavjud
         </p>
-        <p className="text-white/50 text-[14px]">
+        <p className="text-white/60 text-[14px]">
           Xona o'lchamlarini qo'lda kiritish uchun qadam-ustasidan foydalaning
         </p>
       </div>
-      <button
-        onClick={() => navigate('/wizard')}
-        className="px-8 py-3 rounded-full text-[15px] font-semibold text-white"
-        style={{ background: '#1E40AF' }}
-      >
+      <Button size="lg" onClick={() => navigate('/wizard')}>
         Qo'lda kiritish →
-      </button>
-      <button onClick={() => navigate(-1)} className="text-white/40 text-[13px]">
+      </Button>
+      <button onClick={() => navigate(-1)} className="text-white/50 hover:text-white/80 text-[13px] font-medium transition-colors">
         Orqaga
       </button>
     </div>
@@ -95,12 +92,13 @@ export default function LidarPage() {
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-4"
-        style={{ background: 'radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)' }}
+        style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
       >
-        <p className="text-white text-[18px] font-bold" style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>
+        <LidarIcon />
+        <p className="text-white text-[18px] font-extrabold" style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>
           Skanerlanyapti…
         </p>
-        <p className="text-white/50 text-[13px]">Telefonni sekin harakatlantiring</p>
+        <p className="text-white/60 text-[13px]">Telefonni sekin harakatlantiring</p>
       </div>
     )
   }
@@ -110,19 +108,15 @@ export default function LidarPage() {
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center px-8 gap-6"
-        style={{ background: 'radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)' }}
+        style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
       >
-        <p className="text-red-400 text-[17px] font-semibold text-center">
+        <p role="alert" className="max-w-xs rounded-2xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-red-300 text-[15px] font-semibold text-center">
           {ERROR_LABELS[errorCode]}
         </p>
-        <button
-          onClick={() => setPhase('idle')}
-          className="px-8 py-3 rounded-full text-[15px] font-semibold text-white"
-          style={{ background: '#1E40AF' }}
-        >
+        <Button size="lg" onClick={() => setPhase('idle')}>
           Qayta urinish
-        </button>
-        <button onClick={() => navigate('/wizard')} className="text-white/40 text-[13px]">
+        </Button>
+        <button onClick={() => navigate('/wizard')} className="text-white/50 hover:text-white/80 text-[13px] font-medium transition-colors">
           Qo'lda kiritish
         </button>
       </div>
@@ -133,7 +127,7 @@ export default function LidarPage() {
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center gap-8"
-      style={{ background: 'radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)' }}
+      style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
     >
       {/* Faint grid */}
       <svg className="absolute inset-0 w-full h-full opacity-10" aria-hidden="true">
@@ -147,8 +141,8 @@ export default function LidarPage() {
 
       <button
         onClick={() => navigate(-1)}
-        className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
+        className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
+        style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
         aria-label="Yopish"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
@@ -159,22 +153,18 @@ export default function LidarPage() {
       <LidarIcon />
 
       <div className="flex flex-col items-center gap-2 z-10 text-center px-8">
-        <p className="text-white text-[20px] font-bold">LiDAR Skanerlash</p>
-        <p className="text-white/60 text-[14px]">
+        <p className="text-white text-[22px] font-extrabold">LiDAR Skanerlash</p>
+        <p className="text-white/60 text-[14px] max-w-sm">
           Apple RoomPlan devorlar, eshiklar va derazalarni avtomatik aniqlaydi.
           Xonani sekin aylanib chiqing.
         </p>
       </div>
 
-      <button
-        onClick={startScan}
-        className="z-10 px-10 py-4 rounded-full text-[16px] font-bold text-white shadow-lg"
-        style={{ background: '#1E40AF' }}
-      >
+      <Button size="lg" variant="accent" className="z-10 px-10" onClick={startScan}>
         Skanerlashni boshlash
-      </button>
+      </Button>
 
-      <button onClick={() => navigate('/wizard')} className="text-white/40 text-[13px] z-10">
+      <button onClick={() => navigate('/wizard')} className="text-white/50 hover:text-white/80 text-[13px] font-medium z-10 transition-colors">
         Qo'lda kiritish
       </button>
     </div>
@@ -183,7 +173,7 @@ export default function LidarPage() {
 
 function LidarIcon() {
   return (
-    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+    <svg width="84" height="84" viewBox="0 0 72 72" fill="none" aria-hidden="true" style={{ filter: 'drop-shadow(0 0 14px rgba(52,211,153,0.45))' }}>
       <circle cx="36" cy="36" r="34" stroke="#34D399" strokeWidth="1.5" strokeDasharray="4 4"/>
       <circle cx="36" cy="36" r="20" stroke="#34D399" strokeWidth="2"/>
       <circle cx="36" cy="36" r="6" fill="#34D399"/>

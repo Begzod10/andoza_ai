@@ -17,6 +17,7 @@ import {
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
+import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 /**
@@ -63,6 +64,9 @@ export function ModelFormDialog({
     setPhotoError(null);
   }
 
+  // The real size of the chosen model, measured from the file and stored with it.
+  const [measured, setMeasured] = useState<MeasuredSize | null>(null);
+
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error("GLB fayl tanlanmagan");
@@ -75,6 +79,7 @@ export function ModelFormDialog({
         placement,
         store_id: fixedStoreId ?? storeId ?? null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
+        ...sizeFields(measured),
       });
     },
     onSuccess: () => {
@@ -87,7 +92,7 @@ export function ModelFormDialog({
   });
 
   return (
-    <Dialog
+    <Dialog themed
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
@@ -104,7 +109,7 @@ export function ModelFormDialog({
         }}
         className="space-y-4"
       >
-        <Input
+        <Input themed
           label="Nomi"
           value={nameUz}
           onChange={(e) => setNameUz(e.target.value)}
@@ -113,12 +118,12 @@ export function ModelFormDialog({
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
             {ADMIN_FURNITURE_CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}
           </Select>
-          <Select label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
             <option value="">Barcha xonalar</option>
             {ADMIN_ROOM_TYPES.map((r) => (
               <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>
@@ -126,7 +131,7 @@ export function ModelFormDialog({
           </Select>
         </div>
 
-        <Select
+        <Select themed
           label="Xonada joylashuvi"
           helperText="Model xona ichida qayerga o'rnatilishi"
           value={placement}
@@ -139,14 +144,14 @@ export function ModelFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           {fixedStoreId === undefined && (
-            <Select label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+            <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
               <option value="">— tanlanmagan —</option>
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
           )}
-          <Input
+          <Input themed
             label="Narxi (so'm)"
             type="number"
             min={0}
@@ -158,7 +163,7 @@ export function ModelFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-neutral-900 mb-1.5">3D model (.glb)</label>
+            <label className="block text-sm font-medium text-ink mb-1.5">3D model (.glb)</label>
             <input
               type="file"
               accept=".glb"
@@ -167,7 +172,7 @@ export function ModelFormDialog({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-900 mb-1.5">Rasm (ixtiyoriy)</label>
+            <label className="block text-sm font-medium text-ink mb-1.5">Rasm (ixtiyoriy)</label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -179,6 +184,7 @@ export function ModelFormDialog({
 
         {/* No 3D file but a photo: let the server build one (Tripo). */}
         <PhotoToModelField
+          themed
           onBusyChange={setBuilding}
           onError={setPhotoError}
           onBuilt={({ file: built, thumbnail: pic, baseName }) => {
@@ -187,12 +193,12 @@ export function ModelFormDialog({
             if (!nameUz.trim()) setNameUz(baseName);
           }}
         />
-        {photoError && <p role="alert" className="text-sm text-red-600">{photoError}</p>}
+        {photoError && <p role="alert" className="text-sm text-red-500">{photoError}</p>}
 
-        <ModelPreview3D file={file} />
+        <ModelPreview3D themed file={file} onMeasured={setMeasured} />
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={uploadMutation.isPending}>

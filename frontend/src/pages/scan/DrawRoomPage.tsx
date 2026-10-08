@@ -14,6 +14,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRoomStore } from '@/store/roomStore'
 import type { Wall } from '@/store/roomStore'
+import { Button } from '@/components/ui/Button'
 
 type Point = [number, number] // [x, z] mm, already snapped to SNAP_MM
 
@@ -178,13 +179,13 @@ export default function DrawRoomPage() {
   return (
     <div
       className="fixed inset-0 flex flex-col"
-      style={{ background: 'radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)' }}
+      style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
     >
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="absolute top-14 left-5 z-10 w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
+        className="absolute top-14 left-5 z-10 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
+        style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
         aria-label="Orqaga"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
@@ -194,7 +195,7 @@ export default function DrawRoomPage() {
 
       {/* Header */}
       <div className="pt-14 pb-2 px-16 flex flex-col items-center gap-1 text-center shrink-0">
-        <p className="text-white text-[18px] font-bold mt-12">Xonani chizish</p>
+        <p className="text-white text-[20px] font-extrabold mt-12">Xonani chizish</p>
         <p className="text-white/60 text-[13px]">
           Xona burchaklarini ketma-ket bosib chiqing
           {areaM2 !== null && <span className="text-white/80 font-semibold"> · {areaM2.toFixed(2)} m²</span>}
@@ -202,7 +203,7 @@ export default function DrawRoomPage() {
       </div>
 
       {/* Canvas */}
-      <div className="flex-1 min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden">
+      <div className="flex-1 min-h-0 mx-4 mb-3 rounded-3xl overflow-hidden border border-white/10 shadow-panel">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${CANVAS_MM} ${CANVAS_MM}`}
@@ -262,7 +263,7 @@ export default function DrawRoomPage() {
 
           {/* placed corner points */}
           {points.map(([x, z], i) => (
-            <circle key={`pt${i}`} cx={x} cy={z} r={i === 0 && canClose ? 130 : 90} fill="#1E40AF" stroke="white" strokeWidth={20} />
+            <circle key={`pt${i}`} cx={x} cy={z} r={i === 0 && canClose ? 130 : 90} fill="#3D5FD6" stroke="white" strokeWidth={20} />
           ))}
           {/* ring around the first point once closing is possible — the close target */}
           {canClose && (
@@ -283,43 +284,24 @@ export default function DrawRoomPage() {
       >
         <div className="flex items-center justify-center gap-3">
           {!closed && (
-            <button
-              onClick={undo}
-              disabled={points.length === 0}
-              className="px-5 py-2.5 rounded-full text-[13px] font-semibold text-white/80 disabled:opacity-30"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            >
+            <Button variant="soft" size="sm" onClick={undo} disabled={points.length === 0}>
               Orqaga
-            </button>
+            </Button>
           )}
-          <button
-            onClick={clearAll}
-            disabled={points.length === 0}
-            className="px-5 py-2.5 rounded-full text-[13px] font-semibold text-white/80 disabled:opacity-30"
-            style={{ background: 'rgba(255,255,255,0.12)' }}
-          >
+          <Button variant="soft" size="sm" onClick={clearAll} disabled={points.length === 0}>
             Tozalash
-          </button>
+          </Button>
           {!closed && (
-            <button
-              onClick={tryClose}
-              disabled={!canClose}
-              className="px-6 py-2.5 rounded-full text-[13px] font-bold text-white disabled:opacity-30"
-              style={{ background: '#F97316' }}
-            >
+            <Button variant="accent" size="sm" onClick={tryClose} disabled={!canClose}>
               Yopish
-            </button>
+            </Button>
           )}
         </div>
 
         {closed && (
-          <button
-            onClick={handleContinue}
-            className="w-full py-3.5 rounded-full text-[15px] font-bold text-white"
-            style={{ background: '#1E40AF' }}
-          >
+          <Button size="lg" className="w-full" onClick={handleContinue}>
             Davom etish →
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -339,8 +321,8 @@ function Segment({ a, b }: { a: Point; b: Point }) {
 
   return (
     <g>
-      <line x1={ax} y1={az} x2={bx} y2={bz} stroke="#1E40AF" strokeWidth={26} strokeLinecap="round" />
-      <rect x={mx - w / 2} y={mz - h / 2} width={w} height={h} rx={60} fill="#1A2340" />
+      <line x1={ax} y1={az} x2={bx} y2={bz} stroke="#3D5FD6" strokeWidth={26} strokeLinecap="round" />
+      <rect x={mx - w / 2} y={mz - h / 2} width={w} height={h} rx={60} fill="#2A2545" />
       <text x={mx} y={mz} fontSize={160} fontWeight={700} fill="white" textAnchor="middle" dominantBaseline="central">
         {label}
       </text>

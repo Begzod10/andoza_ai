@@ -153,6 +153,32 @@
     --color-on-app-muted: #c4b8d9;
   }
 
+  /* Platform-page surfaces: a card, the soft tile inside it, the text on both and the hairlines.
+     Day is a white card on the lavender ground; night is a dark indigo card on a darker ground,
+     so a page is not a stack of white sheets on a dark wall. Space-separated channels, so
+     tailwind opacity modifiers work (`bg-card/80`). Only pages built from Panel use these:
+     the studio and the dialogs keep their own white UI. */
+  :root,
+  :root[data-app-theme='day'] {
+    --card: 255 255 255;
+    --card-soft: 244 241 251;
+    --ink: 17 24 39;
+    --ink-muted: 107 114 128;
+    --line: 232 228 244;
+    --accent: 30 64 175;
+    --card-shadow: 0 10px 30px -14px rgba(60, 40, 120, 0.22);
+  }
+  :root[data-app-theme='night'] {
+    --card: 41 37 63;
+    --card-soft: 54 50 82;
+    --ink: 244 241 251;
+    --ink-muted: 176 170 202;
+    --line: 66 62 98;
+    --accent: 143 176 255;
+    --card-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.6);
+  }
+  :root[data-app-theme='night'] { --color-app-bg: #1d1a2e; }
+
   /* Focus states for accessibility */
   :focus-visible {
     outline: 2px solid var(--color-primary);

@@ -16,6 +16,7 @@ import {
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
+import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 const MAX_GLB_MB = 50;
@@ -38,6 +39,8 @@ export function SellerModelFormDialog({
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The real size of the chosen model, measured from the file, stored with it.
+  const [measured, setMeasured] = useState<MeasuredSize | null>(null);
   // True while a model is being built from a photo (a minute or two).
   const [building, setBuilding] = useState(false);
 
@@ -70,6 +73,7 @@ export function SellerModelFormDialog({
         room_type: roomType || null,
         placement,
         price_uzs: priceUzs ? Number(priceUzs) : null,
+        ...sizeFields(measured),
       });
     },
     onSuccess: () => {
@@ -89,6 +93,7 @@ export function SellerModelFormDialog({
       }}
       title="Yangi 3D model"
       description="Yuklangan model administrator tasdiqlagach, hammaga ko'rinadi"
+      themed
     >
       <form
         onSubmit={(e) => {
@@ -98,28 +103,29 @@ export function SellerModelFormDialog({
         }}
         className="space-y-4"
       >
-        <Input label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} placeholder="Masalan: Uch o'rinli divan" autoFocus />
+        <Input themed label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} placeholder="Masalan: Uch o'rinli divan" autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
             {ADMIN_FURNITURE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
           </Select>
-          <Select label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
             <option value="">Barcha xonalar</option>
             {ADMIN_ROOM_TYPES.map((r) => <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>)}
           </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Xonada joylashuvi" value={placement} onChange={(e) => setPlacement(e.target.value as AdminPlacement)}>
+          <Select themed label="Xonada joylashuvi" value={placement} onChange={(e) => setPlacement(e.target.value as AdminPlacement)}>
             {ADMIN_PLACEMENTS.map((p) => <option key={p} value={p}>{PLACEMENT_LABELS[p]}</option>)}
           </Select>
-          <Input label="Narxi (so'm)" type="number" min={0} value={priceUzs} onChange={(e) => setPriceUzs(e.target.value)} placeholder="4500000" />
+          <Input themed label="Narxi (so'm)" type="number" min={0} value={priceUzs} onChange={(e) => setPriceUzs(e.target.value)} placeholder="4500000" />
         </div>
 
         {/* Most sellers have photos, not a 3D file: the photo is the main way in
             and the server builds the model (Tripo). */}
         <PhotoToModelField
+          themed
           title="Mebel rasmini yuklang — 3D modelni o'zimiz yaratamiz"
           onBusyChange={setBuilding}
           onError={setError}
@@ -130,26 +136,26 @@ export function SellerModelFormDialog({
           }}
         />
 
-        {file && <p className="text-xs text-neutral-500 truncate">3D model tayyor: <span>{file.name}</span></p>}
+        {file && <p className="text-xs text-ink-muted truncate">3D model tayyor: <span>{file.name}</span></p>}
 
-        <details className="rounded-xl border border-neutral-200 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-neutral-700">Menda tayyor 3D fayl (.glb) bor</summary>
+        <details className="rounded-xl border border-line p-3">
+          <summary className="cursor-pointer text-sm font-medium text-ink">Menda tayyor 3D fayl (.glb) bor</summary>
           <div className="mt-2">
             <input type="file" accept=".glb" onChange={(e) => pickModel(e.target.files?.[0] ?? null)} disabled={building} className="text-xs w-full" />
           </div>
         </details>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-1.5">Katalog uchun rasm (ixtiyoriy)</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">Katalog uchun rasm (ixtiyoriy)</label>
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
         </div>
 
-        <ModelPreview3D file={file} />
+        <ModelPreview3D file={file} onMeasured={setMeasured} themed />
 
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
           <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={upload.isPending}>Yuklash</Button>
         </div>
       </form>

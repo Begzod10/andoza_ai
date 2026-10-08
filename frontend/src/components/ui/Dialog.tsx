@@ -12,6 +12,8 @@ interface DialogProps {
   description?: string
   children: React.ReactNode
   className?: string
+  /** Follow the app's day/night theme (the pages built on the themed cards) instead of the fixed white sheet. */
+  themed?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -27,7 +29,7 @@ interface DialogProps {
  * </Dialog>
  * ```
  */
-export function Dialog({ open, onOpenChange, title, description, children, className }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, className, themed = false }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -35,7 +37,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
         <RadixDialog.Content
           className={cn(
             'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2',
-            'rounded-2xl bg-white border border-neutral-200 shadow-lg',
+            themed ? 'rounded-3xl border border-line bg-card text-ink shadow-panel' : 'rounded-2xl bg-white border border-neutral-200 shadow-lg',
             'max-h-[85vh] overflow-y-auto',
             'focus:outline-none',
             className,
@@ -43,11 +45,11 @@ export function Dialog({ open, onOpenChange, title, description, children, class
         >
           <div className="flex items-start justify-between px-5 pt-5">
             <div>
-              <RadixDialog.Title className="text-base font-semibold text-neutral-900">
+              <RadixDialog.Title className={cn('text-base font-semibold', themed ? 'font-extrabold text-ink' : 'text-neutral-900')}>
                 {title}
               </RadixDialog.Title>
               {description && (
-                <RadixDialog.Description className="text-sm text-neutral-500 mt-0.5">
+                <RadixDialog.Description className={cn('text-sm mt-0.5', themed ? 'text-ink-muted' : 'text-neutral-500')}>
                   {description}
                 </RadixDialog.Description>
               )}
@@ -55,7 +57,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             <RadixDialog.Close asChild>
               <button
                 aria-label="Yopish"
-                className="text-neutral-400 hover:text-neutral-700 transition-colors rounded p-1 -mr-1 -mt-1"
+                className={cn('transition-colors rounded p-1 -mr-1 -mt-1', themed ? 'text-ink-muted hover:text-ink' : 'text-neutral-400 hover:text-neutral-700')}
               >
                 <X size={18} />
               </button>

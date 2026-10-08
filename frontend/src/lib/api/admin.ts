@@ -82,6 +82,7 @@ export interface AdminFurniture {
   thumbnail_url: string | null;
   footprint_w: number | null;
   footprint_d: number | null;
+  height_cm?: number | null;
   is_active: boolean;
   created_at: string;
 }
@@ -97,6 +98,7 @@ export interface UploadAdminFurnitureInput {
   price_uzs?: number | null;
   footprint_w?: number | null;
   footprint_d?: number | null;
+  height_cm?: number | null;
 }
 
 export async function listAdminFurniture(params: {
@@ -124,6 +126,7 @@ export async function uploadAdminFurniture(input: UploadAdminFurnitureInput): Pr
   if (input.price_uzs != null) form.append("price_uzs", String(input.price_uzs));
   if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
   if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
+  if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
   return apiClient<AdminFurniture>("/admin/furniture", { method: "POST", body: form });
 }
 

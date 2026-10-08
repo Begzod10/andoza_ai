@@ -290,6 +290,23 @@ class TestUploadFurnitureModel:
         assert response.status_code == 201
         assert response.json()["placement"] == "pol"
 
+    def test_stores_the_measured_size_with_the_model(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client, footprint_w="210", footprint_d="90", height_cm="85")
+        assert response.status_code == 201
+        assert response.json()["height_cm"] == 85
+        added = db.add.call_args.args[0]
+        assert (added.footprint_w, added.footprint_d, added.height_cm) == (210, 90, 85)
+
+    def test_rejects_an_impossible_height(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        assert self._post(client, height_cm="0").status_code == 422
+        assert self._post(client, height_cm="5000").status_code == 422
+        db.add.assert_not_called()
+
     def test_rejects_empty_file(self, client):
         db = _db()
         _as(_user(is_admin=True), db)

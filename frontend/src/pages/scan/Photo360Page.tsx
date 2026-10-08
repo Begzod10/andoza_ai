@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/Button";
 
 type PointState = "captured" | "current" | "remaining";
 
@@ -48,13 +49,13 @@ export default function Photo360Page() {
   return (
     <div
       className="fixed inset-0 flex flex-col items-center overflow-hidden"
-      style={{ background: "radial-gradient(ellipse at center, #1A2230 0%, #0B0E13 100%)" }}
+      style={{ background: "radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)" }}
     >
       {/* Close */}
       <button
         onClick={() => navigate(-1)}
-        className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+        className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
+        style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)" }}
         aria-label="Yopish"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
@@ -64,15 +65,15 @@ export default function Photo360Page() {
 
       {/* Top pill */}
       <div
-        className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full"
-        style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+        className="absolute top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full border border-white/10"
+        style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)" }}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="1.5">
           <circle cx="8" cy="8" r="7"/>
           <path d="M8 4v1M8 11v1M4 8H3M13 8h-1" strokeLinecap="round"/>
           <path d="M10 6L8 8l-2-2" stroke="#34D399" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
-        <span className="text-white text-[14px] font-semibold">{capturedCount}/8 nuqta</span>
+        <span className="text-white text-[14px] font-bold">{capturedCount}/8 nuqta</span>
       </div>
 
       {/* Guide ring */}
@@ -117,8 +118,8 @@ export default function Photo360Page() {
 
       {/* Hint */}
       <div
-        className="flex items-center gap-2 px-4 py-2 rounded-full mb-6"
-        style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)" }}
+        className="flex items-center gap-2 px-4 py-2 rounded-full mb-6 border border-white/10"
+        style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(8px)" }}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="white" strokeWidth="1.5">
           <path d="M7 1v5M7 12v2M3 5l4-4 4 4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -127,14 +128,16 @@ export default function Photo360Page() {
       </div>
 
       {/* Shutter */}
-      <button
+      <Button
+        size="lg"
+        variant="accent"
         onClick={handleCapture}
-        className="mb-14 flex items-center gap-3 px-6 py-3 rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
+        className="mb-14 px-8"
         aria-label="Suratga olish"
       >
-        <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: "#F97316" }}/>
-        <span className="text-[16px] font-bold text-gray-900">Suratga olish</span>
-      </button>
+        <span className="mr-3 inline-block h-4 w-4 rounded-full border-2 border-white" aria-hidden="true" />
+        Suratga olish
+      </Button>
     </div>
   );
 }

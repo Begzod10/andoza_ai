@@ -14,15 +14,19 @@ import uuid as uuid_module
 import structlog
 from fastapi import APIRouter, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.models.furniture import Furniture
+from app.models.order import Order
 from app.models.store import Store
 from app.routers.admin_catalog import (
     _delete_files_after_commit,
     _invalidate_after_commit,
 )
+from app.schemas.order import OrderStatusUpdate, SellerOrderOut
+from app.services.order_status import SELLER_CAN_CANCEL, change_status
 from app.schemas.seller import (
     FURNITURE_CATEGORIES,
     PLACEMENTS,
@@ -86,6 +90,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
+        height_cm=float(f.height_cm) if f.height_cm is not None else None,
         is_active=f.is_active,
         status=f.status,
         moderation_note=f.moderation_note,
@@ -206,6 +211,7 @@ async def upload_furniture(
     price_uzs: int | None = Form(default=None, ge=0),
     footprint_w: float | None = Form(default=None, gt=0, le=2000),
     footprint_d: float | None = Form(default=None, gt=0, le=2000),
+    height_cm: float | None = Form(default=None, gt=0, le=1000),
     thumbnail: UploadFile | None = None,
 ) -> SellerFurnitureOut:
     store = await _require_approved_store(db, current_user)
@@ -276,6 +282,7 @@ async def upload_furniture(
         thumbnail_key=thumbnail_key,
         footprint_w=footprint_w,
         footprint_d=footprint_d,
+        height_cm=height_cm,
         status="pending",
         is_active=False,
     )
@@ -337,3 +344,62 @@ async def delete_furniture(furniture_id: uuid_module.UUID, current_user: Current
     _invalidate_after_commit(db, "furniture:")
     _delete_files_after_commit(db, keys, "seller_model_file_delete_failed")
     logger.info("seller_model_deleted", id=str(furniture_id), user_id=str(current_user.id))
+
+
+# ── Orders for the caller's shop ─────────────────────────────────────────────
+
+
+@router.get(
+    "/orders",
+    response_model=list[SellerOrderOut],
+    summary="Orders placed with the caller's shop, newest first",
+)
+async def list_orders(
+    current_user: CurrentUser,
+    db: DbSession,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
+) -> list[SellerOrderOut]:
+    store = await _require_approved_store(db, current_user)
+    result = await db.execute(
+        select(Order)
+        .where(Order.store_id == store.id)
+        .options(selectinload(Order.lines))
+        .order_by(Order.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    return [SellerOrderOut.model_validate(o) for o in result.scalars().all()]
+
+
+@router.patch(
+    "/orders/{order_id}/status",
+    response_model=SellerOrderOut,
+    summary="Move one of the shop's orders to its next stage",
+)
+async def advance_order(
+    order_id: uuid_module.UUID,
+    body: OrderStatusUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> SellerOrderOut:
+    store = await _require_approved_store(db, current_user)
+    # Locked for the update: two taps (or two devices) must not both read
+    # "accepted" and each move it on, skipping a stage.
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id, Order.store_id == store.id)
+        .options(selectinload(Order.lines))
+        .with_for_update(of=Order)
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        # Someone else's order looks exactly like one that does not exist.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyurtma topilmadi")
+
+    changed = change_status(order, body.status, by="seller", cancellable=SELLER_CAN_CANCEL, reason=body.reason)
+    if not changed:
+        return SellerOrderOut.model_validate(order)  # a repeated tap changes nothing
+    await db.flush()
+    logger.info("order_status_changed", order_id=str(order.id), store_id=str(store.id), status=body.status)
+    return SellerOrderOut.model_validate(order)

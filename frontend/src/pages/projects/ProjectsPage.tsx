@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApartments, createApartment } from "@/lib/api";
 import type { Apartment, CreateApartmentData } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
 
 // ─── Stage Hero Card ──────────────────────────────────────────────────────────
 
@@ -35,11 +37,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/5 to-black/75" aria-hidden="true" />
 
-      <div className="absolute inset-x-7 top-6 flex items-start justify-between text-white">
-        <div>
-          <p className="text-sm font-medium text-white/70">Xush kelibsiz</p>
-          <p className="text-3xl font-extrabold leading-tight">Salom! 👋</p>
-        </div>
+      <div className="absolute inset-x-7 top-6 flex items-start justify-end text-white">
         <div className="flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur">
           <span className="h-2 w-2 flex-shrink-0 rounded-full bg-warning" />
           <span className="text-sm font-bold">UyRemont</span>
@@ -71,15 +69,16 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
           type="button"
           onClick={open}
           aria-label={firstRoom ? "Loyihani ochish" : "Yangi loyiha boshlash"}
-          className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-btn transition-transform hover:scale-105"
+          className="flex h-14 flex-shrink-0 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[#2F55D4] shadow-[0_14px_30px_-10px_rgba(0,0,0,0.5)] transition-transform hover:scale-105 active:scale-95"
         >
-          <svg width="20" height="20" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M6 4l8 5-8 5V4z" fill="currentColor"/></svg>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M6 4l8 5-8 5V4z" fill="currentColor"/></svg>
+          {firstRoom ? "Ochish" : "Boshlash"}
         </button>
       </div>
     </div>
 
     {/* Phone: the card as it was. */}
-    <div className="rounded-xl border border-neutral-200 p-4 mb-5 bg-white shadow-sm lg:hidden">
+    <Panel className="mb-5 rounded-2xl p-4 lg:hidden">
       {/* 3D room placeholder */}
       <div className="rounded-2xl bg-neutral-100 h-48 flex items-center justify-center mb-4 overflow-hidden relative">
         {apartment ? (
@@ -137,7 +136,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
             className={`transition-all ${
               i === activeStage
                 ? "w-6 h-2 rounded-full bg-brand"
-                : "w-2 h-2 rounded-full bg-gray-300"
+                : "w-2 h-2 rounded-full bg-ink/20"
             }`}
           />
         ))}
@@ -146,10 +145,10 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       {/* Stage info + play button */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[12px] text-muted font-semibold">
+          <p className="text-[12px] text-ink-muted font-semibold">
             Bosqich {activeStage + 1} / {STAGES.length}
           </p>
-          <p className="text-base font-bold text-gray-900 mt-0.5">
+          <p className="text-base font-bold text-ink mt-0.5">
             {activeStage + 1}-bosqich: {STAGES[activeStage]}
           </p>
         </div>
@@ -159,14 +158,14 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
               ? navigate(`/studio/${firstRoom.id}/ichkarida`)
               : navigate("/wizard")
           }
-          className="w-11 h-11 rounded-full bg-brand flex items-center justify-center flex-shrink-0 shadow-btn hover:shadow-hover transition-shadow"
+          className="w-11 h-11 rounded-full bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] flex items-center justify-center flex-shrink-0 shadow-glow transition-transform active:scale-95"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M6 4l8 5-8 5V4z" fill="white"/>
           </svg>
         </button>
       </div>
-    </div>
+    </Panel>
     </>
   );
 }
@@ -174,7 +173,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
 // ─── Desktop bento: the cards under the hero ──────────────────────────────────
 
 function BentoCard({ className = "", children }: { className?: string; children: React.ReactNode }) {
-  return <div className={`hidden min-h-0 flex-col rounded-3xl bg-surface p-5 shadow-subtle lg:flex ${className}`}>{children}</div>;
+  return <Panel className={`relative hidden min-h-0 flex-col overflow-hidden p-6 lg:flex ${className}`}>{children}</Panel>;
 }
 
 /** How much there is: projects, rooms, and where the latest one stands. */
@@ -182,37 +181,44 @@ function OverviewCard({ apartments }: { apartments: Apartment[] }) {
   const rooms = apartments.reduce((n, a) => n + (a.rooms?.length ?? 0), 0);
   return (
     <BentoCard>
-      <p className="text-[13px] font-semibold text-muted">Umumiy ko'rinish</p>
-      <div className="mt-3 flex items-end gap-8">
-        <div>
-          <p className="text-4xl font-extrabold tabular-nums text-neutral-900">{apartments.length}</p>
-          <p className="text-xs text-muted">loyiha</p>
-        </div>
-        <div>
-          <p className="text-4xl font-extrabold tabular-nums text-neutral-900">{rooms}</p>
-          <p className="text-xs text-muted">xona</p>
-        </div>
+      <p className="text-sm font-semibold text-ink-muted">Umumiy ko'rinish</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Tile className="p-4">
+          <p className="text-4xl font-extrabold tabular-nums text-ink">{apartments.length}</p>
+          <p className="text-xs font-medium text-ink-muted">loyiha</p>
+        </Tile>
+        <Tile className="p-4">
+          <p className="text-4xl font-extrabold tabular-nums text-ink">{rooms}</p>
+          <p className="text-xs font-medium text-ink-muted">xona</p>
+        </Tile>
       </div>
-      <p className="mt-auto pt-4 text-xs text-muted">
+      <p className="mt-auto pt-4 text-xs text-ink-muted">
         {apartments[0] ? `Oxirgisi: ${new Date(apartments[0].created_at).toLocaleDateString("uz-UZ")}` : ""}
       </p>
     </BentoCard>
   );
 }
 
-function LinkCard({ title, text, action, to }: { title: string; text: string; action: string; to: string }) {
+function LinkCard({
+  title, text, action, to, tone, icon,
+}: { title: string; text: string; action: string; to: string; tone: "orange" | "violet"; icon: React.ReactNode }) {
   const navigate = useNavigate();
+  const glow = tone === "orange" ? "bg-orange-400/25" : "bg-violet-500/25";
   return (
     <BentoCard>
-      <p className="text-[17px] font-extrabold text-neutral-900">{title}</p>
-      <p className="mt-1.5 text-sm leading-snug text-muted">{text}</p>
-      <button
-        type="button"
+      {/* A soft colour in the corner, so the card has a face and is not a white slab with a button. */}
+      <span aria-hidden="true" className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ${glow}`} />
+      <IconBubble tone={tone}>{icon}</IconBubble>
+      <p className="mt-4 text-[19px] font-extrabold text-ink">{title}</p>
+      <p className="mt-1.5 max-w-xs text-sm leading-snug text-ink-muted">{text}</p>
+      <Button
+        variant={tone === "orange" ? "accent" : "primary"}
         onClick={() => navigate(to)}
-        className="mt-auto rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-btn transition-colors hover:bg-brand/90"
+        className="mt-auto self-start"
+        rightIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
       >
         {action}
-      </button>
+      </Button>
     </BentoCard>
   );
 }
@@ -222,14 +228,15 @@ function LinkCard({ title, text, action, to }: { title: string; text: string; ac
 function ProjectCard({ apt }: { apt: Apartment }) {
   const navigate = useNavigate();
   const firstRoom = apt.rooms?.[0];
+  const open = () => (firstRoom ? navigate(`/studio/${firstRoom.id}/ichkarida`) : navigate("/wizard"));
 
   return (
-    <div className="flex items-center gap-3 bg-white border border-neutral-200 rounded-xl p-3 shadow-sm">
-      <div className="w-14 h-14 rounded-xl bg-neutral-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+    <Tile className="flex items-center gap-3 p-2.5 pr-3 transition-colors hover:bg-ink/5">
+      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card">
         {firstRoom?.thumbnail_url ? (
-          <img src={firstRoom.thumbnail_url} alt="" className="w-full h-full object-cover" />
+          <img src={firstRoom.thumbnail_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <svg width="32" height="32" viewBox="0 0 36 36" fill="none" aria-hidden="true">
             <polygon points="18,4 32,12 32,30 18,30 4,30 4,12" fill="#C9CFDD"/>
             <polygon points="18,4 32,12 18,12" fill="#D8DEE9"/>
             <polygon points="18,4 4,12 18,12" fill="#BFC8D9"/>
@@ -237,24 +244,17 @@ function ProjectCard({ apt }: { apt: Apartment }) {
           </svg>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-bold text-gray-900 truncate">{apt.name}</p>
-        <p className="text-[12px] text-muted mt-0.5">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-bold text-ink">{apt.name}</p>
+        <p className="mt-0.5 text-[12px] text-ink-muted">
           {new Date(apt.created_at).toLocaleDateString("uz-UZ")}
           {apt.rooms && apt.rooms.length > 0 && ` · ${apt.rooms.length} xona`}
         </p>
       </div>
-      <button
-        onClick={() =>
-          firstRoom
-            ? navigate(`/studio/${firstRoom.id}/ichkarida`)
-            : navigate("/wizard")
-        }
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-brand bg-primary-tint flex-shrink-0 hover:bg-primary/10 transition-colors"
-      >
+      <Button variant="primary" size="sm" onClick={open} className="flex-shrink-0">
         Ochish
-      </button>
-    </div>
+      </Button>
+    </Tile>
   );
 }
 
@@ -283,36 +283,27 @@ function ProjectsUnavailable({ onRetry, retrying }: {
       </div>
       <p className="text-[15px] font-bold text-amber-900">Loyihalar yuklanmadi</p>
       <p className="text-[13px] text-amber-800 mt-1">
-        Serverga ulanib bo'lmadi. Loyihalaringiz joyida — ro'yxat kelmadi, xolos.
+        Serverga ulanib bo'lmadi, loyihalar ro'yxatini yuklab bo'lmadi. Ma'lumotlaringiz saqlangan.
       </p>
-      <button
-        onClick={onRetry}
-        disabled={retrying}
-        className="mt-4 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-[14px] font-bold disabled:opacity-60"
-      >
+      <Button variant="accent" className="mt-4" onClick={onRetry} disabled={retrying}>
         {retrying ? "Urinilmoqda..." : "Qayta urinish"}
-      </button>
+      </Button>
     </div>
   );
 }
 
 function EmptyProjects({ onCreateClick }: { onCreateClick: () => void }) {
   return (
-    <div className="rounded-xl p-8 flex flex-col items-center text-center border-2 border-dashed border-neutral-300 bg-neutral-50">
-      <div className="w-14 h-14 rounded-2xl bg-neutral-100 flex items-center justify-center mb-3">
+    <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-line bg-card-soft p-8 text-center">
+      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-card">
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
           <path d="M22 19.5H6a2 2 0 01-2-2V8a2 2 0 012-2h4l2 3h10a2 2 0 012 2v8.5a2 2 0 01-2 2z"/>
         </svg>
       </div>
-      <p className="text-[14px] text-muted mb-4">
+      <p className="mb-4 text-[14px] text-ink-muted">
         Hali loyiha yo'q
       </p>
-      <button
-        onClick={onCreateClick}
-        className="px-4 py-2 rounded-[12px] bg-brand text-white text-[14px] font-semibold hover:bg-brand/90"
-      >
-        + Yangi loyiha
-      </button>
+      <Button variant="accent" onClick={onCreateClick}>+ Yangi loyiha</Button>
     </div>
   );
 }
@@ -428,11 +419,7 @@ export default function ProjectsPage() {
       <div className="px-5 pt-12 pb-4 lg:grid lg:h-full lg:grid-cols-12 lg:grid-rows-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-4 lg:p-4 lg:pt-4">
 
         <div className="lg:col-span-8 lg:row-start-1 lg:min-h-0">
-          <div className="mb-5 flex items-center justify-between lg:hidden">
-            <div>
-              <p className="text-[15px] text-on-app-muted font-medium">Xush kelibsiz</p>
-              <p className="text-[25px] font-extrabold text-on-app">Salom! 👋</p>
-            </div>
+          <div className="mb-5 flex items-center justify-end lg:hidden">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100">
               <span className="w-2 h-2 rounded-full flex-shrink-0 bg-warning" />
               <span className="text-sm font-bold text-brand">UyRemont</span>
@@ -448,18 +435,18 @@ export default function ProjectsPage() {
           )}
         </div>
 
-        <div className="lg:col-span-4 lg:row-start-1 lg:flex lg:min-h-0 lg:flex-col lg:rounded-3xl lg:bg-surface lg:p-5 lg:shadow-subtle">
+        <div className="lg:col-span-4 lg:row-start-1 lg:flex lg:min-h-0 lg:flex-col lg:rounded-3xl lg:border lg:border-line lg:bg-card lg:p-5 lg:shadow-panel">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-extrabold text-on-app lg:text-neutral-900">Mening loyihalarim</h2>
+            <h2 className="text-[17px] font-extrabold text-on-app lg:text-ink">Mening loyihalarim</h2>
             <button
               onClick={() => setShowDeleted(!showDeleted)}
-              className={`text-[13px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
                 showDeleted
-                  ? "bg-red-100 text-red-600"
-                  : "bg-white text-brand hover:bg-blue-50 lg:bg-primary-tint"
+                  ? "bg-red-500/15 text-red-500"
+                  : "bg-card text-brand-light hover:bg-card-soft lg:bg-card-soft"
               }`}
             >
-              {showDeleted ? "🗑️ O'chirilganlar" : "Barchasi"}
+              {showDeleted ? "O'chirilganlar" : "Barchasi"}
             </button>
           </div>
 
@@ -493,10 +480,16 @@ export default function ProjectsPage() {
           {isLoading || isError ? <BentoCard>{null}</BentoCard> : <OverviewCard apartments={apartments} />}
         </div>
         <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
-          <LinkCard title="Do'kon" text="Material va mebel narxlarini do'konlar bo'yicha solishtiring." action="Do'konni ochish" to="/dokon" />
+          <LinkCard
+            title="Do'kon" text="Material va mebel narxlarini do'konlar bo'yicha solishtiring." action="Do'konni ochish" to="/dokon" tone="orange"
+            icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
+          />
         </div>
         <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
-          <LinkCard title="Ustalar" text="Tasdiqlangan ustalarni toping va ular bilan bog'laning." action="Ustalarni ko'rish" to="/ustalar" />
+          <LinkCard
+            title="Ustalar" text="Tasdiqlangan ustalarni toping va ular bilan bog'laning." action="Ustalarni ko'rish" to="/ustalar" tone="violet"
+            icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+          />
         </div>
       </div>
 
@@ -504,7 +497,7 @@ export default function ProjectsPage() {
       {apartments.length > 0 && !isError && (
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-brand lg:hidden text-white flex items-center justify-center shadow-btn hover:shadow-hover hover:bg-brand/90 transition-all"
+          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-gradient-to-br from-[#FB923C] to-[#EA580C] lg:hidden text-white flex items-center justify-center shadow-glow-orange active:scale-95 transition-all"
         >
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
             <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2" strokeLinecap="round"/>

@@ -181,6 +181,31 @@ class TestUpload:
         assert (f.store_id, f.status, f.is_active, f.price_uzs) == (store.id, "pending", False, 150000)
         assert up.await_args.args[0] == GLB
 
+    def test_the_measured_size_of_the_model_is_stored_with_it(self, client):
+        u = _user()
+        db = _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client, footprint_w="210", footprint_d="90", height_cm="85")
+        assert res.status_code == 201 and res.json()["height_cm"] == 85
+        f = db.add.call_args.args[0]
+        assert (f.footprint_w, f.footprint_d, f.height_cm) == (210, 90, 85)
+
+    def test_the_height_is_optional(self, client):
+        u = _user()
+        db = _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client)
+        assert res.status_code == 201 and res.json()["height_cm"] is None
+        assert db.add.call_args.args[0].height_cm is None
+
+    @pytest.mark.parametrize("bad", ["0", "-5", "1001"])
+    def test_an_impossible_height_is_refused(self, client, bad):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock()) as up:
+            assert _upload(client, height_cm=bad).status_code == 422
+        up.assert_not_awaited()
+
     def test_a_file_that_is_not_a_glb_is_refused_even_if_named_glb(self, client):
         u = _user()
         _as(u, [_R(_store(u)), _R(0)])

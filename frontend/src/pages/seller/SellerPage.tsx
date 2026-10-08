@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { IconBubble, Panel } from "@/components/ui/Panel";
+import { ChevronLeft, Store, Boxes } from "lucide-react";
 import {
   deleteMyModel,
   getMyStore,
@@ -15,6 +16,7 @@ import {
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { ModelEditDialog } from "./ModelEditDialog";
 import { SellerModelCard } from "./SellerModelCard";
+import { SellerOrders } from "./SellerOrders";
 import { SellerModelFormDialog } from "./SellerModelFormDialog";
 import { StatusBadge } from "./StatusBadge";
 import { StoreApplyForm } from "./StoreApplyForm";
@@ -74,28 +76,29 @@ export default function SellerPage() {
   return (
     <div className="min-h-screen bg-paper pb-24">
       <div className="max-w-4xl mx-auto p-4 space-y-5">
-        {/* Text sits on white, not on the page: the night theme recolours only the
-            background, so loose dark text there would vanish. */}
-        <div className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2 shadow-subtle">
-          <button onClick={() => navigate(-1)} aria-label="Orqaga" className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">‹</button>
-          <h1 className="text-lg font-semibold text-neutral-900">Sotuvchi paneli</h1>
-        </div>
+        <Panel className="flex items-center gap-3 px-3 py-2.5">
+          <button onClick={() => navigate(-1)} aria-label="Orqaga" className="h-10 w-10 rounded-full bg-card-soft flex items-center justify-center text-ink-muted hover:text-ink transition-colors">
+            <ChevronLeft size={20} aria-hidden="true" />
+          </button>
+          <IconBubble tone="green" className="h-10 w-10 rounded-2xl"><Store size={18} aria-hidden="true" /></IconBubble>
+          <h1 className="text-lg font-extrabold text-ink">Sotuvchi paneli</h1>
+        </Panel>
 
-        {error && <div role="alert" className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{error}</div>}
+        {error && <div role="alert" className="rounded-2xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm font-medium px-4 py-2.5">{error}</div>}
 
         {storeQuery.isLoading ? (
-          <div className="h-32 rounded-2xl bg-white animate-pulse" />
+          <div className="h-32 rounded-3xl bg-card animate-pulse" />
         ) : storeQuery.isError ? (
-          <p className="text-sm text-red-600">{errorMessage(storeQuery.error, "Yuklab bo'lmadi")}</p>
+          <p className="text-sm text-red-500">{errorMessage(storeQuery.error, "Yuklab bo'lmadi")}</p>
         ) : !store ? (
-          <Card><StoreApplyForm onApplied={setStore} /></Card>
+          <Panel className="p-6"><StoreApplyForm onApplied={setStore} /></Panel>
         ) : (
           <>
-            <Card className="space-y-2">
+            <Panel className="space-y-3 p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-neutral-900 truncate">{store.name}</h2>
-                  <p className="text-xs text-neutral-500 truncate">
+                  <h2 className="text-lg font-extrabold text-ink truncate">{store.name}</h2>
+                  <p className="text-xs text-ink-muted truncate">
                     {[store.district, store.phone, store.telegram].filter(Boolean).join(" · ") || "Aloqa ma'lumotlari kiritilmagan"}
                   </p>
                 </div>
@@ -103,13 +106,13 @@ export default function SellerPage() {
               </div>
 
               {store.status === "pending" && (
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-ink-muted">
                   Arizangiz ko'rib chiqilmoqda. Tasdiqlangach, 3D modellaringizni yuklashingiz mumkin.
                 </p>
               )}
               {store.status === "rejected" && (
                 <div className="space-y-2">
-                  <p className="text-sm text-red-700">
+                  <p className="text-sm text-red-500">
                     Ariza rad etildi{store.moderation_note ? `: ${store.moderation_note}` : "."}
                   </p>
                   <Button size="sm" onClick={() => resubmit.mutate()} loading={resubmit.isPending}>
@@ -119,21 +122,26 @@ export default function SellerPage() {
               )}
 
               <div>
-                <Button variant="secondary" size="sm" onClick={() => setEditingStore(true)}>Ma'lumotlarni tahrirlash</Button>
+                <Button variant="soft" size="sm" onClick={() => setEditingStore(true)}>Ma'lumotlarni tahrirlash</Button>
               </div>
-            </Card>
+            </Panel>
+
+            {store.status === "approved" && <SellerOrders />}
 
             {store.status === "approved" && (
               <section className="space-y-3">
-                <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-2.5 shadow-subtle">
-                  <h2 className="text-base font-semibold text-neutral-900">
-                    3D modellar{modelsQuery.data ? ` (${modelsQuery.data.total})` : ""}
-                  </h2>
-                  <Button size="sm" onClick={() => setUploading(true)}>+ Yangi model</Button>
-                </div>
+                <Panel className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <IconBubble tone="violet" className="h-10 w-10 rounded-2xl"><Boxes size={18} aria-hidden="true" /></IconBubble>
+                    <h2 className="text-base font-extrabold text-ink">
+                      3D modellar{modelsQuery.data ? ` (${modelsQuery.data.total})` : ""}
+                    </h2>
+                  </div>
+                  <Button size="sm" variant="accent" onClick={() => setUploading(true)}>+ Yangi model</Button>
+                </Panel>
 
                 {modelsQuery.isLoading ? (
-                  <div className="h-40 rounded-2xl bg-white animate-pulse" />
+                  <div className="h-40 rounded-3xl bg-card animate-pulse" />
                 ) : modelsQuery.data && modelsQuery.data.items.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {modelsQuery.data.items.map((m) => (
@@ -150,10 +158,10 @@ export default function SellerPage() {
                     ))}
                   </div>
                 ) : (
-                  <Card className="text-center py-8 space-y-2">
-                    <p className="text-sm text-neutral-600">Hali model yuklanmagan.</p>
-                    <p className="text-xs text-neutral-400">.glb formatidagi 3D modelni yuklang — administrator tasdiqlagach hammaga ko'rinadi.</p>
-                  </Card>
+                  <Panel className="text-center py-8 px-4 space-y-2">
+                    <p className="text-sm font-bold text-ink">Hali model yuklanmagan.</p>
+                    <p className="text-xs text-ink-muted">.glb formatidagi 3D modelni yuklang — administrator tasdiqlagach hammaga ko'rinadi.</p>
+                  </Panel>
                 )}
               </section>
             )}

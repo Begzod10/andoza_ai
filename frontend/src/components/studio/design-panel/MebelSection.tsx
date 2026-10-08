@@ -1,5 +1,7 @@
 import * as React from "react";
 import { nanoid } from "nanoid";
+import { AlertTriangle, ImagePlus, Loader2, Palette, Store } from "lucide-react";
+import { FurnitureSymbol } from "@/lib/catalogIcons";
 import { useRoomStore } from "@/store/roomStore";
 import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
@@ -128,21 +130,21 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         ${isOver ? 'border-brand border-dashed bg-brand/5'
                  : count > 0 ? 'border-brand shadow-sm' : 'border-gray-200 hover:border-brand/40'}`}
     >
-      {/* Thumbnail — a real render of the model when available, else the emoji */}
+      {/* Thumbnail — a real render of the model when available, else the symbol of its kind */}
       <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center h-20 text-4xl select-none overflow-hidden">
         {!isOver && entry.thumbnailUrl ? (
           <img src={entry.thumbnailUrl} alt={entry.name} className="w-full h-full object-cover" />
         ) : (
-          isOver ? '🖼' : entry.emoji
+          isOver ? <ImagePlus size={34} strokeWidth={1.5} className="text-gray-500" aria-hidden="true" /> : <FurnitureSymbol emoji={entry.emoji} size={36} strokeWidth={1.5} className="text-gray-500" />
         )}
         {entry.isUser && !entry.modelPath && (
-          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yüklanmoqda</span>
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yuklanmoqda</span>
         )}
         {entry.isShop && !entry.modelPath && (
           <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">3D model yo'q</span>
         )}
         {entry.isUser && !entry.hasTextures && entry.modelPath && (
-          <span className="absolute top-1 right-1 text-[9px]" title="Tekstura yo'q">⚠️</span>
+          <span className="absolute top-1 right-1" title="Tekstura yo'q"><AlertTriangle size={13} className="text-amber-500" aria-label="Tekstura yo'q" /></span>
         )}
       </div>
 
@@ -154,7 +156,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
         <p className="text-[10px] text-gray-500 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
         {entry.isShop && (
           <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={entry.storeName ?? undefined}>
-            🏪 {entry.storeName ?? "Do'konsiz"}
+            <Store size={11} className="mr-1 inline -mt-0.5" aria-hidden="true" />{entry.storeName ?? "Do'konsiz"}
             {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
           </p>
         )}
@@ -241,7 +243,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
             disabled={busy}
             className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
             title="Teksturalarni boshqarish (kanallar bo'yicha) — yoki rasmni shu kartaga sudrab tashlang"
-          >{busy ? '⏳' : '🖼'}</button>
+           aria-label="Teksturalarni boshqarish">{busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={14} aria-hidden="true" />}</button>
         )}
         {entry.isUser && (
           <button
@@ -568,14 +570,14 @@ export function MebelSection() {
             return (
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
-                  <span>{entry?.emoji ?? (shopEntry ? '🏪' : '📦')}</span>
+                  <span className="text-gray-600"><FurnitureSymbol emoji={entry?.emoji ?? (shopEntry ? '🏪' : '📦')} size={15} /></span>
                   <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? 'Model'}</span>
                   <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{actualW}×{actualD} m</span>
                   <button
                     onClick={() => setColorEditorId(isEditing ? null : f.id)}
                     title="Rang o'zgartirish"
                     className={`text-sm leading-none transition-colors ${isEditing ? 'text-brand' : hasOverrides ? 'text-amber-500' : 'text-gray-300 hover:text-gray-500'}`}
-                  >🎨</button>
+                   aria-label="Rang o'zgartirish"><Palette size={15} aria-hidden="true" /></button>
                   <button onClick={() => removeFurniture(f.id)} className="text-gray-400 hover:text-red-500 transition-colors text-sm leading-none" title="O'chirish">✕</button>
                 </div>
 

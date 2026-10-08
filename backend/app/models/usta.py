@@ -24,6 +24,12 @@ UstaCategory = Enum(
     "oboy",
     "laminat",
     "brigada",
+    "plitkachi",
+    "shtukatur",
+    "gipsokartonchi",
+    "eshik_oyna",
+    "isitish_konditsioner",
+    "demontaj",
     name="usta_category",
 )
 

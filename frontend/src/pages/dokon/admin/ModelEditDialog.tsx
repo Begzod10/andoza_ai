@@ -81,7 +81,7 @@ export function ModelEditDialog({
   if (!model) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Modelni tahrirlash" description={model.name_uz}>
+    <Dialog themed open={open} onOpenChange={onOpenChange} title="Modelni tahrirlash" description={model.name_uz}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -90,15 +90,15 @@ export function ModelEditDialog({
         }}
         className="space-y-4"
       >
-        <Input label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} autoFocus />
+        <Input themed label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
             {ADMIN_FURNITURE_CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}
           </Select>
-          <Select label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
             <option value="">Barcha xonalar</option>
             {ADMIN_ROOM_TYPES.map((r) => (
               <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>
@@ -106,7 +106,7 @@ export function ModelEditDialog({
           </Select>
         </div>
 
-        <Select
+        <Select themed
           label="Xonada joylashuvi"
           value={placement}
           onChange={(e) => setPlacement(e.target.value as AdminPlacement)}
@@ -117,13 +117,13 @@ export function ModelEditDialog({
         </Select>
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
             <option value="">— tanlanmagan —</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </Select>
-          <Input
+          <Input themed
             label="Narxi (so'm)"
             type="number"
             min={0}
@@ -133,18 +133,18 @@ export function ModelEditDialog({
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            className="rounded border-neutral-300 text-brand focus:ring-brand"
+            className="rounded border-line text-brand focus:ring-brand"
           />
           Faol (katalogda ko'rinadi)
         </label>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={!nameUz.trim()} loading={updateMutation.isPending}>

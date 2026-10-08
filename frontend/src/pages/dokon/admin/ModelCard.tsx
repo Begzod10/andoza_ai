@@ -26,7 +26,7 @@ export function ModelCard({
           onDelete(model);
         }}
         title="O'chirish"
-        className="absolute top-2.5 right-2.5 z-10 w-6 h-6 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-400 hover:text-red-500 transition-colors"
+        className="absolute top-2.5 right-2.5 z-10 w-6 h-6 rounded-full bg-card/90 border border-line shadow-sm flex items-center justify-center text-ink-muted hover:text-red-500 transition-colors"
       >
         <Trash2 size={13} />
       </button>
@@ -35,17 +35,17 @@ export function ModelCard({
         <img
           src={model.thumbnail_url}
           alt={model.name_uz}
-          className="w-full aspect-square rounded-lg object-cover border border-neutral-200"
+          className="w-full aspect-square rounded-lg object-cover border border-line"
         />
       ) : (
-        <div className="w-full aspect-square rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-300 text-sm">
+        <div className="w-full aspect-square rounded-lg bg-card-soft flex items-center justify-center text-ink-muted text-sm">
           3D
         </div>
       )}
 
       <div className="space-y-1">
-        <h4 className="font-semibold text-neutral-900 text-sm leading-tight truncate">{model.name_uz}</h4>
-        <p className="text-xs text-neutral-400 truncate">
+        <h4 className="font-semibold text-ink text-sm leading-tight truncate">{model.name_uz}</h4>
+        <p className="text-xs text-ink-muted truncate">
           {CATEGORY_LABELS[model.category as AdminFurnitureCategory] ?? model.category}
           {" · "}
           {model.room_type ? ROOM_TYPE_LABELS[model.room_type as AdminRoomType] ?? model.room_type : "Barcha xonalar"}
@@ -53,10 +53,10 @@ export function ModelCard({
           {PLACEMENT_LABELS[model.placement] ?? model.placement}
         </p>
         {showStore && model.store_name && (
-          <p className="text-xs text-neutral-400 truncate">{model.store_name}</p>
+          <p className="text-xs text-ink-muted truncate">{model.store_name}</p>
         )}
         {model.price_uzs != null && (
-          <p className="text-sm font-medium text-neutral-700">
+          <p className="text-sm font-medium text-ink">
             {model.price_uzs.toLocaleString("uz-UZ")} so'm
           </p>
         )}
