@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ReceiptText, Search, ShoppingCart } from "lucide-react";
+import { Armchair, ReceiptText, Search, ShoppingCart } from "lucide-react";
 import { getMaterials, listCatalogFurniture } from "@/lib/api";
 import type { CatalogFurniture, Material } from "@/lib/api";
 import { formatUZS } from "@/lib/utils";
@@ -186,7 +186,7 @@ export function ShopHome({
             <Tile
               key={f.id}
               image={f.thumbnail_url}
-              fallback={<span className="text-3xl" aria-hidden="true">🛋️</span>}
+              fallback={<Armchair size={32} className="text-ink-muted" aria-hidden="true" />}
               title={f.name_uz}
               meta={`${label(f.category)}${f.store_name ? ` · ${f.store_name}` : ""}`}
               price={f.price_uzs ? formatUZS(f.price_uzs) : "Narx so'rang"}

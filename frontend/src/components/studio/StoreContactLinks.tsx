@@ -17,7 +17,7 @@ export function StoreContactLinks({ store }: { store: { phone: string | null; te
           title={l.label}
           className="flex-1 rounded-md border border-brand/30 px-1.5 py-0.5 text-center text-[10px] font-semibold text-brand hover:bg-brand/5"
         >
-          {l.kind === 'tel' ? '📞 Qo\'ng\'iroq' : '✈️ Telegram'}
+          {l.kind === 'tel' ? "Qo'ng'iroq" : 'Telegram'}
         </a>
       ))}
     </div>

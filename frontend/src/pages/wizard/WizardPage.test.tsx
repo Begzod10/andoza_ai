@@ -212,7 +212,7 @@ describe('WizardPage – Step 5 (Results)', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText("O'lchamlar saqlandi!")).toBeTruthy()
+      expect(screen.getByText("O'lchamlar saqlandi")).toBeTruthy()
     })
 
     expect(screen.getByText('Pol maydoni')).toBeTruthy()

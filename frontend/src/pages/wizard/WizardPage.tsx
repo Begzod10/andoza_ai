@@ -504,7 +504,7 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       </motion.div>
 
       <div className="text-center">
-        <h2 className="text-xl font-extrabold text-ink">O'lchamlar saqlandi!</h2>
+        <h2 className="text-xl font-extrabold text-ink">O'lchamlar saqlandi</h2>
         <p className="text-sm text-muted mt-1">Xona parametrlari muvaffaqiyatli qayd etildi</p>
       </div>
 
@@ -852,7 +852,6 @@ export default function WizardPage() {
       {resumePrompt && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-3xl border border-line bg-card shadow-panel p-5 animate-fade-slide">
-            <div className="text-2xl mb-3">🏗️</div>
             <h2 className="text-base font-extrabold text-ink mb-1">
               Saqlangan loyiha bor
             </h2>

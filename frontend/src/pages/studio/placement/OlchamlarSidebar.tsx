@@ -22,8 +22,8 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
       {/* Mini tabs */}
       <div className="flex border-b border-gray-100 px-2 pt-1.5 gap-1 shrink-0">
         {([
-          ['olchamlar', '📐 Qurilmalar'],
-          ['simlar',    '🔌 Sim uzunligi'],
+          ['olchamlar', 'Qurilmalar'],
+          ['simlar',    'Sim uzunligi'],
         ] as [InnerTab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setInner(t)}
             className={`px-2.5 py-1 text-[11px] rounded-t font-medium border-b-2 transition-colors ${
@@ -109,8 +109,8 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
 
         return (
           <div className="flex-1 overflow-y-auto flex flex-col">
-            <WireGroup title="🔌 Rozetka simlari" items={sockets} total={socketTotal} color="bg-orange-50 text-orange-800"/>
-            <WireGroup title="💡 Kalit simlari"   items={switches} total={switchTotal} color="bg-yellow-50 text-yellow-800"/>
+            <WireGroup title="Rozetka simlari" items={sockets} total={socketTotal} color="bg-orange-50 text-orange-800"/>
+            <WireGroup title="Kalit simlari"   items={switches} total={switchTotal} color="bg-yellow-50 text-yellow-800"/>
             {sockets.length === 0 && switches.length === 0 && (
               <p className="text-xs text-gray-400 text-center py-6 px-3">Rozetka yoki kalit qo'shilmagan</p>
             )}

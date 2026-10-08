@@ -37,11 +37,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/5 to-black/75" aria-hidden="true" />
 
-      <div className="absolute inset-x-7 top-6 flex items-start justify-between text-white">
-        <div>
-          <p className="text-sm font-medium text-white/70">Xush kelibsiz</p>
-          <p className="text-3xl font-extrabold leading-tight">Salom! 👋</p>
-        </div>
+      <div className="absolute inset-x-7 top-6 flex items-start justify-end text-white">
         <div className="flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur">
           <span className="h-2 w-2 flex-shrink-0 rounded-full bg-warning" />
           <span className="text-sm font-bold">UyRemont</span>
@@ -287,7 +283,7 @@ function ProjectsUnavailable({ onRetry, retrying }: {
       </div>
       <p className="text-[15px] font-bold text-amber-900">Loyihalar yuklanmadi</p>
       <p className="text-[13px] text-amber-800 mt-1">
-        Serverga ulanib bo'lmadi. Loyihalaringiz joyida — ro'yxat kelmadi, xolos.
+        Serverga ulanib bo'lmadi, loyihalar ro'yxatini yuklab bo'lmadi. Ma'lumotlaringiz saqlangan.
       </p>
       <Button variant="accent" className="mt-4" onClick={onRetry} disabled={retrying}>
         {retrying ? "Urinilmoqda..." : "Qayta urinish"}
@@ -423,11 +419,7 @@ export default function ProjectsPage() {
       <div className="px-5 pt-12 pb-4 lg:grid lg:h-full lg:grid-cols-12 lg:grid-rows-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-4 lg:p-4 lg:pt-4">
 
         <div className="lg:col-span-8 lg:row-start-1 lg:min-h-0">
-          <div className="mb-5 flex items-center justify-between lg:hidden">
-            <div>
-              <p className="text-[15px] text-on-app-muted font-medium">Xush kelibsiz</p>
-              <p className="text-[25px] font-extrabold text-on-app">Salom! 👋</p>
-            </div>
+          <div className="mb-5 flex items-center justify-end lg:hidden">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100">
               <span className="w-2 h-2 rounded-full flex-shrink-0 bg-warning" />
               <span className="text-sm font-bold text-brand">UyRemont</span>
@@ -454,7 +446,7 @@ export default function ProjectsPage() {
                   : "bg-card text-brand-light hover:bg-card-soft lg:bg-card-soft"
               }`}
             >
-              {showDeleted ? "🗑️ O'chirilganlar" : "Barchasi"}
+              {showDeleted ? "O'chirilganlar" : "Barchasi"}
             </button>
           </div>
 
