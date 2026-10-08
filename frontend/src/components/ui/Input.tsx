@@ -29,6 +29,8 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
    * @default 'md'
    */
   inputSize?: 'sm' | 'md' | 'lg'
+  /** Follow the app's day/night theme (fields on a themed Panel) instead of the fixed light field. */
+  themed?: boolean
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -44,6 +46,10 @@ const baseInput =
   'focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ' +
   'disabled:bg-neutral-100 ' +
   'disabled:text-neutral-500 disabled:cursor-not-allowed'
+
+/** Overrides for fields sitting on a themed (day/night) surface. */
+const themedInput =
+  'border-line bg-card-soft text-ink placeholder:text-ink-muted/70 focus:bg-card-soft focus:ring-[#5B84F5]/70'
 
 const inputSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-8 px-2.5 py-1.5 text-sm rounded',
@@ -92,6 +98,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       startIcon,
       endIcon,
       inputSize = 'md',
+      themed = false,
       disabled,
       className,
       id: idProp,
@@ -108,7 +115,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <div className="w-full">
-        {label && <label htmlFor={id} className={baseLabel}>{label}</label>}
+        {label && <label htmlFor={id} className={cn(baseLabel, themed && 'text-ink')}>{label}</label>}
 
         <div className="relative flex items-center">
           {startIcon && (
@@ -123,6 +130,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             disabled={isDisabled}
             className={cn(
               baseInput,
+              themed && themedInput,
               inputSizes[inputSize],
               hasError && 'border-red-500 focus:ring-red-500 focus:ring-offset-0',
               startIcon && 'pl-10',
