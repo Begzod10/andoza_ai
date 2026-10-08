@@ -18,6 +18,7 @@
  * that reason.
  */
 import { planPolygon } from '@/lib/planPolygon'
+import type { WallElement as ApiWallElement } from '@/lib/api/rooms'
 import type { RoomGeometry } from '@/store/roomStore'
 
 /** Matches `RoomSide` in pages/studio/three-d/constants.ts — the same four
@@ -80,7 +81,12 @@ export function wallSideOf(geometry: RoomGeometry, wallId: string): RoomSide | n
   return LEGACY_WALL_SIDE[wallId] ?? null
 }
 
-const LEGACY_WALL_SIDE: Record<string, RoomSide> = {
+/** The legacy rectangle's four walls and the side each one faces: A at -z, B at
+ *  +x, C at +z, D at -x. Exported because `sharedOpenings.ts` has to run it
+ *  BACKWARDS — "the new room is to the east, so which of its walls faces back
+ *  west?" — and a second hand-written copy of this map is exactly the kind of
+ *  thing that drifts and silently puts the shared door in the wrong wall. */
+export const LEGACY_WALL_SIDE: Record<string, RoomSide> = {
   A: 'north', B: 'east', C: 'south', D: 'west',
 }
 
@@ -115,26 +121,41 @@ export function newRoomLayoutPos(
 }
 
 /**
- * The new room as the API wants it: four walls, lengths in METRES, no
- * openings yet.
+ * The new room as the API wants it: four walls, lengths in METRES, and
+ * whatever openings it inherits from the wall it was created through.
  *
  * Wall ids follow the legacy A-B-C-D convention and the order the rest of the
  * app reads them in — A and C run along the width, B and D along the depth.
  * No `vertices`: a plain rectangle is exactly the case the outline is omitted
  * for, and sending one would push every consumer down the drawn-room path for
  * a room that is not drawn.
+ *
+ * `openings` is the one wall that is NOT blank. A room created through a wall
+ * that already has a door in it has to repeat that door in the wall it shares,
+ * or the single door ends up opening onto a solid partition and the new room is
+ * sealed off — see `sharedOpeningsFor` in lib/sharedOpenings.ts, which works
+ * out which wall and where along it. Its elements are already in API units, so
+ * they are passed through untouched.
  */
-export function newRoomGeometry(widthMm: number, depthMm: number): {
-  walls: { id: string; length: number; elements: never[] }[]
+export function newRoomGeometry(
+  widthMm: number,
+  depthMm: number,
+  openings?: { wallId: string; elements: ApiWallElement[] } | null,
+): {
+  walls: { id: string; length: number; elements: ApiWallElement[] }[]
 } {
   const w = clampRoomDimension(widthMm, 'width') / 1000
   const d = clampRoomDimension(depthMm, 'depth') / 1000
+  // A fresh array per wall: handing the same `[]` to all four would let any
+  // later in-place push land on every wall of the room at once.
+  const on = (id: string): ApiWallElement[] =>
+    openings && openings.wallId === id ? [...openings.elements] : []
   return {
     walls: [
-      { id: 'A', length: w, elements: [] },
-      { id: 'B', length: d, elements: [] },
-      { id: 'C', length: w, elements: [] },
-      { id: 'D', length: d, elements: [] },
+      { id: 'A', length: w, elements: on('A') },
+      { id: 'B', length: d, elements: on('B') },
+      { id: 'C', length: w, elements: on('C') },
+      { id: 'D', length: d, elements: on('D') },
     ],
   }
 }
@@ -216,6 +237,12 @@ export function isometricRoom(
 
 /** Where a wall sits in its room, and which way it faces out. */
 export interface WallAnchor {
+  /** The wall this was read off, as `geometry.walls[].id` spells it — 'A'..'D'
+   *  for the legacy rectangle, the polygon edge's id otherwise. Carried along
+   *  because the anchor outlives the tap: it sits in React state while the
+   *  dimensions sheet is open, and the openings this wall already has can only
+   *  be looked up again from the store by id. */
+  wallId: string
   /** Midpoint of the wall, metres, in the room's own centred frame. */
   midXM: number
   midZM: number
@@ -249,7 +276,7 @@ export function wallAnchorOf(geometry: RoomGeometry, wallId: string): WallAnchor
     // is half the room out along its own normal.
     const w = (geometry.walls.find((x) => x.id === 'A')?.length ?? 4000) / 1000
     const d = (geometry.walls.find((x) => x.id === 'B')?.length ?? 3000) / 1000
-    return { midXM: outX * (w / 2), midZM: outZ * (d / 2), outX, outZ, side }
+    return { wallId, midXM: outX * (w / 2), midZM: outZ * (d / 2), outX, outZ, side }
   }
 
   const edge = poly.edges.find((e) => e.id === wallId)
@@ -257,6 +284,7 @@ export function wallAnchorOf(geometry: RoomGeometry, wallId: string): WallAnchor
   // Plan millimetres from the room's corner → metres about its centre, the
   // frame the 3D scene and the layout positions both use.
   return {
+    wallId,
     midXM: ((edge.x1 + edge.x2) / 2 - poly.W / 2) / 1000,
     midZM: ((edge.z1 + edge.z2) / 2 - poly.D / 2) / 1000,
     outX, outZ, side,
