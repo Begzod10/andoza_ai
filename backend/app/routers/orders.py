@@ -19,10 +19,16 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 async def _resolve_line_prices(
     db: DbSession, lines: list[OrderLineCreate]
 ) -> tuple[dict, dict]:
-    """Look up the authoritative price for every line that references a
-    catalog item: materials by material_id, furniture by furniture_id. The
-    client-submitted unit_price_uzs is never trusted for these lines — it is
-    only used as-is for genuine free-text lines that reference nothing."""
+    """Look up the authoritative price for every line: materials by
+    material_id, furniture by furniture_id. The client-submitted
+    unit_price_uzs is never trusted, so a line that references neither is
+    refused — it would be a price the client simply made up."""
+    if any(line.material_id is None and line.furniture_id is None for line in lines):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Har bir qator katalogdagi material yoki mebelga bog'langan bo'lishi kerak.",
+        )
+
     material_ids = {line.material_id for line in lines if line.material_id is not None}
     furniture_ids = {line.furniture_id for line in lines if line.furniture_id is not None}
 
@@ -80,9 +86,7 @@ async def create_order(
     def _authoritative_price(line: OrderLineCreate) -> int:
         if line.material_id is not None:
             return material_prices[line.material_id]
-        if line.furniture_id is not None:
-            return furniture_prices[line.furniture_id]
-        return line.unit_price_uzs
+        return furniture_prices[line.furniture_id]
 
     total_uzs = round(
         sum(_authoritative_price(line) * line.quantity for line in body.lines)

@@ -1,11 +1,10 @@
 """
 Order pricing tests.
 
-The core invariant under test: total_uzs and each line's unit_price_uzs must
-never be trusted from the client when a line references a real catalog
-material — the server looks up Material.price_uzs and uses that instead.
-Free-text lines (no material_id) are the one case where the client-submitted
-price is legitimate and stands as-is.
+The core invariant under test: total_uzs and each line's unit_price_uzs are
+never taken from the client. Every line must reference a catalog material or a
+furniture piece, and the server charges that item's own catalog price; a line
+that references neither is refused.
 
 Storage and the DB session are stubbed — these cover the router's contract,
 not Postgres.
@@ -141,9 +140,9 @@ class TestOrderPricingTrustsTheServer:
         assert body["total_uzs"] == 150_000  # 50,000 * 3, not 1 * 3
         assert body["lines"][0]["unit_price_uzs"] == 50_000
 
-    def test_free_text_line_without_material_id_keeps_client_price(self, client):
-        """A line with no material_id has no catalog price to check against,
-        so the client-submitted price is legitimate and stands."""
+    def test_a_line_that_references_nothing_is_refused(self, client):
+        """No material_id and no furniture_id means no catalog price to charge:
+        the client's number would be the only price, so the order is refused."""
         db = _db(_Result(many=[]))
         _as(_user(), db)
 
@@ -156,17 +155,16 @@ class TestOrderPricingTrustsTheServer:
                         "material_id": None,
                         "product_name": "Custom item",
                         "unit": "dona",
-                        "unit_price_uzs": 12_345,
+                        "unit_price_uzs": 1,
                         "quantity": 2,
                     }
                 ],
             },
         )
 
-        assert response.status_code == 201
-        body = response.json()
-        assert body["total_uzs"] == 24_690
-        assert body["lines"][0]["unit_price_uzs"] == 12_345
+        assert response.status_code == 400
+        assert "katalog" in response.json()["detail"]
+        db.add.assert_not_called()
 
     def test_unknown_material_id_is_rejected(self, client):
         """A material_id that doesn't resolve to a real row must not silently
@@ -193,9 +191,8 @@ class TestOrderPricingTrustsTheServer:
         assert response.status_code == 400
         db.add.assert_not_called()
 
-    def test_mixed_catalog_and_free_text_lines(self, client):
-        """One catalog line and one free-text line in the same order: the
-        catalog line's price is overridden, the free-text line's is not."""
+    def test_one_unreferenced_line_refuses_the_whole_order(self, client):
+        """A catalog line does not make room for a free-text one next to it."""
         material = _material(price_uzs=20_000)
         db = _db(_Result(many=[material]))
         _as(_user(), db)
@@ -205,38 +202,24 @@ class TestOrderPricingTrustsTheServer:
             json={
                 "dealer_name": "Test Dealer",
                 "lines": [
-                    {
-                        "material_id": str(material.id),
-                        "product_name": "Catalog item",
-                        "unit": "litr",
-                        "unit_price_uzs": 1,
-                        "quantity": 2,
-                    },
-                    {
-                        "material_id": None,
-                        "product_name": "Custom item",
-                        "unit": "dona",
-                        "unit_price_uzs": 5_000,
-                        "quantity": 1,
-                    },
+                    {"material_id": str(material.id), "product_name": "Catalog item",
+                     "unit": "litr", "unit_price_uzs": 1, "quantity": 2},
+                    {"material_id": None, "product_name": "Custom item",
+                     "unit": "dona", "unit_price_uzs": 5_000, "quantity": 1},
                 ],
             },
         )
 
-        assert response.status_code == 201
-        body = response.json()
-        assert body["total_uzs"] == 20_000 * 2 + 5_000
-        by_name = {line["product_name"]: line["unit_price_uzs"] for line in body["lines"]}
-        assert by_name["Catalog item"] == 20_000
-        assert by_name["Custom item"] == 5_000
+        assert response.status_code == 400
+        db.add.assert_not_called()
 
 
 class TestOrderDeliveryDetails:
-    LINE = {"material_id": None, "product_name": "Divan", "unit": "dona", "unit_price_uzs": 1000, "quantity": 1}
-
     def _post(self, client, **extra):
-        _as(_user(), _db(_Result(many=[])))
-        return client.post("/api/v1/orders", json={"dealer_name": "Mebel Plus", "lines": [self.LINE], **extra})
+        piece = _furniture(price_uzs=1000)
+        _as(_user(), _db(_Result(many=[piece])))
+        line = {"furniture_id": str(piece.id), "product_name": "Divan", "unit": "dona", "unit_price_uzs": 1000, "quantity": 1}
+        return client.post("/api/v1/orders", json={"dealer_name": "Mebel Plus", "lines": [line], **extra})
 
     def test_address_phone_and_payment_method_are_stored_and_returned(self, client):
         response = self._post(
