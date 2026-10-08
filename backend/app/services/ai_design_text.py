@@ -103,7 +103,13 @@ def _colour_of_things_problems(text: str) -> list[str]:
 _ENGLISH = re.compile(r"\b(the|is|are|with|and|includes?|floor|walls?|furniture|lighting)\b")
 
 
+# The studio's own ids for laying patterns: they are not words a person would read.
+_RAW_IDS = re.compile(r"\b(herringbone|wood_strip|brick_bond|stake_bond|double_herringbone)\b")
+
+
 def _language_problems(text: str) -> list[str]:
+    if _RAW_IDS.search(text):
+        return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
     return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
 
 
@@ -181,7 +187,7 @@ def _surface_problems(text: str, plan: Any) -> list[str]:
 # Words in a piece's name that say nothing about what it is, so naming them proves nothing.
 _NAME_FILLER = frozenset({
     "o'rinli", "kishilik", "katta", "kichik", "yumshoq", "klassik", "zamonaviy", "oddiy", "burchakli", "uzun", "keng",
-    "yangi", "eski", "uyali", "qismli", "modeli", "turi", "uchun", "bilan", "sifatli", "premium",
+    "ikki", "uch", "yangi", "eski", "uyali", "qismli", "modeli", "turi", "uchun", "bilan", "sifatli", "premium",
     # the words any description of a room uses, whatever the shop calls its pieces
     "devor", "devorga", "xona", "mebel", "burchak", "markaz", "chiroq", "asosiy", "yordamchi",
 })
@@ -263,6 +269,10 @@ _PATTERN_NAMES = {
     "yolli": "yo'l-yo'li", "damask": "damask", "geometrik": "geometrik", "gul": "gulli",
     "tekstura": "teksturali", "bolalar": "bolalar",
 }
+_LAYING_NAMES = {
+    "herringbone": "yelkan", "double_herringbone": "qo'sh yelkan", "chevron": "shevron",
+    "wood_strip": "to'g'ri taxta", "brick_bond": "g'isht terish", "stake_bond": "zinapoya terish",
+}
 _FLOOR_NAMES = {"parquet": "parket", "laminate": "laminat", "tile": "plitka", "concrete": "beton"}
 
 
@@ -286,7 +296,7 @@ def describe_plan(plan: Any) -> str:
 
     if plan.floor:
         floor = _FLOOR_NAMES.get(plan.floor["type"], plan.floor["type"])
-        pattern = f", {plan.floor['pattern']} naqshida" if plan.floor.get("pattern") else ""
+        pattern = f", {_LAYING_NAMES.get(plan.floor['pattern'], 'maxsus')} terishda" if plan.floor.get("pattern") else ""
         parts.append(f"Pol — {floor}{pattern}")
 
     if plan.lights:
@@ -302,9 +312,17 @@ def describe_plan(plan: Any) -> str:
     return ". ".join(parts) + "." if parts else ""
 
 
+def _localise(text: str) -> str:
+    """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
+    for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
+        text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
+    return text
+
+
 def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
     wording (empty when it was kept as written). *catalog_names* are the shop's own piece names."""
+    plan.summary = _localise(plan.summary or "")
     problems = summary_problems(plan.summary, plan, catalog_names) if plan.summary else ["matn bo'sh"]
     if problems:
         plan.summary = describe_plan(plan)

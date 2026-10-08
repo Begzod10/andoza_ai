@@ -34,7 +34,9 @@ export function restoreDesign(snapshot: DesignSnapshot): void {
   })
 }
 
-export interface AppliedCounts { walls: boolean; floor: boolean; lights: number; furniture: number }
+export interface AppliedCounts { walls: boolean; floor: boolean; lights: number; furniture: number
+  /** Pieces left out because there was no clean place for them (they would block a door or window, or overlap). */
+  skipped: number }
 
 const FLOOR_COVERINGS = /gilam|rug|carpet|kovrolin/i
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
@@ -70,7 +72,7 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[]): AppliedCounts {
   const store = useRoomStore.getState()
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0 }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0 }
 
   if (parts.walls && plan.walls.main) {
     const main = plan.walls.main
@@ -130,6 +132,9 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const size = sizeOf(entry.item)
       const rug = isRug(entry)
       const spot = furnitureSpot(rug ? 'center' : entry.p.zone, size, model, rug ? [] : taken)
+      // A piece that only fits across a door or window, or on top of another, is left out: a bare
+      // corner is better than a blocked door. Rugs lie flat and always go in.
+      if (!rug && spot.fit !== 'ok') { applied.skipped++; continue }
       if (!rug) taken.push(spot.rect)
       store.placeFurniture({
         id: nanoid(), furniture_id: entry.p.id, x: spot.x * 1000, y: spot.z * 1000, rotation: spot.rotation,

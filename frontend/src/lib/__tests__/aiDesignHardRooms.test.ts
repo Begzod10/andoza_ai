@@ -1,6 +1,7 @@
 /**
  * The cases a tidy 4 x 3 room hides: a tiny room, an L-shaped one, a request for more pieces than fit.
- * Whatever the room, every piece is placed, inside it, and a door is kept clear if there is any way to.
+ * Whatever the room, a placed piece is inside it, clear of the door and of the others; a piece with no
+ * clean place is left out and counted, never piled on top of another.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useRoomStore } from '@/store/roomStore'
@@ -33,9 +34,9 @@ const hits = (a: Rect, b: Rect) => { const p = rectBounds(a), q = rectBounds(b);
 function run(geometry: RoomGeometry, furniture: Array<[string, string]>) {
   useRoomStore.getState().resetRoom()
   useRoomStore.setState({ geometry, lights: [], furniture: [] })
-  applyDesignPlan(plan(furniture), ALL_PARTS, CATALOG)
+  const applied = applyDesignPlan(plan(furniture), ALL_PARTS, CATALOG)
   const model = roomModel(geometry)
-  return { placed: useRoomStore.getState().furniture, model, rects: useRoomStore.getState().furniture.map(rectOf) }
+  return { applied, placed: useRoomStore.getState().furniture, model, rects: useRoomStore.getState().furniture.map(rectOf) }
 }
 const doorZones = (m: ReturnType<typeof roomModel>) => m.clear.filter((z) => z.kind === 'door').map((z) => z.rect)
 
@@ -49,9 +50,10 @@ describe('a tiny room: 2.4 x 2.0 m, door on one wall, window on another', () => 
     ],
   }) as RoomGeometry
 
-  it('places every piece it is asked for, inside the room', () => {
-    const { placed, model, rects } = run(tiny(), [['karavot', 'wall_C'], ['shkaf', 'wall_D'], ['tumba', 'corner_C_D'], ['stul', 'center']])
-    expect(placed).toHaveLength(4)
+  it('accounts for every piece it is asked for, and keeps the placed ones inside the room', () => {
+    const { applied, placed, model, rects } = run(tiny(), [['karavot', 'wall_C'], ['shkaf', 'wall_D'], ['tumba', 'corner_C_D'], ['stul', 'center']])
+    expect(placed.length + applied.skipped).toBe(4)
+    expect(placed.length).toBeGreaterThanOrEqual(2)
     for (const r of rects) expect(model.inside(r)).toBe(true)
   })
 
@@ -60,10 +62,12 @@ describe('a tiny room: 2.4 x 2.0 m, door on one wall, window on another', () => 
     for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
   })
 
-  it('does not lose a piece that cannot fit anywhere', () => {
-    const { placed } = run(tiny(), [['karavot', 'wall_C'], ['divan', 'wall_A'], ['divan', 'wall_D'], ['shkaf', 'center']])
-    expect(placed).toHaveLength(4)
-    for (const f of placed) expect(Number.isFinite(f.x) && Number.isFinite(f.y)).toBe(true)
+  it('leaves out a piece that cannot fit anywhere, instead of piling it on another', () => {
+    const { applied, placed, rects, model } = run(tiny(), [['karavot', 'wall_C'], ['divan', 'wall_A'], ['divan', 'wall_D'], ['shkaf', 'center']])
+    expect(applied.skipped).toBeGreaterThan(0)
+    expect(placed.length + applied.skipped).toBe(4)
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(hits(rects[i], rects[j])).toBe(false)
+    for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
   })
 })
 
@@ -99,16 +103,16 @@ describe('more pieces than fit', () => {
     ],
   }) as RoomGeometry
 
-  it('places all of eight pieces, and the ones that fit clear of the door do not touch it', () => {
+  it('places what fits of eight pieces, counts the rest, and none touches the door', () => {
     const asked: Array<[string, string]> = [
       ['divan', 'wall_C'], ['tv', 'wall_B'], ['shkaf', 'wall_D'], ['kreslo', 'corner_A_B'], ['stol', 'center'],
       ['karavot', 'wall_A'], ['tumba', 'corner_C_D'], ['stul', 'wall_B'],
     ]
-    const { placed, rects, model } = run(room(), asked)
-    expect(placed).toHaveLength(8)
+    const { applied, placed, rects, model } = run(room(), asked)
+    expect(placed.length + applied.skipped).toBe(8)
+    expect(placed.length).toBeGreaterThanOrEqual(4)
     for (const r of rects) expect(model.inside(r)).toBe(true)
-    // the first four fit easily: none of them may stand in the door's swing
-    for (const r of rects.slice(0, 4)) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
+    for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
   })
 
   it('never puts two pieces on top of one another while there is room', () => {

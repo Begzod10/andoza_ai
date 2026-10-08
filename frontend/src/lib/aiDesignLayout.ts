@@ -255,14 +255,18 @@ const RULES = [{ doors: true, windows: true }, { doors: true, windows: false }, 
  * Where the piece goes for `zone`, avoiding `taken`, the doors' swing and (for tall pieces) the
  * windows. Falls back to the nearest free place to the middle.
  */
+/** 'ok': a clean place; 'tight': found only by ignoring a door or window rule; 'none': no place at all. */
+export type Fit = 'ok' | 'tight' | 'none'
+
 export function furnitureSpot(
   zone: string, size: PieceSize, model: RoomModel, taken: Rect[],
-): Spot & { rect: Rect } {
+): Spot & { rect: Rect; fit: Fit } {
   const parsed = parseZone(zone, model)
   const tall = size.tall === true
   const footprint = { w: size.w, d: size.d }
 
-  for (const rules of RULES) {
+  for (const [tier, rules] of RULES.entries()) {
+    const fit: Fit = tier === 0 ? 'ok' : 'tight'
     const free = (r: Rect) => model.inside(r) && !taken.some((t) => overlaps(r, t)) && !blocksOpening(r, tall, model, rules)
 
     if (parsed && parsed.kind !== 'center') {
@@ -285,15 +289,15 @@ export function furnitureSpot(
         const x = wall.midX + wall.nx * out + wall.dirX * along
         const z = wall.midZ + wall.nz * out + wall.dirZ * along
         const rect = { x, z, w: size.w, d: size.d, rotation }
-        if (free(rect)) return { x, z, rotation, rect }
+        if (free(rect)) return { x, z, rotation, rect, fit }
       }
     }
 
     // The middle, or anywhere free nearest it (the wall was full, the zone was the middle, or it named no wall here).
     const spot = nearestFree(model, footprint, taken, (r) => !blocksOpening(r, tall, model, rules))
-    if (spot) return { ...spot, rotation: 0, rect: { ...spot, ...footprint, rotation: 0 } }
+    if (spot) return { ...spot, rotation: 0, rect: { ...spot, ...footprint, rotation: 0 }, fit }
   }
-  return { x: 0, z: 0, rotation: 0, rect: { x: 0, z: 0, ...footprint, rotation: 0 } } // no room left: overlap rather than lose the piece
+  return { x: 0, z: 0, rotation: 0, rect: { x: 0, z: 0, ...footprint, rotation: 0 }, fit: 'none' } // no room left: the caller decides
 }
 
 /** Is a point on `wall`, `along` metres from its midpoint, inside a door or window (plus clearance)? */

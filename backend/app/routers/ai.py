@@ -129,7 +129,20 @@ def _room_summary(room: Room, room_type: str | None) -> dict:
         if isinstance(w, dict)
     ]
     lengths = {w["id"]: w["length"] for w in walls}
+    geometry = room.geometry or {}
+    verts = geometry.get("vertices")
+    if isinstance(verts, list) and len(verts) >= 3:
+        try:
+            pts = [(float(v[0]), float(v[1])) for v in verts]
+            area = abs(sum(x1 * z2 - x2 * z1 for (x1, z1), (x2, z2) in zip(pts, pts[1:] + pts[:1]))) / 2
+        except (TypeError, ValueError, IndexError):
+            area = 0.0
+    else:
+        area = 0.0
+    width = lengths.get("A") or (walls[0]["length"] if walls else 4.0)
+    depth = lengths.get("B") or (walls[1]["length"] if len(walls) > 1 else 3.0)
     return {
+        "area": area or width * depth,
         "name": room.name,
         "room_type": room_type,
         "width": lengths.get("A") or (walls[0]["length"] if walls else 4.0),

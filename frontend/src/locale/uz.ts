@@ -147,6 +147,7 @@ export const uz = {
     oylayapti: "AI dizayn tayyorlanmoqda…",
     boshqa_variant: "Boshqa variant",
     qaytarish: "Qaytarish",
+    sigmadi: (n: number) => `${n} ta mebel xonaga sig'madi, qo'yilmadi.`,
     qollandi_saqlang: "Dizayn qo'llandi. Saqlash tugmasini bosing.",
     qollandi_saqlandi: "Dizayn qo'llandi va saqlandi.",
     qollandi_saqlanmadi: "Dizayn qo'llandi, lekin saqlab bo'lmadi. Saqlash tugmasini bosing.",

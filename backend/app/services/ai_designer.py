@@ -19,6 +19,7 @@ walls and each model's size.
 from __future__ import annotations
 
 import json
+import random
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -43,7 +44,21 @@ WALL_MOUNTED_LIGHTS = ("bra", "bath")
 MAX_LIGHTS = 6
 MAX_FURNITURE = 8
 MAX_PER_ITEM = 2
+# A room has one of these; a second sofa or bed is a repeat, not a design.
+ONE_PER_ROOM = ("divan", "karavot")
+# Light fittings sold as furniture: the plan's own lights already cover them.
+_LIGHT_LIKE = re.compile(r"torsher|lyustra|\bbra\b|chiroq|lampa|svetilnik|светиль", re.I)
+
+
+def furniture_budget(area: float) -> tuple[int, int]:
+    """How many pieces a room of *area* m2 can carry: (at least, at most). A small room must not be
+    crammed and a big one should not stay bare."""
+    for limit, lo, hi in ((4.0, 1, 2), (6.0, 2, 3), (9.0, 3, 4), (14.0, 4, 5), (22.0, 5, 7)):
+        if area < limit:
+            return lo, hi
+    return 6, MAX_FURNITURE
 MAX_CATALOG_IN_PROMPT = 60
+MIN_FITTING_PIECES = 8
 
 _HEX = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
@@ -124,7 +139,9 @@ def _clip_summary(text: str) -> str:
     return cut[: end + 1].strip() if end >= SUMMARY_MAX // 3 else ""
 
 
-def validate_plan(data: dict, furniture_by_label: dict[str, dict], wall_ids: list[str]) -> DesignPlan:
+def validate_plan(
+    data: dict, furniture_by_label: dict[str, dict], wall_ids: list[str], max_furniture: int = MAX_FURNITURE,
+) -> DesignPlan:
     """Keep only what the studio can apply; note what was dropped. Never raises on a bad
     field, only when nothing at all is left. *wall_ids* are the room's own wall ids."""
     zones = set(zones_for(wall_ids))
@@ -190,20 +207,29 @@ def validate_plan(data: dict, furniture_by_label: dict[str, dict], wall_ids: lis
 
     # --- furniture ---
     counts: dict[str, int] = {}
+    kinds: list[str | None] = []
     for raw in (data.get("furniture") if isinstance(data.get("furniture"), list) else []):
-        if len(plan.furniture) >= MAX_FURNITURE:
-            warn(f"Mebel {MAX_FURNITURE} tagacha cheklandi")
+        if len(plan.furniture) >= max_furniture:
+            warn(f"Mebel {max_furniture} tagacha cheklandi")
             break
         label = raw.get("id") if isinstance(raw, dict) else None
         item = furniture_by_label.get(label) if isinstance(label, str) else None
         if item is None:
             warn("Katalogda yo'q mebel o'tkazib yuborildi")
             continue
+        if plan.lights and (item.get("category") == "lampa" or _LIGHT_LIKE.search(item["name"])):
+            warn("Chiroq turidagi mebel o'tkazib yuborildi")
+            continue
+        category = item.get("category")
+        if category in ONE_PER_ROOM and any(c == category for c in kinds):
+            warn("Bir xil turdagi ikkinchi mebel o'tkazib yuborildi")
+            continue
         if counts.get(label, 0) >= MAX_PER_ITEM:
             continue
         counts[label] = counts.get(label, 0) + 1
         zone = raw.get("zone") if raw.get("zone") in zones else "center"
         plan.furniture.append({"id": item["id"], "name": item["name"], "zone": zone})
+        kinds.append(category)
 
     if plan.is_empty():
         raise DesignError("AI mos tavsiya topa olmadi. Boshqacha yozib ko'ring.")
@@ -219,12 +245,21 @@ def furniture_menu(items: list[dict], room_type: str | None) -> tuple[list[str],
     def rank(i: dict) -> int:
         return 0 if i.get("room_type") in (None, room_type) else 1
 
-    chosen = sorted(items, key=rank)[:MAX_CATALOG_IN_PROMPT]
+    # Shuffled first, so a catalog bigger than the prompt shows a different slice, and a different
+    # choice, each time (the sort is stable and keeps this room type's pieces in front).
+    # Lamps are the plan's lights, not furniture: offered here, a model picks a torsher twice.
+    pool = [i for i in items if i.get("category") != "lampa" and not _LIGHT_LIKE.search(i["name_uz"])]
+    random.shuffle(pool)
+    pool.sort(key=rank)
+    # With enough pieces made for this room (or for every room), the others are not offered at all:
+    # a dressing table has no place in a living room.
+    fitting = [i for i in pool if rank(i) == 0]
+    chosen = (fitting if len(fitting) >= MIN_FITTING_PIECES else pool)[:MAX_CATALOG_IN_PROMPT]
     by_label: dict[str, dict] = {}
     lines: list[str] = []
     for n, item in enumerate(chosen, start=1):
         label = f"F{n}"
-        by_label[label] = {"id": item["id"], "name": item["name_uz"]}
+        by_label[label] = {"id": item["id"], "name": item["name_uz"], "category": item["category"]}
         size = ""
         if item.get("footprint_w") and item.get("footprint_d"):
             # The catalog stores footprints in centimetres.
@@ -243,8 +278,10 @@ Qoidalar:
 - Atmosfera yorug'ligini (iliq/sovuq, yorqin/xira) chiroq turi va devor rangi orqali bering. Qorong'i atmosfera: to'q devor, to'q pol, kam va iliq chiroqlar. Yorqin: och ranglar, ko'proq yorug'lik.
 - Devorni yo'p bo'yoq (paint) yoki oboy (oboy) bilan qoplang. Bitta devorni boshqa rangda (accent) ajratish mumkin.
 - Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_<devor id>.
-- Mebel: xona turi va o'lchamiga mos 3-6 ta narsa tanlang (xona kichik bo'lsa kamroq). Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
+- Mebel: xona turi va o'lchamiga mos narsalar tanlang; soni xabarda "Mebel soni" qatorida beriladi, undan oshirmang va kamaytirmang. Faqat xona turiga mos narsalarni oling va bir xil turdan (masalan ikkita divan) ikkitasini tanlamang. Mebellarni TURLICHA tanlang: har safar bir xil to'plamga yopishib qolmang, katalogdagi boshqa mos narsalarga ham e'tibor bering. Chiroq turini (lyustra, torsher, bra) mebel sifatida qaytadan tanlamang. Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
   Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) eng uzun devor oldiga qo'ying. Har bir mebelga BOSHQA joy bering: ikki mebelni bir joyga qo'ymang.
+- Oltin/zarhal talab qilinsa: devor aksenti yoki oboy accent_color uchun haqiqiy oltin tus ishlating (masalan #C9A24B yoki #B8860B), boshqa narsani oltin deb atamang.
+- Bolalar xonasi: yumshoq pastel ranglar (to'yingan, qichituvchi emas), yorqinlik yuqori, qarama-qarshilik past.
 - title: 2-4 so'zli nom.
 - summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring. Uni ENG OXIRIDA, hamma narsani tanlab bo'lgach yozing.
   summary FAQAT siz yuqorida tanlagan narsalarni tasvirlasin: devor va pol rangini/materialini, tanlangan chiroq va mebel nomlarini.
@@ -276,12 +313,15 @@ def build_user_message(
         for w in room["walls"]
     )
     room_type = room.get("room_type") or "xona turi noma'lum"
+    area = room.get("area") or room["width"] * room["depth"]
+    lo, hi = furniture_budget(area)
     return "\n".join([
         f"Foydalanuvchi so'rovi: {prompt.strip()}",
         "",
         f"Xona: {room['name']} ({room_type}), "
         f"o'lchami {room['width']:g} x {room['depth']:g} m, shift {room['ceiling_h']:g} m.",
         f"Devorlar (id va uzunligi): {walls}",
+        f"Mebel soni: {lo}-{hi} ta (xona {area:.1f} m2).",
         f"Zonalar: {', '.join(zones_for([w['id'] for w in room['walls']]))}",
         "",
         f"Pol turlari: {', '.join(FLOOR_TYPES)}",
@@ -310,10 +350,14 @@ async def design_room(
         model_type="builder",
         timeout=60.0,
         max_retries=2,
+        temperature=0.7,
     )
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     log.info("ai_design.answered", chars=len(text))
-    plan = validate_plan(extract_json(text), by_label, [w["id"] for w in room["walls"]])
+    area = room.get("area") or room["width"] * room["depth"]
+    plan = validate_plan(
+        extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
+    )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, the plan's own description is shown instead.
     wrong = reconcile_summary(plan, [item["name"] for item in by_label.values()])

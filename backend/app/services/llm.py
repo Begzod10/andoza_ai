@@ -292,6 +292,7 @@ async def call_llm(
     model_type: str = "explainer",
     timeout: Optional[float] = None,
     max_retries: int = 3,
+    temperature: Optional[float] = None,
 ) -> LLMMessage:
     """Call the OpenAI API with exponential backoff.
 
@@ -341,6 +342,8 @@ async def call_llm(
 
     if tools:
         kwargs["tools"] = _to_openai_tools(tools)
+    if temperature is not None:
+        kwargs["temperature"] = temperature
 
     last_exc: Optional[Exception] = None
     for attempt in range(max_retries):
