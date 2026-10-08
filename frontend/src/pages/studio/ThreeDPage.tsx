@@ -4,7 +4,7 @@ import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
 import { CAMERA_CHOICES, RENDER_ASPECTS, type RenderAspect } from "@/lib/roomCameras";
-import { wallSideOf, type RoomSide } from "@/lib/newRoomFromWall";
+import { wallAnchorOf, type WallAnchor } from "@/lib/newRoomFromWall";
 import { NewRoomSheet } from "@/components/studio/NewRoomSheet";
 import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
@@ -142,8 +142,9 @@ export default function ThreeDPage() {
 
   const { addingRoom, handleAddRoom, createRoomThroughWall } =
     useAddRoomNavigation({ room, onSave, resetRoom, navigate, W, D });
-  /** The wall the new-room sheet is open for — the side it faces, or null. */
-  const [newRoomSide, setNewRoomSide] = useState<RoomSide | null>(null);
+  /** The wall the new-room sheet is open for, or null. Held as the whole
+   *  anchor, not just its side: the new room is placed against THIS wall. */
+  const [newRoomWall, setNewRoomWall] = useState<WallAnchor | null>(null);
 
   // The top-down "Yuqori" preset was removed from this page — the 3D framing
   // is the only view now, so `preset` never changes. Kept as ViewPreset state
@@ -1041,16 +1042,16 @@ export default function ThreeDPage() {
       {/* The room that would go through the tapped wall: its shape, drawn, and
           three numbers to change it by. */}
       <NewRoomSheet
-        isOpen={newRoomSide != null}
-        side={newRoomSide}
+        isOpen={newRoomWall != null}
+        side={newRoomWall?.side ?? null}
         defaultHeightMm={H * 1000}
         busy={addingRoom}
-        onClose={() => setNewRoomSide(null)}
+        onClose={() => setNewRoomWall(null)}
         onConfirm={(dims) => {
-          const side = newRoomSide;
-          if (!side) return;
-          setNewRoomSide(null);
-          void createRoomThroughWall(side, dims);
+          const wall = newRoomWall;
+          if (!wall) return;
+          setNewRoomWall(null);
+          void createRoomThroughWall(wall, dims);
         }}
       />
       <ThreeDOverlaySheets
@@ -1092,8 +1093,8 @@ export default function ThreeDPage() {
           // unidentifiable wall has no side to put a room through, and an
           // item that silently does nothing is worse than no item.
           addRoomThroughWall: (wallId) => {
-            const side = wallSideOf(geometry, wallId);
-            if (side) setNewRoomSide(side);
+            const wall = wallAnchorOf(geometry, wallId);
+            if (wall) setNewRoomWall(wall);
           },
           applyWallColor: (hex, allWalls) =>
             useRoomStore.getState().setWallCovering(

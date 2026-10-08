@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
 import { createRoom, updateRoom, type Room } from "@/lib/api";
-import { newRoomGeometry, newRoomLayoutPos } from "@/lib/newRoomFromWall";
+import { newRoomGeometry, newRoomCentreFromWall, type WallAnchor } from "@/lib/newRoomFromWall";
 import type { RoomSide } from "./constants";
 
 /**
@@ -64,9 +64,10 @@ export function useAddRoomNavigation(params: {
    * first: navigating away from unsaved work loses it.
    */
   async function createRoomThroughWall(
-    side: RoomSide,
+    wall: WallAnchor,
     dims: { widthMm: number; depthMm: number; heightMm: number; wallThicknessMm: number },
   ): Promise<void> {
+    const side = wall.side;
     if (addingRoom) return;
 
     // No apartment, no shared layout frame — and a room added to a NEW
@@ -103,10 +104,9 @@ export function useAddRoomNavigation(params: {
         geometry: newRoomGeometry(dims.widthMm, dims.depthMm),
       });
 
-      // The distance between the two rooms IS the wall between them.
-      const pos = newRoomLayoutPos(
-        myPos, side,
-        { widthM: W, depthM: D },
+      // Centred on the wall that was tapped, one wall thickness beyond it.
+      const pos = newRoomCentreFromWall(
+        myPos, wall,
         { widthM: dims.widthMm / 1000, depthM: dims.depthMm / 1000 },
         dims.wallThicknessMm / 1000,
       );

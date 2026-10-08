@@ -9,8 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  wallSideOf, newRoomLayoutPos, newRoomGeometry, clampRoomDimension, isometricRoom,
-  NEW_ROOM_DEFAULT_MM, NEW_ROOM_LIMITS_MM, ROOM_LAYOUT_GAP_M,
+  wallSideOf, newRoomLayoutPos, newRoomGeometry, clampRoomDimension, isometricRoom, NEW_ROOM_DEFAULT_MM, NEW_ROOM_LIMITS_MM, ROOM_LAYOUT_GAP_M, wallAnchorOf, newRoomCentreFromWall,
 } from '../newRoomFromWall'
 import type { RoomGeometry } from '@/store/roomStore'
 
@@ -247,5 +246,58 @@ describe('wall thickness', () => {
     expect(NEW_ROOM_DEFAULT_MM.wallThickness).toBe(100)
     expect(clampRoomDimension(10, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.min)
     expect(clampRoomDimension(9999, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.max)
+  })
+})
+
+describe('placing the new room against the wall that was tapped', () => {
+  const RECT = polygonRoom([[0, 0], [5000, 0], [5000, 4000], [0, 4000]])
+
+  it('finds each wall’s own midpoint and the way out', () => {
+    const east = wallAnchorOf(RECT, '1')!
+    expect(east.side).toBe('east')
+    expect([east.outX, east.outZ]).toEqual([1, 0])
+    expect(east.midXM).toBeCloseTo(2.5, 6)   // half the 5 m width, out east
+    expect(east.midZM).toBeCloseTo(0, 6)     // centred on the wall
+  })
+
+  it('offsets by the wall thickness, not half of it', () => {
+    // A 100 mm wall means the two inner faces are 100 mm apart.
+    const east = wallAnchorOf(RECT, '1')!
+    const p = newRoomCentreFromWall({ x: 0, z: 0 }, east, { widthM: 3.5, depthM: 3 }, 0.1)
+    expect(p.x - 3.5 / 2).toBeCloseTo(2.5 + 0.1, 9)
+    expect(p.z).toBeCloseTo(0, 9)
+  })
+
+  it('centres the new room on the wall, not on the room', () => {
+    // An L-shaped room: the south wall's midpoint is nowhere near the room's
+    // own centre, and offsetting from the centre put the new room beside the
+    // wall instead of against it.
+    const L = polygonRoom([[0, 0], [6000, 0], [6000, 2000], [2000, 2000], [2000, 6000], [0, 6000]])
+    const walls = ['0', '1', '2', '3', '4', '5'].map((id) => wallAnchorOf(L, id)).filter(Boolean)
+    expect(walls.length).toBe(6)
+    for (const w of walls) {
+      const p = newRoomCentreFromWall({ x: 0, z: 0 }, w!, { widthM: 3, depthM: 3 }, 0.1)
+      // Pushed out along the wall's own normal, and lined up with its middle
+      // on the other axis.
+      if (w!.outX !== 0) expect(p.z).toBeCloseTo(w!.midZM, 9)
+      else expect(p.x).toBeCloseTo(w!.midXM, 9)
+    }
+  })
+
+  it('measures from wherever this room sits in the flat', () => {
+    const east = wallAnchorOf(RECT, '1')!
+    const p = newRoomCentreFromWall({ x: 12, z: -7 }, east, { widthM: 3.5, depthM: 3 }, 0.1)
+    expect(p.x).toBeCloseTo(12 + 2.5 + 0.1 + 1.75, 9)
+    expect(p.z).toBeCloseTo(-7, 9)
+  })
+
+  it('still works for a legacy room with no outline', () => {
+    const a = wallAnchorOf(LEGACY, 'B')!
+    expect(a.side).toBe('east')
+    expect(a.midXM).toBeCloseTo(2.5, 6)
+  })
+
+  it('says it cannot place a wall it does not know', () => {
+    expect(wallAnchorOf(RECT, 'nope')).toBeNull()
   })
 })

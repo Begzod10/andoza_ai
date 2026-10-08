@@ -213,3 +213,82 @@ export function isometricRoom(
     viewBox: `0 0 ${frame.width} ${frame.height}`,
   }
 }
+
+/** Where a wall sits in its room, and which way it faces out. */
+export interface WallAnchor {
+  /** Midpoint of the wall, metres, in the room's own centred frame. */
+  midXM: number
+  midZM: number
+  /** Unit outward normal, snapped to the axis it leans towards — the layout
+   *  frame is four-sided, and a new room is an axis-aligned rectangle, so a
+   *  diagonal offset would set it askew to the wall it is supposed to meet. */
+  outX: number
+  outZ: number
+  side: RoomSide
+}
+
+/**
+ * The wall as something to hang a room off: its middle, and the way out.
+ *
+ * Using the wall's OWN midpoint rather than the room's centre is what makes
+ * the new room line up with the wall that was tapped. For a plain rectangle
+ * the two agree — the midpoint of the east wall is straight out from the
+ * middle of the room — so this changes nothing there. For any other outline
+ * they do not agree at all, and offsetting from the room's centre put the new
+ * room beside the wall instead of against it.
+ */
+export function wallAnchorOf(geometry: RoomGeometry, wallId: string): WallAnchor | null {
+  const side = wallSideOf(geometry, wallId)
+  if (!side) return null
+  const [outX, outZ] =
+    side === 'east' ? [1, 0] : side === 'west' ? [-1, 0] : side === 'south' ? [0, 1] : [0, -1]
+
+  const poly = planPolygon(geometry)
+  if (!poly) {
+    // Legacy A-B-C-D: the walls ARE the bounding box, so each one's midpoint
+    // is half the room out along its own normal.
+    const w = (geometry.walls.find((x) => x.id === 'A')?.length ?? 4000) / 1000
+    const d = (geometry.walls.find((x) => x.id === 'B')?.length ?? 3000) / 1000
+    return { midXM: outX * (w / 2), midZM: outZ * (d / 2), outX, outZ, side }
+  }
+
+  const edge = poly.edges.find((e) => e.id === wallId)
+  if (!edge) return null
+  // Plan millimetres from the room's corner → metres about its centre, the
+  // frame the 3D scene and the layout positions both use.
+  return {
+    midXM: ((edge.x1 + edge.x2) / 2 - poly.W / 2) / 1000,
+    midZM: ((edge.z1 + edge.z2) / 2 - poly.D / 2) / 1000,
+    outX, outZ, side,
+  }
+}
+
+/**
+ * Where the new room's centre goes: centred on the wall, one wall thickness
+ * beyond it.
+ *
+ * This replaces offsetting from the room's own centre by half of each room.
+ * That arithmetic only ever described two rectangles sharing a full-width
+ * wall, and it ignored WHICH wall was tapped — so every room added to a flat
+ * marched along the same axis from the same origin instead of landing against
+ * the wall the user was looking at.
+ *
+ * The offset is the thickness itself, not half of it: the new room's inner
+ * face ends up exactly one wall away from this room's inner face, which is
+ * what a shared wall of that thickness means.
+ */
+export function newRoomCentreFromWall(
+  anchor: { x: number; z: number },
+  wall: WallAnchor,
+  added: { widthM: number; depthM: number },
+  thicknessM: number,
+): { x: number; z: number } {
+  const t = Math.max(0, thicknessM)
+  // How far the new room reaches along the direction it is being pushed.
+  const half = wall.outX !== 0 ? added.widthM / 2 : added.depthM / 2
+  const push = t + half
+  return {
+    x: anchor.x + wall.midXM + wall.outX * push,
+    z: anchor.z + wall.midZM + wall.outZ * push,
+  }
+}
