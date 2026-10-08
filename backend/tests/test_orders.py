@@ -228,3 +228,39 @@ class TestOrderPricingTrustsTheServer:
         by_name = {line["product_name"]: line["unit_price_uzs"] for line in body["lines"]}
         assert by_name["Catalog item"] == 20_000
         assert by_name["Custom item"] == 5_000
+
+
+class TestOrderDeliveryDetails:
+    LINE = {"material_id": None, "product_name": "Divan", "unit": "dona", "unit_price_uzs": 1000, "quantity": 1}
+
+    def _post(self, client, **extra):
+        _as(_user(), _db(_Result(many=[])))
+        return client.post("/api/v1/orders", json={"dealer_name": "Mebel Plus", "lines": [self.LINE], **extra})
+
+    def test_address_phone_and_payment_method_are_stored_and_returned(self, client):
+        response = self._post(
+            client, delivery_address="Chilonzor 5, 12-uy", phone="+998 90 123 45 67", payment_method="card"
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["delivery_address"] == "Chilonzor 5, 12-uy"
+        assert body["phone"] == "+998 90 123 45 67"
+        assert body["payment_method"] == "card"
+
+    def test_they_are_optional(self, client):
+        response = self._post(client)
+        assert response.status_code == 201
+        body = response.json()
+        assert body["delivery_address"] is None and body["phone"] is None and body["payment_method"] is None
+
+    def test_a_blank_address_counts_as_not_given(self, client):
+        response = self._post(client, delivery_address="   ", phone="")
+        assert response.status_code == 201
+        assert response.json()["delivery_address"] is None
+        assert response.json()["phone"] is None
+
+    def test_an_unknown_payment_method_is_rejected(self, client):
+        assert self._post(client, payment_method="crypto").status_code == 422
+
+    def test_an_overlong_address_is_rejected(self, client):
+        assert self._post(client, delivery_address="x" * 501).status_code == 422

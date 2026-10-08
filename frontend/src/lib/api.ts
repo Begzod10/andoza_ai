@@ -18,6 +18,7 @@ export * from "./api/ustalar";
 export * from "./api/estimates";
 export * from "./api/draftRooms";
 export * from "./api/leads";
+export * from "./api/orders";
 export * from "./api/ai";
 export * from "./api/render";
 export * from "./api/photoModel";

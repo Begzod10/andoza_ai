@@ -20,6 +20,15 @@ describe('S3_ProductDetail', () => {
     expect(screen.getByText("Narx so'rang")).toBeInTheDocument()
     expect(screen.getByLabelText('Kamaytirish')).toBeDisabled()
   })
+
+  it('does not let an unpriced product into the cart', () => {
+    const onAddToCart = vi.fn()
+    render(<S3_ProductDetail {...base} price={null} onAddToCart={onAddToCart} />)
+    const add = screen.getByRole('button', { name: /Savatga qo'shish/ })
+    expect(add).toBeDisabled()
+    fireEvent.click(add)
+    expect(onAddToCart).not.toHaveBeenCalled()
+  })
 })
 
 describe('S5_Cart', () => {
@@ -49,7 +58,7 @@ describe('S5_Cart', () => {
 describe('S6_Payment', () => {
   it('cannot be confirmed until an address and phone are given, then submits them', () => {
     const onSubmit = vi.fn()
-    render(<S6_Payment subtotal={2000} deliveryFee={500} itemCount={1} onSubmit={onSubmit} onBack={noop} />)
+    render(<S6_Payment subtotal={2000} itemCount={1} onSubmit={onSubmit} onBack={noop} />)
     const confirm = screen.getByRole('button', { name: 'Buyurtmani tasdiqlash' })
     expect(confirm).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Manzil'), { target: { value: 'Chilonzor 5' } })
@@ -61,10 +70,31 @@ describe('S6_Payment', () => {
   })
 })
 
+describe('S6_Payment (real totals and failures)', () => {
+  it('invents no delivery price: it says it is agreed with the shop and totals only the goods', () => {
+    render(<S6_Payment subtotal={2000} itemCount={1} onSubmit={noop} onBack={noop} />)
+    expect(screen.getByText(/do'kon bilan kelishiladi/)).toBeInTheDocument()
+    expect(screen.queryByText('Yetkazish')).toBeNull()
+  })
+
+  it('shows a known delivery fee in the total', () => {
+    render(<S6_Payment subtotal={2000} deliveryFee={500} itemCount={1} onSubmit={noop} onBack={noop} />)
+    expect(screen.getByText('Yetkazish')).toBeInTheDocument()
+    expect(screen.getAllByText(/2\s500/).length).toBeGreaterThan(0)
+  })
+
+  it('shows why an order failed, and blocks a second tap while one is being sent', () => {
+    render(<S6_Payment subtotal={2000} itemCount={1} onSubmit={noop} onBack={noop} submitting error="Noto'g'ri material ID." />)
+    expect(screen.getByRole('alert')).toHaveTextContent("Noto'g'ri material ID.")
+    fireEvent.change(screen.getByLabelText('Manzil'), { target: { value: 'x' } })
+    fireEvent.change(screen.getByLabelText('Telefon'), { target: { value: '1' } })
+    expect(screen.getByRole('button', { name: /Buyurtmani tasdiqlash/ })).toBeDisabled()
+  })
+})
+
 describe('S7_OrderTracking', () => {
   const props = {
-    orderId: 'ORD-1', orderDate: '08.10.2026', expectedDelivery: '11.10.2026',
-    courierName: 'Bobur', courierPhone: '+998 90 123 45 67', courierMessage: '@courier_bot',
+    orderId: 'ORD-1', orderDate: '08.10.2026',
     items: [{ name: 'Qum', quantity: 3, price: 95000 }], total: 285000, onBack: noop,
   }
 
@@ -73,6 +103,18 @@ describe('S7_OrderTracking', () => {
     expect(screen.getByText("Yo'lda").closest('li')).toHaveAttribute('aria-current', 'step')
     expect(screen.getByText("Qabul qilindi").closest('li')).not.toHaveAttribute('aria-current')
     expect(screen.getByText('Qum')).toBeInTheDocument()
+  })
+
+  it('shows the delivery details the server holds, and nothing it does not', () => {
+    const { rerender } = render(
+      <S7_OrderTracking {...props} status="accepted" dealerName="Mebel Plus" address="Chilonzor 5" phone="+998 90 111 22 33" paymentMethod="card" />,
+    )
+    expect(screen.getByText('Chilonzor 5')).toBeInTheDocument()
+    expect(screen.getByText('Mebel Plus')).toBeInTheDocument()
+    expect(screen.getByText('Karta')).toBeInTheDocument()
+    rerender(<S7_OrderTracking {...props} status="accepted" />)
+    expect(screen.queryByText('Manzil')).toBeNull()
+    expect(screen.queryByText(/kuryer/i)).toBeNull()
   })
 
   it('starts at the first stage for an unknown status', () => {

@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
-import type { Material } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { createOrder, getOrder } from "@/lib/api";
+import type { Material, Order } from "@/lib/api";
+import { errorMessage } from "./admin/errorMessage";
 import { useAuthStore } from "@/store/authStore";
 import {
   S1_ShopHome,
@@ -23,6 +26,8 @@ type Screen =
 
 interface CartItem {
   id: string;
+  /** Set for catalog materials, whose price the server then looks up itself; null for furniture. */
+  materialId: string | null;
   name: string;
   price: number;
   quantity: number;
@@ -70,8 +75,10 @@ export default function DokonPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<MockMaterial | null>(null);
 
-  // Order state
-  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  // Orders placed in this visit (one per shop) and the state of the checkout
+  const [placedOrders, setPlacedOrders] = useState<Order[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Mock data
   const mockMaterials: MockMaterial[] = [
@@ -155,21 +162,11 @@ export default function DokonPage() {
     },
   ];
 
-  // Calculate totals
+  // Totals. There is no delivery price anywhere in the catalog, so none is
+  // invented: the order is for the goods, delivery is agreed with the shop.
   const cartSummary = useMemo(() => {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const dealerSet = new Set(cart.map((item) => item.dealer));
-    const deliveryFee = Array.from(dealerSet).reduce((sum, dealer) => {
-      const fees: Record<string, number> = {
-        "Yashil Savdo": 50000,
-        "Qurilish Dunyosi": 75000,
-        "Milliy Do'kon": 60000,
-        "Zamirad": 40000,
-      };
-      return sum + (fees[dealer] ?? 50000);
-    }, 0);
-
-    return { subtotal, deliveryFee, total: subtotal + deliveryFee };
+    return { subtotal, deliveryFee: 0, total: subtotal };
   }, [cart]);
 
   // Handlers
@@ -184,6 +181,8 @@ export default function DokonPage() {
     const existingItem = cart.find((item) => item.id === productId);
     const newItem: CartItem = {
       id: productId,
+      // Furniture carries a placement; materials do not.
+      materialId: "placement" in selectedProduct ? null : productId,
       name: selectedProduct.name_uz,
       price: selectedProduct.price_uzs ?? 0,
       quantity,
@@ -226,31 +225,52 @@ export default function DokonPage() {
     setScreen("payment");
   };
 
-  const handlePayment = (data: {
+  // One order per shop: the API takes a single dealer per order. Lines are sent
+  // shop by shop; whatever was ordered leaves the cart, so a failure half-way
+  // leaves exactly the unordered shops there to try again.
+  const handlePayment = async (data: {
     address: string;
     phone: string;
-    paymentMethod: string;
+    paymentMethod: "cash" | "card";
   }) => {
-    const order = {
-      id: `ORD-${Date.now()}`,
-      status: "accepted",
-      orderDate: new Date().toLocaleDateString("uz-UZ"),
-      expectedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("uz-UZ"),
-      address: data.address,
-      phone: data.phone,
-      paymentMethod: data.paymentMethod,
-      items: cart,
-      total: cartSummary.total,
-      courier: {
-        name: "Abdullayev Bobur",
-        phone: "+998 90 123 45 67",
-        message: "@courier_bot",
-      },
-    };
+    if (submitting) return;
+    setSubmitting(true);
+    setCheckoutError(null);
 
-    setCurrentOrder(order);
-    setCart([]);
-    setScreen("order-tracking");
+    const byDealer = new Map<string, CartItem[]>();
+    for (const item of cart) byDealer.set(item.dealer, [...(byDealer.get(item.dealer) ?? []), item]);
+
+    const created: Order[] = [];
+    try {
+      for (const [dealer, items] of byDealer) {
+        const order = await createOrder({
+          dealer_name: dealer,
+          delivery_address: data.address,
+          phone: data.phone,
+          payment_method: data.paymentMethod,
+          lines: items.map((i) => ({
+            material_id: i.materialId,
+            product_name: i.name,
+            unit: i.unit,
+            unit_price_uzs: i.price,
+            quantity: i.quantity,
+          })),
+        });
+        created.push(order);
+        setCart((prev) => prev.filter((i) => i.dealer !== dealer));
+      }
+      setPlacedOrders(created);
+      setScreen("order-tracking");
+    } catch (err) {
+      if (created.length > 0) setPlacedOrders(created);
+      setCheckoutError(
+        `${errorMessage(err, "Buyurtmani yuborib bo'lmadi")}${
+          created.length > 0 ? ` (${created.length} ta buyurtma yuborildi, qolganlari savatda turibdi)` : ""
+        }`,
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Render screens
@@ -328,32 +348,20 @@ export default function DokonPage() {
         deliveryFee={cartSummary.deliveryFee}
         itemCount={cart.length}
         onSubmit={handlePayment}
+        submitting={submitting}
+        error={checkoutError}
         onBack={() => setScreen("cart")}
       />
     );
   }
 
-  if (screen === "order-tracking" && currentOrder) {
-    // The cart was emptied when the order was placed — read the order's own lines.
-    const mockOrderItems = (currentOrder.items as CartItem[]).map((item) => ({
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
+  if (screen === "order-tracking" && placedOrders.length > 0) {
     return (
-      <S7_OrderTracking
-        orderId={currentOrder.id}
-        status={currentOrder.status}
-        orderDate={currentOrder.orderDate}
-        expectedDelivery={currentOrder.expectedDelivery}
-        courierName={currentOrder.courier.name}
-        courierPhone={currentOrder.courier.phone}
-        courierMessage={currentOrder.courier.message}
-        items={mockOrderItems}
-        total={currentOrder.total}
-        onBack={() => setScreen("shop")}
-      />
+      <>
+        {placedOrders.map((order) => (
+          <TrackedOrder key={order.id} order={order} onBack={() => setScreen("shop")} />
+        ))}
+      </>
     );
   }
 
@@ -369,4 +377,29 @@ export default function DokonPage() {
   }
 
   return null;
+}
+
+/** One placed order, its status kept fresh while the screen is open. */
+function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
+  const { data } = useQuery({
+    queryKey: ["order", order.id],
+    queryFn: () => getOrder(order.id),
+    initialData: order,
+    refetchInterval: 30_000,
+  });
+
+  return (
+    <S7_OrderTracking
+      orderId={`№ ${data.id.slice(0, 8).toUpperCase()}`}
+      dealerName={data.dealer_name}
+      status={data.status}
+      orderDate={new Date(data.created_at).toLocaleDateString("uz-UZ")}
+      address={data.delivery_address}
+      phone={data.phone}
+      paymentMethod={data.payment_method}
+      items={data.lines.map((l) => ({ name: l.product_name, quantity: l.quantity, price: l.unit_price_uzs }))}
+      total={data.total_uzs}
+      onBack={onBack}
+    />
+  );
 }

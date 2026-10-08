@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class OrderLineCreate(BaseModel):
@@ -14,9 +15,24 @@ class OrderLineCreate(BaseModel):
     quantity: float
 
 
+PaymentMethod = Literal["cash", "card"]
+
+
 class OrderCreate(BaseModel):
     dealer_name: str
     lines: list[OrderLineCreate] = Field(..., min_length=1)
+    delivery_address: str | None = Field(default=None, max_length=500)
+    phone: str | None = Field(default=None, max_length=50)
+    payment_method: PaymentMethod | None = None
+
+    @field_validator("delivery_address", "phone")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        """A form field left as spaces is "not given", not an address of spaces."""
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 class OrderLineOut(BaseModel):
@@ -36,6 +52,9 @@ class OrderOut(BaseModel):
     dealer_name: str
     total_uzs: int
     status: str
+    delivery_address: str | None = None
+    phone: str | None = None
+    payment_method: str | None = None
     created_at: datetime
     lines: list[OrderLineOut]
 

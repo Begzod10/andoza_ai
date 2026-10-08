@@ -65,6 +65,9 @@ async def create_order(
         dealer_name=body.dealer_name,
         total_uzs=total_uzs,
         status="accepted",
+        delivery_address=body.delivery_address,
+        phone=body.phone,
+        payment_method=body.payment_method,
         lines=[
             OrderLine(
                 material_id=line.material_id,

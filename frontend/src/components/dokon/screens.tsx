@@ -206,9 +206,14 @@ export function S3_ProductDetail(props: {
       <Panel className="flex flex-wrap items-center justify-between gap-4 p-4">
         <Stepper value={qty} onChange={(v) => setQty(Math.max(1, v))} label="Miqdor" />
         <Button size="lg" variant="accent" className="flex-1" onClick={() => props.onAddToCart(props.id, qty)}
-          leftIcon={<ShoppingCart size={18} aria-hidden="true" />}>
+          disabled={!priced} leftIcon={<ShoppingCart size={18} aria-hidden="true" />}>
           Savatga qo'shish
         </Button>
+        {!priced && (
+          <p className="w-full text-xs text-ink-muted">
+            Bu mahsulotning narxi belgilanmagan: sotuvchidan so'rang, savatga qo'shib bo'lmaydi.
+          </p>
+        )}
       </Panel>
     </Screen>
   );
@@ -310,7 +315,7 @@ export function S5_Cart(props: {
       </Panel>
       <Panel className="space-y-4 p-5">
         <SummaryRow label="Mahsulotlar" value={formatUZS(subtotal)} strong />
-        <p className="text-xs text-ink-muted">Yetkazish narxi keyingi qadamda hisoblanadi.</p>
+        <p className="text-xs text-ink-muted">Yetkazish narxi do'kon bilan kelishiladi.</p>
         <Button size="lg" className="w-full" onClick={props.onCheckout}>Buyurtma berish</Button>
       </Panel>
     </Screen>
@@ -319,22 +324,27 @@ export function S5_Cart(props: {
 
 // ─── 6. Payment ───────────────────────────────────────────────────────────────
 
-const PAYMENT_METHODS = [
+const PAYMENT_METHODS: Array<{ value: "cash" | "card"; label: string }> = [
   { value: "cash", label: "Naqd pul" },
   { value: "card", label: "Karta" },
 ];
 
 export function S6_Payment(props: {
   subtotal: number;
-  deliveryFee: number;
+  /** Only shown when a real fee is known; 0 means "agreed with the shop". */
+  deliveryFee?: number;
   itemCount: number;
-  onSubmit: (data: { address: string; phone: string; paymentMethod: string }) => void;
+  onSubmit: (data: { address: string; phone: string; paymentMethod: "cash" | "card" }) => void;
   onBack: () => void;
+  submitting?: boolean;
+  /** Why the last attempt failed; the cart is untouched so they can try again. */
+  error?: string | null;
 }) {
+  const deliveryFee = props.deliveryFee ?? 0;
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
-  const [method, setMethod] = useState("cash");
-  const ready = address.trim().length > 0 && phone.trim().length > 0;
+  const [method, setMethod] = useState<"cash" | "card">("cash");
+  const ready = address.trim().length > 0 && phone.trim().length > 0 && !props.submitting;
 
   return (
     <Screen>
@@ -376,11 +386,18 @@ export function S6_Payment(props: {
 
         <Panel className="space-y-3 p-5">
           <SummaryRow label="Mahsulotlar" value={formatUZS(props.subtotal)} />
-          <SummaryRow label="Yetkazish" value={formatUZS(props.deliveryFee)} />
+          {deliveryFee > 0 ? (
+            <SummaryRow label="Yetkazish" value={formatUZS(deliveryFee)} />
+          ) : (
+            <p className="text-xs text-ink-muted">Yetkazish narxi do'kon bilan kelishiladi.</p>
+          )}
           <div className="border-t border-line pt-3">
-            <SummaryRow label="Jami" value={formatUZS(props.subtotal + props.deliveryFee)} strong />
+            <SummaryRow label="Jami" value={formatUZS(props.subtotal + deliveryFee)} strong />
           </div>
-          <Button type="submit" size="lg" variant="accent" className="mt-2 w-full" disabled={!ready}>
+          {props.error && (
+            <p role="alert" className="rounded-2xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{props.error}</p>
+          )}
+          <Button type="submit" size="lg" variant="accent" className="mt-2 w-full" disabled={!ready} loading={props.submitting}>
             Buyurtmani tasdiqlash
           </Button>
         </Panel>
@@ -398,14 +415,17 @@ const ORDER_STEPS: Array<{ key: string; label: string }> = [
   { key: "delivered", label: "Yetkazildi" },
 ];
 
+const PAYMENT_LABEL: Record<string, string> = { cash: "Naqd pul", card: "Karta" };
+
 export function S7_OrderTracking(props: {
   orderId: string;
+  /** The shop it was ordered from. */
+  dealerName?: string;
   status: string;
   orderDate: string;
-  expectedDelivery: string;
-  courierName: string;
-  courierPhone: string;
-  courierMessage: string;
+  address?: string | null;
+  phone?: string | null;
+  paymentMethod?: string | null;
   items: Array<{ name: string; quantity: number; price: number }>;
   total: number;
   onBack: () => void;
@@ -442,23 +462,19 @@ export function S7_OrderTracking(props: {
         </ol>
         <div className="mt-1 grid grid-cols-2 gap-2.5">
           <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Buyurtma sanasi</p><p className="text-sm font-bold text-ink">{props.orderDate}</p></Tile>
-          <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Kutilayotgan yetkazish</p><p className="text-sm font-bold text-ink">{props.expectedDelivery}</p></Tile>
+          {props.dealerName && (
+            <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Do'kon</p><p className="truncate text-sm font-bold text-ink">{props.dealerName}</p></Tile>
+          )}
+          {props.address && (
+            <Tile className="col-span-2 px-3.5 py-3"><p className="text-[11px] text-ink-muted">Manzil</p><p className="text-sm font-bold text-ink">{props.address}</p></Tile>
+          )}
+          {props.phone && (
+            <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">Telefon</p><p className="text-sm font-bold text-ink">{props.phone}</p></Tile>
+          )}
+          {props.paymentMethod && (
+            <Tile className="px-3.5 py-3"><p className="text-[11px] text-ink-muted">To'lov usuli</p><p className="text-sm font-bold text-ink">{PAYMENT_LABEL[props.paymentMethod] ?? props.paymentMethod}</p></Tile>
+          )}
         </div>
-      </Panel>
-
-      <Panel className="flex items-center gap-3 p-4">
-        <IconBubble tone="green" className="h-11 w-11"><Truck size={18} aria-hidden="true" /></IconBubble>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-ink">{props.courierName}</p>
-          <p className="truncate text-xs text-ink-muted">{props.courierPhone} · {props.courierMessage}</p>
-        </div>
-        <a
-          href={`tel:${props.courierPhone.replace(/\s/g, "")}`}
-          aria-label="Kuryerga qo'ng'iroq"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card-soft text-ink-muted transition-colors hover:text-accent"
-        >
-          <Phone size={16} aria-hidden="true" />
-        </a>
       </Panel>
 
       <Panel className="space-y-3 p-5">
