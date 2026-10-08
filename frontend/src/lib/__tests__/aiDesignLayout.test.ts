@@ -159,3 +159,11 @@ describe('lightSpot in a four-wall room', () => {
     expect(Math.abs(x)).toBeLessThanOrEqual(W / 2) && expect(Math.abs(z)).toBeLessThanOrEqual(D / 2)
   })
 })
+
+describe('furnitureSpot fit', () => {
+  it('says ok on a clean spot and none when nothing fits at all', () => {
+    expect(furnitureSpot('wall_A', { w: 1, d: 0.5 }, four(), []).fit).toBe('ok')
+    const huge = furnitureSpot('center', { w: 9, d: 9 }, four(), [])
+    expect(huge.fit).toBe('none')
+  })
+})

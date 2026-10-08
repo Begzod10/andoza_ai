@@ -12,12 +12,19 @@ from app.config import settings
 from app.services import ai_designer as ad
 from app.services import llm
 
+@pytest.fixture(autouse=True)
+def _keep_catalog_order(monkeypatch):
+    """The menu is shuffled in production; the tests refer to F1, F2... by position."""
+    monkeypatch.setattr("app.services.ai_designer.random.shuffle", lambda items: None)
+
+
 ITEMS = [
     {"id": "uuid-sofa", "name_uz": "Divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol", "footprint_w": 210, "footprint_d": 95},
     {"id": "uuid-bed", "name_uz": "Krovat", "category": "krovat", "room_type": "yotoqxona", "placement": "pol", "footprint_w": 200, "footprint_d": 160},
     {"id": "uuid-plant", "name_uz": "O'simlik", "category": "dekor", "room_type": None, "placement": "pol", "footprint_w": None, "footprint_d": None},
 ]
-LINES, BY_LABEL = ad.furniture_menu(ITEMS, "mehmonxona")
+with patch("app.services.ai_designer.random.shuffle", lambda items: None):
+    LINES, BY_LABEL = ad.furniture_menu(ITEMS, "mehmonxona")
 GOOD = {
     "title": "Qorong'i", "summary": "To'q ranglar.",
     "walls": {"main": {"type": "paint", "color": "#2c2c2c"}, "accent": {"wall": "C", "color": "#1a1a1a"}},
@@ -123,7 +130,9 @@ class TestValidate:
             furniture=[{"id": "F1", "zone": "center"}] * 5 + [{"id": "F2", "zone": "center"}] * 5,
         )
         assert len(p.lights) == ad.MAX_LIGHTS
-        assert [f["id"] for f in p.furniture].count("uuid-sofa") == ad.MAX_PER_ITEM
+        ids = [f["id"] for f in p.furniture]
+        assert ids.count("uuid-sofa") == 1  # a room has one sofa
+        assert ids.count("uuid-plant") == ad.MAX_PER_ITEM
 
     def test_oboy_needs_a_known_pattern_and_both_colours(self):
         ok = plan(walls={"main": {"type": "oboy", "pattern": "damask", "base_color": "#eee", "accent_color": "#d4af37"}}).walls["main"]
@@ -251,3 +260,68 @@ class TestClientBaseUrl:
             assert str(llm.get_client().base_url).startswith("https://api.openai.com")
         finally:
             llm._client = None
+
+
+def test_furniture_budget_grows_with_the_room():
+    from app.services.ai_designer import furniture_budget
+
+    assert furniture_budget(3.5) == (1, 2)
+    assert furniture_budget(10) == (4, 5)
+    assert furniture_budget(30)[1] == 8
+    highs = [furniture_budget(a)[1] for a in (3, 5, 8, 12, 18, 30)]
+    assert highs == sorted(highs)
+
+
+def test_validate_plan_caps_furniture_and_drops_lights_sold_as_furniture():
+    from app.services.ai_designer import validate_plan
+
+    by_label = {
+        "F1": {"id": "a", "name": "Divan"}, "F2": {"id": "b", "name": "Torsher"},
+        "F3": {"id": "c", "name": "Stol"}, "F4": {"id": "d", "name": "Kreslo"},
+    }
+    data = {
+        "walls": {"main": {"type": "paint", "color": "#ffffff"}},
+        "lights": [{"type": "floor_lamp", "zone": "center"}],
+        "furniture": [{"id": l, "zone": "center"} for l in ("F1", "F2", "F3", "F4")],
+    }
+    plan = validate_plan(data, by_label, ["A", "B", "C", "D"], max_furniture=2)
+    assert [f["name"] for f in plan.furniture] == ["Divan", "Stol"]
+
+
+def test_a_second_sofa_or_a_light_sold_as_furniture_is_dropped_but_other_pieces_stay():
+    from app.services.ai_designer import validate_plan
+
+    by_label = {
+        "F1": {"id": "a", "name": "Divan A", "category": "divan"},
+        "F2": {"id": "b", "name": "Divan B", "category": "divan"},
+        "F3": {"id": "c", "name": "Stol", "category": "stol"},
+        "F4": {"id": "d", "name": "Polga lampa", "category": "lampa"},
+    }
+    data = {
+        "walls": {"main": {"type": "paint", "color": "#ffffff"}},
+        "lights": [{"type": "ceiling", "zone": "center"}],
+        "furniture": [{"id": l, "zone": "center"} for l in ("F1", "F2", "F3", "F4")],
+    }
+    plan = validate_plan(data, by_label, ["A", "B", "C", "D"])
+    assert [f["name"] for f in plan.furniture] == ["Divan A", "Stol"]
+
+
+def test_the_menu_leaves_out_other_rooms_pieces_once_enough_fit_this_one():
+    items = [
+        {"id": f"l{n}", "name_uz": f"Zal {n}", "category": "stol", "room_type": "mehmonxona", "placement": "pol"}
+        for n in range(8)
+    ] + [{"id": "b", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"}]
+    lines, by_label = ad.furniture_menu(items, "mehmonxona")
+    assert len(by_label) == 8 and not any("Karavot" in line for line in lines)
+    # too few fit: the rest are offered so the model has something to choose from
+    lines, by_label = ad.furniture_menu(items[:3] + items[-1:], "mehmonxona")
+    assert len(by_label) == 4
+
+
+def test_lamps_are_not_offered_as_furniture():
+    items = [
+        {"id": "t", "name_uz": "Torsher", "category": "lampa", "room_type": None, "placement": "pol"},
+        {"id": "s", "name_uz": "Divan", "category": "divan", "room_type": None, "placement": "pol"},
+    ]
+    _, by_label = ad.furniture_menu(items, "mehmonxona")
+    assert [v["name"] for v in by_label.values()] == ["Divan"]

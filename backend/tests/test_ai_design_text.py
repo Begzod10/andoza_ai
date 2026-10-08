@@ -10,13 +10,20 @@ import pytest
 from app.services import ai_design_text as txt
 from app.services import ai_designer as ad
 
+@pytest.fixture(autouse=True)
+def _keep_catalog_order(monkeypatch):
+    """The menu is shuffled in production; the tests refer to F1, F2... by position."""
+    monkeypatch.setattr("app.services.ai_designer.random.shuffle", lambda items: None)
+
+
 ITEMS = [
     {"id": "u-sofa", "name_uz": "Uch o'rinli divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol", "footprint_w": 210, "footprint_d": 90},
     {"id": "u-bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol", "footprint_w": 200, "footprint_d": 160},
     {"id": "u-shelf", "name_uz": "Kitob shkafi", "category": "shkaf", "room_type": "mehmonxona", "placement": "pol", "footprint_w": 180, "footprint_d": 60},
     {"id": "u-tv", "name_uz": "TV tumba", "category": "tumba", "room_type": "mehmonxona", "placement": "pol", "footprint_w": 150, "footprint_d": 40},
 ]
-_LINES, BY_LABEL = ad.furniture_menu(ITEMS, "mehmonxona")  # F1 divan, F2 shkaf, F3 tumba, F4 karavot
+with patch("app.services.ai_designer.random.shuffle", lambda items: None):
+    _LINES, BY_LABEL = ad.furniture_menu(ITEMS, "mehmonxona")  # F1 divan, F2 shkaf, F3 tumba, F4 karavot
 WALLS = ["A", "B", "C", "D"]
 
 
@@ -169,7 +176,7 @@ class TestDescribePlan:
         )
         text = txt.describe_plan(plan)
         assert "geometrik oboy" in text and "C devor" in text and "qora" in text
-        assert "parket" in text and "chevron" in text
+        assert "parket" in text and "shevron" in text
         assert "2 ta led panel" in text and "bra" in text
         assert "Uch o'rinli divan" in text
 
@@ -273,3 +280,27 @@ class TestTheShopsOwnNames:
         plan = make("Burchakda yumshoq pufik turadi.")
         assert txt.reconcile_summary(plan, self.NAMES)
         assert "pufik" not in plan.summary.lower()
+
+
+def test_describe_plan_names_the_laying_in_uzbek():
+    from types import SimpleNamespace
+    from app.services.ai_design_text import describe_plan
+
+    plan = SimpleNamespace(
+        walls={}, floor={"type": "parquet", "pattern": "herringbone"}, lights=[], furniture=[],
+    )
+    text = describe_plan(plan)
+    assert "herringbone" not in text and "yelkan" in text
+
+
+def test_a_raw_pattern_id_in_the_text_is_caught_and_number_words_are_not_piece_names():
+    plan = make()
+    assert txt.summary_problems("Polda herringbone naqshli parket.", plan)
+    names = ["Ikki kishilik karavot"]
+    assert not txt.summary_problems("Ikki devor bej rangda.", plan, names)
+
+
+def test_a_pattern_id_in_the_prose_is_said_in_uzbek_and_the_summary_kept():
+    plan = make("Polda herringbone naqshli parquet yotadi.")
+    assert txt.reconcile_summary(plan) == []
+    assert plan.summary == "Polda yelkan naqshli parket yotadi."

@@ -116,13 +116,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     if (undo) restoreDesign(undo)
     setUndo(base)
     setBarHidden(false)
-    applyDesignPlan(next, nextParts, catalogFurniture)
+    const applied = applyDesignPlan(next, nextParts, catalogFurniture)
+    const extra = applied.skipped > 0 ? ` ${uz.ai.sigmadi(applied.skipped)}` : ""
     if (!onSaveRef.current) {
-      setNotice(uz.ai.qollandi_saqlang)
+      setNotice(uz.ai.qollandi_saqlang + extra)
       return
     }
     setNotice(uz.ai.saqlanmoqda)
-    setNotice((await persist()) ? uz.ai.qollandi_saqlandi : uz.ai.qollandi_saqlanmadi)
+    setNotice(((await persist()) ? uz.ai.qollandi_saqlandi : uz.ai.qollandi_saqlanmadi) + extra)
   }
 
   async function generate(e?: React.FormEvent) {
