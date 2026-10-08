@@ -92,6 +92,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
+        height_cm=float(f.height_cm) if f.height_cm is not None else None,
         is_active=f.is_active,
         created_at=f.created_at,
     )
@@ -234,6 +235,7 @@ async def upload_furniture_model(
     price_uzs: int | None = Form(default=None),
     footprint_w: float | None = Form(default=None),
     footprint_d: float | None = Form(default=None),
+    height_cm: float | None = Form(default=None, gt=0, le=1000),
     thumbnail: UploadFile | None = None,
 ) -> FurnitureAdminOut:
     """Store the model's `.glb` (and optional preview thumbnail) and record
@@ -334,6 +336,7 @@ async def upload_furniture_model(
         thumbnail_key=thumbnail_key,
         footprint_w=footprint_w,
         footprint_d=footprint_d,
+        height_cm=height_cm,
     )
     db.add(furniture)
     await db.flush()

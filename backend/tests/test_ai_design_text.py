@@ -242,3 +242,34 @@ class TestClipSummary:
         assert plan.summary == ""
         assert txt.reconcile_summary(plan)
         assert "Mebel:" in plan.summary
+
+
+class TestTheShopsOwnNames:
+    NAMES = ["Uch o'rinli divan", "TV tumba", "Pufik", "Yozuv stoli", "Devor javoni", "Katta gilam"]
+
+    def test_a_piece_of_the_catalog_that_was_not_chosen_is_caught_by_its_own_name(self):
+        problems = txt.summary_problems("Burchakda yumshoq pufik turadi.", make(), self.NAMES)
+        assert any("pufik" in p for p in problems)
+
+    def test_the_fixed_list_alone_would_have_missed_it(self):
+        assert not txt.summary_problems("Burchakda yumshoq pufik turadi.", make())
+
+    def test_a_chosen_piece_may_be_named_as_its_catalog_name_says(self):
+        assert not txt.summary_problems("Uch o'rinli divan va TV tumba tanlandi.", make(), self.NAMES)
+
+    def test_words_every_room_description_uses_are_not_taken_for_a_piece(self):
+        # "Devor javoni" is in the catalog, and "devor" is in every summary
+        assert not txt.summary_problems("Devorlar iliq rangda, xona yorug'.", make(), self.NAMES)
+
+    def test_the_word_of_a_chosen_piece_covers_a_similar_unchosen_one(self):
+        # "stoli" belongs to the unchosen "Yozuv stoli" but the plan has no table-like name: it is caught...
+        assert txt.summary_problems("Yozuv stoli oynaga qaraydi.", make(), self.NAMES)
+        # ...and a plan that does hold "Jurnal stoli" makes the word fair to use
+        plan = make(furniture=[{"id": "F1", "zone": "wall_C"}, {"id": "F3", "zone": "wall_B"}])
+        plan.furniture.append({"id": "x", "name": "Jurnal stoli", "zone": "center"})
+        assert not txt.summary_problems("Jurnal stoli markazda.", plan, self.NAMES)
+
+    def test_reconcile_uses_the_names_when_given(self):
+        plan = make("Burchakda yumshoq pufik turadi.")
+        assert txt.reconcile_summary(plan, self.NAMES)
+        assert "pufik" not in plan.summary.lower()

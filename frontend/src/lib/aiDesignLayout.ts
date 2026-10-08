@@ -90,9 +90,12 @@ export interface RoomModel {
   offsetMm: { x: number; z: number }
 }
 
-/** How far a door's swing reaches into the room, and the space kept beside its frame, metres. */
-const DOOR_SWING = 0.95
+/** The space kept beside a door's frame, metres. */
 const DOOR_SIDE = 0.1
+/** A door's leaf swings as far as it is wide; keep that clear, within what a real door can be, metres. */
+const DOOR_SWING_MIN = 0.7
+const DOOR_SWING_MAX = 1.1
+const DOOR_SWING_EXTRA = 0.05
 /** How far in front of a window a tall piece must not stand, and the space beside its frame, metres. */
 const WINDOW_REACH = 0.6
 const WINDOW_SIDE = 0.05
@@ -121,7 +124,7 @@ function openingsOf(geometry: RoomGeometry, walls: WallInfo[]): { openings: Open
       const width = el.width / 1000
       const t = (el.position + el.width / 2) / 1000 - info.length / 2 // centre, from the wall's midpoint
       openings.push({ wallId: info.id, kind, from: t - width / 2, to: t + width / 2 })
-      const reach = kind === 'door' ? DOOR_SWING : WINDOW_REACH
+      const reach = kind === 'door' ? Math.min(DOOR_SWING_MAX, Math.max(DOOR_SWING_MIN, width + DOOR_SWING_EXTRA)) : WINDOW_REACH
       const side = kind === 'door' ? DOOR_SIDE : WINDOW_SIDE
       clear.push({
         kind, wallId: info.id,

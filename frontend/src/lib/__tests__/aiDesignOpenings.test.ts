@@ -170,3 +170,47 @@ describe('a whole plan applied to a room with a door and a window', () => {
     expect(f.y / 1000).toBeCloseTo(-1.5 + 0.45 + 0.04, 2)
   })
 })
+
+
+describe('how tall a piece is, and how far a door swings', () => {
+  const catalogItem = (id: string, category: string, name: string, height_cm: number | null | undefined): CatalogFurniture => ({
+    id, name_uz: name, category, store_id: null, store_name: null, room_type: null, placement: 'pol',
+    price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: 180, footprint_d: 60, height_cm,
+  })
+  const placeAtWindow = (item: CatalogFurniture) => {
+    useRoomStore.getState().resetRoom()
+    useRoomStore.setState({ geometry: room({ A: WINDOW_A }), lights: [], furniture: [] })
+    applyDesignPlan(
+      { title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture: [{ id: item.id, name: item.name_uz, zone: 'wall_A' }] },
+      ALL_PARTS, [item],
+    )
+    const f = useRoomStore.getState().furniture[0]
+    const model = roomModel(useRoomStore.getState().geometry)
+    const rect: Rect = { x: f.x / 1000, z: f.y / 1000, w: 1.8, d: 0.6, rotation: f.rotation }
+    return model.clear.filter((z) => z.kind === 'window').some((z) => hits(rect, z.rect))
+  }
+
+  it('keeps a piece with a measured height of a sill or more away from the window, whatever it is called', () => {
+    expect(placeAtWindow(catalogItem('a', 'dekor', 'Vaza stendi', 120))).toBe(false)
+  })
+
+  it('lets a low piece stand under the window, even one called a cupboard, when its height is known', () => {
+    expect(placeAtWindow(catalogItem('b', 'shkaf', 'Past shkaf', 70))).toBe(true)
+  })
+
+  it('judges a piece with no height by its name, as before', () => {
+    expect(placeAtWindow(catalogItem('c', 'shkaf', 'Kiyim shkafi', null))).toBe(false)
+    expect(placeAtWindow(catalogItem('d', 'divan', 'Divan', null))).toBe(true)
+    expect(placeAtWindow(catalogItem('e', 'shkaf', 'Kiyim shkafi', undefined))).toBe(false)
+  })
+
+  it.each([
+    [500, 0.7], // a narrow service door still gets a usable swing
+    [800, 0.85],
+    [900, 0.95],
+    [1500, 1.1], // a wide one is capped: nothing swings further than a metre or so
+  ])('keeps clear as far as a %i mm door swings: %f m', (width, depth) => {
+    const door = roomModel(room({ B: [el('eshik', width, 300)] })).clear.find((z) => z.kind === 'door')!
+    expect(door.rect.d).toBeCloseTo(depth, 5)
+  })
+})

@@ -75,6 +75,11 @@ class Furniture(Base):
         nullable=True,
         comment="Footprint depth in centimetres",
     )
+    height_cm: Mapped[float | None] = mapped_column(
+        Numeric(6, 2),
+        nullable=True,
+        comment="Height in centimetres; lets the AI layout keep tall pieces away from windows",
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     status: Mapped[str] = mapped_column(
         String(20),

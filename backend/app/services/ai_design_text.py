@@ -178,10 +178,38 @@ def _surface_problems(text: str, plan: Any) -> list[str]:
     return problems
 
 
-def summary_problems(summary: str, plan: Any) -> list[str]:
+# Words in a piece's name that say nothing about what it is, so naming them proves nothing.
+_NAME_FILLER = frozenset({
+    "o'rinli", "kishilik", "katta", "kichik", "yumshoq", "klassik", "zamonaviy", "oddiy", "burchakli", "uzun", "keng",
+    "yangi", "eski", "uyali", "qismli", "modeli", "turi", "uchun", "bilan", "sifatli", "premium",
+    # the words any description of a room uses, whatever the shop calls its pieces
+    "devor", "devorga", "xona", "mebel", "burchak", "markaz", "chiroq", "asosiy", "yordamchi",
+})
+_WORD = re.compile(r"[a-z']{4,}")
+
+
+def _catalog_problems(text: str, plan: Any, catalog_names: list[str]) -> list[str]:
+    """A piece of the catalog that the plan did not choose, named in the text. The kinds of furniture
+    above are a fixed list; this reads the shop's own names, so a "pufik" or "peshtaxta" is caught too."""
+    chosen = _norm(" ".join(f.get("name", "") for f in plan.furniture))
+    chosen_words = set(_WORD.findall(chosen))
+    problems: list[str] = []
+    seen: set[str] = set()
+    for name in catalog_names:
+        for word in _WORD.findall(_norm(name)):
+            if word in _NAME_FILLER or word in chosen_words or word in seen:
+                continue
+            seen.add(word)
+            if re.search(rf"\b{re.escape(word)}", text):
+                problems.append(f"'{word}' aytilgan, lekin rejada yo'q")
+    return problems
+
+
+def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """What the summary claims that the plan does not hold; empty when it can be trusted."""
     text = _norm(summary)
     return [
+        *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
         *_language_problems(text),
         *_colour_of_things_problems(text),
         *_colour_problems(text, plan),
@@ -274,10 +302,10 @@ def describe_plan(plan: Any) -> str:
     return ". ".join(parts) + "." if parts else ""
 
 
-def reconcile_summary(plan: Any) -> list[str]:
+def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
-    wording (empty when it was kept as written)."""
-    problems = summary_problems(plan.summary, plan) if plan.summary else ["matn bo'sh"]
+    wording (empty when it was kept as written). *catalog_names* are the shop's own piece names."""
+    problems = summary_problems(plan.summary, plan, catalog_names) if plan.summary else ["matn bo'sh"]
     if problems:
         plan.summary = describe_plan(plan)
     return problems

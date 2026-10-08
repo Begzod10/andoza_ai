@@ -42,10 +42,19 @@ const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 /** Pieces that stand tall: they would shut out a window. (Wall-hung pieces count too, see tallOf.) */
 const TALL_PIECES = /shkaf|garderob|vitrina|stellaj|kitob|javon|pianino|bufet|komod|wardrobe|bookcase|cabinet/i
 
-/** Would this piece stand in the light of a window? Tall by kind, or hung on the wall. */
+/** A piece at least this tall reaches a window's sill, so it stands in front of the glass (centimetres). */
+const SILL_CM = 90
+
+/**
+ * Would this piece stand in the light of a window? One hung on the wall does. Otherwise its measured
+ * height decides when the catalog has it (models uploaded since heights were measured); the older ones,
+ * with no height, are judged by what they are called.
+ */
 function tallOf(item: CatalogFurniture | undefined): boolean {
   if (!item) return false
-  return item.placement === 'devor' || TALL_PIECES.test(`${item.category} ${item.name_uz}`)
+  if (item.placement === 'devor') return true
+  if (item.height_cm != null && item.height_cm > 0) return item.height_cm >= SILL_CM
+  return TALL_PIECES.test(`${item.category} ${item.name_uz}`)
 }
 
 /** A catalog item's footprint in metres (the catalog stores centimetres), and whether it is tall. */

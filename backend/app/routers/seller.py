@@ -90,6 +90,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
+        height_cm=float(f.height_cm) if f.height_cm is not None else None,
         is_active=f.is_active,
         status=f.status,
         moderation_note=f.moderation_note,
@@ -210,6 +211,7 @@ async def upload_furniture(
     price_uzs: int | None = Form(default=None, ge=0),
     footprint_w: float | None = Form(default=None, gt=0, le=2000),
     footprint_d: float | None = Form(default=None, gt=0, le=2000),
+    height_cm: float | None = Form(default=None, gt=0, le=1000),
     thumbnail: UploadFile | None = None,
 ) -> SellerFurnitureOut:
     store = await _require_approved_store(db, current_user)
@@ -280,6 +282,7 @@ async def upload_furniture(
         thumbnail_key=thumbnail_key,
         footprint_w=footprint_w,
         footprint_d=footprint_d,
+        height_cm=height_cm,
         status="pending",
         is_active=False,
     )

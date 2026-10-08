@@ -58,6 +58,7 @@ class SellerFurnitureUpdate(BaseModel):
     price_uzs: int | None = Field(default=None, ge=0)
     footprint_w: float | None = Field(default=None, gt=0, le=2000)
     footprint_d: float | None = Field(default=None, gt=0, le=2000)
+    height_cm: float | None = Field(default=None, gt=0, le=1000)
     # Hide an approved model from the catalog, or show it again.
     is_active: bool | None = None
 
@@ -73,6 +74,7 @@ class SellerFurnitureOut(BaseModel):
     thumbnail_url: str | None
     footprint_w: float | None
     footprint_d: float | None
+    height_cm: float | None = None
     is_active: bool
     status: str
     moderation_note: str | None

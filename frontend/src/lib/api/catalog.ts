@@ -19,6 +19,8 @@ export interface CatalogFurniture {
   thumbnail_url: string | null;
   footprint_w: number | null;
   footprint_d: number | null;
+  /** Centimetres; null for models uploaded before it was measured. */
+  height_cm?: number | null;
 }
 
 export interface PaginatedCatalogFurniture {

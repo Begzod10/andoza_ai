@@ -316,7 +316,7 @@ async def design_room(
     plan = validate_plan(extract_json(text), by_label, [w["id"] for w in room["walls"]])
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, the plan's own description is shown instead.
-    wrong = reconcile_summary(plan)
+    wrong = reconcile_summary(plan, [item["name"] for item in by_label.values()])
     if wrong:
         log.info("ai_design.summary_replaced", problems=wrong)
     return plan

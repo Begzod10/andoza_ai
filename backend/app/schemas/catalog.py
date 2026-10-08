@@ -20,6 +20,7 @@ class FurnitureOut(BaseModel):
     thumbnail_url: str | None
     footprint_w: float | None
     footprint_d: float | None
+    height_cm: float | None = None
 
 
 class PaginatedFurniture(BaseModel):
