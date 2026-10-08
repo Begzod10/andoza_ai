@@ -4,6 +4,8 @@ import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
 import { CAMERA_CHOICES, RENDER_ASPECTS, type RenderAspect } from "@/lib/roomCameras";
+import { wallSideOf, type RoomSide } from "@/lib/newRoomFromWall";
+import { NewRoomSheet } from "@/components/studio/NewRoomSheet";
 import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
@@ -138,7 +140,10 @@ export default function ThreeDPage() {
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width });
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7;
 
-  const { addingRoom, handleAddRoom } = useAddRoomNavigation({ room, onSave, resetRoom, navigate, W, D });
+  const { addingRoom, handleAddRoom, createRoomThroughWall } =
+    useAddRoomNavigation({ room, onSave, resetRoom, navigate, W, D });
+  /** The wall the new-room sheet is open for — the side it faces, or null. */
+  const [newRoomSide, setNewRoomSide] = useState<RoomSide | null>(null);
 
   // The top-down "Yuqori" preset was removed from this page — the 3D framing
   // is the only view now, so `preset` never changes. Kept as ViewPreset state
@@ -1032,6 +1037,22 @@ export default function ThreeDPage() {
       <HoldDeleteButton />
 
       <RenderSheet open={showRender} onOpenChange={setShowRender} roomId={room.id} />
+
+      {/* The room that would go through the tapped wall: its shape, drawn, and
+          three numbers to change it by. */}
+      <NewRoomSheet
+        isOpen={newRoomSide != null}
+        side={newRoomSide}
+        defaultHeightMm={H * 1000}
+        busy={addingRoom}
+        onClose={() => setNewRoomSide(null)}
+        onConfirm={(dims) => {
+          const side = newRoomSide;
+          if (!side) return;
+          setNewRoomSide(null);
+          void createRoomThroughWall(side, dims);
+        }}
+      />
       <ThreeDOverlaySheets
         showAddSheet={showAddSheet}
         setShowAddSheet={setShowAddSheet}
@@ -1066,6 +1087,13 @@ export default function ThreeDPage() {
           wallpapers,
           applyWallpaper: (url, allWalls) => applyWallpaperTo(r.wallId, url, allWalls),
           applyWallTile: (size, face, allWalls) => applyWallTileTo(r.wallId, size, face, allWalls),
+          // Only where the wall's own side can be worked out — a slanted or
+          // unidentifiable wall has no side to put a room through, and an
+          // item that silently does nothing is worse than no item.
+          addRoomThroughWall: (wallId) => {
+            const side = wallSideOf(geometry, wallId);
+            if (side) setNewRoomSide(side);
+          },
           applyWallColor: (hex, allWalls) =>
             useRoomStore.getState().setWallCovering(
               allWalls ? 'ALL' : resolveTargetWall(r.wallId ?? null),

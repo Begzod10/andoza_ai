@@ -59,6 +59,9 @@ export function buildRadialItems(
     applyWallColor: (hex: string, allWalls?: boolean) => void;
     /** Tiles it, in the size and face picked off the ring. */
     applyWallTile: (size: TileSize, face: TileFace, allWalls?: boolean) => void;
+    /** Opens the new-room sheet for the room that would go through this wall.
+     *  Undefined where there is no apartment to grow — a shared view. */
+    addRoomThroughWall?: (wallId: string) => void;
     /** Puts a window of that style where the wall was tapped, skipping the
      *  size-and-style sheet. */
     createWindowStyled: (wallId: string, point: { x: number; y: number; z: number } | undefined, styleId: string) => void;
@@ -75,7 +78,7 @@ export function buildRadialItems(
 ): RadialItem[] {
   const {
     setSelectedWall, setActivePhase, setShowPanel, createOpening,
-    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, applyWallTile,
+    placeElectrical, placeLight, setCornice, wallpapers, applyWallpaper, applyWallColor, applyWallTile, addRoomThroughWall,
     createWindowStyled, createDoorStyled,
     setFloorPattern, setSkirting, setCeilingDesign, restyleOpening,
   } = deps;
@@ -202,6 +205,16 @@ export function buildRadialItems(
           onSelect: () => { if (r.wallId) createDoorStyled(r.wallId, r.point, st.id); },
         })),
       },
+      ...(addRoomThroughWall && r.wallId ? [{
+        // The flat grows through the wall you are looking at. The four "+"
+        // buttons in the top-down view ask the same question, but they ask it
+        // from above and hand off to the wizard; standing inside the room, the
+        // wall itself already says which side, so the only thing left to ask
+        // is how big — which the sheet does, with a drawing.
+        key: 'new-room', label: 'Yangi xona', icon: RadialIcons.add,
+        closesMenu: true,
+        onSelect: () => addRoomThroughWall(r.wallId!),
+      }] : []),
       {
         // Sockets and switches belong to a wall and to a spot on it, which is
         // exactly what a wall tap already knows — so they are offered here

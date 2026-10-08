@@ -439,3 +439,40 @@ describe('tapping a trim run', () => {
     expect(calls.some((c) => c[0] === 'skirting')).toBe(false)
   })
 })
+
+describe('adding a room through the tapped wall', () => {
+  it('offers it on a wall, and hands over that wallid', () => {
+    const calls: string[] = []
+    const { deps } = harness()
+    const items = buildRadialItems(WALL!, {
+      ...deps, addRoomThroughWall: (id: string) => calls.push(id),
+    } as never)
+    const item = items.find((i) => i.key === 'new-room')
+    expect(item).toBeTruthy()
+    item!.onSelect()
+    // WALL is the ring state for wall 'A' — the id has to arrive intact, or
+    // the side cannot be worked out and the sheet silently never opens.
+    expect(calls).toEqual(['A'])
+  })
+
+  it('closes the ring, because a sheet opens over it', () => {
+    const { deps } = harness()
+    const items = buildRadialItems(WALL!, { ...deps, addRoomThroughWall: () => {} } as never)
+    expect(items.find((i) => i.key === 'new-room')!.closesMenu).toBe(true)
+  })
+
+  it('is absent where there is nothing to add a room to', () => {
+    // A shared or read-only view passes no handler; an item that does nothing
+    // is worse than no item.
+    const { deps } = harness()
+    expect(buildRadialItems(WALL!, deps as never).find((i) => i.key === 'new-room')).toBeUndefined()
+  })
+
+  it('is offered only on walls — a floor or ceiling has no far side', () => {
+    const { deps } = harness()
+    const withHandler = { ...deps, addRoomThroughWall: () => {} } as never
+    for (const state of [CEILING!, FLOOR!]) {
+      expect(buildRadialItems(state, withHandler).find((i) => i.key === 'new-room')).toBeUndefined()
+    }
+  })
+})
