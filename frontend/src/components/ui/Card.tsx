@@ -25,9 +25,9 @@ interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const cardBase =
-  'rounded-2xl bg-white ' +
-  'border border-neutral-200 ' +
-  'shadow-sm transition-all duration-150'
+  'rounded-3xl bg-card text-ink ' +
+  'border border-line ' +
+  'shadow-panel transition-all duration-150'
 
 const cardSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'p-4',
@@ -36,7 +36,7 @@ const cardSizes: Record<'sm' | 'md' | 'lg', string> = {
 }
 
 const cardInteractive =
-  'hover:shadow-md hover:border-neutral-300 cursor-pointer'
+  'hover:border-[#5B84F5]/50 hover:shadow-glow cursor-pointer'
 
 // ─── Header ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
     return (
       <div
         ref={ref}
-        className={cn('border-b border-neutral-200 pb-3 mb-3', className)}
+        className={cn('border-b border-line pb-3 mb-3', className)}
         {...props}
       >
         {children}
@@ -105,7 +105,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
     return (
       <div
         ref={ref}
-        className={cn('border-t border-neutral-200 pt-3 mt-3', className)}
+        className={cn('border-t border-line pt-3 mt-3', className)}
         {...props}
       >
         {children}

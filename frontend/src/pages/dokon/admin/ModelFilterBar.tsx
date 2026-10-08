@@ -18,9 +18,9 @@ export function ModelFilterBar({
   return (
     // On a white card: the field labels are dark text, which the night theme's
     // dark page background would swallow.
-    <div className="flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 shadow-subtle">
+    <div className="flex flex-wrap items-end gap-2 rounded-xl bg-card p-3 shadow-subtle">
       <div className="w-40">
-        <Select
+        <Select themed
           label="Xona"
           selectSize="sm"
           value={filters.roomType}
@@ -33,7 +33,7 @@ export function ModelFilterBar({
         </Select>
       </div>
       <div className="w-36">
-        <Select
+        <Select themed
           label="Joylashuvi"
           selectSize="sm"
           value={filters.placement}
@@ -46,7 +46,7 @@ export function ModelFilterBar({
         </Select>
       </div>
       <div className="w-28">
-        <Input
+        <Input themed
           label="Narxi, dan"
           inputSize="sm"
           type="number"
@@ -57,7 +57,7 @@ export function ModelFilterBar({
         />
       </div>
       <div className="w-28">
-        <Input
+        <Input themed
           label="Narxi, gacha"
           inputSize="sm"
           type="number"

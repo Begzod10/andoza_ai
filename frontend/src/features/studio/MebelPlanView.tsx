@@ -19,6 +19,7 @@ import { DEFAULT_WINDOW_STYLE, mullionCount, resolveWindowStyle } from '@/lib/wi
 import { PlanFurnitureLayer, itemScale, resolveFurnitureEntry } from './PlanFurniture'
 import { WindowStylePicker } from './WindowStylePicker'
 import { isAbcdRoom, offsetPolygon, planPolygon, svgPoints } from '@/lib/planPolygon'
+import { FurnitureSymbol } from '@/lib/catalogIcons'
 import { FUR_WALL_GAP } from '@/lib/furnitureBounds'
 import { resolveFurnitureMove, type Obstacle } from '@/lib/furnitureCollision'
 
@@ -605,7 +606,7 @@ export function MebelPlanView() {
                     selectedFur === f.id ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <span className="text-[14px] leading-none shrink-0">{entry?.emoji ?? '📦'}</span>
+                  <span className="shrink-0 text-gray-600"><FurnitureSymbol emoji={entry?.emoji} size={16} /></span>
                   <span className="min-w-0">
                     <span className="block text-[11px] font-semibold text-gray-800 truncate">{entry?.name ?? 'Model'}</span>
                     <span className="block text-[9px] text-gray-400 tabular-nums">
@@ -1009,7 +1010,7 @@ export function MebelPlanView() {
         {selFur && (
           <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold text-gray-600 truncate max-w-[40%]">
-              {selFurEntry?.emoji ?? '📦'} {selFurEntry?.name ?? 'Model'}
+              <FurnitureSymbol emoji={selFurEntry?.emoji} size={13} className="mr-1 inline -mt-0.5" />{selFurEntry?.name ?? 'Model'}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
               {((selFurEntry?.sizeM.w ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)}×

@@ -16,6 +16,7 @@ import {
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
+import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 const MAX_GLB_MB = 50;
@@ -38,6 +39,8 @@ export function SellerModelFormDialog({
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The real size of the chosen model, measured from the file, stored with it.
+  const [measured, setMeasured] = useState<MeasuredSize | null>(null);
   // True while a model is being built from a photo (a minute or two).
   const [building, setBuilding] = useState(false);
 
@@ -70,6 +73,7 @@ export function SellerModelFormDialog({
         room_type: roomType || null,
         placement,
         price_uzs: priceUzs ? Number(priceUzs) : null,
+        ...sizeFields(measured),
       });
     },
     onSuccess: () => {
@@ -146,7 +150,7 @@ export function SellerModelFormDialog({
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
         </div>
 
-        <ModelPreview3D file={file} />
+        <ModelPreview3D file={file} onMeasured={setMeasured} themed />
 
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 

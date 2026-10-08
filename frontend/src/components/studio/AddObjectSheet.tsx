@@ -7,6 +7,7 @@ import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { furniturePlacementMm, nextLightPositionMm } from "@/lib/placement";
 import { buildFurnitureGroups } from "@/lib/furnitureSwapGroups";
 import { useDebounce } from "@/hooks/useDebounce";
+import { LightSymbol } from "@/lib/catalogIcons";
 import { MaterialSwatch } from "./MaterialSwatch";
 import { FLOOR_TYPES, getWallTargets, type WallTarget } from "./design-panel/shared";
 
@@ -383,7 +384,7 @@ export function AddObjectSheet({
                   style={{ scrollSnapAlign: "start" }}
                 >
                   <div className="h-24 rounded-2xl flex items-center justify-center mb-2 bg-white text-4xl">
-                    {t.emoji}
+                    <LightSymbol type={t.id} size={40} strokeWidth={1.5} className="text-gray-700" />
                   </div>
                   <p className="text-[14px] font-bold text-gray-900">{t.name}</p>
                   <p className="text-[12px] text-muted mt-0.5">{t.lumens} lm · {t.colorK}K</p>

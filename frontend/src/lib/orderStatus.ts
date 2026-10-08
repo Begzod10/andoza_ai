@@ -42,3 +42,19 @@ export function formatWhen(iso: string): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+
+/** Orders are fetched this many to a page; a full page means there may be more. */
+export const ORDERS_PAGE_SIZE = 50;
+
+/** react-query's `getNextPageParam` for a list of orders: the next page while the last one was full. */
+export function nextOrdersPage(lastPage: unknown[], allPages: unknown[][]): number | undefined {
+  return lastPage.length >= ORDERS_PAGE_SIZE ? allPages.length + 1 : undefined;
+}
+
+/** The same pages with one order replaced by its newer copy (after a status change). */
+export function replaceOrderInPages<T extends { id: string }>(
+  data: { pages: T[][]; pageParams: unknown[] } | undefined,
+  updated: T,
+): { pages: T[][]; pageParams: unknown[] } | undefined {
+  return data && { ...data, pages: data.pages.map((page) => page.map((o) => (o.id === updated.id ? updated : o))) };
+}

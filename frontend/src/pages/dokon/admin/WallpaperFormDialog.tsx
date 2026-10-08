@@ -74,7 +74,7 @@ export function WallpaperFormDialog({
   });
 
   return (
-    <Dialog
+    <Dialog themed
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
@@ -92,7 +92,7 @@ export function WallpaperFormDialog({
         className="space-y-4"
       >
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-1.5">Rasm (.jpg, .png, .webp)</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">Rasm (.jpg, .png, .webp)</label>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif,image/heic,image/heif"
@@ -101,7 +101,7 @@ export function WallpaperFormDialog({
           />
         </div>
 
-        <Input
+        <Input themed
           label="Nomi"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -110,14 +110,14 @@ export function WallpaperFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           {fixedStoreId === undefined && (
-            <Select label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+            <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
               <option value="">— tanlanmagan —</option>
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
           )}
-          <Input
+          <Input themed
             label="Narxi (so'm)"
             type="number"
             min={0}
@@ -128,7 +128,7 @@ export function WallpaperFormDialog({
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <Input
+          <Input themed
             label="Kengligi (sm)"
             type="number"
             min={0}
@@ -136,7 +136,7 @@ export function WallpaperFormDialog({
             onChange={(e) => setWidthCm(e.target.value)}
             placeholder="53"
           />
-          <Input
+          <Input themed
             label="Balandligi (sm)"
             type="number"
             min={0}
@@ -144,7 +144,7 @@ export function WallpaperFormDialog({
             onChange={(e) => setHeightCm(e.target.value)}
             placeholder="270"
           />
-          <Input
+          <Input themed
             label="Uzunligi (m)"
             type="number"
             min={0}
@@ -154,23 +154,23 @@ export function WallpaperFormDialog({
             placeholder="10"
           />
         </div>
-        <p className="text-xs text-neutral-400 -mt-2">
+        <p className="text-xs text-ink-muted -mt-2">
           Rulon oboy uchun kengligi + uzunligi; bitta panelli (fototapeta) oboy uchun kengligi + balandligi
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-1.5">Tafsilotlar</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">Tafsilotlar</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             placeholder="Material, o'lchami va boshqa izohlar"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+            className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={!file} loading={uploadMutation.isPending}>

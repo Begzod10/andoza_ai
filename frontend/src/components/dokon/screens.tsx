@@ -536,6 +536,10 @@ export function S8_MyOrders(props: {
   error: string | null;
   onOpen: (id: string) => void;
   onBack: () => void;
+  /** More orders wait on the server; fetched a page at a time. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const orders = props.orders ?? [];
   return (
@@ -577,6 +581,11 @@ export function S8_MyOrders(props: {
               </Panel>
             </button>
           ))}
+          {props.hasMore && (
+            <Button variant="soft" className="w-full" loading={props.loadingMore} onClick={props.onLoadMore}>
+              Yana yuklash
+            </Button>
+          )}
         </div>
       )}
     </Screen>

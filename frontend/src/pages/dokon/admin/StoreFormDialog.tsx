@@ -56,7 +56,7 @@ export function StoreFormDialog({
   });
 
   return (
-    <Dialog
+    <Dialog themed
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
@@ -73,7 +73,7 @@ export function StoreFormDialog({
         }}
         className="space-y-4"
       >
-        <Input
+        <Input themed
           label="Nomi"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -81,7 +81,7 @@ export function StoreFormDialog({
           autoFocus
         />
         <div className="grid grid-cols-2 gap-3">
-          <Select
+          <Select themed
             label="Viloyat"
             value={viloyat}
             onChange={(e) => {
@@ -94,7 +94,7 @@ export function StoreFormDialog({
               <option key={r.name} value={r.name}>{r.name}</option>
             ))}
           </Select>
-          <Select
+          <Select themed
             label="Tuman"
             value={district}
             onChange={(e) => setDistrict(e.target.value)}
@@ -106,14 +106,14 @@ export function StoreFormDialog({
             ))}
           </Select>
         </div>
-        <Select label="Daraja" value={tier} onChange={(e) => setTier(e.target.value as AdminPartnerTier)}>
+        <Select themed label="Daraja" value={tier} onChange={(e) => setTier(e.target.value as AdminPartnerTier)}>
           {ADMIN_PARTNER_TIERS.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </Select>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={!name.trim()} loading={createMutation.isPending}>

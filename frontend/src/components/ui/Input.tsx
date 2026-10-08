@@ -49,7 +49,7 @@ const baseInput =
 
 /** Overrides for fields sitting on a themed (day/night) surface. */
 const themedInput =
-  'border-line bg-card-soft text-ink placeholder:text-ink-muted/70 focus:bg-card-soft focus:ring-[#5B84F5]/70'
+  'border-line bg-card-soft text-ink placeholder:text-ink-muted/70 focus:bg-card-soft focus:ring-[#5B84F5]/70 disabled:bg-card-soft disabled:text-ink-muted disabled:opacity-60'
 
 const inputSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-8 px-2.5 py-1.5 text-sm rounded',

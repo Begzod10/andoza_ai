@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cancelOrder, createOrder, getOrder, listOrders } from "@/lib/api";
 import type { Material, Order } from "@/lib/api";
 import { errorMessage } from "./admin/errorMessage";
-import { formatWhen } from "@/lib/orderStatus";
+import { formatWhen, nextOrdersPage } from "@/lib/orderStatus";
 import { useAuthStore } from "@/store/authStore";
 import {
   S1_ShopHome,
@@ -456,10 +456,18 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
 
 /** The user's orders, newest first. */
 function MyOrders({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
-  const orders = useQuery({ queryKey: ["my-orders"], queryFn: listOrders });
+  const orders = useInfiniteQuery({
+    queryKey: ["my-orders"],
+    queryFn: ({ pageParam }) => listOrders(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: nextOrdersPage,
+  });
   return (
     <S8_MyOrders
-      orders={orders.data}
+      orders={orders.data?.pages.flat()}
+      hasMore={orders.hasNextPage}
+      loadingMore={orders.isFetchingNextPage}
+      onLoadMore={() => void orders.fetchNextPage()}
       loading={orders.isLoading}
       error={orders.isError ? errorMessage(orders.error, "Buyurtmalarni yuklab bo'lmadi") : null}
       onOpen={onOpen}

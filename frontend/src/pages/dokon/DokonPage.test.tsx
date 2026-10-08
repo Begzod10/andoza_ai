@@ -181,3 +181,21 @@ describe('DokonPage: my orders', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("bekor qilib bo'lmaydi")
   })
 })
+
+
+describe('DokonPage: many orders', () => {
+  const some = (n: number, from = 0) => Array.from({ length: n }, (_, i) => orderOut('Mebel Plus', {
+    id: `${String(from + i).padStart(8, '0')}-0000-0000-0000-000000000000`, total_uzs: 1000,
+    lines: [{ id: `l${from + i}`, material_id: null, furniture_id: 'f1', product_name: 'Divan', unit: 'dona', unit_price_uzs: 1000, quantity: 1 }],
+  }))
+
+  it('loads a further page when asked', async () => {
+    listOrders.mockResolvedValueOnce(some(50)).mockResolvedValueOnce(some(2, 50))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yana yuklash' }))
+    await waitFor(() => expect(listOrders).toHaveBeenLastCalledWith(2))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /Buyurtma [0-9A-F]{8}/ })).toHaveLength(52))
+    expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull()
+  })
+})

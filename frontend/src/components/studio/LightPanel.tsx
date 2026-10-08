@@ -14,6 +14,7 @@ import * as React from 'react'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedLight } from '@/store/roomStore'
+import { LightSymbol } from '@/lib/catalogIcons'
 import { nextLightPositionMm } from '@/lib/placement'
 import {
   LIGHT_TYPES,
@@ -114,7 +115,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                   : 'border-gray-200 bg-white hover:border-brand/50 hover:bg-brand/[0.03]'
               }`}
             >
-              <span className="text-lg leading-none">{t.emoji}</span>
+              <LightSymbol type={t.id} size={22} className="text-gray-700" />
               <span className="mt-1 text-[11px] font-semibold text-gray-800 leading-tight">{t.name}</span>
               <span className="text-[9px] text-gray-500 leading-tight">
                 {t.lumens} lm · {t.colorK}K
@@ -162,7 +163,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <span className="text-sm leading-none">{t.emoji}</span>
+                  <LightSymbol type={t.id} size={15} className="shrink-0 text-gray-600" />
                   <span className="flex-1 text-left text-[11px] font-medium text-gray-800 truncate">
                     {t.name} {i + 1}
                   </span>
@@ -207,7 +208,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
   return (
     <div className="rounded-xl border-2 border-brand/30 bg-brand/[0.03] p-2.5 space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-base leading-none">{t.emoji}</span>
+        <LightSymbol type={t.id} size={18} className="shrink-0 text-gray-700" />
         <span className="flex-1 text-[12px] font-bold text-gray-900">{t.name}</span>
         <button
           onClick={() => onPatch({ off: !light.off })}

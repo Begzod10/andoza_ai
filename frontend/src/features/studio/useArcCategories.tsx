@@ -18,7 +18,8 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
-import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, BedDouble, ChefHat, Bath, Upload } from 'lucide-react'
+import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, BedDouble, ChefHat, Bath, Upload, Ban, Plus, Store } from 'lucide-react'
+import { FurnitureSymbol, LightSymbol } from '@/lib/catalogIcons'
 import { useRoomStore } from '@/store/roomStore'
 import { listWallpapers, type Wallpaper as WallpaperEntry } from '@/lib/api'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
@@ -68,7 +69,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       ...userFurniture.map((e) => ({
         key: `user:${e.id}`,
         label: e.name,
-        icon: e.emoji ?? '📦',
+        icon: <FurnitureSymbol emoji={e.emoji} size={19} strokeWidth={1.8} />,
         imageUrl: e.thumbnailUrl,
         onSelect: () => placeFurniture({
           id: nanoid(),
@@ -88,7 +89,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         .map((f) => ({
           key: `shop:${roomTypeKey}:${f.id}`,
           label: f.name_uz,
-          icon: '🏪',
+          icon: <Store size={19} strokeWidth={1.8} />,
           imageUrl: f.thumbnail_url ?? undefined,
           onSelect: () => placeFurniture({
             id: nanoid(),
@@ -114,7 +115,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
     const fixtures: ArcItem[] = LIGHT_TYPES.map((t) => ({
       key: `light:${t.id}`,
       label: t.name,
-      icon: t.emoji,
+      icon: <LightSymbol type={t.id} size={19} strokeWidth={1.8} />,
       onSelect: () => addLight({
         id: nanoid(),
         type: t.id,
@@ -150,7 +151,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       {
         key: `${kind}:none`,
         label: "Yo'q",
-        icon: '⊘',
+        icon: <Ban size={19} strokeWidth={1.8} />,
         onSelect: () => setDesignState(kind === 'skirting' ? { skirting: null } : { cornice: null }),
       },
       ...trimProfilesOf(kind).map((def: TrimProfileDef) => ({
@@ -216,21 +217,21 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         ],
         // Nothing uploaded yet: the panel is where you add one, so send them
         // there rather than showing an arc with nothing on it.
-        emptyItem: { key: 'mebel:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('mebel') },
+        emptyItem: { key: 'mebel:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('mebel') },
       },
       {
         key: 'rang',
         label: 'Rang',
         icon: <Wallpaper size={19} strokeWidth={1.8} />,
         items: papers,
-        emptyItem: { key: 'rang:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('boyoq') },
+        emptyItem: { key: 'rang:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('boyoq') },
       },
       {
         key: 'chiroq',
         label: 'Chiroq',
         icon: <Lightbulb size={19} strokeWidth={1.8} />,
         items: fixtures,
-        emptyItem: { key: 'chiroq:none', label: 'Panel', icon: '➕', onSelect: () => openPanelAt('chiroq') },
+        emptyItem: { key: 'chiroq:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('chiroq') },
       },
       {
         key: 'pol',

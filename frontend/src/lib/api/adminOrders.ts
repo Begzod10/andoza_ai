@@ -19,8 +19,8 @@ export interface AdminOrder {
   lines: OrderLine[];
 }
 
-export async function listAdminOrders(status?: OrderStatus): Promise<AdminOrder[]> {
-  const q = new URLSearchParams({ per_page: "100", ...(status ? { status } : {}) });
+export async function listAdminOrders(status?: OrderStatus, page = 1, perPage = 50): Promise<AdminOrder[]> {
+  const q = new URLSearchParams({ page: String(page), per_page: String(perPage), ...(status ? { status } : {}) });
   return apiClient<AdminOrder[]>(`/admin/orders?${q}`);
 }
 

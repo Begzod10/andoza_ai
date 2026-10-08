@@ -153,3 +153,28 @@ describe('SellerOrders: new orders', () => {
     expect(screen.queryByText('Yangi')).toBeNull()
   })
 })
+
+
+describe('SellerOrders: many orders', () => {
+  const many = (n: number, from = 0) => Array.from({ length: n }, (_, i) => order({ id: `${String(from + i).padStart(8, '0')}-0000-0000-0000-000000000000`, status: 'delivered' }))
+
+  it('fetches the next page on request and then has no more to offer', async () => {
+    api.listMyOrders.mockResolvedValueOnce(many(50)).mockResolvedValueOnce(many(2, 50))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Yana yuklash' }))
+    await waitFor(() => expect(api.listMyOrders).toHaveBeenLastCalledWith(2))
+    await waitFor(() => expect(screen.getByText('Buyurtmalar (52)')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull()
+  })
+
+  it('still moves an order that sits on a later page', async () => {
+    const second = order({ id: 'ffffffff-0000-0000-0000-000000000000', status: 'accepted' })
+    api.listMyOrders.mockResolvedValueOnce(many(50)).mockResolvedValueOnce([second])
+    api.advanceMyOrder.mockResolvedValue({ ...second, status: 'gathering' })
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Yana yuklash' }))
+    fireEvent.click(await screen.findByRole('button', { name: "Yig'ishni boshlash" }))
+    await waitFor(() => expect(api.advanceMyOrder).toHaveBeenCalledWith('ffffffff-0000-0000-0000-000000000000', 'gathering'))
+    expect(await screen.findByRole('button', { name: "Yo'lga chiqarish" })).toBeInTheDocument()
+  })
+})

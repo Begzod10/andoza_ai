@@ -26,7 +26,7 @@ const baseSelect =
   'disabled:bg-neutral-100 ' +
   'disabled:text-neutral-500 disabled:cursor-not-allowed'
 
-const themedSelect = 'border-line bg-card-soft text-ink focus:ring-[#5B84F5]/70'
+const themedSelect = 'border-line bg-card-soft text-ink focus:ring-[#5B84F5]/70 disabled:bg-card-soft disabled:text-ink-muted disabled:opacity-60'
 
 const selectSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-8 px-2.5 py-1.5 text-sm rounded',

@@ -16,6 +16,7 @@ import { FURNITURE_CATALOG, catalogToFurnitureEntry, type FurnitureCatalogEntry,
 import type { PlacedFurniture, UserFurnitureEntry } from '@/store/roomStore'
 import type { CatalogFurniture } from '@/lib/api'
 import { extractSceneInfo } from '@/lib/modelConverter'
+import { FurnitureSymbol } from '@/lib/catalogIcons'
 import { rectHull, type Hull } from '@/lib/modelFootprint'
 import { topViewOutline, topViewPoints, type Poly, type TopView } from '@/lib/modelTopView'
 
@@ -115,16 +116,16 @@ function PlanSymbol({
       {/* The traced shape speaks for itself; the emoji only stands in for a
           model that hasn't been traced yet. */}
       {schematic && (
-        <text
-          x={cx}
-          y={cy}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize={220}
+        <FurnitureSymbol
+          emoji={entry.emoji}
+          x={cx - 160}
+          y={cy - 160}
+          width={320}
+          height={320}
+          stroke="#64748B"
+          strokeWidth={1.6}
           pointerEvents="none"
-        >
-          {entry.emoji}
-        </text>
+        />
       )}
     </g>
   )

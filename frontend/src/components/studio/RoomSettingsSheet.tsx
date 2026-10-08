@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DoorOpen, Grid2x2 } from "lucide-react";
 import { useRoomStore, computeFloorArea, computePerimeter } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
@@ -206,7 +207,7 @@ function ElementRow({
       {/* Top row: icon + name + delete */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[18px]">{isWindow ? "🪟" : "🚪"}</span>
+          <span className="text-gray-600">{isWindow ? <Grid2x2 size={20} aria-hidden="true" /> : <DoorOpen size={20} aria-hidden="true" />}</span>
           <p className="text-[13px] font-semibold text-gray-800">
             {isWindow ? "Deraza" : "Eshik"}
           </p>

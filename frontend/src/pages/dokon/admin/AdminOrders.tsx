@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ReceiptText } from "lucide-react";
 import { listAdminOrders, setAdminOrderStatus, type AdminOrder } from "@/lib/api";
 import type { OrderStatus } from "@/lib/api/orders";
 import { formatUZS } from "@/lib/utils";
 import {
-  ADMIN_CAN_CANCEL, CANCELLED_BY_LABELS, NEXT_ORDER_ACTION, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, formatWhen,
+  ADMIN_CAN_CANCEL, CANCELLED_BY_LABELS, NEXT_ORDER_ACTION, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, formatWhen, nextOrdersPage,
 } from "@/lib/orderStatus";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
@@ -109,9 +109,11 @@ function Row({ order, busy, onAdvance, onCancel }: {
 export function AdminOrders({ onError }: { onError: (message: string | null) => void }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
-  const orders = useQuery({
+  const orders = useInfiniteQuery({
     queryKey: [...KEY, filter],
-    queryFn: () => listAdminOrders(filter === "all" ? undefined : filter),
+    queryFn: ({ pageParam }) => listAdminOrders(filter === "all" ? undefined : filter, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: nextOrdersPage,
     refetchInterval: 30_000,
   });
 
@@ -138,13 +140,13 @@ export function AdminOrders({ onError }: { onError: (message: string | null) => 
     onError: failed("Buyurtmani bekor qilib bo'lmadi"),
   });
   const busyId = advance.isPending ? advance.variables?.id : cancel.isPending ? cancel.variables?.order.id : undefined;
-  const list = orders.data ?? [];
+  const list = orders.data?.pages.flat() ?? [];
 
   return (
     <section className="space-y-3" aria-label="Buyurtmalar">
       <Panel className="flex flex-wrap items-center gap-3 px-4 py-3">
         <IconBubble tone="orange" className="h-10 w-10 rounded-2xl"><ReceiptText size={18} aria-hidden="true" /></IconBubble>
-        <h2 className="text-base font-extrabold text-ink">Buyurtmalar{orders.data ? ` (${list.length})` : ""}</h2>
+        <h2 className="text-base font-extrabold text-ink">Buyurtmalar{orders.data ? ` (${list.length}${orders.hasNextPage ? "+" : ""})` : ""}</h2>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Holat bo'yicha">
           {FILTERS.map((f) => (
             <button
@@ -173,6 +175,13 @@ export function AdminOrders({ onError }: { onError: (message: string | null) => 
           {list.map((o) => (
             <Row key={o.id} order={o} busy={busyId === o.id} onAdvance={(x) => advance.mutate(x)} onCancel={(x, reason) => cancel.mutate({ order: x, reason })} />
           ))}
+          {orders.hasNextPage && (
+            <div className="lg:col-span-2">
+              <Button variant="soft" className="w-full" loading={orders.isFetchingNextPage} onClick={() => void orders.fetchNextPage()}>
+                Yana yuklash
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </section>

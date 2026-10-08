@@ -34,7 +34,7 @@ describe('AdminOrders', () => {
     expect(await screen.findByText(/Mebel Plus/)).toBeInTheDocument()
     expect(screen.getByText('Chilonzor 5')).toBeInTheDocument()
     expect(screen.getByText(/Divan/)).toBeInTheDocument()
-    expect(api.listAdminOrders).toHaveBeenCalledWith(undefined)
+    expect(api.listAdminOrders).toHaveBeenCalledWith(undefined, 1)
   })
 
   it('says when an order belongs to no shop, since only an administrator can act on it', async () => {
@@ -48,7 +48,7 @@ describe('AdminOrders', () => {
     mount()
     await screen.findByText('Buyurtma topilmadi.')
     fireEvent.click(screen.getByRole('button', { name: 'Yo\'lda' }))
-    await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith('on_the_way'))
+    await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith('on_the_way', 1))
   })
 
   it('moves an order to its next stage', async () => {
@@ -88,5 +88,32 @@ describe('AdminOrders', () => {
     const { onError } = mount()
     fireEvent.click(await screen.findByRole('button', { name: "Yig'ishni boshlash" }))
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Buyurtma topilmadi'))
+  })
+})
+
+
+describe('AdminOrders: many orders', () => {
+  const many = (n: number, from = 0) => Array.from({ length: n }, (_, i) => order({ id: `${String(from + i).padStart(8, '0')}-0000-4000-8000-000000000000` }))
+
+  it('offers more only when a whole page came back, and fetches the next page', async () => {
+    api.listAdminOrders.mockResolvedValueOnce(many(50)).mockResolvedValueOnce(many(3, 50))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Yana yuklash' }))
+    await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith(undefined, 2))
+    await waitFor(() => expect(screen.getByText('Buyurtmalar (53)')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull() // the second page was short
+  })
+
+  it('does not offer more for a short page', async () => {
+    api.listAdminOrders.mockResolvedValue(many(3))
+    mount()
+    await screen.findByText('Buyurtmalar (3)')
+    expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull()
+  })
+
+  it('hints that there is more while a full page is showing', async () => {
+    api.listAdminOrders.mockResolvedValue(many(50))
+    mount()
+    expect(await screen.findByText('Buyurtmalar (50+)')).toBeInTheDocument()
   })
 })

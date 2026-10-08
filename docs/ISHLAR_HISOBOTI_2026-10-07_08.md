@@ -122,6 +122,28 @@ Migratsiya **`1786000023`**: `orders.store_id` (nullable FK, `ON DELETE SET NULL
   - eski 360° renderlar tuzatildi: 46 tadan 45 tasi (chiziq ko'rsatkichi 70–90% kamaydi; asl nusxalar `renders-backup/` ostida);
   - serverdagi `.env`, uning zaxiralari va buyurtmalar zaxirasi `chmod 600` (faqat root).
 
+### 9. Keyingi bosqich: AI chegaralari, admin ko'rinishi, ikonkalar, sahifalash
+- **Mebel balandligi** (migratsiya `1786000032`: `furniture.height_cm`): model yuklanganda 3D ko'rinishdan (studiya ham ishlatadigan `extractSceneInfo` bilan) eni, chuqurligi va balandligi avtomatik o'lchanadi va saqlanadi (`lib/modelSize.ts`). Avval formalarda o'lcham maydoni umuman yo'q edi, shuning uchun yuklangan modellar o'lchamsiz qolib, AI ularni taxminiy 0,9 × 0,7 m deb joylardi. AI endi balandligi 90 sm (deraza tokchasi) dan baland mebelni deraza oldiga qo'ymaydi; balandligi yo'q eski modellar avvalgidek nomi bo'yicha aniqlanadi.
+- **Eshik ochilish zonasi eshik kengligiga bog'liq** (0,7–1,1 m), avvalgi qat'iy 95 sm o'rniga.
+- **AI matni tekshiruvi katalogning haqiqiy nomlarini ham o'qiydi:** tanlanmagan "pufik" yoki "peshtaxta" tilga olinsa ushlanadi (avval faqat qat'iy ro'yxat bor edi).
+- **Admin paneli tema bo'yicha:** `Card`, statistika kartalari, filtr paneli, hamma admin dialoglari (do'kon, model, oboy) tun va kunduzda mos.
+- **Studiodagi emojilar ikonkalarga almashtirildi** (`lib/catalogIcons.tsx`): chiroq turlari, mebel belgilari, yoy menyusi, 2D reja (SVG ichida ham), eshik/deraza belgisi. Ma'lumotdagi `emoji` maydoni "tur belgisi" sifatida qoldi, faqat chizish o'zgardi.
+- **Buyurtma ro'yxatlari sahifalanadi** (50 tadan, "Yana yuklash"): xaridor, do'kon va admin uchun.
+- **Kunduz va telefon tekshiruvi:** Smeta ham ko'rildi.
+
+## Productionda sinash tartibi (siz bajarasiz)
+Hisob yaratish va haqiqiy buyurtma yozuvi qoldirgani uchun buni men qila olmayman. Tartib:
+1. Ikkita oddiy hisob oching: **sotuvchi** va **xaridor** (yoki bitta sotuvchi, ikkinchisi xaridor).
+2. Sotuvchi hisobida **Profil → Sotuvchi paneli**da do'kon arizasini yuboring.
+3. **Administrator** hisobida **Do'kon** sahifasidagi "Ko'rib chiqishni kutmoqda" ro'yxatidan do'konni tasdiqlang.
+4. Sotuvchi hisobida "Yangi model" orqali bitta mebel yuklang (narx bilan). Administrator uni ham tasdiqlasin. Formada "O'lchami (modeldan aniqlandi)" yozuvi chiqishi kerak.
+5. Xaridor hisobida **Do'kon**da shu mebelni savatga qo'shib, manzil va telefon bilan buyurtma bering.
+6. Sotuvchi sahifasida buyurtma "Yangi" belgisi bilan chiqishi va brauzer yorlig'ida "(1)" ko'rinishi kerak. "Yig'ishni boshlash" ni bosing.
+7. Xaridorda **Buyurtmalarim → buyurtma**da holat "Yig'ilmoqda" bo'lishi va "Bekor qilish" tugmasi yo'qolishi kerak (30 soniya ichida yangilanadi).
+8. Ikkinchi sinov buyurtmasini xaridor bekor qilsin (hali "Qabul qilindi"da), sotuvchida u "Bekor qilingan" bo'lib chiqishi kerak.
+9. Administratorda Do'kon sahifasidagi "Buyurtmalar" bo'limida hammasi ko'rinishi kerak.
+10. Sinovdan keyin sinov buyurtmalarini administrator bekor qilishi mumkin (yetkazilmaganlarini).
+
 ## Migratsiyalar
 
 | Revision | Nima qiladi | Qaytarish |
@@ -129,6 +151,8 @@ Migratsiya **`1786000023`**: `orders.store_id` (nullable FK, `ON DELETE SET NULL
 | `1786000021` | `orders`: `delivery_address`, `phone`, `payment_method` + `ck_orders_payment_method` | `downgrade` bor |
 | `1786000022` | `order_lines.furniture_id` | `downgrade` bor |
 | `1786000023` | `orders.store_id` + indeks `ix_orders_store_id` | `downgrade` bor |
+| `1786000031` | `order_status` enumiga `cancelled`, `orders.cancelled_by`, `orders.cancel_reason` | `downgrade` bor (enum qiymati qoladi, bekor qilinganlar "Qabul qilindi"ga qaytadi) |
+| `1786000032` | `furniture.height_cm` | `downgrade` bor |
 
 Uchalasi ham nullable ustun qo'shadi, mavjud ma'lumotga tegmaydi. Lokal bazada yuqoriga, pastga va yana yuqoriga sinab ko'rilgan. `docker-compose.prod.yml` API ishga tushganda `alembic upgrade head`ni o'zi bajaradi.
 
@@ -156,8 +180,8 @@ Uchalasi ham nullable ustun qo'shadi, mavjud ma'lumotga tegmaydi. Lokal bazada y
 5. **Sotuvchi oqimi productionda sinalmagan:** buning uchun haqiqiy sotuvchi hisobi va admin tasdiqlagan do'kon kerak.
 6. **OpenAI kaliti** chatda ko'rsatilgan: almashtirish tavsiya qilinadi (hali qilinmagan). Serverdagi `.env` va zaxiralariga `chmod 600` berildi.
 7. ~~Eski 360 renderlar~~ — qayta ishlandi. Ularning 27 tasida qoldiq farq 3–9 daraja (asl 4–44 dan): qayta ishga tushirish ularni yana o'zgartiradi, shuning uchun bir marta ishlatildi.
-8. **Hali yangilanmagan oynalar:** admin dialoglari (model, do'kon, oboy qo'shish/tahrirlash) oq ko'rinishda qoldi (sotuvchining dialoglari yangilandi). Admin panellari va 3D studio ataylab tegilmagan.
-9. **Tekshirilmagan holatlar:** kunduz rejimi va telefon o'lchami Seller, Do'kon, Profil, Ustalar, Wizard va Login uchun ko'rilgan; Smeta, Share va Loyihalar sahifalari alohida ko'rilmagan.
+8. ~~Admin dialoglari~~ — yangilandi. 3D studio ko'rinishi (rang, joylashuv) ataylab tegilmagan.
+9. **Tekshirilmagan holatlar:** kunduz rejimi va telefon o'lchami deyarli hamma sahifa uchun ko'rilgan; Share sahifasi telefonda va Smetaning pastki qismi alohida ko'rilmagan.
 
 ## Ishlash muhiti bo'yicha eslatma
 

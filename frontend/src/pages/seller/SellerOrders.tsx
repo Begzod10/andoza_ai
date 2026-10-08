@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Phone, ReceiptText, XCircle } from "lucide-react";
 import { advanceMyOrder, cancelMyOrder, listMyOrders, type SellerOrder } from "@/lib/api";
 import { formatUZS } from "@/lib/utils";
 import {
-  CANCELLED_BY_LABELS, NEXT_ORDER_ACTION, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, SELLER_CAN_CANCEL, formatWhen,
+  CANCELLED_BY_LABELS, NEXT_ORDER_ACTION, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, SELLER_CAN_CANCEL, formatWhen, nextOrdersPage, replaceOrderInPages,
 } from "@/lib/orderStatus";
 import type { OrderStatus } from "@/lib/api/orders";
 import { Button } from "@/components/ui/Button";
@@ -135,11 +135,17 @@ export function SellerOrders() {
   const [error, setError] = useState<string | null>(null);
 
   // A new order should show up without the seller having to reload the page.
-  const orders = useQuery({ queryKey: ORDERS_KEY, queryFn: listMyOrders, refetchInterval: 30_000 });
+  const orders = useInfiniteQuery({
+    queryKey: ORDERS_KEY,
+    queryFn: ({ pageParam }) => listMyOrders(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: nextOrdersPage,
+    refetchInterval: 30_000,
+  });
 
   const replace = (updated: SellerOrder) => {
     setError(null);
-    queryClient.setQueryData<SellerOrder[]>(ORDERS_KEY, (prev) => prev?.map((o) => (o.id === updated.id ? updated : o)));
+    queryClient.setQueryData<{ pages: SellerOrder[][]; pageParams: unknown[] }>(ORDERS_KEY, (prev) => replaceOrderInPages(prev, updated));
   };
   const failed = (fallback: string) => (err: unknown) => {
     setError(errorMessage(err, fallback));
@@ -163,7 +169,7 @@ export function SellerOrders() {
     onError: failed("Buyurtmani bekor qilib bo'lmadi"),
   });
 
-  const list = orders.data ?? [];
+  const list = orders.data?.pages.flat() ?? [];
   const fresh = list.filter((o) => o.status === "accepted").length;
 
   // No SMS goes out for a new order, so the tab itself says there is one waiting.
@@ -182,7 +188,7 @@ export function SellerOrders() {
       <Panel className="flex items-center gap-3 px-4 py-3">
         <IconBubble tone="orange" className="h-10 w-10 rounded-2xl"><ReceiptText size={18} aria-hidden="true" /></IconBubble>
         <h2 className="text-base font-extrabold text-ink">
-          Buyurtmalar{orders.data ? ` (${list.length})` : ""}
+          Buyurtmalar{orders.data ? ` (${list.length}${orders.hasNextPage ? "+" : ""})` : ""}
         </h2>
         {open > 0 && <span className="ml-auto rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent">{open} ta ochiq</span>}
       </Panel>
@@ -209,6 +215,13 @@ export function SellerOrders() {
               onCancel={(x, reason) => cancel.mutate({ order: x, reason })}
             />
           ))}
+          {orders.hasNextPage && (
+            <div className="lg:col-span-2">
+              <Button variant="soft" className="w-full" loading={orders.isFetchingNextPage} onClick={() => void orders.fetchNextPage()}>
+                Yana yuklash
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </section>

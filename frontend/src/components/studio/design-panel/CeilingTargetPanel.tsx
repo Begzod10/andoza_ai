@@ -10,6 +10,7 @@ import {
   trimProfilesOf, trimProfileSvgPath, resolveTrim,
   TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, type TrimProfileDef,
 } from "@/lib/trimProfiles";
+import { LightSymbol } from "@/lib/catalogIcons";
 import { lightType } from "@/lib/lightCatalog";
 import { CeilingPreview } from "@/lib/ceilingPreview";
 
@@ -91,7 +92,7 @@ export function CeilingTargetPanel({ syncToApi }: {
                           key={id}
                           className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
                         >
-                          {lightType(id).emoji} {lightType(id).name}
+                          <LightSymbol type={id} size={11} className="mr-1 inline -mt-0.5" />{lightType(id).name}
                         </span>
                       ))}
                     </span>

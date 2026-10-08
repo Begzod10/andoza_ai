@@ -63,14 +63,14 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
   return (
     <section className="space-y-3" aria-label="Ko'rib chiqishni kutayotganlar">
       <h2 className="text-base font-semibold text-on-app">
-        Ko'rib chiqishni kutmoqda <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{total}</span>
+        Ko'rib chiqishni kutmoqda <span className="ml-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">{total}</span>
       </h2>
 
       {stores.map((s) => (
         <Card key={s.id} size="sm" className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-neutral-900 truncate">{s.name}</p>
-            <p className="text-xs text-neutral-500 truncate">
+            <p className="text-sm font-semibold text-ink truncate">{s.name}</p>
+            <p className="text-xs text-ink-muted truncate">
               Do'kon arizasi · {[s.district, s.phone, s.telegram].filter(Boolean).join(" · ") || "ma'lumot yo'q"}
             </p>
           </div>
@@ -82,8 +82,8 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
       {ustalar.map((u) => (
         <Card key={u.id} size="sm" className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-neutral-900 truncate">{u.name}</p>
-            <p className="text-xs text-neutral-500 truncate">
+            <p className="text-sm font-semibold text-ink truncate">{u.name}</p>
+            <p className="text-xs text-ink-muted truncate">
               Usta arizasi · {[
                 USTA_TRADES[u.category] ?? u.category,
                 u.district,
@@ -103,13 +103,13 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
       {models.map((m) => (
         <Card key={m.id} size="sm" className="flex items-center gap-3">
           {m.thumbnail_url ? (
-            <img src={m.thumbnail_url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover border border-neutral-200" />
+            <img src={m.thumbnail_url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover border border-line" />
           ) : (
-            <div className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100 flex items-center justify-center text-xs text-neutral-300">3D</div>
+            <div className="h-12 w-12 shrink-0 rounded-lg bg-card-soft flex items-center justify-center text-xs text-ink-muted">3D</div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-neutral-900 truncate">{m.name_uz}</p>
-            <p className="text-xs text-neutral-500 truncate">
+            <p className="text-sm font-semibold text-ink truncate">{m.name_uz}</p>
+            <p className="text-xs text-ink-muted truncate">
               {m.store_name ?? "—"} · {CATEGORY_LABELS[m.category] ?? m.category}
               {m.price_uzs != null ? ` · ${m.price_uzs.toLocaleString("uz-UZ")} so'm` : ""}
             </p>
@@ -139,7 +139,7 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
             rows={3}
             autoFocus
             placeholder="Masalan: Model sifati past, rasm aniq emas"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="tertiary" onClick={() => { setRejecting(null); setNote(""); }}>Bekor qilish</Button>

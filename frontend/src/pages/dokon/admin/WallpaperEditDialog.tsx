@@ -67,7 +67,7 @@ export function WallpaperEditDialog({
   if (!wallpaper) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Oboyni tahrirlash" description={wallpaper.name}>
+    <Dialog themed open={open} onOpenChange={onOpenChange} title="Oboyni tahrirlash" description={wallpaper.name}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -79,19 +79,19 @@ export function WallpaperEditDialog({
         <img
           src={wallpaper.url}
           alt={wallpaper.name}
-          className="w-24 h-24 rounded-lg object-cover border border-neutral-200"
+          className="w-24 h-24 rounded-lg object-cover border border-line"
         />
 
-        <Input label="Nomi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
             <option value="">— tanlanmagan —</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </Select>
-          <Input
+          <Input themed
             label="Narxi (so'm)"
             type="number"
             min={0}
@@ -102,7 +102,7 @@ export function WallpaperEditDialog({
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <Input
+          <Input themed
             label="Kengligi (sm)"
             type="number"
             min={0}
@@ -110,7 +110,7 @@ export function WallpaperEditDialog({
             onChange={(e) => setWidthCm(e.target.value)}
             placeholder="53"
           />
-          <Input
+          <Input themed
             label="Balandligi (sm)"
             type="number"
             min={0}
@@ -118,7 +118,7 @@ export function WallpaperEditDialog({
             onChange={(e) => setHeightCm(e.target.value)}
             placeholder="270"
           />
-          <Input
+          <Input themed
             label="Uzunligi (m)"
             type="number"
             min={0}
@@ -130,18 +130,18 @@ export function WallpaperEditDialog({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-1.5">Tafsilotlar</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">Tafsilotlar</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             placeholder="Material, o'lchami va boshqa izohlar"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+            className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={!name.trim()} loading={updateMutation.isPending}>

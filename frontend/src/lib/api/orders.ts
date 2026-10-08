@@ -58,8 +58,8 @@ export async function getOrder(id: string): Promise<Order> {
 }
 
 /** The current user's orders, newest first. */
-export async function listOrders(): Promise<Order[]> {
-  return apiClient<Order[]>("/orders?per_page=100");
+export async function listOrders(page = 1, perPage = 50): Promise<Order[]> {
+  return apiClient<Order[]>(`/orders?page=${page}&per_page=${perPage}`);
 }
 
 /** Cancel one of your own orders; the server allows it only before the shop has started on it. */
