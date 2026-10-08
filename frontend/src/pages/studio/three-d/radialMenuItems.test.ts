@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { buildRadialItems } from './radialMenuItems'
+import type { RadialItem } from '@/components/studio/SurfaceRadialMenu'
 import { trimProfilesOf } from '@/lib/trimProfiles'
 import { WINDOW_STYLES } from '@/lib/windowStyles'
 import { DOOR_STYLES } from '@/lib/doorStyles'
@@ -473,6 +474,55 @@ describe('adding a room through the tapped wall', () => {
     const withHandler = { ...deps, addRoomThroughWall: () => {} } as never
     for (const state of [CEILING!, FLOOR!]) {
       expect(buildRadialItems(state, withHandler).find((i) => i.key === 'new-room')).toBeUndefined()
+    }
+  })
+})
+
+/**
+ * The ring re-opens turned to whatever was last picked in it, and it finds
+ * that item by its `key` (see `lib/lastChoice.ts`). That makes a key part of
+ * the contract rather than just a React hint: two siblings sharing one, or a
+ * key that moves about between builds, and the user's remembered choice points
+ * at the wrong swatch or at none.
+ */
+describe('the keys the ring remembers choices by', () => {
+  /** Every sibling list in the tree, each with the path that reaches it. */
+  function siblingLists(items: RadialItem[], path = 'root'): [string, RadialItem[]][] {
+    const out: [string, RadialItem[]][] = [[path, items]]
+    for (const item of items) {
+      if (item.children?.length) out.push(...siblingLists(item.children, `${path}/${item.key}`))
+    }
+    return out
+  }
+
+  const STATES: [string, RadialState][] = [
+    ['wall', WALL], ['ceiling', CEILING], ['floor', FLOOR],
+    ['skirting', { surface: 'skirting' } as RadialState],
+    ['cornice', { surface: 'cornice' } as RadialState],
+    ['door', { surface: 'door', wallId: 'A', elId: 'e1' } as RadialState],
+    ['window', { surface: 'window', wallId: 'A', elId: 'e1' } as RadialState],
+  ]
+
+  it('are unique among siblings, on every surface and at every depth', () => {
+    for (const [name, state] of STATES) {
+      const { deps } = harness()
+      const built = buildRadialItems(state!, { ...deps, addRoomThroughWall: () => {} } as never)
+      for (const [path, list] of siblingLists(built)) {
+        const keys = list.map((i) => i.key)
+        expect(new Set(keys).size, `${name} ${path}`).toBe(keys.length)
+      }
+    }
+  })
+
+  it('carry no image path, which would go stale the moment the file moved', () => {
+    for (const [name, state] of STATES) {
+      const { deps } = harness()
+      const built = buildRadialItems(state!, { ...deps, addRoomThroughWall: () => {} } as never)
+      for (const [path, list] of siblingLists(built)) {
+        for (const key of list.map((i) => i.key)) {
+          expect(key.includes('/'), `${name} ${path} ${key}`).toBe(false)
+        }
+      }
     }
   })
 })

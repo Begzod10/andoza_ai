@@ -4,13 +4,20 @@
  * floor) offers its own set of actions as icon buttons arranged on an arc
  * around the press point.
  *
- * Purely presentational: the caller decides the items and what each does. It
- * anchors to a screen coordinate (clientX/clientY captured from the R3F pointer
- * event) via a fixed-position overlay, and a full-screen backdrop dismisses it.
+ * The caller decides the items and what each does; this file decides where
+ * they sit and which of them the ring opens facing. It anchors to a screen
+ * coordinate (clientX/clientY captured from the R3F pointer event) via a
+ * fixed-position overlay, and a full-screen backdrop dismisses it.
+ *
+ * The one thing it remembers for itself is what was last picked in each ring,
+ * so re-opening lands on that choice instead of back at the start — see
+ * `lib/lastChoice.ts` for why that is a turn and not a reorder.
  */
 import { useEffect, useRef, useState } from 'react'
 import { angleAt, arcSlots, slotsFromAngleDelta, wrapArcOffset } from '@/lib/arcMenu'
 import { isDoubleTap, nextTapRecord, type TapRecord } from '@/lib/doubleTapSelect'
+import { ringOpeningOffset } from '@/lib/lastChoice'
+import { useLastChoiceStore } from '@/store/lastChoiceStore'
 
 export type RadialSurface = 'wall' | 'ceiling' | 'floor' | 'skirting' | 'cornice' | 'door' | 'window'
 
@@ -89,13 +96,38 @@ const SLOT_DEG = 40
 const EDGE_OPACITY = 0.45
 const EDGE_SCALE = 0.66
 
+/**
+ * How far the ring should already be turned when a level is shown, so that
+ * level's remembered choice is the button in the centre.
+ *
+ * The memory is read here rather than subscribed to, because the question is
+ * only ever asked at the moment a level opens: re-rendering the ring every
+ * time a pick is recorded would be churn for nothing, and worse, would fight
+ * a turn the user's finger is in the middle of.
+ */
+function openingOffsetFor(
+  surface: RadialSurface,
+  trail: RadialItem[],
+  shown: RadialItem[],
+): number {
+  const remembered = useLastChoiceStore.getState().lastChoice(surface, trail.map((t) => t.key))
+  return ringOpeningOffset(shown, remembered, WINDOW_SLOTS)
+}
+
+/** The items a trail is looking at: the deepest item's children, or the root. */
+function shownFor(trail: RadialItem[], items: RadialItem[]): RadialItem[] {
+  return trail.length ? trail[trail.length - 1].children ?? [] : items
+}
+
 export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Props) {
   /** The path drilled into, deepest last — a stack rather than a single item
    *  because a choice can lead to another (a tile size, then its texture). */
   const [trail, setTrail] = useState<RadialItem[]>([])
   const drill = trail[trail.length - 1] ?? null
-  /** How far the ring has been turned, in slots. */
-  const [offset, setOffset] = useState(0)
+  /** How far the ring has been turned, in slots. It starts turned to whatever
+   *  was last picked on this surface rather than at zero, which is the whole
+   *  point: the user asked not to scroll back to the same swatch every time. */
+  const [offset, setOffset] = useState(() => openingOffsetFor(surface, [], items))
   /** The last button tapped and when, so a second tap on the same one can mean
    *  something more than the first. Cleared on a double so a third tap starts
    *  over — see `lib/doubleTapSelect.ts`. */
@@ -109,12 +141,18 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (drill) { setTrail((t) => t.slice(0, -1)); setOffset(0) }
-      else onClose()
+      if (drill) {
+        // Backing out returns to the level above turned to ITS remembered
+        // choice, the same as opening it would be — anything else would make
+        // Escape a different place from where the user had just been.
+        const back = trail.slice(0, -1)
+        setTrail(back)
+        setOffset(openingOffsetFor(surface, back, shownFor(back, items)))
+      } else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, drill])
+  }, [onClose, drill, trail, surface, items])
 
   const shown = drill?.children ?? items
   const n = shown.length
@@ -257,8 +295,15 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               // round to the middle rather than choosing something half-hidden.
               if (edge) { setOffset((o) => wrapArcOffset(Math.round(o + (deg < -90 ? -1 : 1)), n)); return }
               // An item with children opens them in place; only a leaf acts
-              // and dismisses.
-              if (item.children?.length) { setOffset(0); setTrail((t) => [...t, item]); return }
+              // and dismisses. The submenu opens turned to the choice last
+              // made IN IT — the last paper, the last colour — which is where
+              // the user was heading.
+              if (item.children?.length) {
+                const next = [...trail, item]
+                setTrail(next)
+                setOffset(openingOffsetFor(surface, next, item.children))
+                return
+              }
               // A second tap on the same choice means more than the first —
               // for a finish, "and every other wall as well".
               const now = Date.now()
@@ -266,6 +311,21 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
               lastTap.current = nextTapRecord(lastTap.current, key, now)
               if (second && item.onSelectAll) item.onSelectAll()
               else item.onSelect()
+              // Now that a choice has actually been made, remember it — and
+              // the branch it was reached through — so the next opening of
+              // this ring lands on it. Recorded after the pick has acted, and
+              // it changes nothing about what the pick did.
+              //
+              // Except for the items that hand off somewhere else. `closesMenu`
+              // marks exactly those — "Yangi xona", "O'lchamli", the panel
+              // escapes — and they are errands, not finishes. Remembering one
+              // would open the wall ring on "add a room" next time, which is
+              // not where anybody wants to start choosing a colour.
+              if (!item.closesMenu) {
+                useLastChoiceStore
+                  .getState()
+                  .remember(surface, trail.map((t) => t.key), item.key)
+              }
               // Stays open on purpose — see `closesMenu`.
               if (item.closesMenu) onClose()
             }}

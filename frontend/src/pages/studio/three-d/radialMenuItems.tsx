@@ -395,7 +395,12 @@ export function buildRadialItems(
         // picking one without the other is not a choice anyone makes.
         childLabel: t.label,
         children: TILE_FACES.map((face) => ({
-          key: `kafel:${t.label}:${face.url ?? 'plain'}`,
+          // Keyed by the face's slug rather than its image path, because the
+          // ring remembers the last face by this key and re-opens turned to
+          // it (see `lib/lastChoice.ts`): a key that carries a media URL goes
+          // stale the moment that image moves, and the user's choice would be
+          // quietly forgotten.
+          key: `kafel:${t.label}:${face.slug}`,
           label: face.label,
           icon: RadialIcons.floor,
           fill: face.url

@@ -8,9 +8,17 @@
  * only fires `click` would have sailed past it; these fire the whole sequence.
  */
 import * as React from 'react'
-import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import SurfaceRadialMenu, { RadialIcons, type RadialItem } from './SurfaceRadialMenu'
+import { useLastChoiceStore } from '@/store/lastChoiceStore'
+
+// The ring now opens turned to whatever was last picked in it, and that memory
+// outlives a render — so every test has to start from a ring that has never
+// been used, or one test's picks would quietly move another's buttons.
+beforeEach(() => {
+  useLastChoiceStore.setState({ choices: {} })
+})
 
 /**
  * jsdom has no PointerEvent, so a MouseEvent carrying the pointer fields does
@@ -155,5 +163,136 @@ describe('tapping a wall-menu button', () => {
     tap(backdrop)
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onPaint).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * "a tap on wall, ceiling, floor last chosen option (color, wallpaper, tile,
+ * furniture ...) should be saved as main option in order user did not waste
+ * extra time scrolling to find last choice".
+ *
+ * The ring shows three buttons out of a list that runs to dozens, so picking
+ * the same paper for a second wall meant turning the ring back to it by hand.
+ * Now the ring opens already turned to it — see `lib/lastChoice.ts` for why
+ * that is a turn rather than a reorder of the list.
+ */
+describe('where the ring opens', () => {
+  /** The labels of the three buttons sitting square on, in ring order — so
+   *  `[1]` is the centre slot, which is the one a thumb hits without aiming. */
+  function squareOn(): string[] {
+    return [...document.querySelectorAll('button')]
+      .filter((b) => Number(b.style.opacity || 1) > 0.9)
+      .map((b) => b.textContent!.trim())
+  }
+
+  it('opens the device list at the start when nothing has been picked yet', () => {
+    // The first-ever opening must look exactly as it always did.
+    mount()
+    tap(screen.getByText('Elektr').closest('button')!)
+    expect(squareOn()).toEqual(['Bitta kalit', 'Ikkita kalit', 'Bitta rozetka'])
+  })
+
+  it('re-opens the device list centred on the device last placed', () => {
+    mount()
+    tap(screen.getByText('Elektr').closest('button')!)
+    tap(screen.getByText('Bitta rozetka').closest('button')!)
+    // Re-open the whole menu, as a tap on the next wall would.
+    cleanup()
+    mount()
+    tap(screen.getByText('Elektr').closest('button')!)
+    expect(squareOn()[1]).toBe('Bitta rozetka')
+  })
+
+  it('opens at the start again when the remembered device no longer exists', () => {
+    // A deleted wallpaper or a revised catalogue leaves a key behind that
+    // matches nothing. The ring must not sit turned to a gap.
+    useLastChoiceStore.setState({ choices: { wall: 'elektr', 'wall/elektr': 'd-gone' } })
+    mount()
+    tap(screen.getByText('Elektr').closest('button')!)
+    expect(squareOn()).toEqual(['Bitta kalit', 'Ikkita kalit', 'Bitta rozetka'])
+  })
+
+  it('remembers the last colour and the last paper separately', () => {
+    // The user listed colour, wallpaper and tile as separate things: picking a
+    // colour must not cost them the paper they had been using.
+    const COLORS = Array.from({ length: 8 }, (_, i) => `C${i}`)
+    const PAPERS = Array.from({ length: 9 }, (_, i) => `P${i}`)
+    const twoRings = (): RadialItem[] => [
+      {
+        key: 'paint', label: 'Rang', icon: RadialIcons.paint, onSelect: () => {},
+        children: COLORS.map((l) => ({
+          key: `color:${l}`, label: l, icon: RadialIcons.paint, onSelect: () => {},
+        })),
+      },
+      {
+        key: 'oboy', label: 'Oboy', icon: RadialIcons.wallpaper, onSelect: () => {},
+        children: PAPERS.map((l) => ({
+          key: `wp:${l}`, label: l, icon: RadialIcons.wallpaper, onSelect: () => {},
+        })),
+      },
+    ]
+    const show = () => {
+      render(<SurfaceRadialMenu x={240} y={470} surface="wall" items={twoRings()} onClose={() => {}} />)
+    }
+    const escape = () => {
+      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    }
+
+    show()
+    tap(screen.getByText('Rang').closest('button')!)
+    tap(screen.getByText('C1').closest('button')!)
+    escape()
+    tap(screen.getByText('Oboy').closest('button')!)
+    tap(screen.getByText('P3').closest('button')!)
+
+    cleanup()
+    show()
+    tap(screen.getByText('Rang').closest('button')!)
+    expect(squareOn()[1]).toBe('C1')
+    escape()
+    tap(screen.getByText('Oboy').closest('button')!)
+    expect(squareOn()[1]).toBe('P3')
+  })
+
+  it('does not treat a look inside a submenu as a choice', () => {
+    // Drilling into Kafel, seeing nothing wanted and backing out must not make
+    // Kafel where the wall ring opens — the user never chose a tile.
+    const roots: RadialItem[] = Array.from({ length: 7 }, (_, i) => ({
+      key: `r${i}`, label: `R${i}`, icon: RadialIcons.paint, onSelect: () => {},
+      children: i === 3
+        ? [{ key: 'leaf', label: 'Leaf', icon: RadialIcons.paint, onSelect: () => {} }]
+        : undefined,
+    }))
+    const show = () => {
+      render(<SurfaceRadialMenu x={240} y={470} surface="wall" items={roots} onClose={() => {}} />)
+    }
+    show()
+    expect(squareOn()).toEqual(['R1', 'R2', 'R3'])
+    tap(screen.getByText('R3').closest('button')!)
+    expect(screen.getByText('Leaf')).toBeTruthy()
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    // Back where it was, and a fresh opening is unchanged too.
+    expect(squareOn()).toEqual(['R1', 'R2', 'R3'])
+    cleanup()
+    show()
+    expect(squareOn()).toEqual(['R1', 'R2', 'R3'])
+  })
+
+  it('opens the wall ring on the branch the last finish came from', () => {
+    // One turn, not one per level: the surface remembers which category, and
+    // the category remembers which swatch.
+    const roots: RadialItem[] = Array.from({ length: 7 }, (_, i) => ({
+      key: `r${i}`, label: `R${i}`, icon: RadialIcons.paint, onSelect: () => {},
+      children: [{ key: `leaf${i}`, label: `Leaf${i}`, icon: RadialIcons.paint, onSelect: () => {} }],
+    }))
+    const show = () => {
+      render(<SurfaceRadialMenu x={240} y={470} surface="wall" items={roots} onClose={() => {}} />)
+    }
+    show()
+    tap(screen.getByText('R3').closest('button')!)
+    tap(screen.getByText('Leaf3').closest('button')!)
+    cleanup()
+    show()
+    expect(squareOn()[1]).toBe('R3')
   })
 })
