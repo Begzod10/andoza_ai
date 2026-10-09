@@ -6,10 +6,12 @@ import {
   clampRoomDimension,
   newRoomGeometry,
   newRoomCentreFromWall,
+  roomsOverlap,
+  type LayoutRect,
   type WallAnchor,
 } from "@/lib/newRoomFromWall";
 import { sharedOpeningsFor } from "@/lib/sharedOpenings";
-import { computeAbsolutePositions } from "./helpers";
+import { computeAbsolutePositions, roomFootprint } from "./helpers";
 import type { RoomSide } from "./constants";
 
 /**
@@ -47,6 +49,40 @@ export function addRoomAnchor(
   // is what the whole layout frame assumes for a flat's first room, and with
   // no list there is no sibling known to be standing there.
   return { x: 0, z: 0 };
+}
+
+/**
+ * The room already standing where a new one is about to go, or null if the
+ * space is free.
+ *
+ * Laid out in the one frame the flat is RENDERED in — `computeAbsolutePositions`
+ * — rather than off the stored `layoutPos` alone, because a room with no
+ * stored position still occupies floor: it is packed into the fallback block
+ * beside the positioned rooms, and that is where the user sees it.
+ *
+ * The ACTIVE room is deliberately not a candidate. The new room is placed one
+ * wall thickness beyond the wall that was tapped, so it cannot overlap the
+ * room it was added to — but a drawn room's bounding box reaches well past a
+ * tapped wall that sits inside it (a concave outline), and refusing on that
+ * would block a placement that is perfectly fine.
+ */
+export function occupantOfNewRoomSlot(
+  slot: LayoutRect,
+  siblings: Room[] | null | undefined,
+  activeId: string,
+  activeW: number,
+  activeD: number,
+): Room | null {
+  if (!siblings || siblings.length === 0) return null;
+  const abs = computeAbsolutePositions(siblings, activeId, activeW, activeD);
+  for (const r of siblings) {
+    if (r.id === activeId) continue;
+    const at = abs.get(r.id);
+    if (!at) continue;
+    const { w, d } = roomFootprint(r, activeId, activeW, activeD);
+    if (roomsOverlap(slot, { x: at.x, z: at.z, widthM: w, depthM: d })) return r;
+  }
+  return null;
 }
 
 /**
@@ -169,6 +205,40 @@ export function useAddRoomNavigation(params: {
       const widthMm = clampRoomDimension(dims.widthMm, "width");
       const depthMm = clampRoomDimension(dims.depthMm, "depth");
 
+      // Centred on the wall that was tapped, one wall thickness beyond it.
+      const pos = newRoomCentreFromWall(
+        myPos, wall,
+        { widthM: widthMm / 1000, depthM: depthMm / 1000 },
+        dims.wallThicknessMm / 1000,
+      );
+
+      // Worked out BEFORE the room is created, because a room that cannot be
+      // placed must not be created either.
+      //
+      // Nothing used to ask whether the space behind the tapped wall was free,
+      // and this apartment has two pairs of rooms standing in the same spot
+      // because of it (080dd2e5 / adf63c5a both at x = 14.29; 8bdfc0ef and
+      // 35acd0e5 50 mm apart). Both pairs are one room added east of a room
+      // that already had an east neighbour. What the user then sees is not two
+      // rooms: it is one room with the other's walls, skirting and door
+      // casings inside it — the door casing against a solid wall that was
+      // reported as "that brown frame".
+      //
+      // Refused rather than nudged aside: where the room goes is the one thing
+      // tapping a wall actually says, and a room silently placed somewhere
+      // else is a room the user has to find.
+      const blocker = occupantOfNewRoomSlot(
+        { x: pos.x, z: pos.z, widthM: widthMm / 1000, depthM: depthMm / 1000 },
+        siblings, room.id, W, D,
+      );
+      if (blocker) {
+        alert(
+          `Bu devor orqasida allaqachon xona bor: "${blocker.name}". ` +
+          `Yangi xonani boshqa devor orqasiga qo'shing.`,
+        );
+        return;
+      }
+
       // A door already in the tapped wall has to exist in the new room's
       // facing wall too, in the same place, or the door opens onto a solid
       // partition and the new room is sealed off behind it. Read from the
@@ -183,12 +253,6 @@ export function useAddRoomNavigation(params: {
         geometry: newRoomGeometry(widthMm, depthMm, shared),
       });
 
-      // Centred on the wall that was tapped, one wall thickness beyond it.
-      const pos = newRoomCentreFromWall(
-        myPos, wall,
-        { widthM: widthMm / 1000, depthM: depthMm / 1000 },
-        dims.wallThicknessMm / 1000,
-      );
       // Best-effort: a room without a stored position still opens, it just
       // falls back to the legacy layout guess until it is saved again.
       try {

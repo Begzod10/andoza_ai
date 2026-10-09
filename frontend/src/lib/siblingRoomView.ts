@@ -204,3 +204,87 @@ export function siblingLodTier(distanceM: number, siblingCount: number): Sibling
   if (siblingCount <= SIBLING_FULL_SHELL_ALWAYS) return 'full'
   return distanceM <= SIBLING_FULL_SHELL_RADIUS_M ? 'full' : 'block'
 }
+
+
+// ─── The partition between two rooms is drawn by one of them ─────────────────
+
+/**
+ * How far a room's opening chrome reaches OUT of the room, metres.
+ *
+ * It is `OPENING_REVEAL_D` (pages/studio/three-d/constants.ts), restated here
+ * rather than imported so this module keeps owing nothing to the page layer.
+ * The number is load-bearing twice over: a widthless wall plane (WALL_T = 0)
+ * is the room's INNER face, so the 200 mm of masonry an opening is cut through
+ * is faked by a reveal and a casing standing 200 mm outward from it — into
+ * whatever is on the other side.
+ */
+export const OPENING_CHROME_REACH_M = 0.2
+
+/**
+ * Which of a sibling room's walls stand in the ACTIVE room's space, and so
+ * must not draw their reveals, casings or trim runs.
+ *
+ * This is the "brown frame" the user asked to be rid of. Two adjacent rooms
+ * are not separated by a wall in this model: they are two widthless planes a
+ * `wallThicknessMm` apart — 100 mm by default, 20 mm for a wizard-placed room
+ * (`ROOM_LAYOUT_GAP_M`). Each room's own doorway chrome reaches 200 mm outward
+ * from its plane, which is more than that gap, so the NEIGHBOUR's door casing
+ * — `doorFrameMat`, #8B7355, brown — always stood 100 mm inside the room the
+ * user was standing in, in front of that room's own wall. Whether a hole
+ * appeared behind it was then a coincidence of whether the active room's wall
+ * happened to be cut at that exact spot, and with the two halves of a shared
+ * doorway mirrored (see lib/sharedOpenings) it usually was not: a brown frame
+ * against solid wall.
+ *
+ * Hiding it is not hiding a defect. A doorway through a partition is ONE
+ * doorway; the room you are standing in draws it, with its reveal, its casing,
+ * its architrave and its leaf, and the room on the other side drawing a second
+ * copy of the same doorway 100 mm away was always a duplicate. The sibling's
+ * wall plane itself still renders and is still CUT — that is what you see
+ * through — and a sibling's doorway onto anywhere else keeps its casing in
+ * full, which is the difference between this and simply not drawing frames.
+ *
+ * A fully OVERLAPPING sibling (two rooms stored at the same `layoutPos`, which
+ * this apartment has twice over) falls out of the same rule: every one of its
+ * walls is inside the active room, so none of them draws chrome there.
+ *
+ * Frame: metres, the active room centred at the origin — the frame
+ * `SiblingRooms` already positions each sibling group in. The answer is in
+ * A-B-C-D names, read off the sibling's bounding box, so it applies to a
+ * legacy rectangle and harmlessly matches nothing on a drawn room, whose edges
+ * are named '0'..'n-1' and are not axis-aligned anyway. That room therefore
+ * renders exactly as it did before.
+ */
+export function siblingWallsInActiveRoom(
+  offsetXM: number,
+  offsetZM: number,
+  sibling: { widthM: number; depthM: number },
+  active: { widthM: number; depthM: number },
+): Set<string> {
+  const hidden = new Set<string>()
+  if (![offsetXM, offsetZM, sibling.widthM, sibling.depthM, active.widthM, active.depthM]
+    .every((n) => Number.isFinite(n))) return hidden
+
+  const activeHalfW = active.widthM / 2
+  const activeHalfD = active.depthM / 2
+  const x0 = offsetXM - sibling.widthM / 2
+  const x1 = offsetXM + sibling.widthM / 2
+  const z0 = offsetZM - sibling.depthM / 2
+  const z1 = offsetZM + sibling.depthM / 2
+
+  // The wall has to run ALONG the active room as well as stand within reach of
+  // it, or the two rooms merely share a corner — a neighbour to the east sits
+  // level with the active room's own north and south walls, and those are the
+  // ones whose chrome must stay.
+  const overlaps = (a0: number, a1: number, half: number) =>
+    Math.min(a1, half) - Math.max(a0, -half) > 1e-6
+  const withinReach = (plane: number, half: number) =>
+    Math.abs(plane) < half + OPENING_CHROME_REACH_M
+
+  // A at -z, B at +x, C at +z, D at -x — the LEGACY_WALL_SIDE convention.
+  if (withinReach(x0, activeHalfW) && overlaps(z0, z1, activeHalfD)) hidden.add('D')
+  if (withinReach(x1, activeHalfW) && overlaps(z0, z1, activeHalfD)) hidden.add('B')
+  if (withinReach(z0, activeHalfD) && overlaps(x0, x1, activeHalfW)) hidden.add('A')
+  if (withinReach(z1, activeHalfD) && overlaps(x0, x1, activeHalfW)) hidden.add('C')
+  return hidden
+}

@@ -320,3 +320,30 @@ export function newRoomCentreFromWall(
     z: anchor.z + wall.midZM + wall.outZ * push,
   }
 }
+
+/** A room's footprint in the apartment's shared layout frame: centre and
+ *  extents, all METRES — the frame `layoutPos` and `computeAbsolutePositions`
+ *  both speak. */
+export interface LayoutRect {
+  x: number
+  z: number
+  widthM: number
+  depthM: number
+}
+
+/**
+ * Whether two rooms occupy the same floor.
+ *
+ * Two rooms a partition apart do NOT overlap — the gap is the wall, so their
+ * footprints are disjoint and this is false, which is the whole point of
+ * testing areas rather than distances. Rooms that touch exactly are not
+ * overlapping either.
+ */
+export function roomsOverlap(a: LayoutRect, b: LayoutRect): boolean {
+  const EPS_M = 0.001 // a millimetre: below this it is two rooms meeting, not overlapping
+  const overlapX = Math.min(a.x + a.widthM / 2, b.x + b.widthM / 2)
+    - Math.max(a.x - a.widthM / 2, b.x - b.widthM / 2)
+  const overlapZ = Math.min(a.z + a.depthM / 2, b.z + b.depthM / 2)
+    - Math.max(a.z - a.depthM / 2, b.z - b.depthM / 2)
+  return overlapX > EPS_M && overlapZ > EPS_M
+}

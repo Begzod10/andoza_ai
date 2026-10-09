@@ -394,3 +394,117 @@ describe('newRoomGeometry carrying the shared door', () => {
       .toEqual([3.5, 4, 3.5, 4])
   })
 })
+
+describe('a rectangle that has been through the API', () => {
+  /**
+   * The same legacy A-B-C-D rectangle, but carrying the `vertices` the SERVER
+   * writes onto it.
+   *
+   * This is not an optional extra shape: `RoomGeometry._normalize_polygon` in
+   * backend/app/schemas/room.py fills `vertices` in for EVERY four-wall room,
+   * as the counter-clockwise loop (0,0) → (a,0) → (a,b) → (0,b). So every room
+   * this feature reads from or writes to the API has them, `newRoomGeometry`'s
+   * deliberate omission notwithstanding — the server puts them back. A test
+   * built on a rectangle with no vertices is therefore testing a shape that
+   * only exists between a room being created in the browser and the response
+   * coming back, which is why 36 passing tests did not catch the bug below.
+   */
+  function apiLegacy(
+    on: Partial<Record<'A' | 'B' | 'C' | 'D', WallElement[]>> = {},
+  ): RoomGeometry {
+    const g = legacy(on) as RoomGeometry
+    return { ...g, vertices: [[0, 0], [5000, 0], [5000, 4000], [0, 4000]] }
+  }
+
+  /**
+   * Walls C and D of that generated loop run the DECREASING way — C from
+   * x = a back to 0, D from z = b back to 0 — but a legacy A-B-C-D rectangle's
+   * stored `position` has always meant "millimetres from the along-axis
+   * MINIMUM end" for all four walls, which is what `RoomScene`'s legacy branch
+   * renders and what `wallDefsFromVertices` keeps (its own `legacyAbcd`
+   * guard). Reading the direction off the generated outline instead mirrors
+   * every C/D opening about its wall's midpoint, so the inherited door lands
+   * twice its off-centre distance away from the door it is supposed to be the
+   * other half of — 398 mm and 466 mm on the two real doors in this user's
+   * flat. The two halves of the doorway then do not meet: a working door in
+   * one room, blank wall behind it in the other.
+   */
+  it('does not mirror the door inherited through wall D', () => {
+    // Door 1000 mm from the minimum-z end of the 4 m wall D, i.e. 1500 mm
+    // off the wall's midpoint on the minus-z side.
+    const out = sharedOpeningsFor(apiLegacy({ D: [door(1000)] }), 'D',
+      { widthMm: 3500, depthMm: 4000 })!
+    expect(out.wallId).toBe('B')
+    expect(out.dropped).toBe(0)
+    // Same 1000 mm from the minimum-z end of the new room's own 4 m wall B:
+    // the two rooms share a z centre, both walls are 4 m, so the door does
+    // not move at all. Mirrored it would read 2100.
+    expect(leftEdgeMm(out.elements[0].position, 4000, 0.9)).toBe(1000)
+  })
+
+  it('does not mirror the door inherited through wall C', () => {
+    const out = sharedOpeningsFor(apiLegacy({ C: [door(800)] }), 'C',
+      { widthMm: 5000, depthMm: 3000 })!
+    expect(out.wallId).toBe('A')
+    expect(out.dropped).toBe(0)
+    expect(leftEdgeMm(out.elements[0].position, 5000, 0.9)).toBe(800)
+  })
+
+  it('still carries a door through walls A and B unmoved', () => {
+    // These two edges of the generated loop run the increasing way, so they
+    // were already right and must stay right.
+    const b = sharedOpeningsFor(apiLegacy({ B: [door(1000)] }), 'B',
+      { widthMm: 3500, depthMm: 4000 })!
+    expect(b.wallId).toBe('D')
+    expect(leftEdgeMm(b.elements[0].position, 4000, 0.9)).toBe(1000)
+
+    const a = sharedOpeningsFor(apiLegacy({ A: [door(800)] }), 'A',
+      { widthMm: 5000, depthMm: 3000 })!
+    expect(a.wallId).toBe('C')
+    expect(leftEdgeMm(a.elements[0].position, 5000, 0.9)).toBe(800)
+  })
+
+  /**
+   * The lockstep this file has to keep.
+   *
+   * `wallDefsFromVertices` is what places the door CASING and the hit plane,
+   * and `RoomScene`'s legacy branch is what CUTS the hole; both read the same
+   * convention, pinned by `wallPositionConvention.test.ts`'s own "leaves the
+   * legacy ABCD rectangle on its own older convention". This module was the
+   * one place that read a different one off the same outline, so assert the
+   * agreement here rather than leave it to a comment: if either side ever
+   * moves, one of these two expectations fails instead of a door quietly
+   * ending up somewhere a casing is not.
+   */
+  it('measures a wall the same way the renderer and the casings do', async () => {
+    const { wallDefsFromVertices } = await import('@/lib/wallDefsFromVertices')
+    const defs = wallDefsFromVertices(
+      [[0, 0], [5000, 0], [5000, 4000], [0, 4000]],
+      ['A', 'B', 'C', 'D'],
+    )
+    // All four measure from the along-axis minimum: no mirrored walls.
+    for (const id of ['A', 'B', 'C', 'D']) expect(defs[id].alongSign).toBe(1)
+
+    // Which is why a door inherited through any of them keeps its distance
+    // from that same minimum end.
+    expect(leftEdgeMm(
+      sharedOpeningsFor(apiLegacy({ C: [door(800)] }), 'C', { widthMm: 5000, depthMm: 3000 })!
+        .elements[0].position,
+      5000, 0.9,
+    )).toBe(800)
+    expect(leftEdgeMm(
+      sharedOpeningsFor(apiLegacy({ D: [door(1200)] }), 'D', { widthMm: 3500, depthMm: 4000 })!
+        .elements[0].position,
+      4000, 0.9,
+    )).toBe(1200)
+  })
+
+  it('reads the side of all four walls off the generated outline', () => {
+    // `wallSideOf` goes through `planPolygon` too, and gets these right — the
+    // bug is only in the DIRECTION along the wall, not in which wall it is.
+    expect(sharedOpeningsFor(apiLegacy({ A: [door(800)] }), 'A', { widthMm: 5000, depthMm: 3000 })!.wallId).toBe('C')
+    expect(sharedOpeningsFor(apiLegacy({ B: [door(800)] }), 'B', { widthMm: 3500, depthMm: 4000 })!.wallId).toBe('D')
+    expect(sharedOpeningsFor(apiLegacy({ C: [door(800)] }), 'C', { widthMm: 5000, depthMm: 3000 })!.wallId).toBe('A')
+    expect(sharedOpeningsFor(apiLegacy({ D: [door(800)] }), 'D', { widthMm: 3500, depthMm: 4000 })!.wallId).toBe('B')
+  })
+})

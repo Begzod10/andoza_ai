@@ -21,6 +21,7 @@ import {
   siblingDesignState,
   siblingLodTier,
   siblingRoomView,
+  siblingWallsInActiveRoom,
 } from '@/lib/siblingRoomView'
 import { DEFAULT_DESIGN_STATE } from '@/store/roomStore'
 
@@ -242,5 +243,81 @@ describe('the invisible pick box stays pickable', () => {
       new THREE.Vector3(0, 0, -1),
     )
     expect(raycaster.intersectObjects([mesh], true)).toHaveLength(2)
+  })
+})
+
+/**
+ * The brown frame.
+ *
+ * Reported as "remove that brown frame": a door casing standing in the middle
+ * of a room with solid wall behind it. It is the NEIGHBOUR's casing — two
+ * adjacent rooms are two widthless wall planes a wall thickness apart (100 mm,
+ * or 20 mm for a wizard-placed room), and each room's doorway chrome reaches
+ * 200 mm outward from its own plane, so the neighbour's reveal and its
+ * `doorFrameMat` casing always stood inside the room the user was in, in front
+ * of that room's own wall.
+ *
+ * The rule has to be narrow in both directions. Hide too much and a sibling's
+ * doorway onto a corridor loses its casing; hide too little and the duplicate
+ * comes back. So: a wall of the sibling, within chrome reach of the active
+ * room's extent on its own axis, AND running along it rather than merely
+ * meeting it at a corner.
+ */
+describe('siblingWallsInActiveRoom', () => {
+  const ACTIVE = { widthM: 3.5, depthM: 3 }
+  const SAME = { widthM: 3.5, depthM: 3 }
+  /** Where `newRoomCentreFromWall` puts a room added through a wall: half of
+   *  each room plus the partition. */
+  const east = (tM: number) => ACTIVE.widthM / 2 + tM + SAME.widthM / 2
+  const south = (tM: number) => ACTIVE.depthM / 2 + tM + SAME.depthM / 2
+
+  it('hides only the facing wall of the room next door', () => {
+    // A 100 mm partition: the neighbour's west wall is the shared one.
+    expect([...siblingWallsInActiveRoom(east(0.1), 0, SAME, ACTIVE)]).toEqual(['D'])
+    expect([...siblingWallsInActiveRoom(-east(0.1), 0, SAME, ACTIVE)]).toEqual(['B'])
+    expect([...siblingWallsInActiveRoom(0, south(0.1), SAME, ACTIVE)]).toEqual(['A'])
+    expect([...siblingWallsInActiveRoom(0, -south(0.1), SAME, ACTIVE)]).toEqual(['C'])
+  })
+
+  it('hides it for a wizard-placed neighbour too', () => {
+    // 20 mm (ROOM_LAYOUT_GAP_M) instead of a stated thickness — closer still,
+    // so the duplicate chrome overlaps even harder.
+    expect([...siblingWallsInActiveRoom(east(0.02), 0, SAME, ACTIVE)]).toEqual(['D'])
+  })
+
+  it('leaves a room one room further along completely alone', () => {
+    // Nothing of it reaches into the active room, so every casing it has is
+    // its own business.
+    expect(siblingWallsInActiveRoom(2 * east(0.1), 0, SAME, ACTIVE).size).toBe(0)
+    expect(siblingWallsInActiveRoom(12, 0, SAME, ACTIVE).size).toBe(0)
+  })
+
+  it('leaves a diagonal neighbour alone', () => {
+    // Level with the active room's corner, not with a wall of it: its walls
+    // are near the active room's extent on one axis but its run does not
+    // overlap on the other, so nothing of it is drawn in the active room.
+    expect(siblingWallsInActiveRoom(east(0.1), south(0.1), SAME, ACTIVE).size).toBe(0)
+  })
+
+  it('hides every wall of a room stored on top of the active one', () => {
+    // This apartment has two such pairs (080dd2e5 / adf63c5a at x = 14.29,
+    // and 8bdfc0ef / 35acd0e5 50 mm apart). Every wall of the overlapping room
+    // is inside the active one, and a casing of it against the active room's
+    // uncut wall is exactly the reported artefact.
+    expect([...siblingWallsInActiveRoom(0, 0, SAME, ACTIVE)].sort())
+      .toEqual(['A', 'B', 'C', 'D'])
+    expect([...siblingWallsInActiveRoom(0.05, 0, SAME, ACTIVE)].sort())
+      .toEqual(['A', 'B', 'C', 'D'])
+  })
+
+  it('names nothing a drawn room owns', () => {
+    // A polygon room's edges are '0'..'n-1'; A-B-C-D match none of them, so a
+    // drawn neighbour renders exactly as it did before.
+    const names = siblingWallsInActiveRoom(east(0.1), 0, SAME, ACTIVE)
+    expect([...names].every((id) => ['A', 'B', 'C', 'D'].includes(id))).toBe(true)
+  })
+
+  it('answers nothing rather than throwing on a broken stored position', () => {
+    expect(siblingWallsInActiveRoom(Number.NaN, 0, SAME, ACTIVE).size).toBe(0)
   })
 })

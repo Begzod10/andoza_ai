@@ -10,9 +10,9 @@
  * "new room behind this wall" was measured from there.
  */
 import { describe, it, expect } from 'vitest'
-import { addRoomAnchor } from '../useAddRoomNavigation'
+import { addRoomAnchor, occupantOfNewRoomSlot } from '../useAddRoomNavigation'
 import { computeAbsolutePositions } from '../helpers'
-import { wallAnchorOf, newRoomCentreFromWall } from '@/lib/newRoomFromWall'
+import { wallAnchorOf, newRoomCentreFromWall, roomsOverlap } from '@/lib/newRoomFromWall'
 import type { Room } from '@/lib/api'
 import type { RoomGeometry } from '@/store/roomStore'
 
@@ -131,5 +131,99 @@ describe('the room that then goes through the wall', () => {
     const east = wallAnchorOf(storeGeometry(ACTIVE_W * 1000, ACTIVE_D * 1000), 'B')!
     const centre = newRoomCentreFromWall(anchor, east, ADDED, THICKNESS_M)
     expect(centre.x - ADDED.widthM / 2).toBeGreaterThan(0 + 3.5 / 2)
+  })
+})
+
+/**
+ * Two rooms in one place.
+ *
+ * Tapping a wall says where the new room goes; nothing asked whether anything
+ * was already there. The flat this came from has two such pairs — 080dd2e5 and
+ * adf63c5a both stored at x = 14.29, and 8bdfc0ef and 35acd0e5 50 mm apart —
+ * each of them one room added east of a room that already had an east
+ * neighbour. On screen that is not two rooms side by side: it is one room with
+ * another room's walls, skirting and door casings standing inside it, which is
+ * where the "brown frame against a solid wall" in the bug report came from.
+ */
+describe('occupantOfNewRoomSlot', () => {
+  /** Where `newRoomCentreFromWall` puts a 3.5 x 3 room added east of a
+   *  3.5 x 3 room at x, through a 100 mm partition. */
+  const eastOf = (x: number) => x + 1.75 + 0.1 + 1.75
+  const slot = (x: number) => ({ x, z: 4.55, widthM: 3.5, depthM: 3 })
+
+  it('finds the room already standing in the slot', () => {
+    const rooms = [
+      apiRoom('me', 3.5, 3, { x: 10.64, z: 4.55 }),
+      apiRoom('taken', 3.5, 3, { x: 14.29, z: 4.55 }),
+    ];
+    const found = occupantOfNewRoomSlot(slot(eastOf(10.64)), rooms, 'me', 3.5, 3);
+    expect(found?.id).toBe('taken');
+  })
+
+  it('allows the slot when the nearest room only abuts it', () => {
+    // A room one partition away is not in the way — the gap between them IS
+    // the wall. Testing distances instead of areas is how this kind of check
+    // ends up refusing every placement in a row of rooms.
+    const rooms = [
+      apiRoom('me', 3.5, 3, { x: 10.64, z: 4.55 }),
+      apiRoom('further', 3.5, 3, { x: eastOf(eastOf(10.64)), z: 4.55 }),
+    ];
+    expect(occupantOfNewRoomSlot(slot(eastOf(10.64)), rooms, 'me', 3.5, 3)).toBeNull();
+  })
+
+  it('ignores a room that is merely alongside', () => {
+    const rooms = [
+      apiRoom('me', 3.5, 3, { x: 10.64, z: 4.55 }),
+      apiRoom('nextrow', 3.5, 3, { x: eastOf(10.64), z: 4.55 + 3.1 }),
+    ];
+    expect(occupantOfNewRoomSlot(slot(eastOf(10.64)), rooms, 'me', 3.5, 3)).toBeNull();
+  })
+
+  it('never reports the active room itself', () => {
+    // A drawn room's bounding box reaches past a tapped wall that sits inside
+    // its outline, so the room being added to must not be a candidate or a
+    // perfectly good placement gets refused.
+    const rooms = [apiRoom('me', 3.5, 3, { x: 10.64, z: 4.55 })];
+    expect(occupantOfNewRoomSlot(slot(10.64), rooms, 'me', 3.5, 3)).toBeNull();
+  })
+
+  it('counts a room with no stored position, where the flat draws it', () => {
+    // An unpositioned room is laid out in the fallback block beside the
+    // positioned ones, and that is where the user sees it — so that is where
+    // it blocks.
+    const rooms = [
+      apiRoom('me', 3.5, 3, { x: 10.64, z: 4.55 }),
+      apiRoom('legacy', 3.5, 3),
+    ];
+    const laidOut = computeAbsolutePositions(rooms, 'me', 3.5, 3).get('legacy')!;
+    expect(occupantOfNewRoomSlot(
+      { ...slot(laidOut.x), z: laidOut.z }, rooms, 'me', 3.5, 3,
+    )?.id).toBe('legacy');
+  })
+
+  it('says the slot is free when the room list could not be fetched', () => {
+    // Offline: better to place the room than to refuse every placement.
+    expect(occupantOfNewRoomSlot(slot(14.29), null, 'me', 3.5, 3)).toBeNull();
+    expect(occupantOfNewRoomSlot(slot(14.29), [], 'me', 3.5, 3)).toBeNull();
+  })
+})
+
+describe('roomsOverlap', () => {
+  it('is false for rooms a partition apart, and for rooms that touch', () => {
+    const a = { x: 0, z: 0, widthM: 3.5, depthM: 3 };
+    expect(roomsOverlap(a, { x: 3.6, z: 0, widthM: 3.5, depthM: 3 })).toBe(false);
+    expect(roomsOverlap(a, { x: 3.5, z: 0, widthM: 3.5, depthM: 3 })).toBe(false);
+  })
+
+  it('is true once they share any real floor', () => {
+    const a = { x: 0, z: 0, widthM: 3.5, depthM: 3 };
+    expect(roomsOverlap(a, { x: 3.4, z: 0, widthM: 3.5, depthM: 3 })).toBe(true);
+    expect(roomsOverlap(a, a)).toBe(true);
+  })
+
+  it('needs an overlap on BOTH axes', () => {
+    const a = { x: 0, z: 0, widthM: 3.5, depthM: 3 };
+    // Same x band, a row further south — two rooms, not one.
+    expect(roomsOverlap(a, { x: 0, z: 3.1, widthM: 3.5, depthM: 3 })).toBe(false);
   })
 })

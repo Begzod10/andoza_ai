@@ -21,7 +21,7 @@
  * `…Mm` or `…M` and why the fraction is produced by `storeElementToApiPosition`
  * rather than by hand.
  */
-import { planPolygon } from '@/lib/planPolygon'
+import { isAbcdRoom, planPolygon } from '@/lib/planPolygon'
 import { resolveElementPositions, storeElementToApiPosition } from '@/lib/wallPositions'
 import { LEGACY_WALL_SIDE, wallSideOf, type RoomSide } from '@/lib/newRoomFromWall'
 import type { WallElement as ApiWallElement } from '@/lib/api/rooms'
@@ -106,15 +106,39 @@ export function facingWallIdFor(side: RoomSide): string | null {
  * rectangle is the simple case — A and C both measure from the minimum x, B and
  * D both from the minimum z, exactly as `abcdFrame` in wallMountFrame.ts
  * states — so opposite walls there are NOT mirrored.
+ *
+ * Which is why the A-B-C-D check comes FIRST, and why `planPolygon` is not
+ * allowed to answer for such a room even when it can. This was the bug behind
+ * "door in one room does not work for 2nd room":
+ * `RoomGeometry._normalize_polygon` (backend/app/schemas/room.py) fills
+ * `vertices` in for EVERY four-wall room, as the counter-clockwise loop
+ * (0,0) → (a,0) → (a,b) → (0,b). Edges 2 and 3 of that loop — walls C and D —
+ * run the DECREASING way, so `planPolygon` reported dx/dz = −1 for them while
+ * the room's openings, its renderer (`RoomScene`'s legacy branch) and its door
+ * casings (`wallDefsFromVertices`, which guards this exact case with its own
+ * `legacyAbcd` flag) all still meant "from the along-axis minimum". Every door
+ * inherited through a tapped wall C or D was therefore mirrored about that
+ * wall's midpoint — landing twice its off-centre distance from the door it is
+ * the other half of (398 mm and 466 mm on the two real doors in the flat this
+ * was reported from), which on screen is a working door in one room and solid
+ * wall behind it in the other. A room with no outline at all never reached the
+ * polygon branch, which is why this was invisible to tests built on one.
+ *
+ * `isAbcdRoom` rather than a four-walls-and-a-rectangle test: the convention
+ * belongs to the ids, not to the shape. A hand-drawn room never gets the ids
+ * A/B/C/D, and a room that has them is read as a rectangle by every renderer
+ * in the app whatever its stored outline says.
  */
 function positionDirectionOf(
   geometry: RoomGeometry,
   wallId: string,
 ): { dx: number; dz: number } | null {
-  const poly = planPolygon(geometry)
-  if (poly) {
-    const edge = poly.edges.find((e) => e.id === wallId)
-    return edge ? { dx: edge.dx, dz: edge.dz } : null
+  if (!isAbcdRoom(geometry)) {
+    const poly = planPolygon(geometry)
+    if (poly) {
+      const edge = poly.edges.find((e) => e.id === wallId)
+      return edge ? { dx: edge.dx, dz: edge.dz } : null
+    }
   }
   if (wallId === 'A' || wallId === 'C') return { dx: 1, dz: 0 }
   if (wallId === 'B' || wallId === 'D') return { dx: 0, dz: 1 }
@@ -201,6 +225,13 @@ export function sharedOpeningsFor(
 
     const centreOnTappedMm = el.position + el.width / 2
     const offsetFromSharedCentreMm = (centreOnTappedMm - tappedLenMm / 2) * dirAlongMm
+    // Back from a signed world offset to a position on the facing wall, which
+    // takes that wall's own direction — and it is always +1, because the new
+    // room is always the plain A-B-C-D rectangle `newRoomGeometry` builds, and
+    // all four of that room's walls measure from their along-axis minimum (see
+    // `positionDirectionOf`). Stated rather than multiplied in so that the one
+    // assumption this line rests on is visible: were the new room ever created
+    // as a drawn outline, this is the term that would have to flip with it.
     const centreOnFacingMm = facingLenMm / 2 + offsetFromSharedCentreMm
     const leftOnFacingMm = centreOnFacingMm - el.width / 2
 

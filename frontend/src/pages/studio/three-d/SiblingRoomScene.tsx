@@ -10,7 +10,7 @@ import { requestSharedTexture } from "@/lib/sharedWallTexture";
 import { FurnitureItem } from "@/features/studio/StudioFurniture";
 import { LightFixture, fixturePose } from "@/components/studio/LightFixtures";
 import { lightType } from "@/lib/lightCatalog";
-import { siblingLodTier, siblingRoomView, type SiblingRoomView } from "@/lib/siblingRoomView";
+import { siblingLodTier, siblingRoomView, siblingWallsInActiveRoom, type SiblingRoomView } from "@/lib/siblingRoomView";
 import { SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT } from "./constants";
 import { RoomScene } from "./RoomShell";
 
@@ -291,7 +291,9 @@ function SiblingBlockShell({
  * selected, no radial menu can be opened on it and no ring can appear. The two
  * things the shell binds for ITSELF are switched off by `readOnly`.
  */
-function SiblingFullShell({ view }: { view: SiblingRoomView }) {
+function SiblingFullShell(
+  { view, wallsInActiveRoom }: { view: SiblingRoomView; wallsInActiveRoom: ReadonlySet<string> },
+) {
   return (
     <>
       <RoomScene
@@ -315,12 +317,19 @@ function SiblingFullShell({ view }: { view: SiblingRoomView }) {
         // room's lamps for every fragment in the scene.
         lightsOn={false}
         cutaway="off"
-        // The active room's "walls behind the camera" set is about the ACTIVE
-        // room's walls, and every ABCD room in the flat has a wall called "A" —
-        // passing it here would hide a sibling's casings by name collision.
-        // A sibling needs none of it: the walls are single-sided and cull on
-        // their own, which is the whole dollhouse convention (WALL_T = 0).
-        hiddenAttachments={undefined}
+        // NOT the active room's "walls behind the camera" set: that one is
+        // about the ACTIVE room's walls, and every ABCD room in the flat has a
+        // wall called "A", so passing it here would hide a sibling's casings by
+        // name collision. A sibling needs none of it — the walls are
+        // single-sided and cull on their own, the whole dollhouse convention
+        // (WALL_T = 0).
+        //
+        // What it IS is this room's own walls that stand inside the active
+        // room: the shared partition's reveal, casing, architrave and trim
+        // runs, which the active room already draws for the same doorway and
+        // which otherwise stood 100 mm proud of its wall as a brown frame.
+        // See `siblingWallsInActiveRoom`.
+        hiddenAttachments={wallsInActiveRoom}
       />
       {/* The room's own furniture. Already the one part of the old stand-in
           that was real, and `FurnitureItem` is the same read-only renderer. */}
@@ -361,7 +370,7 @@ function SiblingFullShell({ view }: { view: SiblingRoomView }) {
  * all — the user's "please differ 1 project with 1 room".
  */
 export function SiblingRoomBody({
-  room, wM, dM, hM, offsetXM, offsetZM, siblingCount, onOpen,
+  room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount, onOpen,
 }: {
   room: Room;
   /** Footprint from the apartment layout pass, METRES — see roomFootprint. */
@@ -375,6 +384,11 @@ export function SiblingRoomBody({
    *  away the room is, and the offset is the only thing that knows. */
   offsetXM: number;
   offsetZM: number;
+  /** The ACTIVE room's interior extents, METRES. Needed because a partition
+   *  between the two rooms must be drawn by one of them and not both — see
+   *  `siblingWallsInActiveRoom`. */
+  activeWM: number;
+  activeDM: number;
   /** How many siblings there are in all, which is what decides whether the
    *  full shell is spent on every room or only the near ones. */
   siblingCount: number;
@@ -392,6 +406,18 @@ export function SiblingRoomBody({
     [room, offsetXM, offsetZM],
   );
 
+  // Measured from the room's OWN walls when they are known, like the pick box
+  // below: the layout footprint falls back to a 4 x 3 default for a drawn
+  // room, and a wrong footprint here would hide the wrong wall's casings.
+  const wallsInActiveRoom = useMemo(
+    () => siblingWallsInActiveRoom(
+      offsetXM, offsetZM,
+      { widthM: view?.widthM ?? wM, depthM: view?.depthM ?? dM },
+      { widthM: activeWM, depthM: activeDM },
+    ),
+    [offsetXM, offsetZM, view?.widthM, view?.depthM, wM, dM, activeWM, activeDM],
+  );
+
   const tier = siblingLodTier(
     view?.distanceM ?? Math.hypot(offsetXM, offsetZM),
     siblingCount,
@@ -407,7 +433,7 @@ export function SiblingRoomBody({
           can silently vanish from the flat; it just has nothing to build a
           shell from yet. */}
       {view && tier === 'full' ? (
-        <SiblingFullShell view={view} />
+        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} />
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}

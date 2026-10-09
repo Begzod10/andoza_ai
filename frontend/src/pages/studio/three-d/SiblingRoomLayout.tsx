@@ -8,7 +8,7 @@ import { type ToolMode } from "@/features/studio/StudioFurniture";
 import { DoorLeaves, WindowSashes, type DoorToolMode } from "@/components/studio/DoorLeaves";
 import { useHiddenWalls, type CutawayMode } from "@/features/studio/diorama";
 import {
-  ADD_ROOM_BTN_STYLE, SIBLING_LABEL_STYLE, SIBLING_DELETE_STYLE,
+  ADD_ROOM_BTN_STYLE, SIBLING_DELETE_STYLE,
   type RoomSide,
 } from "./constants";
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
@@ -171,14 +171,20 @@ export function SiblingRooms({
               hM={h}
               offsetXM={x}
               offsetZM={z}
+              activeWM={activeW}
+              activeDM={activeD}
               siblingCount={layout.length}
               onOpen={open}
             />
+            {/* No name pill: every room in the flat carried one, so a
+                four-room flat wore four name tags across the view, and they
+                are fixed-size so a room 30 m away shouted as loudly as the one
+                next door. The name said nothing a user looking at their own
+                flat needed, and tapping the room itself already opens it —
+                which is what the pill did. Focus and delete stay: those are
+                actions, not labels. */}
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button style={SIBLING_LABEL_STYLE} onClick={open} title="Xonani ochish">
-                  {sib.name} ↗
-                </button>
                 <FocusButton
                   focused={focusedRoomId === sib.id}
                   onClick={() => onToggleFocus(sib.id)}
