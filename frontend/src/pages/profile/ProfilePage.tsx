@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
+import { DeleteAccountDialog } from "./DeleteAccountDialog";
 
 const MENU_ITEMS: Array<{ icon: LucideIcon; tone: "blue" | "orange" | "violet" | "green"; label: string; hint: string; to: string }> = [
   { icon: FolderOpen, tone: "blue", label: "Mening loyihalarim", hint: "Barcha xonalar va dizaynlar", to: "/projects" },
@@ -24,6 +25,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   // Cookie-based auth: assume logged in; server 401 will redirect via apiClient.
   const [loggedIn, setLoggedIn] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleLogout() {
     try {
@@ -107,7 +109,21 @@ export default function ProfilePage() {
             );
           })}
         </Panel>
+
+        {loggedIn && (
+          <Panel className="mt-4 border border-red-500/30 p-5 lg:col-start-2">
+            <h2 className="text-sm font-bold text-red-500">Hisobni o'chirish</h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              Hisobingiz, loyihalar, rasmlar va buyurtmalar butunlay o'chiriladi.
+            </p>
+            <Button variant="danger" size="sm" className="mt-3" onClick={() => setDeleting(true)}>
+              Hisobni o'chirish
+            </Button>
+          </Panel>
+        )}
       </div>
+
+      <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} />
 
       <p className="mt-8 text-center text-xs text-on-app-muted opacity-60">andoza.ai v1.0.0</p>
     </div>

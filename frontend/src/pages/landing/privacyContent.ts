@@ -82,6 +82,7 @@ const uz: PrivacyDoc = {
       title: "6. Saqlash va o'chirish",
       body: [
         "Ma'lumotlarni hisobingiz mavjud ekan saqlaymiz. Hisobingizni va unga bog'liq ma'lumotlarni (loyihalar, rasmlar, profil) o'chirishni so'rash uchun quyidagi aloqa manziliga yozing. So'rovni ko'rib chiqib, ma'lumotlarni qonuniy talablar doirasida o'chiramiz.",
+        "Hisobingizni ilovada yoki saytda o'zingiz o'chirishingiz mumkin (Profil → Hisobni o'chirish), batafsil: /delete-account.",
       ],
     },
     {
@@ -161,6 +162,7 @@ const ru: PrivacyDoc = {
       title: "6. Хранение и удаление",
       body: [
         "Мы храним данные, пока существует ваш аккаунт. Чтобы удалить аккаунт и связанные данные (проекты, фото, профиль), напишите по контакту ниже. Мы рассмотрим запрос и удалим данные в рамках требований закона.",
+        "Вы можете удалить аккаунт сами в приложении или на сайте (Профиль → Удаление аккаунта), подробности: /delete-account.",
       ],
     },
     {
@@ -240,6 +242,7 @@ const en: PrivacyDoc = {
       title: "6. Retention and deletion",
       body: [
         "We keep data while your account exists. To have your account and its data (projects, photos, profile) deleted, write to the contact below. We will review the request and delete the data as the law allows.",
+        "You can delete your account yourself in the app or on the web (Profile → Delete account), or see /delete-account.",
       ],
     },
     {
