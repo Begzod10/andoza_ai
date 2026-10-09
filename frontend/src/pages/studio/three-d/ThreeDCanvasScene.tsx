@@ -22,6 +22,7 @@ import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { computeOccupiedSides, flatExtent } from "./helpers";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
+import { ServiceFeatureBoxes } from "./ServiceFeatureBoxes";
 import { DraggableLightModels } from "./LightingComponents";
 import { DraggableElectricalModels } from "./ElectricalComponents";
 import { AddRoomButtons, SiblingRooms, OpeningLayer, ActiveRoomFocusButton } from "./SiblingRoomLayout";
@@ -494,6 +495,7 @@ export function ThreeDCanvasScene({
           replaced={replacedGhosts}
           onReplace={setScanSwap}
         />
+        <ServiceFeatureBoxes features={room.room_scan?.features} verticesMm={geometry.vertices} />
         <QiblaMarker W={W} D={D} visible={showQibla} />
         <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} hiddenWalls={behind} />
         <OpeningLayer
