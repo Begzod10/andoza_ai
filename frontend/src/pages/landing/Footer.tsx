@@ -7,6 +7,7 @@ export default function Footer() {
     { label: t.footer.links.dokon, to: "/login" },
     { label: t.footer.links.ustalar, to: "/login" },
     { label: t.footer.links.kirish, to: "/login" },
+    { label: t.footer.privacy, to: "/privacy" },
   ];
 
   return (

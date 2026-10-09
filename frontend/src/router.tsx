@@ -77,6 +77,7 @@ const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
 const DrawRoomPage = lazy(() => import("@/pages/scan/DrawRoomPage"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 
 // ---------- Routes ----------
 
@@ -88,6 +89,11 @@ const routes: RouteObject[] = [
   {
     path: "/landing",
     element: withSuspense(<LandingPage />),
+  },
+  // Public privacy policy (linked from the landing footer and the store listing).
+  {
+    path: "/privacy",
+    element: withSuspense(<PrivacyPage />),
   },
   {
     path: "/login",

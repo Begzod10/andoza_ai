@@ -79,6 +79,7 @@ export interface Dict {
   footer: {
     tagline: string;
     links: { dokon: string; ustalar: string; kirish: string };
+    privacy: string;
     copyright: string;
   };
 }
@@ -251,6 +252,7 @@ const uz: Dict = {
   footer: {
     tagline: "Ta'mir uchun raqamli yordamchi",
     links: { dokon: "Do'kon", ustalar: "Ustalar", kirish: "Kirish" },
+    privacy: "Maxfiylik siyosati",
     copyright: "© 2026 andoza.ai",
   },
 };
@@ -421,6 +423,7 @@ const ru: Dict = {
   footer: {
     tagline: "Цифровой помощник для ремонта",
     links: { dokon: "Магазин", ustalar: "Мастера", kirish: "Войти" },
+    privacy: "Политика конфиденциальности",
     copyright: "© 2026 andoza.ai",
   },
 };
@@ -591,6 +594,7 @@ const en: Dict = {
   footer: {
     tagline: "Your digital assistant for renovation",
     links: { dokon: "Store", ustalar: "Workers", kirish: "Log in" },
+    privacy: "Privacy Policy",
     copyright: "© 2026 andoza.ai",
   },
 };
