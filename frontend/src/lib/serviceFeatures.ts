@@ -51,16 +51,62 @@ export function riserBoxes(
   const n = verticesMm?.length ?? 0
   const cx = n ? verticesMm!.reduce((s, [x]) => s + x, 0) / n / 1000 : 0
   const cz = n ? verticesMm!.reduce((s, [, z]) => s + z, 0) / n / 1000 : 0
+  const poly = n >= 3 ? verticesMm!.map(([x, z]) => [x / 1000 - cx, z / 1000 - cz] as const) : null
   return features
     .filter((f) => f.kind === 'riser' && f.confidence !== 'low')
     .filter((f) => Number.isFinite(f.x) && Number.isFinite(f.y) && f.width > 0 && f.height > 0)
-    .map((f) => ({
-      x: f.x - cx,
-      z: f.y - cz,
-      width: f.width,
-      depth: Math.max(f.depth ?? f.width, MIN_DEPTH_M),
-      height: f.height,
-      rotationY: -f.rotation_rad,
-      confidence: f.confidence as 'high' | 'medium',
-    }))
+    .map((f) => {
+      const width = f.width
+      const depth = Math.max(f.depth ?? f.width, MIN_DEPTH_M)
+      const base = { width, depth, height: f.height, confidence: f.confidence as 'high' | 'medium' }
+      const px = f.x - cx
+      const pz = f.y - cz
+      const placed = poly && againstNearestWall(poly, px, pz, width, depth)
+      return placed
+        ? { ...base, ...placed }
+        : { ...base, x: px, z: pz, rotationY: -f.rotation_rad }
+    })
+}
+
+/**
+ * A riser stands against a wall, so rather than trust the scan's raw position
+ * (which drifts when the outline is straightened or edited) put it flush
+ * against the nearest wall of the room as it is drawn now, inside the room.
+ */
+function againstNearestWall(
+  poly: readonly (readonly [number, number])[],
+  px: number, pz: number, width: number, depth: number,
+): { x: number; z: number; rotationY: number } | null {
+  const n = poly.length
+  let area2 = 0
+  for (let i = 0; i < n; i++) {
+    const [x1, z1] = poly[i]
+    const [x2, z2] = poly[(i + 1) % n]
+    area2 += x1 * z2 - x2 * z1
+  }
+  if (area2 === 0) return null
+  const sign = area2 > 0 ? 1 : -1
+  let best: { d: number; x: number; z: number; rotationY: number } | null = null
+  for (let i = 0; i < n; i++) {
+    const [x1, z1] = poly[i]
+    const [x2, z2] = poly[(i + 1) % n]
+    const ex = x2 - x1
+    const ez = z2 - z1
+    const len = Math.hypot(ex, ez)
+    if (len < 1e-6) continue
+    const ux = ex / len
+    const uz = ez / len
+    const half = Math.min(width / 2, len / 2)
+    const t = Math.min(len - half, Math.max(half, (px - x1) * ux + (pz - z1) * uz))
+    const wx = x1 + ux * t
+    const wz = z1 + uz * t
+    const d = Math.hypot(px - wx, pz - wz)
+    if (!best || d < best.d) {
+      // Inward normal: left of the edge for a counter-clockwise outline.
+      const nx = -uz * sign
+      const nz = ux * sign
+      best = { d, x: wx + nx * depth / 2, z: wz + nz * depth / 2, rotationY: -Math.atan2(uz, ux) }
+    }
+  }
+  return best && { x: best.x, z: best.z, rotationY: best.rotationY }
 }

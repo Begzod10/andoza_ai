@@ -9,12 +9,26 @@ const riser = (over: Partial<ServiceFeature> = {}): ServiceFeature => ({
 const VERTS: [number, number][] = [[0, 0], [4000, 0], [4000, 3000], [0, 3000]]
 
 describe('riserBoxes', () => {
-  it('places a riser relative to the centre of the room and flips the turn', () => {
+  it('stands a riser flush against the nearest wall, inside the room', () => {
+    // Raw position is 0.2 m off the top wall (z=0) near the right corner.
     const [b] = riserBoxes([riser({ x: 3.8, y: 0.2 })], VERTS)
     expect(b.x).toBeCloseTo(1.8)
-    expect(b.z).toBeCloseTo(-1.3)
-    expect(b.rotationY).toBeCloseTo(-0.7)
+    expect(b.z).toBeCloseTo(-1.5 + 0.33 / 2) // wall at z=-1.5, half its depth inward
+    expect(Math.abs(b.rotationY)).toBeCloseTo(0)
     expect(b).toMatchObject({ width: 0.4, depth: 0.33, height: 2.28, confidence: 'high' })
+  })
+
+  it('pulls a riser that landed outside the outline back inside', () => {
+    const [b] = riserBoxes([riser({ x: 6.2, y: 1.5 })], VERTS)
+    expect(b.x).toBeCloseTo(2 - 0.33 / 2) // right wall at x=2, inward
+    expect(b.z).toBeCloseTo(0)
+    expect(Math.abs(b.rotationY)).toBeCloseTo(Math.PI / 2)
+  })
+
+  it('works the same for a clockwise outline', () => {
+    const cw: [number, number][] = [...VERTS].reverse()
+    const [b] = riserBoxes([riser({ x: 6.2, y: 1.5 })], cw)
+    expect(b.x).toBeCloseTo(2 - 0.33 / 2)
   })
 
   it('shows risers only, not wall boxes or low-confidence guesses', () => {
@@ -38,6 +52,7 @@ describe('riserBoxes', () => {
     const [b] = riserBoxes([riser({ x: 1, y: 1 })], null)
     expect(b.x).toBe(1)
     expect(b.z).toBe(1)
+    expect(b.rotationY).toBeCloseTo(-0.7)
   })
 
   it('ignores garbage numbers', () => {
