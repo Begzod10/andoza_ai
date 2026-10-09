@@ -5,7 +5,7 @@ import type { Lang } from "./i18n";
  * Set it before the page goes live: the page shows a plain "contact" line only
  * when this is non-empty, and Google Play requires a way to reach the operator.
  */
-export const PRIVACY_CONTACT = "";
+export const PRIVACY_CONTACT = "rimefara22@gmail.com";
 
 export const PRIVACY_UPDATED = "2026-10-09";
 
