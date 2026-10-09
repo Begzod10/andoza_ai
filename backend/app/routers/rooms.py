@@ -161,6 +161,8 @@ async def upload_room_scan(
         # rounding/snapping/clamping the converter does stays inspectable and
         # the true scan numbers are never silently lost. Read-only metadata.
         "raw": conv.raw,
+        # Risers / wall boxes found in the scan (new-build pipe boxes): additive.
+        "features": conv.features,
     }
     await db.flush()
 
