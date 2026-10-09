@@ -33,3 +33,15 @@ export function isRoomVisible(focusedRoomId: string | null, roomId: string): boo
 export function toggleRoomFocus(focusedRoomId: string | null, roomId: string): string | null {
   return focusedRoomId === roomId ? null : roomId
 }
+
+/**
+ * Whether a studio link asks for the room to be opened alone.
+ *
+ * `?focus=1` is how the app opens a room straight after scanning it: the flat
+ * can hold many scans made on different days, and showing them all stacked is
+ * the opposite of "here is the room you just scanned". Anything else — no
+ * query, another value — is the normal whole-flat view.
+ */
+export function initialRoomFocus(search: string, roomId: string): string | null {
+  return new URLSearchParams(search).get('focus') === '1' ? roomId : null
+}
