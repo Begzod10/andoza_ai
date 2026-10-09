@@ -75,3 +75,10 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    """Password is required only when the account has one (phone/OTP-only
+    accounts have none)."""
+
+    password: str | None = None
