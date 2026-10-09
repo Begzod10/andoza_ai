@@ -297,6 +297,35 @@ def _to_metres(v: float) -> float:
     return v / 1000.0 if v > 100 else v
 
 
+def _riser_footprint_m2(room: "Room") -> float:
+    """Floor taken up by pipe-riser boxes found in the room's LiDAR scan.
+
+    Only confident detections count (``room_scan.features``, see
+    ``service_features``), and a feature the user dismissed is ignored. A box
+    runs floor to ceiling, so nothing is laid under it: laminate and tile are
+    measured on the floor minus this. Walls and ceiling are left alone — the
+    box's own faces are finished like the wall, so the net wall area barely
+    moves.
+    """
+    scan = getattr(room, "room_scan", None)
+    features = scan.get("features") if isinstance(scan, dict) else None
+    total = 0.0
+    for f in features or []:
+        if not isinstance(f, dict) or f.get("kind") != "riser" or f.get("confidence") != "high":
+            continue
+        if f.get("dismissed"):
+            continue
+        width, depth = _float(f.get("width")), _float(f.get("depth") or f.get("width"))
+        if width > 0 and depth > 0:
+            total += width * depth
+    return total
+
+
+def _floor_covering_area_m2(room: "Room") -> float:
+    """Floor area that actually gets laminate / tile: the room's floor less riser boxes."""
+    return max(0.0, _float(room.floor_area) - _riser_footprint_m2(room))
+
+
 def _design_state(room: "Room") -> dict:
     """The studio's design blob, nested one level under room.state.
 
@@ -904,7 +933,7 @@ def _laminate_lines(
 ) -> list[ComputedLine]:
     """Laminat qoplamasi + plinth."""
     lines: list[ComputedLine] = []
-    floor_area = _float(room.floor_area)
+    floor_area = _floor_covering_area_m2(room)
     waste = _float(norm.waste_factor, LAMINAT_WASTE_DEFAULT) if norm else LAMINAT_WASTE_DEFAULT
     pack_m2 = _float(norm.coverage_per_unit, PACK_M2) if norm else PACK_M2
 
@@ -1005,7 +1034,7 @@ def _tile_lines(
 ) -> list[ComputedLine]:
     """Plitka (floor tile) + plinth — a tiled room's walls meet the floor
     same as a laminate one's; it used to get no skirting board line at all."""
-    floor_area = _float(room.floor_area)
+    floor_area = _floor_covering_area_m2(room)
     # 2-decimal precision with tiyin math
     m2_tiyin = math.ceil(floor_area * TILE_WASTE * 100)   # 2-decimal fixed-point
     m2_needed = m2_tiyin / 100.0
