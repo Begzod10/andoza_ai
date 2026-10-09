@@ -17,7 +17,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
+from app.schemas.auth import DeleteAccountRequest, LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
 
 def _hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
@@ -49,6 +49,10 @@ _LOGIN_USER_RATE_WINDOW = 900  # 15 minutes
 # account, so there is no per-username axis to protect.
 _REGISTER_IP_RATE_LIMIT = 20    # max registrations per IP per window
 _REGISTER_IP_RATE_WINDOW = 3600  # 1 hour
+
+# Account deletion: password confirmation must not be brute-forceable.
+_DELETE_USER_RATE_LIMIT = 5
+_DELETE_USER_RATE_WINDOW = 900
 
 _IS_DEV = settings.ENVIRONMENT == "development"
 _COOKIE_MAX_AGE = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
@@ -461,3 +465,48 @@ async def login_with_password(
         access_token=access_token if is_native else None,
         refresh_token=refresh_token if is_native else None,
     )
+
+
+@router.post(
+    "/delete-account",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Permanently delete the signed-in user's account and data",
+)
+async def delete_my_account(
+    body: DeleteAccountRequest,
+    request: Request,
+    response: Response,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Irreversible. Accounts with a password must confirm it; phone/OTP-only
+    accounts have none. Admins cannot delete themselves here. Rate-limited per
+    user so the password prompt cannot be brute-forced."""
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator hisobini bu yerdan o'chirib bo'lmaydi",
+        )
+    await _enforce_rate_limit(
+        get_redis(),
+        f"delete_account_rate:{current_user.id}",
+        _DELETE_USER_RATE_LIMIT,
+        _DELETE_USER_RATE_WINDOW,
+        "Juda ko'p urinish bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+    if current_user.password_hash is not None and (
+        not body.password or not _verify_password(body.password, current_user.password_hash)
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Parol noto'g'ri")
+
+    # Imported here: the service reuses app.routers.admin_catalog helpers, and a
+    # module-level import would be circular through app.routers.__init__.
+    from app.services.account_deletion import delete_account
+
+    await delete_account(db, current_user)
+
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(key="token", path="/", samesite="lax")
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth/refresh", samesite="lax")
+    return response

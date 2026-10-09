@@ -64,3 +64,13 @@ export async function loginWithPassword(data: LoginData): Promise<LoginResponse>
     body: JSON.stringify(data),
   });
 }
+
+/** Permanently delete the signed-in account and its data. Phone-code accounts
+ *  have no password (send nothing); the server answers 204, or 403 with a
+ *  message when the password is wrong or the account is an admin's. */
+export async function deleteAccount(password?: string): Promise<void> {
+  await apiClient<void>("/auth/delete-account", {
+    method: "POST",
+    body: JSON.stringify({ password: password ? password : null }),
+  });
+}

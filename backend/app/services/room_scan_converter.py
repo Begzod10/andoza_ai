@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 
 from app.schemas.room import RoomGeometry, Wall, WallElement
 from app.schemas.room_scan import CapturedRoom, ScanSurface, ScanTransform
+from app.services.service_features import detect_service_features
 
 # Tuning — must match the Dart converter's constants.
 _CORNER_MERGE_M = 0.35
@@ -60,6 +61,8 @@ class RoomScanConversion:
     #: Pre-tidy measurements (see :func:`_raw_capture`), for `room_scan.raw`.
     #: Purely informational — nothing in the app reads it back into geometry.
     raw: dict = field(default_factory=dict)
+    #: Risers / wall boxes read off the scan (see `service_features`). Informational.
+    features: list[dict] = field(default_factory=list)
 
 
 # ── vector helpers ────────────────────────────────────────────────────────
@@ -509,6 +512,7 @@ def convert_captured_room(room: CapturedRoom) -> RoomScanConversion:
         corners=corners, ceiling_h=ceiling, geometry=geometry, objects=objects,
         raw=_raw_capture(room, raw_corners, corners, walls, ceiling,
                          floor_y, closure_gap, raw_openings),
+        features=detect_service_features(room.walls, objects, corners, origin, ceiling),
     )
 
 

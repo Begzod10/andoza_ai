@@ -6,7 +6,7 @@
  * empty scene), and the focused room's own button is the way back out.
  */
 import { describe, it, expect } from 'vitest'
-import { isRoomVisible, toggleRoomFocus } from '../roomFocus'
+import { initialRoomFocus, isRoomVisible, toggleRoomFocus } from '../roomFocus'
 
 describe('isRoomVisible', () => {
   it('shows every room when nothing is focused', () => {
@@ -53,5 +53,18 @@ describe('toggleRoomFocus', () => {
 
   it('round-trips', () => {
     expect(toggleRoomFocus(toggleRoomFocus(null, 'a'), 'a')).toBeNull()
+  })
+})
+
+describe('initialRoomFocus', () => {
+  it('opens the room alone only when the link asks for it', () => {
+    expect(initialRoomFocus('?focus=1', 'r1')).toBe('r1')
+    expect(initialRoomFocus('?x=2&focus=1', 'r1')).toBe('r1')
+  })
+
+  it('shows the whole flat for any other link', () => {
+    expect(initialRoomFocus('', 'r1')).toBeNull()
+    expect(initialRoomFocus('?focus=0', 'r1')).toBeNull()
+    expect(initialRoomFocus('?phase=2', 'r1')).toBeNull()
   })
 })

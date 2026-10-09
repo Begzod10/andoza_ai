@@ -37,7 +37,7 @@ import { PanoramaSnap } from "./PanoramaSnap";
 import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom, fitRoomDistance } from "@/lib/orbitZoom";
-import { isRoomVisible, toggleRoomFocus } from "@/lib/roomFocus";
+import { initialRoomFocus, isRoomVisible, toggleRoomFocus } from "@/lib/roomFocus";
 
 /**
  * Vertical field of view, degrees.
@@ -190,7 +190,9 @@ export function ThreeDCanvasScene({
   // arrive in the new room with the OLD one focused, which hides the new room
   // itself. Both are the "my other room disappeared" report reached a
   // different way, so the focus is dropped whenever the room changes.
-  useEffect(() => { setFocusedRoomId(null); }, [room.id]);
+  // The one exception is a link that asks for it (`?focus=1`, used right after
+  // a scan), which opens that room alone.
+  useEffect(() => { setFocusedRoomId(initialRoomFocus(window.location.search, room.id)); }, [room.id]);
   /** How far the flat reaches around this room — what the zoom-out limit has
    *  to clear now that the neighbours are on screen. */
   const flatSpan = useMemo(

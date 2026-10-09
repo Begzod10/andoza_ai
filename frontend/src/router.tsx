@@ -77,6 +77,8 @@ const LidarPage = lazy(() => import("@/pages/scan/LidarPage"));
 const Photo360Page = lazy(() => import("@/pages/scan/Photo360Page"));
 const DrawRoomPage = lazy(() => import("@/pages/scan/DrawRoomPage"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const DeleteAccountPage = lazy(() => import("@/pages/DeleteAccountPage"));
 
 // ---------- Routes ----------
 
@@ -88,6 +90,16 @@ const routes: RouteObject[] = [
   {
     path: "/landing",
     element: withSuspense(<LandingPage />),
+  },
+  // Public privacy policy (linked from the landing footer and the store listing).
+  {
+    path: "/privacy",
+    element: withSuspense(<PrivacyPage />),
+  },
+  // Public how-to for deleting an account (required by Google Play).
+  {
+    path: "/delete-account",
+    element: withSuspense(<DeleteAccountPage />),
   },
   {
     path: "/login",

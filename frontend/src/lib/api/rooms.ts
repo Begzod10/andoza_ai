@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import type { ServiceFeature } from "@/lib/serviceFeatures";
 
 // ---------- Room types ----------
 
@@ -62,6 +63,8 @@ export interface RoomScan {
   glb_path: string | null;
   object_count: number;
   objects: RoomScanObject[];
+  /** Pipe risers / wall boxes found in the scan (see `lib/serviceFeatures`). */
+  features?: ServiceFeature[];
 }
 
 export interface Room {

@@ -7,6 +7,8 @@ export default function Footer() {
     { label: t.footer.links.dokon, to: "/login" },
     { label: t.footer.links.ustalar, to: "/login" },
     { label: t.footer.links.kirish, to: "/login" },
+    { label: t.footer.privacy, to: "/privacy" },
+    { label: t.footer.deleteAccount, to: "/delete-account" },
   ];
 
   return (
@@ -20,7 +22,7 @@ export default function Footer() {
           <p className="text-sm text-neutral-500">{t.footer.tagline}</p>
         </div>
 
-        <nav className="flex items-center gap-6">
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {links.map((l) => (
             <Link
               key={l.label}
