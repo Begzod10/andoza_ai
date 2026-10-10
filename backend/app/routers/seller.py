@@ -18,6 +18,8 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
+from app.core.model_files import model_keys, served_key
+from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.furniture import Furniture
 from app.models.order import Order
 from app.models.store import Store
@@ -86,7 +88,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
-        glb_url=absolute_media_url(request, f.glb_key),
+        glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
@@ -289,6 +291,7 @@ async def upload_furniture(
     db.add(furniture)
     await db.flush()
     await db.refresh(furniture)
+    enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
     logger.info("seller_model_uploaded", id=str(furniture.id), store_id=str(store.id), user_id=str(current_user.id))
     return _out(furniture, request)
 
@@ -338,7 +341,7 @@ async def update_furniture(
 @router.delete("/furniture/{furniture_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete one of the caller's models")
 async def delete_furniture(furniture_id: uuid_module.UUID, current_user: CurrentUser, db: DbSession) -> None:
     f = await _own_model(db, current_user, furniture_id)
-    keys = [f.glb_key, f.thumbnail_key]
+    keys = [*model_keys(f.glb_key, f.glb_opt_key), f.thumbnail_key]
     await db.delete(f)
     await db.flush()
     _invalidate_after_commit(db, "furniture:")

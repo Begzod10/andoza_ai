@@ -204,6 +204,19 @@ class TestUpdateStore:
 
 
 class TestDeleteStore:
+    def test_the_compressed_copies_go_with_the_shop(self, client):
+        store = _store()
+        store.furniture_items = [Furniture(
+            id=uuid.uuid4(), store_id=store.id, category="divan", name_uz="Divan",
+            glb_key="furniture/a.glb", glb_opt_key="furniture/a.opt.glb", thumbnail_key=None,
+        )]
+        db = _db(_Result(one=store))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.delete_file") as removed:
+            assert client.delete(f"/api/v1/admin/stores/{store.id}").status_code == 204
+            _run_post_commit(db)
+        assert {c.args[0] for c in removed.call_args_list} == {"furniture/a.glb", "furniture/a.opt.glb"}
+
     def test_removes_store_and_its_model_files(self, client):
         store = _store()
         furniture = Furniture(
@@ -289,6 +302,17 @@ class TestUploadFurnitureModel:
             response = self._post(client)
         assert response.status_code == 201
         assert response.json()["placement"] == "pol"
+
+    def test_a_new_model_is_queued_for_compressing(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        sent = []
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"), \
+                patch("app.routers.admin_catalog.enqueue_optimize_after_commit",
+                      side_effect=lambda db, kind, mid: sent.append((kind, mid))):
+            response = self._post(client)
+        assert response.status_code == 201
+        assert sent == [("furniture", response.json()["id"])]
 
     def test_stores_the_measured_size_with_the_model(self, client):
         db = _db()
@@ -386,6 +410,18 @@ class TestUpdateFurniture:
 
 
 class TestDeleteFurniture:
+    def test_the_compressed_copy_goes_with_the_model(self, client):
+        furniture = Furniture(
+            id=uuid.uuid4(), store_id=None, category="divan", name_uz="Divan",
+            glb_key="furniture/a.glb", glb_opt_key="furniture/a.opt.glb", thumbnail_key="furniture/a_thumb.jpg",
+        )
+        db = _db(_Result(one=furniture))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.delete_file") as removed:
+            assert client.delete(f"/api/v1/admin/furniture/{furniture.id}").status_code == 204
+            _run_post_commit(db)
+        assert {c.args[0] for c in removed.call_args_list} == {"furniture/a.glb", "furniture/a.opt.glb", "furniture/a_thumb.jpg"}
+
     def test_removes_row_and_files(self, client):
         furniture = Furniture(
             id=uuid.uuid4(),

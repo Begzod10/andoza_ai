@@ -51,6 +51,7 @@ def _db(execute_result=None):
     db.flush = AsyncMock()
     db.delete = AsyncMock()
     db.add = MagicMock()
+    db.info = {}  # after-commit hooks (the compress request) are queued here
 
     async def _refresh(obj, attribute_names=None):
         if obj.id is None:
@@ -185,6 +186,14 @@ class TestUpdate:
         body = response.json()
         assert body["price_uzs"] == 900000
         assert body["name"] == "divan.glb"  # untouched
+
+    @patch("app.routers.user_models.delete_file", new_callable=AsyncMock)
+    def test_the_compressed_copy_goes_with_the_model(self, delete_mock, client):
+        user = _user()
+        model = _model(user_id=user.id, opt_key="models/u/a.opt.glb")
+        _as(user, _db(_Result(one=model)))
+        assert client.delete(f"/api/v1/user-models/{model.id}").status_code == 204
+        assert "models/u/a.opt.glb" in {c.args[0] for c in delete_mock.await_args_list}
 
     def test_missing_model_is_404(self, client):
         _as(_user(), _db(_Result(one=None)))

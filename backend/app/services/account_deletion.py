@@ -21,6 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.model_files import model_keys
 from app.core.cache import get_redis
 from app.database import run_after_commit
 from app.models.apartment import Apartment
@@ -70,7 +71,7 @@ async def delete_account(db: AsyncSession, user: User) -> None:
     ).scalars().all()
     for store in stores:
         for item in store.furniture_items:
-            keys += [item.glb_key, item.thumbnail_key]
+            keys += [*model_keys(item.glb_key, item.glb_opt_key), item.thumbnail_key]
         keys += [w.storage_key for w in store.wallpapers]
     if stores:
         cache_prefixes += ["stores:", "furniture:"]
@@ -105,10 +106,10 @@ async def delete_account(db: AsyncSession, user: User) -> None:
         keys += [key, parent_key]
 
     models = (
-        await db.execute(select(UserModel.storage_key, UserModel.thumb_key).where(UserModel.user_id == user_id))
+        await db.execute(select(UserModel.storage_key, UserModel.opt_key, UserModel.thumb_key).where(UserModel.user_id == user_id))
     ).all()
-    for storage_key, thumb_key in models:
-        keys += [storage_key, thumb_key]
+    for storage_key, opt_key, thumb_key in models:
+        keys += [*model_keys(storage_key, opt_key), thumb_key]
 
     for store in stores:
         await db.delete(store)

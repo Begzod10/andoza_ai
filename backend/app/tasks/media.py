@@ -502,3 +502,108 @@ async def _generate_model_from_photo(
                 await delete_file(key)
             except Exception:
                 logger.warning("generate_model_from_photo: source cleanup failed key=%s", key)
+
+
+# ── 3D model compression ─────────────────────────────────────────────────────
+
+_MODEL_KINDS = ("furniture", "user_model")
+
+
+@app.task(
+    name="app.tasks.media.optimize_model_glb",
+    bind=True,
+    max_retries=0,
+    queue="converter",
+    # Acknowledged on receipt: if compressing a huge model gets the worker
+    # killed, the task is lost (the original keeps being served) rather than
+    # requeued forever in front of the room scans.
+    acks_late=False,
+    reject_on_worker_lost=False,
+)
+def optimize_model_glb(self, kind: str, model_id: str) -> dict:
+    """Store a compressed copy (meshopt + WebP) of a catalog or user model beside
+    its original and record its key; the API then serves the copy. Best-effort:
+    on any failure the original keeps being served."""
+    import asyncio
+
+    return asyncio.run(_optimize_model(kind, model_id))
+
+
+async def _optimize_model(kind: str, model_id: str) -> dict:
+    import anyio
+
+    from app.core import storage
+    from app.core.model_files import opt_key_for
+    from app.services import glb_optimizer
+
+    if kind not in _MODEL_KINDS:
+        return {"status": "skipped"}
+    keys = await _load_model_keys(kind, model_id)
+    if keys is None:
+        return {"status": "missing"}
+    original, opt = keys
+    if not original or original.startswith("http") or opt:
+        return {"status": "skipped"}
+
+    data = await storage.download_file(original)
+    smaller = await anyio.to_thread.run_sync(lambda: glb_optimizer.optimize_glb_bytes(data))
+    if smaller is None:
+        return {"status": "not_smaller"}
+
+    key = opt_key_for(original)
+    await storage.upload_file(smaller, key, content_type="model/gltf-binary")
+    if not await _save_opt_key(kind, model_id, key):
+        # Deleted while it was being compressed: the copy would belong to nothing.
+        await storage.delete_file(key)
+        return {"status": "missing"}
+    logger.info("glb_optimized kind=%s model_id=%s before=%d after=%d", kind, model_id, len(data), len(smaller))
+    return {"status": "ok", "before": len(data), "after": len(smaller)}
+
+
+def _model_class(kind: str):
+    from app.models.furniture import Furniture
+    from app.models.user_model import UserModel
+
+    return (Furniture, "glb_key", "glb_opt_key") if kind == "furniture" else (UserModel, "storage_key", "opt_key")
+
+
+async def _with_model(kind: str, model_id: str, fn):
+    """Load one model row in its own engine/session (the task has its own event
+    loop), hand it to ``fn(row)`` and commit. None if the row is gone."""
+    import uuid as _uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from app.config import settings
+
+    cls, _, _ = _model_class(kind)
+    engine = create_async_engine(settings.DATABASE_URL)
+    try:
+        Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with Session() as db:
+            row = (await db.execute(select(cls).where(cls.id == _uuid.UUID(model_id)))).scalar_one_or_none()
+            if row is None:
+                return None
+            result = fn(row)
+            await db.commit()
+            return result
+    finally:
+        await engine.dispose()
+
+
+async def _load_model_keys(kind: str, model_id: str) -> tuple[str | None, str | None] | None:
+    """``(original_key, opt_key)`` of one model, or None if it no longer exists."""
+    _, original, opt = _model_class(kind)
+    return await _with_model(kind, model_id, lambda row: (getattr(row, original), getattr(row, opt)))
+
+
+async def _save_opt_key(kind: str, model_id: str, key: str) -> bool:
+    """Record the compressed copy's key; False if the model was deleted meanwhile."""
+    _, _, opt = _model_class(kind)
+
+    def _set(row):
+        setattr(row, opt, key)
+        return True
+
+    return bool(await _with_model(kind, model_id, _set))

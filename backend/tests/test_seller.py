@@ -181,6 +181,17 @@ class TestUpload:
         assert (f.store_id, f.status, f.is_active, f.price_uzs) == (store.id, "pending", False, 150000)
         assert up.await_args.args[0] == GLB
 
+    def test_a_new_model_is_queued_for_compressing(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        sent = []
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")), \
+                patch("app.routers.seller.enqueue_optimize_after_commit",
+                      side_effect=lambda db, kind, mid: sent.append((kind, mid))):
+            res = _upload(client)
+        assert res.status_code == 201
+        assert sent == [("furniture", res.json()["id"])]
+
     def test_the_measured_size_of_the_model_is_stored_with_it(self, client):
         u = _user()
         db = _as(u, [_R(_store(u)), _R(0)])
@@ -289,6 +300,18 @@ class TestOwnModels:
         _as(u, [_R(store), _R(m)])
         client.patch(f"/api/v1/seller/furniture/{m.id}", json={"status": "approved"})
         assert m.status == "pending"
+
+    def test_the_compressed_copy_goes_with_the_model(self, client):
+        from tests.test_admin_catalog import _run_post_commit
+
+        u = _user()
+        store = _store(u)
+        m = _model(store, glb_opt_key="furniture/a.opt.glb")
+        db = _as(u, [_R(store), _R(m)])
+        with patch("app.routers.admin_catalog.delete_file") as removed:
+            assert client.delete(f"/api/v1/seller/furniture/{m.id}").status_code == 204
+            _run_post_commit(db)
+        assert {c.args[0] for c in removed.call_args_list} == {"furniture/a.glb", "furniture/a.opt.glb"}
 
     def test_delete_removes_the_row_and_its_files(self, client):
         u = _user()

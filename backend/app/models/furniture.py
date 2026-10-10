@@ -45,6 +45,11 @@ class Furniture(Base):
         nullable=True,
         comment="S3 key for the .glb 3-D model file",
     )
+    glb_opt_key: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Compressed copy of the .glb (meshopt + WebP); served instead of glb_key when set",
+    )
     thumbnail_key: Mapped[str | None] = mapped_column(
         String(200),
         nullable=True,
