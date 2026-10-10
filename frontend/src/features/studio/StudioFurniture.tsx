@@ -9,6 +9,7 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
+import { FurniturePlaceholder, appearScale, placeholderSize, type PlaceholderSize } from "./FurniturePlaceholder";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRoomStore } from "@/store/roomStore";
 import {
@@ -390,6 +391,22 @@ function DraggableFurnitureItem({
     applyColorOverrides(cloned, item.colorOverrides)
   }, [cloned, item.colorOverrides])
 
+  // A model that was waited for grows in where its placeholder stood.
+  const appearStart = useRef<number | null>(null)
+  useFrame(({ clock, invalidate: redraw }) => {
+    if (groupRef.current) {
+      if (appearStart.current === null) appearStart.current = clock.elapsedTime
+      const k = appearStart.current >= 0 ? appearScale(item.id, appearStart.current, clock.elapsedTime) : null
+      if (k === null || k >= 1) {
+        if (appearStart.current >= 0 && k !== null) groupRef.current.scale.setScalar(1)
+        appearStart.current = -1
+      } else {
+        groupRef.current.scale.setScalar(k)
+        redraw()
+      }
+    }
+  })
+
   useFrame(() => {
     if (!isDragging) {
       // restore the outline after a live-scale drag hid it
@@ -689,6 +706,18 @@ export function DraggableFurnitureModels({
   // carries a name/price snapshot for user uploads (see PlacedFurniture's own
   // doc comment); a do'kon catalog placement has to look its name/price up
   // by furniture_id instead, same as AddObjectSheet's own furniture list does.
+  /** The box drawn while a piece's model loads: the catalogue's footprint and height. */
+  function loadingSize(item: PlacedFurniture): PlaceholderSize {
+    const entry = resolveEntry(item.furniture_id)
+    const row = catalogFurniture.find((f) => f.id === item.furniture_id)
+    const so = item.scaleOverride ?? 1
+    return placeholderSize(
+      (entry?.sizeM.w ?? 0) * so,
+      (entry?.sizeM.d ?? 0) * so,
+      (row?.height_cm ? row.height_cm / 100 : entry?.sizeM.h ?? 0) * so,
+    )
+  }
+
   function resolveDisplayInfo(item: PlacedFurniture): { name: string; priceUzs: number | null } {
     if (item.name) return { name: item.name, priceUzs: item.unitPriceUzs ?? null }
     const catalogItem = catalogFurniture.find((f) => f.id === item.furniture_id)
@@ -913,7 +942,21 @@ export function DraggableFurnitureModels({
           made it fall through to the catalog fallback model below, leaving a
           phantom table set standing where the deleted furniture had been. */}
       {furniture.filter((item) => !!resolveEntry(item.furniture_id)).map((item) => (
-        <Suspense key={item.id} fallback={null}>
+        <Suspense
+          key={item.id}
+          fallback={
+            <FurniturePlaceholder
+              itemId={item.id}
+              x={item.x / 1000}
+              z={item.y / 1000}
+              rotation={item.rotation}
+              size={loadingSize(item)}
+              isDragging={draggingId === item.id}
+              dragPosRef={dragPosRef}
+              onPointerDown={(e) => startDragFromMesh(item, e)}
+            />
+          }
+        >
           <DraggableFurnitureItem
             item={item}
             isDragging={draggingId === item.id}
