@@ -3,7 +3,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Room } from "@/lib/api";
 import { resolveWallCovering, resolveWallColor, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
-import type { DesignState } from "@/store/roomStore";
+import type { DesignState, RoomGeometry } from "@/store/roomStore";
 import { createOboyTexture } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { requestSharedTexture } from "@/lib/sharedWallTexture";
@@ -13,6 +13,7 @@ import { lightType } from "@/lib/lightCatalog";
 import { siblingLodTier, siblingRoomView, siblingWallsInActiveRoom, type SiblingRoomView } from "@/lib/siblingRoomView";
 import { SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT } from "./constants";
 import { RoomScene } from "./RoomShell";
+import { OpeningLeaves } from "@/components/studio/DoorLeaves";
 
 /**
  * The apartment's OTHER rooms, drawn with the same machinery as the room being
@@ -292,13 +293,21 @@ function SiblingBlockShell({
  * things the shell binds for ITSELF are switched off by `readOnly`.
  */
 function SiblingFullShell(
-  { view, wallsInActiveRoom }: { view: SiblingRoomView; wallsInActiveRoom: ReadonlySet<string> },
+  { view, wallsInActiveRoom, shellGeometry }: {
+    view: SiblingRoomView;
+    wallsInActiveRoom: ReadonlySet<string>;
+    /** `view.geometry` with the neighbours' openings cut in, bare — see
+     *  `withNeighbourOpenings`. Only the SHELL is drawn from it: the leaves
+     *  below stay on the room's own openings, since a borrowed one's leaf
+     *  hangs in the lining the other room draws. */
+    shellGeometry: RoomGeometry;
+  },
 ) {
   return (
     <>
       <RoomScene
         room={view.room}
-        geometry={view.geometry}
+        geometry={shellGeometry}
         designState={view.designState}
         readOnly
         // The top-down view was removed from this page; a sibling is never
@@ -331,6 +340,38 @@ function SiblingFullShell(
         // See `siblingWallsInActiveRoom`.
         hiddenAttachments={wallsInActiveRoom}
       />
+      {/* The leaves and sashes that hang in this room's own openings.
+          `RoomScene` draws a doorway's hole, reveal and casing but not what
+          swings in it — leaves come from OpeningLeaves, which was mounted once
+          for the active room only, so every neighbour's doorway was an empty
+          frame with daylight through it.
+
+          Mounted as scenery: `interactive={false}` means no picking, no
+          editor, no ring. That matters for more than tidiness — these leaves
+          stand in front of the room's own pick box, and a leaf that swallowed
+          the click would eat the tap that opens the room. OpeningLeaves' own
+          `onTap` lets the click through when it is not interactive.
+
+          `hiddenWalls` carries the shared-partition set for the same reason
+          the shell gets it: the active room already hangs a leaf in that
+          doorway, and two leaves in one opening z-fight. */}
+      <OpeningLeaves
+        kind="door"
+        geometry={view.geometry}
+        wallWidth={view.widthM}
+        wallDepth={view.depthM}
+        hiddenWalls={wallsInActiveRoom}
+        interactive={false}
+      />
+      <OpeningLeaves
+        kind="window"
+        geometry={view.geometry}
+        wallWidth={view.widthM}
+        wallDepth={view.depthM}
+        hiddenWalls={wallsInActiveRoom}
+        interactive={false}
+      />
+
       {/* The room's own furniture. Already the one part of the old stand-in
           that was real, and `FurnitureItem` is the same read-only renderer. */}
       {view.furniture.map((item) => (
@@ -371,6 +412,7 @@ function SiblingFullShell(
  */
 export function SiblingRoomBody({
   room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount, onOpen,
+  shellGeometry, partitionWithActive,
 }: {
   room: Room;
   /** Footprint from the apartment layout pass, METRES — see roomFootprint. */
@@ -393,6 +435,13 @@ export function SiblingRoomBody({
    *  full shell is spent on every room or only the near ones. */
   siblingCount: number;
   onOpen: () => void;
+  /** This room's geometry with its neighbours' openings cut in (built by
+   *  `SiblingRooms` from lib/borrowedOpenings, which needs every room of the
+   *  flat at once). Absent: the room's own geometry. */
+  shellGeometry?: RoomGeometry;
+  /** This room's walls that lie against the ACTIVE room across a partition,
+   *  by lib/borrowedOpenings' coincidence rule. */
+  partitionWithActive?: ReadonlySet<string>;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   useNoShadowSubtree(groupRef);
@@ -409,14 +458,33 @@ export function SiblingRoomBody({
   // Measured from the room's OWN walls when they are known, like the pick box
   // below: the layout footprint falls back to a 4 x 3 default for a drawn
   // room, and a wrong footprint here would hide the wrong wall's casings.
-  const wallsInActiveRoom = useMemo(
-    () => siblingWallsInActiveRoom(
+  //
+  // Still needed now that a new room stands exactly one door-depth from its
+  // neighbour (DOOR_JAMB_DEPTH_MM): the active room lines every doorway in
+  // that partition with a reveal reaching across it to this room's face, so
+  // this room's own lining of the same doorway would be a second tunnel on
+  // the same four planes, a second frame ring in the active room's doorway
+  // and a second leaf — two of everything, z-fighting. Hiding is what leaves
+  // exactly one. Unioned with the coincidence rule of lib/borrowedOpenings so
+  // a drawn or scanned room's partition (which the A-B-C-D test cannot name)
+  // is covered too.
+  const wallsInActiveRoom = useMemo(() => {
+    const byBox = siblingWallsInActiveRoom(
       offsetXM, offsetZM,
       { widthM: view?.widthM ?? wM, depthM: view?.depthM ?? dM },
       { widthM: activeWM, depthM: activeDM },
-    ),
-    [offsetXM, offsetZM, view?.widthM, view?.depthM, wM, dM, activeWM, activeDM],
-  );
+    );
+    if (!partitionWithActive?.size) return byBox;
+    return new Set([...byBox, ...partitionWithActive]);
+  }, [offsetXM, offsetZM, view?.widthM, view?.depthM, wM, dM, activeWM, activeDM, partitionWithActive]);
+
+  // Borrowing is recomputed whenever the active room's geometry changes, which
+  // hands a fresh object to every sibling that borrows anything. Keyed on the
+  // walls' content so a sibling's shell re-renders only when what it draws
+  // actually changed.
+  const shellKey = shellGeometry ? JSON.stringify([shellGeometry.walls, shellGeometry.vertices]) : '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableShell = useMemo(() => shellGeometry, [shellKey]);
 
   const tier = siblingLodTier(
     view?.distanceM ?? Math.hypot(offsetXM, offsetZM),
@@ -433,7 +501,7 @@ export function SiblingRoomBody({
           can silently vanish from the flat; it just has nothing to build a
           shell from yet. */}
       {view && tier === 'full' ? (
-        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} />
+        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} />
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}

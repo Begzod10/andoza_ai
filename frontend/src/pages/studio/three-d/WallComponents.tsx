@@ -14,7 +14,7 @@ import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimProfiles";
 import { useRoomStore, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import { DOOR_IVORY } from "@/lib/doorStyles";
-import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, noRaycast, FLOOR_COLORS } from "./constants";
+import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, openingRevealDepth, noRaycast, FLOOR_COLORS } from "./constants";
 import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
 
 /** Paper has a weave, and its own image says where. */
@@ -1066,6 +1066,7 @@ function OpeningReveal({
   h,
   yaw,
   floorMat,
+  depth = OPENING_REVEAL_D,
 }: {
   /** opening width / height in metres */
   w: number;
@@ -1075,8 +1076,12 @@ function OpeningReveal({
    *  Both close the bottom of the niche — without one you see straight through
    *  the 200 mm gap, since the room's floor stops at the wall plane. */
   floorMat: React.ReactElement;
+  /** How far the reveal reaches out of the room, metres — `OPENING_REVEAL_D`
+   *  unless the opening sits in a partition of measured depth; see
+   *  `openingRevealDepth`. */
+  depth?: number;
 }) {
-  const R = OPENING_REVEAL_D;
+  const R = depth;
   return (
     <group rotation={[0, yaw, 0]}>
       {/* Left jamb — perpendicular to the wall, normal into the opening */}
@@ -1133,14 +1138,15 @@ export function WindowFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement 
   // outer sides lie against the reveal surfaces (opposite-normal contact,
   // never a visible gap or z-fight), and sits flush with the reveal's
   // exterior edge; the sashes hang 2 mm in front of it (WINDOW_SASH_RECESS).
-  const frC = out * (OPENING_REVEAL_D - FRAME_T / 2);
+  const revealD = openingRevealDepth(el);
+  const frC = out * (revealD - FRAME_T / 2);
   // Jambs offset along the WALL'S length axis (X for A/C, Z for B/D) —
   // offsetting X on side walls pushed them perpendicular out of the wall
   const jamb = elW / 2 - FRAME_W / 2;
 
   return (
     <group ref={groupRef} position={[px, py, pz]}>
-      <OpeningReveal w={elW} h={elH} yaw={revealYaw} floorMat={windowSillLipMat} />
+      <OpeningReveal w={elW} h={elH} yaw={revealYaw} floorMat={windowSillLipMat} depth={revealD} />
 
       {/* Left frame */}
       <mesh position={v(-jamb, elH / 2, frC)}>
@@ -1192,6 +1198,8 @@ export function WindowFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "deraza" && el.type !== "balkon") continue;
+      // Lining left to the room that owns it — see `withNeighbourOpenings`.
+      if (el.bare) continue;
       items.push(<WindowFrameItem key={`frame-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }
@@ -1230,7 +1238,8 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   // Flat trim ring at the reveal's outer edge — same construction as the
   // window's, so neither shows a lip inside the niche. Spanning exactly the
   // opening puts its outer sides against the reveal planes.
-  const frC = out * (OPENING_REVEAL_D - FRAME_T / 2);
+  const revealD = openingRevealDepth(el);
+  const frC = out * (revealD - FRAME_T / 2);
   const jamb = elW / 2 - FRAME_W / 2;
 
   return (
@@ -1240,8 +1249,8 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
           straight through the 200 mm gap under the leaf. Threshold tone, flush
           with floor level — a plate to walk over, never a step up. */}
       <OpeningReveal
-        w={elW} h={elH} yaw={revealYaw}
-        floorMat={<DoorwayFloorMat wM={elW} dM={OPENING_REVEAL_D} />}
+        w={elW} h={elH} yaw={revealYaw} depth={revealD}
+        floorMat={<DoorwayFloorMat wM={elW} dM={revealD} />}
       />
 
       {/* Left frame */}
@@ -1316,6 +1325,9 @@ export function DoorFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "eshik") continue; // Only doors
+      // A neighbour's door cut through this wall with its lining left to the
+      // room that owns it — see `withNeighbourOpenings`.
+      if (el.bare) continue;
       items.push(<DoorFrameItem key={`door-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }

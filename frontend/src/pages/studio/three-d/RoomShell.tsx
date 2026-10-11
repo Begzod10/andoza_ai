@@ -20,6 +20,7 @@ import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
 import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor, CeilingProfile, DoorwayFloors } from "./FloorCeiling";
 import { doorwayNiches } from "@/lib/doorwayNiches";
+import { rendersAsAbcdRectangle } from "@/lib/borrowedOpenings";
 import { rectangleFrame } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
@@ -661,7 +662,9 @@ function NWallRoomShell({
                   outside; its casings are not, so they go with it rather than
                   hanging in the air where it was. */}
               {!hiddenAttachments?.has(e.wallId) && resolvedEls.map((el) =>
-                el.type === 'eshik' ? (
+                // A neighbour's opening cut through this wall with its lining
+                // left to the room that owns it (`withNeighbourOpenings`).
+                el.bare ? null : el.type === 'eshik' ? (
                   <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
                 ) : (
                   <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />
@@ -813,12 +816,11 @@ export const RoomScene = memo(function RoomScene({
 }) {
   // Legacy 4-wall ABCD rectangle — use the existing precise rendering.
   // Any other layout (N-wall from RoomPlan) uses NWallRoomShell.
-  const isLegacyAbcd =
-    geometry.walls.length === 4 &&
-    geometry.walls[0]?.id === 'A' &&
-    geometry.walls[1]?.id === 'B' &&
-    geometry.walls[2]?.id === 'C' &&
-    geometry.walls[3]?.id === 'D'
+  // The test lives in lib/borrowedOpenings, which must decide a wall's
+  // position convention exactly the way this branch does — a neighbour's door
+  // is mapped onto this room's walls by it, so the two cannot be allowed to
+  // disagree.
+  const isLegacyAbcd = rendersAsAbcdRectangle(geometry)
 
   const wallA = geometry.walls.find((w) => w.id === "A");
   const wallB = geometry.walls.find((w) => w.id === "B");

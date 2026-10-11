@@ -13,7 +13,7 @@ import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyl
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
 import { wallDefsFromVertices } from "@/lib/wallDefsFromVertices";
-import { OPENING_REVEAL_D, WINDOW_SASH_RECESS, noRaycast } from "@/pages/studio/three-d/constants";
+import { OPENING_REVEAL_D, WINDOW_SASH_RECESS, openingRevealDepth, noRaycast } from "@/pages/studio/three-d/constants";
 import { DOOR_IVORY, doorStyle, panelFlutes } from "@/lib/doorStyles";
 import { buildPanelGeometry, innerPanel } from "@/lib/doorPanelGeometry";
 
@@ -199,6 +199,36 @@ interface DragState {
   mmPerPx: number;
 }
 
+/**
+ * What a tap on a leaf or a sash does.
+ *
+ * Editable leaves stop the click. They have to: the click is a separate event
+ * from the pointerdown that selected the opening, and with nothing handling it
+ * it carried on to whatever the ray met beyond — which is how tapping a window
+ * used to open the ceiling's menu.
+ *
+ * Scenery leaves must do the opposite and let it through. A neighbouring
+ * room's leaves are mounted read-only and stand in front of that room's own
+ * pick box; a leaf that swallowed the click would eat the tap that opens the
+ * room, so the room would be the one thing in the flat you could not get into
+ * by tapping its door.
+ *
+ * Extracted so the rule can be tested without a renderer — the whole of it is
+ * which of those two a leaf is.
+ */
+export function openingTapHandler(
+  interactive: boolean,
+  wallId: string,
+  elId: string,
+  openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void,
+) {
+  return (e: ThreeEvent<MouseEvent>) => {
+    if (!interactive) return;
+    e.stopPropagation();
+    openMenu?.(wallId, elId, e);
+  };
+}
+
 export type OpeningKind = "door" | "window";
 
 /** Doors and windows differ only in what hangs inside the frame — position,
@@ -266,12 +296,18 @@ export function OpeningLeaves({
       const wall = geometry.walls.find((w) => w.id === wf.id);
       if (!wall) continue;
       for (const el of resolveElementPositions(wall.elements, wf.lengthM * 1000)) {
+        // A neighbour's opening this room only cuts: the room that owns it
+        // hangs its leaf (`withNeighbourOpenings`), and two leaves in one
+        // opening z-fight. A borrowed opening that this room DOES line is
+        // never editable here, so it never reaches an interactive layer —
+        // the caller passes it only to a scenery one.
+        if (el.bare || (interactive && el.borrowedFrom)) continue;
         const isDoor = el.type === "eshik";
         if (isDoor === (kind === "door")) out.push({ wf, el });
       }
     }
     return out;
-  }, [frames, geometry, hiddenWalls, kind]);
+  }, [frames, geometry, hiddenWalls, kind, interactive]);
 
   /**
    * Screen-space scale for a drag: how many mm of wall one pixel covers at the
@@ -396,13 +432,7 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
-          onTap: (e: ThreeEvent<MouseEvent>) => {
-            // Always stop here, ring or no ring: the click is a separate event
-            // from the pointerdown that selects, and with nothing handling it
-            // it carried on to whatever the ray met beyond the opening.
-            e.stopPropagation();
-            if (interactive) openMenu?.(wf.id, el.id, e);
-          },
+          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu),
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
             onSelect?.(null);
@@ -504,6 +534,9 @@ function DoorLeaf({
   const leafW = Math.max(0.1, w - GAP * 2);
   const leafH = Math.max(0.1, h - GAP);
   const hingeLeft = (el.hinge ?? "left") === "left";
+  // At the outer edge of THIS opening's lining, which in a shared partition
+  // is the measured gap rather than the default (see `openingRevealDepth`).
+  const leafRecess = el.revealDepthMm ? openingRevealDepth(el) - LEAF_T / 2 : DOOR_LEAF_RECESS;
   const angleDeg = el.openAngle ?? 0;
 
   // Hinge sits at one jamb; the leaf extends toward the other. Swinging the
@@ -545,7 +578,7 @@ function DoorLeaf({
           about the old wall-plane axis, which would have swept it through
           the jamb. From inside you now look down the 200 mm niche at the
           leaf, and it still opens about the jamb it is hung on. */}
-      <group position={[hingeX, 0, -DOOR_LEAF_RECESS]} rotation={[0, swing, 0]}>
+      <group position={[hingeX, 0, -leafRecess]} rotation={[0, swing, 0]}>
         <group position={[(dir * leafW) / 2, leafH / 2, 0]}>
           <mesh
             castShadow
@@ -822,7 +855,7 @@ function WindowSash({
           flush with the frame ring WallComponents places at the same
           wall-normal offset. Doors stay at the wall plane — only windows
           get the reveal. */}
-      <group position={[0, 0, -WINDOW_SASH_RECESS]}>
+      <group position={[0, 0, -(el.revealDepthMm ? openingRevealDepth(el) - (OPENING_REVEAL_D - WINDOW_SASH_RECESS) : WINDOW_SASH_RECESS)]}>
       {panes.map((pane, i) => {
         const pw = pane.w * innerW;
         const ph = pane.h * innerH;
