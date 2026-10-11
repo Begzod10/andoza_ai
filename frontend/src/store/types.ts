@@ -62,6 +62,16 @@ export interface WallElement {
   /** Cut the hole, but draw no lining, leaf or sash here — the room that owns
    *  the opening does. See `withNeighbourOpenings`. */
   bare?: true
+  /** This room draws a doorway through a partition shared with a neighbour:
+   *  its lining spans the partition (`revealDepthMm`), and a door is trimmed
+   *  on BOTH faces. It is the one drawing of that doorway in the flat, so its
+   *  chrome is kept even on a partition whose other chrome the sibling layer
+   *  switches off. Render-only, like `bare`; see `withNeighbourOpenings`. */
+  sharedPartition?: true
+  /** With `sharedPartition`: the measured gap to the neighbour's face, mm,
+   *  where the far-face architrave stands. Unlike `revealDepthMm` it is not
+   *  floored at the leaf's minimum lining. */
+  partitionGapMm?: number
 }
 
 export interface Wall {

@@ -12,7 +12,7 @@ import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
-import { getRooms, deleteRoom, updateRoom, listCatalogFurniture } from "@/lib/api";
+import { deleteRoom, updateRoom, listCatalogFurniture } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
@@ -49,6 +49,7 @@ import { useRoomThumbnailCapture } from "./three-d/useCanvasCapture";
 import { useCanvasFraming } from "./three-d/useCanvasFraming";
 import { useThreeDKeyboardShortcuts } from "./three-d/useThreeDKeyboardShortcuts";
 import { useAddRoomNavigation } from "./three-d/useAddRoomNavigation";
+import { useFlatRooms } from "./three-d/useFlatRooms";
 import { PhaseStageNav } from "./three-d/PhaseStageNav";
 import { ModelToolbar } from "./three-d/ModelToolbar";
 import { SUN_INTENSITY } from "./three-d/SceneEnvironment";
@@ -616,12 +617,7 @@ export default function ThreeDPage() {
   // simply never drawn.
   const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
   const queryClient = useQueryClient();
-  const { data: aptRooms } = useQuery({
-    queryKey: ['apt-rooms', aptId],
-    queryFn: () => getRooms(aptId!),
-    enabled: !!aptId,
-    staleTime: 5_000,
-  });
+  const aptRooms = useFlatRooms(aptId, room.id);
 
   async function handleDeleteSibling(id: string, name: string) {
     if (!window.confirm(`"${name}" xonasini o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.`)) return;

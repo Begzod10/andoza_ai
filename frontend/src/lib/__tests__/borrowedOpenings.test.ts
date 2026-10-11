@@ -16,7 +16,6 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  linedBorrowedOpeningsOnly,
   MIN_SHARED_LINING_MM,
   neighbourOpenings,
   ownOpeningsOnly,
@@ -205,14 +204,28 @@ describe('a drawn (polygon) room, whose positions run in traversal order', () =>
 })
 
 describe('a door that already exists on both sides', () => {
-  it('is not cut a second time, and the room\'s own copy gets the partition\'s depth', () => {
+  it('is not cut a second time, and exactly one of the two copies is drawn', () => {
     // The sharedOpenings creation path wrote a real copy into the new room.
     const own = door(50)
+    const theirs = door(600)
     const cd0e = place('cd0e', rect(3000, 4000, { D: [own] }), 0, 0)
-    const d8b4 = place('d8b4', rect(3000, 5100, { B: [door(600)] }), D8B4_X, 0)
-    const found = neighbourOpenings(cd0e, [d8b4])
-    expect(found.borrowed).toEqual({})
-    expect(found.sharedDepthMm[own.id]).toBe(MIN_SHARED_LINING_MM)
+    const d8b4 = place('d8b4', rect(3000, 5100, { B: [theirs] }), D8B4_X, 0)
+    // cd0e open: its own copy is drawn, spanning the partition (20 mm,
+    // floored at the leaf's minimum), so its door stays editable.
+    const asActive = neighbourOpenings(cd0e, [d8b4], { activeId: 'cd0e' })
+    expect(asActive.borrowed).toEqual({})
+    expect(asActive.shared[own.id]).toEqual({ depthMm: MIN_SHARED_LINING_MM, gapMm: 20 })
+    expect(asActive.deferred).toEqual({})
+    // ...and d8b4, a sibling then, defers its copy to cd0e's.
+    const fromD8b4 = neighbourOpenings(d8b4, [cd0e], { activeId: 'cd0e' })
+    expect(fromD8b4.deferred).toEqual({ [theirs.id]: true })
+    expect(fromD8b4.shared[theirs.id]).toBeUndefined()
+    // d8b4 open: the other way round.
+    expect(neighbourOpenings(cd0e, [d8b4], { activeId: 'd8b4' }).deferred).toEqual({ [own.id]: true })
+    expect(neighbourOpenings(d8b4, [cd0e], { activeId: 'd8b4' }).shared[theirs.id]).toBeDefined()
+    // A third room open: the smaller id ('cd0e') draws, and both sides agree.
+    expect(neighbourOpenings(cd0e, [d8b4], { activeId: 'x' }).shared[own.id]).toBeDefined()
+    expect(neighbourOpenings(d8b4, [cd0e], { activeId: 'x' }).deferred).toEqual({ [theirs.id]: true })
   })
 
   it('a hand-drawn near-match that merely overlaps is not doubled either', () => {
@@ -238,7 +251,7 @@ describe('the geometry a room is rendered from', () => {
     const d8b4 = place('d8b4', rect(3000, 5100, { B: [door(3600)] }), D8B4_X, 0)
     // 3600 along d8b4's B is z 1.05 … 1.95 → 3050 along cd0e's D.
     const found = neighbourOpenings(cd0e, [d8b4])
-    const g = withNeighbourOpenings(cd0e.geometry, found, { lineBorrowed: true })
+    const g = withNeighbourOpenings(cd0e.geometry, found)
     const wallD = g.walls.find((w) => w.id === 'D')!
     expect(wallD.elements.map((e) => [e.position, e.positionAuto, !!e.borrowedFrom])).toEqual([
       [1550, false, false],
@@ -246,35 +259,53 @@ describe('the geometry a room is rendered from', () => {
     ])
   })
 
-  it('marks borrowed openings bare in a sibling and lined in the active room', () => {
+  it('cuts a borrowed opening bare, active room or not — its owner draws it', () => {
     const cd0e = place('cd0e', rect(3000, 4000), 0, 0)
     const d8b4 = place('d8b4', rect(3000, 5100, { B: [door(600, 900, { hinge: 'left', openAngle: 30 })] }), D8B4_X, 0)
-    const found = neighbourOpenings(cd0e, [d8b4])
-    const sibling = withNeighbourOpenings(cd0e.geometry, found, { lineBorrowed: false })
-    const active = withNeighbourOpenings(cd0e.geometry, found, { lineBorrowed: true })
-    expect(sibling.walls[3].elements[0].bare).toBe(true)
-    const lined = active.walls[3].elements[0]
-    expect(lined.bare).toBeUndefined()
-    // Same physical jamb and swing, stated from the other face.
-    expect(lined.hinge).toBe('right')
-    expect(lined.openAngle).toBe(-30)
-    // Editors and the room's own leaves never see it…
-    expect(ownOpeningsOnly(active).walls[3].elements).toEqual([])
-    // …the active room's scenery leaf layer sees only it.
-    expect(linedBorrowedOpeningsOnly(active).walls[3].elements).toHaveLength(1)
-    expect(linedBorrowedOpeningsOnly(sibling).walls[3].elements).toHaveLength(0)
+    for (const activeId of ['cd0e', 'd8b4', 'x']) {
+      const g = withNeighbourOpenings(cd0e.geometry, neighbourOpenings(cd0e, [d8b4], { activeId }))
+      const cut = g.walls[3].elements[0]
+      expect(cut.bare).toBe(true)
+      // Same physical jamb and swing, stated from the other face.
+      expect(cut.hinge).toBe('right')
+      expect(cut.openAngle).toBe(-30)
+      // Editors and the room's own leaves never see it.
+      expect(ownOpeningsOnly(g).walls[3].elements).toEqual([])
+    }
+  })
+
+  it('marks the owner\'s door as the one drawing of the doorway, with the far face\'s gap', () => {
+    const own = door(600)
+    const d8b4 = place('d8b4', rect(3000, 5100, { B: [own] }), D8B4_X, 0)
+    const cd0e = place('cd0e', rect(3000, 4000), 0, 0)
+    const g = withNeighbourOpenings(d8b4.geometry, neighbourOpenings(d8b4, [cd0e], { activeId: 'cd0e' }))
+    expect(g.walls[1].elements[0]).toMatchObject({
+      id: own.id, sharedPartition: true, revealDepthMm: MIN_SHARED_LINING_MM, partitionGapMm: 20,
+    })
+    expect(g.walls[1].elements[0].bare).toBeUndefined()
+  })
+
+  it('does not trim the far face of a door the neighbour cannot cut', () => {
+    // d8b4's wall B is 5.1 m and cd0e's D only 4 m (z −2.00 … 2.00); a door at
+    // 4100 on d8b4's B spans z 1.55 … 2.45, past cd0e's corner. cd0e drops it,
+    // so d8b4's door is a door onto solid wall, not a shared doorway.
+    const own = door(4100)
+    const d8b4 = place('d8b4', rect(3000, 5100, { B: [own] }), D8B4_X, 0)
+    const cd0e = place('cd0e', rect(3000, 4000), 0, 0)
+    expect(neighbourOpenings(cd0e, [d8b4]).dropped).toBe(1)
+    expect(neighbourOpenings(d8b4, [cd0e]).shared).toEqual({})
   })
 
   it('is the very same object when there is nothing to borrow', () => {
     const g = rect(3000, 4000)
-    expect(withNeighbourOpenings(g, neighbourOpenings(place('x', g, 0, 0), []), { lineBorrowed: true })).toBe(g)
+    expect(withNeighbourOpenings(g, neighbourOpenings(place('x', g, 0, 0), []))).toBe(g)
   })
 
   it('never reaches the stored geometry', () => {
     const g = rect(3000, 4000)
     const before = JSON.stringify(g)
     const d8b4 = place('d8b4', rect(3000, 5100, { B: [door(600)] }), D8B4_X, 0)
-    withNeighbourOpenings(g, neighbourOpenings(place('cd0e', g, 0, 0), [d8b4]), { lineBorrowed: true })
+    withNeighbourOpenings(g, neighbourOpenings(place('cd0e', g, 0, 0), [d8b4]))
     expect(JSON.stringify(g)).toBe(before)
   })
 })

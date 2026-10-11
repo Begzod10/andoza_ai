@@ -126,9 +126,10 @@ const FIT_TOLERANCE_MM = 1
  * apart, and a door leaf is a 40 mm slab hung inside the lining. A 20 mm
  * lining would leave the leaf standing proud of the wall in the room you are
  * in. 60 mm holds the leaf and its frame; in a 20 mm gap the lining then
- * reaches 40 mm past the far face, which is on the far side of the partition
- * from the room drawing it and is hidden in the neighbour (its partition
- * chrome is not drawn there; see `siblingWallsInActiveRoom`).
+ * reaches 40 mm past the far face, into the neighbour, inside the far-face
+ * architrave's opening. The far-face architrave itself still sits on the
+ * neighbour's real face (`partitionGapMm`), not at the lining's end, so it is
+ * against the wall it trims rather than 40 mm in front of it.
  */
 export const MIN_SHARED_LINING_MM = 60
 
@@ -261,21 +262,51 @@ function spansOverlap(aLeft: number, aWidth: number, bLeft: number, bWidth: numb
 
 // ─── What a room borrows ─────────────────────────────────────────────────────
 
+/** One of the receiving room's own openings that sits in a shared partition. */
+export interface SharedOpening {
+  /** The lining depth, mm: the measured gap, floored at
+   *  `MIN_SHARED_LINING_MM` so the leaf fits (`liningDepthMm`). */
+  depthMm: number
+  /** The measured gap itself, mm, from this face to the neighbour's — where
+   *  the far-face architrave goes. Negative when the rooms overlap a little. */
+  gapMm: number
+}
+
 export interface NeighbourOpenings {
   /** Per receiving wall id: the neighbours' openings that come through it, in
    *  the RECEIVING wall's store convention (mm, left edge, from that wall's own
    *  position-0 end), each marked with `borrowedFrom`. */
   borrowed: Record<string, WallElement[]>
-  /** The receiving room's OWN openings that sit in a shared partition, by
-   *  element id → the measured lining depth, mm. Their lining should span the
-   *  partition rather than the default `OPENING_REVEAL_D`. */
-  sharedDepthMm: Record<string, number>
+  /** The receiving room's OWN openings that sit in a shared partition and that
+   *  this room draws, by element id. Their lining spans the partition rather
+   *  than the default `OPENING_REVEAL_D`, and a door is trimmed on both faces. */
+  shared: Record<string, SharedOpening>
+  /** The receiving room's OWN openings that duplicate a neighbour's copy of
+   *  the same doorway, where the neighbour's copy is the one drawn: cut here,
+   *  drawn there. See "When this side already has one there" below. */
+  deferred: Record<string, true>
   /** Neighbours' openings that lie across this room's wall but overhang its
    *  end, and so are not cut here. See the fit rule in `neighbourOpenings`. */
   dropped: number
 }
 
-const EMPTY: NeighbourOpenings = { borrowed: {}, sharedDepthMm: {}, dropped: 0 }
+const EMPTY: NeighbourOpenings = { borrowed: {}, shared: {}, deferred: {}, dropped: 0 }
+
+/**
+ * Which of two rooms' copies of one doorway is drawn, when BOTH rooms store
+ * an opening there (see "When this side already has one there" below).
+ *
+ * The room being edited first, so its own door keeps its editable leaf —
+ * a copy drawn by the neighbour could not be selected, moved or restyled from
+ * the room the user is in. Between two other rooms, the smaller id: any fixed
+ * order would do, as long as both rooms reach the same answer, and both are
+ * computed independently (each room's render geometry is built on its own).
+ */
+export function drawsBefore(roomId: string, otherId: string, activeId: string | undefined): boolean {
+  if (roomId === activeId) return true
+  if (otherId === activeId) return false
+  return roomId < otherId
+}
 
 /**
  * The openings `receiver` must cut because a neighbour's wall lies against one
@@ -313,24 +344,48 @@ const EMPTY: NeighbourOpenings = { borrowed: {}, sharedDepthMm: {}, dropped: 0 }
  * not added: the room's own one is the hole, and adding the borrowed one too
  * would cut it twice and line it twice. Overlapping at all, not merely
  * coinciding, because two casings crossing each other is the same defect at a
- * smaller offset. The room's own opening is then recorded in `sharedDepthMm`
- * like any other in a shared partition, which is also how the existing
- * duplicated pairs get a lining that spans their partition.
+ * smaller offset.
+ *
+ * Both rooms then own a copy of ONE doorway, and both copies would be drawn —
+ * two linings on the same planes and two leaves in one opening. So exactly one
+ * copy is drawn (`drawsBefore`: the active room's, else the smaller room id):
+ * this room's copy goes in `shared` if it is that one, and in `deferred` if
+ * the neighbour's is. A deferred copy is still CUT here, at its own place —
+ * it is this room's stored hole — but carries no lining and no leaf.
  *
  * Neighbours' openings are also kept apart from each other: a wall that two
  * neighbours both lie against (or two rooms stacked at one layout position,
  * which this flat has) takes the first and skips any later one that would
  * overlap it.
  *
- * `neighbours` may include the receiver itself; it is skipped.
+ * ## Which of this room's own openings are shared
+ *
+ * One of this room's openings is in a shared partition when its span lies
+ * wholly on a facing neighbour's wall, within the partition gap — exactly the
+ * test that neighbour applies when it borrows the opening, measured from this
+ * side, so the two rooms cannot disagree about whether there is a hole behind
+ * it. One that overhangs the neighbour's wall end is dropped there (no hole),
+ * so it is NOT shared here: trimming its far face would hang an architrave on
+ * solid wall.
+ *
+ * `neighbours` may include the receiver itself; it is skipped. `activeId` is
+ * the room being edited, which only decides `drawsBefore`.
  */
-export function neighbourOpenings(receiver: PlacedRoom, neighbours: readonly PlacedRoom[]): NeighbourOpenings {
+export function neighbourOpenings(
+  receiver: PlacedRoom,
+  neighbours: readonly PlacedRoom[],
+  { activeId }: { activeId?: string } = {},
+): NeighbourOpenings {
   const recvLines = wallLinesOf(receiver)
   if (recvLines.length === 0) return EMPTY
 
   const borrowed: Record<string, WallElement[]> = {}
-  const sharedDepthMm: Record<string, number> = {}
+  const shared: Record<string, SharedOpening> = {}
+  const deferred: Record<string, true> = {}
   let dropped = 0
+  const markShared = (id: string, gapMm: number) => {
+    if (shared[id] === undefined) shared[id] = { depthMm: liningDepthMm(gapMm), gapMm: Math.round(gapMm) }
+  }
 
   for (const nb of neighbours) {
     if (nb.id === receiver.id) continue
@@ -341,13 +396,15 @@ export function neighbourOpenings(receiver: PlacedRoom, neighbours: readonly Pla
 
         // This room's own openings that a neighbour's wall lies against: they
         // are the near half of a shared doorway, and their lining should
-        // reach the far face. Measured from S, at the opening's own centre.
+        // reach the far face. Measured from S, at the opening's own centre,
+        // with the same fit rule S applies when it borrows them.
         for (const own of R.elements) {
           const c = centreOf(R, own)
           const gapMm = depthBehindMm(S, c)
-          const onS = alongMm(S, c)
-          if (!gapIsPartition(gapMm) || onS < 0 || onS > S.lengthMm) continue
-          if (sharedDepthMm[own.id] === undefined) sharedDepthMm[own.id] = liningDepthMm(gapMm)
+          if (!gapIsPartition(gapMm)) continue
+          const leftOnSMm = alongMm(S, c) - own.width / 2
+          if (leftOnSMm < -FIT_TOLERANCE_MM || leftOnSMm + own.width > S.lengthMm + FIT_TOLERANCE_MM) continue
+          markShared(own.id, gapMm)
         }
 
         for (const el of S.elements) {
@@ -370,7 +427,8 @@ export function neighbourOpenings(receiver: PlacedRoom, neighbours: readonly Pla
           const here = (borrowed[R.wallId] ??= [])
           const ownHit = R.elements.find((o) => spansOverlap(o.position, o.width, leftOnRMm, el.width))
           if (ownHit) {
-            if (sharedDepthMm[ownHit.id] === undefined) sharedDepthMm[ownHit.id] = liningDepthMm(gapMm)
+            if (drawsBefore(receiver.id, nb.id, activeId)) markShared(ownHit.id, gapMm)
+            else deferred[ownHit.id] = true
             continue
           }
           if (here.some((b) => spansOverlap(b.position, b.width, leftOnRMm, el.width))) continue
@@ -382,7 +440,8 @@ export function neighbourOpenings(receiver: PlacedRoom, neighbours: readonly Pla
   }
 
   for (const id of Object.keys(borrowed)) if (borrowed[id].length === 0) delete borrowed[id]
-  return { borrowed, sharedDepthMm, dropped }
+  for (const id of Object.keys(deferred)) delete shared[id]
+  return { borrowed, shared, deferred, dropped }
 }
 
 /**
@@ -397,9 +456,10 @@ export function neighbourOpenings(receiver: PlacedRoom, neighbours: readonly Pla
  * stated in each wall's own frame and the two faces of a partition look at
  * each other: the hinge jamb a person in the owner's room sees on their left is
  * on the right seen from this side, and a leaf that opens into the owner's
- * room opens AWAY from this one. Turning both keeps the leaf on the same
- * physical jamb, swinging into the same physical room, whichever side hangs
- * it (see `withNeighbourOpenings` for which side that is).
+ * room opens AWAY from this one. Turning both keeps the copy describing the
+ * same physical door — same jamb, swinging into the same room. The copy is
+ * only ever cut, never hung (the owner hangs the one leaf; see
+ * `withNeighbourOpenings`), but it should not contradict the door it is.
  */
 function borrowedCopy(el: WallElement, ownerRoomId: string, leftMm: number, depthMm: number): WallElement {
   const copy: WallElement = {
@@ -427,22 +487,30 @@ function borrowedCopy(el: WallElement, ownerRoomId: string, leftMm: number, dept
  * `geometry` with its neighbours' openings cut in — the geometry to RENDER the
  * room's shell from, never to store.
  *
- * `lineBorrowed` says which side of each shared opening draws its lining (the
- * reveal, frame and architrave) and hangs its leaf. Exactly one side must,
- * because the lining is built as a reveal reaching out from one face across
- * the partition to the other: drawn from both faces it is two coincident
- * tunnels and two leaves in one opening, which z-fight, and drawn from
- * neither it is a bare slot. The rule:
+ * ## Drawn once, by the room that owns it, whichever room is active
  *
- *  - The ACTIVE room lines everything in its walls, borrowed or not (pass
- *    `true`). Its siblings already skip all chrome on the partition they share
- *    with it (`siblingWallsInActiveRoom`), so from the room the user is
- *    standing in each doorway has exactly one lining, spanning the partition.
- *  - A SIBLING borrows bare (pass `false`): it cuts the hole — that is what
- *    its own face of the partition was missing — and leaves the lining to the
- *    room that owns the opening. Between two siblings that is the owner;
- *    between a sibling and the active room the sibling's partition chrome is
- *    off either way.
+ * The user's requirement is that a door in a shared wall be visible in both
+ * rooms; the approved design is that each such doorway is drawn ONCE for the
+ * whole flat — one lining spanning the measured gap, one leaf, and an
+ * architrave on EACH face — and that it looks the same whichever room is
+ * being edited. So the room that OWNS the opening draws all of it, whether it
+ * is the active room or a sibling, and every other room only cuts its hole:
+ *
+ *  - The room's own openings in a shared partition (`found.shared`) carry the
+ *    measured lining depth (`revealDepthMm`), the gap to the far face
+ *    (`partitionGapMm`, where the second architrave goes) and
+ *    `sharedPartition`, which also keeps their chrome when the sibling layer
+ *    switches off a partition's other chrome (lib/flatOpenings'
+ *    `drawsOpeningLining`).
+ *  - Borrowed openings are always `bare`: cut, nothing else. Their owner draws
+ *    them, from its own side.
+ *  - Own copies the neighbour's copy is drawn for (`found.deferred`) are
+ *    `bare` too.
+ *
+ * The rule this replaces — "whichever room is active lines every doorway in
+ * its walls" — made the doorway depend on which room was open: an architrave
+ * on the active room's face only, the far face bare, and a doorway stored in
+ * both rooms drawn twice whenever a third room was open.
  *
  * A wall that receives borrowed openings has its own openings handed over
  * already resolved and marked explicit. Otherwise the extra element would
@@ -453,19 +521,19 @@ function borrowedCopy(el: WallElement, ownerRoomId: string, leftMm: number, dept
  * Returns `geometry` itself when there is nothing to add, so memoized
  * consumers see no change.
  */
-export function withNeighbourOpenings(
-  geometry: RoomGeometry,
-  found: NeighbourOpenings,
-  { lineBorrowed }: { lineBorrowed: boolean },
-): RoomGeometry {
+export function withNeighbourOpenings(geometry: RoomGeometry, found: NeighbourOpenings): RoomGeometry {
   const anyBorrowed = Object.keys(found.borrowed).length > 0
-  const anyShared = Object.keys(found.sharedDepthMm).length > 0
-  if (!anyBorrowed && !anyShared) return geometry
+  const anyMarked = Object.keys(found.shared).length > 0 || Object.keys(found.deferred).length > 0
+  if (!anyBorrowed && !anyMarked) return geometry
 
   const lines = new Map(wallLinesOf({ id: '', geometry, offsetXM: 0, offsetZM: 0 }).map((l) => [l.wallId, l]))
+  const marked = (el: WallElement) => found.shared[el.id] !== undefined || found.deferred[el.id] !== undefined
   const annotate = (el: WallElement): WallElement => {
-    const depth = found.sharedDepthMm[el.id]
-    return depth === undefined ? el : { ...el, revealDepthMm: depth }
+    if (found.deferred[el.id]) return { ...el, bare: true }
+    const s = found.shared[el.id]
+    return s === undefined
+      ? el
+      : { ...el, revealDepthMm: s.depthMm, partitionGapMm: s.gapMm, sharedPartition: true }
   }
 
   return {
@@ -475,10 +543,9 @@ export function withNeighbourOpenings(
       const line = lines.get(wall.id)
       if (extra?.length && line) {
         const own = line.elements.map((el) => annotate({ ...el, positionAuto: false }))
-        const theirs = lineBorrowed ? extra : extra.map((el) => ({ ...el, bare: true as const }))
-        return { ...wall, elements: [...own, ...theirs] }
+        return { ...wall, elements: [...own, ...extra.map((el) => ({ ...el, bare: true as const }))] }
       }
-      if (!wall.elements.some((el) => found.sharedDepthMm[el.id] !== undefined)) return wall
+      if (!wall.elements.some(marked)) return wall
       return { ...wall, elements: wall.elements.map(annotate) }
     }),
   }
@@ -491,18 +558,6 @@ export function ownOpeningsOnly(geometry: RoomGeometry): RoomGeometry {
   return {
     ...geometry,
     walls: geometry.walls.map((w) => ({ ...w, elements: w.elements.filter((el) => !el.borrowedFrom) })),
-  }
-}
-
-/** The borrowed openings this side LINES only — what the active room hangs
- *  leaves and sashes in, as scenery (see `withNeighbourOpenings`). */
-export function linedBorrowedOpeningsOnly(geometry: RoomGeometry): RoomGeometry {
-  return {
-    ...geometry,
-    walls: geometry.walls.map((w) => ({
-      ...w,
-      elements: w.elements.filter((el) => el.borrowedFrom && !el.bare),
-    })),
   }
 }
 

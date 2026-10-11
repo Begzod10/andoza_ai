@@ -236,13 +236,18 @@ export const OPENING_CHROME_REACH_M = 0.2
  * doorway mirrored (see lib/sharedOpenings) it usually was not: a brown frame
  * against solid wall.
  *
- * Hiding it is not hiding a defect. A doorway through a partition is ONE
- * doorway; the room you are standing in draws it, with its reveal, its casing,
- * its architrave and its leaf, and the room on the other side drawing a second
- * copy of the same doorway 100 mm away was always a duplicate. The sibling's
- * wall plane itself still renders and is still CUT — that is what you see
- * through — and a sibling's doorway onto anywhere else keeps its casing in
- * full, which is the difference between this and simply not drawing frames.
+ * Hiding it is not hiding a defect: a 200 mm reveal from a wall closer than
+ * that to the active room is chrome standing inside the active room. The
+ * sibling's wall plane itself still renders and is still CUT — that is what
+ * you see through — and a sibling's doorway onto anywhere else keeps its
+ * casing in full, which is the difference between this and simply not
+ * drawing frames.
+ *
+ * One exception, and it is not made here: a doorway through the shared
+ * partition that this sibling OWNS is drawn by this sibling and nobody else —
+ * a lining spanning exactly the measured gap, its leaf, and an architrave on
+ * both faces — so it is kept even on a wall this returns. See
+ * lib/flatOpenings ("The sibling partition rule, narrowed").
  *
  * A fully OVERLAPPING sibling (two rooms stored at the same `layoutPos`, which
  * this apartment has twice over) falls out of the same rule: every one of its

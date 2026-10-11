@@ -15,6 +15,7 @@ import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimPro
 import { useRoomStore, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import { DOOR_IVORY } from "@/lib/doorStyles";
 import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, openingRevealDepth, noRaycast, FLOOR_COLORS } from "./constants";
+import { architraveFaces, drawsOpeningLining } from "@/lib/flatOpenings";
 import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
 
 /** Paper has a weave, and its own image says where. */
@@ -1180,11 +1181,14 @@ export function WindowFrames({
   wallWidth,
   wallDepth,
   hiddenWalls,
+  partitionWalls,
 }: {
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
+  /** A sibling's walls against the active room — see `drawsOpeningLining`. */
+  partitionWalls?: ReadonlySet<string>;
 }) {
   const items: React.ReactElement[] = [];
 
@@ -1198,8 +1202,8 @@ export function WindowFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "deraza" && el.type !== "balkon") continue;
-      // Lining left to the room that owns it — see `withNeighbourOpenings`.
-      if (el.bare) continue;
+      // Lining left to the room that draws it — see lib/flatOpenings.
+      if (!drawsOpeningLining(el, wd.id, partitionWalls)) continue;
       items.push(<WindowFrameItem key={`frame-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }
@@ -1242,6 +1246,24 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   const frC = out * (revealD - FRAME_T / 2);
   const jamb = elW / 2 - FRAME_W / 2;
 
+  // The architrave on each face this door is trimmed on. The room's own face
+  // always: the casing stands proud of it INTO the room, along −out. A door
+  // through a shared partition is also trimmed on the NEIGHBOUR's face — the
+  // user's "that door between should be visible in both rooms", in the
+  // approved form of one doorway with an architrave on both faces. This room
+  // is the only one drawing that doorway (lib/flatOpenings), so the far
+  // casing is drawn from here, on the neighbour's real face at the measured
+  // gap (`partitionGapMm`), standing proud of it into the neighbour, along
+  // +out. Never in front of the near one: a slight overlap of the two rooms
+  // (a negative gap) puts it back at this face, behind the near casing,
+  // rather than inside this room.
+  const faces = architraveFaces(el);
+  const farFaceM = Math.max(0, el.partitionGapMm ?? 0) * MM;
+  const architraves: { key: string; centre: number }[] = [
+    { key: "near", centre: -out * (ARCH_T / 2) },
+    ...(faces === 2 ? [{ key: "far", centre: out * (farFaceM + ARCH_T / 2) }] : []),
+  ];
+
   return (
     <group ref={groupRef} position={[px, py, pz]}>
       {/* A door's niche is floored by the doorway itself, not a sill: the
@@ -1281,18 +1303,20 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
           in front of an 18 mm board — so on site the casing is cut to stand on
           it, which is what the user asked for. With no skirting in the room
           they run to the floor. */}
-      <group position={v(0, 0, -out * (ARCH_T / 2))}>
-        {[-1, 1].map((side) => (
-          <mesh key={side} position={v(side * (elW / 2 + ARCH_W / 2), archBase + archLegH / 2, 0)} castShadow>
-            <boxGeometry args={v(ARCH_W, archLegH, ARCH_T)} />
+      {architraves.map(({ key, centre }) => (
+        <group key={key} position={v(0, 0, centre)}>
+          {[-1, 1].map((side) => (
+            <mesh key={side} position={v(side * (elW / 2 + ARCH_W / 2), archBase + archLegH / 2, 0)} castShadow>
+              <boxGeometry args={v(ARCH_W, archLegH, ARCH_T)} />
+              {architraveMat(leafColor)}
+            </mesh>
+          ))}
+          <mesh position={v(0, elH + ARCH_W / 2, 0)} castShadow>
+            <boxGeometry args={v(elW + ARCH_W * 2, ARCH_W, ARCH_T)} />
             {architraveMat(leafColor)}
           </mesh>
-        ))}
-        <mesh position={v(0, elH + ARCH_W / 2, 0)} castShadow>
-          <boxGeometry args={v(elW + ARCH_W * 2, ARCH_W, ARCH_T)} />
-          {architraveMat(leafColor)}
-        </mesh>
-      </group>
+        </group>
+      ))}
 
       {/* No threshold plate. A dark bar laid across the doorway was the thing
           that read as "a different floor under the door"; the niche carries
@@ -1307,11 +1331,14 @@ export function DoorFrames({
   wallWidth,
   wallDepth,
   hiddenWalls,
+  partitionWalls,
 }: {
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
+  /** A sibling's walls against the active room — see `drawsOpeningLining`. */
+  partitionWalls?: ReadonlySet<string>;
 }) {
   const items: React.ReactElement[] = [];
 
@@ -1325,9 +1352,9 @@ export function DoorFrames({
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "eshik") continue; // Only doors
-      // A neighbour's door cut through this wall with its lining left to the
-      // room that owns it — see `withNeighbourOpenings`.
-      if (el.bare) continue;
+      // A door cut through this wall whose lining another room draws, or one
+      // a sibling does not draw on its partition — see lib/flatOpenings.
+      if (!drawsOpeningLining(el, wd.id, partitionWalls)) continue;
       items.push(<DoorFrameItem key={`door-${wd.id}-${el.id}`} wd={wd} el={el} />);
     }
   }

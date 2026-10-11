@@ -20,7 +20,7 @@ import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcle
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { computeOccupiedSides, flatExtent, placedSiblingRooms } from "./helpers";
-import { linedBorrowedOpeningsOnly, neighbourOpenings, ownOpeningsOnly, withNeighbourOpenings } from "@/lib/borrowedOpenings";
+import { flatRenderPlan } from "@/lib/flatOpenings";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
@@ -201,34 +201,26 @@ export function ThreeDCanvasScene({
     [aptRooms, room.id, W, D, activeLayoutPos],
   );
   /**
-   * "this door should work for the wall of another room": the neighbours'
-   * openings that come through this room's walls, cut into the geometry the
-   * shell is DRAWN from. Never the store's geometry — nothing borrowed is
-   * saved, billed or editable; see lib/borrowedOpenings for the design.
-   *
-   * This room lines every opening in its walls, its own and the borrowed ones
-   * (`lineBorrowed: true`): its neighbours draw no chrome on the partition
-   * they share with it (`siblingWallsInActiveRoom`), so this is the one
-   * lining that doorway gets, spanning the measured partition.
+   * "that door between should be visible in both rooms": what every room of
+   * the flat draws for its openings, the active room included — one plan,
+   * lib/flatOpenings. Each doorway through a shared partition is drawn once,
+   * by the room that owns it, with an architrave on both faces; every other
+   * room cuts its hole. Built from the store's LIVE geometry for this room, so
+   * a door added, moved or deleted here shows through the neighbour at once;
+   * never written back — nothing borrowed is saved, billed or editable.
    */
   const siblingsPlaced = useMemo(
     () => (aptRooms ? placedSiblingRooms(aptRooms, room.id, W, D, activeLayoutPos) : []),
     [aptRooms, room.id, W, D, activeLayoutPos],
   );
-  const shellGeometry = useMemo(
-    () => withNeighbourOpenings(
-      geometry,
-      neighbourOpenings({ id: room.id, geometry, offsetXM: 0, offsetZM: 0 }, siblingsPlaced),
-      { lineBorrowed: true },
-    ),
+  const flatPlan = useMemo(
+    () => flatRenderPlan({ id: room.id, geometry, offsetXM: 0, offsetZM: 0 }, siblingsPlaced),
     [geometry, room.id, siblingsPlaced],
   );
-  /** The room's own openings, carrying their partition depth so a leaf hangs
-   *  at the outer edge of the lining it is drawn in — for the editable layer. */
-  const ownOpeningGeometry = useMemo(() => ownOpeningsOnly(shellGeometry), [shellGeometry]);
-  /** The borrowed openings this room lines — their leaves and sashes, as
-   *  scenery: the owner's own leaf is not drawn on the shared partition. */
-  const borrowedLeafGeometry = useMemo(() => linedBorrowedOpeningsOnly(shellGeometry), [shellGeometry]);
+  const shellGeometry = flatPlan.active.shell;
+  /** The room's own openings, carrying their partition marks so a shared
+   *  door's leaf hangs at the end of its measured lining — the editable layer. */
+  const ownOpeningGeometry = flatPlan.active.leaves[0].geometry;
 
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
@@ -500,8 +492,7 @@ export function ThreeDCanvasScene({
             activeW={W}
             activeD={D}
             activePos={activeLayoutPos}
-            activeGeometry={geometry}
-            siblingsPlaced={siblingsPlaced}
+            siblingPlans={flatPlan.siblings}
             focusedRoomId={focusedRoomId}
             onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
             onOpen={async (id) => {
@@ -531,7 +522,6 @@ export function ThreeDCanvasScene({
         <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} hiddenWalls={behind} />
         <OpeningLayer
           geometry={ownOpeningGeometry}
-          borrowedGeometry={borrowedLeafGeometry}
           W={W}
           D={D}
           cutaway={topView ? 'off' : cutaway}

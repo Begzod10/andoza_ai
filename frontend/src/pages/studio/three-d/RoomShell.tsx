@@ -21,6 +21,7 @@ import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor, CeilingProfile, DoorwayFloors } from "./FloorCeiling";
 import { doorwayNiches } from "@/lib/doorwayNiches";
 import { rendersAsAbcdRectangle } from "@/lib/borrowedOpenings";
+import { drawsOpeningLining } from "@/lib/flatOpenings";
 import { rectangleFrame } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
@@ -243,6 +244,7 @@ function NWallRoomShell({
   cutaway = 'off',
   plasterWalls = false,
   hiddenAttachments,
+  partitionWalls,
   readOnly = false,
 }: {
   geometry: RoomGeometry;
@@ -276,6 +278,13 @@ function NWallRoomShell({
    *  off and every drawn room kept its door and window casings floating. A
    *  required prop makes that a compile error. */
   hiddenAttachments: ReadonlySet<string> | undefined;
+  /** A sibling's walls that lie against the room being edited. Their trim
+   *  runs, and every opening chrome except the one drawing of a shared
+   *  doorway, are left out — see lib/flatOpenings ("The sibling partition
+   *  rule, narrowed"). Unlike `hiddenAttachments` this does not take a shared
+   *  doorway's lining, leaf or far-face architrave with it: this room is the
+   *  only one drawing them. */
+  partitionWalls?: ReadonlySet<string>;
 }) {
   // Skirting: undefined means the user never touched it, which still renders
   // the default board; only an explicit null takes it off.
@@ -662,9 +671,10 @@ function NWallRoomShell({
                   outside; its casings are not, so they go with it rather than
                   hanging in the air where it was. */}
               {!hiddenAttachments?.has(e.wallId) && resolvedEls.map((el) =>
-                // A neighbour's opening cut through this wall with its lining
-                // left to the room that owns it (`withNeighbourOpenings`).
-                el.bare ? null : el.type === 'eshik' ? (
+                // An opening cut through this wall whose lining another room
+                // draws, or one a sibling does not draw on its partition with
+                // the active room — see lib/flatOpenings.
+                !drawsOpeningLining(el, e.wallId, partitionWalls) ? null : el.type === 'eshik' ? (
                   <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
                 ) : (
                   <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />
@@ -675,7 +685,7 @@ function NWallRoomShell({
                   its profile toward the room — yaw 0 when the room is on the
                   local +Z side, π when it is not (which also reverses local
                   +X, hence the swapped mitre flags). */}
-              {cornice && !hiddenAttachments?.has(e.wallId) && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
+              {cornice && !hiddenAttachments?.has(e.wallId) && !partitionWalls?.has(e.wallId) && trimSegments(e.length, elements, (H - cornice.heightM) * 1000, H * 1000).map((s, si) => {
                 const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
                 const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
                 const fwd = e.faceDir > 0;
@@ -702,7 +712,7 @@ function NWallRoomShell({
                   />
                 );
               })}
-              {trim && !hiddenAttachments?.has(e.wallId) && baseSegs.map((s, si) => {
+              {trim && !hiddenAttachments?.has(e.wallId) && !partitionWalls?.has(e.wallId) && baseSegs.map((s, si) => {
                 const atLeft = s.center - s.len / 2 <= -e.length / 2 + 0.002;
                 const atRight = s.center + s.len / 2 >= e.length / 2 - 0.002;
                 const fwd = e.faceDir > 0;
@@ -756,6 +766,7 @@ export const RoomScene = memo(function RoomScene({
   holdBind,
   plasterWalls = false,
   hiddenAttachments,
+  partitionWalls,
   readOnly = false,
 }: {
   room: Room;
@@ -813,6 +824,13 @@ export const RoomScene = memo(function RoomScene({
    *  skirting and its faceplates are ordinary geometry, and hung in mid-air
    *  once the wall had gone. */
   hiddenAttachments?: ReadonlySet<string>;
+  /** A sibling's walls that lie against the room being edited. Their trim
+   *  runs, and every opening chrome except the one drawing of a shared
+   *  doorway, are left out — see lib/flatOpenings ("The sibling partition
+   *  rule, narrowed"). Unlike `hiddenAttachments` this does not take a shared
+   *  doorway's lining, leaf or far-face architrave with it: this room is the
+   *  only one drawing them. */
+  partitionWalls?: ReadonlySet<string>;
 }) {
   // Legacy 4-wall ABCD rectangle — use the existing precise rendering.
   // Any other layout (N-wall from RoomPlan) uses NWallRoomShell.
@@ -935,6 +953,12 @@ export const RoomScene = memo(function RoomScene({
   const hiddenWalls = useMemo(
     () => new Set([...cutawayHidden, ...(hiddenAttachments ?? [])]),
     [cutawayHidden, hiddenAttachments],
+  )
+  // Trim runs go with the partition entirely; openings are decided one by one
+  // (`partitionWalls` on the frames below).
+  const hiddenTrimWalls = useMemo(
+    () => (partitionWalls?.size ? new Set([...hiddenWalls, ...partitionWalls]) : hiddenWalls),
+    [hiddenWalls, partitionWalls],
   )
 
   // Skirting: `undefined` is "never touched", which still draws the default
@@ -1086,17 +1110,17 @@ export const RoomScene = memo(function RoomScene({
             </group>
           </WallFade>
 
-          <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
-          <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} />
+          <WindowFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} partitionWalls={partitionWalls} />
+          <DoorFrames geometry={geometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} partitionWalls={partitionWalls} />
           {skirting && (
-            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls} trim={skirting}
+            <Baseboard width={W} depth={D} geometry={geometry} hiddenWalls={hiddenTrimWalls} trim={skirting}
               onClick={onSkirtingClick} isSelected={isSkirtingSelected}
               // Unbound in a read-only sibling: the delete writes to the store,
               // which holds the room being EDITED — see `readOnly`.
               onHoldDown={readOnly ? undefined : holdSkirting.onPointerDown} />
           )}
           {cornice && (
-            <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenWalls}
+            <Cornice width={W} depth={D} geometry={geometry} hiddenWalls={hiddenTrimWalls}
               trim={cornice} junctionY={corniceY}
               onClick={onCorniceClick} isSelected={isCorniceSelected}
               onHoldDown={readOnly ? undefined : holdCornice.onPointerDown} />
@@ -1139,6 +1163,7 @@ export const RoomScene = memo(function RoomScene({
             cutaway={topView ? 'off' : cutaway}
             plasterWalls={plasterWalls}
             hiddenAttachments={hiddenAttachments}
+            partitionWalls={partitionWalls}
             readOnly={readOnly}
           />
         ) : null

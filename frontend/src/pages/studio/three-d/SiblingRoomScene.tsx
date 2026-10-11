@@ -293,14 +293,16 @@ function SiblingBlockShell({
  * things the shell binds for ITSELF are switched off by `readOnly`.
  */
 function SiblingFullShell(
-  { view, wallsInActiveRoom, shellGeometry }: {
+  { view, wallsInActiveRoom, shellGeometry, onOpen }: {
     view: SiblingRoomView;
     wallsInActiveRoom: ReadonlySet<string>;
-    /** `view.geometry` with the neighbours' openings cut in, bare — see
-     *  `withNeighbourOpenings`. Only the SHELL is drawn from it: the leaves
-     *  below stay on the room's own openings, since a borrowed one's leaf
-     *  hangs in the lining the other room draws. */
+    /** `view.geometry` with the neighbours' openings cut in, bare, and its own
+     *  doorways through shared partitions marked as the one drawing of each
+     *  (lib/flatOpenings). The shell AND the leaves are drawn from it, so a
+     *  shared doorway's leaf hangs at the end of the lining it is drawn in. */
     shellGeometry: RoomGeometry;
+    /** Opens this room — what a tap on one of its leaves does. */
+    onOpen: () => void;
   },
 ) {
   return (
@@ -333,12 +335,14 @@ function SiblingFullShell(
         // single-sided and cull on their own, the whole dollhouse convention
         // (WALL_T = 0).
         //
-        // What it IS is this room's own walls that stand inside the active
-        // room: the shared partition's reveal, casing, architrave and trim
-        // runs, which the active room already draws for the same doorway and
-        // which otherwise stood 100 mm proud of its wall as a brown frame.
-        // See `siblingWallsInActiveRoom`.
-        hiddenAttachments={wallsInActiveRoom}
+        // What it IS is this room's own walls that stand against or inside
+        // the active room: their trim runs, and any opening chrome that would
+        // reach 200 mm into the active room as a brown frame (see
+        // `siblingWallsInActiveRoom`) — but NOT a doorway this room draws as
+        // the one drawing of a shared partition's opening. That one spans the
+        // measured gap exactly and is trimmed on the active room's face too,
+        // and nobody else draws it. See lib/flatOpenings.
+        partitionWalls={wallsInActiveRoom}
       />
       {/* The leaves and sashes that hang in this room's own openings.
           `RoomScene` draws a doorway's hole, reveal and casing but not what
@@ -346,30 +350,34 @@ function SiblingFullShell(
           for the active room only, so every neighbour's doorway was an empty
           frame with daylight through it.
 
-          Mounted as scenery: `interactive={false}` means no picking, no
-          editor, no ring. That matters for more than tidiness — these leaves
-          stand in front of the room's own pick box, and a leaf that swallowed
-          the click would eat the tap that opens the room. OpeningLeaves' own
-          `onTap` lets the click through when it is not interactive.
+          Mounted as scenery: `interactive={false}` means no editor, no
+          ring, no drag. A tap on one opens THIS room (`openRoom`), as a tap
+          on the room's pick box does — a doorway shared with the active room
+          is drawn only from here, its leaf stands between the two rooms'
+          faces, outside the pick box, and from the active room it is the
+          door the user taps to go through. See `openingTapHandler`.
 
-          `hiddenWalls` carries the shared-partition set for the same reason
-          the shell gets it: the active room already hangs a leaf in that
-          doorway, and two leaves in one opening z-fight. */}
+          From the shell geometry, with the partition set: a leaf is hung
+          exactly where this room draws a lining, so a doorway shared with
+          the active room gets its one leaf from here when this room owns it,
+          and none when it does not. */}
       <OpeningLeaves
         kind="door"
-        geometry={view.geometry}
+        geometry={shellGeometry}
         wallWidth={view.widthM}
         wallDepth={view.depthM}
-        hiddenWalls={wallsInActiveRoom}
+        partitionWalls={wallsInActiveRoom}
         interactive={false}
+        openRoom={onOpen}
       />
       <OpeningLeaves
         kind="window"
-        geometry={view.geometry}
+        geometry={shellGeometry}
         wallWidth={view.widthM}
         wallDepth={view.depthM}
-        hiddenWalls={wallsInActiveRoom}
+        partitionWalls={wallsInActiveRoom}
         interactive={false}
+        openRoom={onOpen}
       />
 
       {/* The room's own furniture. Already the one part of the old stand-in
@@ -439,8 +447,9 @@ export function SiblingRoomBody({
    *  `SiblingRooms` from lib/borrowedOpenings, which needs every room of the
    *  flat at once). Absent: the room's own geometry. */
   shellGeometry?: RoomGeometry;
-  /** This room's walls that lie against the ACTIVE room across a partition,
-   *  by lib/borrowedOpenings' coincidence rule. */
+  /** This room's walls that lie against the ACTIVE room across a partition
+   *  (lib/flatOpenings' `partitionWalls`: the box test unioned with
+   *  lib/borrowedOpenings' coincidence rule). */
   partitionWithActive?: ReadonlySet<string>;
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -457,17 +466,13 @@ export function SiblingRoomBody({
 
   // Measured from the room's OWN walls when they are known, like the pick box
   // below: the layout footprint falls back to a 4 x 3 default for a drawn
-  // room, and a wrong footprint here would hide the wrong wall's casings.
+  // room, and a wrong footprint here would switch off the wrong wall's trim.
   //
-  // Still needed now that a new room stands exactly one door-depth from its
-  // neighbour (DOOR_JAMB_DEPTH_MM): the active room lines every doorway in
-  // that partition with a reveal reaching across it to this room's face, so
-  // this room's own lining of the same doorway would be a second tunnel on
-  // the same four planes, a second frame ring in the active room's doorway
-  // and a second leaf — two of everything, z-fighting. Hiding is what leaves
-  // exactly one. Unioned with the coincidence rule of lib/borrowedOpenings so
-  // a drawn or scanned room's partition (which the A-B-C-D test cannot name)
-  // is covered too.
+  // `partitionWithActive` already carries this box test (lib/flatOpenings
+  // builds it for every sibling); it is repeated here so a sibling mounted
+  // without a plan still keeps its chrome out of the active room. What the
+  // set switches off, and the one doorway it no longer does, is described in
+  // lib/flatOpenings ("The sibling partition rule, narrowed").
   const wallsInActiveRoom = useMemo(() => {
     const byBox = siblingWallsInActiveRoom(
       offsetXM, offsetZM,
@@ -501,7 +506,7 @@ export function SiblingRoomBody({
           can silently vanish from the flat; it just has nothing to build a
           shell from yet. */}
       {view && tier === 'full' ? (
-        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} />
+        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} onOpen={onOpen} />
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}

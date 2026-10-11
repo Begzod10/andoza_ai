@@ -9,6 +9,7 @@ import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { useRoomStore } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
+import { drawsOpeningLeaf } from "@/lib/flatOpenings";
 import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
@@ -213,17 +214,33 @@ interface DragState {
  * room, so the room would be the one thing in the flat you could not get into
  * by tapping its door.
  *
+ * A scenery leaf can also open its own room (`openRoom`). A doorway through a
+ * shared partition is drawn once, by the room that owns it (lib/flatOpenings),
+ * so from the neighbour's side the leaf in the doorway is the owner's — and it
+ * stands BETWEEN the two rooms' faces, outside the owner's pick box, so a tap
+ * on it reached no room at all. Editing stays with the owner; tapping the door
+ * from the other side opens the owner, as tapping any neighbouring room does.
+ * Only when the leaf is the NEAREST thing hit — the same rule as
+ * `SiblingPickBox` — so a tap meant for something of the active room's in
+ * front of it is never taken.
+ *
  * Extracted so the rule can be tested without a renderer — the whole of it is
- * which of those two a leaf is.
+ * which of those a leaf is.
  */
 export function openingTapHandler(
   interactive: boolean,
   wallId: string,
   elId: string,
   openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void,
+  openRoom?: () => void,
 ) {
   return (e: ThreeEvent<MouseEvent>) => {
-    if (!interactive) return;
+    if (!interactive) {
+      if (!openRoom || e.intersections?.[0]?.eventObject !== e.eventObject) return;
+      e.stopPropagation();
+      openRoom();
+      return;
+    }
     e.stopPropagation();
     openMenu?.(wallId, elId, e);
   };
@@ -239,18 +256,24 @@ export function OpeningLeaves({
   wallWidth,
   wallDepth,
   hiddenWalls,
+  partitionWalls,
   toolMode = "select",
   controlsRef,
   selectedId = null,
   onSelect,
   interactive = true,
   openMenu,
+  openRoom,
 }: {
   kind: OpeningKind;
   geometry: RoomGeometry;
   wallWidth: number;
   wallDepth: number;
   hiddenWalls?: ReadonlySet<string>;
+  /** A sibling's walls against the active room: leaves there are hung only
+   *  in the doorways this room draws as a shared partition's one drawing —
+   *  see lib/flatOpenings' `drawsOpeningLeaf`. */
+  partitionWalls?: ReadonlySet<string>;
   toolMode?: DoorToolMode;
   controlsRef?: React.RefObject<OrbitControlsImpl | null>;
   selectedId?: string | null;
@@ -263,6 +286,8 @@ export function OpeningLeaves({
    *  door, the sash layouts for a window. Without it a tap on a door had
    *  nothing of its own to offer and the click went looking behind it. */
   openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void;
+  /** Scenery only: a tap on a leaf opens this room (see `openingTapHandler`). */
+  openRoom?: () => void;
 }) {
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
@@ -296,18 +321,16 @@ export function OpeningLeaves({
       const wall = geometry.walls.find((w) => w.id === wf.id);
       if (!wall) continue;
       for (const el of resolveElementPositions(wall.elements, wf.lengthM * 1000)) {
-        // A neighbour's opening this room only cuts: the room that owns it
-        // hangs its leaf (`withNeighbourOpenings`), and two leaves in one
-        // opening z-fight. A borrowed opening that this room DOES line is
-        // never editable here, so it never reaches an interactive layer —
-        // the caller passes it only to a scenery one.
-        if (el.bare || (interactive && el.borrowedFrom)) continue;
+        // A hole this room only cuts — the room that draws the doorway hangs
+        // its leaf, and two leaves in one opening z-fight — and never a
+        // borrowed opening on an editable layer. See lib/flatOpenings.
+        if (!drawsOpeningLeaf(el, wf.id, partitionWalls, interactive)) continue;
         const isDoor = el.type === "eshik";
         if (isDoor === (kind === "door")) out.push({ wf, el });
       }
     }
     return out;
-  }, [frames, geometry, hiddenWalls, kind, interactive]);
+  }, [frames, geometry, hiddenWalls, partitionWalls, kind, interactive]);
 
   /**
    * Screen-space scale for a drag: how many mm of wall one pixel covers at the
@@ -432,7 +455,7 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
-          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu),
+          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu, openRoom),
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
             onSelect?.(null);
