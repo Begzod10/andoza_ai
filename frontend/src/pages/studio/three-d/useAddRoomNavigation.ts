@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
 import { createRoom, getRooms, updateRoom, type Room } from "@/lib/api";
@@ -101,12 +101,19 @@ export function useAddRoomNavigation(params: {
 }) {
   const { room, onSave, resetRoom, navigate, W, D } = params;
   const [addingRoom, setAddingRoom] = useState(false);
+  // The real guard. `addingRoom` is for the UI and only changes on the next
+  // render, so a second tap landing before that render got past it, and the
+  // flat got two rooms in the same spot. A ref is set the moment the first tap
+  // starts.
+  const busy = useRef(false);
 
   async function handleAddRoom(side: RoomSide) {
-    if (addingRoom) return;
+    if (busy.current) return;
+    busy.current = true;
     setAddingRoom(true);
     try { await onSave(); } catch { /* continue even if save fails (offline mode) */ }
     setAddingRoom(false);
+    busy.current = false;
     const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
     // Anchor info for directional placement — captured before resetRoom clears it
     const myPos = useRoomStore.getState().layoutPos ?? { x: 0, z: 0 };
@@ -148,7 +155,7 @@ export function useAddRoomNavigation(params: {
     dims: { widthMm: number; depthMm: number; heightMm: number; wallThicknessMm: number },
   ): Promise<void> {
     const side = wall.side;
-    if (addingRoom) return;
+    if (busy.current) return;
 
     // No apartment, no shared layout frame — and a room added to a NEW
     // apartment is not a neighbour of this one, it is a room in a different
@@ -160,6 +167,7 @@ export function useAddRoomNavigation(params: {
       : null;
     if (!aptId) { await handleAddRoom(side); return; }
 
+    busy.current = true;
     setAddingRoom(true);
     try {
       try { await onSave(); } catch { /* continue even if save fails (offline) */ }
@@ -266,6 +274,7 @@ export function useAddRoomNavigation(params: {
       resetRoom();
       navigate(`/studio/${created.id}/ichkarida`);
     } finally {
+      busy.current = false;
       setAddingRoom(false);
     }
   }

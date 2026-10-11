@@ -43,6 +43,7 @@ export default function SmetaPage() {
   const [highlightedLines, setHighlightedLines] = useState<Set<string>>(new Set());
   const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Groups the reader has folded away; everything starts open, so the whole bill is there to read.
   const [folded, setFolded] = useState<Set<GroupKey>>(new Set());
   // Whether the estimate on screen was repriced with real shop prices, and what that lookup found.
@@ -133,6 +134,8 @@ export default function SmetaPage() {
   // fight with the preview button's.
   const saveMutation = useMutation({
     mutationFn: () => createEstimate(roomId!),
+    onMutate: () => setSaveError(null),
+    onError: (err) => setSaveError(errorDetail(err) ?? "Smeta saqlanmadi. Internetni tekshirib, qayta urinib ko'ring."),
     onSuccess: (data) => {
       setEstimate(data);
       setSaveStatus("saved");
@@ -426,6 +429,7 @@ export default function SmetaPage() {
                       : uz.smeta.saqlash}
                 </button>
               </div>
+              {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className={secondaryButton}>
                   {uz.smeta.qayta_hisoblash}

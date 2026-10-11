@@ -92,7 +92,7 @@ class TestDeletion:
 
     def test_happy_path_deletes_store_usta_user_and_schedules_files(self, client, monkeypatch):
         u = _user(password="secret123")
-        furniture = MagicMock(glb_key="f/a.glb", thumbnail_key="f/a.jpg")
+        furniture = MagicMock(glb_key="f/a.glb", glb_opt_key="f/a.opt.glb", thumbnail_key="f/a.jpg")
         wall = MagicMock(storage_key="w/x.jpg")
         store = MagicMock(spec=Store, furniture_items=[furniture], wallpapers=[wall])
         usta = MagicMock(spec=Usta, id=uuid.uuid4())
@@ -101,7 +101,7 @@ class TestDeletion:
             _R(many=[store]), _R(many=[usta]), _R(many=["p/1.jpg"]),
             _R(many=[("t/room.jpg", scan)]),
             _R(many=[("r/1.png", None), ("r/2.png", "r/1.png")]),
-            _R(many=[("m/a.glb", "m/a.jpg")]),
+            _R(many=[("m/a.glb", "m/a.opt.glb", "m/a.jpg")]),
             _R(),
         ])
         queued = []
@@ -127,6 +127,8 @@ class TestDeletion:
         assert set(scheduled[0]) == {
             "f/a.glb", "f/a.jpg", "w/x.jpg", "p/1.jpg", "t/room.jpg", "s/a.usdz", "s/a.glb",
             "s/o.glb", "r/1.png", "r/2.png", "m/a.glb", "m/a.jpg",
+            # the compressed copies go with their originals
+            "f/a.opt.glb", "m/a.opt.glb",
         }
         assert len(scheduled[0]) == len(set(scheduled[0]))  # parent_key deduped
         assert queued  # OTP cleanup queued

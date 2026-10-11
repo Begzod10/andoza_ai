@@ -9,6 +9,8 @@ from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, upload_file
+from app.core.model_files import model_keys, served_key
+from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.user_model import UserModel
 from app.schemas.user_model import UserModelOut, UserModelUpdate
 
@@ -37,7 +39,7 @@ def _out(m: UserModel, request: Request) -> UserModelOut:
         size_d_m=m.size_d_m,
         size_h_m=m.size_h_m,
         has_textures=m.has_textures,
-        url=absolute_media_url(request, m.storage_key),
+        url=absolute_media_url(request, served_key(m.storage_key, m.opt_key)),
         thumbnail_url=absolute_media_url(request, m.thumb_key) if m.thumb_key else None,
         content_type=m.content_type,
         size_bytes=m.size_bytes,
@@ -189,6 +191,7 @@ async def upload_user_model(
     db.add(model)
     await db.flush()
     await db.refresh(model, attribute_names=["created_at"])
+    enqueue_optimize_after_commit(db, "user_model", str(model.id))
 
     logger.info("user_model_uploaded", id=str(model.id), user_id=str(current_user.id))
     return _out(model, request)
@@ -245,7 +248,7 @@ async def delete_user_model(
     if model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model topilmadi")
 
-    keys = [model.storage_key] + ([model.thumb_key] if model.thumb_key else [])
+    keys = model_keys(model.storage_key, model.opt_key) + ([model.thumb_key] if model.thumb_key else [])
     await db.delete(model)
     await db.flush()
     for key in keys:

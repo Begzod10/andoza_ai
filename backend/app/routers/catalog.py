@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.cache import cache_get, cache_set
 from app.core.storage import absolute_media_url, request_base_url
+from app.core.model_files import served_key
 from app.core.uz_regions import UZ_REGIONS
 from app.database import get_db
 from app.models.furniture import Furniture
@@ -134,7 +135,7 @@ def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
-        glb_url=absolute_media_url(request, f.glb_key),
+        glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=f.footprint_w,
         footprint_d=f.footprint_d,

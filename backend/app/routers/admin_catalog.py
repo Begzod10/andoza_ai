@@ -12,6 +12,8 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.deps import AdminUser, DbSession
 from app.core.cache import cache_delete_prefix
 from app.core.storage import absolute_media_url, delete_file, upload_file
+from app.core.model_files import model_keys, served_key
+from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.database import run_after_commit
 from app.models.furniture import Furniture
 from app.models.store import Store
@@ -88,7 +90,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
-        glb_url=absolute_media_url(request, f.glb_key),
+        glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
         thumbnail_url=absolute_media_url(request, f.thumbnail_key),
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
@@ -196,7 +198,7 @@ async def delete_store(store_id: uuid_module.UUID, admin: AdminUser, db: DbSessi
     stray_keys = [
         key
         for item in store.furniture_items
-        for key in (item.glb_key, item.thumbnail_key)
+        for key in (*model_keys(item.glb_key, item.glb_opt_key), item.thumbnail_key)
         if key
     ] + [w.storage_key for w in store.wallpapers if w.storage_key]
 
@@ -342,6 +344,7 @@ async def upload_furniture_model(
     await db.flush()
     await db.refresh(furniture)
     _invalidate_after_commit(db, "furniture:")
+    enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
 
     logger.info(
         "furniture_model_uploaded",
@@ -452,7 +455,7 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
     if furniture is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model topilmadi")
 
-    glb_key, thumbnail_key = furniture.glb_key, furniture.thumbnail_key
+    file_keys = [*model_keys(furniture.glb_key, furniture.glb_opt_key), furniture.thumbnail_key]
     await db.delete(furniture)
     await db.flush()
 
@@ -464,7 +467,7 @@ async def delete_furniture(furniture_id: uuid_module.UUID, admin: AdminUser, db:
     # public catalog stops advertising the model before its files go.
     # delete_store() above orders it the same way; keep the two in step.
     _invalidate_after_commit(db, "furniture:")
-    _delete_files_after_commit(db, [glb_key, thumbnail_key], "furniture_file_delete_failed")
+    _delete_files_after_commit(db, file_keys, "furniture_file_delete_failed")
 
     logger.info("furniture_deleted", id=str(furniture_id), admin_id=str(admin.id))
 

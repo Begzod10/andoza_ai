@@ -3,7 +3,16 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+
+/**
+ * A GLTFLoader that can read meshopt-compressed files too: the server stores
+ * such a copy of every model, and a user may bring one already compressed.
+ */
+export function makeGltfLoader(manager?: THREE.LoadingManager): GLTFLoader {
+  return new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder)
+}
 
 export interface ModelInfo {
   sizeM: { w: number; d: number; h: number }
@@ -576,7 +585,7 @@ export async function convertFilesToGlb(
       // a bundled backdrop plane (then the scene must be re-packed)
       const [origBuffer, gltf] = await Promise.all([
         mainFile.arrayBuffer(),
-        new GLTFLoader(manager).loadAsync(mainUrl),
+        makeGltfLoader(manager).loadAsync(mainUrl),
       ])
       const stripped = stripBackdropPlanes(gltf.scene)
       const uvFixed = ensureSceneUVs(gltf.scene)
@@ -591,7 +600,7 @@ export async function convertFilesToGlb(
     }
 
     if (ext === 'gltf') {
-      const gltf = await new GLTFLoader(manager).loadAsync(mainUrl)
+      const gltf = await makeGltfLoader(manager).loadAsync(mainUrl)
       stripBackdropPlanes(gltf.scene)
       ensureSceneUVs(gltf.scene)
       await awaitTextures()
@@ -657,7 +666,7 @@ export interface GlbMaterialInfo {
 
 function parseGlb(buffer: ArrayBuffer): Promise<{ scene: THREE.Group }> {
   return new Promise((resolve, reject) => {
-    new GLTFLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
+    makeGltfLoader().parse(buffer.slice(0), '', resolve as (g: unknown) => void, reject)
   })
 }
 

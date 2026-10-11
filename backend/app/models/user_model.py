@@ -50,6 +50,8 @@ class UserModel(Base):
     has_textures: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Storage key of the GLB (S3 object key, or path under MEDIA_ROOT)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Compressed copy of the GLB (meshopt + WebP); served instead when set
+    opt_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Optional JPEG preview rendered at import time
     thumb_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     content_type: Mapped[str] = mapped_column(String(60), nullable=False)

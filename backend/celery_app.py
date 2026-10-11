@@ -31,6 +31,7 @@ app.conf.update(
         # per-object) are CPU-heavy mesh work, so they run on their own queue
         # served only by the converter service.
         "app.tasks.media.convert_room_scan*": {"queue": "converter"},
+        "app.tasks.media.optimize_model_glb": {"queue": "converter"},
         "app.tasks.media.*": {"queue": "media"},
         "app.tasks.ai.*": {"queue": "ai-gpu"},
         "app.tasks.*": {"queue": "default"},

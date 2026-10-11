@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProjectsPage from './ProjectsPage'
 import * as api from '@/lib/api'
@@ -96,5 +96,36 @@ describe('ProjectsPage desktop cards', () => {
     await waitFor(() => expect(screen.getAllByText('1-bosqich: Korobka').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByLabelText('3-bosqich: Shpaklovka'))
     expect(screen.getAllByText('3-bosqich: Shpaklovka').length).toBeGreaterThan(0)
+  })
+})
+
+function WizardProbe() {
+  const loc = useLocation()
+  return <p data-testid="wizard-url">{loc.pathname + loc.search}</p>
+}
+
+describe('ProjectsPage "Yangi loyiha"', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("sends the new project's id to the wizard, so its first room lands in it", async () => {
+    vi.mocked(api.getApartments).mockResolvedValue([])
+    vi.mocked(api.createApartment).mockResolvedValue({ id: 'apt-new', name: 'Uy' } as never)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/projects']}>
+          <Routes>
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/wizard" element={<WizardProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(await screen.findByText('+ Yangi loyiha'))
+    fireEvent.change(screen.getByPlaceholderText('Masalan: Tashkent, Shayxontohur'), { target: { value: 'Uy' } })
+    fireEvent.click(screen.getByText('Yaratish'))
+    await waitFor(() =>
+      expect(screen.getByTestId('wizard-url').textContent).toBe('/wizard?apartmentId=apt-new'),
+    )
   })
 })

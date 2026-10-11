@@ -247,7 +247,34 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
 
 // ─── Mobile Bottom Nav ────────────────────────────────────────────────────────
 
+function BottomNavTab({ to, label, icon }: (typeof SIDEBAR_NAV)[number]) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex flex-col items-center gap-1 min-w-[56px] pb-4 transition-colors ${
+          isActive ? 'text-brand-light' : 'text-ink-muted'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* Fixed box so icons of different heights keep the labels on one line. */}
+          <span className="flex h-6 items-center justify-center" aria-hidden="true">{icon(isActive)}</span>
+          <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
+            {label}
+          </span>
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+/** Phone bottom bar: the same four tabs as the desktop sidebar, with the
+ *  "new project" button in the middle (Uy · Do'kon · + · Ustalar · Profil).
+ *  Profil has to be reachable here — it holds logout and account deletion. */
 function BottomNav({ onFab }: { onFab: () => void }) {
+  const [home, shop, workers, profile] = SIDEBAR_NAV
   return (
     <nav
       aria-label="Asosiy navigatsiya"
@@ -257,23 +284,8 @@ function BottomNav({ onFab }: { onFab: () => void }) {
       }}
     >
       <div className="flex items-center justify-around h-full">
-        <NavLink
-          to="/projects"
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand-light' : 'text-ink-muted'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <IconHome filled={isActive} />
-              <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
-                Uy
-              </span>
-            </>
-          )}
-        </NavLink>
+        <BottomNavTab {...home} />
+        <BottomNavTab {...shop} />
 
         {/* FAB — floats 22px above bar */}
         <div className="flex flex-col items-center" style={{ marginBottom: 44 }}>
@@ -288,23 +300,8 @@ function BottomNav({ onFab }: { onFab: () => void }) {
           </button>
         </div>
 
-        <NavLink
-          to="/dokon"
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 min-w-[60px] pb-4 transition-colors ${
-              isActive ? 'text-brand-light' : 'text-ink-muted'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <IconShop filled={isActive} />
-              <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
-                Do'kon
-              </span>
-            </>
-          )}
-        </NavLink>
+        <BottomNavTab {...workers} />
+        <BottomNavTab {...profile} />
       </div>
     </nav>
   )

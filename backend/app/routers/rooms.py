@@ -18,6 +18,7 @@ from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
 from app.schemas.room_scan import parse_captured_room
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
 from app.services.room_scan_converter import convert_captured_room
+from app.services.room_scan_dedupe import retire_earlier_scans
 
 logger = structlog.get_logger(__name__)
 
@@ -164,6 +165,13 @@ async def upload_room_scan(
         # Risers / wall boxes found in the scan (new-build pipe boxes): additive.
         "features": conv.features,
     }
+    # The phone makes a new room for every scan: scanning this room again must
+    # not leave the earlier, untouched copy standing beside it. Best-effort — a
+    # failed check costs a duplicate, never the scan.
+    try:
+        await retire_earlier_scans(db, room)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("room_scan_dedupe_failed", room_id=str(room.id), error=str(exc))
     await db.flush()
 
     # Reload before serialising: the flush UPDATEs the row, which expires the

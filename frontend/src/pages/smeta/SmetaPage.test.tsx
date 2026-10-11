@@ -104,6 +104,16 @@ describe('SmetaPage (Fix 7 — preview vs. persisted save)', () => {
     await waitFor(() => expect(createEstimate).toHaveBeenCalledTimes(1))
     expect(createEstimate).toHaveBeenCalledWith('room-1')
   })
+
+  it('a failed "Saqlash" tells the user instead of quietly resetting', async () => {
+    createEstimate.mockRejectedValueOnce(new Error('Failed to fetch'))
+    renderSmetaPage()
+    await waitFor(() => expect(previewEstimate).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(await screen.findByText('Saqlash'))
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/saqlanmadi|Failed/))
+  })
 })
 
 
