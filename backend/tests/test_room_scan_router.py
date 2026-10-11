@@ -252,3 +252,31 @@ def test_object_upload_rejects_non_usdz(ctx):
         files={"usdz": ("obj.txt", b"x", "text/plain")},
     )
     assert resp.status_code == 400
+
+
+def test_an_upload_retires_earlier_copies_of_the_same_scan(ctx, monkeypatch):
+    client, room, db = ctx
+    seen = []
+
+    async def retire(session, scanned):
+        seen.append((session, scanned))
+        return []
+
+    monkeypatch.setattr(rooms_mod, "retire_earlier_scans", retire)
+    resp = client.post(f"/api/v1/rooms/{room.id}/room-scan", data={"room_json": _FIXTURE}, files=_usdz())
+    assert resp.status_code == 200, resp.text
+    assert seen == [(db, room)]
+    # asked after the scan's own size is known: that is what a copy is matched on
+    assert room.floor_area > 0
+
+
+def test_a_failing_duplicate_check_never_loses_the_scan(ctx, monkeypatch):
+    client, room, _ = ctx
+
+    async def retire(session, scanned):
+        raise RuntimeError("db hiccup")
+
+    monkeypatch.setattr(rooms_mod, "retire_earlier_scans", retire)
+    resp = client.post(f"/api/v1/rooms/{room.id}/room-scan", data={"room_json": _FIXTURE}, files=_usdz())
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["room_scan"]["source"] == "lidar"
