@@ -156,8 +156,8 @@
   /* Platform-page surfaces: a card, the soft tile inside it, the text on both and the hairlines.
      Day is a white card on the lavender ground; night is a dark indigo card on a darker ground,
      so a page is not a stack of white sheets on a dark wall. Space-separated channels, so
-     tailwind opacity modifiers work (`bg-card/80`). Only pages built from Panel use these:
-     the studio and the dialogs keep their own white UI. */
+     tailwind opacity modifiers work (`bg-card/80`). Pages built from Panel, the studio's header and
+     ⋮ menu, and the dialogs (Dialog is themed by default) use these. */
   :root,
   :root[data-app-theme='day'] {
     --card: 255 255 255;

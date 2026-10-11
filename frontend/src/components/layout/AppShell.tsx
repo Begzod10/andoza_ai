@@ -1,3 +1,4 @@
+import { useAppThemeAttribute } from '@/hooks/useAppThemeAttribute'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
@@ -305,7 +306,6 @@ function BottomNav({ onFab }: { onFab: () => void }) {
 
 export function AppShell() {
   const [sheetOpen, setSheetOpen] = useState(false)
-  const theme = useThemeStore((s) => s.theme)
   const syncFromClock = useThemeStore((s) => s.syncFromClock)
 
   // Keep the theme following the system clock while in auto mode: re-check on
@@ -317,9 +317,7 @@ export function AppShell() {
   }, [syncFromClock])
 
   // Drive the CSS var (global.css) that recolors ONLY the app background.
-  useEffect(() => {
-    document.documentElement.setAttribute('data-app-theme', theme)
-  }, [theme])
+  useAppThemeAttribute()
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: 'var(--color-app-bg)' }}>

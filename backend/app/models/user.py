@@ -32,6 +32,16 @@ class User(Base):
         index=True,
     )
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # "Sign in with Google": the token's `sub` is Google's stable account id and
+    # is what we look the user up by. The email is kept for display/contact
+    # only -- it is never used to match or merge accounts.
+    google_sub: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Only admins may remove shared library content (e.g. uploaded wallpapers)

@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 _PHONE_RE = re.compile(r"^\+?998\d{9}$")
 
@@ -75,6 +75,12 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    """A Google ID token (JWT) from Google Identity Services / Google Sign-In."""
+
+    id_token: str = Field(min_length=1, max_length=8192)
 
 
 class DeleteAccountRequest(BaseModel):

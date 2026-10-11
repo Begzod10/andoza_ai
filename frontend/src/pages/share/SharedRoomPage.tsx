@@ -1,3 +1,4 @@
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
@@ -18,7 +19,6 @@ import { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
 import { Link2Off, Loader2 } from "lucide-react";
 import { IconBubble, Panel } from "@/components/ui/Panel";
-import { useThemeStore } from "@/store/themeStore";
 
 /**
  * localStorage key zustand's `persist` middleware autosaves the studio draft
@@ -71,10 +71,7 @@ export default function SharedRoomPage() {
   const [hydrated, setHydrated] = useState(false);
 
   // This page is outside AppShell, which is what normally applies the theme.
-  const appTheme = useThemeStore((st) => st.theme);
-  useEffect(() => {
-    document.documentElement.setAttribute("data-app-theme", appTheme);
-  }, [appTheme]);
+  useAppThemeAttribute();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["public-room", token],

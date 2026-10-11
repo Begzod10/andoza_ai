@@ -242,7 +242,7 @@ const uz: Dict = {
       name: "Pro",
       price: "Tez kunda",
       features: ["Aniq smeta", "Cheksiz loyiha", "Ustuvor qo'llab-quvvatlash"],
-      cta: "Boshlash",
+      cta: "Tez kunda",
     },
   },
   finalCta: {
@@ -414,7 +414,7 @@ const ru: Dict = {
       name: "Pro",
       price: "Скоро",
       features: ["Точная смета", "Неограниченные проекты", "Приоритетная поддержка"],
-      cta: "Начать",
+      cta: "Скоро",
     },
   },
   finalCta: {
@@ -586,7 +586,7 @@ const en: Dict = {
       name: "Pro",
       price: "Coming soon",
       features: ["Accurate estimate", "Unlimited projects", "Priority support"],
-      cta: "Get started",
+      cta: "Coming soon",
     },
   },
   finalCta: {
@@ -626,6 +626,16 @@ function readInitialLang(): Lang {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readInitialLang);
+
+  // index.html says lang="uz"; while the landing is shown in another language, say so, so screen readers
+  // pronounce it right and the browser does not offer to translate Russian "from Uzbek". Put back on the
+  // way out: the app itself is Uzbek.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = lang;
+    return () => { root.lang = previous; };
+  }, [lang]);
 
   useEffect(() => {
     try {

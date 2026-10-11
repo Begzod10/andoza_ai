@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { loginWithPassword, registerUser } from "@/lib/api";
+import { loginWithGoogle, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useThemeStore } from "@/store/themeStore";
 import { uz } from "@/locale/uz";
 import RegisterBackground from "./RegisterBackground";
+import GoogleSignInButton from "./GoogleSignInButton";
 import { Button } from "@/components/ui/Button";
-import { useThemeStore } from "@/store/themeStore";
 
 // Field on the themed card: soft inset surface, brand ring on focus.
 const FIELD_BASE =
@@ -86,9 +88,7 @@ export default function LoginPage() {
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   // Login sits outside AppShell, which is what normally applies the theme.
   const theme = useThemeStore((s) => s.theme);
-  useEffect(() => {
-    document.documentElement.setAttribute("data-app-theme", theme);
-  }, [theme]);
+  useAppThemeAttribute();
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
 
@@ -114,6 +114,21 @@ export default function LoginPage() {
       navigate(from, { replace: true });
     } catch {
       setError("Username yoki parol noto'g'ri.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Google sign-in (also signs up on first use) ──────────────
+  async function handleGoogleCredential(idToken: string) {
+    resetError();
+    setLoading(true);
+    try {
+      const res = await loginWithGoogle(idToken);
+      setAuthenticated(res.user);
+      navigate(from, { replace: true });
+    } catch {
+      setError("Google orqali kirib bo'lmadi. Qayta urinib ko'ring.");
     } finally {
       setLoading(false);
     }
@@ -199,6 +214,8 @@ export default function LoginPage() {
               {loading ? uz.common.yuklanmoqda : "Kirish"}
             </Button>
 
+            <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
+
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">
                 Akkauntingiz yo'qmi?{' '}
@@ -264,6 +281,8 @@ export default function LoginPage() {
             <Button size="lg" className="mt-6 w-full" onClick={handleRegister} disabled={loading}>
               {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
             </Button>
+
+            <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
 
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">

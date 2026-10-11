@@ -16,12 +16,16 @@ import { WebOnly } from "@/lib/embedded";
 import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { StudioMenu } from "@/components/studio/StudioMenu";
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 
 // Read live at navigation time (not from the last render): a save marks the
 // store clean and may navigate in the same tick.
 const getIsDirty = () => useRoomStore.getState().isDirty;
 
 export default function StudioPage() {
+  // Opened by direct link, outside AppShell — apply the theme here too.
+  useAppThemeAttribute();
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -449,7 +453,7 @@ export default function StudioPage() {
           space back. Three columns: [back+title] auto-width and left-aligned,
           [tabs] takes the remaining space and centers within it, [save+menu]
           auto-width on the right. */}
-      <header ref={headerRef} className="bg-white border-b border-neutral-100">
+      <header ref={headerRef} className="bg-card text-ink border-b border-line">
         <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Back button + title, left-aligned */}
           <div className="flex items-center gap-2 min-w-0">
@@ -458,9 +462,9 @@ export default function StudioPage() {
               <NavLink
                 to="/projects"
                 aria-label="Orqaga"
-                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
+                className="w-10 h-10 rounded-full bg-card-soft text-ink flex items-center justify-center flex-shrink-0 hover:bg-line transition-colors"
               >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <path d="M11 4L6 9l5 5"/>
                 </svg>
               </NavLink>
@@ -469,8 +473,8 @@ export default function StudioPage() {
               className="min-w-0 text-left hidden sm:block"
               onClick={() => setSettingsOpen(true)}
             >
-              <p className="text-[16px] lg:text-[20px] font-extrabold text-gray-900 truncate">{room.name}</p>
-              <p className="text-[11px] text-muted flex items-center gap-1">
+              <p className="text-[16px] lg:text-[20px] font-extrabold text-ink truncate">{room.name}</p>
+              <p className="text-[11px] text-ink-muted flex items-center gap-1">
                 {dimsLabel}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
@@ -527,74 +531,62 @@ export default function StudioPage() {
               </span>
             </button>
             <div className="relative">
-              <button
-                ref={menuButtonRef}
-                onClick={() => setMenuOpen(!menuOpen)}
-                aria-label="Ko'proq"
-                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition-colors"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="#6B7280" aria-hidden="true">
-                  <circle cx="9" cy="4" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="9" cy="14" r="1.5"/>
-                </svg>
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 min-w-[160px] max-w-[85vw]">
-                  <div ref={setMenuSlotEl} />
-                  {room.id !== 'local' && (
-                    <button
-                      onClick={handleShareClick}
-                      className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-neutral-50 first:rounded-t-lg transition-colors font-medium border-b border-neutral-100"
-                    >
-                      Ulashish
-                    </button>
-                  )}
+              <StudioMenu ref={menuButtonRef} open={menuOpen} onOpenChange={setMenuOpen}>
+                <div ref={setMenuSlotEl} />
+                {room.id !== 'local' && (
                   <button
-                    onClick={async () => {
-                      // Close the menu first: it sits above the dialog's overlay.
-                      setMenuOpen(false)
-                      if (await confirm({ title: "Xonani o'chirishni tasdiqlaysizmi?", description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) {
-                        try {
-                          await deleteRoom(room.id)
-                          // The room is gone, so its unsaved edits are too —
-                          // don't let the leave-guard ask about them.
-                          useRoomStore.getState().markSaved()
-                          navigate('/projects')
-                        } catch (err) {
-                          toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined })
-                        }
-                      }
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
+                    onClick={handleShareClick}
+                    className="w-full text-left px-4 py-2.5 text-xs text-ink hover:bg-card-soft first:rounded-t-lg transition-colors font-medium border-b border-line"
                   >
-                    O'chirish
+                    Ulashish
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={async () => {
+                    // Close the menu first: it sits above the dialog's overlay.
+                    setMenuOpen(false)
+                    if (await confirm({ title: "Xonani o'chirishni tasdiqlaysizmi?", description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) {
+                      try {
+                        await deleteRoom(room.id)
+                        // The room is gone, so its unsaved edits are too —
+                        // don't let the leave-guard ask about them.
+                        useRoomStore.getState().markSaved()
+                        navigate('/projects')
+                      } catch (err) {
+                        toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined })
+                      }
+                    }
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
+                >
+                  O'chirish
+                </button>
+            </StudioMenu>
               {sharePopoverOpen && (
                 <div
                   ref={sharePopoverRef}
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="share-popover-title"
-                  className="absolute right-0 top-12 bg-white rounded-lg shadow-card border border-neutral-200 z-50 w-72 p-3"
+                  className="absolute right-0 top-12 bg-card text-ink rounded-lg shadow-panel border border-line z-50 w-72 p-3"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <p id="share-popover-title" className="text-xs font-semibold text-gray-800">Ulashish havolasi</p>
+                    <p id="share-popover-title" className="text-xs font-semibold text-ink">Ulashish havolasi</p>
                     <button
                       ref={shareCloseButtonRef}
                       onClick={() => setSharePopoverOpen(false)}
-                      className="text-neutral-500 hover:text-neutral-600 text-sm leading-none"
+                      className="text-ink-muted hover:text-ink text-sm leading-none"
                       aria-label="Yopish"
                     >
                       ✕
                     </button>
                   </div>
                   {shareBusy && (
-                    <p className="text-xs text-muted py-2" aria-live="polite">Havola yaratilmoqda…</p>
+                    <p className="text-xs text-ink-muted py-2" aria-live="polite">Havola yaratilmoqda…</p>
                   )}
                   {!shareBusy && shareToken && (
                     <>
-                      <p className="text-[11px] text-muted mb-2">
+                      <p className="text-[11px] text-ink-muted mb-2">
                         Bu havolaga ega bo'lgan har kim xonani faqat ko'rishi mumkin — tahrirlash imkonsiz.
                       </p>
                       <div className="flex items-center gap-1.5">
@@ -602,7 +594,7 @@ export default function StudioPage() {
                           readOnly
                           value={buildShareUrl(shareToken)}
                           onFocus={(e) => e.currentTarget.select()}
-                          className="flex-1 min-w-0 text-[11px] bg-neutral-100 rounded-md px-2 py-1.5 text-gray-700"
+                          className="flex-1 min-w-0 text-[11px] bg-card-soft rounded-md px-2 py-1.5 text-ink"
                         />
                         <button
                           onClick={handleCopyShareLink}
@@ -622,7 +614,7 @@ export default function StudioPage() {
                       </div>
                       <button
                         onClick={handleRevokeShareLink}
-                        className="mt-2.5 w-full text-left text-[11px] text-red-600 hover:bg-red-50 rounded-md px-2 py-1.5 font-medium transition-colors"
+                        className="mt-2.5 w-full text-left text-[11px] text-red-500 hover:bg-red-500/10 rounded-md px-2 py-1.5 font-medium transition-colors"
                       >
                         Bekor qilish
                       </button>

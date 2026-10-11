@@ -42,7 +42,7 @@ function QiblaLocation() {
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <label className="text-xs text-gray-500" htmlFor="qibla-city">{uz.studio.qibla.joylashuv}</label>
+      <label className="text-xs text-ink-muted" htmlFor="qibla-city">{uz.studio.qibla.joylashuv}</label>
       <select
         id="qibla-city"
         value={customMode ? "__custom" : location?.label ?? CITY_PRESETS[0].label}
@@ -52,7 +52,7 @@ function QiblaLocation() {
           const c = CITY_PRESETS.find((p) => p.label === e.target.value)!;
           setDesignState({ location: { latitude: c.latitude, longitude: c.longitude, label: c.label } });
         }}
-        className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm"
+        className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
         {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{c.label}</option>)}
         <option value="__custom">{uz.studio.qibla.boshqa}</option>
@@ -70,7 +70,7 @@ function QiblaLocation() {
               placeholder={label}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="min-h-[44px] w-1/2 rounded-xl border border-gray-200 px-3 text-sm"
+              className="min-h-[44px] w-1/2 rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
             />
           ))}
         </div>
@@ -78,16 +78,16 @@ function QiblaLocation() {
       {customMode && (lat !== "" || lon !== "") && !valid && (
         <p className="text-xs text-red-600">{uz.studio.qibla.notogri}</p>
       )}
-      <label className="text-xs text-gray-500" htmlFor="qibla-facing">{uz.studio.qibla.yonalish}</label>
+      <label className="text-xs text-ink-muted" htmlFor="qibla-facing">{uz.studio.qibla.yonalish}</label>
       <select
         id="qibla-facing"
         value={facing}
         onChange={(e) => setDesignState({ facing: Number(e.target.value) })}
-        className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm"
+        className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
         {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{o.label}</option>)}
       </select>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-ink-muted">
         {Math.round(qiblaBearing(location?.latitude, location?.longitude))}°
       </p>
     </div>
@@ -117,11 +117,11 @@ export function ToolsDrawerPanel({
 }) {
   if (!menuSlot) return null;
   return createPortal(
-    <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
+    <div className="flex flex-col divide-y divide-line border-b border-line">
           {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
               checking which wall the room's Qibla falls on. */}
           <div className="px-4 py-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{uz.studio.qibla.nomi}</p>
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{uz.studio.qibla.nomi}</p>
             <button
               onClick={() => setShowQibla(v => !v)}
               title={showQibla ? uz.studio.qibla.korinishi_yoq : uz.studio.qibla.korinishi_bor}
@@ -130,7 +130,7 @@ export function ToolsDrawerPanel({
               className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
                 showQibla
                   ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                  : 'bg-card-soft text-ink-muted border-line hover:bg-line'
               }`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -173,7 +173,7 @@ export function ToolsDrawerPanel({
                   className="flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50"
                   title="Quyosh vaqti — Toshkent bo'yicha"
                 >
-                  <span className="text-xs font-medium text-gray-500 shrink-0">Vaqt:</span>
+                  <span className="text-xs font-medium text-ink-muted shrink-0">Vaqt:</span>
                   <span className="text-sm font-semibold text-amber-800 tabular-nums w-10 text-right">
                     {formatClock(sunHour)}
                   </span>

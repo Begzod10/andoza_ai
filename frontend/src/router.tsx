@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { AppShell } from "@/components/layout/AppShell";
+import { RootLayout } from "@/components/layout/RootLayout";
 import { BrandLoader } from "@/components/BrandLoader";
 import { LandingIntro } from "@/components/LandingIntro";
 
@@ -203,4 +204,5 @@ const routes: RouteObject[] = [
   },
 ];
 
-export const router = createBrowserRouter(routes);
+// Every route sits under RootLayout, which holds the one <ScrollRestoration /> for the app.
+export const router = createBrowserRouter([{ element: <RootLayout />, children: routes }]);
