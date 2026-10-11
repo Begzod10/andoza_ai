@@ -101,7 +101,6 @@ export function ToolsDrawerPanel({
   sceneLightOn,
   sunHour, setSunHour,
   setShowAiSheet,
-  setShowPanel,
 }: {
   /** A node inside the header's ⋮ dropdown; null while it is closed. */
   menuSlot?: HTMLDivElement | null;
@@ -213,21 +212,6 @@ export function ToolsDrawerPanel({
             </button>
           </div>
 
-          {/* Mobile: design panel toggle. */}
-          <div className="lg:hidden px-4 py-3">
-            <button
-              onClick={() => setShowPanel(v => !v)}
-              title="Dizayn paneli"
-              aria-label="Dizayn paneli"
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium bg-brand text-white"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
-                <path d="M13.5 9v3.5M19 14.5V11l-5.5-2M6 14.5V11l5.5-2"/>
-              </svg>
-              <span>Dizayn paneli</span>
-            </button>
-          </div>
 
     </div>,
     menuSlot,
