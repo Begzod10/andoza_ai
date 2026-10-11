@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { loginWithPassword, registerUser } from "@/lib/api";
@@ -6,7 +7,6 @@ import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
 import RegisterBackground from "./RegisterBackground";
 import { Button } from "@/components/ui/Button";
-import { useThemeStore } from "@/store/themeStore";
 
 // Field on the themed card: soft inset surface, brand ring on focus.
 const FIELD_BASE =
@@ -85,10 +85,7 @@ export default function LoginPage() {
   const location = useLocation();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   // Login sits outside AppShell, which is what normally applies the theme.
-  const theme = useThemeStore((s) => s.theme);
-  useEffect(() => {
-    document.documentElement.setAttribute("data-app-theme", theme);
-  }, [theme]);
+  useAppThemeAttribute();
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
 

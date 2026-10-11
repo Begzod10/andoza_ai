@@ -17,12 +17,15 @@ import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { StudioMenu } from "@/components/studio/StudioMenu";
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 
 // Read live at navigation time (not from the last render): a save marks the
 // store clean and may navigate in the same tick.
 const getIsDirty = () => useRoomStore.getState().isDirty;
 
 export default function StudioPage() {
+  // Opened by direct link, outside AppShell — apply the theme here too.
+  useAppThemeAttribute();
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const location = useLocation();

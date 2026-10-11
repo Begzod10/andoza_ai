@@ -12,6 +12,7 @@ import { CategorySection } from "@/components/smeta/CategorySection";
 import { CostBreakdown } from "@/components/smeta/CostBreakdown";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { WebOnly } from "@/lib/embedded";
+import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -38,6 +39,8 @@ const secondaryButton =
   "inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand-light hover:text-accent disabled:opacity-60";
 
 export default function SmetaPage() {
+  // Opened by direct link, outside AppShell — apply the theme here too.
+  useAppThemeAttribute();
   const { roomId } = useParams<{ roomId: string }>();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
