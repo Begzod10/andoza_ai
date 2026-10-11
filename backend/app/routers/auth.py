@@ -5,6 +5,7 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import DeleteAccountRequest, LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
+from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
 
 def _hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
@@ -453,6 +454,13 @@ async def login_with_password(
 
     logger.info("user_logged_in", user_id=str(user.id), username=body.username)
 
+    return _login_response(user, request, response)
+
+
+def _login_response(user: User, request: Request, response: Response) -> LoginResponse:
+    """Sign *user* in: set the auth cookies and build the LoginResponse
+    (tokens echoed in the body for native clients only). Shared by the
+    password and Google logins so both answer identically."""
     subject = str(user.id)
     access_token = create_access_token(subject)
     refresh_token = create_refresh_token(subject)
@@ -465,6 +473,124 @@ async def login_with_password(
         access_token=access_token if is_native else None,
         refresh_token=refresh_token if is_native else None,
     )
+
+
+_GOOGLE_ISSUERS = frozenset({"accounts.google.com", "https://accounts.google.com"})
+_GOOGLE_IP_RATE_LIMIT = 20     # max Google sign-in attempts per IP per window
+_GOOGLE_IP_RATE_WINDOW = 900   # 15 minutes
+_GOOGLE_INVALID_DETAIL = "Google orqali kirib bo'lmadi. Qayta urinib ko'ring."
+
+
+class _GoogleUnavailable(Exception):
+    """Google's signing certs could not be fetched (network/outage)."""
+
+
+def _verify_google_id_token(token: str, client_ids: list[str]) -> dict:
+    """Check the ID token's signature (against Google's published certs),
+    expiry and audience, and return its claims. Raises ValueError if it is not
+    a valid token for one of *client_ids*, _GoogleUnavailable if the certs
+    could not be fetched. Blocking (may fetch certs): call it off the event
+    loop. Tests replace this function so no network is used."""
+    from google.auth import exceptions as google_exceptions
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token as google_id_token
+
+    try:
+        return google_id_token.verify_oauth2_token(
+            token, google_requests.Request(), audience=client_ids
+        )
+    except google_exceptions.TransportError as exc:
+        raise _GoogleUnavailable(str(exc)) from exc
+
+
+@router.post(
+    "/google",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Sign in with a Google ID token",
+)
+async def login_with_google(
+    body: GoogleLoginRequest,
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> LoginResponse:
+    """Exchange a Google ID token (from Google Identity Services on the web,
+    or Google Sign-In on Android/iOS) for our own session.
+
+    The user is found by the token's `sub` (Google's stable account id); a
+    first sign-in creates a new account. It is deliberately NEVER linked to an
+    existing username/password or phone account by email: that would let
+    whoever controls a Google account with a matching email take the other
+    account over."""
+    client_ids = settings.GOOGLE_CLIENT_ID_LIST
+    if not client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google orqali kirish hozircha mavjud emas.",
+        )
+
+    redis = get_redis()
+    await _enforce_rate_limit(
+        redis,
+        f"google_ip_rate:{_get_client_ip(request)}",
+        _GOOGLE_IP_RATE_LIMIT,
+        _GOOGLE_IP_RATE_WINDOW,
+        "Bu IP manzildan juda ko'p kirish urinishi bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+
+    try:
+        claims = await run_in_threadpool(_verify_google_id_token, body.id_token, client_ids)
+    except _GoogleUnavailable as exc:
+        logger.warning("google_certs_unavailable", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google bilan bog'lanib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
+        ) from exc
+    except ValueError as exc:
+        logger.info("google_login_rejected", reason=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_GOOGLE_INVALID_DETAIL
+        ) from exc
+
+    # Checked again here, not only by the library: the audience/issuer rules
+    # are ours, and must hold whatever the verifier's defaults are.
+    sub = claims.get("sub")
+    if (
+        not sub
+        or claims.get("aud") not in client_ids
+        or claims.get("iss") not in _GOOGLE_ISSUERS
+    ):
+        logger.info("google_login_rejected", reason="claims", aud=claims.get("aud"))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_GOOGLE_INVALID_DETAIL
+        )
+    if claims.get("email_verified") is not True:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google hisobingizdagi email tasdiqlanmagan.",
+        )
+
+    result = await db.execute(select(User).where(User.google_sub == sub))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        name = (claims.get("name") or "").strip()[:100] or None
+        email = (claims.get("email") or "").strip()[:255] or None
+        user = User(google_sub=sub, email=email, name=name)
+        db.add(user)
+        await db.flush()
+        # Load server defaults (created_at) so UserOut serialises fully,
+        # exactly as register() does.
+        await db.refresh(user)
+        logger.info("user_registered_google", user_id=str(user.id))
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_GOOGLE_INVALID_DETAIL
+        )
+
+    logger.info("user_logged_in_google", user_id=str(user.id))
+    return _login_response(user, request, response)
 
 
 @router.post(
