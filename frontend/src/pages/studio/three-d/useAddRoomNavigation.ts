@@ -11,7 +11,6 @@ import {
   type LayoutRect,
   type WallAnchor,
 } from "@/lib/newRoomFromWall";
-import { sharedOpeningsFor } from "@/lib/sharedOpenings";
 import { computeAbsolutePositions, roomFootprint } from "./helpers";
 import type { RoomSide } from "./constants";
 
@@ -250,18 +249,17 @@ export function useAddRoomNavigation(params: {
         return;
       }
 
-      // A door already in the tapped wall has to exist in the new room's
-      // facing wall too, in the same place, or the door opens onto a solid
-      // partition and the new room is sealed off behind it. Read from the
-      // store (millimetres) and returned in API units; null only when the
-      // tapped wall cannot be read, which is already impossible here because
-      // `wallAnchorOf` resolved it to open the sheet.
-      const shared = sharedOpeningsFor(store.geometry, wall.wallId, { widthMm, depthMm });
-
+      // A door already in the tapped wall is NOT copied into the new room.
+      // The flat draws each doorway once, from the room that owns it, and
+      // cuts the neighbour's hole at render time (lib/flatOpenings,
+      // lib/borrowedOpenings) — so the door opens into the new room without
+      // a second door in its data. A copy was a second, independent door:
+      // moving the original left the copy behind, and the partition showed
+      // one door's leaf beside the other door's hole. It also billed twice.
       const created = await createRoom(aptId, {
         name: "Xona",
         ceiling_h: dims.heightMm / 1000,
-        geometry: newRoomGeometry(widthMm, depthMm, shared),
+        geometry: newRoomGeometry(widthMm, depthMm),
       });
 
       // Best-effort: a room without a stored position still opens, it just

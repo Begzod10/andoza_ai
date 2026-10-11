@@ -67,3 +67,25 @@ describe('adding a room through a wall', () => {
     expect(api.createRoom).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('a door in the wall the new room is added behind', () => {
+  // The user's flat d6b6bb15: the new room got a copy of the door, the
+  // original was then moved, and the partition showed one door's leaf beside
+  // the other door's hole. The doorway is the owner's alone; the new room's
+  // hole is cut from it when the flat is drawn.
+  it('is not copied into the new room', async () => {
+    const g = useRoomStore.getState().geometry
+    useRoomStore.setState({
+      geometry: {
+        ...g,
+        walls: g.walls.map((w) => w.id === 'B'
+          ? { ...w, elements: [{ id: 'd1', type: 'eshik', width: 900, height: 2100, position: 1000, sill_height: 0 }] }
+          : w),
+      },
+    })
+    const { result } = setup()
+    await act(async () => { await result.current.createRoomThroughWall(EAST, DIMS) })
+    const geometry = api.createRoom.mock.calls[0][1].geometry
+    expect(geometry.walls.flatMap((w: { elements: unknown[] }) => w.elements)).toEqual([])
+  })
+})
