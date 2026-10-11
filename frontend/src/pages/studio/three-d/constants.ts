@@ -1,3 +1,4 @@
+import { DOOR_JAMB_DEPTH_MM } from "@/lib/newRoomFromWall";
 import type { CSSProperties } from "react";
 
 /**
@@ -45,7 +46,9 @@ export const WALLPAPER_WIDTH_M = 1.06 // standard roll width
 // OUTWARD (away from the room) from the interior wall face, which fakes a
 // 200 mm-thick wall, with the opening's own frame and its sash/leaf sitting at
 // the reveal's outer edge.
-export const OPENING_REVEAL_D = 0.2;   // reveal depth in metres (200 mm)
+// Reveal depth in metres — the doorway's jamb, which is also the gap between
+// two rooms sharing a wall. One source: lib/newRoomFromWall's DOOR_JAMB_DEPTH_MM.
+export const OPENING_REVEAL_D = DOOR_JAMB_DEPTH_MM / 1000;
 
 // Wall-normal offset (from the interior wall plane, outward) at which the
 // window sashes and glass are centred: 5 mm inside the reveal's exterior

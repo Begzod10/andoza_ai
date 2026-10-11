@@ -94,7 +94,7 @@ describe('NewRoomSheet', () => {
     render(<NewRoomSheet isOpen side="north" busy onClose={noop} onConfirm={noop} />)
     expect((screen.getByRole('button', { name: /Yaratilmoqda/ }) as HTMLButtonElement).disabled).toBe(true)
   })
-  it('offers the wall between the two rooms, 100 mm by default', () => {
+  it('offers the wall between the two rooms, one door-depth by default', () => {
     render(<NewRoomSheet isOpen side="north" onClose={noop} onConfirm={noop} />)
     expect((screen.getByLabelText('Devor qalinligi, mm') as HTMLInputElement).value)
       .toBe(String(NEW_ROOM_DEFAULT_MM.wallThickness))
@@ -105,6 +105,7 @@ describe('NewRoomSheet', () => {
     // not a thickness anyone picks.
     render(<NewRoomSheet isOpen side="north" onClose={noop} onConfirm={noop} />)
     fireEvent.click(screen.getByRole('button', { name: 'Devor qalinligi oshirish' }))
-    expect((screen.getByLabelText('Devor qalinligi, mm') as HTMLInputElement).value).toBe('110')
+    expect((screen.getByLabelText('Devor qalinligi, mm') as HTMLInputElement).value)
+      .toBe(String(NEW_ROOM_DEFAULT_MM.wallThickness + 10))
   })
 })

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  wallSideOf, newRoomLayoutPos, newRoomGeometry, clampRoomDimension, isometricRoom, NEW_ROOM_DEFAULT_MM, NEW_ROOM_LIMITS_MM, ROOM_LAYOUT_GAP_M, wallAnchorOf, newRoomCentreFromWall,
+  DOOR_JAMB_DEPTH_MM, wallSideOf, newRoomLayoutPos, newRoomGeometry, clampRoomDimension, isometricRoom, NEW_ROOM_DEFAULT_MM, NEW_ROOM_LIMITS_MM, ROOM_LAYOUT_GAP_M, wallAnchorOf, newRoomCentreFromWall,
 } from '../newRoomFromWall'
 import type { RoomGeometry } from '@/store/roomStore'
 
@@ -243,7 +243,10 @@ describe('wall thickness', () => {
   })
 
   it('has a default and limits of its own', () => {
-    expect(NEW_ROOM_DEFAULT_MM.wallThickness).toBe(100)
+    // The gap between two rooms is the door that joins them: a doorway
+    // spans the partition exactly, so the default IS the jamb depth. When the
+    // two differed (100 vs 200) the door box poked through into the next room.
+    expect(NEW_ROOM_DEFAULT_MM.wallThickness).toBe(DOOR_JAMB_DEPTH_MM)
     expect(clampRoomDimension(10, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.min)
     expect(clampRoomDimension(9999, 'wallThickness')).toBe(NEW_ROOM_LIMITS_MM.wallThickness.max)
   })
@@ -299,5 +302,19 @@ describe('placing the new room against the wall that was tapped', () => {
 
   it('says it cannot place a wall it does not know', () => {
     expect(wallAnchorOf(RECT, 'nope')).toBeNull()
+  })
+})
+
+
+describe('the door and the gap are one number', () => {
+  it('derives the reveal depth the walls draw from the same constant', async () => {
+    const { OPENING_REVEAL_D } = await import('@/pages/studio/three-d/constants')
+    expect(OPENING_REVEAL_D * 1000).toBeCloseTo(DOOR_JAMB_DEPTH_MM, 9)
+  })
+
+  it('places a new room exactly one door-depth from its neighbour by default', () => {
+    const p = newRoomLayoutPos({ x: 0, z: 0 }, 'east', { widthM: 5, depthM: 4 }, { widthM: 3.5, depthM: 3 },
+      NEW_ROOM_DEFAULT_MM.wallThickness / 1000)
+    expect((p.x - 3.5 / 2) - 5 / 2).toBeCloseTo(DOOR_JAMB_DEPTH_MM / 1000, 9)
   })
 })

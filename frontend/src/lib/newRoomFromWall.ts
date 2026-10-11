@@ -28,7 +28,24 @@ export type RoomSide = 'north' | 'south' | 'east' | 'west'
 /** What a new room starts as, millimetres. A bedroom-ish 3.5 x 3.0 under a
  *  2.7 m ceiling — the sizes the wizard already defaults to, so a room added
  *  from the wall is the same room you would have got the long way round. */
-export const NEW_ROOM_DEFAULT_MM = { width: 3500, depth: 3000, height: 2700, wallThickness: 100 }
+/**
+ * How deep a doorway is — the jamb, from one face of the wall to the other —
+ * and therefore how far apart two rooms sharing that wall stand.
+ *
+ * One number on purpose. The door's lining was 200 mm deep while a new room
+ * was placed 100 mm from its neighbour, so the door box always poked 100 mm
+ * through into the next room: the stray brown frame standing in front of the
+ * other room's wall. A doorway spans the partition exactly, so the partition
+ * IS the door's depth. `OPENING_REVEAL_D` in pages/studio/three-d/constants.ts
+ * is derived from this, so the two can never drift apart again.
+ */
+export const DOOR_JAMB_DEPTH_MM = 200
+
+export const NEW_ROOM_DEFAULT_MM = {
+  width: 3500, depth: 3000, height: 2700,
+  // The gap to the room it is built against is the door that joins them.
+  wallThickness: DOOR_JAMB_DEPTH_MM,
+}
 
 /** What the dimension fields accept, millimetres. Wide enough for a corridor
  *  at one end and a hall at the other; narrow enough that a stray keystroke
