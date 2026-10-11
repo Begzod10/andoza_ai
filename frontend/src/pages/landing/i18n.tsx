@@ -242,7 +242,7 @@ const uz: Dict = {
       name: "Pro",
       price: "Tez kunda",
       features: ["Aniq smeta", "Cheksiz loyiha", "Ustuvor qo'llab-quvvatlash"],
-      cta: "Boshlash",
+      cta: "Tez kunda",
     },
   },
   finalCta: {
@@ -414,7 +414,7 @@ const ru: Dict = {
       name: "Pro",
       price: "Скоро",
       features: ["Точная смета", "Неограниченные проекты", "Приоритетная поддержка"],
-      cta: "Начать",
+      cta: "Скоро",
     },
   },
   finalCta: {
@@ -586,7 +586,7 @@ const en: Dict = {
       name: "Pro",
       price: "Coming soon",
       features: ["Accurate estimate", "Unlimited projects", "Priority support"],
-      cta: "Get started",
+      cta: "Coming soon",
     },
   },
   finalCta: {
