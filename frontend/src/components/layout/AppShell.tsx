@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { logoutApi } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
+import { isNativeScanAvailable } from '@/lib/native/roomScan'
 import { useThemeStore } from '@/store/themeStore'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -42,7 +43,9 @@ function IconShop({ filled }: { filled?: boolean }) {
 function NewProjectSheet({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
 
-  const options = [
+  // LiDAR only works inside the native app on a LiDAR device (same check as
+  // LidarPage); elsewhere offering it just leads to a "not available" screen.
+  const lidarOption = isNativeScanAvailable() ? [
     {
       icon: (
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="rgb(30, 58, 138)" strokeWidth="1.75" aria-hidden="true">
@@ -56,19 +59,10 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
       desc: "Xonani LiDAR yordamida skanerlang va avtomatik 3D model oling",
       action: () => { onClose(); navigate("/scan/lidar") },
     },
-    {
-      icon: (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" strokeWidth="1.75" aria-hidden="true">
-          <circle cx="14" cy="14" r="10" stroke="rgb(249, 115, 22)"/>
-          <path d="M14 9v5l3 1.5" stroke="rgb(249, 115, 22)" strokeLinecap="round"/>
-          <text x="8" y="20" fontSize="6" fill="rgb(249, 115, 22)" fontWeight="700" fontFamily="sans-serif">360°</text>
-        </svg>
-      ),
-      bg: "rgb(255, 241, 231)",
-      title: "360° Foto skan",
-      desc: "Xonani 360° rasmga oling — ilova nuqtalarni o'zi belgilaydi",
-      action: () => { onClose(); navigate("/scan/360") },
-    },
+  ] : []
+
+  const options = [
+    ...lidarOption,
     {
       icon: (
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="rgb(16, 185, 129)" strokeWidth="1.75" aria-hidden="true">

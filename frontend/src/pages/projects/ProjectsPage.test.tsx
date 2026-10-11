@@ -129,3 +129,15 @@ describe('ProjectsPage "Yangi loyiha"', () => {
     )
   })
 })
+
+describe('ProjectsPage branding', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('says andoza.ai, not the old UyRemont name', async () => {
+    vi.mocked(api.getApartments).mockResolvedValue([])
+    mount()
+    await screen.findByText(/Hali loyiha yo'q/)
+    expect(screen.getAllByText('andoza.ai').length).toBeGreaterThan(0)
+    expect(screen.queryByText('UyRemont')).toBeNull()
+  })
+})

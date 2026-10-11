@@ -8,8 +8,8 @@ import { deleteAccount } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 
-/** Confirm and permanently delete the signed-in account. Phone-code accounts
- *  have no password: the field may stay empty and the server decides. */
+/** Confirm and permanently delete the signed-in account. The password is
+ *  re-checked by the server before anything is removed. */
 export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -61,7 +61,7 @@ export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onO
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Telefon kodi bilan kirgan bo'lsangiz, bo'sh qoldiring"
+          placeholder="Hisobingiz parolini kiriting"
         />
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">

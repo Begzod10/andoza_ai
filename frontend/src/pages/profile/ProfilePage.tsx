@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Calculator, FolderOpen, LogOut, Store, User, Users, type LucideIcon } from "lucide-react";
 import { uz } from "@/locale/uz";
-import { logoutApi } from "@/lib/api";
+import { getMe, logoutApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
+import { IconBubble, Panel } from "@/components/ui/Panel";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
 
 const MENU_ITEMS: Array<{ icon: LucideIcon; tone: "blue" | "orange" | "violet" | "green"; label: string; hint: string; to: string }> = [
@@ -15,17 +16,21 @@ const MENU_ITEMS: Array<{ icon: LucideIcon; tone: "blue" | "orange" | "violet" |
   { icon: Store, tone: "green", label: "Sotuvchi paneli", hint: "Do'kon va modellaringiz", to: "/seller" },
 ];
 
-const STATS = [
-  { label: "Loyihalar", value: "—" },
-  { label: "Xonalar", value: "—" },
-  { label: "Smetalar", value: "—" },
-];
-
 export default function ProfilePage() {
   const navigate = useNavigate();
-  // Cookie-based auth: assume logged in; server 401 will redirect via apiClient.
-  const [loggedIn, setLoggedIn] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+
+  // The route is behind RequireAuth, but the persisted user can be missing
+  // (e.g. storage cleared while the cookie lives on) — ask the server then.
+  const me = useQuery({ queryKey: ["auth", "me"], queryFn: getMe, enabled: !user });
+  useEffect(() => {
+    if (me.data) setUser(me.data);
+  }, [me.data, setUser]);
+
+  const displayName = user?.name || user?.username || user?.phone || "Foydalanuvchi";
+  const secondary = user?.username ? `@${user.username}` : user?.phone ?? "";
 
   async function handleLogout() {
     try {
@@ -37,7 +42,6 @@ export default function ProfilePage() {
     // only drops the server-side cookie, so without this the sidebar's
     // admin-only "Boshqaruv paneli" link stayed visible after logging out.
     useAuthStore.getState().logout();
-    setLoggedIn(false);
     navigate("/login");
   }
 
@@ -49,43 +53,20 @@ export default function ProfilePage() {
           <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#5B84F5]/30 blur-3xl" />
           <div className="relative flex items-center justify-between">
             <h1 className="text-sm font-semibold text-ink-muted">{uz.nav.profil}</h1>
-            {loggedIn && (
-              <Button variant="soft" size="sm" onClick={handleLogout} leftIcon={<LogOut size={14} aria-hidden="true" />}>
-                {uz.auth.chiqish}
-              </Button>
-            )}
+            <Button variant="soft" size="sm" onClick={handleLogout} leftIcon={<LogOut size={14} aria-hidden="true" />}>
+              {uz.auth.chiqish}
+            </Button>
           </div>
 
           <div className="relative mt-6 flex items-center gap-4">
             <IconBubble className="h-16 w-16 rounded-3xl"><User size={30} aria-hidden="true" /></IconBubble>
             <div className="min-w-0">
-              <p className="truncate text-xl font-extrabold text-ink">
-                {loggedIn ? "Foydalanuvchi" : "Mehmon"}
-              </p>
-              <p className="mt-0.5 text-sm text-ink-muted">
-                {loggedIn ? "andoza.ai foydalanuvchisi" : "Kirish qilinmagan"}
-              </p>
+              <p className="truncate text-xl font-extrabold text-ink">{displayName}</p>
+              {secondary && secondary !== displayName && (
+                <p className="mt-0.5 truncate text-sm text-ink-muted">{secondary}</p>
+              )}
             </div>
           </div>
-
-          <div className="relative mt-6 grid grid-cols-3 gap-2.5">
-            {STATS.map((s) => (
-              <Tile key={s.label} className="px-2 py-3 text-center">
-                <p className="text-lg font-extrabold text-ink">{s.value}</p>
-                <p className="mt-0.5 text-[11px] font-medium text-ink-muted">{s.label}</p>
-              </Tile>
-            ))}
-          </div>
-
-          {/* Login CTA if not logged in */}
-          {!loggedIn && (
-            <div className="relative mt-5 rounded-2xl bg-card-soft p-4">
-              <p className="mb-3 text-sm text-ink-muted">
-                Loyihalaringizni saqlash uchun telefon raqamingizni kiriting.
-              </p>
-              <Button className="w-full" onClick={() => navigate("/login")}>Kirish</Button>
-            </div>
-          )}
         </Panel>
 
         {/* Where to go */}
@@ -110,17 +91,15 @@ export default function ProfilePage() {
           })}
         </Panel>
 
-        {loggedIn && (
-          <Panel className="mt-4 border border-red-500/30 p-5 lg:col-start-2">
-            <h2 className="text-sm font-bold text-red-500">Hisobni o'chirish</h2>
-            <p className="mt-1 text-xs text-ink-muted">
-              Hisobingiz, loyihalar, rasmlar va buyurtmalar butunlay o'chiriladi.
-            </p>
-            <Button variant="danger" size="sm" className="mt-3" onClick={() => setDeleting(true)}>
-              Hisobni o'chirish
-            </Button>
-          </Panel>
-        )}
+        <Panel className="mt-4 border border-red-500/30 p-5 lg:col-start-2">
+          <h2 className="text-sm font-bold text-red-500">Hisobni o'chirish</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Hisobingiz, loyihalar, rasmlar va buyurtmalar butunlay o'chiriladi.
+          </p>
+          <Button variant="danger" size="sm" className="mt-3" onClick={() => setDeleting(true)}>
+            Hisobni o'chirish
+          </Button>
+        </Panel>
       </div>
 
       <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} />

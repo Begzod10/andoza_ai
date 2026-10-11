@@ -40,7 +40,7 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       <div className="absolute inset-x-7 top-6 flex items-start justify-end text-white">
         <div className="flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur">
           <span className="h-2 w-2 flex-shrink-0 rounded-full bg-warning" />
-          <span className="text-sm font-bold">UyRemont</span>
+          <span className="text-sm font-bold">andoza.ai</span>
         </div>
       </div>
 
@@ -424,7 +424,7 @@ export default function ProjectsPage() {
           <div className="mb-5 flex items-center justify-end lg:hidden">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100">
               <span className="w-2 h-2 rounded-full flex-shrink-0 bg-warning" />
-              <span className="text-sm font-bold text-brand">UyRemont</span>
+              <span className="text-sm font-bold text-brand">andoza.ai</span>
             </div>
           </div>
 
@@ -494,18 +494,6 @@ export default function ProjectsPage() {
           />
         </div>
       </div>
-
-      {/* Floating Create Button */}
-      {apartments.length > 0 && !isError && (
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-gradient-to-br from-[#FB923C] to-[#EA580C] lg:hidden text-white flex items-center justify-center shadow-glow-orange active:scale-95 transition-all"
-        >
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M14 6v16M6 14h16" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
-      )}
 
       <CreateProjectDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
     </div>
