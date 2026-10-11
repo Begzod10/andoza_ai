@@ -12,6 +12,8 @@ import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -68,6 +70,8 @@ export default function StudioPage() {
   const [shareBusy, setShareBusy] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const copyResetRef = useRef<number | null>(null);
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   function flashCopyStatus(status: 'copied' | 'error') {
     setCopyStatus(status);
@@ -84,7 +88,7 @@ export default function StudioPage() {
       const res = await createShareLink(room.id);
       setShareToken(res.share_token);
     } catch (err) {
-      alert('Havolani yaratib bo\'lmadi: ' + (err instanceof Error ? err.message : 'Xato'));
+      toast({ variant: 'error', title: "Havolani yaratib bo'lmadi", description: err instanceof Error ? err.message : undefined });
       setSharePopoverOpen(false);
     } finally {
       setShareBusy(false);
@@ -107,13 +111,13 @@ export default function StudioPage() {
 
   async function handleRevokeShareLink() {
     if (!shareToken) return;
-    if (!window.confirm('Ulashish havolasini bekor qilasizmi? Havola endi ishlamaydi.')) return;
+    if (!(await confirm({ title: 'Ulashish havolasini bekor qilasizmi?', description: 'Havola endi ishlamaydi.', confirmLabel: 'Bekor qilish', cancelLabel: 'Qoldirish', destructive: true }))) return;
     try {
       await revokeShareLink(room.id);
       setShareToken(null);
       setSharePopoverOpen(false);
     } catch (err) {
-      alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'));
+      toast({ variant: 'error', title: "Havolani bekor qilib bo'lmadi", description: err instanceof Error ? err.message : undefined });
     }
   }
 
@@ -537,15 +541,16 @@ export default function StudioPage() {
                   )}
                   <button
                     onClick={async () => {
-                      if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lmaydi.')) {
+                      // Close the menu first: it sits above the dialog's overlay.
+                      setMenuOpen(false)
+                      if (await confirm({ title: "Xonani o'chirishni tasdiqlaysizmi?", description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) {
                         try {
                           await deleteRoom(room.id)
                           navigate('/projects')
                         } catch (err) {
-                          alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'))
+                          toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined })
                         }
                       }
-                      setMenuOpen(false)
                     }}
                     className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
                   >

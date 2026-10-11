@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, previewEstimate, getEstimatePDF, getRoom } from "@/lib/api";
@@ -39,6 +40,7 @@ export default function SmetaPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const { toast } = useToast();
   const [askOpen, setAskOpen] = useState(false);
   const [highlightedLines, setHighlightedLines] = useState<Set<string>>(new Set());
   const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
@@ -168,7 +170,7 @@ export default function SmetaPage() {
       const blob = await (marketMode ? getEstimatePDF(roomId, { market: true }) : getEstimatePDF(roomId));
       downloadBlob(blob, `smeta-${roomId}.pdf`);
     } catch {
-      alert(uz.errors.pdf_xato);
+      toast({ variant: 'error', title: uz.errors.pdf_xato });
     } finally {
       setPdfLoading(false);
     }

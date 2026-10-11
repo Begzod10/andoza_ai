@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cancelOrder, createOrder, getOrder, listOrders } from "@/lib/api";
 import type { Material, Order } from "@/lib/api";
@@ -421,6 +422,7 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
     refetchInterval: 30_000,
   });
 
+  const confirm = useConfirm();
   const cancel = useMutation({
     mutationFn: () => cancelOrder(order.id),
     onSuccess: (updated) => {
@@ -444,8 +446,8 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
       total={data.total_uzs}
       cancelledBy={data.cancelled_by}
       cancelReason={data.cancel_reason}
-      onCancel={() => {
-        if (window.confirm("Buyurtmani bekor qilasizmi?")) cancel.mutate();
+      onCancel={async () => {
+        if (await confirm({ title: "Buyurtmani bekor qilasizmi?", confirmLabel: "Bekor qilish", cancelLabel: "Qoldirish", destructive: true })) cancel.mutate();
       }}
       cancelling={cancel.isPending}
       cancelError={cancel.isError ? errorMessage(cancel.error, "Buyurtmani bekor qilib bo'lmadi") : null}

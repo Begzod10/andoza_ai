@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   updateRoom, listWallpapers, uploadWallpaper, deleteWallpaper,
@@ -148,6 +149,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   // saved room reloads with its wallpaper and every user sees the same shelf.
 
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.is_admin === true;
 
@@ -316,7 +318,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   async function handleWallpaperDelete(wallpaper: Wallpaper) {
     // Shared and permanent: removing one takes it away from every user, and
     // any room already painted with it loses the image.
-    if (!window.confirm(`"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`)) return;
+    if (!(await confirm({ title: `"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`, destructive: true }))) return;
     setWallpaperError(null);
     try {
       await deleteWallpaper(wallpaper.id);

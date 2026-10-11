@@ -18,6 +18,7 @@ import {
 } from '@/lib/furnitureCollision'
 import { holdCameraStill, swallowPickClick } from '@/lib/pickEvents'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
+import { showToast } from "@/components/ui/Toast";
 import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
@@ -354,7 +355,7 @@ function DraggableFurnitureItem({
       }
     } catch (err) {
       console.error('[PartDetach] failed:', err)
-      alert("Qismni ajratib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'))
+      showToast({ variant: 'error', title: "Qismni ajratib bo'lmadi", description: err instanceof Error ? err.message : undefined })
     } finally {
       setDetaching(false)
     }

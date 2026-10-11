@@ -27,6 +27,16 @@ export function useToast(): ToastContextValue {
   return ctx
 }
 
+// The mounted provider's `toast`, for code that renders outside the React DOM
+// tree the provider wraps — react-three-fiber scene components live in the
+// Canvas's own reconciler root, where the context is not guaranteed to reach.
+let mountedToast: ToastContextValue['toast'] | null = null
+
+/** Show a toast from anywhere; a no-op until a <ToastProvider> is mounted. */
+export function showToast(data: Omit<ToastData, 'id'>): void {
+  mountedToast?.(data)
+}
+
 // ─── Variant styles ───────────────────────────────────────────────────────────
 
 const variantStyles: Record<ToastVariant, string> = {
@@ -150,6 +160,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Math.random().toString(36).slice(2)
     setToasts((prev) => [...prev, { ...data, id }])
   }, [])
+
+  React.useEffect(() => {
+    mountedToast = toast
+    return () => {
+      if (mountedToast === toast) mountedToast = null
+    }
+  }, [toast])
 
   const removeToast = React.useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))

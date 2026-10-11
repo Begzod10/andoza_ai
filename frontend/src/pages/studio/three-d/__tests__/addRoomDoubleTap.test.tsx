@@ -19,6 +19,7 @@ vi.mock('@/lib/api', async (orig) => ({ ...(await orig<object>()), ...api }))
 
 import { useAddRoomNavigation } from '../useAddRoomNavigation'
 import { useRoomStore } from '@/store/roomStore'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 
 const ROOM = { id: 'r1', apartment_id: 'apt1', name: 'Xona', state: {} } as unknown as Room
 const EAST: WallAnchor = { wallId: 'B', midXM: 2, midZM: 0, outX: 1, outZ: 0, side: 'right' } as WallAnchor
@@ -27,8 +28,9 @@ const DIMS = { widthMm: 3000, depthMm: 3000, heightMm: 2700, wallThicknessMm: 10
 function setup() {
   const navigate = vi.fn()
   const onSave = vi.fn(async () => {})
-  const { result } = renderHook(() =>
-    useAddRoomNavigation({ room: ROOM, onSave, resetRoom: () => {}, navigate, W: 4, D: 3 }),
+  const { result } = renderHook(
+    () => useAddRoomNavigation({ room: ROOM, onSave, resetRoom: () => {}, navigate, W: 4, D: 3 }),
+    { wrapper: FeedbackProvider },
   )
   return { result, navigate }
 }

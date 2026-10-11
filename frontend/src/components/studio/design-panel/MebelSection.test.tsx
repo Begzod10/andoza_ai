@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 import { MebelSection } from './MebelSection'
 import { useRoomStore } from '@/store/roomStore'
 
@@ -34,7 +35,7 @@ const shop = (over: Record<string, unknown> = {}) => ({
 
 function renderPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={qc}><MebelSection /></QueryClientProvider>)
+  return render(<QueryClientProvider client={qc}><FeedbackProvider><MebelSection /></FeedbackProvider></QueryClientProvider>)
 }
 
 beforeEach(() => {
