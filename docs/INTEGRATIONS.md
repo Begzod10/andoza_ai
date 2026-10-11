@@ -59,6 +59,10 @@ puxta yozilgan: aniq timeout, retry, o'z xato turi, log va test qilinadigan tran
 - API'da mahsulot kartochkasini yaratish endpoint'i ko'rinmadi. Mahsulotni Uzum'ga chiqarish kabinet orqali bo'ladi deb hisoblang.
 - Kabinetning ichki API'si (`/api/seller`) hujjatlanmagan va ogohlantirishsiz o'zgarishi mumkin, uni ishlatmang.
 
+**Tanlangan yo'l:** Uzum bilan rasmiy hamkorlik (katalog API yoki feed). Muzokara uchun
+texnik so'rov: [o'zbekcha](partners/uzum-hamkorlik-sorovi.uz.md), [ruscha](partners/uzum-hamkorlik-sorovi.ru.md).
+Integratsiya kodi Uzum spetsifikatsiyasi va formati ma'lum bo'lgandan keyin yoziladi.
+
 ## To'lov tizimlari: Click, Payme
 
 Ikkalasi ham server-server **Merchant API** va webhook (to'lov holati xabari) beradi.
