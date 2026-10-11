@@ -373,10 +373,17 @@ export function WallOpenings({
                         break
                     }
                   }}
+                  // Keyboard only. A finger or a mouse goes straight through to
+                  // the hit plane behind: this button sits on the door's
+                  // centre, which is exactly where people tap, and catching
+                  // the tap here meant no ring, no double-tap arming and so no
+                  // drag. `pointer-events: none` leaves Tab focus and
+                  // Enter/Space untouched.
+                  tabIndex={0}
                   style={{
                     width: 28, height: 28, padding: 0, margin: 0,
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    pointerEvents: 'auto',
+                    background: 'transparent', border: 'none',
+                    pointerEvents: 'none',
                   }}
                 />
               </Html>
