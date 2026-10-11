@@ -259,7 +259,8 @@ function BottomNavTab({ to, label, icon }: (typeof SIDEBAR_NAV)[number]) {
     >
       {({ isActive }) => (
         <>
-          {icon(isActive)}
+          {/* Fixed box so icons of different heights keep the labels on one line. */}
+          <span className="flex h-6 items-center justify-center" aria-hidden="true">{icon(isActive)}</span>
           <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
             {label}
           </span>
