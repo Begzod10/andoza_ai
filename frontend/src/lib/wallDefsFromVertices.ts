@@ -46,11 +46,20 @@ export interface PolyWallDef {
    *  `mx`/`mz` `NWallRoomShell` positions the drawn wall box at. */
   midX: number
   midZ: number
-  /** Unit vector along the edge, from `vertices[i]` (where a polygon wall
-   *  element's `position` is measured from, i.e. position 0) toward
-   *  `vertices[i + 1]`.
-   *  Same direction `NWallRoomShell`'s wall group maps its local +X to, so a
-   *  world point on the wall is `mid + dir * (alongMetres - length / 2)`. */
+  /** Unit vector along the edge, pointing the way element `position` GROWS —
+   *  which on a polygon edge is from `vertices[i]` (position 0) toward
+   *  `vertices[i + 1]`, and on the legacy A/B/C/D rectangle is from that
+   *  wall's along-axis minimum, the same exception `originAlong`/`alongSign`
+   *  make below. A world point on the wall is
+   *  `mid + dir * (alongMetres - length / 2)`.
+   *
+   *  It is the direction position grows, NOT the direction `ry` maps a wall
+   *  box's local +X to: those two agree on a polygon edge (which is why
+   *  `NWallRoomShell` can place an opening inside its rotated per-edge group)
+   *  but are deliberately opposite on walls C and D of a legacy rectangle,
+   *  whose `abcdFrame`/`wallFrames` have always paired a π or −π/2 yaw with a
+   *  position axis that runs the other way. Use `dir` to find WHERE something
+   *  on the wall is and `ry` only to turn it to face the room. */
   dirX: number
   dirZ: number
   length: number
@@ -199,6 +208,34 @@ export function wallDefsFromVertices(
     const along2 = axis === 'X' ? x2 : z2
     const alongSign: 1 | -1 = legacyAbcd || along2 >= along1 ? 1 : -1
     const originAlong = legacyAbcd ? Math.min(along1, along2) : along1
+    // …and the same exception has to reach `dirX`/`dirZ`, the OTHER way this
+    // def says where a position is. `legacyAbcd` used to hold for
+    // `originAlong`/`alongSign` only, leaving `dir` as the raw traversal
+    // direction of the server's auto-filled CCW loop — so on walls C and D,
+    // the two edges that loop runs backwards along, one half of the same wall
+    // def said position grows one way and the other half said the opposite.
+    //
+    // That split was visible as the user's "door itself is not on the place":
+    // a doorway correctly cut, lined and architraved, with the white door
+    // slab standing beside it flat against the wall, mirrored about the
+    // wall's midpoint. The hole, its reveal and its casing are all placed
+    // from `originAlong`/`alongSign` (the legacy `Wall`'s own segmentation,
+    // and `buildFrameWallDefs`/`frameGroupOrigin` in
+    // pages/studio/three-d/WallComponents.tsx, which already honoured the
+    // exception), while the LEAF is placed from `mid` + `dir`
+    // (`wallFramesFromVertices` and `openingCentre` in
+    // components/studio/DoorLeaves.tsx). On the reported room — three
+    // 3.5 × 3 m rooms in a row, a 900 mm door 1401 mm along the middle room's
+    // wall D — that put the leaf 702 mm from its own doorway.
+    //
+    // The edge's own direction is REVERSED rather than snapped to the world
+    // axis, so an A/B/C/D room carrying a slightly off-square outline still
+    // gets its true edge direction, just pointing the way its positions are
+    // measured. `ry` is deliberately NOT flipped with it: it comes from the
+    // inward `normal` and its job is to turn things to face the room, which
+    // is exactly what the legacy `abcdFrame`/`wallFrames` have always done
+    // (wall C: yaw π, positions still growing with +x).
+    const dirFlip = legacyAbcd && along2 < along1 ? -1 : 1
 
     const midpoint = new THREE.Vector3((x1 + x2) / 2, 0, (z1 + z2) / 2)
     const plane = new THREE.Plane(normal, -normal.dot(midpoint))
@@ -211,8 +248,8 @@ export function wallDefsFromVertices(
       alongSign,
       midX: (x1 + x2) / 2,
       midZ: (z1 + z2) / 2,
-      dirX: dx / length,
-      dirZ: dz / length,
+      dirX: (dx / length) * dirFlip,
+      dirZ: (dz / length) * dirFlip,
       length,
       ry,
       normal,

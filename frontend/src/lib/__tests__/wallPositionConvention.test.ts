@@ -172,3 +172,94 @@ describe('wall position convention — 3D opening layer', () => {
     expect(defs.D.originAlong).toBeCloseTo(-1.5, 6) // −D/2
   })
 })
+
+/**
+ * The legacy ABCD rectangle's `dirX`/`dirZ`, which is the OTHER half of the
+ * same exception and the half that was missing.
+ *
+ * `legacyAbcd` kept `originAlong`/`alongSign` on the rectangle's own older
+ * convention (above) but left `dirX`/`dirZ` as the raw traversal direction of
+ * the server's auto-filled CCW loop, where edges C and D run the decreasing
+ * way. The two halves of one wall def therefore disagreed, and because the
+ * door's CASING, its REVEAL and the HOLE cut in the wall are placed from
+ * `originAlong`/`alongSign` (`buildFrameWallDefs`/`frameGroupOrigin` in
+ * pages/studio/three-d/WallComponents.tsx, and the legacy `Wall`'s own
+ * segmentation) while the door LEAF is placed from `midX`/`midZ` + `dirX`/
+ * `dirZ` (`wallFramesFromVertices`/`openingCentre` in
+ * components/studio/DoorLeaves.tsx), the leaf came out mirrored about the
+ * wall's midpoint on walls C and D: "door itself is not on the place" — a
+ * correctly cut and lined doorway with the white slab standing beside it,
+ * flat against the wall.
+ *
+ * The numbers below are the room it was reported from: three 3.5 × 3 m rooms
+ * in a row, with a 900 mm door 1401 mm along the middle room's wall D. Its
+ * hole sits 351 mm past that wall's midpoint and its leaf was drawn 351 mm
+ * short of it — 702 mm away, most of a door width.
+ */
+const REPORTED: [number, number][] = [
+  [0, 0],
+  [3500, 0],
+  [3500, 3000],
+  [0, 3000],
+]
+
+/** Every wall of a legacy rectangle, as both halves of its def read it. */
+function readings(
+  vertices: [number, number][],
+  wallId: string,
+  el: { position: number; width: number },
+) {
+  const def = wallDefsFromVertices(vertices, ['A', 'B', 'C', 'D'])[wallId]
+  const alongM = (el.position + el.width / 2) / 1000
+  const t = alongM - def.length / 2
+  return {
+    def,
+    /** Where DoorLeaves hangs the leaf (world metres, centroid-centred). */
+    leaf: { x: def.midX + def.dirX * t, z: def.midZ + def.dirZ * t },
+    /** Where the casing, the reveal and the hole go, on the wall's own axis. */
+    holeAlong: def.originAlong + def.alongSign * alongM,
+  }
+}
+
+describe('legacy ABCD rectangle — leaf vs hole', () => {
+  it('points dirX/dirZ the way element position grows, not the way the loop is wound', () => {
+    const defs = wallDefsFromVertices(REPORTED, ['A', 'B', 'C', 'D'])
+    // A and B run the increasing way in the auto-filled loop, so they were
+    // always right; C and D are the two the loop runs backwards along.
+    expect(defs.A.dirX).toBeCloseTo(1, 6)
+    expect(defs.A.dirZ).toBeCloseTo(0, 6)
+    expect(defs.C.dirX).toBeCloseTo(1, 6) // was −1: mirrored every C-wall leaf
+    expect(defs.C.dirZ).toBeCloseTo(0, 6)
+    expect(defs.B.dirX).toBeCloseTo(0, 6)
+    expect(defs.B.dirZ).toBeCloseTo(1, 6)
+    expect(defs.D.dirX).toBeCloseTo(0, 6)
+    expect(defs.D.dirZ).toBeCloseTo(1, 6) // was −1: mirrored every D-wall leaf
+  })
+
+  it('hangs the reported door leaf in its own doorway', () => {
+    const { def, leaf, holeAlong } = readings(REPORTED, 'D', { position: 1401, width: 900 })
+    // Wall D of a 3.5 × 3 m room: 3 m long, at x = −1.75, position growing
+    // with +z. The door's centre is 1851 mm along it — 351 mm past the
+    // midpoint, which is where the hole and the casing are.
+    expect(def.axis).toBe('Z')
+    expect(holeAlong).toBeCloseTo(0.351, 6)
+    expect(leaf.x).toBeCloseTo(-1.75, 6)
+    expect(leaf.z).toBeCloseTo(0.351, 6) // was −0.351 — 702 mm from its hole
+  })
+
+  it('agrees on every wall, at every position along it', () => {
+    for (const wallId of ['A', 'B', 'C', 'D']) {
+      // Hard against either corner and three places in between; a door at the
+      // exact midpoint passes under a mirrored reading too, which is why this
+      // went unnoticed on centred doors.
+      for (const position of [0, 300, 1050, 1401, 2100]) {
+        const { def, leaf, holeAlong } = readings(REPORTED, wallId, { position, width: 900 })
+        if (position + 900 > def.length * 1000) continue // past this wall's end
+        const leafAlong = def.axis === 'X' ? leaf.x : leaf.z
+        const leafAcross = def.axis === 'X' ? leaf.z : leaf.x
+        expect(leafAlong).toBeCloseTo(holeAlong, 6)
+        expect(leafAcross).toBeCloseTo(def.face, 6)
+      }
+    }
+  })
+})

@@ -145,6 +145,16 @@ function wallFrames(W: number, D: number): WallFrame[] {
  * where no edge is axis-aligned. The midpoint/direction pair is exact for any
  * edge and reproduces the wall group `NWallRoomShell` draws the opening's
  * hole in.
+ *
+ * A legacy A/B/C/D rectangle reaches this function too, despite what the
+ * `frames` comment below used to claim: the server auto-fills `vertices` for
+ * every four-wall room. That is survivable only because `wallDefsFromVertices`
+ * knows it — its `legacyAbcd` exception keeps `dirX`/`dirZ` (and
+ * `originAlong`/`alongSign`) on the rectangle's own convention, so the frames
+ * this returns for such a room are identical to `wallFrames`'. Before that
+ * exception reached `dir`, this function mirrored every door leaf on walls C
+ * and D about the wall's midpoint, leaving the leaf standing beside its own
+ * doorway.
  */
 export function wallFramesFromVertices(vertices: [number, number][], wallIds: string[]): WallFrame[] {
   const defs = wallDefsFromVertices(vertices, wallIds);
@@ -236,8 +246,12 @@ export function OpeningLeaves({
   const wallIds = useMemo(() => geometry.walls.map((w) => w.id), [geometry.walls]);
 
   // Polygon rooms (rectilinear hand-drawing feature, >4 walls) carry
-  // `geometry.vertices`; the legacy 4-wall ABCD rectangle does not, and MUST
-  // keep taking the exact same hardcoded-4-wall path it always has.
+  // `geometry.vertices` — and so, since `RoomGeometry._normalize_polygon`
+  // (backend/app/schemas/room.py) fills them in for every four-wall room, does
+  // a saved legacy ABCD rectangle. Both therefore take the polygon path here;
+  // what keeps the rectangle on its own older convention is
+  // `wallDefsFromVertices`' `legacyAbcd` exception, which makes the frames it
+  // returns for an A/B/C/D room identical to `wallFrames`' hardcoded four.
   const frames = useMemo(() => {
     return geometry.vertices && geometry.vertices.length >= 3
       ? wallFramesFromVertices(geometry.vertices, wallIds)
