@@ -16,7 +16,7 @@ from app.main import app
 from app.models.user import User
 from app.routers import auth as auth_router
 
-WEB_CLIENT_ID = "632412937266-rr23j1qbft3per7nfipap4jqmv1i57gf.apps.googleusercontent.com"
+WEB_CLIENT_ID = "632412937266-ruq48osgghaa4jn0fk8vjd7mr270ccb0.apps.googleusercontent.com"
 
 
 class _Result:
