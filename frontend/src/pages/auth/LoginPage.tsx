@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { loginWithGoogle, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useThemeStore } from "@/store/themeStore";
 import { uz } from "@/locale/uz";
 import RegisterBackground from "./RegisterBackground";
 import GoogleSignInButton from "./GoogleSignInButton";
@@ -86,6 +87,7 @@ export default function LoginPage() {
   const location = useLocation();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   // Login sits outside AppShell, which is what normally applies the theme.
+  const theme = useThemeStore((s) => s.theme);
   useAppThemeAttribute();
 
   const from: string = (location.state as { from?: string })?.from ?? "/projects";
