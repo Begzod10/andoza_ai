@@ -627,6 +627,16 @@ function readInitialLang(): Lang {
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readInitialLang);
 
+  // index.html says lang="uz"; while the landing is shown in another language, say so, so screen readers
+  // pronounce it right and the browser does not offer to translate Russian "from Uzbek". Put back on the
+  // way out: the app itself is Uzbek.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = lang;
+    return () => { root.lang = previous; };
+  }, [lang]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, lang);
