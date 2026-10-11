@@ -65,6 +65,16 @@ export async function loginWithPassword(data: LoginData): Promise<LoginResponse>
   });
 }
 
+/** Sign in (or sign up, on first use) with a Google ID token — the
+ *  `credential` Google Identity Services hands the page. Answers exactly like
+ *  loginWithPassword: auth cookies set, the user in the body. */
+export async function loginWithGoogle(idToken: string): Promise<LoginResponse> {
+  return apiClient<LoginResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ id_token: idToken }),
+  });
+}
+
 /** Permanently delete the signed-in account and its data. Phone-code accounts
  *  have no password (send nothing); the server answers 204, or 403 with a
  *  message when the password is wrong or the account is an admin's. */

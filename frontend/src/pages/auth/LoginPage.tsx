@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { loginWithPassword, registerUser } from "@/lib/api";
+import { loginWithGoogle, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { uz } from "@/locale/uz";
 import RegisterBackground from "./RegisterBackground";
+import GoogleSignInButton from "./GoogleSignInButton";
 import { Button } from "@/components/ui/Button";
 import { useThemeStore } from "@/store/themeStore";
 
@@ -119,6 +120,21 @@ export default function LoginPage() {
     }
   }
 
+  // ── Google sign-in (also signs up on first use) ──────────────
+  async function handleGoogleCredential(idToken: string) {
+    resetError();
+    setLoading(true);
+    try {
+      const res = await loginWithGoogle(idToken);
+      setAuthenticated(res.user);
+      navigate(from, { replace: true });
+    } catch {
+      setError("Google orqali kirib bo'lmadi. Qayta urinib ko'ring.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // ── Register ──────────────────────────────────────────────────
   async function handleRegister() {
     resetError();
@@ -199,6 +215,8 @@ export default function LoginPage() {
               {loading ? uz.common.yuklanmoqda : "Kirish"}
             </Button>
 
+            <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
+
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">
                 Akkauntingiz yo'qmi?{' '}
@@ -264,6 +282,8 @@ export default function LoginPage() {
             <Button size="lg" className="mt-6 w-full" onClick={handleRegister} disabled={loading}>
               {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
             </Button>
+
+            <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
 
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">

@@ -7,6 +7,8 @@
 
 export const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
 
+const NO_SESSION_RETRY_PATHS = new Set(["/auth/google"]);
+
 function handleUnauthorized(): never {
   window.location.href = "/login";
   throw new Error("Unauthorized");
@@ -50,6 +52,14 @@ export async function apiClient<T>(
     credentials: "include",   // send HttpOnly cookie on every request
     headers,
   });
+
+  // A 401 from a sign-in endpoint means "these credentials were rejected",
+  // not "your session expired": refreshing and bouncing to /login would only
+  // reload the login page and swallow the error the page wants to show.
+  if (response.status === 401 && NO_SESSION_RETRY_PATHS.has(path)) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || `HTTP ${response.status}`);
+  }
 
   if (response.status === 401) {
     // Do not recurse into the refresh endpoint itself.
