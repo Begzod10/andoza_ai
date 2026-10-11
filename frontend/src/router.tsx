@@ -131,7 +131,7 @@ const routes: RouteObject[] = [
       },
       {
         path: "/profile",
-        element: withSuspense(<ProfilePage />),
+        element: withSuspense(<RequireAuth><ProfilePage /></RequireAuth>),
       },
       {
         path: "/seller",

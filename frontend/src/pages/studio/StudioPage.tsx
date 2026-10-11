@@ -537,7 +537,7 @@ export default function StudioPage() {
                   )}
                   <button
                     onClick={async () => {
-                      if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lib bo\'lmaydi.')) {
+                      if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lmaydi.')) {
                         try {
                           await deleteRoom(room.id)
                           navigate('/projects')
