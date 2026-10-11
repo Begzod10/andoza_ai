@@ -320,12 +320,14 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     mutationFn: async (data: CreateApartmentData) => {
       return createApartment(data);
     },
-    onSuccess: () => {
+    onSuccess: (apartment) => {
       queryClient.invalidateQueries({ queryKey: ["apartments"] });
       onOpenChange(false);
       setName("");
       setAddress("");
-      navigate("/wizard");
+      // Hand the new project to the wizard so its first room lands in it —
+      // without the id the wizard made a second "Mening xonadonim" project.
+      navigate(`/wizard?apartmentId=${apartment.id}`);
     },
   });
 

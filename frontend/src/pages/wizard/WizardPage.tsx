@@ -476,10 +476,13 @@ interface Step5Props {
   roomId: string | null
   geometry: RoomGeometry
   ceilingHeight: number
+  saving: boolean
+  saveFailed: boolean
+  onRetrySave(): void
   onNewRoom(): void
 }
 
-function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
+function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySave, onNewRoom }: Step5Props) {
   const navigate = useNavigate()
 
   const floorMm2 = computeFloorArea(geometry)
@@ -504,8 +507,10 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
       </motion.div>
 
       <div className="text-center">
-        <h2 className="text-xl font-extrabold text-ink">O'lchamlar saqlandi</h2>
-        <p className="text-sm text-muted mt-1">Xona parametrlari muvaffaqiyatli qayd etildi</p>
+        <h2 className="text-xl font-extrabold text-ink">{saveFailed ? "O'lchamlar tayyor" : "O'lchamlar saqlandi"}</h2>
+        <p className="text-sm text-muted mt-1">
+          {saveFailed ? 'Xona hali serverga yozilmadi' : 'Xona parametrlari muvaffaqiyatli qayd etildi'}
+        </p>
       </div>
 
       {/* Metric cards 2×2 */}
@@ -541,6 +546,16 @@ function Step5({ roomId, geometry, ceilingHeight, onNewRoom }: Step5Props) {
           </motion.div>
         ))}
       </motion.div>
+
+      {saveFailed && (
+        <div role="alert" className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-ink">
+          <p className="font-semibold">Xona serverga saqlanmadi</p>
+          <p className="mt-1 text-ink-muted">Internetni tekshirib, qayta urinib ko'ring. Saqlanmaguncha bezash va smeta ochilmaydi.</p>
+          <Button size="sm" className="mt-3" onClick={onRetrySave} disabled={saving}>
+            {saving ? 'Saqlanmoqda…' : 'Qayta urinish'}
+          </Button>
+        </div>
+      )}
 
       {/* CTA buttons */}
       <div className="flex flex-col gap-3 pt-2">
@@ -616,6 +631,11 @@ export default function WizardPage() {
   const [step, setStep] = React.useState(0)
   const [dir, setDir] = React.useState(1)
   const [saving, setSaving] = React.useState(false)
+  const [saveFailed, setSaveFailed] = React.useState(false)
+  // One save at a time: a second caller (autosave + "next") waits for the same request.
+  const savePromiseRef = React.useRef<Promise<string | null> | null>(null)
+  // A project made by a failed attempt is reused on retry, not made twice.
+  const createdApartmentIdRef = React.useRef<string | null>(null)
   const [resumePrompt, setResumePrompt] = React.useState(false)
   const [draftLoaded, setDraftLoaded] = React.useState(false)
 
@@ -703,25 +723,27 @@ export default function WizardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geometry, ceilingHeight, step])
 
-  async function handleSave(): Promise<string | null> {
-    if (roomId) return roomId  // already saved (local or real)
-    // Assign a local ID immediately so navigation is never blocked.
-    // NOTE: crypto.randomUUID() only exists in a secure context (HTTPS or
-    // localhost). In a mobile WebView / phone the app is served over plain
-    // HTTP from a LAN IP, where it's undefined and throws — which used to leave
-    // roomId null and disable the results buttons. Fall back to a manual UUID.
-    const localId =
-      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-        ? crypto.randomUUID()
-        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0
-            const v = c === 'x' ? r : (r & 0x3) | 0x8
-            return v.toString(16)
-          })
-    setRoomId(localId)
+  /** Saves the room on the server and returns its id, or null when the save
+   *  failed — the results step then says so and offers a retry, instead of
+   *  carrying on with a room the server never got. */
+  function handleSave(): Promise<string | null> {
+    if (roomId) return Promise.resolve(roomId)  // already saved
+    if (!savePromiseRef.current) {
+      savePromiseRef.current = saveRoomOnServer().finally(() => {
+        savePromiseRef.current = null
+      })
+    }
+    return savePromiseRef.current
+  }
+
+  async function saveRoomOnServer(): Promise<string | null> {
     setSaving(true)
+    setSaveFailed(false)
     try {
-      const aptId = existingApartmentId ?? (await createApartment({ name: 'Mening xonadonim' })).id
+      const aptId =
+        existingApartmentId ??
+        createdApartmentIdRef.current ??
+        (createdApartmentIdRef.current = (await createApartment({ name: 'Mening xonadonim' })).id)
       const room = await createRoom(aptId, {
         name: 'Xona',
         ceiling_h: ceilingHeight / 1000,
@@ -750,7 +772,7 @@ export default function WizardPage() {
             : undefined,
         },
       })
-      setRoomId(room.id)  // upgrade to real server ID if save succeeds
+      setRoomId(room.id)
       // Draft fulfilled — clean up
       if (draftId) {
         try { await deleteDraftRoom(draftId) } catch { /* ignore */ }
@@ -758,8 +780,8 @@ export default function WizardPage() {
       }
       return room.id
     } catch {
-      // keep the local ID — studio/smeta work in offline mode
-      return localId
+      setSaveFailed(true)
+      return null
     } finally {
       setSaving(false)
     }
@@ -936,6 +958,9 @@ export default function WizardPage() {
                   roomId={roomId}
                   geometry={geometry}
                   ceilingHeight={ceilingHeight}
+                  saving={saving}
+                  saveFailed={saveFailed}
+                  onRetrySave={() => void handleSave().then((id) => { if (id) void persistLayoutPos() })}
                   onNewRoom={handleRestart}
                 />
               )}

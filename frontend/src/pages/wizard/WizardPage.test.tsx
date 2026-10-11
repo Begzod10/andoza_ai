@@ -235,4 +235,30 @@ describe('WizardPage – Step 5 (Results)', () => {
       expect(createRoom).toHaveBeenCalled()
     })
   })
+
+  it('a failed save says so, keeps the results buttons off, and retries into the same project', async () => {
+    const api = await import('@/lib/api')
+    const createApartment = vi.mocked(api.createApartment)
+    const createRoom = vi.mocked(api.createRoom)
+    createApartment.mockClear()
+    createRoom.mockClear()
+    createRoom.mockRejectedValueOnce(new Error('network'))
+    renderWizard()
+
+    for (let i = 0; i < 5; i++) {
+      await waitFor(() => screen.getByText('Keyingi'))
+      fireEvent.click(screen.getByText('Keyingi'))
+    }
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('saqlanmadi'))
+    expect(useRoomStore.getState().roomId).toBeNull()
+    expect((screen.getByText('Bezashni boshlash').closest('button') as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.click(screen.getByText('Qayta urinish'))
+    await waitFor(() => expect(useRoomStore.getState().roomId).toBe('room-1'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    // The project made by the first attempt is reused, not created twice.
+    expect(createApartment).toHaveBeenCalledTimes(1)
+    expect(createRoom).toHaveBeenCalledTimes(2)
+  })
 })

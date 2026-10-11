@@ -540,7 +540,7 @@ export default function StudioPage() {
                       if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lib bo\'lmaydi.')) {
                         try {
                           await deleteRoom(room.id)
-                          navigate(`/apartments/${room.apartment_id}`)
+                          navigate('/projects')
                         } catch (err) {
                           alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'))
                         }
