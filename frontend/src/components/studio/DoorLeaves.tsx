@@ -199,6 +199,36 @@ interface DragState {
   mmPerPx: number;
 }
 
+/**
+ * What a tap on a leaf or a sash does.
+ *
+ * Editable leaves stop the click. They have to: the click is a separate event
+ * from the pointerdown that selected the opening, and with nothing handling it
+ * it carried on to whatever the ray met beyond — which is how tapping a window
+ * used to open the ceiling's menu.
+ *
+ * Scenery leaves must do the opposite and let it through. A neighbouring
+ * room's leaves are mounted read-only and stand in front of that room's own
+ * pick box; a leaf that swallowed the click would eat the tap that opens the
+ * room, so the room would be the one thing in the flat you could not get into
+ * by tapping its door.
+ *
+ * Extracted so the rule can be tested without a renderer — the whole of it is
+ * which of those two a leaf is.
+ */
+export function openingTapHandler(
+  interactive: boolean,
+  wallId: string,
+  elId: string,
+  openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void,
+) {
+  return (e: ThreeEvent<MouseEvent>) => {
+    if (!interactive) return;
+    e.stopPropagation();
+    openMenu?.(wallId, elId, e);
+  };
+}
+
 export type OpeningKind = "door" | "window";
 
 /** Doors and windows differ only in what hangs inside the frame — position,
@@ -396,13 +426,7 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
-          onTap: (e: ThreeEvent<MouseEvent>) => {
-            // Always stop here, ring or no ring: the click is a separate event
-            // from the pointerdown that selects, and with nothing handling it
-            // it carried on to whatever the ray met beyond the opening.
-            e.stopPropagation();
-            if (interactive) openMenu?.(wf.id, el.id, e);
-          },
+          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu),
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
             onSelect?.(null);

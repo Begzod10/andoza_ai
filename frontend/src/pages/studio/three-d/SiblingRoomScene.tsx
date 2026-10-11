@@ -13,6 +13,7 @@ import { lightType } from "@/lib/lightCatalog";
 import { siblingLodTier, siblingRoomView, siblingWallsInActiveRoom, type SiblingRoomView } from "@/lib/siblingRoomView";
 import { SIBLING_FLOOR_COLOR_BY_TYPE, SIBLING_FLOOR_COLOR_DEFAULT } from "./constants";
 import { RoomScene } from "./RoomShell";
+import { OpeningLeaves } from "@/components/studio/DoorLeaves";
 
 /**
  * The apartment's OTHER rooms, drawn with the same machinery as the room being
@@ -331,6 +332,38 @@ function SiblingFullShell(
         // See `siblingWallsInActiveRoom`.
         hiddenAttachments={wallsInActiveRoom}
       />
+      {/* The leaves and sashes that hang in this room's own openings.
+          `RoomScene` draws a doorway's hole, reveal and casing but not what
+          swings in it — leaves come from OpeningLeaves, which was mounted once
+          for the active room only, so every neighbour's doorway was an empty
+          frame with daylight through it.
+
+          Mounted as scenery: `interactive={false}` means no picking, no
+          editor, no ring. That matters for more than tidiness — these leaves
+          stand in front of the room's own pick box, and a leaf that swallowed
+          the click would eat the tap that opens the room. OpeningLeaves' own
+          `onTap` lets the click through when it is not interactive.
+
+          `hiddenWalls` carries the shared-partition set for the same reason
+          the shell gets it: the active room already hangs a leaf in that
+          doorway, and two leaves in one opening z-fight. */}
+      <OpeningLeaves
+        kind="door"
+        geometry={view.geometry}
+        wallWidth={view.widthM}
+        wallDepth={view.depthM}
+        hiddenWalls={wallsInActiveRoom}
+        interactive={false}
+      />
+      <OpeningLeaves
+        kind="window"
+        geometry={view.geometry}
+        wallWidth={view.widthM}
+        wallDepth={view.depthM}
+        hiddenWalls={wallsInActiveRoom}
+        interactive={false}
+      />
+
       {/* The room's own furniture. Already the one part of the old stand-in
           that was real, and `FurnitureItem` is the same read-only renderer. */}
       {view.furniture.map((item) => (
