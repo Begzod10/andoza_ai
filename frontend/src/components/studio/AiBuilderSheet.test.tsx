@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { useRoomStore } from '@/store/roomStore'
 import type { RoomGeometry } from '@/store/roomStore'
 import type { AiDesignPlan } from '@/lib/api'
@@ -201,7 +201,12 @@ describe('the bar that stays when the sheet is closed', () => {
     await generate()
     await waitFor(() => expect(useRoomStore.getState().lights).toHaveLength(1))
     view.rerender(<AiBuilderSheet open={false} onOpenChange={onOpenChange} roomId="room-1" {...props} />)
-    return { onOpenChange, ...view }
+    // The sheet animates out. Until it is gone it still holds its own "Qaytarish" and "Yopish", and the modal
+    // hides the bar from the accessibility tree, so a query made now finds the sheet's button, which may be
+    // unmounted by the time it is clicked. Wait for the sheet to leave, then work with the bar alone.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull(), { timeout: 5000 })
+    const bar = screen.getByRole('button', { name: 'Batafsil' }).closest<HTMLElement>('[role="status"]')!
+    return { onOpenChange, bar, ...view }
   }
 
   it('names the design and keeps undo and the details within reach', async () => {
@@ -214,8 +219,8 @@ describe('the bar that stays when the sheet is closed', () => {
   })
 
   it('undoes from the bar, and then the bar is gone', async () => {
-    await appliedThenClosed({ onSave: savesOk() })
-    fireEvent.click(await screen.findByRole('button', { name: 'Qaytarish' }))
+    const { bar } = await appliedThenClosed({ onSave: savesOk() })
+    fireEvent.click(within(bar).getByRole('button', { name: 'Qaytarish' }))
     expect(useRoomStore.getState().lights).toHaveLength(0)
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Batafsil' })).toBeNull())
   })
@@ -228,8 +233,8 @@ describe('the bar that stays when the sheet is closed', () => {
   })
 
   it('can be dismissed without undoing anything', async () => {
-    await appliedThenClosed()
-    fireEvent.click(await screen.findByLabelText('Yopish'))
+    const { bar } = await appliedThenClosed()
+    fireEvent.click(within(bar).getByLabelText('Yopish'))
     expect(screen.queryByRole('button', { name: 'Batafsil' })).toBeNull()
     expect(useRoomStore.getState().lights).toHaveLength(1)
   })
