@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, MapPin, Package, Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -38,6 +39,7 @@ export function StoreProfile({
   onDeleted: () => void;
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [showAddModel, setShowAddModel] = useState(false);
   const [editingModel, setEditingModel] = useState<AdminFurniture | null>(null);
   const [filters, setFilters] = useState(EMPTY_MODEL_FILTERS);
@@ -59,7 +61,7 @@ export function StoreProfile({
   });
 
   async function handleDeleteModel(model: AdminFurniture) {
-    if (!window.confirm(`"${model.name_uz}" o'chirilsinmi?`)) return;
+    if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
     try {
       await deleteAdminFurniture(model.id);
       onError(null);
@@ -71,8 +73,8 @@ export function StoreProfile({
     }
   }
 
-  function handleDeleteStore() {
-    if (!window.confirm(`"${store.name}" do'koni va uning barcha modellari o'chirilsinmi?`)) return;
+  async function handleDeleteStore() {
+    if (!(await confirm({ title: `"${store.name}" do'koni va uning barcha modellari o'chirilsinmi?`, destructive: true }))) return;
     deleteStoreMutation.mutate();
   }
 

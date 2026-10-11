@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
+import { useToast } from "@/components/ui/Toast";
 import { createRoom, getRooms, updateRoom, type Room } from "@/lib/api";
 import {
   clampRoomDimension,
@@ -101,6 +102,7 @@ export function useAddRoomNavigation(params: {
 }) {
   const { room, onSave, resetRoom, navigate, W, D } = params;
   const [addingRoom, setAddingRoom] = useState(false);
+  const { toast } = useToast();
   // The real guard. `addingRoom` is for the UI and only changes on the next
   // render, so a second tap landing before that render got past it, and the
   // flat got two rooms in the same spot. A ref is set the moment the first tap
@@ -240,10 +242,11 @@ export function useAddRoomNavigation(params: {
         siblings, room.id, W, D,
       );
       if (blocker) {
-        alert(
-          `Bu devor orqasida allaqachon xona bor: "${blocker.name}". ` +
-          `Yangi xonani boshqa devor orqasiga qo'shing.`,
-        );
+        toast({
+          variant: "warning",
+          title: `Bu devor orqasida allaqachon xona bor: "${blocker.name}".`,
+          description: "Yangi xonani boshqa devor orqasiga qo'shing.",
+        });
         return;
       }
 

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SmetaPage from './SmetaPage'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 import { formatUZS } from '@/lib/utils'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────
@@ -62,11 +63,13 @@ function renderSmetaPage(url = '/smeta/room-1') {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[url]}>
-        <Routes>
-          <Route path="/smeta/:roomId" element={<SmetaPage />} />
-        </Routes>
-      </MemoryRouter>
+      <FeedbackProvider>
+        <MemoryRouter initialEntries={[url]}>
+          <Routes>
+            <Route path="/smeta/:roomId" element={<SmetaPage />} />
+          </Routes>
+        </MemoryRouter>
+      </FeedbackProvider>
     </QueryClientProvider>,
   )
 }

@@ -6,6 +6,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { FURNITURE_CATALOG, CATEGORY_LABELS, PLACEMENT_LABELS } from "@/lib/furnitureCatalog";
 import type { FurnitureCatalogEntry, FurnitureCategory, FurniturePlacement } from "@/lib/furnitureCatalog";
 import { useFileDrop, isImageFile } from "@/hooks/useFileDrop";
+import { useToast } from "@/components/ui/Toast";
 import { getModelFromDb, saveModelToDb, deleteModelFromDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { useGLTF } from "@react-three/drei";
 import { applyMaterialToGlb, listGlbMaterials } from "@/lib/modelConverter";
@@ -290,6 +291,7 @@ export function MebelSection() {
   const texInputRef = React.useRef<HTMLInputElement>(null);
   const texTargetRef = React.useRef<{ entryId: string; index?: number } | null>(null);
   const [texBusy, setTexBusy] = React.useState<string | null>(null);
+  const { toast } = useToast();
   const [texEditor, setTexEditor] = React.useState<{ entryId: string; name: string; mats: GlbMaterialInfo[] } | null>(null);
   const texEditorTitleId = React.useId();
   // Whatever had focus (the card's 🖼 button) right before the dialog opened
@@ -326,7 +328,7 @@ export function MebelSection() {
       const mats = await listGlbMaterials(buf);
       setTexEditor({ entryId, name: entry.name, mats });
     } catch (err) {
-      alert('Model o\'qib bo\'lmadi: ' + (err instanceof Error ? err.message : 'xato'));
+      toast({ variant: 'error', title: "Modelni o'qib bo'lmadi", description: err instanceof Error ? err.message : undefined });
     } finally {
       setTexBusy(null);
     }
@@ -356,7 +358,7 @@ export function MebelSection() {
       const mats = await listGlbMaterials(newBuf);
       setTexEditor((prev) => (prev && prev.entryId === target.entryId ? { ...prev, mats } : prev));
     } catch (err) {
-      alert("Tekstura qo'yib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
+      toast({ variant: 'error', title: "Teksturani qo'yib bo'lmadi", description: err instanceof Error ? err.message : undefined });
     } finally {
       setTexBusy(null);
     }

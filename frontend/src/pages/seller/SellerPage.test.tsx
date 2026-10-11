@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SellerPage from './SellerPage'
@@ -53,7 +54,7 @@ const model = (over: Record<string, unknown> = {}) => ({
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <QueryClientProvider client={qc}><MemoryRouter><SellerPage /></MemoryRouter></QueryClientProvider>,
+    <QueryClientProvider client={qc}><FeedbackProvider><MemoryRouter><SellerPage /></MemoryRouter></FeedbackProvider></QueryClientProvider>,
   )
 }
 
@@ -136,13 +137,18 @@ describe('SellerPage', () => {
     api.getMyStore.mockResolvedValue(store())
     api.listMyModels.mockResolvedValue({ total: 1, page: 1, per_page: 100, items: [model()] })
     api.deleteMyModel.mockResolvedValue(undefined)
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     renderPage()
+    // Declined: the dialog closes and nothing is deleted.
     fireEvent.click(await screen.findByLabelText("O'chirish"))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Bekor qilish' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(api.deleteMyModel).not.toHaveBeenCalled()
+    // Confirmed: only now does the delete go out.
     fireEvent.click(screen.getByLabelText("O'chirish"))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent("Bu amalni qaytarib bo'lmaydi.")
+    fireEvent.click(within(dialog).getByRole('button', { name: "O'chirish" }))
     await waitFor(() => expect(api.deleteMyModel).toHaveBeenCalledWith('m1'))
-    confirm.mockRestore()
   })
 
   it('refuses a model file that is not a .glb before uploading', async () => {

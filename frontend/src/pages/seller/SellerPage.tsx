@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
@@ -65,6 +66,7 @@ export default function SellerPage() {
     onError: (err) => setError(errorMessage(err, "O'zgartirib bo'lmadi")),
   });
 
+  const confirm = useConfirm();
   const remove = useMutation({
     mutationFn: (m: SellerModel) => deleteMyModel(m.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
@@ -151,8 +153,8 @@ export default function SellerPage() {
                         busy={busy}
                         onEdit={setEditingModel}
                         onToggleVisible={(x) => toggle.mutate(x)}
-                        onDelete={(x) => {
-                          if (window.confirm(`"${x.name_uz}" o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.`)) remove.mutate(x);
+                        onDelete={async (x) => {
+                          if (await confirm({ title: `"${x.name_uz}" o'chirilsinmi?`, description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) remove.mutate(x);
                         }}
                       />
                     ))}
