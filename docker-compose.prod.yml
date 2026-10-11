@@ -57,7 +57,9 @@ services:
       redis:
         condition: service_started
     ports:
-      - "8000:8000"
+      # Loopback only: the host nginx proxies to 127.0.0.1. Published on every
+      # interface, the API was reachable as plain HTTP on the server's IP.
+      - "127.0.0.1:8000:8000"
     volumes:
       # Persist uploaded media (furniture GLBs, thumbnails, wallpapers) across
       # redeploys. Without this, /app/media lives in the container's ephemeral
@@ -133,7 +135,8 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-https://andoza.jumaniyozov.uz/api/v1}
     ports:
-      - "5173:80"
+      # Loopback only, as for the api above.
+      - "127.0.0.1:5173:80"
     restart: unless-stopped
 
 volumes:
