@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
+    # "Sign in with Google": OAuth client IDs whose ID tokens we accept
+    # (comma-separated). An ID token's `aud` must be one of these. The Android
+    # app requests its token with the WEB client ID as serverClientId, so the
+    # web ID covers web + Android; add the iOS client ID here when it exists.
+    # Empty = Google sign-in is turned off (POST /auth/google answers 503).
+    GOOGLE_CLIENT_IDS: str = ""
+
+    @property
+    def GOOGLE_CLIENT_ID_LIST(self) -> List[str]:
+        return [c.strip() for c in self.GOOGLE_CLIENT_IDS.split(",") if c.strip()]
+
     # ------------------------------------------------------------------ #
     # SMS Gateway  (Eskiz or Playmobile)
     # ------------------------------------------------------------------ #
