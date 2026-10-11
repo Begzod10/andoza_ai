@@ -44,9 +44,9 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="andoza.ai API",
         version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url="/docs" if settings.API_DOCS_ENABLED else None,
+        redoc_url="/redoc" if settings.API_DOCS_ENABLED else None,
+        openapi_url="/openapi.json" if settings.API_DOCS_ENABLED else None,
     )
 
     # ------------------------------------------------------------------

@@ -23,7 +23,16 @@ open http://localhost:5173
 
 - Frontend: React 18 + Vite PWA + Three.js + Zustand -> localhost:5173
 - Backend: FastAPI + PostgreSQL + Redis + Celery -> localhost:8000
-- API docs: http://localhost:8000/docs
+- API docs: http://localhost:8000/docs (off when `API_DOCS_ENABLED=false`)
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — components, folders, deploy
+- [docs/DATA_MODEL.md](docs/DATA_MODEL.md) — database tables and relations
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — environment variables
+- [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) — external services, adding a new one, Uzum Market and payments
+- [docs/WEB_PROD_DEPLOY.md](docs/WEB_PROD_DEPLOY.md) — production web deploy
+- Old docs from the 2026-07 React Native app: `docs/archive/mobile-app-2026-07/`
 
 ## Shipped
 

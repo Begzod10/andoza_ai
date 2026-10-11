@@ -160,6 +160,9 @@ class Settings(BaseSettings):
     # Application
     # ------------------------------------------------------------------ #
     ENVIRONMENT: str = "development"
+    # Interactive API docs (/docs, /redoc, /openapi.json). They list every
+    # endpoint and schema, admin ones included: set false on a public server.
+    API_DOCS_ENABLED: bool = True
     CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,http://localhost:8082"
 
     @property
