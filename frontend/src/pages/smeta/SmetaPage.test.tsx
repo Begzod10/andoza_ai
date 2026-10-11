@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SmetaPage from './SmetaPage'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 import { formatUZS } from '@/lib/utils'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────
@@ -56,24 +57,42 @@ vi.mock('@/lib/api', () => ({
   smetaAsk: vi.fn(),
 }))
 
-function renderSmetaPage() {
+function renderSmetaPage(url = '/smeta/room-1') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/smeta/room-1']}>
-        <Routes>
-          <Route path="/smeta/:roomId" element={<SmetaPage />} />
-        </Routes>
-      </MemoryRouter>
+      <FeedbackProvider>
+        <MemoryRouter initialEntries={[url]}>
+          <Routes>
+            <Route path="/smeta/:roomId" element={<SmetaPage />} />
+          </Routes>
+        </MemoryRouter>
+      </FeedbackProvider>
     </QueryClientProvider>,
   )
 }
 
 beforeEach(() => {
+  sessionStorage.clear()
   previewEstimate.mockClear()
   createEstimate.mockClear()
+})
+
+describe('SmetaPage (inside the native app)', () => {
+  it('shows the web back link and the 3D/Smeta toggle in a normal browser', () => {
+    renderSmetaPage()
+    expect(screen.getByText(/Orqaga/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '3D' })).toBeTruthy()
+  })
+
+  it('hides only the web back link with app=1 — the toggle and title stay', () => {
+    renderSmetaPage('/smeta/room-1?app=1')
+    expect(screen.queryByText(/Orqaga/)).toBeNull()
+    expect(screen.getByRole('button', { name: '3D' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 })).toBeTruthy()
+  })
 })
 
 describe('SmetaPage (Fix 7 — preview vs. persisted save)', () => {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Package, Plus, Store as StoreIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -34,6 +35,7 @@ export function CatalogOverview({
   onSelectStore: (store: AdminStore) => void;
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [showAddStore, setShowAddStore] = useState(false);
   const [showAddModel, setShowAddModel] = useState(false);
   const [editingModel, setEditingModel] = useState<AdminFurniture | null>(null);
@@ -61,7 +63,7 @@ export function CatalogOverview({
   const activeStoreCount = stores.filter((s) => s.is_active).length;
 
   async function handleDeleteModel(model: AdminFurniture) {
-    if (!window.confirm(`"${model.name_uz}" o'chirilsinmi?`)) return;
+    if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
     try {
       await deleteAdminFurniture(model.id);
       onError(null);

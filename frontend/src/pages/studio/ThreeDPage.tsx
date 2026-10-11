@@ -22,6 +22,8 @@ import { type ScanSwapRequest } from "./three-d/RoomScanOverlay";
 import { nanoid } from "nanoid";
 import { fitDeviceHeightMm } from "@/lib/placement";
 import { HoldDeleteButton } from "@/hooks/useHoldToDelete";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { ELECTRICAL_DIMS } from "./three-d/constants";
 import { clearOfOpenings } from "@/lib/electricalClearance";
 import { windowSpotKey, restylesExisting, type StyledWindow } from "@/lib/windowSpot";
@@ -617,15 +619,19 @@ export default function ThreeDPage() {
   // simply never drawn.
   const aptId = room.apartment_id && room.apartment_id !== 'local' ? room.apartment_id : null;
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const confirm = useConfirm();
+  // The flat's rooms, refreshed on every room switch — see useFlatRooms for
+  // why the plain query left a neighbour drawn from a stale list.
   const aptRooms = useFlatRooms(aptId, room.id);
 
   async function handleDeleteSibling(id: string, name: string) {
-    if (!window.confirm(`"${name}" xonasini o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+    if (!(await confirm({ title: `"${name}" xonasini o'chirishni tasdiqlaysizmi?`, description: "Bu amalni qaytarib bo'lmaydi.", destructive: true }))) return;
     try {
       await deleteRoom(id);
       queryClient.invalidateQueries({ queryKey: ['apt-rooms', aptId] });
     } catch (err) {
-      alert("Xonani o'chirib bo'lmadi: " + (err instanceof Error ? err.message : 'xato'));
+      toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined });
     }
   }
 

@@ -12,6 +12,14 @@ import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
+import { WebOnly } from "@/lib/embedded";
+import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+
+// Read live at navigation time (not from the last render): a save marks the
+// store clean and may navigate in the same tick.
+const getIsDirty = () => useRoomStore.getState().isDirty;
 
 export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -68,6 +76,8 @@ export default function StudioPage() {
   const [shareBusy, setShareBusy] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const copyResetRef = useRef<number | null>(null);
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   function flashCopyStatus(status: 'copied' | 'error') {
     setCopyStatus(status);
@@ -84,7 +94,7 @@ export default function StudioPage() {
       const res = await createShareLink(room.id);
       setShareToken(res.share_token);
     } catch (err) {
-      alert('Havolani yaratib bo\'lmadi: ' + (err instanceof Error ? err.message : 'Xato'));
+      toast({ variant: 'error', title: "Havolani yaratib bo'lmadi", description: err instanceof Error ? err.message : undefined });
       setSharePopoverOpen(false);
     } finally {
       setShareBusy(false);
@@ -107,13 +117,13 @@ export default function StudioPage() {
 
   async function handleRevokeShareLink() {
     if (!shareToken) return;
-    if (!window.confirm('Ulashish havolasini bekor qilasizmi? Havola endi ishlamaydi.')) return;
+    if (!(await confirm({ title: 'Ulashish havolasini bekor qilasizmi?', description: 'Havola endi ishlamaydi.', confirmLabel: 'Bekor qilish', cancelLabel: 'Qoldirish', destructive: true }))) return;
     try {
       await revokeShareLink(room.id);
       setShareToken(null);
       setSharePopoverOpen(false);
     } catch (err) {
-      alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'));
+      toast({ variant: 'error', title: "Havolani bekor qilib bo'lmadi", description: err instanceof Error ? err.message : undefined });
     }
   }
 
@@ -443,15 +453,18 @@ export default function StudioPage() {
         <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Back button + title, left-aligned */}
           <div className="flex items-center gap-2 min-w-0">
-            <NavLink
-              to="/projects"
-              aria-label="Orqaga"
-              className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M11 4L6 9l5 5"/>
-              </svg>
-            </NavLink>
+            {/* Hidden inside the native app, whose AppBar has its own back arrow (lib/embedded). */}
+            <WebOnly>
+              <NavLink
+                to="/projects"
+                aria-label="Orqaga"
+                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M11 4L6 9l5 5"/>
+                </svg>
+              </NavLink>
+            </WebOnly>
             <button
               className="min-w-0 text-left hidden sm:block"
               onClick={() => setSettingsOpen(true)}
@@ -537,15 +550,19 @@ export default function StudioPage() {
                   )}
                   <button
                     onClick={async () => {
-                      if (window.confirm('O\'chirishligi rostlaysizmi? Bu harakatni qaytarib bo\'lmaydi.')) {
+                      // Close the menu first: it sits above the dialog's overlay.
+                      setMenuOpen(false)
+                      if (await confirm({ title: "Xonani o'chirishni tasdiqlaysizmi?", description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) {
                         try {
                           await deleteRoom(room.id)
+                          // The room is gone, so its unsaved edits are too —
+                          // don't let the leave-guard ask about them.
+                          useRoomStore.getState().markSaved()
                           navigate('/projects')
                         } catch (err) {
-                          alert('Xato: ' + (err instanceof Error ? err.message : 'Xato'))
+                          toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined })
                         }
                       }
-                      setMenuOpen(false)
                     }}
                     className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
                   >
@@ -633,6 +650,8 @@ export default function StudioPage() {
       )}
 
       <RoomSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {roomId && <UnsavedChangesGuard roomId={roomId} isDirty={getIsDirty} />}
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">

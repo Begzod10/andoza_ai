@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, previewEstimate, getEstimatePDF, getRoom } from "@/lib/api";
@@ -10,6 +11,7 @@ import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
 import { CategorySection } from "@/components/smeta/CategorySection";
 import { CostBreakdown } from "@/components/smeta/CostBreakdown";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
+import { WebOnly } from "@/lib/embedded";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -39,6 +41,7 @@ export default function SmetaPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const { toast } = useToast();
   const [askOpen, setAskOpen] = useState(false);
   const [highlightedLines, setHighlightedLines] = useState<Set<string>>(new Set());
   const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
@@ -168,7 +171,7 @@ export default function SmetaPage() {
       const blob = await (marketMode ? getEstimatePDF(roomId, { market: true }) : getEstimatePDF(roomId));
       downloadBlob(blob, `smeta-${roomId}.pdf`);
     } catch {
-      alert(uz.errors.pdf_xato);
+      toast({ variant: 'error', title: uz.errors.pdf_xato });
     } finally {
       setPdfLoading(false);
     }
@@ -219,12 +222,15 @@ export default function SmetaPage() {
       {/* Header */}
       <header className="border-b border-line bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link
-            to={`/studio/${roomId}`}
-            className="text-ink-muted hover:text-ink text-sm"
-          >
-            ← {uz.common.orqaga}
-          </Link>
+          {/* The native app's AppBar has its own back arrow (see lib/embedded). */}
+          <WebOnly>
+            <Link
+              to={`/studio/${roomId}`}
+              className="text-ink-muted hover:text-ink text-sm"
+            >
+              ← {uz.common.orqaga}
+            </Link>
+          </WebOnly>
           <h1 className="text-xl font-bold text-ink">{uz.smeta.sarlavha}</h1>
           {room && (
             <span className="ml-auto text-sm text-ink-muted">

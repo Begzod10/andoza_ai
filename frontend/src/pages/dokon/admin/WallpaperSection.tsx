@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -42,6 +43,7 @@ export function WallpaperSection({
   onError: (msg: string | null) => void;
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
   const [editingWallpaper, setEditingWallpaper] = useState<Wallpaper | null>(null);
 
@@ -62,8 +64,8 @@ export function WallpaperSection({
     onError: (err) => onError(errorMessage(err, "O'chirib bo'lmadi")),
   });
 
-  function handleDelete(wallpaper: Wallpaper) {
-    if (!window.confirm(`"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`)) return;
+  async function handleDelete(wallpaper: Wallpaper) {
+    if (!(await confirm({ title: `"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`, destructive: true }))) return;
     deleteMutation.mutate(wallpaper.id);
   }
 

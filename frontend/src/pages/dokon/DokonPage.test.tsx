@@ -3,8 +3,9 @@
  * the cart only loses what was actually ordered.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 import DokonPage from './DokonPage'
 
 const listCatalogFurniture = vi.fn()
@@ -39,7 +40,7 @@ const orderOut = (dealer: string, over: object = {}) => ({
 
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><DokonPage /></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><FeedbackProvider><DokonPage /></FeedbackProvider></QueryClientProvider>)
 }
 
 async function addFromShop(buttonName: RegExp, tab?: string) {
@@ -149,11 +150,13 @@ describe('DokonPage: my orders', () => {
     listOrders.mockResolvedValue([mine()])
     getOrder.mockResolvedValue(mine())
     cancelOrder.mockResolvedValue(mine({ status: 'cancelled', cancelled_by: 'buyer', cancel_reason: 'Xaridor bekor qildi' }))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
     fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Buyurtmani bekor qilasizmi?' })
+    expect(cancelOrder).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Bekor qilish' }))
     await waitFor(() => expect(cancelOrder).toHaveBeenCalledWith('aaaabbbb-0000-0000-0000-000000000001'))
     expect(await screen.findByText('Buyurtma bekor qilindi')).toBeInTheDocument()
   })
@@ -161,11 +164,12 @@ describe('DokonPage: my orders', () => {
   it('does nothing when the user declines the confirmation', async () => {
     listOrders.mockResolvedValue([mine()])
     getOrder.mockResolvedValue(mine())
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
     fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Qoldirish' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(cancelOrder).not.toHaveBeenCalled()
   })
 
@@ -173,11 +177,11 @@ describe('DokonPage: my orders', () => {
     listOrders.mockResolvedValue([mine()])
     getOrder.mockResolvedValue(mine())
     cancelOrder.mockRejectedValue(new Error(JSON.stringify({ detail: "Bu bosqichda buyurtmani bekor qilib bo'lmaydi." })))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Buyurtmalarim/ }))
     fireEvent.click(await screen.findByRole('button', { name: /AAAABBBB/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Buyurtmani bekor qilish' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Bekor qilish' }))
     expect(await screen.findByRole('alert')).toHaveTextContent("bekor qilib bo'lmaydi")
   })
 })
