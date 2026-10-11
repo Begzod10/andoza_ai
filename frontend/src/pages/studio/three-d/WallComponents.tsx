@@ -15,7 +15,7 @@ import { buildTrimGeometry, resolveTrim, type ResolvedTrim } from "@/lib/trimPro
 import { useRoomStore, PLASTER_BASE_COLOR } from "@/store/roomStore";
 import { DOOR_IVORY } from "@/lib/doorStyles";
 import { WALLPAPER_WIDTH_M, OPENING_REVEAL_D, openingRevealDepth, noRaycast, FLOOR_COLORS } from "./constants";
-import { architraveFaces, drawsOpeningLining } from "@/lib/flatOpenings";
+import { architraveFaces, drawsOpeningLining, hiddenByCamera } from "@/lib/flatOpenings";
 import { floorFinish, surfaceFinish } from "@/lib/surfaceFinish";
 
 /** Paper has a weave, and its own image says where. */
@@ -1195,13 +1195,13 @@ export function WindowFrames({
   const wallDefs: FrameWallDef[] = buildFrameWallDefs(geometry, wallWidth, wallDepth);
 
   for (const wd of wallDefs) {
-    if (hiddenWalls?.has(wd.id)) continue;
     const wall = geometry.walls.find((w) => w.id === wd.id);
     if (!wall) continue;
 
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "deraza" && el.type !== "balkon") continue;
+      if (hiddenByCamera(el, wd.id, hiddenWalls)) continue;
       // Lining left to the room that draws it — see lib/flatOpenings.
       if (!drawsOpeningLining(el, wd.id, partitionWalls)) continue;
       items.push(<WindowFrameItem key={`frame-${wd.id}-${el.id}`} wd={wd} el={el} />);
@@ -1345,13 +1345,13 @@ export function DoorFrames({
   const wallDefs: FrameWallDef[] = buildFrameWallDefs(geometry, wallWidth, wallDepth);
 
   for (const wd of wallDefs) {
-    if (hiddenWalls?.has(wd.id)) continue;
     const wall = geometry.walls.find((w) => w.id === wd.id);
     if (!wall) continue;
 
     const resolvedWallEls = resolveElementPositions(wall.elements, wd.length * 1000);
     for (const el of resolvedWallEls) {
       if (el.type !== "eshik") continue; // Only doors
+      if (hiddenByCamera(el, wd.id, hiddenWalls)) continue;
       // A door cut through this wall whose lining another room draws, or one
       // a sibling does not draw on its partition — see lib/flatOpenings.
       if (!drawsOpeningLining(el, wd.id, partitionWalls)) continue;

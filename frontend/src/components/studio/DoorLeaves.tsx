@@ -9,7 +9,7 @@ import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { useRoomStore } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
-import { drawsOpeningLeaf } from "@/lib/flatOpenings";
+import { drawsOpeningLeaf, hiddenByCamera } from "@/lib/flatOpenings";
 import { WINDOW_STYLES, layoutPanes, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import { liveOpeningDrag } from "@/lib/liveOpeningDrag";
@@ -317,10 +317,12 @@ export function OpeningLeaves({
   const doors = useMemo(() => {
     const out: { wf: WallFrame; el: WallElement }[] = [];
     for (const wf of frames) {
-      if (hiddenWalls?.has(wf.id)) continue;
       const wall = geometry.walls.find((w) => w.id === wf.id);
       if (!wall) continue;
       for (const el of resolveElementPositions(wall.elements, wf.lengthM * 1000)) {
+        // Gone with its wall when the camera is behind it — except a shared
+        // doorway, which the neighbour's wall still frames.
+        if (hiddenByCamera(el, wf.id, hiddenWalls)) continue;
         // A hole this room only cuts — the room that draws the doorway hangs
         // its leaf, and two leaves in one opening z-fight — and never a
         // borrowed opening on an editable layer. See lib/flatOpenings.

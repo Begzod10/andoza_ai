@@ -17,7 +17,7 @@
  * from-the-minimum convention and the CCW loop disagree.
  */
 import { describe, expect, it } from 'vitest'
-import { flatRenderPlan, openingInventory, physicalKey } from '@/lib/flatOpenings'
+import { flatRenderPlan, hiddenByCamera, openingInventory, physicalKey } from '@/lib/flatOpenings'
 import { apiGeometryToStoreGeometry, roomScopedElementId } from '@/lib/apiRoomGeometry'
 import { placedSiblingRooms } from '@/pages/studio/three-d/helpers'
 import type { PlacedRoom } from '@/lib/borrowedOpenings'
@@ -179,5 +179,23 @@ describe('a door hard against a corner, owned by either side, seen from any room
     for (const active of everyActive) {
       expect(openingInventory(planOf(rooms, active)).get('owner:w1')).toEqual({ linings: 1, leaves: 1, architraves: 1 })
     }
+  })
+})
+
+describe('a shared doorway seen from behind its owner wall', () => {
+  // "now there is hole but no door … from behind, in front there is door":
+  // orbiting round to the neighbour's side puts the camera behind the owner's
+  // wall, and the cutaway hid that wall's door with it — leaving only the
+  // neighbour's bare hole. The neighbour's wall is still standing there, so
+  // the one drawing of the doorway has to stay.
+  const own = { id: 'e1', type: 'eshik', width: 900, height: 2100, position: 1000, sill_height: 0 } as WallElement
+  const shared = { ...own, sharedPartition: true } as WallElement
+  it('keeps a shared-partition opening when its wall is behind the camera', () => {
+    expect(hiddenByCamera(shared, 'B', new Set(['B']))).toBe(false)
+  })
+  it('still hides an ordinary opening with its wall', () => {
+    expect(hiddenByCamera(own, 'B', new Set(['B']))).toBe(true)
+    expect(hiddenByCamera(own, 'B', new Set(['A']))).toBe(false)
+    expect(hiddenByCamera(own, 'B', undefined)).toBe(false)
   })
 })

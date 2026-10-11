@@ -21,7 +21,7 @@ import { shadeCovering, boardSegments, trimSegments } from "./helpers";
 import { WoodFloor, Ceiling, PatternFloor, CeilingProfile, DoorwayFloors } from "./FloorCeiling";
 import { doorwayNiches } from "@/lib/doorwayNiches";
 import { rendersAsAbcdRectangle } from "@/lib/borrowedOpenings";
-import { drawsOpeningLining } from "@/lib/flatOpenings";
+import { drawsOpeningLining, hiddenByCamera } from "@/lib/flatOpenings";
 import { rectangleFrame } from "@/lib/roomOutline";
 import { buildCeilingParts } from "@/lib/ceilingDesigns";
 import { floorSlabColorFor } from "@/lib/floorGeometry";
@@ -670,11 +670,13 @@ function NWallRoomShell({
               {/* The wall is a single-sided plane and culls on its own from
                   outside; its casings are not, so they go with it rather than
                   hanging in the air where it was. */}
-              {!hiddenAttachments?.has(e.wallId) && resolvedEls.map((el) =>
+              {resolvedEls.map((el) =>
                 // An opening cut through this wall whose lining another room
                 // draws, or one a sibling does not draw on its partition with
-                // the active room — see lib/flatOpenings.
-                !drawsOpeningLining(el, e.wallId, partitionWalls) ? null : el.type === 'eshik' ? (
+                // the active room — see lib/flatOpenings. A shared doorway
+                // stays when the camera is behind this wall: the neighbour's
+                // wall still frames it.
+                hiddenByCamera(el, e.wallId, hiddenAttachments) || !drawsOpeningLining(el, e.wallId, partitionWalls) ? null : el.type === 'eshik' ? (
                   <DoorFrameItem key={`door-${el.id}`} wd={frameWd} el={el} />
                 ) : (
                   <WindowFrameItem key={`win-${el.id}`} wd={frameWd} el={el} />

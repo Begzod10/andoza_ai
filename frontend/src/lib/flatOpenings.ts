@@ -86,6 +86,23 @@ export function drawsOpeningLining(
   return true
 }
 
+/**
+ * Whether the camera-facing cutaway takes this opening away with its wall.
+ *
+ * An ordinary opening goes with the wall it is cut in: the wall is culled from
+ * outside, and a casing left behind would hang in the air. A doorway through a
+ * shared partition does not — the neighbour's wall is still standing there
+ * with the hole cut in it, and this is the ONE drawing of the door, so hiding
+ * it from behind left "a hole but no door" on the neighbour's side.
+ */
+export function hiddenByCamera(
+  el: WallElement,
+  wallId: string,
+  hiddenWalls: ReadonlySet<string> | undefined,
+): boolean {
+  return !!hiddenWalls?.has(wallId) && !el.sharedPartition
+}
+
 /** How many faces of the wall a drawn door is trimmed on: both when it is a
  *  doorway through a shared partition, the room's own face otherwise. Windows
  *  carry no architrave. */
