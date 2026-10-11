@@ -10,6 +10,7 @@ import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
 import { CategorySection } from "@/components/smeta/CategorySection";
 import { CostBreakdown } from "@/components/smeta/CostBreakdown";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
+import { WebOnly } from "@/lib/embedded";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -219,12 +220,15 @@ export default function SmetaPage() {
       {/* Header */}
       <header className="border-b border-line bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link
-            to={`/studio/${roomId}`}
-            className="text-ink-muted hover:text-ink text-sm"
-          >
-            ← {uz.common.orqaga}
-          </Link>
+          {/* The native app's AppBar has its own back arrow (see lib/embedded). */}
+          <WebOnly>
+            <Link
+              to={`/studio/${roomId}`}
+              className="text-ink-muted hover:text-ink text-sm"
+            >
+              ← {uz.common.orqaga}
+            </Link>
+          </WebOnly>
           <h1 className="text-xl font-bold text-ink">{uz.smeta.sarlavha}</h1>
           {room && (
             <span className="ml-auto text-sm text-ink-muted">

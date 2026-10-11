@@ -12,6 +12,12 @@ import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
+import { WebOnly } from "@/lib/embedded";
+import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
+
+// Read live at navigation time (not from the last render): a save marks the
+// store clean and may navigate in the same tick.
+const getIsDirty = () => useRoomStore.getState().isDirty;
 
 export default function StudioPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -443,15 +449,18 @@ export default function StudioPage() {
         <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Back button + title, left-aligned */}
           <div className="flex items-center gap-2 min-w-0">
-            <NavLink
-              to="/projects"
-              aria-label="Orqaga"
-              className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M11 4L6 9l5 5"/>
-              </svg>
-            </NavLink>
+            {/* Hidden inside the native app, whose AppBar has its own back arrow (lib/embedded). */}
+            <WebOnly>
+              <NavLink
+                to="/projects"
+                aria-label="Orqaga"
+                className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 hover:bg-neutral-200 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M11 4L6 9l5 5"/>
+                </svg>
+              </NavLink>
+            </WebOnly>
             <button
               className="min-w-0 text-left hidden sm:block"
               onClick={() => setSettingsOpen(true)}
@@ -633,6 +642,8 @@ export default function StudioPage() {
       )}
 
       <RoomSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {roomId && <UnsavedChangesGuard roomId={roomId} isDirty={getIsDirty} />}
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">
