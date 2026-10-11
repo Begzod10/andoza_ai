@@ -952,7 +952,6 @@ const windowSillLipMat = <meshStandardMaterial color="#D4C4B4" roughness={0.5} m
 // family as the frame and baseboard, matte so they read as wall, not joinery.
 // Shared by windows and doors so both openings read as the same wall.
 const windowRevealMat = <meshStandardMaterial color="#E7E1D6" roughness={0.85} metalness={0} envMapIntensity={0.3} />;
-const doorFrameMat = <meshStandardMaterial color="#8B7355" roughness={0.7} metalness={0.05} />;
 /** Painted trim, in the door's own colour. */
 const architraveMat = (color: string) => (
   <meshStandardMaterial color={color} roughness={0.55} metalness={0.03} />
@@ -1239,12 +1238,7 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
   const archBase = skirtingState === null ? 0 : resolveTrim(skirtingState, 'skirting').heightM;
   const archLegH = Math.max(0.05, elH - archBase);
 
-  // Flat trim ring at the reveal's outer edge — same construction as the
-  // window's, so neither shows a lip inside the niche. Spanning exactly the
-  // opening puts its outer sides against the reveal planes.
   const revealD = openingRevealDepth(el);
-  const frC = out * (revealD - FRAME_T / 2);
-  const jamb = elW / 2 - FRAME_W / 2;
 
   // The architrave on each face this door is trimmed on. The room's own face
   // always: the casing stands proud of it INTO the room, along −out. A door
@@ -1275,23 +1269,10 @@ export function DoorFrameItem({ wd, el }: { wd: FrameWallDef; el: WallElement })
         floorMat={<DoorwayFloorMat wM={elW} dM={revealD} />}
       />
 
-      {/* Left frame */}
-      <mesh position={v(-jamb, elH / 2, frC)}>
-        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
-        {doorFrameMat}
-      </mesh>
-
-      {/* Right frame */}
-      <mesh position={v(jamb, elH / 2, frC)}>
-        <boxGeometry args={v(FRAME_W, elH - 2 * FRAME_W, FRAME_T)} />
-        {doorFrameMat}
-      </mesh>
-
-      {/* Head frame */}
-      <mesh position={v(0, elH - FRAME_W / 2, frC)}>
-        <boxGeometry args={v(elW, FRAME_W, FRAME_T)} />
-        {doorFrameMat}
-      </mesh>
+      {/* No brown frame ring. It stood at the back of the reveal in the same
+          plane as the leaf, so it z-fought with the leaf's edges and read as
+          a striped brown strip inside the doorway; the user asked for it to
+          go. The lining and the architraves are the door's whole frame. */}
 
       {/* The architrave, on the room face — two legs and a head, mitre-lapped
           at the corners the way a fitted one is. `out` points away from the
