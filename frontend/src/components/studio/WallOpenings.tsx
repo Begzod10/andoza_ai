@@ -84,7 +84,7 @@ function toWorld(wd: WallDef, alongM: number, yM: number, push = 0): [number, nu
 const s = 1 / 1000
 
 export function WallOpenings({
-  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting, openMenu, armedId,
+  geometry, W, D, H, hiddenWalls, selected, onSelect, updateElement, removeElement, onInteracting, openMenu, armedId, onArm,
 }: {
   geometry: RoomGeometry
   W: number; D: number; H: number
@@ -98,6 +98,8 @@ export function WallOpenings({
   openMenu?: (kind: 'door' | 'window', wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void
   /** The opening a double tap has armed for dragging. Only this one moves. */
   armedId?: string | null
+  /** Arms an opening for dragging, from the hold menu's "Ko'chirish". */
+  onArm?: (wallId: string, elId: string) => void
 }) {
   // Real polygon data (≥3 hand-drawn vertices) uses the generalized per-edge
   // math; a legacy 4-wall rectangle room (no `vertices`) keeps using the
@@ -297,6 +299,10 @@ export function WallOpenings({
           const hold = bindHold({
             label: el.type === 'eshik' ? 'Eshik' : 'Deraza',
             onDelete: () => { removeElement(w.id, el.id); if (isSel) onSelect(null) },
+            // Hold → "Ko'chirish": select and arm it, so the next drag walks
+            // it along the wall (a door stays on the floor; a window also
+            // moves up and down). The double tap still arms it too.
+            onMove: onArm ? () => { onSelect({ wallId: w.id, elId: el.id }); onArm(w.id, el.id) } : undefined,
           })
           return (
             <group key={`op-${w.id}-${el.id}`}>

@@ -100,7 +100,7 @@ export function ThreeDCanvasScene({
   room, geometry, designState,
   showContactShadows, useComposer, lightsOn, cutaway,
   selectedWall, focusSurface, holdBind, panorama, onPanoramaCaptured,
-  cameraStation, cameraAspect, onViewCaptured, armedOpeningId,
+  cameraStation, cameraAspect, onViewCaptured, armedOpeningId, onArmOpening,
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
@@ -144,6 +144,8 @@ export function ThreeDCanvasScene({
   onViewCaptured: (canvas: HTMLCanvasElement, aspect: RenderAspect) => void;
   /** The opening a double tap has armed for dragging, if any. */
   armedOpeningId?: string | null;
+  /** Arms an opening for dragging — the hold menu's "Ko'chirish". */
+  onArmOpening?: (wallId: string, elId: string) => void;
   selOpening: OpeningSel | null;
   selectOpening: (sel: OpeningSel | null) => void;
   updateElement: (wallId: string, elementId: string, patch: Partial<Omit<WallElement, 'id'>>) => void;
@@ -460,6 +462,7 @@ export function ThreeDCanvasScene({
           openMenu={openOpeningMenu}
           hiddenWalls={behind}
           armedId={armedOpeningId}
+          onArm={onArmOpening}
         />
         </group>
         )}

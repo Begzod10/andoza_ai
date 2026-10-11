@@ -39,13 +39,13 @@ function pointer(type: string, init: { clientX?: number; clientY?: number; point
 }
 
 /** Arms a hold the way a mesh does, then renders the button it puts up. */
-function Harness({ onDelete }: { onDelete: () => void }) {
+function Harness({ onDelete, onMove }: { onDelete: () => void; onMove?: () => void }) {
   const { bind } = useHoldToDelete()
   return (
     <>
       <button
         data-testid="thing"
-        {...bind({ label: 'Shkaf 3', onDelete })}
+        {...bind({ label: 'Shkaf 3', onDelete, onMove })}
       >
         a wardrobe
       </button>
@@ -133,5 +133,36 @@ describe('HoldDeleteButton', () => {
     })
 
     expect(behind).not.toHaveBeenCalled()
+  })
+})
+
+describe('the move button', () => {
+  // "holding door = delete button pop up and add door move feature
+  // horizontally": a held door offers Ko'chirish beside O'chirish.
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('is offered only for things that can move', () => {
+    render(<Harness onDelete={() => {}} />)
+    holdIt()
+    expect(screen.queryByRole('button', { name: /^Ko'chirish$/ })).toBeNull()
+  })
+
+  it('moves rather than deletes, and puts the menu away', () => {
+    const onDelete = vi.fn()
+    const onMove = vi.fn()
+    render(<Harness onDelete={onDelete} onMove={onMove} />)
+    holdIt()
+
+    const move = screen.getByRole('button', { name: /^Ko'chirish$/ })
+    act(() => {
+      move.dispatchEvent(pointer('pointerdown'))
+      move.dispatchEvent(pointer('pointerup'))
+      move.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    })
+
+    expect(onMove).toHaveBeenCalledTimes(1)
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /^Ko'chirish$/ })).toBeNull()
   })
 })

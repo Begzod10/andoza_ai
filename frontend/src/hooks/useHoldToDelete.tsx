@@ -20,6 +20,9 @@ export interface HoldDeleteItem {
   /** Named above the button, so it is clear what is about to go. */
   label: string
   onDelete: () => void
+  /** Offered beside delete when the item can be moved: a held door gets
+   *  "Ko'chirish", which arms it so the next drag walks it along the wall. */
+  onMove?: () => void
 }
 
 interface HoldDeleteState {
@@ -134,6 +137,18 @@ export function HoldDeleteButton() {
           </svg>
           O&apos;chirish
         </button>
+        {pending.item.onMove && (
+          <button
+            onClick={(e) => { e.stopPropagation(); pending.item.onMove?.(); close() }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#2E5BFF] text-[13px] font-bold shadow-lg ring-1 ring-black/10 active:scale-95"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M5 12l4-4M5 12l4 4M19 12l-4-4M19 12l-4 4" />
+            </svg>
+            Ko&apos;chirish
+          </button>
+        )}
       </div>
     </div>
   )

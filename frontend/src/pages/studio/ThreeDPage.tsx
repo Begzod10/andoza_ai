@@ -344,7 +344,7 @@ export default function ThreeDPage() {
   // A fast path alongside the phase-stepper rail (SHOW_PHASE_STEPPER), not a
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
-  const { radial, holdBind, closeRadial, armedOpening, disarmOpening } = useSurfaceRadialMenu(controlsRef);
+  const { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
   // Tapping a wall, the ceiling or the floor drops whatever was selected.
   // onPointerMissed only fires on a tap that hits NOTHING, so a tap on the
   // room itself left a model selected behind the ring — its outline, its tool
@@ -977,6 +977,7 @@ export default function ThreeDPage() {
 
           <ThreeDCanvasScene
           armedOpeningId={armedOpening?.elId ?? null}
+          onArmOpening={armOpening}
             panorama={panorama}
             onPanoramaCaptured={savePanorama}
             cameraStation={cameraStation}

@@ -80,6 +80,8 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
   /** Lets go of the armed opening — a tap on empty space, or on anything
    *  else. */
   function disarmOpening() { setArmedOpening(null); }
+  /** Arms an opening for dragging directly — the hold menu's "Ko'chirish". */
+  function armOpening(wallId: string, elId: string) { setArmedOpening({ wallId, elId }); }
 
   function startHold(surface: RadialSurface, wallId: string | undefined, e: { nativeEvent?: PointerEvent; clientX?: number; clientY?: number; point?: { x: number; y: number; z: number }; stopPropagation?: () => void }, elId?: string) {
     const cx = e.nativeEvent?.clientX ?? e.clientX ?? 0;
@@ -129,5 +131,5 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     };
   }
 
-  return { radial, holdBind, closeRadial, armedOpening, disarmOpening };
+  return { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening };
 }
