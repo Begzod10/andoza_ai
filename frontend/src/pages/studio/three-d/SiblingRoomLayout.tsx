@@ -14,6 +14,7 @@ import {
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
 import { isRoomVisible } from "@/lib/roomFocus";
 import { SiblingRoomBody } from "./SiblingRoomScene";
+import { neighbourOpenings, wallsAgainst, withNeighbourOpenings, type PlacedRoom } from "@/lib/borrowedOpenings";
 
 /**
  * The apartment floor plan around the active room: "+ add room" buttons,
@@ -118,6 +119,8 @@ export function SiblingRooms({
   activeW,
   activeD,
   activePos,
+  activeGeometry,
+  siblingsPlaced,
   onOpen,
   onDelete,
   focusedRoomId,
@@ -128,6 +131,12 @@ export function SiblingRooms({
   activeW: number;
   activeD: number;
   activePos: { x: number; z: number } | null;
+  /** The room being edited, live from the store — a sibling borrows its
+   *  openings from this, not from the saved copy in `rooms`, so a door added,
+   *  moved or deleted there shows through the neighbour's wall at once. */
+  activeGeometry?: RoomGeometry;
+  /** Every sibling, placed (`placedSiblingRooms`). */
+  siblingsPlaced?: PlacedRoom[];
   onOpen: (roomId: string) => void;
   onDelete: (roomId: string, name: string) => void;
   /** The room being looked at alone, or null for the whole flat. */
@@ -147,6 +156,26 @@ export function SiblingRooms({
         return { room: r, w, d, x: p.x - anchor.x, z: p.z - anchor.z };
       });
   }, [rooms, activeId, activeW, activeD, activePos]);
+
+  // Per sibling: the geometry its shell is drawn from — its own, with the
+  // openings of every room whose wall lies against one of its walls cut in
+  // (lib/borrowedOpenings) — and which of its walls are a partition with the
+  // ACTIVE room. A sibling borrows from the active room AND from the other
+  // siblings, bare: it cuts the hole, and the lining is drawn once, by the
+  // active room on their shared partition and by the owner elsewhere.
+  const shells = useMemo(() => {
+    const out = new Map<string, { geometry: RoomGeometry; partition: Set<string> }>();
+    if (!siblingsPlaced || !activeGeometry) return out;
+    const active: PlacedRoom = { id: activeId, geometry: activeGeometry, offsetXM: 0, offsetZM: 0 };
+    const everyone = [active, ...siblingsPlaced];
+    for (const sib of siblingsPlaced) {
+      out.set(sib.id, {
+        geometry: withNeighbourOpenings(sib.geometry, neighbourOpenings(sib, everyone), { lineBorrowed: false }),
+        partition: wallsAgainst(sib, active),
+      });
+    }
+    return out;
+  }, [siblingsPlaced, activeGeometry, activeId]);
 
   return (
     <>
@@ -174,6 +203,8 @@ export function SiblingRooms({
               activeWM={activeW}
               activeDM={activeD}
               siblingCount={layout.length}
+              shellGeometry={shells.get(sib.id)?.geometry}
+              partitionWithActive={shells.get(sib.id)?.partition}
               onOpen={open}
             />
             {/* No name pill: every room in the flat carried one, so a
@@ -209,9 +240,14 @@ export function SiblingRooms({
 /** Mounts the interactive 3D doors and windows. The wrapper is what lets the
  *  cutaway hook run inside the Canvas while its controls live on the page. */
 export function OpeningLayer({
-  geometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect, openMenu, hiddenWalls: alsoHidden,
+  geometry, borrowedGeometry, W, D, cutaway, toolMode, controlsRef, selectedId, onSelect, openMenu, hiddenWalls: alsoHidden,
 }: {
   geometry: RoomGeometry;
+  /** Neighbours' openings this room lines (lib/borrowedOpenings'
+   *  `linedBorrowedOpeningsOnly`): their leaves and sashes hang here, as
+   *  scenery — the owner's are not drawn on the shared partition, and a
+   *  borrowed opening is not editable from this side. */
+  borrowedGeometry?: RoomGeometry;
   W: number;
   D: number;
   cutaway: CutawayMode;
@@ -245,6 +281,12 @@ export function OpeningLayer({
     <>
       <DoorLeaves {...shared} openMenu={(wallId, elId, e) => openMenu?.('door', wallId, elId, e)} />
       <WindowSashes {...shared} openMenu={(wallId, elId, e) => openMenu?.('window', wallId, elId, e)} />
+      {borrowedGeometry && (
+        <>
+          <DoorLeaves geometry={borrowedGeometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} interactive={false} />
+          <WindowSashes geometry={borrowedGeometry} wallWidth={W} wallDepth={D} hiddenWalls={hiddenWalls} interactive={false} />
+        </>
+      )}
     </>
   );
 }

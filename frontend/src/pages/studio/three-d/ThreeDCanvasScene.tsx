@@ -19,7 +19,8 @@ import { type CutawayMode } from "@/features/studio/diorama";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
-import { computeOccupiedSides, flatExtent } from "./helpers";
+import { computeOccupiedSides, flatExtent, placedSiblingRooms } from "./helpers";
+import { linedBorrowedOpeningsOnly, neighbourOpenings, ownOpeningsOnly, withNeighbourOpenings } from "@/lib/borrowedOpenings";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
 import { DraggableLightModels } from "./LightingComponents";
@@ -199,6 +200,36 @@ export function ThreeDCanvasScene({
     () => flatExtent(aptRooms, room.id, W, D, activeLayoutPos),
     [aptRooms, room.id, W, D, activeLayoutPos],
   );
+  /**
+   * "this door should work for the wall of another room": the neighbours'
+   * openings that come through this room's walls, cut into the geometry the
+   * shell is DRAWN from. Never the store's geometry — nothing borrowed is
+   * saved, billed or editable; see lib/borrowedOpenings for the design.
+   *
+   * This room lines every opening in its walls, its own and the borrowed ones
+   * (`lineBorrowed: true`): its neighbours draw no chrome on the partition
+   * they share with it (`siblingWallsInActiveRoom`), so this is the one
+   * lining that doorway gets, spanning the measured partition.
+   */
+  const siblingsPlaced = useMemo(
+    () => (aptRooms ? placedSiblingRooms(aptRooms, room.id, W, D, activeLayoutPos) : []),
+    [aptRooms, room.id, W, D, activeLayoutPos],
+  );
+  const shellGeometry = useMemo(
+    () => withNeighbourOpenings(
+      geometry,
+      neighbourOpenings({ id: room.id, geometry, offsetXM: 0, offsetZM: 0 }, siblingsPlaced),
+      { lineBorrowed: true },
+    ),
+    [geometry, room.id, siblingsPlaced],
+  );
+  /** The room's own openings, carrying their partition depth so a leaf hangs
+   *  at the outer edge of the lining it is drawn in — for the editable layer. */
+  const ownOpeningGeometry = useMemo(() => ownOpeningsOnly(shellGeometry), [shellGeometry]);
+  /** The borrowed openings this room lines — their leaves and sashes, as
+   *  scenery: the owner's own leaf is not drawn on the shared partition. */
+  const borrowedLeafGeometry = useMemo(() => linedBorrowedOpeningsOnly(shellGeometry), [shellGeometry]);
+
   /** The surface-menu handlers for a trim run. `holdBind` is typed loosely
    *  because it is normally spread onto a <group>; here one handler is called
    *  directly, from the run's own click. */
@@ -398,7 +429,7 @@ export function ThreeDCanvasScene({
         <group>
         <RoomScene
           room={room}
-          geometry={geometry}
+          geometry={shellGeometry}
           topView={topView}
           designState={designState}
           showContactShadows={showContactShadows}
@@ -469,6 +500,8 @@ export function ThreeDCanvasScene({
             activeW={W}
             activeD={D}
             activePos={activeLayoutPos}
+            activeGeometry={geometry}
+            siblingsPlaced={siblingsPlaced}
             focusedRoomId={focusedRoomId}
             onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
             onOpen={async (id) => {
@@ -497,7 +530,8 @@ export function ThreeDCanvasScene({
         <QiblaMarker W={W} D={D} visible={showQibla} />
         <DraggableElectricalModels controlsRef={controlsRef} W={W} D={D} hiddenWalls={behind} />
         <OpeningLayer
-          geometry={geometry}
+          geometry={ownOpeningGeometry}
+          borrowedGeometry={borrowedLeafGeometry}
           W={W}
           D={D}
           cutaway={topView ? 'off' : cutaway}

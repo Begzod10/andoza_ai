@@ -2,6 +2,8 @@ import * as THREE from "three";
 import type { Room } from "@/lib/api";
 import type { WallElement, WallCovering } from "@/store/roomStore";
 import { resolveElementPositions } from "@/lib/wallPositions";
+import { apiGeometryToStoreGeometry, roomScopedElementId } from "@/lib/apiRoomGeometry";
+import type { PlacedRoom } from "@/lib/borrowedOpenings";
 import type { RoomSide, ViewPreset } from "./constants";
 
 /**
@@ -240,6 +242,39 @@ export function computeAbsolutePositions(
   return abs;
 }
 
+
+
+/**
+ * Every OTHER room of the flat that has walls, in store units, at its offset
+ * from the active room's centre — what lib/borrowedOpenings needs to find the
+ * partitions the rooms share.
+ *
+ * The offset is the same expression `SiblingRooms` positions each sibling's
+ * group with (absolute layout position minus the active room's), so a door
+ * borrowed through a partition lands where that neighbour is actually drawn.
+ * Element ids are the room-scoped ones `siblingRoomView` mints, so a borrowed
+ * opening's id (derived from its owner's) is the same on every render.
+ */
+export function placedSiblingRooms(
+  rooms: Room[],
+  activeId: string,
+  activeW: number,
+  activeD: number,
+  activePos: { x: number; z: number } | null,
+): PlacedRoom[] {
+  if (rooms.length < 2) return [];
+  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
+  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
+  const out: PlacedRoom[] = [];
+  for (const r of rooms) {
+    if (r.id === activeId) continue;
+    const geometry = apiGeometryToStoreGeometry(r.geometry, roomScopedElementId(r.id));
+    if (!geometry) continue;
+    const p = abs.get(r.id) ?? { x: 0, z: 0 };
+    out.push({ id: r.id, geometry, offsetXM: p.x - anchor.x, offsetZM: p.z - anchor.z });
+  }
+  return out;
+}
 
 /**
  * How far the whole flat reaches around the active room, metres.

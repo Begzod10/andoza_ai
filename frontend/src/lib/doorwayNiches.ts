@@ -27,6 +27,12 @@ export interface NicheOpening {
   /** Millimetres from the wall's position-0 end to the opening's left edge. */
   position: number
   width: number
+  /** Render-only, from lib/borrowedOpenings: a neighbour's door whose lining
+   *  (and so its floored niche) is drawn by the room that owns it. */
+  bare?: boolean
+  /** Render-only: the lining depth of a door in a shared partition, mm — the
+   *  measured gap between the two faces, which the niche floor must match. */
+  revealDepthMm?: number
 }
 
 export interface NicheWall {
@@ -53,11 +59,12 @@ export function doorwayNiches(
     const frame = wallMountFrame(wall.id, W, D, polyDefs)
     if (!frame) continue
     for (const el of wall.elements ?? []) {
-      if (el.type !== 'eshik') continue
+      if (el.type !== 'eshik' || el.bare) continue
+      const depth = el.revealDepthMm && el.revealDepthMm > 0 ? el.revealDepthMm / 1000 : revealDepth
       out.push({
         wallId: wall.id,
         elId: el.id,
-        polygon: nicheRect(frame, el.position / 1000, el.width / 1000, revealDepth),
+        polygon: nicheRect(frame, el.position / 1000, el.width / 1000, depth),
       })
     }
   }

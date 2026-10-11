@@ -48,6 +48,20 @@ export interface WallElement {
   sashes?: 1 | 2
   /** Window only: type id from the windowStyles catalog (sash/transom layout). */
   styleId?: string
+  // ── Render-only. Set by lib/borrowedOpenings on the geometry handed to the
+  //    shell renderer, NEVER on the store's geometry, so none of these is ever
+  //    saved, counted by the smeta or offered to the editor. ──
+  /** This opening belongs to the neighbouring room with this id and is cut
+   *  here because that room's wall lies against this one across a partition.
+   *  Not editable from this side. */
+  borrowedFrom?: string
+  /** How deep this opening's lining is, mm, when it sits in a partition shared
+   *  with a neighbour: the measured gap between the two faces, so one lining
+   *  spans the partition exactly. Absent means `OPENING_REVEAL_D`. */
+  revealDepthMm?: number
+  /** Cut the hole, but draw no lining, leaf or sash here — the room that owns
+   *  the opening does. See `withNeighbourOpenings`. */
+  bare?: true
 }
 
 export interface Wall {

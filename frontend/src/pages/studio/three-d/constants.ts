@@ -59,6 +59,23 @@ export const OPENING_REVEAL_D = DOOR_JAMB_DEPTH_MM / 1000;
 // from LEAF_T instead — see DOOR_LEAF_RECESS there.)
 export const WINDOW_SASH_RECESS = OPENING_REVEAL_D - 0.005;
 
+/**
+ * How deep THIS opening's reveal is, metres.
+ *
+ * `OPENING_REVEAL_D` everywhere except an opening in a partition shared with
+ * a neighbouring room, which carries the measured gap between the two faces
+ * (`revealDepthMm`, set by lib/borrowedOpenings on the geometry the shell is
+ * rendered from). Rooms already in users' flats stand 20, 100 or 150 mm apart,
+ * not the 200 mm of `DOOR_JAMB_DEPTH_MM`, and the user can type any wall
+ * thickness; a fixed reveal over- or under-shoots every one of those, so the
+ * one lining a shared doorway gets spans the real partition instead. The
+ * frame, the leaf and the sash all hang from this same depth so they stay at
+ * the lining's outer edge.
+ */
+export function openingRevealDepth(el: { revealDepthMm?: number }): number {
+  return el.revealDepthMm && el.revealDepthMm > 0 ? el.revealDepthMm / 1000 : OPENING_REVEAL_D;
+}
+
 
 // ─── Wall-mounted electrical devices ─────────────────────────────────────────
 
