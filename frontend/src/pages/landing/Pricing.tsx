@@ -6,8 +6,9 @@ import Reveal from "./Reveal";
 export default function Pricing() {
   const { t } = useLang();
   const tiers = [
-    { tier: t.pricing.free, highlighted: false },
-    { tier: t.pricing.pro, highlighted: true },
+    { tier: t.pricing.free, highlighted: false, soon: false },
+    // Pro is not out yet: its button says so and goes nowhere, rather than sending people to log in for it.
+    { tier: t.pricing.pro, highlighted: true, soon: true },
   ];
 
   return (
@@ -19,7 +20,7 @@ export default function Pricing() {
       </Reveal>
 
       <div className="mx-auto mt-12 grid max-w-3xl gap-6 sm:grid-cols-2">
-        {tiers.map(({ tier, highlighted }, i) => (
+        {tiers.map(({ tier, highlighted, soon }, i) => (
           <Reveal
             key={tier.name}
             delay={i * 0.1}
@@ -66,16 +67,28 @@ export default function Pricing() {
               ))}
             </ul>
 
-            <Link
-              to="/login"
-              className={`mt-7 flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 active:translate-y-0 ${
-                highlighted
-                  ? "bg-[#2563eb] text-white shadow-[0_16px_35px_-12px_rgba(37,99,235,0.7)] hover:bg-[#1d4ed8]"
-                  : "bg-neutral-900 text-white hover:bg-neutral-800"
-              }`}
-            >
-              {tier.cta}
-            </Link>
+            {soon ? (
+              <button
+                type="button"
+                disabled
+                className={`mt-7 flex w-full cursor-not-allowed items-center justify-center rounded-full px-6 py-3 text-sm font-bold ${
+                  highlighted ? "bg-white/10 text-neutral-300 ring-1 ring-white/15" : "bg-neutral-100 text-neutral-500"
+                }`}
+              >
+                {tier.cta}
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className={`mt-7 flex w-full items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 active:translate-y-0 ${
+                  highlighted
+                    ? "bg-[#2563eb] text-white shadow-[0_16px_35px_-12px_rgba(37,99,235,0.7)] hover:bg-[#1d4ed8]"
+                    : "bg-neutral-900 text-white hover:bg-neutral-800"
+                }`}
+              >
+                {tier.cta}
+              </Link>
+            )}
           </Reveal>
         ))}
       </div>

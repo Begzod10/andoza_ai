@@ -1,3 +1,4 @@
+import { useAppThemeAttribute } from '@/hooks/useAppThemeAttribute'
 import * as React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,7 +19,6 @@ import { wallElementsToApiPositions } from '@/lib/wallPositions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
-import { useThemeStore } from '@/store/themeStore'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -614,10 +614,7 @@ export default function WizardPage() {
 
   // The wizard sits outside AppShell, which is what normally applies the theme;
   // without this a fresh load of /wizard ignores a night choice.
-  const appTheme = useThemeStore((st) => st.theme)
-  React.useEffect(() => {
-    document.documentElement.setAttribute('data-app-theme', appTheme)
-  }, [appTheme])
+  useAppThemeAttribute()
 
   const [searchParams] = useSearchParams()
   const existingApartmentId = searchParams.get('apartmentId') ?? null
