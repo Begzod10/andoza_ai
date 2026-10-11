@@ -62,7 +62,7 @@ export function ShopInquiryDialog({
     <Dialog open={open} onOpenChange={close} title="Do'konga murojaat" description={storeName ?? undefined}>
       {sent ? (
         <div className="space-y-4">
-          <p role="status" className="text-sm text-neutral-800">Murojaatingiz yuborildi. Do'kon siz bilan bog'lanadi.</p>
+          <p role="status" className="text-sm text-ink">Murojaatingiz yuborildi. Do'kon siz bilan bog'lanadi.</p>
           <div className="flex justify-end">
             <Button type="button" onClick={() => close(false)}>Yopish</Button>
           </div>
@@ -76,7 +76,7 @@ export function ShopInquiryDialog({
           className="space-y-4"
         >
           <div>
-            <label htmlFor="shop-inquiry-message" className="block text-sm font-medium text-neutral-900 mb-1.5">
+            <label htmlFor="shop-inquiry-message" className="block text-sm font-medium text-ink mb-1.5">
               Xabar (ixtiyoriy)
             </label>
             <textarea
@@ -86,11 +86,11 @@ export function ShopInquiryDialog({
               rows={4}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Masalan: Bu model omborda bormi?"
-              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:border-brand focus:outline-none"
             />
-            <p className="mt-1 text-right text-xs text-neutral-500">{message.length}/{MAX_MESSAGE}</p>
+            <p className="mt-1 text-right text-xs text-ink-muted">{message.length}/{MAX_MESSAGE}</p>
           </div>
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="tertiary" onClick={() => close(false)}>Bekor qilish</Button>
             <Button type="submit" loading={sending}>Yuborish</Button>

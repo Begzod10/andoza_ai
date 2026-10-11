@@ -12,7 +12,7 @@ interface DialogProps {
   description?: string
   children: React.ReactNode
   className?: string
-  /** Follow the app's day/night theme (the pages built on the themed cards) instead of the fixed white sheet. */
+  /** Follow the app's day/night theme (the default); false keeps the old fixed white sheet. */
   themed?: boolean
 }
 
@@ -29,7 +29,7 @@ interface DialogProps {
  * </Dialog>
  * ```
  */
-export function Dialog({ open, onOpenChange, title, description, children, className, themed = false }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, className, themed = true }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
