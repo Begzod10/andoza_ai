@@ -293,7 +293,7 @@ function SiblingBlockShell({
  * things the shell binds for ITSELF are switched off by `readOnly`.
  */
 function SiblingFullShell(
-  { view, wallsInActiveRoom, shellGeometry, onOpen }: {
+  { view, wallsInActiveRoom, shellGeometry }: {
     view: SiblingRoomView;
     wallsInActiveRoom: ReadonlySet<string>;
     /** `view.geometry` with the neighbours' openings cut in, bare, and its own
@@ -301,8 +301,6 @@ function SiblingFullShell(
      *  (lib/flatOpenings). The shell AND the leaves are drawn from it, so a
      *  shared doorway's leaf hangs at the end of the lining it is drawn in. */
     shellGeometry: RoomGeometry;
-    /** Opens this room — what a tap on one of its leaves does. */
-    onOpen: () => void;
   },
 ) {
   return (
@@ -351,11 +349,11 @@ function SiblingFullShell(
           frame with daylight through it.
 
           Mounted as scenery: `interactive={false}` means no editor, no
-          ring, no drag. A tap on one opens THIS room (`openRoom`), as a tap
-          on the room's pick box does — a doorway shared with the active room
-          is drawn only from here, its leaf stands between the two rooms'
-          faces, outside the pick box, and from the active room it is the
-          door the user taps to go through. See `openingTapHandler`.
+          ring, no drag, and no switching rooms: a doorway shared with the
+          active room is drawn only from here, and opening this room on a tap
+          of its door read as the page reloading every time. The tap is let
+          through, and the pick box behind will not take it either, since the
+          leaf is the nearer hit. See `openingTapHandler`.
 
           From the shell geometry, with the partition set: a leaf is hung
           exactly where this room draws a lining, so a doorway shared with
@@ -368,7 +366,6 @@ function SiblingFullShell(
         wallDepth={view.depthM}
         partitionWalls={wallsInActiveRoom}
         interactive={false}
-        openRoom={onOpen}
       />
       <OpeningLeaves
         kind="window"
@@ -377,7 +374,6 @@ function SiblingFullShell(
         wallDepth={view.depthM}
         partitionWalls={wallsInActiveRoom}
         interactive={false}
-        openRoom={onOpen}
       />
 
       {/* The room's own furniture. Already the one part of the old stand-in
@@ -506,7 +502,7 @@ export function SiblingRoomBody({
           can silently vanish from the flat; it just has nothing to build a
           shell from yet. */}
       {view && tier === 'full' ? (
-        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} onOpen={onOpen} />
+        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} />
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}

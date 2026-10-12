@@ -211,15 +211,11 @@ interface DragState {
  * room, so the room would be the one thing in the flat you could not get into
  * by tapping its door.
  *
- * A scenery leaf can also open its own room (`openRoom`). A doorway through a
- * shared partition is drawn once, by the room that owns it (lib/flatOpenings),
- * so from the neighbour's side the leaf in the doorway is the owner's — and it
- * stands BETWEEN the two rooms' faces, outside the owner's pick box, so a tap
- * on it reached no room at all. Editing stays with the owner; tapping the door
- * from the other side opens the owner, as tapping any neighbouring room does.
- * Only when the leaf is the NEAREST thing hit — the same rule as
- * `SiblingPickBox` — so a tap meant for something of the active room's in
- * front of it is never taken.
+ * A scenery leaf never opens its room. A doorway through a shared partition
+ * is drawn once, by the room that owns it (lib/flatOpenings), so from the
+ * neighbour's side the leaf in the doorway is the owner's; tapping it used to
+ * open the owner room, which on a phone read as the page reloading on every
+ * tap. The user stays where they are; editing that door stays with its owner.
  *
  * Extracted so the rule can be tested without a renderer — the whole of it is
  * which of those a leaf is.
@@ -229,15 +225,9 @@ export function openingTapHandler(
   wallId: string,
   elId: string,
   openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void,
-  openRoom?: () => void,
 ) {
   return (e: ThreeEvent<MouseEvent>) => {
-    if (!interactive) {
-      if (!openRoom || e.intersections?.[0]?.eventObject !== e.eventObject) return;
-      e.stopPropagation();
-      openRoom();
-      return;
-    }
+    if (!interactive) return;
     e.stopPropagation();
     openMenu?.(wallId, elId, e);
   };
@@ -260,7 +250,6 @@ export function OpeningLeaves({
   onSelect,
   interactive = true,
   openMenu,
-  openRoom,
 }: {
   kind: OpeningKind;
   geometry: RoomGeometry;
@@ -283,8 +272,6 @@ export function OpeningLeaves({
    *  door, the sash layouts for a window. Without it a tap on a door had
    *  nothing of its own to offer and the click went looking behind it. */
   openMenu?: (wallId: string, elId: string, e: ThreeEvent<MouseEvent>) => void;
-  /** Scenery only: a tap on a leaf opens this room (see `openingTapHandler`). */
-  openRoom?: () => void;
 }) {
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
@@ -454,7 +441,7 @@ export function OpeningLeaves({
           toolMode,
           interactive,
           onPointerDown: (e: ThreeEvent<PointerEvent>) => beginDrag(wf, el, e),
-          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu, openRoom),
+          onTap: openingTapHandler(interactive, wf.id, el.id, openMenu),
           onPatch: (patch: Partial<WallElement>) => updateElement(wf.id, el.id, patch),
           onDelete: () => {
             onSelect?.(null);
