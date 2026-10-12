@@ -9,6 +9,16 @@ import { Panel } from "@/components/ui/Panel";
 
 type Tab = "mebel" | "material";
 
+/** Where the shopper is in the catalog. Kept by the page, not by ShopHome, so
+ *  opening a product and coming back (after "Savatga qo'shish") lands on the
+ *  same tab, category and search instead of a fresh Mebel tab. */
+export interface ShopBrowse {
+  tab: Tab;
+  category: string | null;
+  query: string;
+}
+export const SHOP_BROWSE_START: ShopBrowse = { tab: "mebel", category: null, query: "" };
+
 const TAB_LABEL: Record<Tab, string> = { mebel: "Mebel", material: "Materiallar" };
 
 /** Category names as a person reads them; anything unlisted shows as it is stored. */
@@ -17,7 +27,9 @@ const CATEGORY_LABEL: Record<string, string> = {
   boyoq: "Bo'yoq", oboy: "Oboy", laminat: "Laminat", parket: "Parket", plitka: "Plitka", gips: "Gips va suvoq",
   sement: "Sement", elektr_mat: "Elektr", santexnika: "Santexnika", eshik: "Eshik", deraza: "Deraza", dekorativ: "Dekorativ",
 };
-const label = (c: string) => CATEGORY_LABEL[c] ?? c;
+/** A catalog category key ("boyoq", "divan") as people read it. */
+export const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+const label = categoryLabel;
 
 /** A card's picture, with its price on a tab that notches into the corner (the tab takes the page's own colour). */
 function Tile({
@@ -44,11 +56,24 @@ function Tile({
 }
 
 export function ShopHome({
-  cartCount, onCart, onProductSelect, onOrders,
-}: { cartCount: number; onCart: () => void; onProductSelect: (product: any) => void; onOrders?: () => void }) {
-  const [tab, setTab] = useState<Tab>("mebel");
-  const [category, setCategory] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  cartCount, onCart, onProductSelect, onOrders, browse, onBrowseChange,
+}: {
+  cartCount: number;
+  onCart: () => void;
+  onProductSelect: (product: any) => void;
+  onOrders?: () => void;
+  browse?: ShopBrowse;
+  onBrowseChange?: (browse: ShopBrowse) => void;
+}) {
+  const [own, setOwn] = useState<ShopBrowse>(SHOP_BROWSE_START);
+  const { tab, category, query } = browse ?? own;
+  const update = (patch: Partial<ShopBrowse>) => {
+    const next = { ...(browse ?? own), ...patch };
+    if (onBrowseChange) onBrowseChange(next);
+    else setOwn(next);
+  };
+  const setCategory = (c: string | null) => update({ category: c });
+  const setQuery = (q: string) => update({ query: q });
 
   const furniture = useQuery({ queryKey: ["shop", "furniture"], queryFn: () => listCatalogFurniture({ per_page: 100 }) });
   const materials = useQuery({
@@ -80,8 +105,7 @@ export function ShopHome({
   const [featured, ...rest] = tab === "mebel" ? furnitureItems : [];
 
   function switchTab(next: Tab) {
-    setTab(next);
-    setCategory(null);
+    update({ tab: next, category: null });
   }
 
   return (
@@ -201,7 +225,7 @@ export function ShopHome({
           {materialItems.map((m) => (
             <Tile
               key={m.id}
-              image={null}
+              image={m.image_url ?? null}
               fallback={
                 <span className="h-16 w-16 rounded-2xl shadow-inner" style={{ backgroundColor: m.color_hex ?? "#C9CFDD" }} aria-hidden="true" />
               }

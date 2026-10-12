@@ -379,6 +379,15 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     }
   })
 
+  it('shows the room name and its floor area in the header', async () => {
+    // The API sends floor_area; the header read `area`, which only the studio
+    // fills in, and showed "Xona · m²".
+    const { getRoom } = await import('@/lib/api')
+    vi.mocked(getRoom).mockResolvedValueOnce({ id: 'room-1', apartment_id: 'apt-1', name: 'Xona', floor_area: 12 } as never)
+    renderSmetaPage()
+    expect(await screen.findByText('Xona · 12 m²')).toBeInTheDocument()
+  })
+
   it('says when the chosen floor is left out for lack of a product', async () => {
     // Pol → Parket → Herringbone picked, but no shop product: the estimate
     // used to drop the floor without a word, so the total looked complete.

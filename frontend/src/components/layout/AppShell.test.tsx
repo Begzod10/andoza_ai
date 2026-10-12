@@ -40,6 +40,13 @@ describe('AppShell new-project sheet', () => {
     delete (window as unknown as Record<string, unknown>).Capacitor
   })
 
+  it('is drawn in the app theme, not a white sheet over a dark app', () => {
+    mountShell()
+    const sheet = screen.getByRole('heading', { name: 'Yangi loyiha' }).closest('.fixed') as HTMLElement
+    expect(sheet.className).toContain('bg-card')
+    expect(sheet.className).not.toContain('bg-white')
+  })
+
   it('offers no 360° scan (that page never used the camera)', () => {
     mountShell()
     expect(screen.getByText('Razmer / Plan yuklash')).toBeTruthy()

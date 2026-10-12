@@ -249,24 +249,28 @@ interface Step0Props {
   ceilingHeight: number
   onChange(h: number): void
   onNext(): void
+  /** Whether the typed height can be used; the page holds "Keyingi" back
+   *  while it cannot, instead of going on with the previous height. */
+  onValidChange(valid: boolean): void
 }
 
-function Step0({ ceilingHeight, onChange, onNext }: Step0Props) {
+function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
   const mVal = ceilingHeight / 1000
   const [inputVal, setInputVal] = React.useState(mVal.toFixed(2))
 
   function handlePreset(v: number) {
     onChange(Math.round(v * 1000))
     setInputVal(v.toFixed(2))
+    onValidChange(true)
     onNext()
   }
 
   function handleInput(raw: string) {
     setInputVal(raw)
     const v = parseFloat(raw)
-    if (!isNaN(v) && v >= 2.0 && v <= 4.0) {
-      onChange(Math.round(v * 1000))
-    }
+    const valid = !isNaN(v) && v >= 2.0 && v <= 4.0
+    if (valid) onChange(Math.round(v * 1000))
+    onValidChange(valid)
   }
 
   return (
@@ -629,6 +633,7 @@ export default function WizardPage() {
   const [dir, setDir] = React.useState(1)
   const [saving, setSaving] = React.useState(false)
   const [saveFailed, setSaveFailed] = React.useState(false)
+  const [ceilingValid, setCeilingValid] = React.useState(true)
   // The save in flight; the next save queues behind it (see handleSave).
   const savePromiseRef = React.useRef<Promise<string | null> | null>(null)
   // A project made by a failed attempt is reused on retry, not made twice.
@@ -637,7 +642,12 @@ export default function WizardPage() {
   const [draftLoaded, setDraftLoaded] = React.useState(false)
 
   // ── On mount: fetch existing draft or create a new one ──────────────────
+  // Once per page: StrictMode runs mount effects twice, and each run used to
+  // create a draft, leaving an orphan row behind.
+  const draftInitStarted = React.useRef(false)
   React.useEffect(() => {
+    if (draftInitStarted.current) return
+    draftInitStarted.current = true
     async function initDraft() {
       // The wizard only creates NEW rooms. A roomId left in the store (e.g.
       // arriving via "+ add room" from the studio) would make handleSave()
@@ -961,6 +971,7 @@ export default function WizardPage() {
                   ceilingHeight={ceilingHeight}
                   onChange={setCeilingHeight}
                   onNext={goNext}
+                  onValidChange={setCeilingValid}
                 />
               )}
 
@@ -1001,7 +1012,7 @@ export default function WizardPage() {
                 Ortga
               </Button>
             )}
-            <Button size="lg" className="flex-1" onClick={goNext} disabled={saving}>
+            <Button size="lg" className="flex-1" onClick={goNext} disabled={saving || (step === 0 && !ceilingValid)}>
               {saving ? 'Saqlanmoqda...' : 'Keyingi'}
             </Button>
           </div>

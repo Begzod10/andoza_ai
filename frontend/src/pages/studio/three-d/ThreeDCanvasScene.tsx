@@ -39,6 +39,7 @@ import { SwapButtons, RoomScene } from "./RoomShell";
 import type { RoomSide } from "./constants";
 import { applyUniformZoom, fitRoomDistance } from "@/lib/orbitZoom";
 import { initialRoomFocus, isRoomVisible, toggleRoomFocus } from "@/lib/roomFocus";
+import { SceneLoadingOverlay } from "./SceneLoadingOverlay";
 
 /**
  * Vertical field of view, degrees.
@@ -240,6 +241,7 @@ export function ThreeDCanvasScene({
   }).onClick(e);
 
   return (
+    <>
     <CanvasErrorBoundary
       key={glAttempt}
       onError={() => {
@@ -627,5 +629,7 @@ export function ThreeDCanvasScene({
       </Suspense>
     </Canvas>
     </CanvasErrorBoundary>
+    <SceneLoadingOverlay />
+    </>
   );
 }

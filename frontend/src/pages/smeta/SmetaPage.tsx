@@ -245,7 +245,8 @@ export default function SmetaPage() {
           <h1 className="text-xl font-bold text-ink">{uz.smeta.sarlavha}</h1>
           {room && (
             <span className="ml-auto text-sm text-ink-muted">
-              {room.name} · {room.area} m²
+              {room.name}
+              {room.floor_area != null && ` · ${Math.round(room.floor_area * 10) / 10} m²`}
             </span>
           )}
         </div>

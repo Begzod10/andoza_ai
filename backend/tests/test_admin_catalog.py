@@ -183,6 +183,24 @@ class TestUpdateStore:
         assert response.json()["is_active"] is False
         assert response.json()["name"] == "Yashil Savdo"  # untouched
 
+    @pytest.mark.parametrize("moderation", ["pending", "rejected"])
+    def test_a_shop_not_approved_cannot_be_switched_on(self, client, moderation):
+        # is_active=true on a rejected shop listed it publicly while its status
+        # stayed "rejected" and its owner stayed locked out. Approval goes
+        # through moderation, which sets both together.
+        store = _store(status=moderation, is_active=False)
+        db = _db(_Result(one=store))
+        _as(_user(is_admin=True), db)
+        response = client.patch(f"/api/v1/admin/stores/{store.id}", json={"is_active": True})
+        assert response.status_code == 409
+        assert store.is_active is False
+
+    def test_an_approved_shop_can_be_switched_back_on(self, client):
+        store = _store(status="approved", is_active=False)
+        _as(_user(is_admin=True), _db(_Result(one=store)))
+        assert client.patch(f"/api/v1/admin/stores/{store.id}", json={"is_active": True}).status_code == 200
+        assert store.is_active is True
+
     def test_clears_the_cached_models_list_too_since_the_models_go_with_the_shop(self, client):
         store = _store()
         store.furniture_items = []

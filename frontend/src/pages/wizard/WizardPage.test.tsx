@@ -46,16 +46,20 @@ vi.mock('framer-motion', async () => {
       : child
   return {
     ...actual,
+    // One component per tag, kept: a fresh function on every `motion.div`
+    // access would be a new component type each render, and React would
+    // remount the step (losing what was typed into it) on every state change.
     motion: new Proxy({} as Record<string, unknown>, {
-      get: (_t, tag: string) =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ({ children, ...props }: any) => {
-          return React.createElement(
-            tag,
-            props,
-            Array.isArray(children) ? children.map(unwrap) : unwrap(children),
-          )
-        },
+      get: (cache, tag: string) =>
+        (cache[tag] ??=
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ({ children, ...props }: any) => {
+            return React.createElement(
+              tag,
+              props,
+              Array.isArray(children) ? children.map(unwrap) : unwrap(children),
+            )
+          }),
     }),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
   }
@@ -128,6 +132,41 @@ describe('WizardPage – Step 0', () => {
     fireEvent.click(chip)
 
     expect(useRoomStore.getState().ceilingHeight).toBe(3000)
+  })
+})
+
+describe('WizardPage – draft on open', () => {
+  it('opens one draft even when the mount effect runs twice', async () => {
+    // StrictMode runs effects twice; each run used to create a draft, leaving
+    // an orphan row behind on every visit.
+    const api = await import('@/lib/api')
+    const createDraftRoom = vi.mocked(api.createDraftRoom)
+    createDraftRoom.mockClear()
+    render(
+      <React.StrictMode>
+        <MemoryRouter>
+          <WizardPage />
+        </MemoryRouter>
+      </React.StrictMode>,
+    )
+    await waitFor(() => expect(useRoomStore.getState().draftId).toBe('draft-1'))
+    expect(createDraftRoom).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('WizardPage – Step 0, typed height', () => {
+  it('will not go on with a height outside 2–4 m', async () => {
+    // 99 used to be ignored without a word: "Keyingi" went on and the room
+    // kept the previous height.
+    renderWizard()
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '99' } })
+    expect(screen.getByText("2.0 dan 4.0 m oralig'ida bo'lishi kerak")).toBeTruthy()
+    const next = screen.getByText('Keyingi').closest('button') as HTMLButtonElement
+    expect(next.disabled).toBe(true)
+
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3.1' } })
+    expect(next.disabled).toBe(false)
+    expect(useRoomStore.getState().ceilingHeight).toBe(3100)
   })
 })
 
