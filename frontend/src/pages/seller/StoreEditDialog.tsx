@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { updateMyStore, type SellerStore } from "@/lib/api";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
 
 export function StoreEditDialog({
   store,
@@ -44,6 +45,7 @@ export function StoreEditDialog({
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
+          if (phone.trim() && !isUzPhone(phone)) { setError(PHONE_ERROR); return; }
           if (name.trim()) save.mutate();
         }}
         className="space-y-4"

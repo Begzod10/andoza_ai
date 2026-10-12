@@ -150,6 +150,23 @@ class TestShop:
         _as(_user(), [_R(None)])
         assert client.post("/api/v1/seller/store", json={"name": "X", "logo_color": "red"}).status_code == 422
 
+    def test_the_shop_phone_is_validated_and_normalised(self, client):
+        u = _user()
+        db = _as(u, [_R(None)])
+        assert client.post("/api/v1/seller/store", json={"name": "X", "phone": "abc"}).status_code == 422
+        res = client.post("/api/v1/seller/store", json={"name": "X", "phone": "+998 90 000-00-01"})
+        assert res.status_code == 201
+        assert db.add.call_args.args[0].phone == "+998900000001"
+
+    def test_editing_the_phone_is_validated_and_normalised(self, client):
+        u = _user()
+        store = _store(u)
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"phone": "abc"}).status_code == 422
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"phone": "998900000002"}).status_code == 200
+        assert store.phone == "+998900000002"
+
     def test_editing_cannot_touch_tier_or_status(self, client):
         u = _user()
         store = _store(u)

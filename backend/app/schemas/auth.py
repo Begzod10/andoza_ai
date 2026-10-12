@@ -17,6 +17,15 @@ def _normalize_phone(v: str) -> str:
     return v if v.startswith("+") else f"+{v}"
 
 
+def normalize_contact_phone(v: str | None) -> str | None:
+    """A phone typed into a form ("+998 90 123-45-67") as +998XXXXXXXXX.
+    Blank means not given; anything that is not an Uzbek number is refused,
+    so a shop or an usta is never left with a number it cannot call."""
+    if v is None or not v.strip():
+        return None
+    return _normalize_phone(re.sub(r"[\s\-()]", "", v))
+
+
 class OTPRequest(BaseModel):
     phone: str
 

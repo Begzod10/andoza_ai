@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.admin_catalog import FURNITURE_CATEGORIES, PLACEMENTS, ROOM_TYPES  # noqa: F401  (re-exported for the router)
+from app.schemas.auth import normalize_contact_phone
 from app.schemas.usta_profile import PendingUstaOut
 
 _HEX_COLOR = r"^#[0-9A-Fa-f]{6}$"
@@ -20,6 +21,11 @@ class StoreApply(BaseModel):
     telegram: str | None = Field(default=None, max_length=100)
     logo_color: str | None = Field(default=None, pattern=_HEX_COLOR)
 
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str | None) -> str | None:
+        return normalize_contact_phone(v)
+
 
 class SellerStoreUpdate(BaseModel):
     """All optional: a PATCH changes only what is sent."""
@@ -29,6 +35,11 @@ class SellerStoreUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     telegram: str | None = Field(default=None, max_length=100)
     logo_color: str | None = Field(default=None, pattern=_HEX_COLOR)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str | None) -> str | None:
+        return normalize_contact_phone(v)
 
 
 class SellerStoreOut(BaseModel):

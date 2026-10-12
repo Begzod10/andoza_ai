@@ -14,6 +14,7 @@ import type { OrderStatus } from "@/lib/api/orders";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
+import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
 import { ShopHome } from "./ShopHome";
 
 // ─── Shared pieces ────────────────────────────────────────────────────────────
@@ -349,7 +350,9 @@ export function S6_Payment(props: {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [method, setMethod] = useState<"cash" | "card">("cash");
+  const [phoneError, setPhoneError] = useState(false);
   const ready = address.trim().length > 0 && phone.trim().length > 0 && !props.submitting;
+  const error = phoneError ? PHONE_ERROR : props.error;
 
   return (
     <Screen>
@@ -358,13 +361,15 @@ export function S6_Payment(props: {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready) props.onSubmit({ address: address.trim(), phone: phone.trim(), paymentMethod: method });
+          if (!ready) return;
+          if (!isUzPhone(phone)) { setPhoneError(true); return; }
+          props.onSubmit({ address: address.trim(), phone: phone.trim(), paymentMethod: method });
         }}
       >
         <Panel className="space-y-4 p-5">
           <h2 className="text-base font-extrabold text-ink">Yetkazish ma'lumotlari</h2>
           <Input themed label="Manzil" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Shahar, ko'cha, uy" />
-          <Input themed label="Telefon" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998 90 123 45 67" />
+          <Input themed label="Telefon" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }} placeholder="+998 90 123 45 67" />
         </Panel>
 
         <Panel className="space-y-3 p-5">
@@ -399,8 +404,8 @@ export function S6_Payment(props: {
           <div className="border-t border-line pt-3">
             <SummaryRow label="Jami" value={formatUZS(props.subtotal + deliveryFee)} strong />
           </div>
-          {props.error && (
-            <p role="alert" className="rounded-2xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{props.error}</p>
+          {error && (
+            <p role="alert" className="rounded-2xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{error}</p>
           )}
           <Button type="submit" size="lg" variant="accent" className="mt-2 w-full" disabled={!ready} loading={props.submitting}>
             Buyurtmani tasdiqlash
