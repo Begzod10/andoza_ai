@@ -12,6 +12,12 @@ from app.schemas.usta_profile import PendingUstaOut
 _HEX_COLOR = r"^#[0-9A-Fa-f]{6}$"
 
 
+def _strip(v: object) -> object:
+    """Trim before the length rules run, so "   " counts as empty and is
+    refused instead of being saved as ""."""
+    return v.strip() if isinstance(v, str) else v
+
+
 class StoreApply(BaseModel):
     """A user's application to run a shop. The tier and status are never theirs to set."""
 
@@ -20,6 +26,11 @@ class StoreApply(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     telegram: str | None = Field(default=None, max_length=100)
     logo_color: str | None = Field(default=None, pattern=_HEX_COLOR)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _strip_name(cls, v: object) -> object:
+        return _strip(v)
 
     @field_validator("phone")
     @classmethod
@@ -35,6 +46,11 @@ class SellerStoreUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     telegram: str | None = Field(default=None, max_length=100)
     logo_color: str | None = Field(default=None, pattern=_HEX_COLOR)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _strip_name(cls, v: object) -> object:
+        return _strip(v)
 
     @field_validator("phone")
     @classmethod
@@ -101,6 +117,11 @@ class SellerFurniturePage(BaseModel):
 
 class RejectIn(BaseModel):
     note: str = Field(min_length=1, max_length=300)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def _strip_note(cls, v: object) -> object:
+        return _strip(v)
 
 
 class PendingStoreOut(SellerStoreOut):

@@ -163,6 +163,17 @@ class TestShop:
         _as(_user(), [_R(None)])
         assert client.post("/api/v1/seller/store", json={"name": "X", "logo_color": "red"}).status_code == 422
 
+    def test_a_shop_name_of_only_spaces_is_refused(self, client):
+        # Applying or renaming to "   " passed min_length and was saved as "".
+        u = _user()
+        db = _as(u, [_R(None)])
+        assert client.post("/api/v1/seller/store", json={"name": "   "}).status_code == 422
+        db.add.assert_not_called()
+        store = _store(u)
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"name": "   "}).status_code == 422
+        assert store.name == "Mebel Plus"
+
     def test_the_shop_phone_is_validated_and_normalised(self, client):
         u = _user()
         db = _as(u, [_R(None)])
@@ -390,6 +401,13 @@ class TestModeration:
         res = client.post(f"/api/v1/admin/moderation/stores/{store.id}/reject", json={"note": "Telefon noto'g'ri"})
         assert res.status_code == 204
         assert (store.status, store.is_active, store.moderation_note) == ("rejected", False, "Telefon noto'g'ri")
+
+    @pytest.mark.parametrize("target", ["stores", "ustalar"])
+    def test_a_reason_of_only_spaces_is_no_reason(self, client, target):
+        # It passed min_length, was stripped by the router and stored as "".
+        db = _as(_user(is_admin=True), [])
+        assert client.post(f"/api/v1/admin/moderation/{target}/{uuid.uuid4()}/reject", json={"note": "   "}).status_code == 422
+        db.execute.assert_not_called()
 
     def test_approving_and_rejecting_a_model(self, client):
         store = _store(_user())
