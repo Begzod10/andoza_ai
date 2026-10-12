@@ -341,12 +341,12 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-      <div className="w-full bg-white rounded-t-[24px] p-6 animate-in slide-in-from-bottom-5">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-6">Yangi loyiha</h2>
+      <div className="w-full bg-card text-ink border-t border-line shadow-panel rounded-t-[24px] p-6 animate-in slide-in-from-bottom-5">
+        <h2 className="text-[20px] font-bold text-ink mb-6">Yangi loyiha</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[14px] font-semibold text-gray-900 mb-2">
+            <label className="block text-[14px] font-semibold text-ink mb-2">
               Loyiha nomi
             </label>
             <input
@@ -354,13 +354,13 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Masalan: Tashkent, Shayxontohur"
-              className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand/50"
+              className="w-full px-4 py-3 rounded-lg border border-line bg-card-soft text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand/50"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-[14px] font-semibold text-gray-900 mb-2">
+            <label className="block text-[14px] font-semibold text-ink mb-2">
               Manzil (ixtiyoriy)
             </label>
             <input
@@ -368,7 +368,7 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Masalan: Abdulla Qodiriy ko'chasi, 123"
-              className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand/50"
+              className="w-full px-4 py-3 rounded-lg border border-line bg-card-soft text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand/50"
             />
           </div>
 
@@ -376,7 +376,7 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="flex-1 px-4 py-3 rounded-lg border border-neutral-300 text-neutral-900 font-semibold hover:bg-neutral-50 transition-colors"
+              className="flex-1 px-4 py-3 rounded-lg border border-line text-ink font-semibold hover:bg-card-soft transition-colors"
             >
               Bekor qilish
             </button>
