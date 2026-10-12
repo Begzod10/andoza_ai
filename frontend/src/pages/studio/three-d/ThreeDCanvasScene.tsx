@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { OpeningLeaves } from "@/components/studio/DoorLeaves";
 import { ViewLockGate } from "./ViewLockGate";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
@@ -216,8 +217,11 @@ export function ThreeDCanvasScene({
     [aptRooms, room.id, W, D, activeLayoutPos],
   );
   const flatPlan = useMemo(
-    () => flatRenderPlan({ id: room.id, geometry, offsetXM: 0, offsetZM: 0 }, siblingsPlaced),
-    [geometry, room.id, siblingsPlaced],
+    () => flatRenderPlan({ id: room.id, geometry, offsetXM: 0, offsetZM: 0 }, siblingsPlaced,
+      // A room hidden by focus draws nothing, so a shared doorway it owns is
+      // hung by the room still on screen instead.
+      { visible: (id) => isRoomVisible(focusedRoomId, id) }),
+    [geometry, room.id, siblingsPlaced, focusedRoomId],
   );
   const shellGeometry = flatPlan.active.shell;
   /** The room's own openings, carrying their partition marks so a shared
@@ -533,6 +537,14 @@ export function ThreeDCanvasScene({
           // was tapped — the same plumbing the trim runs use.
           openMenu={openOpeningMenu}
         />
+        {/* A neighbour's doorway hung from this side while focus hides the
+            neighbour that owns it — scenery, the owner still edits it. */}
+        {flatPlan.active.leaves.slice(1).map((layer, i) => (
+          <group key={`orphan-leaves-${i}`}>
+            <OpeningLeaves kind="door" geometry={layer.geometry} wallWidth={W} wallDepth={D} interactive={false} />
+            <OpeningLeaves kind="window" geometry={layer.geometry} wallWidth={W} wallDepth={D} interactive={false} />
+          </group>
+        ))}
         </group>
         )}
             </>

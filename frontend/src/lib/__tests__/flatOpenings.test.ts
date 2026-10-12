@@ -61,14 +61,15 @@ const realRooms: Room[] = [
 /** The plan exactly as the studio builds it with `activeId` open: the active
  *  room from its store geometry at the origin, the rest through
  *  `placedSiblingRooms` (the real layout pass). */
-function planFor(rooms: Room[], activeId: string) {
+function planFor(rooms: Room[], activeId: string, focusedId: string | null = null) {
   const r = rooms.find((x) => x.id === activeId)!
   const geometry = apiGeometryToStoreGeometry(r.geometry, roomScopedElementId(r.id))!
   const W = geometry.walls[0].length / 1000
   const D = geometry.walls[1].length / 1000
   const pos = (r.state as { layoutPos: { x: number; z: number } }).layoutPos
   const siblings = placedSiblingRooms(rooms, activeId, W, D, pos)
-  return flatRenderPlan({ id: activeId, geometry, offsetXM: 0, offsetZM: 0 }, siblings)
+  return flatRenderPlan({ id: activeId, geometry, offsetXM: 0, offsetZM: 0 }, siblings,
+    { visible: (id) => focusedId === null || focusedId === id })
 }
 
 function rect(wMm: number, dMm: number, els: Partial<Record<'A' | 'B' | 'C' | 'D', WallElement[]>> = {}): RoomGeometry {
@@ -197,5 +198,38 @@ describe('a shared doorway seen from behind its owner wall', () => {
     expect(hiddenByCamera(own, 'B', new Set(['B']))).toBe(true)
     expect(hiddenByCamera(own, 'B', new Set(['A']))).toBe(false)
     expect(hiddenByCamera(own, 'B', undefined)).toBe(false)
+  })
+})
+
+describe('a shared doorway while one room is focused', () => {
+  // "shared door is not visible in other room when focused on another room":
+  // focusing hides every other room, and the owner was the only one drawing
+  // the door — so the focused neighbour was left with a bare hole.
+  const key = `${OWNER}:${OWNER}:B:0`
+  const visibleOnly = (focused: string) => (id: string) => id === focused
+  const cases: [string, string, string][] = [
+    ['the neighbour open and focused, its owner hidden', NEIGHBOUR, NEIGHBOUR],
+    ['the owner open, the neighbour focused', OWNER, NEIGHBOUR],
+    ['the owner open and focused', OWNER, OWNER],
+    ['the neighbour open, the owner focused', NEIGHBOUR, OWNER],
+  ]
+  for (const [what, active, focused] of cases) {
+    it(`is still one whole doorway with ${what}`, () => {
+      const plan = planFor(realRooms, active, focused)
+      expect(openingInventory(plan, visibleOnly(focused)).get(key)).toEqual(ONE_DOORWAY)
+    })
+  }
+
+  it('stays editable only from its owner', () => {
+    const plan = planFor(realRooms, NEIGHBOUR, NEIGHBOUR)
+    const editable = plan.active.leaves.filter((l) => l.interactive)
+      .flatMap((l) => l.geometry.walls.flatMap((w) => w.elements.filter((e) => !e.bare)))
+    expect(editable).toEqual([])
+  })
+
+  it('changes nothing when no room is focused', () => {
+    for (const active of [OWNER, NEIGHBOUR]) {
+      expect(openingInventory(planFor(realRooms, active)).get(key)).toEqual(ONE_DOORWAY)
+    }
   })
 })

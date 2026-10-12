@@ -473,6 +473,10 @@ function borrowedCopy(el: WallElement, ownerRoomId: string, leftMm: number, dept
     borrowedFrom: ownerRoomId,
     revealDepthMm: depthMm,
   }
+  // Its look, for when the owner is hidden by focus and this side hangs the
+  // leaf (lib/flatOpenings' drawOrphanedBorrowed) — it is the same door.
+  if (el.styleId) copy.styleId = el.styleId
+  if (el.leafColor) copy.leafColor = el.leafColor
   if (el.type === 'eshik') {
     copy.hinge = (el.hinge ?? 'left') === 'left' ? 'right' : 'left'
     if (el.openAngle) copy.openAngle = -el.openAngle

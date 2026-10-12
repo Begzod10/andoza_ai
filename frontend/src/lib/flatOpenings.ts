@@ -158,9 +158,59 @@ const NONE: ReadonlySet<string> = new Set()
  * drawn from, so a shared doorway's leaf hangs at the far end of the measured
  * lining, and a duplicate copy it does not draw (`bare`) gets no leaf either.
  */
-export function flatRenderPlan(active: PlacedRoom, siblings: readonly PlacedRoom[]): FlatRenderPlan {
+/**
+ * A borrowed opening whose owner is hidden by focus, made drawable.
+ *
+ * Focusing one room hides the others, and a shared doorway's owner was the
+ * only room drawing it — so the focused room was left with a bare hole ("shared
+ * door is not visible in other room when focused on another room"). While the
+ * owner is off screen, the room that only cut the hole draws the doorway
+ * itself, from its own side: the lining across the measured gap, the leaf at
+ * its far end (where the owner hangs it) and an architrave on both faces. It
+ * is still the owner's door — borrowed, so never editable from here.
+ */
+function drawOrphanedBorrowed(shell: RoomGeometry, visible: (id: string) => boolean): RoomGeometry {
+  const orphaned = (el: WallElement) => !!el.borrowedFrom && !!el.bare && !visible(el.borrowedFrom)
+  if (!shell.walls.some((w) => w.elements.some(orphaned))) return shell
+  return {
+    ...shell,
+    walls: shell.walls.map((w) => ({
+      ...w,
+      elements: w.elements.map((el): WallElement => {
+        if (!orphaned(el)) return el
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { bare, ...drawn } = el
+        return { ...drawn, sharedPartition: true, partitionGapMm: el.revealDepthMm ?? 0 }
+      }),
+    })),
+  }
+}
+
+/** Only the borrowed openings of a shell — the ones `drawOrphanedBorrowed`
+ *  made drawable — for a read-only leaf layer of their own. */
+function borrowedDrawnOnly(shell: RoomGeometry): RoomGeometry | null {
+  if (!shell.walls.some((w) => w.elements.some((el) => el.borrowedFrom && !el.bare))) return null
+  return {
+    ...shell,
+    walls: shell.walls.map((w) => ({ ...w, elements: w.elements.filter((el) => el.borrowedFrom && !el.bare) })),
+  }
+}
+
+export interface FlatPlanOptions {
+  /** Which rooms are on screen — false for a room hidden by focus. */
+  visible?: (roomId: string) => boolean
+}
+
+export function flatRenderPlan(
+  active: PlacedRoom,
+  siblings: readonly PlacedRoom[],
+  { visible = () => true }: FlatPlanOptions = {},
+): FlatRenderPlan {
   const activeId = active.id
-  const activeShell = withNeighbourOpenings(active.geometry, neighbourOpenings(active, siblings, { activeId }))
+  const activeShell = drawOrphanedBorrowed(
+    withNeighbourOpenings(active.geometry, neighbourOpenings(active, siblings, { activeId })),
+    visible,
+  )
   const everyone = [active, ...siblings]
   const a = roomExtents(active.geometry)
   const out = new Map<string, RoomRenderPlan>()
@@ -170,7 +220,10 @@ export function flatRenderPlan(active: PlacedRoom, siblings: readonly PlacedRoom
       ...siblingWallsInActiveRoom(sib.offsetXM, sib.offsetZM, { widthM: s.W, depthM: s.D }, { widthM: a.W, depthM: a.D }),
       ...wallsAgainst(sib, active),
     ])
-    const shell = withNeighbourOpenings(sib.geometry, neighbourOpenings(sib, everyone, { activeId }))
+    const shell = drawOrphanedBorrowed(
+      withNeighbourOpenings(sib.geometry, neighbourOpenings(sib, everyone, { activeId })),
+      visible,
+    )
     out.set(sib.id, { id: sib.id, shell, partitionWalls, leaves: [{ geometry: shell, interactive: false }] })
   }
   return {
@@ -178,7 +231,11 @@ export function flatRenderPlan(active: PlacedRoom, siblings: readonly PlacedRoom
       id: activeId,
       shell: activeShell,
       partitionWalls: NONE,
-      leaves: [{ geometry: ownOpeningsOnly(activeShell), interactive: true }],
+      leaves: [
+        { geometry: ownOpeningsOnly(activeShell), interactive: true },
+        // A hidden owner's doorway, hung from here while it is off screen.
+        ...(() => { const g = borrowedDrawnOnly(activeShell); return g ? [{ geometry: g, interactive: false }] : [] })(),
+      ],
     },
     siblings: out,
   }
@@ -201,7 +258,11 @@ export function physicalKey(roomId: string, el: WallElement): string {
  * the renderer's own inputs. Every opening that reaches any room's shell has
  * an entry, so an opening that is cut but drawn by nobody shows as zeros.
  */
-export function openingInventory(plan: FlatRenderPlan): Map<string, OpeningCount> {
+export function openingInventory(
+  plan: FlatRenderPlan,
+  /** Which rooms are on screen; a room hidden by focus draws nothing. */
+  visible: (roomId: string) => boolean = () => true,
+): Map<string, OpeningCount> {
   const counts = new Map<string, OpeningCount>()
   const at = (k: string) => {
     let c = counts.get(k)
@@ -209,6 +270,7 @@ export function openingInventory(plan: FlatRenderPlan): Map<string, OpeningCount
     return c
   }
   for (const room of [plan.active, ...plan.siblings.values()]) {
+    if (!visible(room.id)) continue
     for (const wall of room.shell.walls) {
       for (const el of wall.elements) {
         const c = at(physicalKey(room.id, el))
