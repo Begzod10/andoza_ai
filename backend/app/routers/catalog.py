@@ -18,7 +18,7 @@ from app.database import get_db
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.material_offer import MaterialOffer
-from app.models.store import Store
+from app.models.store import Store, in_open_shop
 from app.models.usta import Usta
 from app.schemas.catalog import FurnitureOut, PaginatedFurniture, RegionOut, StoreOut
 from app.schemas.material import MaterialOut, PaginatedMaterials
@@ -56,8 +56,9 @@ async def list_materials(
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
 
-    query = select(Material).where(Material.is_active.is_(True))
-    count_query = select(func.count()).select_from(Material).where(Material.is_active.is_(True))
+    live = Material.is_active.is_(True) & in_open_shop(Material)
+    query = select(Material).where(live)
+    count_query = select(func.count()).select_from(Material).where(live)
 
     if category:
         query = query.where(Material.category == category)
@@ -177,9 +178,13 @@ async def list_furniture(
     query = (
         select(Furniture)
         .options(selectinload(Furniture.store))
-        .where(Furniture.is_active.is_(True))
+        .where(Furniture.is_active.is_(True), in_open_shop(Furniture))
     )
-    count_query = select(func.count()).select_from(Furniture).where(Furniture.is_active.is_(True))
+    count_query = (
+        select(func.count())
+        .select_from(Furniture)
+        .where(Furniture.is_active.is_(True), in_open_shop(Furniture))
+    )
 
     if category:
         query = query.where(Furniture.category == category)

@@ -3,7 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, func, select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -104,3 +105,12 @@ class Store(Base):
 
     def __repr__(self) -> str:
         return f"<Store id={self.id} name={self.name!r} tier={self.partner_tier!r}>"
+
+
+def in_open_shop(item) -> ColumnElement[bool]:
+    """WHERE clause for a catalog item (Furniture, Material) whose shop is
+    open: no shop at all (admin-owned), or a shop that is is_active. A
+    pending, rejected or switched-off shop takes its items with it, so they
+    can be neither listed nor ordered."""
+    open_shops = select(Store.id).where(Store.is_active.is_(True))
+    return item.store_id.is_(None) | item.store_id.in_(open_shops)

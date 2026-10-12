@@ -11,6 +11,7 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.order import Order, OrderLine
+from app.models.store import in_open_shop
 from app.schemas.order import OrderCancel, OrderCreate, OrderLineCreate, OrderOut
 from app.services.order_status import BUYER_CAN_CANCEL, change_status
 
@@ -40,7 +41,7 @@ async def _resolve_line_prices(
 
     material_prices: dict = {}
     if material_ids:
-        result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
+        result = await db.execute(select(Material).where(Material.id.in_(material_ids), in_open_shop(Material)))
         materials = result.scalars().all()
         material_prices = {m.id: m.price_uzs for m in materials}
         store_ids |= {m.store_id for m in materials}
@@ -58,6 +59,7 @@ async def _resolve_line_prices(
                 Furniture.id.in_(furniture_ids),
                 Furniture.is_active.is_(True),
                 Furniture.status == "approved",
+                in_open_shop(Furniture),
             )
         )
         found = {f.id: f for f in result.scalars().all()}
