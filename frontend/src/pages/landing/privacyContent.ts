@@ -99,6 +99,12 @@ const uz: PrivacyDoc = {
       title: "9. O'zgarishlar",
       body: ["Siyosatni yangilasak, shu sahifada yangi sana bilan e'lon qilamiz."],
     },
+    {
+      title: "Ilova statistikasi va xatolar",
+      body: [
+        "Mobil ilova Google Firebase (Crashlytics va Analytics) orqali ilova xatolari va anonim foydalanish statistikasini yig'adi: qaysi ekranlar ochilgani, qurilma turi va ilova versiyasi. Ism, telefon raqami yoki elektron pochta bu xizmatlarga yuborilmaydi.",
+      ],
+    },
   ],
   contactLabel: "Aloqa",
   back: "Bosh sahifaga",
@@ -179,6 +185,12 @@ const ru: PrivacyDoc = {
       title: "9. Изменения",
       body: ["При обновлении политики мы опубликуем её на этой странице с новой датой."],
     },
+    {
+      title: "Статистика приложения и ошибки",
+      body: [
+        "Мобильное приложение собирает через Google Firebase (Crashlytics и Analytics) сведения об ошибках и анонимную статистику использования: какие экраны открывались, тип устройства и версия приложения. Имя, номер телефона и электронная почта в эти сервисы не передаются.",
+      ],
+    },
   ],
   contactLabel: "Контакт",
   back: "На главную",
@@ -258,6 +270,12 @@ const en: PrivacyDoc = {
     {
       title: "9. Changes",
       body: ["If we update this policy we will publish it on this page with a new date."],
+    },
+    {
+      title: "App statistics and errors",
+      body: [
+        "The mobile app collects crash reports and anonymous usage statistics through Google Firebase (Crashlytics and Analytics): which screens were opened, the device type and the app version. Your name, phone number and email are never sent to these services.",
+      ],
     },
   ],
   contactLabel: "Contact",
