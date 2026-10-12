@@ -38,6 +38,14 @@ function errorDetail(err: unknown): string | null {
 const secondaryButton =
   "inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand-light hover:text-accent disabled:opacity-60";
 
+/** The floor type is chosen in the studio, but no shop product for it: the
+ *  estimate has nothing to price the floor with and leaves it out, which the
+ *  page must say rather than show a total that looks complete. */
+function floorLeftOut(room: { surfaces?: Record<string, unknown> | null; state?: Record<string, unknown> | null } | undefined): boolean {
+  const design = (room?.state as { designState?: { floorType?: string | null; floorConfigured?: boolean } } | null)?.designState;
+  return Boolean(design?.floorConfigured && design.floorType && !room?.surfaces?.floor);
+}
+
 export default function SmetaPage() {
   // Opened by direct link, outside AppShell — apply the theme here too.
   useAppThemeAttribute();
@@ -248,6 +256,19 @@ export default function SmetaPage() {
             (a top-level route outside StudioPage's layout), so the strip
             renders as a normal-flow row here instead of a viewport overlay. */}
         {roomId && <StudioTabStrip roomId={roomId} variant="inline" />}
+
+        {floorLeftOut(room) && (
+          <div
+            role="status"
+            aria-label="Pol smetaga kirmadi"
+            className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-ink"
+          >
+            Pol uchun mahsulot tanlanmagan, shuning uchun pol smetaga kirmadi.{" "}
+            <Link to={`/studio/${roomId}/ichkarida?phase=pol`} className="font-semibold text-accent hover:underline">
+              Pol tanlash
+            </Link>
+          </div>
+        )}
 
         {/* Auto-calculates on open (see the effect above) — this only shows
             while that first request is in flight, or as a retry on error. */}
