@@ -35,7 +35,9 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
 
   const done = () => {
     onError(null);
-    queryClient.invalidateQueries({ queryKey: KEY });
+    // Everything under ["admin"]: this queue (KEY) and the shop / model lists
+    // whose active flags the decision just changed. Once is enough; listing
+    // KEY separately as well fetched the queue twice.
     queryClient.invalidateQueries({ queryKey: ["admin"] });
   };
 
