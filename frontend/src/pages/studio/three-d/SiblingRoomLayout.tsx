@@ -14,6 +14,7 @@ import {
 import { roomFootprint, computeAbsolutePositions } from "./helpers";
 import { isRoomVisible } from "@/lib/roomFocus";
 import { SiblingRoomBody } from "./SiblingRoomScene";
+import { useViewLockStore } from "@/store/viewLockStore";
 import type { RoomRenderPlan } from "@/lib/flatOpenings";
 
 /**
@@ -154,6 +155,7 @@ export function SiblingRooms({
       });
   }, [rooms, activeId, activeW, activeD, activePos]);
 
+  const locked = useViewLockStore((st) => st.locked);
   return (
     <>
       {layout.filter(({ room: sib }) => isRoomVisible(focusedRoomId, sib.id))
@@ -194,13 +196,17 @@ export function SiblingRooms({
                   focused={focusedRoomId === sib.id}
                   onClick={() => onToggleFocus(sib.id)}
                 />
-                <button
-                  style={SIBLING_DELETE_STYLE}
-                  onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
-                  title="Xonani o'chirish"
-                >
-                  ✕
-                </button>
+                {/* An edit, so it goes while the view is locked; focus is
+                    looking, so it stays. */}
+                {!locked && (
+                  <button
+                    style={SIBLING_DELETE_STYLE}
+                    onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
+                    title="Xonani o'chirish"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </Html>
           </group>

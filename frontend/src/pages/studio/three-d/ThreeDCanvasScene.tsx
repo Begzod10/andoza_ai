@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { ViewLockGate } from "./ViewLockGate";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -546,6 +547,8 @@ export function ThreeDCanvasScene({
             neighbours drawn, a limit that stopped at one room's edge made
             them unreachable. While one room is focused the others are hidden,
             so it goes back to fitting that room alone. */}
+        {/* The lock: while it is on, nothing in the scene takes a tap. */}
+        <ViewLockGate />
         <OrbitZoomLimit
           controlsRef={controlsRef}
           W={focusedRoomId ? W : flatSpan.W}

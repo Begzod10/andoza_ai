@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useViewLockStore } from "@/store/viewLockStore";
 import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -345,6 +346,14 @@ export default function ThreeDPage() {
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
   const { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
+  const viewLocked = useViewLockStore((st) => st.locked);
+  const toggleViewLock = useViewLockStore((st) => st.toggle);
+  /** Locking also puts away whatever was already up — a ring, a selection's
+   *  panel, an armed door — or the lock would leave it stranded on screen. */
+  const onToggleViewLock = () => {
+    if (!viewLocked) { closeRadial(); clearAllSelections(); disarmOpening(); }
+    toggleViewLock();
+  };
   // Tapping a wall, the ceiling or the floor drops whatever was selected.
   // onPointerMissed only fires on a tap that hits NOTHING, so a tap on the
   // room itself left a model selected behind the ring — its outline, its tool
@@ -925,6 +934,24 @@ export default function ThreeDPage() {
                 </svg>
               </button>
             </div>
+
+            {/* The lock: taps and holds in the 3D view open nothing while it
+                is on, so the room can be turned without a menu popping up. */}
+            <button
+              onClick={onToggleViewLock}
+              title={viewLocked ? "Tahrirlashni yoqish" : "Tahrirlashni qulflash"}
+              aria-label={viewLocked ? "Tahrirlashni yoqish" : "Tahrirlashni qulflash"}
+              aria-pressed={viewLocked}
+              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
+                viewLocked ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'
+              }`}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                {viewLocked ? <path d="M8 11V8a4 4 0 0 1 8 0v3" /> : <path d="M8 11V8a4 4 0 0 1 7.5-1.9" />}
+              </svg>
+            </button>
 
             {/* Render, once a camera is chosen — and only then, because it is
                 the picture from THAT camera it would make. The 360 camera goes
