@@ -250,3 +250,12 @@ class TestAdminOrders:
     def test_an_unknown_order_is_not_found(self, client):
         _as(_user(is_admin=True), _Result(row=None))
         assert client.patch(f"/api/v1/admin/orders/{uuid.uuid4()}/status", json={"status": "gathering"}).status_code == 404
+
+
+class TestGetOrder:
+    def test_a_malformed_id_is_422_without_touching_the_db(self, client):
+        # The id used to be a plain str: Postgres refused "abc" as a UUID and
+        # the request ended in a 500.
+        db = _as(_user())
+        assert client.get("/api/v1/orders/abc").status_code == 422
+        db.execute.assert_not_called()
