@@ -254,6 +254,43 @@ class TestUstaLeads:
         assert db.add.call_args.args[0].message == "Salom"
         assert client.post("/api/v1/leads", json={"usta_id": str(usta.id), "message": "x" * 501}).status_code == 422
 
+    def test_lead_create_stores_the_contact_phone_the_client_typed(self, client):
+        # The web form sends it as contact_phone; it used to be dropped, so an
+        # usta got a request from a username-only account with no way to call back.
+        u = _user()
+        usta = _usta(u)
+        db = _as(u, [_R(usta)])
+
+        async def _flush():
+            lead = db.add.call_args.args[0]
+            lead.id, lead.created_at = uuid.uuid4(), datetime.now(timezone.utc)
+
+        db.flush = AsyncMock(side_effect=_flush)
+        res = client.post("/api/v1/leads", json={"usta_id": str(usta.id), "contact_phone": "+998 90 111-22-33"})
+        assert res.status_code == 201
+        assert db.add.call_args.args[0].contact_phone == "+998901112233"
+
+    @pytest.mark.parametrize("phone", ["123", "abc", "+7 999 123 45 67"])
+    def test_a_contact_phone_that_is_not_an_uzbek_number_is_422(self, client, phone):
+        u = _user()
+        usta = _usta(u)
+        db = _as(u, [_R(usta)])
+        res = client.post("/api/v1/leads", json={"usta_id": str(usta.id), "contact_phone": phone})
+        assert res.status_code == 422
+        db.add.assert_not_called()
+
+    def test_inbox_shows_the_phone_typed_on_the_request_over_the_account_phone(self, client):
+        from app.models.user import User
+        u = _user()
+        usta = _usta(u)
+        typed = self._lead(usta, contact_phone="+998901112233")
+        untyped = self._lead(usta)
+        username_only = User(id=typed.user_id, name="Vali", phone=None)
+        with_phone = User(id=untyped.user_id, name="Ali", phone="+998909998877")
+        _as(u, [_R(usta), _R(many=[(typed, username_only, None), (untyped, with_phone, None)])])
+        body = client.get("/api/v1/usta/leads").json()
+        assert [row["client_phone"] for row in body] == ["+998901112233", "+998909998877"]
+
     def test_no_profile_means_no_inbox(self, client):
         _as(_user(), [_R(None)])
         assert client.get("/api/v1/usta/leads").status_code == 404
