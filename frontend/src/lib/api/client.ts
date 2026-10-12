@@ -7,7 +7,7 @@
 
 export const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
 
-const NO_SESSION_RETRY_PATHS = new Set(["/auth/google"]);
+const NO_SESSION_RETRY_PATHS = new Set(["/auth/login", "/auth/google"]);
 
 function handleUnauthorized(): never {
   window.location.href = "/login";
