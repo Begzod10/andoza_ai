@@ -167,6 +167,14 @@ async def update_store(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Do'kon topilmadi")
 
     updates = payload.model_dump(exclude_unset=True)
+    # A pending or rejected shop goes live only through moderation, which sets
+    # status and is_active together; switching it on here would list it
+    # publicly while its owner is still locked out as "rejected".
+    if updates.get("is_active") and store.status in ("pending", "rejected"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Avval do'kon arizasini tasdiqlang",
+        )
     for field, value in updates.items():
         setattr(store, field, value)
 
