@@ -51,13 +51,14 @@ async def list_materials(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMaterials:
-    cache_key = f"materials:{category}:{store}:{q}:{page}:{per_page}"
+    # v2: entries cached before store_name was added would lack it for the TTL.
+    cache_key = f"materials:v2:{category}:{store}:{q}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
 
     live = Material.is_active.is_(True) & in_open_shop(Material)
-    query = select(Material).where(live)
+    query = select(Material).options(selectinload(Material.store)).where(live)
     count_query = select(func.count()).select_from(Material).where(live)
 
     if category:
@@ -78,7 +79,10 @@ async def list_materials(
     materials = result.scalars().all()
 
     payload = PaginatedMaterials(
-        items=[MaterialOut.model_validate(m) for m in materials],
+        items=[
+            MaterialOut.model_validate(m).model_copy(update={"store_name": m.store.name if m.store else None})
+            for m in materials
+        ],
         total=total,
         page=page,
         per_page=per_page,

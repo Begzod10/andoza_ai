@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.auth import _normalize_phone
+from app.schemas.auth import normalize_contact_phone
 
 
 class UstaOut(BaseModel):
@@ -39,9 +38,7 @@ class LeadCreate(BaseModel):
     @field_validator("contact_phone")
     @classmethod
     def _contact_phone(cls, v: str | None) -> str | None:
-        if v is None or not v.strip():
-            return None
-        return _normalize_phone(re.sub(r"[\s\-()]", "", v))
+        return normalize_contact_phone(v)
 
 
 class LeadOut(BaseModel):

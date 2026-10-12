@@ -112,3 +112,23 @@ def test_register_web_request_omits_tokens_from_body(client, mock_redis):
     set_cookie_headers = response.headers.get_list("set-cookie")
     assert any(h.startswith("token=") for h in set_cookie_headers)
     assert any(h.startswith("refresh_token=") for h in set_cookie_headers)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"username": "newuser", "password": ""},  # used to be accepted: an account that can never self-delete
+        {"username": "newuser", "password": "12345"},
+        {"username": "ab", "password": "Secret123"},
+        {"username": "u" * 51, "password": "Secret123"},  # used to overflow varchar(50) into a 500
+        {"username": "   ", "password": "Secret123"},
+    ],
+)
+def test_register_refuses_what_the_sign_up_form_refuses(client, mock_redis, body):
+    # Same limits as LoginPage: username 3–50 characters, password 6 or more.
+    db = _FakeDb()
+    app.dependency_overrides[get_db] = lambda: db
+    with patch("app.routers.auth.get_redis", return_value=mock_redis):
+        response = client.post("/api/v1/auth/register", json=body)
+    assert response.status_code == 422
+    assert not hasattr(db, "_added")

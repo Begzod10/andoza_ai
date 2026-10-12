@@ -175,7 +175,7 @@ async def list_orders(
     summary="Get a single order owned by the current user",
 )
 async def get_order(
-    order_id: str,
+    order_id: uuid.UUID,
     current_user: CurrentUser,
     db: DbSession,
 ) -> OrderOut:

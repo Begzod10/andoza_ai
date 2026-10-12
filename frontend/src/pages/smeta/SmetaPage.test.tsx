@@ -379,6 +379,39 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     }
   })
 
+  it('says when the chosen floor is left out for lack of a product', async () => {
+    // Pol → Parket → Herringbone picked, but no shop product: the estimate
+    // used to drop the floor without a word, so the total looked complete.
+    const { getRoom } = await import('@/lib/api')
+    vi.mocked(getRoom).mockResolvedValueOnce({
+      id: 'room-1', apartment_id: 'apt-1', name: 'Xona', floor_area: 12,
+      surfaces: { ALL: 'm1', floor: '' },
+      state: { designState: { floorType: 'parquet', floorConfigured: true } },
+    } as never)
+    renderSmetaPage()
+    const note = await screen.findByRole('status', { name: 'Pol smetaga kirmadi' })
+    expect(note.textContent).toContain('Pol uchun mahsulot tanlanmagan')
+    expect(note.querySelector('a')!.getAttribute('href')).toBe('/studio/room-1/ichkarida?phase=pol')
+  })
+
+  it('says nothing about the floor when a floor product is chosen', async () => {
+    const { getRoom } = await import('@/lib/api')
+    vi.mocked(getRoom).mockResolvedValueOnce({
+      id: 'room-1', apartment_id: 'apt-1', name: 'Xona', floor_area: 12,
+      surfaces: { ALL: 'm1', floor: 'm2' },
+      state: { designState: { floorType: 'parquet', floorConfigured: true } },
+    } as never)
+    renderSmetaPage()
+    await screen.findByText('PDF yuklab olish')
+    expect(screen.queryByRole('status', { name: 'Pol smetaga kirmadi' })).toBeNull()
+  })
+
+  it('calls an usta about this room, so the request carries the room and its estimate', async () => {
+    renderSmetaPage()
+    const link = (await screen.findByText('Usta chaqirish')).closest('a')!
+    expect(link.getAttribute('href')).toBe('/ustalar?room=room-1')
+  })
+
   it('offers the file and the save as the two main actions, and the rest as quiet ones', async () => {
     renderSmetaPage()
     const pdf = await screen.findByText('PDF yuklab olish')

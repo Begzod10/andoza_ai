@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
+from sqlalchemy.exc import DBAPIError
 
 from app.config import settings
 from app.routers import (
@@ -38,6 +39,17 @@ def _configure_structlog() -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+
+logger = structlog.get_logger(__name__)
+
+# Integrity errors that mean "the request named something impossible", as
+# opposed to a conflict between concurrent writers (unique violations stay
+# with the routers that expect them).
+_CLIENT_INTEGRITY_CODES = {
+    "23502",  # not_null_violation
+    "23503",  # foreign_key_violation
+}
 
 
 def create_app() -> FastAPI:
@@ -159,6 +171,21 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": errors},
+        )
+
+    @app.exception_handler(DBAPIError)
+    async def db_error_handler(request: Request, exc: DBAPIError) -> JSONResponse:
+        """A value Postgres refuses (unknown enum value, NUL byte, number or
+        text too big for its column, NULL into NOT NULL, an id pointing at
+        nothing) is bad input that got past the schemas: answer 422, not 500.
+        Anything else is a real server fault and is re-raised as one."""
+        pgcode = str(getattr(exc.orig, "pgcode", "") or "")
+        if not (pgcode.startswith("22") or pgcode in _CLIENT_INTEGRITY_CODES):
+            raise exc
+        logger.warning("db_rejected_input", path=request.url.path, pgcode=pgcode)
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": "Noto'g'ri qiymat yuborildi."},
         )
 
     @app.exception_handler(404)

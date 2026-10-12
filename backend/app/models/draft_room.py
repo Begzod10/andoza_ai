@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,14 @@ class DraftRoom(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+        index=True,
+    )
+    # Whose wizard this is. Nullable only for rows that predate owners; those
+    # match no one and are simply never read again.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     state: Mapped[dict] = mapped_column(

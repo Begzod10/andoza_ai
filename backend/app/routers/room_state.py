@@ -30,6 +30,7 @@ from app.services.estimate_catalog import load_estimate_catalog
 from app.services.delta import compute_delta
 from app.services.smeta import ComputedLine
 from app.services.room_access import get_owned_room
+from app.services.room_rows import get_or_create_room_row
 
 logger = structlog.get_logger(__name__)
 
@@ -46,13 +47,7 @@ async def _get_or_default_state(room_id: UUID, db: DbSession) -> RoomState:
     Every room implicitly starts as raw (korobka) until the user records
     otherwise, so callers always get a usable RoomState instead of a 404.
     """
-    result = await db.execute(select(RoomState).where(RoomState.room_id == room_id))
-    state = result.scalar_one_or_none()
-    if state is None:
-        state = RoomState(room_id=room_id, current_state="xom")
-        db.add(state)
-        await db.flush()
-    return state
+    return await get_or_create_room_row(db, RoomState, room_id, current_state="xom")
 
 
 async def _load_materials_for_room(room, db: DbSession) -> dict[str, Material]:

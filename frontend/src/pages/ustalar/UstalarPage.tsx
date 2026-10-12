@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { getUstalar, createLead } from "@/lib/api";
+import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
 import { uz } from "@/locale/uz";
 import { cn } from "@/lib/utils";
 import type { Usta, UstalarParams } from "@/lib/api";
@@ -72,17 +74,20 @@ function UstaCard({
 
 interface ContactModalProps {
   usta: Usta;
+  /** The room the request is about (opened from its smeta), so the usta gets the room and its estimate. */
+  roomId?: string;
   onClose: () => void;
 }
 
-function ContactModal({ usta, onClose }: ContactModalProps) {
+function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
   const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [success, setSuccess] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () =>
-      createLead({ usta_id: usta.id, message, contact_phone: phone }),
+      createLead({ usta_id: usta.id, room_id: roomId, message, contact_phone: phone }),
     onSuccess: () => setSuccess(true),
   });
 
@@ -113,7 +118,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }}
                   placeholder={uz.auth.telefon_placeholder}
                   className="mt-1 block w-full rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
@@ -131,14 +136,16 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
                 />
               </label>
             </div>
-            {mutation.isError && (
-              <p className="mt-3 text-sm text-red-600">{uz.errors.nomalum_xato}</p>
+            {phoneError ? (
+              <p role="alert" className="mt-3 text-sm text-red-600">{PHONE_ERROR}</p>
+            ) : mutation.isError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">{uz.errors.nomalum_xato}</p>
             )}
             <div className="mt-5 flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={onClose}>{uz.common.bekor}</Button>
               <Button
                 className="flex-1"
-                onClick={() => mutation.mutate()}
+                onClick={() => (isUzPhone(phone) ? mutation.mutate() : setPhoneError(true))}
                 disabled={mutation.isPending || !phone}
               >
                 {mutation.isPending ? uz.common.yuklanmoqda : uz.ustalar.yuborish}
@@ -161,6 +168,7 @@ const SORT_OPTIONS: { key: UstalarParams["sort"]; label: string }[] = [
 export default function UstalarPage() {
   const [sort, setSort] = useState<UstalarParams["sort"]>(undefined);
   const [selectedUsta, setSelectedUsta] = useState<Usta | null>(null);
+  const roomId = useSearchParams()[0].get("room") ?? undefined;
 
   const { data: ustalar = [], isLoading, isError } = useQuery({
     queryKey: ["ustalar", sort],
@@ -226,6 +234,7 @@ export default function UstalarPage() {
       {selectedUsta && (
         <ContactModal
           usta={selectedUsta}
+          roomId={roomId}
           onClose={() => setSelectedUsta(null)}
         />
       )}

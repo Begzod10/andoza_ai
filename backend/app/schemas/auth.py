@@ -17,6 +17,15 @@ def _normalize_phone(v: str) -> str:
     return v if v.startswith("+") else f"+{v}"
 
 
+def normalize_contact_phone(v: str | None) -> str | None:
+    """A phone typed into a form ("+998 90 123-45-67") as +998XXXXXXXXX.
+    Blank means not given; anything that is not an Uzbek number is refused,
+    so a shop or an usta is never left with a number it cannot call."""
+    if v is None or not v.strip():
+        return None
+    return _normalize_phone(re.sub(r"[\s\-()]", "", v))
+
+
 class OTPRequest(BaseModel):
     phone: str
 
@@ -67,9 +76,16 @@ class LoginResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    name: str | None = None
+    # The sign-up form's own limits (LoginPage). username is varchar(50); an
+    # empty password made an account that could never self-delete.
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=128)
+    name: str | None = Field(default=None, max_length=100)
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def _strip_username(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
 
 
 class LoginRequest(BaseModel):

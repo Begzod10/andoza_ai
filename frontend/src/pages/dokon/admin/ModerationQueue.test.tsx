@@ -63,3 +63,19 @@ describe('admin moderation queue — craftsman applications', () => {
     expect(screen.queryByText(/Ko'rib chiqishni kutmoqda/)).toBeNull()
   })
 })
+
+describe('admin moderation queue — after a decision', () => {
+  it('reloads the queue, so an approved shop leaves it without a page reload', async () => {
+    const shop = { id: 's1', name: 'QA Mebel', district: null, phone: null, status: 'pending', created_at: '' }
+    api.getPendingQueue
+      .mockResolvedValueOnce({ stores: [shop], furniture: [], ustalar: [] })
+      .mockResolvedValue({ stores: [], furniture: [], ustalar: [] })
+    api.approvePending.mockResolvedValue('')
+    renderQueue()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tasdiqlash' }))
+
+    await waitFor(() => expect(screen.queryByText('QA Mebel')).not.toBeInTheDocument())
+    expect(api.getPendingQueue).toHaveBeenCalledTimes(2)
+  })
+})
