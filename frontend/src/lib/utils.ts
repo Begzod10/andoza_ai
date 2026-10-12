@@ -30,12 +30,15 @@ export function formatUZS(soum: number): string {
 /**
  * Format a so'm amount as USD, converted at *usdRate* so'm-per-1-USD (from
  * EstimateResponse.usd_rate — the live CBU rate the backend priced against).
- * Example: formatUSDFromUZS(124000000, 12750) -> "$9 725"
+ * Example: formatUSDFromUZS(124000000, 12750) -> "$9 725". Below $100 it keeps
+ * the cents (9 500 so'm -> "$0.80"): rounded to whole dollars, a unit price
+ * turned into a different number and its line stopped adding up.
  */
 export function formatUSDFromUZS(soum: number, usdRate: number): string {
   if (!usdRate) return "$0";
-  const usd = Math.round(soum / usdRate);
-  const formatted = usd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const usd = soum / usdRate;
+  if (Math.abs(usd) < 99.995) return `$${usd.toFixed(2)}`;
+  const formatted = Math.round(usd).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   return `$${formatted}`;
 }
 
