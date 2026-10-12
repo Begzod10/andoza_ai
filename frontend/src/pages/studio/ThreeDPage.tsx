@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { beginRoomSwitch } from "@/lib/roomSwitch";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
@@ -727,7 +728,7 @@ export default function ThreeDPage() {
             closeMenu?.();
             // Saved first, so what was done here is there when the user comes back.
             try { await onSave(); } catch { /* offline — switch anyway */ }
-            navigate(`/studio/${id}`);
+            navigate(`/studio/${id}/ichkarida`);
           }}
         />
 
@@ -1051,6 +1052,17 @@ export default function ThreeDPage() {
             aptRooms={aptRooms}
             activeLayoutPos={activeLayoutPos}
             handleDeleteSibling={handleDeleteSibling}
+            onSwitchRoom={async (id, offset, tap) => {
+              // "Seamless switch": open the tapped room without the view
+              // moving, and replay the tap on it (lib/roomSwitch). Its data
+              // is already here from the flat's room list, so it opens at
+              // once instead of waiting on a fetch.
+              const target = aptRooms?.find((r) => r.id === id);
+              if (target) queryClient.setQueryData(["room", id], target);
+              beginRoomSwitch({ toId: id, ...offset, tap });
+              try { await onSave(); } catch { /* offline — switch anyway */ }
+              navigate(`/studio/${id}/ichkarida`);
+            }}
             toolMode={toolMode}
             selectedFurId={selectedFurId}
             selectFurniture={selectFurniture}

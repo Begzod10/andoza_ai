@@ -35,25 +35,42 @@ describe('openingTapHandler', () => {
 /**
  * A doorway through a shared partition is drawn once, by the room that owns
  * it (lib/flatOpenings), so from the neighbour's side the leaf in it is the
- * owner's scenery leaf. Tapping it used to open the owner room — which reads
- * as the page reloading on every tap ("after tapping on door from behind,
- * page is reloading every time"). It now stays in the room being edited.
+ * owner's scenery leaf. A tap on it opens the owner IN PLACE — the user's
+ * "seamless switch" (lib/roomSwitch): the handler hands the event over, so the
+ * tap can be replayed at the same point once the owner is open. Only when the
+ * leaf is the nearest hit, so it never takes a tap meant for something of the
+ * open room standing in front of it.
  */
-describe('openingTapHandler on a neighbour\'s leaf', () => {
-  it('does not take the user to another room when it is the nearest hit', () => {
+describe("openingTapHandler on a neighbour's leaf", () => {
+  const at = (nearest: boolean) => {
     const leaf = {}
-    const e = {
+    return {
       stopPropagation: vi.fn(),
       eventObject: leaf,
-      intersections: [{ eventObject: leaf }],
+      intersections: [{ eventObject: nearest ? leaf : {} }],
     } as never as Parameters<ReturnType<typeof openingTapHandler>>[0]
-    const openMenu = vi.fn()
-    const openOwnerRoom = vi.fn()
-    // Called the way SiblingRoomScene used to call it, with a way to open the
-    // owner room on the end — which must never be used.
-    ;(openingTapHandler as (...a: unknown[]) => (ev: typeof e) => void)(false, 'B', 'd1', openMenu, openOwnerRoom)(e)
-    expect(openOwnerRoom).not.toHaveBeenCalled()
-    expect(openMenu).not.toHaveBeenCalled()
-    expect((e as unknown as { stopPropagation: ReturnType<typeof vi.fn> }).stopPropagation).not.toHaveBeenCalled()
+  }
+  const stopped = (e: unknown) => (e as { stopPropagation: ReturnType<typeof vi.fn> }).stopPropagation
+
+  it('opens the owner with the tap itself when the leaf is the nearest hit', () => {
+    const openOwner = vi.fn()
+    const e = at(true)
+    openingTapHandler(false, 'B', 'd1', undefined, openOwner)(e)
+    expect(openOwner).toHaveBeenCalledWith(e)
+    expect(stopped(e)).toHaveBeenCalled()
+  })
+
+  it('does nothing when something nearer was tapped', () => {
+    const openOwner = vi.fn()
+    const e = at(false)
+    openingTapHandler(false, 'B', 'd1', undefined, openOwner)(e)
+    expect(openOwner).not.toHaveBeenCalled()
+    expect(stopped(e)).not.toHaveBeenCalled()
+  })
+
+  it('never opens a room from an editable leaf', () => {
+    const openOwner = vi.fn()
+    openingTapHandler(true, 'B', 'd1', vi.fn(), openOwner)(at(true))
+    expect(openOwner).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { roomSwitchUnderWay } from "@/lib/roomSwitch";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -124,6 +125,10 @@ export function CameraAnimator({
 
   // Trigger animation when target changes OR when version bumps (same preset re-clicked)
   useEffect(() => {
+    // Not while a tapped neighbour is being opened in place: its new size
+    // re-derives this framing, and the whole point is that the view stays
+    // where the user had it (lib/roomSwitch).
+    if (roomSwitchUnderWay()) return;
     isAnimating.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetPos, targetLookAt, version]);

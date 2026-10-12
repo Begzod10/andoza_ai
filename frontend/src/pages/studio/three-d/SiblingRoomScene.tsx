@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Room } from "@/lib/api";
 import { resolveWallCovering, resolveWallColor, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
@@ -89,13 +90,52 @@ function useNoShadowSubtree(ref: React.RefObject<THREE.Group | null>) {
 }
 
 
-// ─── No picking ──────────────────────────────────────────────────────────────
+// ─── A tap on a neighbour opens it, in place ─────────────────────────────────
 
-// A neighbouring room takes no taps. Tapping one used to open it, through an
-// invisible pick box over the room's volume; the user asked for that to stop
-// ("no switch needed"), and rooms are opened from the ⋮ menu's list instead
-// (lib/roomList). With no handler on anything of a sibling, it is also out of
-// react-three-fiber's hover raycast altogether.
+/**
+ * Whether this click is really ours: only when the NEAREST intersection is
+ * the one that reached us. react-three-fiber hands every handler the full,
+ * distance-sorted list and does not stop at the nearest, and the active
+ * room's surfaces deliberately let a tap run on — so without this, a tap on
+ * the open room's own wall would also open whatever room stood behind it.
+ */
+function isNearestHit(e: ThreeEvent<MouseEvent>): boolean {
+  return e.intersections[0]?.eventObject === e.eventObject;
+}
+
+/**
+ * The thing a tap on a neighbour hits: an invisible box over the room's
+ * volume, the only part of a sibling with a handler, so the hover raycast
+ * tests one box per room rather than every wall, plank and trim run.
+ * `visible={false}` keeps it out of the render and the shadow passes while
+ * leaving it pickable (three's raycaster tests layers, not `visible`).
+ *
+ * A tap on it opens the room IN PLACE — the user's "seamless switch": the
+ * camera keeps its place and the tap is replayed on the room once it is open,
+ * so the menu for what was tapped comes up where it was tapped
+ * (lib/roomSwitch). It used to navigate plainly, which re-framed the view and
+ * read as the page reloading.
+ */
+function SiblingPickBox({
+  wM, dM, hM, onOpen,
+}: {
+  wM: number; dM: number; hM: number; onOpen: (e: ThreeEvent<MouseEvent>) => void;
+}) {
+  return (
+    <mesh
+      visible={false}
+      position={[0, hM / 2, 0]}
+      onClick={(e) => {
+        if (!isNearestHit(e)) return;
+        e.stopPropagation();
+        onOpen(e);
+      }}
+    >
+      <boxGeometry args={[wM, hM, dM]} />
+      <meshBasicMaterial />
+    </mesh>
+  );
+}
 
 
 // ─── Far tier: the coloured block ────────────────────────────────────────────
@@ -233,7 +273,7 @@ function SiblingBlockShell({
  * things the shell binds for ITSELF are switched off by `readOnly`.
  */
 function SiblingFullShell(
-  { view, wallsInActiveRoom, shellGeometry }: {
+  { view, wallsInActiveRoom, shellGeometry, onOpen }: {
     view: SiblingRoomView;
     wallsInActiveRoom: ReadonlySet<string>;
     /** `view.geometry` with the neighbours' openings cut in, bare, and its own
@@ -241,6 +281,8 @@ function SiblingFullShell(
      *  (lib/flatOpenings). The shell AND the leaves are drawn from it, so a
      *  shared doorway's leaf hangs at the end of the lining it is drawn in. */
     shellGeometry: RoomGeometry;
+    /** Opens this room in place — what a tap on one of its leaves does. */
+    onOpen: (e: ThreeEvent<MouseEvent>) => void;
   },
 ) {
   return (
@@ -289,11 +331,10 @@ function SiblingFullShell(
           frame with daylight through it.
 
           Mounted as scenery: `interactive={false}` means no editor, no
-          ring, no drag, and no switching rooms: a doorway shared with the
-          active room is drawn only from here, and opening this room on a tap
-          of its door read as the page reloading every time. The tap is let
-          through, and the pick box behind will not take it either, since the
-          leaf is the nearer hit. See `openingTapHandler`.
+          ring, no drag. A tap on one opens this room in place, as a tap on
+          its pick box does: a doorway shared with the active room is drawn
+          only from here, and its leaf stands outside the pick box. See
+          `openingTapHandler` and lib/roomSwitch.
 
           From the shell geometry, with the partition set: a leaf is hung
           exactly where this room draws a lining, so a doorway shared with
@@ -306,6 +347,7 @@ function SiblingFullShell(
         wallDepth={view.depthM}
         partitionWalls={wallsInActiveRoom}
         interactive={false}
+        openRoom={onOpen}
       />
       <OpeningLeaves
         kind="window"
@@ -314,6 +356,7 @@ function SiblingFullShell(
         wallDepth={view.depthM}
         partitionWalls={wallsInActiveRoom}
         interactive={false}
+        openRoom={onOpen}
       />
 
       {/* The room's own furniture. Already the one part of the old stand-in
@@ -355,7 +398,7 @@ function SiblingFullShell(
  * all — the user's "please differ 1 project with 1 room".
  */
 export function SiblingRoomBody({
-  room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount,
+  room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount, onOpen,
   shellGeometry, partitionWithActive,
 }: {
   room: Room;
@@ -378,6 +421,8 @@ export function SiblingRoomBody({
   /** How many siblings there are in all, which is what decides whether the
    *  full shell is spent on every room or only the near ones. */
   siblingCount: number;
+  /** Opens this room in place (lib/roomSwitch). */
+  onOpen: (e: ThreeEvent<MouseEvent>) => void;
   /** This room's geometry with its neighbours' openings cut in (built by
    *  `SiblingRooms` from lib/borrowedOpenings, which needs every room of the
    *  flat at once). Absent: the room's own geometry. */
@@ -441,10 +486,18 @@ export function SiblingRoomBody({
           can silently vanish from the flat; it just has nothing to build a
           shell from yet. */}
       {view && tier === 'full' ? (
-        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} />
+        <SiblingFullShell view={view} wallsInActiveRoom={wallsInActiveRoom} shellGeometry={stableShell ?? view.geometry} onOpen={onOpen} />
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}
+      {/* Sized from the room's own walls when known: a drawn or scanned
+          polygon room's layout footprint falls back to 4 x 3. */}
+      <SiblingPickBox
+        wM={view?.widthM ?? wM}
+        dM={view?.depthM ?? dM}
+        hM={view?.heightM ?? hM}
+        onOpen={onOpen}
+      />
     </group>
   );
 }

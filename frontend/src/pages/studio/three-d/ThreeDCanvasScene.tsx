@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { RoomSwitchCamera } from "./RoomSwitchCamera";
 import { OpeningLeaves } from "@/components/studio/DoorLeaves";
 import { ViewLockGate } from "./ViewLockGate";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
@@ -107,7 +108,7 @@ export function ThreeDCanvasScene({
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
-  handleDeleteSibling,
+  handleDeleteSibling, onSwitchRoom,
   toolMode, selectedFurId, selectFurniture, selectedPart, selectFurniturePart,
   showScan, showQibla, replacedGhosts, setScanSwap,
   selectedDoorId, selectDoor,
@@ -159,6 +160,8 @@ export function ThreeDCanvasScene({
   aptRooms: Room[] | undefined;
   activeLayoutPos: { x: number; z: number } | null;
   handleDeleteSibling: (id: string, name: string) => Promise<void>;
+  /** Opens a tapped neighbour in place, keeping the view (lib/roomSwitch). */
+  onSwitchRoom: (roomId: string, offset: { offsetXM: number; offsetZM: number }, tap: { x: number; y: number }) => void;
   toolMode: ToolMode;
   selectedFurId: string | null;
   selectFurniture: (id: string | null) => void;
@@ -504,6 +507,14 @@ export function ThreeDCanvasScene({
             focusedRoomId={focusedRoomId}
             onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
             onDelete={handleDeleteSibling}
+            onOpen={(id, e) => {
+              const sib = siblingsPlaced.find((s) => s.id === id);
+              onSwitchRoom(
+                id,
+                { offsetXM: sib?.offsetXM ?? 0, offsetZM: sib?.offsetZM ?? 0 },
+                { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY },
+              );
+            }}
           />
         )}
         {isRoomVisible(focusedRoomId, room.id) && (
@@ -561,6 +572,8 @@ export function ThreeDCanvasScene({
             so it goes back to fitting that room alone. */}
         {/* The lock: while it is on, nothing in the scene takes a tap. */}
         <ViewLockGate />
+        {/* Keeps the view still when a tapped neighbour becomes the open room. */}
+        <RoomSwitchCamera controlsRef={controlsRef} />
         <OrbitZoomLimit
           controlsRef={controlsRef}
           W={focusedRoomId ? W : flatSpan.W}

@@ -122,6 +122,7 @@ export function SiblingRooms({
   activePos,
   siblingPlans,
   onDelete,
+  onOpen,
   focusedRoomId,
   onToggleFocus,
 }: {
@@ -137,6 +138,8 @@ export function SiblingRooms({
    *  walls against the active room. */
   siblingPlans?: ReadonlyMap<string, RoomRenderPlan>;
   onDelete: (roomId: string, name: string) => void;
+  /** Opens a neighbouring room in place, from a tap on it (lib/roomSwitch). */
+  onOpen: (roomId: string, e: ThreeEvent<MouseEvent>) => void;
   /** The room being looked at alone, or null for the whole flat. */
   focusedRoomId: string | null;
   onToggleFocus: (roomId: string) => void;
@@ -183,6 +186,7 @@ export function SiblingRooms({
               siblingCount={layout.length}
               shellGeometry={siblingPlans?.get(sib.id)?.shell}
               partitionWithActive={siblingPlans?.get(sib.id)?.partitionWalls}
+              onOpen={(e) => onOpen(sib.id, e)}
             />
             {/* No name pill: every room in the flat carried one, so a
                 four-room flat wore four name tags across the view, and they

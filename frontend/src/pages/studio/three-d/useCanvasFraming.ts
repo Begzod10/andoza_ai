@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { switchCovers } from "@/lib/roomSwitch";
 import { type ViewPreset } from "./constants";
 import { getCamera, fitFramingToAspect } from "./helpers";
 
@@ -87,7 +88,9 @@ export function useCanvasFraming(params: {
     const key = `${W.toFixed(2)}|${D.toFixed(2)}|${H.toFixed(2)}`;
     const prev = sizeKeyRef.current;
     sizeKeyRef.current = key;
-    if (prev && prev !== key) setPresetVersion((n) => n + 1);
+    // Not when the size changed because a tapped neighbour was opened in
+    // place — the camera was kept where it was on purpose (lib/roomSwitch).
+    if (prev && prev !== key && !switchCovers(roomId)) setPresetVersion((n) => n + 1);
   }, [W, D, H, setPresetVersion]);
 
   // Top view: keep camera above ceiling — ceiling is hidden so user can scroll "through" it
@@ -102,7 +105,7 @@ export function useCanvasFraming(params: {
   useEffect(() => {
     const prev = camKeyRef.current;
     camKeyRef.current = roomId;
-    if (prev && prev !== roomId) setPresetVersion((n) => n + 1);
+    if (prev && prev !== roomId && !switchCovers(roomId)) setPresetVersion((n) => n + 1);
   }, [roomId, setPresetVersion]);
 
   return { canvasBoxRef, cam, initCam, topMinDist, maxPolarAngle };
