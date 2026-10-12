@@ -642,7 +642,12 @@ export default function WizardPage() {
   const [draftLoaded, setDraftLoaded] = React.useState(false)
 
   // ── On mount: fetch existing draft or create a new one ──────────────────
+  // Once per page: StrictMode runs mount effects twice, and each run used to
+  // create a draft, leaving an orphan row behind.
+  const draftInitStarted = React.useRef(false)
   React.useEffect(() => {
+    if (draftInitStarted.current) return
+    draftInitStarted.current = true
     async function initDraft() {
       // The wizard only creates NEW rooms. A roomId left in the store (e.g.
       // arriving via "+ add room" from the studio) would make handleSave()

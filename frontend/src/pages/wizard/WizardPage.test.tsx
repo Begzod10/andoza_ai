@@ -135,6 +135,25 @@ describe('WizardPage – Step 0', () => {
   })
 })
 
+describe('WizardPage – draft on open', () => {
+  it('opens one draft even when the mount effect runs twice', async () => {
+    // StrictMode runs effects twice; each run used to create a draft, leaving
+    // an orphan row behind on every visit.
+    const api = await import('@/lib/api')
+    const createDraftRoom = vi.mocked(api.createDraftRoom)
+    createDraftRoom.mockClear()
+    render(
+      <React.StrictMode>
+        <MemoryRouter>
+          <WizardPage />
+        </MemoryRouter>
+      </React.StrictMode>,
+    )
+    await waitFor(() => expect(useRoomStore.getState().draftId).toBe('draft-1'))
+    expect(createDraftRoom).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('WizardPage – Step 0, typed height', () => {
   it('will not go on with a height outside 2–4 m', async () => {
     // 99 used to be ignored without a word: "Keyingi" went on and the room
