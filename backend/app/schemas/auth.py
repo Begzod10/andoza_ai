@@ -76,9 +76,16 @@ class LoginResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    name: str | None = None
+    # The sign-up form's own limits (LoginPage). username is varchar(50); an
+    # empty password made an account that could never self-delete.
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=128)
+    name: str | None = Field(default=None, max_length=100)
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def _strip_username(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
 
 
 class LoginRequest(BaseModel):
