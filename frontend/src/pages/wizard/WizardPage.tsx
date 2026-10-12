@@ -629,7 +629,7 @@ export default function WizardPage() {
   const [dir, setDir] = React.useState(1)
   const [saving, setSaving] = React.useState(false)
   const [saveFailed, setSaveFailed] = React.useState(false)
-  // One save at a time: a second caller (autosave + "next") waits for the same request.
+  // The save in flight; the next save queues behind it (see handleSave).
   const savePromiseRef = React.useRef<Promise<string | null> | null>(null)
   // A project made by a failed attempt is reused on retry, not made twice.
   const createdApartmentIdRef = React.useRef<string | null>(null)
@@ -641,7 +641,7 @@ export default function WizardPage() {
     async function initDraft() {
       // The wizard only creates NEW rooms. A roomId left in the store (e.g.
       // arriving via "+ add room" from the studio) would make handleSave()
-      // bail out early and the new room would never be created.
+      // overwrite that room instead of creating the new one.
       if (roomId) {
         resetRoom()
         const draft = await createDraftRoom({})
@@ -722,15 +722,56 @@ export default function WizardPage() {
 
   /** Saves the room on the server and returns its id, or null when the save
    *  failed — the results step then says so and offers a retry, instead of
-   *  carrying on with a room the server never got. */
+   *  carrying on with a room the server never got.
+   *
+   *  The first save creates the room (autosave usually does that while the
+   *  user is still on wall A); every later one PATCHes its dimensions, so
+   *  walls and openings entered after that point are not lost. Saves run one
+   *  after another and each reads the store when it starts, so the last call
+   *  always sends the latest dimensions and the room is never created twice. */
   function handleSave(): Promise<string | null> {
-    if (roomId) return Promise.resolve(roomId)  // already saved
-    if (!savePromiseRef.current) {
-      savePromiseRef.current = saveRoomOnServer().finally(() => {
-        savePromiseRef.current = null
-      })
+    const run = () => {
+      const existing = useRoomStore.getState().roomId
+      return existing ? updateRoomOnServer(existing) : saveRoomOnServer()
     }
-    return savePromiseRef.current
+    const previous = savePromiseRef.current
+    const next: Promise<string | null> = (previous ? previous.then(run, run) : run()).finally(() => {
+      if (savePromiseRef.current === next) savePromiseRef.current = null
+    })
+    savePromiseRef.current = next
+    return next
+  }
+
+  /** The room's dimensions as the API takes them, from the store as it is now. */
+  function roomDimensions() {
+    const { ceilingHeight, geometry } = useRoomStore.getState()
+    return {
+      ceiling_h: ceilingHeight / 1000,
+      geometry: {
+        walls: geometry.walls.map((w) => {
+          // Store mm (left edge, possibly an unresolved auto placeholder) →
+          // API centre fractions. See lib/wallPositions.ts.
+          const positions = wallElementsToApiPositions(w.elements, w.length)
+          return {
+            id: w.id,
+            length: w.length / 1000,
+            elements: w.elements.map((e, i) => ({
+              type: e.type,
+              width: e.width / 1000,
+              height: e.height / 1000,
+              sill_height: (e.sill_height ?? 0) / 1000,
+              position: positions[i],
+            })),
+          }
+        }),
+        // Non-rectangular (hand-drawn / N-wall) rooms carry their real
+        // outline here — omitted for the legacy 4-wall case, where it's
+        // unset on the store's own geometry.
+        vertices: geometry.vertices?.length
+          ? geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number])
+          : undefined,
+      },
+    }
   }
 
   async function saveRoomOnServer(): Promise<string | null> {
@@ -741,34 +782,7 @@ export default function WizardPage() {
         existingApartmentId ??
         createdApartmentIdRef.current ??
         (createdApartmentIdRef.current = (await createApartment({ name: 'Mening xonadonim' })).id)
-      const room = await createRoom(aptId, {
-        name: 'Xona',
-        ceiling_h: ceilingHeight / 1000,
-        geometry: {
-          walls: geometry.walls.map((w) => {
-            // Store mm (left edge, possibly an unresolved auto placeholder) →
-            // API centre fractions. See lib/wallPositions.ts.
-            const positions = wallElementsToApiPositions(w.elements, w.length)
-            return {
-              id: w.id,
-              length: w.length / 1000,
-              elements: w.elements.map((e, i) => ({
-                type: e.type,
-                width: e.width / 1000,
-                height: e.height / 1000,
-                sill_height: (e.sill_height ?? 0) / 1000,
-                position: positions[i],
-              })),
-            }
-          }),
-          // Non-rectangular (hand-drawn / N-wall) rooms carry their real
-          // outline here — omitted for the legacy 4-wall case, where it's
-          // unset on the store's own geometry.
-          vertices: geometry.vertices?.length
-            ? geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number])
-            : undefined,
-        },
-      })
+      const room = await createRoom(aptId, { name: 'Xona', ...roomDimensions() })
       setRoomId(room.id)
       // Draft fulfilled — clean up
       if (draftId) {
@@ -776,6 +790,20 @@ export default function WizardPage() {
         setDraftId(null)
       }
       return room.id
+    } catch {
+      setSaveFailed(true)
+      return null
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function updateRoomOnServer(id: string): Promise<string | null> {
+    setSaving(true)
+    setSaveFailed(false)
+    try {
+      await updateRoom(id, roomDimensions())
+      return id
     } catch {
       setSaveFailed(true)
       return null

@@ -236,6 +236,43 @@ describe('WizardPage – Step 5 (Results)', () => {
     })
   })
 
+  it('edits made after the autosave created the room still reach the server', async () => {
+    // Pausing 1.5 s on wall A autosaves, which creates the room. Every later
+    // save used to return early ("already saved"), so walls B–D and every
+    // door or window added afterwards never left the browser while the
+    // results card showed them as saved.
+    const api = await import('@/lib/api')
+    const createRoom = vi.mocked(api.createRoom)
+    const updateRoom = vi.mocked(api.updateRoom)
+    createRoom.mockClear()
+    updateRoom.mockClear()
+    renderWizard()
+
+    fireEvent.click(screen.getByText('Keyingi')) // → wall A
+    await waitFor(() => expect(createRoom).toHaveBeenCalledTimes(1), { timeout: 3000 })
+    await waitFor(() => expect(useRoomStore.getState().roomId).toBe('room-1'))
+
+    fireEvent.click(screen.getByText(/Eshik \/ Deraza qo'shish/))
+    await waitFor(() => screen.getByText("Qo'shish"))
+    fireEvent.click(screen.getByText("Qo'shish"))
+    await waitFor(() => screen.getByText(/Eshik \d/))
+
+    for (let i = 0; i < 4; i++) {
+      await waitFor(() => screen.getByText('Keyingi'))
+      fireEvent.click(screen.getByText('Keyingi'))
+    }
+    await waitFor(() => screen.getByText("O'lchamlar saqlandi"))
+
+    await waitFor(() => expect(updateRoom).toHaveBeenCalled())
+    const sent = updateRoom.mock.calls.at(-1)!
+    expect(sent[0]).toBe('room-1')
+    const wallA = sent[1].geometry!.walls.find((w) => w.id === 'A')!
+    expect(wallA.elements).toHaveLength(1)
+    expect(wallA.elements[0].type).toBe('eshik')
+    expect(sent[1].ceiling_h).toBe(2.7)
+    expect(createRoom).toHaveBeenCalledTimes(1) // updated, not created twice
+  }, 10_000)
+
   it('a failed save says so, keeps the results buttons off, and retries into the same project', async () => {
     const api = await import('@/lib/api')
     const createApartment = vi.mocked(api.createApartment)
