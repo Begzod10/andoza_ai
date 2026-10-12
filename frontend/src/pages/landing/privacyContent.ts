@@ -7,7 +7,7 @@ import type { Lang } from "./i18n";
  */
 export const PRIVACY_CONTACT = "rimefara22@gmail.com";
 
-export const PRIVACY_UPDATED = "2026-10-09";
+export const PRIVACY_UPDATED = "2026-10-12";
 
 export interface PrivacySection {
   title: string;
@@ -99,6 +99,12 @@ const uz: PrivacyDoc = {
       title: "9. O'zgarishlar",
       body: ["Siyosatni yangilasak, shu sahifada yangi sana bilan e'lon qilamiz."],
     },
+    {
+      title: "10. Ilova statistikasi va xatolar",
+      body: [
+        "Mobil ilova Google Firebase (Crashlytics va Analytics) orqali ilova xatolari va foydalanish statistikasini yig'adi: qaysi ekranlar ochilgani, qurilma turi va ilova versiyasi. Bu ma'lumotlar ichki hisob raqami (ID) va qurilma identifikatori bilan bog'lanadi; ism, telefon raqami yoki elektron pochta bu xizmatlarga yuborilmaydi.",
+      ],
+    },
   ],
   contactLabel: "Aloqa",
   back: "Bosh sahifaga",
@@ -179,6 +185,12 @@ const ru: PrivacyDoc = {
       title: "9. Изменения",
       body: ["При обновлении политики мы опубликуем её на этой странице с новой датой."],
     },
+    {
+      title: "10. Статистика приложения и ошибки",
+      body: [
+        "Мобильное приложение собирает через Google Firebase (Crashlytics и Analytics) сведения об ошибках и статистику использования: какие экраны открывались, тип устройства и версия приложения. Эти данные связываются с внутренним идентификатором аккаунта (ID) и идентификатором устройства; имя, номер телефона и электронная почта в эти сервисы не передаются.",
+      ],
+    },
   ],
   contactLabel: "Контакт",
   back: "На главную",
@@ -258,6 +270,12 @@ const en: PrivacyDoc = {
     {
       title: "9. Changes",
       body: ["If we update this policy we will publish it on this page with a new date."],
+    },
+    {
+      title: "10. App statistics and errors",
+      body: [
+        "The mobile app collects crash reports and usage statistics through Google Firebase (Crashlytics and Analytics): which screens were opened, the device type and the app version. This data is linked to an internal account ID and a device identifier; your name, phone number and email are never sent to these services.",
+      ],
     },
   ],
   contactLabel: "Contact",
