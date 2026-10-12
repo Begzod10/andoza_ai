@@ -13,6 +13,8 @@ dist/
 .env.local
 backend/.env
 backend/.env.local
+# Production Firebase key, placed on the server next to docker-compose.prod.yml
+secrets/
 frontend/.env
 frontend/.env.local
 

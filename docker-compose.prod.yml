@@ -51,6 +51,7 @@ services:
       - ./backend/.env
     environment:
       PYTHONPATH: /app
+      FIREBASE_CREDENTIALS_FILE: /run/secrets/firebase.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +64,10 @@ services:
       # redeploys. Without this, /app/media lives in the container's ephemeral
       # layer and every `up --build` wipes the catalog's files.
       - media_data:/app/media
+      # Firebase service-account key for push. The directory is mounted, not the
+      # file: a missing bind-mounted file makes Docker create a directory in its
+      # place. Without secrets/firebase.json the app runs with push disabled.
+      - ${FIREBASE_SECRETS_DIR:-./secrets}:/run/secrets:ro
     restart: unless-stopped
 
   worker:
@@ -73,6 +78,7 @@ services:
       - ./backend/.env
     environment:
       PYTHONPATH: /app
+      FIREBASE_CREDENTIALS_FILE: /run/secrets/firebase.json
     depends_on:
       redis:
         condition: service_started
@@ -81,6 +87,10 @@ services:
     volumes:
       # Shared with api — the media queue writes thumbnails/derived files here.
       - media_data:/app/media
+      # Firebase service-account key for push. The directory is mounted, not the
+      # file: a missing bind-mounted file makes Docker create a directory in its
+      # place. Without secrets/firebase.json the app runs with push disabled.
+      - ${FIREBASE_SECRETS_DIR:-./secrets}:/run/secrets:ro
     # A deploy restarts this container, and Docker's default is to kill it after
     # 10 s. The queue runs paid jobs that take one to two minutes (a Tripo model,
     # a render): killed mid-job, the user waited for a result that never came and
