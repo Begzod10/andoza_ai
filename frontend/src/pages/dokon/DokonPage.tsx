@@ -53,6 +53,7 @@ interface MockMaterial extends Material {
   placement?: string;
   footprint_w?: number | null;
   footprint_d?: number | null;
+  height_cm?: number | null;
 }
 
 interface MockDealer {
@@ -315,8 +316,9 @@ export default function DokonPage() {
       { label: "Kategoriya", value: p.category },
       ...(p.store_name ? [{ label: "Do'kon", value: p.store_name }] : []),
       ...(p.unit ? [{ label: "Birlik", value: p.unit }] : []),
+      // Furniture sizes are stored in centimetres (models/furniture.py).
       ...(p.footprint_w && p.footprint_d
-        ? [{ label: "O'lcham", value: `${p.footprint_w} × ${p.footprint_d} m` }]
+        ? [{ label: "O'lcham", value: `${[p.footprint_w, p.footprint_d, p.height_cm].filter(Boolean).join(" × ")} sm` }]
         : []),
     ];
 

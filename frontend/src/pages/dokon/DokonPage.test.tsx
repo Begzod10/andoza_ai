@@ -203,3 +203,16 @@ describe('DokonPage: many orders', () => {
     expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull()
   })
 })
+
+describe('product detail', () => {
+  it('gives a piece of furniture its size in centimetres', async () => {
+    // footprint_w/d and height_cm are centimetres (models/furniture.py): a
+    // 241 cm sofa used to read "241 × 63 m".
+    listCatalogFurniture.mockResolvedValue({
+      items: [{ ...FURNITURE, footprint_w: 241, footprint_d: 63, height_cm: 85 }], total: 1, page: 1, per_page: 100,
+    })
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Divan, 4\s500\s000/ }))
+    expect(await screen.findByText('241 × 63 × 85 sm')).toBeInTheDocument()
+  })
+})
