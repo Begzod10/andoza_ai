@@ -68,9 +68,6 @@ const LIMITS = {
   window: { minW: 300, maxW: 3000, minH: 300,  maxH: 2400, minSill: 0,  maxSill: 1800 },
 } as const;
 
-// Painted ivory first: it is what the MY-P sheet's doors are, and what a new
-// door is made in. The stains and the greys stay for a door that wants them.
-const LEAF_COLORS = [DOOR_IVORY, "#E8E2D8", "#C9A227", "#8B5E34", "#5A5A5A", "#2F4858"];
 const SASH_COLORS = ["#E8E2D8", "#FFFFFF", "#8B5E34", "#5A5A5A", "#2F4858"];
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -539,7 +536,6 @@ function DoorLeaf({
   onPointerDown,
   onTap,
   onPatch,
-  onDelete,
 }: {
   wf: WallFrame;
   el: WallElement;
@@ -658,7 +654,7 @@ function DoorLeaf({
           zIndexRange={[120, 0]}
           style={{ pointerEvents: "none" }}
         >
-          <DoorEditor el={el} onPatch={onPatch} onDelete={onDelete} />
+          <DoorEditor el={el} onPatch={onPatch} />
         </Html>
       )}
     </group>
@@ -1037,74 +1033,20 @@ function WindowEditor({
 function DoorEditor({
   el,
   onPatch,
-  onDelete,
 }: {
   el: WallElement;
   onPatch: (patch: Partial<WallElement>) => void;
-  onDelete: () => void;
 }) {
-  const angle = el.openAngle ?? 0;
-  const hinge = el.hinge ?? "left";
-
+  // Width and height only — the user's call. Hinge side, swing and colour
+  // went, and so did delete: holding the door already offers O'chirish.
   return (
     <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <NumField label="Eni (mm)" value={el.width} min={LIMITS.door.minW} max={LIMITS.door.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
         <NumField label="Bo'yi (mm)" value={el.height} min={LIMITS.door.minH} max={LIMITS.door.maxH}
           onCommit={(v) => onPatch({ height: snap(v) })} />
       </div>
-
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ color: "#6B7280", marginBottom: 3 }}>Ochilish tomoni</div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {(["left", "right"] as const).map((sideKey) => (
-            <button
-              key={sideKey}
-              onClick={() => onPatch({ hinge: sideKey })}
-              style={{
-                flex: 1, padding: "4px 0", borderRadius: 7, cursor: "pointer",
-                border: hinge === sideKey ? "1.5px solid #2563EB" : "1px solid #E5E7EB",
-                background: hinge === sideKey ? "#EFF6FF" : "#fff",
-                color: hinge === sideKey ? "#1D4ED8" : "#6B7280",
-                fontWeight: hinge === sideKey ? 700 : 500, fontSize: 11,
-              }}
-            >
-              {sideKey === "left" ? "Chap" : "O'ng"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280", marginBottom: 2 }}>
-          <span>Ochiq burchak</span><span style={{ fontWeight: 700, color: "#374151" }}>{angle}°</span>
-        </div>
-        <input
-          type="range" min={0} max={MAX_SWING} step={1} value={angle}
-          onChange={(e) => onPatch({ openAngle: Number(e.target.value) })}
-          style={{ width: "100%", accentColor: "#2563EB", cursor: "pointer" }}
-        />
-      </div>
-
-      <div style={{ marginBottom: 9 }}>
-        <div style={{ color: "#6B7280", marginBottom: 4 }}>Rangi</div>
-        <div style={{ display: "flex", gap: 5 }}>
-          {LEAF_COLORS.map((hex) => (
-            <button
-              key={hex}
-              onClick={() => onPatch({ leafColor: hex })}
-              title={hex}
-              style={{
-                width: 22, height: 22, borderRadius: "50%", background: hex, cursor: "pointer",
-                border: (el.leafColor ?? "#8B5E34") === hex ? "2.5px solid #2563EB" : "1px solid rgba(0,0,0,0.15)",
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <button onClick={onDelete} style={DELETE_STYLE}>O'chirish</button>
     </div>
   );
 }
