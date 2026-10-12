@@ -15,11 +15,13 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
+from app.database import run_after_commit
 from app.models.lead import Lead
 from app.models.room import Room
 from app.models.usta import Usta
 from app.models.user import User
 from app.routers.admin_catalog import _invalidate_after_commit
+from app.services.push import notify
 from app.schemas.usta_profile import UstaApply, UstaLeadOut, UstaLeadUpdate, UstaProfileOut, UstaProfileUpdate
 
 logger = structlog.get_logger(__name__)
@@ -150,6 +152,10 @@ async def list_leads(current_user: CurrentUser, db: DbSession) -> list[UstaLeadO
     return [_lead_out(lead, client, room) for lead, client, room in rows]
 
 
+# The client hears when the usta has looked at or called them back; "closed" is housekeeping.
+_LEAD_PUSH_STATUSES = frozenset({"viewed", "contacted"})
+
+
 @router.patch("/leads/{lead_id}", response_model=UstaLeadOut, summary="Mark one of the caller's leads viewed / contacted / closed")
 async def update_lead(lead_id: uuid_module.UUID, body: UstaLeadUpdate, current_user: CurrentUser, db: DbSession) -> UstaLeadOut:
     usta = await _require_profile(db, current_user)
@@ -157,8 +163,16 @@ async def update_lead(lead_id: uuid_module.UUID, body: UstaLeadUpdate, current_u
     lead = (await db.execute(select(Lead).where(Lead.id == lead_id, Lead.usta_id == usta.id))).scalar_one_or_none()
     if lead is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="So'rov topilmadi")
+    old_status = lead.status
     lead.status = body.status
     await db.flush()
+    if lead.status != old_status and lead.status in _LEAD_PUSH_STATUSES:
+        client_id, new_status = lead.user_id, lead.status
+
+        async def _push() -> None:
+            notify(client_id, "lead_status", {"status": new_status})
+
+        run_after_commit(db, _push)
     client = (await db.execute(select(User).where(User.id == lead.user_id))).scalar_one_or_none()
     room = None
     if lead.room_id is not None:

@@ -11,9 +11,10 @@ python-jose[cryptography]==3.5.0
 # Verifies "Sign in with Google" ID tokens (POST /auth/google); [requests]
 # brings the HTTP transport it uses to fetch Google's signing certs.
 google-auth[requests]==2.59.1
+firebase-admin==7.7.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.32
-httpx==0.27.0
+httpx==0.28.1
 reportlab==4.2.2
 boto3==1.34.120
 sentry-sdk[fastapi]==2.4.0

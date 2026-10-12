@@ -72,6 +72,7 @@ def _as(db):
 
 def _db(*results):
     db = AsyncMock()
+    db.info = {}  # a real session has one; post-commit hooks register on it
     db.execute = AsyncMock(side_effect=list(results))
     db.flush = AsyncMock()
     return db

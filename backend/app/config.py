@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     def GOOGLE_CLIENT_ID_LIST(self) -> List[str]:
         return [c.strip() for c in self.GOOGLE_CLIENT_IDS.split(",") if c.strip()]
 
+    # Push notifications: path to the Firebase service-account JSON (mounted
+    # as a file, never committed). Empty or missing file = pushes are off.
+    FIREBASE_CREDENTIALS_FILE: str = ""
+
     # ------------------------------------------------------------------ #
     # SMS Gateway  (Eskiz or Playmobile)
     # ------------------------------------------------------------------ #

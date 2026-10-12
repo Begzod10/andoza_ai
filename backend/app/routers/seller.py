@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
+from app.database import run_after_commit
 from app.core.model_files import model_keys, served_key
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.furniture import Furniture
@@ -29,6 +30,7 @@ from app.routers.admin_catalog import (
 )
 from app.schemas.order import OrderStatusUpdate, SellerOrderOut
 from app.services.order_status import SELLER_CAN_CANCEL, change_status
+from app.services.push import notify
 from app.schemas.seller import (
     FURNITURE_CATEGORIES,
     PLACEMENTS,
@@ -405,4 +407,11 @@ async def advance_order(
         return SellerOrderOut.model_validate(order)  # a repeated tap changes nothing
     await db.flush()
     logger.info("order_status_changed", order_id=str(order.id), store_id=str(store.id), status=body.status)
+    # Told only once the move is durable; values copied out so the hook needs no ORM object.
+    buyer_id, new_status = order.user_id, order.status
+
+    async def _push() -> None:
+        notify(buyer_id, "order_status", {"status": new_status})
+
+    run_after_commit(db, _push)
     return SellerOrderOut.model_validate(order)

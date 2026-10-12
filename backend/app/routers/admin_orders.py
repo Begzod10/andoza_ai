@@ -14,10 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
+from app.database import run_after_commit
 from app.models.order import Order
 from app.models.store import Store
 from app.schemas.order import ORDER_STATUSES, AdminOrderOut, OrderStatusUpdate
 from app.services.order_status import ADMIN_CAN_CANCEL, change_status
+from app.services.push import notify
 
 logger = structlog.get_logger(__name__)
 
@@ -79,4 +81,10 @@ async def change_order_status(
     if change_status(order, body.status, by="admin", cancellable=ADMIN_CAN_CANCEL, reason=body.reason):
         await db.flush()
         logger.info("order_status_changed", order_id=str(order.id), by="admin", admin_id=str(admin.id), status=body.status)
+        buyer_id, new_status = order.user_id, order.status
+
+        async def _push() -> None:
+            notify(buyer_id, "order_status", {"status": new_status})
+
+        run_after_commit(db, _push)
     return _out(order, store_name)

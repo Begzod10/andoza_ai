@@ -332,6 +332,13 @@ async def _render_room_image(
         result_url = await client.render_interior(image, prompt=used_prompt, output_format="jpg")
         key, url = await _keep_remote_image(user_id, result_url)
         await _save_render(user_id, key=key, url=url, kind="render", room_id=room_id, prompt=used_prompt)
+        # Best-effort: the picture is saved and returned either way.
+        try:
+            from app.services.push import notify
+
+            notify(user_id, "render_ready", {"room_id": room_id})
+        except Exception:
+            logger.warning("render_room_image: push not queued user=%s", user_id, exc_info=True)
         return {"status": "ok", "key": key, "url": url, "prompt": used_prompt}
     except MyArchitectError as exc:
         logger.error("render_room_image failed user=%s request_id=%s: %s", user_id, exc.request_id, exc)
