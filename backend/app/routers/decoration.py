@@ -11,12 +11,12 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter
-from sqlalchemy import select
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.decoration import RoomDecoration
 from app.schemas.decoration import DecorationOut, DecorationUpdate
 from app.services.room_access import get_owned_room
+from app.services.room_rows import get_or_create_room_row
 
 logger = structlog.get_logger(__name__)
 
@@ -28,13 +28,9 @@ router = APIRouter(prefix="/rooms/{room_id}/decoration", tags=["decoration"])
 # ---------------------------------------------------------------------------
 
 async def _get_or_create_decoration(room_id: UUID, db: DbSession) -> RoomDecoration:
-    result = await db.execute(select(RoomDecoration).where(RoomDecoration.room_id == room_id))
-    decoration = result.scalar_one_or_none()
-    if decoration is None:
-        decoration = RoomDecoration(room_id=room_id, walls={}, floor={}, ceiling={}, furniture=[])
-        db.add(decoration)
-        await db.flush()
-    return decoration
+    return await get_or_create_room_row(
+        db, RoomDecoration, room_id, walls={}, floor={}, ceiling={}, furniture=[]
+    )
 
 
 def _decoration_out(room_id: UUID, decoration: RoomDecoration) -> DecorationOut:

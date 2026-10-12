@@ -28,6 +28,7 @@ from app.schemas.electrical import (
     ElectricalPlanUpdate,
 )
 from app.services.room_access import get_owned_room
+from app.services.room_rows import get_or_create_room_row
 
 logger = structlog.get_logger(__name__)
 
@@ -39,13 +40,7 @@ router = APIRouter(prefix="/rooms/{room_id}/electrical", tags=["electrical"])
 # ---------------------------------------------------------------------------
 
 async def _get_or_create_plan(room_id: UUID, db: DbSession) -> RoomElectrical:
-    result = await db.execute(select(RoomElectrical).where(RoomElectrical.room_id == room_id))
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        plan = RoomElectrical(room_id=room_id, wiring_meters=None)
-        db.add(plan)
-        await db.flush()
-    return plan
+    return await get_or_create_room_row(db, RoomElectrical, room_id, wiring_meters=None)
 
 
 async def _list_devices(room_id: UUID, db: DbSession) -> list[ElectricalDevice]:
