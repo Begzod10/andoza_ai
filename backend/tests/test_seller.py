@@ -8,6 +8,8 @@ decide. Storage and the DB session are stubbed.
 from __future__ import annotations
 
 import io
+import json
+import struct
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -21,7 +23,18 @@ from app.main import app
 from app.models.furniture import Furniture
 from app.models.store import Store
 
-GLB = b"glTF" + b"\x02\x00\x00\x00" + b"x" * 64
+
+
+def _glb(doc: dict | None = None, length_delta: int = 0) -> bytes:
+    """A real binary glTF: 12-byte header and one JSON chunk."""
+    doc = {"asset": {"version": "2.0"}, "meshes": [{"primitives": []}]} if doc is None else doc
+    body = json.dumps(doc).encode()
+    body += b" " * (-len(body) % 4)
+    chunk = struct.pack("<II", len(body), 0x4E4F534A) + body
+    return b"glTF" + struct.pack("<II", 2, 12 + len(chunk) + length_delta) + chunk
+
+
+GLB = _glb()
 JPEG = b"\xff\xd8\xff\xe0" + b"x" * 32
 
 
@@ -240,6 +253,22 @@ class TestUpload:
         with patch("app.routers.seller.upload_file", new=AsyncMock()) as up:
             assert _upload(client, data=b"<html>not a model</html>").status_code == 415
         up.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            b"glTF" + b"\x02\x00\x00\x00" + b"\x0c\x00\x00\x00",  # header only: what was accepted and approved
+            _glb(length_delta=100),  # header claims more bytes than the file has
+            _glb(doc={"asset": {"version": "2.0"}}),  # no meshes: nothing to show
+            b"glTF" + struct.pack("<II", 1, 20) + b"\x00" * 8,  # glTF 1.0
+        ],
+    )
+    def test_a_glb_with_no_readable_model_inside_is_refused(self, client, bad):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock()) as up:
+            assert _upload(client, data=bad).status_code == 415
+        up.assert_not_called()
 
     def test_oversize_and_empty_files_are_refused(self, client):
         u = _user()

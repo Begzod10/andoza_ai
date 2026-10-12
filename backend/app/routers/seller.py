@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.database import run_after_commit
-from app.core.model_files import model_keys, served_key
+from app.core.model_files import is_glb_with_meshes, model_keys, served_key
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.furniture import Furniture
 from app.models.order import Order
@@ -53,9 +53,9 @@ _MAX_THUMB_BYTES = 5 * 1024 * 1024
 # the moderators in uploads.
 _MAX_PENDING_MODELS = 20
 _THUMB_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-# What the first bytes of each accepted file must look like. The browser's
-# filename and content-type are the uploader's word; this is the file's.
-_GLB_MAGIC = b"glTF"
+# What the first bytes of each accepted image must look like (a model is
+# checked whole, by is_glb_with_meshes). The browser's filename and
+# content-type are the uploader's word; this is the file's.
 _THUMB_MAGIC = {"image/jpeg": (b"\xff\xd8\xff",), "image/png": (b"\x89PNG",), "image/webp": (b"RIFF",)}
 
 
@@ -242,7 +242,7 @@ async def upload_furniture(
         raise HTTPException(status_code=400, detail="Bo'sh fayl yuborildi")
     if len(glb) > _MAX_GLB_BYTES:
         raise HTTPException(status_code=413, detail=f"Fayl hajmi {_MAX_GLB_BYTES // (1024 * 1024)} MB dan oshmasligi kerak")
-    if not glb.startswith(_GLB_MAGIC):
+    if not is_glb_with_meshes(glb):
         raise HTTPException(status_code=415, detail="Fayl haqiqiy .glb emas")
 
     thumb_bytes: bytes | None = None
