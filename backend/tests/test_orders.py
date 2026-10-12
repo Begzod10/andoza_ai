@@ -302,6 +302,16 @@ class TestFurniturePriceComesFromTheCatalog:
         )
         assert response.status_code == 422
 
+    @pytest.mark.parametrize("quantity", [0, -5, 1e12])
+    def test_a_zero_negative_or_absurd_quantity_is_rejected(self, client, quantity):
+        # -5 used to be stored with total_uzs -22,500,000; 1e12 overflowed
+        # order_lines.quantity (Numeric(10, 2)) into a 500.
+        piece = _furniture()
+        db = _db(_Result(many=[piece]))
+        response = self._post(client, db, furniture_id=str(piece.id), quantity=quantity)
+        assert response.status_code == 422
+        db.add.assert_not_called()
+
     def test_material_and_furniture_lines_together(self, client):
         shop = uuid.uuid4()
         material = _material(price_uzs=20_000, store_id=shop)
