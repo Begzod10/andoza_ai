@@ -136,10 +136,14 @@ class TestOrderStatus:
         me = _user()
         order = _order("accepted", user_id=me.id)
         _as(me, _Result(one=order))
-        with patch("app.services.push.notify") as notify:
+        # Patch both the public entry point and the Celery task it enqueues, so
+        # any notify() call from orders.py (however imported) is caught.
+        with patch("app.services.push.notify") as notify, \
+                patch("app.tasks.push.send_push.delay") as delay:
             r = client.post(f"/api/v1/orders/{order.id}/cancel", json={})
         assert r.status_code == 200
         notify.assert_not_called()
+        delay.assert_not_called()
 
 
 # -- usta leads --------------------------------------------------------------
