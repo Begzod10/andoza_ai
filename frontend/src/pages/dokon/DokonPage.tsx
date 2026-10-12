@@ -16,6 +16,7 @@ import {
   S7_OrderTracking,
   S8_MyOrders,
 } from "@/components/dokon/screens";
+import { categoryLabel } from "@/components/dokon/ShopHome";
 import AdminCatalogPanel from "./AdminCatalogPanel";
 
 type Screen =
@@ -313,7 +314,7 @@ export default function DokonPage() {
     const p = selectedProduct;
     // Only what the catalog actually knows — no invented volume, composition or certificate.
     const specs: Array<{ label: string; value: string }> = [
-      { label: "Kategoriya", value: p.category },
+      { label: "Kategoriya", value: categoryLabel(p.category) },
       ...(p.store_name ? [{ label: "Do'kon", value: p.store_name }] : []),
       ...(p.unit ? [{ label: "Birlik", value: p.unit }] : []),
       // Furniture sizes are stored in centimetres (models/furniture.py).
@@ -327,7 +328,7 @@ export default function DokonPage() {
         id={p.id}
         name={p.name_uz}
         price={p.price_uzs ?? null}
-        images={p.thumbnail_url ? [p.thumbnail_url] : []}
+        images={[p.thumbnail_url ?? p.image_url].filter((u): u is string => Boolean(u))}
         specs={specs}
         dealers={[]}
         description=""

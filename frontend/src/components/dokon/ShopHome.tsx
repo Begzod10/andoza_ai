@@ -17,7 +17,9 @@ const CATEGORY_LABEL: Record<string, string> = {
   boyoq: "Bo'yoq", oboy: "Oboy", laminat: "Laminat", parket: "Parket", plitka: "Plitka", gips: "Gips va suvoq",
   sement: "Sement", elektr_mat: "Elektr", santexnika: "Santexnika", eshik: "Eshik", deraza: "Deraza", dekorativ: "Dekorativ",
 };
-const label = (c: string) => CATEGORY_LABEL[c] ?? c;
+/** A catalog category key ("boyoq", "divan") as people read it. */
+export const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+const label = categoryLabel;
 
 /** A card's picture, with its price on a tab that notches into the corner (the tab takes the page's own colour). */
 function Tile({
@@ -201,7 +203,7 @@ export function ShopHome({
           {materialItems.map((m) => (
             <Tile
               key={m.id}
-              image={null}
+              image={m.image_url ?? null}
               fallback={
                 <span className="h-16 w-16 rounded-2xl shadow-inner" style={{ backgroundColor: m.color_hex ?? "#C9CFDD" }} aria-hidden="true" />
               }
