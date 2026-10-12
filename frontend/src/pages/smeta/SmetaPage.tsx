@@ -454,7 +454,7 @@ export default function SmetaPage() {
                   </svg>
                   {uz.ai.smeta_sarlavha}
                 </button>
-                <Link to="/ustalar" className={secondaryButton}>
+                <Link to={`/ustalar?room=${roomId}`} className={secondaryButton}>
                   {uz.ustalar.usta_chaqirish}
                 </Link>
               </div>

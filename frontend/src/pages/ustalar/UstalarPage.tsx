@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { getUstalar, createLead } from "@/lib/api";
 import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
 import { uz } from "@/locale/uz";
@@ -73,10 +74,12 @@ function UstaCard({
 
 interface ContactModalProps {
   usta: Usta;
+  /** The room the request is about (opened from its smeta), so the usta gets the room and its estimate. */
+  roomId?: string;
   onClose: () => void;
 }
 
-function ContactModal({ usta, onClose }: ContactModalProps) {
+function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
   const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [success, setSuccess] = useState(false);
@@ -84,7 +87,7 @@ function ContactModal({ usta, onClose }: ContactModalProps) {
 
   const mutation = useMutation({
     mutationFn: () =>
-      createLead({ usta_id: usta.id, message, contact_phone: phone }),
+      createLead({ usta_id: usta.id, room_id: roomId, message, contact_phone: phone }),
     onSuccess: () => setSuccess(true),
   });
 
@@ -165,6 +168,7 @@ const SORT_OPTIONS: { key: UstalarParams["sort"]; label: string }[] = [
 export default function UstalarPage() {
   const [sort, setSort] = useState<UstalarParams["sort"]>(undefined);
   const [selectedUsta, setSelectedUsta] = useState<Usta | null>(null);
+  const roomId = useSearchParams()[0].get("room") ?? undefined;
 
   const { data: ustalar = [], isLoading, isError } = useQuery({
     queryKey: ["ustalar", sort],
@@ -230,6 +234,7 @@ export default function UstalarPage() {
       {selectedUsta && (
         <ContactModal
           usta={selectedUsta}
+          roomId={roomId}
           onClose={() => setSelectedUsta(null)}
         />
       )}

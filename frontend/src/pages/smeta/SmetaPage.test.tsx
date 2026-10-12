@@ -379,6 +379,12 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     }
   })
 
+  it('calls an usta about this room, so the request carries the room and its estimate', async () => {
+    renderSmetaPage()
+    const link = (await screen.findByText('Usta chaqirish')).closest('a')!
+    expect(link.getAttribute('href')).toBe('/ustalar?room=room-1')
+  })
+
   it('offers the file and the save as the two main actions, and the rest as quiet ones', async () => {
     renderSmetaPage()
     const pdf = await screen.findByText('PDF yuklab olish')
