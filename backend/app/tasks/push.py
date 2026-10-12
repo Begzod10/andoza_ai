@@ -81,13 +81,25 @@ async def _delete_tokens(tokens: list[str]) -> None:
 
 
 def _is_dead_token(exc: Exception | None) -> bool:
+    """FCM says this registration token will never work again."""
     if exc is None:
         return False
     from firebase_admin import exceptions, messaging
 
-    if isinstance(exc, messaging.UnregisteredError):
+    if isinstance(exc, (messaging.UnregisteredError, messaging.SenderIdMismatchError)):
         return True
-    return isinstance(exc, exceptions.InvalidArgumentError) and "token" in str(exc).lower()
+    # FCM gives INVALID_ARGUMENT no distinct error code, so a bad token is only
+    # told apart from a bad message by its wording ("The registration token is
+    # not a valid FCM registration token").
+    return isinstance(exc, exceptions.InvalidArgumentError) and "registration token" in str(exc).lower()
+
+
+def _is_transient(exc: Exception | None) -> bool:
+    if exc is None:
+        return False
+    from firebase_admin import exceptions, messaging
+
+    return isinstance(exc, (exceptions.UnavailableError, exceptions.InternalError, messaging.QuotaExceededError))
 
 
 @app.task(
@@ -97,10 +109,13 @@ def _is_dead_token(exc: Exception | None) -> bool:
     default_retry_delay=30,
     queue="default",
 )
-def send_push(self, user_id: str, kind: str, params: dict) -> dict:
+def send_push(self, user_id: str, kind: str, params: dict, only_tokens: list[str] | None = None) -> dict:
     """Push *kind* to every phone of *user_id*, in each phone's own language.
     Tokens FCM reports as dead are deleted. Returns ``{"sent": n, "removed": m}``,
-    or ``{"status": "disabled"}`` when Firebase is not configured."""
+    or ``{"status": "disabled"}`` when Firebase is not configured.
+
+    ``only_tokens`` limits the send to those tokens: a retry uses it so phones that
+    already got the push are not sent it again."""
     import asyncio
 
     from firebase_admin import exceptions, messaging
@@ -111,6 +126,9 @@ def send_push(self, user_id: str, kind: str, params: dict) -> dict:
         return {"status": "disabled"}
 
     devices = asyncio.run(_load_tokens(user_id))
+    if only_tokens is not None:
+        wanted = set(only_tokens)
+        devices = [d for d in devices if d[0] in wanted]
     if not devices:
         return {"sent": 0, "removed": 0}
 
@@ -132,15 +150,30 @@ def send_push(self, user_id: str, kind: str, params: dict) -> dict:
     try:
         batch = messaging.send_each(messages)
     except (exceptions.UnavailableError, exceptions.InternalError) as exc:
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, kwargs=_retry_kwargs(user_id, kind, params, [t for t, _ in devices]))
 
-    dead = [
-        token
-        for (token, _), resp in zip(devices, batch.responses)
-        if not resp.success and _is_dead_token(resp.exception)
-    ]
+    # send_each does not raise for a single phone: each failure sits in its response.
+    dead, transient = [], []
+    for (token, _), resp in zip(devices, batch.responses):
+        if resp.success:
+            continue
+        if _is_dead_token(resp.exception):
+            dead.append(token)
+        elif _is_transient(resp.exception):
+            transient.append(token)
+        else:
+            logger.warning("push kind=%s user=%s failed: %r", kind, user_id, resp.exception)
     if dead:
         asyncio.run(_delete_tokens(dead))
     sent = sum(1 for r in batch.responses if r.success)
-    logger.info("push kind=%s user=%s sent=%d removed=%d", kind, user_id, sent, len(dead))
+    logger.info("push kind=%s user=%s sent=%d removed=%d retry=%d", kind, user_id, sent, len(dead), len(transient))
+    if transient:
+        raise self.retry(
+            exc=RuntimeError(f"{len(transient)} push(es) failed transiently"),
+            kwargs=_retry_kwargs(user_id, kind, params, transient),
+        )
     return {"sent": sent, "removed": len(dead)}
+
+
+def _retry_kwargs(user_id: str, kind: str, params: dict, tokens: list[str]) -> dict:
+    return {"user_id": user_id, "kind": kind, "params": params or {}, "only_tokens": tokens}

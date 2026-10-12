@@ -49,5 +49,5 @@ def build_message(kind: str, params: dict, locale: str) -> tuple[str, str, str]:
         body = _LEAD_BODY.get(params.get("status"), {}).get(loc)
         if body is None:
             raise ValueError(f"unknown lead status: {params.get('status')!r}")
-        return _LEAD_TITLE[loc], body, "/"
+        return _LEAD_TITLE[loc], body, "/masters/u3"
     raise ValueError(f"unknown push kind: {kind!r}")
