@@ -102,7 +102,7 @@ export const uz = {
     yuborish: "Yuborish",
     muvaffaqiyat: "So'rov muvaffaqiyatli yuborildi",
     hammasi: "Hammasi",
-    narxi_arzon: "Narxi: arzondan qimmata",
+    narxi_arzon: "Narxi: arzondan qimmatga",
     narxi_qimmat: "Narxi: qimmatdan arzonga",
     eng_yaxshi: "Eng yaxshi reyting",
   },
