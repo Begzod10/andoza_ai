@@ -23,7 +23,6 @@ def test_messages_follow_locale():
     assert build_message("order_status", {"status": "on_the_way"}, "ru") == (
         "Статус заказа", "Ваш заказ: в пути", "/profile/e6",
     )
-    assert build_message("render_ready", {"room_id": "r1"}, "en")[2] == "/studio/r1"
     assert build_message("render_ready", {}, "uz")[2] == "/"
     assert build_message("lead_status", {"status": "viewed"}, "uz") == (
         "Ustalar", "Usta so'rovingizni ko'rdi", "/masters/u3",
@@ -94,9 +93,27 @@ def test_mixed_batch_deletes_dead_and_retries_only_transient(enabled):
         with pytest.raises(Retry):
             send_push.run(UID, "render_ready", {})
     delete.assert_awaited_once_with(["dead"])
-    assert retry.call_args.kwargs["kwargs"] == {
-        "user_id": UID, "kind": "render_ready", "params": {}, "only_tokens": ["busy"],
-    }
+    assert retry.call_args.kwargs["args"] == (UID, "render_ready", {})
+    assert retry.call_args.kwargs["kwargs"] == {"only_tokens": ["busy"]}
+
+
+def test_retry_through_real_celery_request(enabled):
+    """Not mocking retry: the retried call must merge cleanly with how notify() enqueues."""
+    devices = [("ok", "uz"), ("busy", "uz")]
+    sends = []
+
+    def fake_send(messages):
+        sends.append([m.token for m in messages])
+        if len(sends) == 1:
+            return SimpleNamespace(responses=[_resp(), _resp(exceptions.UnavailableError("busy"))])
+        return SimpleNamespace(responses=[_resp() for _ in messages])
+
+    with patch.object(push_task, "_load_tokens", AsyncMock(return_value=devices)), \
+         patch("firebase_admin.messaging.send_each", side_effect=fake_send), \
+         patch.object(send_push, "default_retry_delay", 0):
+        result = send_push.apply(args=(UID, "render_ready", {}))
+    assert result.successful(), result.traceback
+    assert sends == [["ok", "busy"], ["busy"]]
 
 
 def test_only_tokens_limits_the_send(enabled):

@@ -150,7 +150,7 @@ def send_push(self, user_id: str, kind: str, params: dict, only_tokens: list[str
     try:
         batch = messaging.send_each(messages)
     except (exceptions.UnavailableError, exceptions.InternalError) as exc:
-        raise self.retry(exc=exc, kwargs=_retry_kwargs(user_id, kind, params, [t for t, _ in devices]))
+        raise self.retry(exc=exc, **_retry_args(user_id, kind, params, [t for t, _ in devices]))
 
     # send_each does not raise for a single phone: each failure sits in its response.
     dead, transient = [], []
@@ -170,10 +170,13 @@ def send_push(self, user_id: str, kind: str, params: dict, only_tokens: list[str
     if transient:
         raise self.retry(
             exc=RuntimeError(f"{len(transient)} push(es) failed transiently"),
-            kwargs=_retry_kwargs(user_id, kind, params, transient),
+            **_retry_args(user_id, kind, params, transient),
         )
     return {"sent": sent, "removed": len(dead)}
 
 
-def _retry_kwargs(user_id: str, kind: str, params: dict, tokens: list[str]) -> dict:
-    return {"user_id": user_id, "kind": kind, "params": params or {}, "only_tokens": tokens}
+def _retry_args(user_id: str, kind: str, params: dict, tokens: list[str]) -> dict:
+    """Arguments for ``self.retry``. The positional args must be given too: notify()
+    enqueues positionally and Celery would otherwise keep the original args and
+    merge these kwargs into them ("multiple values for argument")."""
+    return {"args": (user_id, kind, params or {}), "kwargs": {"only_tokens": tokens}}
