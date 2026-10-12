@@ -154,18 +154,16 @@ describe("apiClient — 401 retry logic", () => {
     vi.resetModules();
     const mod = await import("../api");
 
-    // Force the refresh path 401 by making the "original" call go to /auth/refresh
-    // We can do this by calling logoutApi (which calls /auth/logout) but that's not
-    // the same path. Instead we verify via the exported loginWithPassword that after
-    // a 401+refresh+401 on retry, it throws.
+    // Drive it through an ordinary authenticated call: after a 401, a
+    // successful refresh and a second 401 on the retry, it must throw and go
+    // to /login rather than refresh again. (Sign-in endpoints such as
+    // /auth/login never take this path: their 401 means "wrong password".)
     mockFetch
-      .mockResolvedValueOnce(makeResponse(401))  // /auth/login → 401
+      .mockResolvedValueOnce(makeResponse(401))  // /auth/me → 401
       .mockResolvedValueOnce(makeResponse(200))  // refresh → 200
-      .mockResolvedValueOnce(makeResponse(401)); // retry /auth/login → 401 again
+      .mockResolvedValueOnce(makeResponse(401)); // retry /auth/me → 401 again
 
-    await expect(
-      mod.loginWithPassword({ username: "x", password: "y" })
-    ).rejects.toThrow("Unauthorized");
+    await expect(mod.getMe()).rejects.toThrow("Unauthorized");
 
     // 3 calls: original + refresh + retry
     expect(mockFetch).toHaveBeenCalledTimes(3);

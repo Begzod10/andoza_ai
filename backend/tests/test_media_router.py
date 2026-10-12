@@ -162,3 +162,26 @@ class TestJobStatusOwnershipCheck:
         assert isinstance(added_job, MediaJob)
         assert added_job.id == fake_task.id
         assert added_job.user_id == user.id
+
+    @pytest.mark.parametrize(
+        ("filename", "content_type", "ext"),
+        [("a.html", "image/jpeg", "jpg"), ("x.svg", "image/png", "png"), ("noext", "image/webp", "webp"),
+         ("p.HEIC", "image/heic", "heic")],
+    )
+    def test_the_stored_extension_follows_the_content_type_not_the_filename(
+        self, client, filename, content_type, ext
+    ):
+        # Local storage is served by StaticFiles, which picks the response
+        # type from the extension: "a.html" uploaded as image/jpeg used to be
+        # stored as .html and run as a page on the API origin (stored XSS).
+        _as(_user(), _db())
+        upload = AsyncMock(return_value="https://cdn.example/x")
+        with (
+            patch("app.routers.media.upload_file", new=upload),
+            patch("app.routers.media.process_photo.delay", return_value=MagicMock(id=str(uuid.uuid4()))),
+        ):
+            response = client.post("/api/v1/media/photos", files={"file": (filename, b"bytes", content_type)})
+
+        assert response.status_code == 202
+        key = upload.call_args.args[1]
+        assert key.endswith(f".{ext}"), key

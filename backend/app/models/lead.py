@@ -65,6 +65,9 @@ class Lead(Base):
     message: Mapped[str | None] = mapped_column(
         String(500), nullable=True, comment="Free-text note from the client to the usta"
     )
+    contact_phone: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="Phone the client typed on the request (+998XXXXXXXXX)"
+    )
     status: Mapped[str] = mapped_column(
         LeadStatus,
         nullable=False,

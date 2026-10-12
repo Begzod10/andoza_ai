@@ -13,7 +13,9 @@ class OrderLineCreate(BaseModel):
     product_name: str
     unit: str
     unit_price_uzs: int
-    quantity: float
+    # order_lines.quantity is Numeric(10, 2); the cap keeps a typo from
+    # overflowing it, and zero or negative lines would pull the total down.
+    quantity: float = Field(gt=0, le=100_000)
 
     @model_validator(mode="after")
     def _one_catalog_reference(self) -> "OrderLineCreate":
