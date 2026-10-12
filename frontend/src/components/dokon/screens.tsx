@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
 import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
-import { ShopHome } from "./ShopHome";
+import { ShopHome, type ShopBrowse } from "./ShopHome";
 
 // ─── Shared pieces ────────────────────────────────────────────────────────────
 
@@ -87,6 +87,8 @@ export function S1_ShopHome(props: {
   onCart: () => void;
   onProductSelect: (product: any) => void;
   onOrders?: () => void;
+  browse?: ShopBrowse;
+  onBrowseChange?: (browse: ShopBrowse) => void;
 }) {
   return <ShopHome {...props} />;
 }

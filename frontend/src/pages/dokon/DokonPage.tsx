@@ -16,7 +16,7 @@ import {
   S7_OrderTracking,
   S8_MyOrders,
 } from "@/components/dokon/screens";
-import { categoryLabel } from "@/components/dokon/ShopHome";
+import { categoryLabel, SHOP_BROWSE_START, type ShopBrowse } from "@/components/dokon/ShopHome";
 import AdminCatalogPanel from "./AdminCatalogPanel";
 
 type Screen =
@@ -81,6 +81,7 @@ export default function DokonPage() {
 
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");
+  const [browse, setBrowse] = useState<ShopBrowse>(SHOP_BROWSE_START);
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -306,6 +307,8 @@ export default function DokonPage() {
         onCart={() => setScreen("cart")}
         onProductSelect={handleProductSelect}
         onOrders={() => setScreen("orders")}
+        browse={browse}
+        onBrowseChange={setBrowse}
       />
     );
   }

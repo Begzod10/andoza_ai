@@ -236,3 +236,18 @@ describe('material pictures and names', () => {
     expect(screen.queryByText('boyoq')).toBeNull()
   })
 })
+
+describe('shop browsing', () => {
+  it('comes back to the same tab and search after adding to the cart', async () => {
+    // Adding a product used to reset the shop to the Mebel tab with an empty
+    // search, so a shopper picking several materials started over each time.
+    mount()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Materiallar' }))
+    fireEvent.change(screen.getByLabelText('Qidirish'), { target: { value: 'akril' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Akril bo'yoq/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Savatga qo'shish/ }))
+
+    expect(await screen.findByRole('tab', { name: 'Materiallar', selected: true })).toBeInTheDocument()
+    expect((screen.getByLabelText('Qidirish') as HTMLInputElement).value).toBe('akril')
+  })
+})
