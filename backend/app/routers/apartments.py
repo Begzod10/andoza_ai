@@ -18,18 +18,26 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/apartments", tags=["apartments"])
 
 
-def _with_room_thumbnails(out: ApartmentWithRooms, apartment: Apartment, request: Request) -> ApartmentWithRooms:
-    """RoomOut.model_validate() (used implicitly when Pydantic builds the
-    nested `rooms` list) has no request to resolve an absolute URL from, so
-    thumbnail_url comes back None unless filled in here afterwards — same
-    zero-arg limitation as the standalone rooms router.
+def _apartment_out(apartment: Apartment, request: Request, include_deleted: bool = False) -> ApartmentWithRooms:
+    """The apartment as the client sees it: soft-deleted rooms hidden unless
+    asked for, and each room's thumbnail resolved to an absolute URL (RoomOut
+    has no request to build one from — same limitation as the rooms router).
 
-    Pydantic builds `out.rooms` by iterating `apartment.rooms` in order
-    without reordering, so zipping the two lists pairs each schema object
-    back up with the ORM row it came from.
+    Hiding happens on the response only. Apartment.rooms is
+    `cascade="all, delete-orphan"`, so assigning a filtered list back to it
+    would make every deleted room an orphan and the commit would DELETE it.
+
+    Pydantic builds `out.rooms` by iterating `apartment.rooms` in order, so
+    zipping the two lists pairs each schema object with its ORM row.
     """
+    out = ApartmentWithRooms.model_validate(apartment)
+    shown = []
     for room_out, room in zip(out.rooms, apartment.rooms):
+        if room.deleted and not include_deleted:
+            continue
         room_out.thumbnail_url = absolute_media_url(request, room.thumbnail_key)
+        shown.append(room_out)
+    out.rooms = shown
     return out
 
 
@@ -48,15 +56,7 @@ async def list_apartments(
         .order_by(Apartment.created_at.desc())
     )
     apartments = result.scalars().all()
-    # Filter deleted rooms unless include_deleted is True
-    if not include_deleted:
-        for apt in apartments:
-            if apt.rooms:
-                apt.rooms = [r for r in apt.rooms if not r.deleted]
-    return [
-        _with_room_thumbnails(ApartmentWithRooms.model_validate(a), a, request)
-        for a in apartments
-    ]
+    return [_apartment_out(a, request, include_deleted) for a in apartments]
 
 
 @router.post(
@@ -94,10 +94,7 @@ async def get_apartment(
     apartment = result.scalar_one_or_none()
     if apartment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Apartment not found")
-    # Filter out deleted rooms unless include_deleted is True
-    if not include_deleted and apartment.rooms:
-        apartment.rooms = [r for r in apartment.rooms if not r.deleted]
-    return _with_room_thumbnails(ApartmentWithRooms.model_validate(apartment), apartment, request)
+    return _apartment_out(apartment, request, include_deleted)
 
 
 @router.patch(
@@ -121,8 +118,7 @@ async def update_apartment(
         setattr(apartment, field, value)
     await db.flush()
     logger.info("apartment_updated", apartment_id=str(apartment_id), fields=list(updates.keys()))
-    apartment.rooms = [r for r in apartment.rooms if not r.deleted]
-    return _with_room_thumbnails(ApartmentWithRooms.model_validate(apartment), apartment, request)
+    return _apartment_out(apartment, request)
 
 
 @router.delete(
