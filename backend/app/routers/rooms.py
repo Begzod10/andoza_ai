@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 import uuid as uuid_module
 from datetime import datetime, timezone
 from uuid import UUID
@@ -14,7 +15,7 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, download_file, upload_file
 from app.models.apartment import Apartment
 from app.models.room import Room
-from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate
+from app.schemas.room import RoomCreate, RoomGeometry, RoomOut, RoomUpdate, Wall, WallCreate, WallElement, WallUpdate
 from app.schemas.room_scan import parse_captured_room
 from app.services.room_geometry import compute_metrics as _compute_metrics_impl
 from app.services.room_scan_converter import convert_captured_room
@@ -40,8 +41,10 @@ def _with_thumbnail_url(out: RoomOut, room: Room, request: Request) -> RoomOut:
 # Geometry helpers (thin wrappers — logic lives in app.services.room_geometry)
 # ---------------------------------------------------------------------------
 
-def _compute_metrics(geometry: RoomGeometry, ceiling_h: float) -> dict:
-    return _compute_metrics_impl(geometry, ceiling_h)
+def _compute_metrics(geometry: RoomGeometry, ceiling_h: float | Decimal | None) -> dict:
+    # rooms.ceiling_h comes back from Postgres as a Decimal, which does not mix
+    # with the float geometry maths.
+    return _compute_metrics_impl(geometry, float(ceiling_h) if ceiling_h is not None else 0.0)
 
 
 async def _get_owned_apartment(apartment_id: UUID, user_id: object, db: DbSession) -> Apartment:
@@ -447,7 +450,7 @@ async def delete_room(room_id: UUID, db: DbSession, current_user: CurrentUser) -
     status_code=status.HTTP_201_CREATED,
     summary="Add a new wall to room geometry",
 )
-async def add_wall(room_id: UUID, wall: dict, db: DbSession, current_user: CurrentUser) -> RoomOut:
+async def add_wall(room_id: UUID, wall: WallCreate, db: DbSession, current_user: CurrentUser) -> RoomOut:
     """
     Add a new wall to the room's geometry.
 
@@ -463,16 +466,9 @@ async def add_wall(room_id: UUID, wall: dict, db: DbSession, current_user: Curre
     Returns:
         Updated RoomOut with new wall added
     """
-    from app.schemas.room import Wall, WallElement
-
     room = await _get_owned_room(room_id, current_user.id, db)
 
-    # Parse wall
-    if "id" not in wall:
-        import uuid
-        wall["id"] = str(uuid.uuid4())
-
-    wall_obj = Wall(**wall)
+    wall_obj = Wall(id=wall.id or str(uuid_module.uuid4()), length=wall.length, elements=wall.elements)
 
     # Add to geometry
     geometry_dict = room.geometry or {"walls": [], "vertices": None}
@@ -501,7 +497,7 @@ async def add_wall(room_id: UUID, wall: dict, db: DbSession, current_user: Curre
     summary="Update a wall in room geometry",
 )
 async def update_wall(
-    room_id: UUID, wall_id: str, wall_update: dict, db: DbSession, current_user: CurrentUser
+    room_id: UUID, wall_id: str, wall_update: WallUpdate, db: DbSession, current_user: CurrentUser
 ) -> RoomOut:
     """
     Update an existing wall by ID.
@@ -534,10 +530,10 @@ async def update_wall(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wall not found")
 
     # Update wall
-    if "length" in wall_update:
-        geom.walls[wall_idx].length = wall_update["length"]
-    if "elements" in wall_update:
-        geom.walls[wall_idx].elements = wall_update["elements"]
+    if wall_update.length is not None:
+        geom.walls[wall_idx].length = wall_update.length
+    if wall_update.elements is not None:
+        geom.walls[wall_idx].elements = wall_update.elements
 
     # Validate and compute metrics
     metrics = _compute_metrics(geom, room.ceiling_h)
@@ -561,7 +557,7 @@ async def update_wall(
     summary="Add an opening (door/window) to a wall",
 )
 async def add_opening(
-    room_id: UUID, wall_id: str, opening: dict, db: DbSession, current_user: CurrentUser
+    room_id: UUID, wall_id: str, opening: WallElement, db: DbSession, current_user: CurrentUser
 ) -> RoomOut:
     """
     Add an opening (door or window) to a wall.
@@ -579,9 +575,6 @@ async def add_opening(
     Returns:
         Updated RoomOut with opening added to wall
     """
-    from app.schemas.room import WallElement
-    import uuid
-
     room = await _get_owned_room(room_id, current_user.id, db)
 
     geometry_dict = room.geometry or {"walls": [], "vertices": None}
@@ -597,21 +590,15 @@ async def add_opening(
     if wall_idx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wall not found")
 
-    # Add opening ID if not present
-    if "id" not in opening:
-        opening["id"] = str(uuid.uuid4())
-
     # Validate opening against ceiling height
-    opening_height = opening.get("height", 0)
-    opening_sill = opening.get("sill_height", 0)
-    if opening_height + opening_sill > room.ceiling_h + 0.01:
+    ceiling = float(room.ceiling_h) if room.ceiling_h is not None else 0.0
+    if opening.height + opening.sill_height > ceiling + 0.01:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Opening height exceeds ceiling height",
         )
 
-    element = WallElement(**opening)
-    geom.walls[wall_idx].elements.append(element)
+    geom.walls[wall_idx].elements.append(opening)
 
     # Validate and compute metrics
     metrics = _compute_metrics(geom, room.ceiling_h)
