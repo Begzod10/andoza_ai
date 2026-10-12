@@ -68,6 +68,7 @@ def client():
 
 def _as(user, *results):
     db = AsyncMock()
+    db.info = {}  # a real session has one; post-commit hooks register on it
     db.execute = AsyncMock(side_effect=list(results))
     db.flush = AsyncMock()
     app.dependency_overrides[get_current_active_user] = lambda: user
