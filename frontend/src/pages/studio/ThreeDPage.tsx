@@ -712,6 +712,14 @@ export default function ThreeDPage() {
           setSunHour={setSunHour}
           setShowAiSheet={setShowAiSheet}
           setShowPanel={setShowPanel}
+          rooms={aptRooms}
+          activeRoomId={room.id}
+          onOpenRoom={async (id) => {
+            closeMenu?.();
+            // Saved first, so what was done here is there when the user comes back.
+            try { await onSave(); } catch { /* offline — switch anyway */ }
+            navigate(`/studio/${id}`);
+          }}
         />
 
         {/* Canvas area. relative: anchors the Mebelirovka top-right control
@@ -1015,8 +1023,6 @@ export default function ThreeDPage() {
             handleAddRoom={handleAddRoom}
             aptRooms={aptRooms}
             activeLayoutPos={activeLayoutPos}
-            onSave={onSave}
-            navigate={navigate}
             handleDeleteSibling={handleDeleteSibling}
             toolMode={toolMode}
             selectedFurId={selectedFurId}

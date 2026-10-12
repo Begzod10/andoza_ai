@@ -105,7 +105,7 @@ export function ThreeDCanvasScene({
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
-  onSave, navigate, handleDeleteSibling,
+  handleDeleteSibling,
   toolMode, selectedFurId, selectFurniture, selectedPart, selectFurniturePart,
   showScan, showQibla, replacedGhosts, setScanSwap,
   selectedDoorId, selectDoor,
@@ -156,8 +156,6 @@ export function ThreeDCanvasScene({
   handleAddRoom: (side: RoomSide) => void;
   aptRooms: Room[] | undefined;
   activeLayoutPos: { x: number; z: number } | null;
-  onSave: () => Promise<void>;
-  navigate: (path: string) => void;
   handleDeleteSibling: (id: string, name: string) => Promise<void>;
   toolMode: ToolMode;
   selectedFurId: string | null;
@@ -500,11 +498,6 @@ export function ThreeDCanvasScene({
             siblingPlans={flatPlan.siblings}
             focusedRoomId={focusedRoomId}
             onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
-            onOpen={async (id) => {
-              // Persist the current room before switching so edits survive
-              try { await onSave(); } catch { /* offline — switch anyway */ }
-              navigate(`/studio/${id}`);
-            }}
             onDelete={handleDeleteSibling}
           />
         )}

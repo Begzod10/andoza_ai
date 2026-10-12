@@ -120,7 +120,6 @@ export function SiblingRooms({
   activeD,
   activePos,
   siblingPlans,
-  onOpen,
   onDelete,
   focusedRoomId,
   onToggleFocus,
@@ -136,7 +135,6 @@ export function SiblingRooms({
    *  neighbours' openings cut in and its own shared doorways marked, and its
    *  walls against the active room. */
   siblingPlans?: ReadonlyMap<string, RoomRenderPlan>;
-  onOpen: (roomId: string) => void;
   onDelete: (roomId: string, name: string) => void;
   /** The room being looked at alone, or null for the whole flat. */
   focusedRoomId: string | null;
@@ -160,7 +158,6 @@ export function SiblingRooms({
     <>
       {layout.filter(({ room: sib }) => isRoomVisible(focusedRoomId, sib.id))
         .map(({ room: sib, w, d, x, z }) => {
-        const open = () => onOpen(sib.id);
         const h = sib.ceiling_h ?? 2.7;
         return (
           <group key={sib.id} position={[x, 0, z]}>
@@ -184,15 +181,13 @@ export function SiblingRooms({
               siblingCount={layout.length}
               shellGeometry={siblingPlans?.get(sib.id)?.shell}
               partitionWithActive={siblingPlans?.get(sib.id)?.partitionWalls}
-              onOpen={open}
             />
             {/* No name pill: every room in the flat carried one, so a
                 four-room flat wore four name tags across the view, and they
                 are fixed-size so a room 30 m away shouted as loudly as the one
                 next door. The name said nothing a user looking at their own
-                flat needed, and tapping the room itself already opens it —
-                which is what the pill did. Focus and delete stay: those are
-                actions, not labels. */}
+                flat needed; rooms are opened from the ⋮ menu's list. Focus
+                and delete stay: those are actions, not labels. */}
             <Html position={[0, h + 0.3, 0]} center zIndexRange={[90, 0]}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <FocusButton

@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Room } from "@/lib/api";
 import { resolveWallCovering, resolveWallColor, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
@@ -90,72 +89,13 @@ function useNoShadowSubtree(ref: React.RefObject<THREE.Group | null>) {
 }
 
 
-// ─── Opening the room you tapped ─────────────────────────────────────────────
+// ─── No picking ──────────────────────────────────────────────────────────────
 
-/**
- * Whether this click is really ours.
- *
- * react-three-fiber hands every handler the full, distance-sorted
- * `intersections` list and does NOT stop at the nearest one: a handler further
- * back still fires unless something in front called `stopPropagation`. The
- * active room's walls, floor and ceiling deliberately do not — they let a tap
- * both select the surface and bubble to the press-and-hold wrapper around it
- * (see lib/pickEvents for the whole story) — so a tap on the wall of the room
- * being edited would run on to whatever sibling happens to be behind it and
- * navigate the user out of the room they are working in.
- *
- * The rule that fixes it without touching any of that: act only when the
- * NEAREST intersection is the one that reached us. `eventObject` is the object
- * whose handler is firing, and the first entry's `eventObject` is the nearest
- * hit's own handler-owner, so comparing the two is the whole test.
- */
-function isNearestHit(e: ThreeEvent<MouseEvent>): boolean {
-  return e.intersections[0]?.eventObject === e.eventObject;
-}
-
-/**
- * The thing a tap on a sibling actually hits.
- *
- * An invisible box over the room's volume, and the ONLY part of a sibling that
- * takes part in picking. That is a performance decision, not a convenience
- * one: react-three-fiber raycasts the objects that have handlers (recursively
- * through their children) on every pointer move, so putting the handler on a
- * group wrapping the whole shell would have added every wall segment, every
- * plank of every floor pattern and every trim run of every room in the flat to
- * the hover raycast. One box per room is a constant.
- *
- * `visible={false}` is what keeps it out of the render and out of both shadow
- * passes while leaving it pickable: three's raycaster does not test `visible`
- * at all (see `intersect` in three's Raycaster — it checks layers and nothing
- * else), whereas `WebGLShadowMap.renderObject` and `projectObject` both return
- * early on it.
- *
- * It spans the room's full height rather than lying on the floor like the slab
- * it replaces, so tapping a neighbour's wall opens that room too — with the
- * shell drawn for real, the wall is the part of it you can actually see.
- */
-function SiblingPickBox({
-  wM, dM, hM, onOpen,
-}: {
-  wM: number; dM: number; hM: number; onOpen: () => void;
-}) {
-  return (
-    <mesh
-      visible={false}
-      position={[0, hM / 2, 0]}
-      onClick={(e) => {
-        if (!isNearestHit(e)) return;
-        e.stopPropagation();
-        onOpen();
-      }}
-      onPointerOver={(e) => { if (isNearestHit(e)) document.body.style.cursor = 'pointer'; }}
-      onPointerOut={() => { document.body.style.cursor = 'auto'; }}
-    >
-      <boxGeometry args={[wM, hM, dM]} />
-      <meshBasicMaterial />
-    </mesh>
-  );
-}
+// A neighbouring room takes no taps. Tapping one used to open it, through an
+// invisible pick box over the room's volume; the user asked for that to stop
+// ("no switch needed"), and rooms are opened from the ⋮ menu's list instead
+// (lib/roomList). With no handler on anything of a sibling, it is also out of
+// react-three-fiber's hover raycast altogether.
 
 
 // ─── Far tier: the coloured block ────────────────────────────────────────────
@@ -415,7 +355,7 @@ function SiblingFullShell(
  * all — the user's "please differ 1 project with 1 room".
  */
 export function SiblingRoomBody({
-  room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount, onOpen,
+  room, wM, dM, hM, offsetXM, offsetZM, activeWM, activeDM, siblingCount,
   shellGeometry, partitionWithActive,
 }: {
   room: Room;
@@ -438,7 +378,6 @@ export function SiblingRoomBody({
   /** How many siblings there are in all, which is what decides whether the
    *  full shell is spent on every room or only the near ones. */
   siblingCount: number;
-  onOpen: () => void;
   /** This room's geometry with its neighbours' openings cut in (built by
    *  `SiblingRooms` from lib/borrowedOpenings, which needs every room of the
    *  flat at once). Absent: the room's own geometry. */
@@ -506,18 +445,6 @@ export function SiblingRoomBody({
       ) : (
         <SiblingBlockShell wM={wM} dM={dM} hM={hM} designState={view?.designState} />
       )}
-      {/* Sized from the room's own walls when they are known, and only from the
-          layout footprint when they are not. The two disagree for a drawn or
-          scanned polygon room: `roomFootprint` reads walls "A" and "B", which a
-          polygon has none of, so it falls back to a 4 x 3 default — one such
-          room in this apartment is really 7.8 x 7.7 m. Picking it by the
-          footprint would leave most of a visibly drawn room untappable. */}
-      <SiblingPickBox
-        wM={view?.widthM ?? wM}
-        dM={view?.depthM ?? dM}
-        hM={view?.heightM ?? hM}
-        onOpen={onOpen}
-      />
     </group>
   );
 }

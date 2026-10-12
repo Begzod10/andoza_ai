@@ -5,6 +5,7 @@ import { formatClock } from "./helpers";
 import { useRoomStore } from "@/store/roomStore";
 import { CITY_PRESETS, FACING_OPTIONS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
 import { SHOW_SUN_CLOCK } from "@/lib/skyPinnedSun";
+import { roomListEntries } from "@/lib/roomList";
 
 /**
  * What used to be the studio's "Asboblar" drawer, reduced to the three things
@@ -101,6 +102,9 @@ export function ToolsDrawerPanel({
   sceneLightOn,
   sunHour, setSunHour,
   setShowAiSheet,
+  rooms,
+  activeRoomId,
+  onOpenRoom,
 }: {
   /** A node inside the header's ⋮ dropdown; null while it is closed. */
   menuSlot?: HTMLDivElement | null;
@@ -114,10 +118,41 @@ export function ToolsDrawerPanel({
   setSunHour: (hour: number) => void;
   setShowAiSheet: Dispatch<SetStateAction<boolean>>;
   setShowPanel: Dispatch<SetStateAction<boolean>>;
+  /** Every room of the flat, for the room list; absent while loading. */
+  rooms?: readonly { id: string; name?: string | null }[];
+  activeRoomId: string;
+  /** Opens another room of the flat — the only way to, now that tapping a
+   *  neighbour in the 3D view does not. */
+  onOpenRoom: (roomId: string) => void;
 }) {
   if (!menuSlot) return null;
+  const roomEntries = roomListEntries(rooms, activeRoomId);
   return createPortal(
     <div className="flex flex-col divide-y divide-line border-b border-line">
+          {/* The flat's rooms. Nothing for a one-room project. */}
+          {roomEntries.length > 0 && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Xonalar</p>
+              <div className="flex flex-col gap-1.5">
+                {roomEntries.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => { if (!r.current) onOpenRoom(r.id); }}
+                    disabled={r.current}
+                    aria-current={r.current ? "page" : undefined}
+                    className={`flex items-center justify-between px-3 py-2 min-h-[44px] rounded-xl text-sm font-medium border transition-colors ${
+                      r.current
+                        ? "bg-brand/10 text-brand border-brand/30 cursor-default"
+                        : "bg-card-soft text-ink border-line hover:bg-line"
+                    }`}
+                  >
+                    <span className="truncate">{r.label}</span>
+                    {r.current && <span className="text-xs shrink-0 ml-2">Hozir</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
               checking which wall the room's Qibla falls on. */}
           <div className="px-4 py-3">
