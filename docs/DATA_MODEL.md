@@ -29,7 +29,7 @@ users ─┬─< apartments ─< rooms ─┬─< estimates
 | `users` | Hisob | `phone`, `username`, `password_hash`, `is_admin`, `is_active` |
 | `apartments` | Kvartira (loyiha) | `user_id`, `name`, `address`, `renovation_stage` |
 | `rooms` | Xona | `apartment_id`, `geometry` (JSON: devorlar, eshik/derazalar, ixtiyoriy `vertices`), `ceiling_h`, `state` (JSON: studiyadagi butun holat — dizayn, mebel, chiroqlar, `layoutPos`), `room_scan` (JSON: LiDAR skaner ma'lumoti), `floor_area`, `net_wall_area`, `perimeter`, `share_token`, `deleted` (yumshoq o'chirish) |
-| `draft_rooms` | Wizard qoralamasi | `state` |
+| `draft_rooms` | Wizard qoralamasi (egasi — `user_id`) | `state`, `user_id` |
 | `estimates` | Saqlangan smeta | `room_id`, `lines` (JSON), `total_uzs`, `status` |
 
 `rooms.state` studiyaning to'liq holati: API uni **butunlay almashtiradi**
