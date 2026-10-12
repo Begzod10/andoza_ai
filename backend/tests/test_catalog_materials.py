@@ -224,3 +224,20 @@ class TestSearchCacheKeyIncludesQuery:
         assert first.json() == second.json()
         # No additional DB round-trip on the cache hit.
         assert len(db.executed_sql) == executed_after_first
+
+
+class TestShopName:
+    def test_each_material_carries_its_shops_name(self, client):
+        # Without it the cart, the order and the seller all showed a generic
+        # "Do'kon", and the order stored that as its dealer_name for good.
+        from app.models.store import Store
+
+        material = _material()
+        material.store = Store(id=material.store_id, name="Leroy Merlin Tashkent")
+        _as_db(_FakeDb([material]))
+        with patch("app.routers.catalog.cache_get", new=AsyncMock(return_value=None)), patch(
+            "app.routers.catalog.cache_set", new=AsyncMock()
+        ):
+            response = client.get("/api/v1/materials")
+
+        assert response.json()["items"][0]["store_name"] == "Leroy Merlin Tashkent"

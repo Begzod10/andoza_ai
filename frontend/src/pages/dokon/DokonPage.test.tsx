@@ -203,3 +203,51 @@ describe('DokonPage: many orders', () => {
     expect(screen.queryByRole('button', { name: 'Yana yuklash' })).toBeNull()
   })
 })
+
+describe('product detail', () => {
+  it('gives a piece of furniture its size in centimetres', async () => {
+    // footprint_w/d and height_cm are centimetres (models/furniture.py): a
+    // 241 cm sofa used to read "241 × 63 m".
+    listCatalogFurniture.mockResolvedValue({
+      items: [{ ...FURNITURE, footprint_w: 241, footprint_d: 63, height_cm: 85 }], total: 1, page: 1, per_page: 100,
+    })
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Divan, 4\s500\s000/ }))
+    expect(await screen.findByText('241 × 63 × 85 sm')).toBeInTheDocument()
+  })
+})
+
+describe('material pictures and names', () => {
+  // Materials carry image_url, but their cards and detail page always drew a
+  // placeholder, and the detail page showed the raw category key ("boyoq").
+  const pictured = { ...MATERIAL, image_url: 'https://cdn.example/akril.jpg' }
+
+  it('shows the picture on the card and on the detail page, with a readable category', async () => {
+    getMaterials.mockResolvedValue([pictured])
+    const { container } = mount()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Materiallar' }))
+    const card = await screen.findByRole('button', { name: /Akril bo'yoq/ })
+    expect(card.querySelector('img')?.getAttribute('src')).toBe(pictured.image_url)
+
+    fireEvent.click(card)
+    await screen.findByRole('button', { name: /Savatga qo'shish/ })
+    expect(container.querySelector(`img[src="${pictured.image_url}"]`)).not.toBeNull()
+    expect(screen.getByText("Bo'yoq")).toBeInTheDocument()
+    expect(screen.queryByText('boyoq')).toBeNull()
+  })
+})
+
+describe('shop browsing', () => {
+  it('comes back to the same tab and search after adding to the cart', async () => {
+    // Adding a product used to reset the shop to the Mebel tab with an empty
+    // search, so a shopper picking several materials started over each time.
+    mount()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Materiallar' }))
+    fireEvent.change(screen.getByLabelText('Qidirish'), { target: { value: 'akril' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Akril bo'yoq/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Savatga qo'shish/ }))
+
+    expect(await screen.findByRole('tab', { name: 'Materiallar', selected: true })).toBeInTheDocument()
+    expect((screen.getByLabelText('Qidirish') as HTMLInputElement).value).toBe('akril')
+  })
+})

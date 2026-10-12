@@ -130,6 +130,24 @@ describe('ProjectsPage "Yangi loyiha"', () => {
   })
 })
 
+describe('ProjectsPage "Yangi loyiha" look', () => {
+  it('is drawn in the app theme, not a white sheet over a dark app', async () => {
+    vi.mocked(api.getApartments).mockResolvedValue([])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/projects']}>
+          <ProjectsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(await screen.findByText('+ Yangi loyiha'))
+    const sheet = screen.getByRole('heading', { name: 'Yangi loyiha' }).parentElement as HTMLElement
+    expect(sheet.className).toContain('bg-card')
+    expect(sheet.className).not.toContain('bg-white')
+  })
+})
+
 describe('ProjectsPage branding', () => {
   beforeEach(() => vi.clearAllMocks())
 

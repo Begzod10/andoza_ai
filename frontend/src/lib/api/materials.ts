@@ -20,6 +20,10 @@ export interface Material {
   pack_unit?: string | null;
   smeta_key?: string | null;
   roll_length_m?: number | null;
+  /** A product photo, when the shop has one. */
+  image_url?: string | null;
+  /** The shop's name, from the public list (GET /materials). */
+  store_name?: string | null;
 }
 
 export interface MaterialsPage {

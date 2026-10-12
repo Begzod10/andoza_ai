@@ -96,20 +96,20 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
         className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-sheet pb-8 animate-slide-up shadow-card">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card text-ink border-t border-line rounded-t-sheet pb-8 animate-slide-up shadow-panel">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-11 h-1.5 rounded-full bg-neutral-300" />
+          <div className="w-11 h-1.5 rounded-full bg-line" />
         </div>
         <div className="px-5 pb-2">
-          <h2 className="text-xl font-bold text-neutral-900">Yangi loyiha</h2>
-          <p className="text-sm text-neutral-600 mt-0.5">Xonani qanday qo'shmoqchisiz?</p>
+          <h2 className="text-xl font-bold text-ink">Yangi loyiha</h2>
+          <p className="text-sm text-ink-muted mt-0.5">Xonani qanday qo'shmoqchisiz?</p>
         </div>
         <div className="px-5 pt-3 flex flex-col gap-3">
           {options.map((opt) => (
             <button
               key={opt.title}
               onClick={opt.action}
-              className="flex items-center gap-4 p-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-left hover:bg-neutral-100 transition-colors active:scale-[0.98]"
+              className="flex items-center gap-4 p-4 bg-card-soft border border-line rounded-2xl text-left hover:border-[#5B84F5]/60 transition-colors active:scale-[0.98]"
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -118,8 +118,8 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
                 {opt.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-neutral-900">{opt.title}</p>
-                <p className="text-sm text-neutral-600 mt-0.5 leading-snug">{opt.desc}</p>
+                <p className="text-base font-bold text-ink">{opt.title}</p>
+                <p className="text-sm text-ink-muted mt-0.5 leading-snug">{opt.desc}</p>
               </div>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgb(156, 163, 175)" strokeWidth="1.5" className="flex-shrink-0">
                 <path d="M7.5 5l5 5-5 5"/>

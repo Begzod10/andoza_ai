@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.auth import normalize_contact_phone
+
 
 class OrderLineCreate(BaseModel):
     material_id: UUID | None = None
@@ -13,7 +15,9 @@ class OrderLineCreate(BaseModel):
     product_name: str
     unit: str
     unit_price_uzs: int
-    quantity: float
+    # order_lines.quantity is Numeric(10, 2); the cap keeps a typo from
+    # overflowing it, and zero or negative lines would pull the total down.
+    quantity: float = Field(gt=0, le=100_000)
 
     @model_validator(mode="after")
     def _one_catalog_reference(self) -> "OrderLineCreate":
@@ -32,7 +36,7 @@ class OrderCreate(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     payment_method: PaymentMethod | None = None
 
-    @field_validator("delivery_address", "phone")
+    @field_validator("delivery_address")
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
         """A form field left as spaces is "not given", not an address of spaces."""
@@ -40,6 +44,11 @@ class OrderCreate(BaseModel):
             return None
         value = value.strip()
         return value or None
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, value: str | None) -> str | None:
+        return normalize_contact_phone(value)
 
 
 class OrderLineOut(BaseModel):

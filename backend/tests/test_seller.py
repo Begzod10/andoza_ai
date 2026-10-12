@@ -8,6 +8,8 @@ decide. Storage and the DB session are stubbed.
 from __future__ import annotations
 
 import io
+import json
+import struct
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -21,7 +23,18 @@ from app.main import app
 from app.models.furniture import Furniture
 from app.models.store import Store
 
-GLB = b"glTF" + b"\x02\x00\x00\x00" + b"x" * 64
+
+
+def _glb(doc: dict | None = None, length_delta: int = 0) -> bytes:
+    """A real binary glTF: 12-byte header and one JSON chunk."""
+    doc = {"asset": {"version": "2.0"}, "meshes": [{"primitives": []}]} if doc is None else doc
+    body = json.dumps(doc).encode()
+    body += b" " * (-len(body) % 4)
+    chunk = struct.pack("<II", len(body), 0x4E4F534A) + body
+    return b"glTF" + struct.pack("<II", 2, 12 + len(chunk) + length_delta) + chunk
+
+
+GLB = _glb()
 JPEG = b"\xff\xd8\xff\xe0" + b"x" * 32
 
 
@@ -150,6 +163,34 @@ class TestShop:
         _as(_user(), [_R(None)])
         assert client.post("/api/v1/seller/store", json={"name": "X", "logo_color": "red"}).status_code == 422
 
+    def test_a_shop_name_of_only_spaces_is_refused(self, client):
+        # Applying or renaming to "   " passed min_length and was saved as "".
+        u = _user()
+        db = _as(u, [_R(None)])
+        assert client.post("/api/v1/seller/store", json={"name": "   "}).status_code == 422
+        db.add.assert_not_called()
+        store = _store(u)
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"name": "   "}).status_code == 422
+        assert store.name == "Mebel Plus"
+
+    def test_the_shop_phone_is_validated_and_normalised(self, client):
+        u = _user()
+        db = _as(u, [_R(None)])
+        assert client.post("/api/v1/seller/store", json={"name": "X", "phone": "abc"}).status_code == 422
+        res = client.post("/api/v1/seller/store", json={"name": "X", "phone": "+998 90 000-00-01"})
+        assert res.status_code == 201
+        assert db.add.call_args.args[0].phone == "+998900000001"
+
+    def test_editing_the_phone_is_validated_and_normalised(self, client):
+        u = _user()
+        store = _store(u)
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"phone": "abc"}).status_code == 422
+        _as(u, [_R(store)])
+        assert client.patch("/api/v1/seller/store", json={"phone": "998900000002"}).status_code == 200
+        assert store.phone == "+998900000002"
+
     def test_editing_cannot_touch_tier_or_status(self, client):
         u = _user()
         store = _store(u)
@@ -223,6 +264,22 @@ class TestUpload:
         with patch("app.routers.seller.upload_file", new=AsyncMock()) as up:
             assert _upload(client, data=b"<html>not a model</html>").status_code == 415
         up.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            b"glTF" + b"\x02\x00\x00\x00" + b"\x0c\x00\x00\x00",  # header only: what was accepted and approved
+            _glb(length_delta=100),  # header claims more bytes than the file has
+            _glb(doc={"asset": {"version": "2.0"}}),  # no meshes: nothing to show
+            b"glTF" + struct.pack("<II", 1, 20) + b"\x00" * 8,  # glTF 1.0
+        ],
+    )
+    def test_a_glb_with_no_readable_model_inside_is_refused(self, client, bad):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock()) as up:
+            assert _upload(client, data=bad).status_code == 415
+        up.assert_not_called()
 
     def test_oversize_and_empty_files_are_refused(self, client):
         u = _user()
@@ -344,6 +401,13 @@ class TestModeration:
         res = client.post(f"/api/v1/admin/moderation/stores/{store.id}/reject", json={"note": "Telefon noto'g'ri"})
         assert res.status_code == 204
         assert (store.status, store.is_active, store.moderation_note) == ("rejected", False, "Telefon noto'g'ri")
+
+    @pytest.mark.parametrize("target", ["stores", "ustalar"])
+    def test_a_reason_of_only_spaces_is_no_reason(self, client, target):
+        # It passed min_length, was stripped by the router and stored as "".
+        db = _as(_user(is_admin=True), [])
+        assert client.post(f"/api/v1/admin/moderation/{target}/{uuid.uuid4()}/reject", json={"note": "   "}).status_code == 422
+        db.execute.assert_not_called()
 
     def test_approving_and_rejecting_a_model(self, client):
         store = _store(_user())

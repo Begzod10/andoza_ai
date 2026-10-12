@@ -228,7 +228,7 @@ class TestOrderDeliveryDetails:
         assert response.status_code == 201
         body = response.json()
         assert body["delivery_address"] == "Chilonzor 5, 12-uy"
-        assert body["phone"] == "+998 90 123 45 67"
+        assert body["phone"] == "+998901234567"  # normalised, like every phone the app stores
         assert body["payment_method"] == "card"
 
     def test_they_are_optional(self, client):
@@ -242,6 +242,11 @@ class TestOrderDeliveryDetails:
         assert response.status_code == 201
         assert response.json()["delivery_address"] is None
         assert response.json()["phone"] is None
+
+    @pytest.mark.parametrize("phone", ["12", "abc", "+7 999 123 45 67"])
+    def test_a_phone_that_is_not_an_uzbek_number_is_rejected(self, client, phone):
+        # "12" used to be stored, leaving the shop a number it cannot call.
+        assert self._post(client, phone=phone).status_code == 422
 
     def test_an_unknown_payment_method_is_rejected(self, client):
         assert self._post(client, payment_method="crypto").status_code == 422
@@ -301,6 +306,16 @@ class TestFurniturePriceComesFromTheCatalog:
             client, _db(_Result(many=[])), furniture_id=str(uuid.uuid4()), material_id=str(uuid.uuid4())
         )
         assert response.status_code == 422
+
+    @pytest.mark.parametrize("quantity", [0, -5, 1e12])
+    def test_a_zero_negative_or_absurd_quantity_is_rejected(self, client, quantity):
+        # -5 used to be stored with total_uzs -22,500,000; 1e12 overflowed
+        # order_lines.quantity (Numeric(10, 2)) into a 500.
+        piece = _furniture()
+        db = _db(_Result(many=[piece]))
+        response = self._post(client, db, furniture_id=str(piece.id), quantity=quantity)
+        assert response.status_code == 422
+        db.add.assert_not_called()
 
     def test_material_and_furniture_lines_together(self, client):
         shop = uuid.uuid4()

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { applyForStore, type SellerStore } from "@/lib/api";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
 
 /** First step of becoming a seller: the shop's details. It goes to the admins
  *  for approval before anything is visible. */
@@ -31,6 +32,7 @@ export function StoreApplyForm({ onApplied }: { onApplied: (store: SellerStore) 
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        if (phone.trim() && !isUzPhone(phone)) { setError(PHONE_ERROR); return; }
         if (name.trim()) apply.mutate();
       }}
       className="space-y-4"

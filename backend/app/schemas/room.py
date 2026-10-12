@@ -52,6 +52,21 @@ class Wall(BaseModel):
     elements: list[WallElement] = []
 
 
+class WallCreate(BaseModel):
+    """Body of POST /rooms/{id}/walls; the id is generated when not given."""
+
+    id: str | None = None
+    length: float = Field(gt=0.5, lt=25.0)
+    elements: list[WallElement] = []
+
+
+class WallUpdate(BaseModel):
+    """Body of PATCH /rooms/{id}/walls/{wall_id}: only what is sent changes."""
+
+    length: float | None = Field(default=None, gt=0.5, lt=25.0)
+    elements: list[WallElement] | None = None
+
+
 class RoomGeometry(BaseModel):
     # Minimum 3 walls.  Legacy rectangular rooms use exactly 4 walls
     # (index 0=A, 1=B, 2=C, 3=D).  N-wall polygon rooms may have more.

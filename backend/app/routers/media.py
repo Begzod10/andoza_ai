@@ -17,7 +17,12 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["media"])
 
-_ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
+# The stored extension comes from the validated content type, never from the
+# client's filename: local storage is served by StaticFiles, which picks the
+# response type from the extension, so "x.html" sent as image/jpeg would be
+# served as a page on the API origin.
+_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic"}
+_ALLOWED_CONTENT_TYPES = set(_EXT)
 _MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
@@ -53,11 +58,10 @@ async def upload_photo(
             detail="Empty file received",
         )
 
-    ext = (file.filename or "photo.jpg").rsplit(".", 1)[-1].lower()
-    photo_key = f"photos/{current_user.id}/{uuid_module.uuid4()}.{ext}"
+    photo_key = f"photos/{current_user.id}/{uuid_module.uuid4()}.{_EXT[file.content_type]}"
 
     try:
-        photo_url = await upload_file(file_bytes, photo_key, content_type=file.content_type or "image/jpeg")
+        photo_url = await upload_file(file_bytes, photo_key, content_type=file.content_type)
     except Exception as exc:
         logger.error("s3_upload_failed", key=photo_key, error=str(exc))
         raise HTTPException(

@@ -16,6 +16,7 @@ import {
   S7_OrderTracking,
   S8_MyOrders,
 } from "@/components/dokon/screens";
+import { categoryLabel, SHOP_BROWSE_START, type ShopBrowse } from "@/components/dokon/ShopHome";
 import AdminCatalogPanel from "./AdminCatalogPanel";
 
 type Screen =
@@ -53,6 +54,7 @@ interface MockMaterial extends Material {
   placement?: string;
   footprint_w?: number | null;
   footprint_d?: number | null;
+  height_cm?: number | null;
 }
 
 interface MockDealer {
@@ -79,6 +81,7 @@ export default function DokonPage() {
 
   // Navigation
   const [screen, setScreen] = useState<Screen>("shop");
+  const [browse, setBrowse] = useState<ShopBrowse>(SHOP_BROWSE_START);
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -304,6 +307,8 @@ export default function DokonPage() {
         onCart={() => setScreen("cart")}
         onProductSelect={handleProductSelect}
         onOrders={() => setScreen("orders")}
+        browse={browse}
+        onBrowseChange={setBrowse}
       />
     );
   }
@@ -312,11 +317,12 @@ export default function DokonPage() {
     const p = selectedProduct;
     // Only what the catalog actually knows — no invented volume, composition or certificate.
     const specs: Array<{ label: string; value: string }> = [
-      { label: "Kategoriya", value: p.category },
+      { label: "Kategoriya", value: categoryLabel(p.category) },
       ...(p.store_name ? [{ label: "Do'kon", value: p.store_name }] : []),
       ...(p.unit ? [{ label: "Birlik", value: p.unit }] : []),
+      // Furniture sizes are stored in centimetres (models/furniture.py).
       ...(p.footprint_w && p.footprint_d
-        ? [{ label: "O'lcham", value: `${p.footprint_w} × ${p.footprint_d} m` }]
+        ? [{ label: "O'lcham", value: `${[p.footprint_w, p.footprint_d, p.height_cm].filter(Boolean).join(" × ")} sm` }]
         : []),
     ];
 
@@ -325,7 +331,7 @@ export default function DokonPage() {
         id={p.id}
         name={p.name_uz}
         price={p.price_uzs ?? null}
-        images={p.thumbnail_url ? [p.thumbnail_url] : []}
+        images={[p.thumbnail_url ?? p.image_url].filter((u): u is string => Boolean(u))}
         specs={specs}
         dealers={[]}
         description=""

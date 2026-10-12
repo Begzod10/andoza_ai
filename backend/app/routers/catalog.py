@@ -18,7 +18,7 @@ from app.database import get_db
 from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.material_offer import MaterialOffer
-from app.models.store import Store
+from app.models.store import Store, in_open_shop
 from app.models.usta import Usta
 from app.schemas.catalog import FurnitureOut, PaginatedFurniture, RegionOut, StoreOut
 from app.schemas.material import MaterialOut, PaginatedMaterials
@@ -51,13 +51,15 @@ async def list_materials(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMaterials:
-    cache_key = f"materials:{category}:{store}:{q}:{page}:{per_page}"
+    # v2: entries cached before store_name was added would lack it for the TTL.
+    cache_key = f"materials:v2:{category}:{store}:{q}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
 
-    query = select(Material).where(Material.is_active.is_(True))
-    count_query = select(func.count()).select_from(Material).where(Material.is_active.is_(True))
+    live = Material.is_active.is_(True) & in_open_shop(Material)
+    query = select(Material).options(selectinload(Material.store)).where(live)
+    count_query = select(func.count()).select_from(Material).where(live)
 
     if category:
         query = query.where(Material.category == category)
@@ -77,7 +79,10 @@ async def list_materials(
     materials = result.scalars().all()
 
     payload = PaginatedMaterials(
-        items=[MaterialOut.model_validate(m) for m in materials],
+        items=[
+            MaterialOut.model_validate(m).model_copy(update={"store_name": m.store.name if m.store else None})
+            for m in materials
+        ],
         total=total,
         page=page,
         per_page=per_page,
@@ -177,9 +182,13 @@ async def list_furniture(
     query = (
         select(Furniture)
         .options(selectinload(Furniture.store))
-        .where(Furniture.is_active.is_(True))
+        .where(Furniture.is_active.is_(True), in_open_shop(Furniture))
     )
-    count_query = select(func.count()).select_from(Furniture).where(Furniture.is_active.is_(True))
+    count_query = (
+        select(func.count())
+        .select_from(Furniture)
+        .where(Furniture.is_active.is_(True), in_open_shop(Furniture))
+    )
 
     if category:
         query = query.where(Furniture.category == category)
