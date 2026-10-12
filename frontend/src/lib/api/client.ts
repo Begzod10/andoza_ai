@@ -17,7 +17,7 @@ function handleUnauthorized(): never {
 // Single in-flight refresh promise guard — prevents parallel token refreshes.
 let _refreshPromise: Promise<boolean> | null = null;
 
-async function _tryRefresh(): Promise<boolean> {
+export async function tryRefresh(): Promise<boolean> {
   if (_refreshPromise !== null) {
     return _refreshPromise;
   }
@@ -67,7 +67,7 @@ export async function apiClient<T>(
       handleUnauthorized();
     }
 
-    const refreshed = await _tryRefresh();
+    const refreshed = await tryRefresh();
     if (!refreshed) {
       handleUnauthorized();
     }

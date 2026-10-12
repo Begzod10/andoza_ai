@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiClient, BASE_URL, tryRefresh } from "./client";
 
 // ---------- Auth types ----------
 
@@ -45,6 +45,23 @@ export async function verifyOTP(phone: string, code: string): Promise<LoginRespo
 
 export async function getMe(): Promise<AuthUser> {
   return apiClient<AuthUser>("/auth/me");
+}
+
+/** Who the auth cookie belongs to right now, or null when the session is
+ *  gone (an expired access token is refreshed once first). Unlike getMe it
+ *  never sends the browser to /login: it runs on every page load, public
+ *  pages included. A network failure throws, so a caller can keep what it
+ *  had rather than sign the user out for being offline. */
+export async function checkSession(): Promise<AuthUser | null> {
+  const me = () => fetch(`${BASE_URL}/auth/me`, { credentials: "include" });
+  let response = await me();
+  if (response.status === 401) {
+    if (!(await tryRefresh())) return null;
+    response = await me();
+    if (response.status === 401) return null;
+  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as AuthUser;
 }
 
 export async function logoutApi(): Promise<void> {
