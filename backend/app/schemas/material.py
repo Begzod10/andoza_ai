@@ -21,6 +21,8 @@ class MaterialOut(BaseModel):
     pack_qty: float | None = None
     pack_unit: str | None = None
     smeta_key: str | None = None
+    # Filled in by the public list, which loads the shop with each row.
+    store_name: str | None = None
 
     model_config = {"from_attributes": True}
 
