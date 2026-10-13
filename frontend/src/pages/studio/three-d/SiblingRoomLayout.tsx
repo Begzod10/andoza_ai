@@ -1,4 +1,5 @@
 import { useMemo, type RefObject } from "react";
+import { FocusFade } from "@/features/studio/diorama";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -161,11 +162,13 @@ export function SiblingRooms({
   const locked = useViewLockStore((st) => st.locked);
   return (
     <>
-      {layout.filter(({ room: sib }) => isRoomVisible(focusedRoomId, sib.id))
-        .map(({ room: sib, w, d, x, z }) => {
+      {layout.map(({ room: sib, w, d, x, z }) => {
         const h = sib.ceiling_h ?? 2.7;
         return (
-          <group key={sib.id} position={[x, 0, z]}>
+          // Fades out when another room is focused, and back in — rather than
+          // vanishing in one frame (FocusFade unmounts it once it is gone).
+          <FocusFade key={sib.id} show={isRoomVisible(focusedRoomId, sib.id)}>
+          <group position={[x, 0, z]}>
             {/* What the room IS lives in SiblingRoomScene: the real room shell,
                 read-only, built from this room's own saved geometry and design
                 state. It used to be a solid-colour slab and four tinted boxes
@@ -214,6 +217,7 @@ export function SiblingRooms({
               </div>
             </Html>
           </group>
+          </FocusFade>
         );
       })}
     </>

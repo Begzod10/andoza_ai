@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { FocusFade } from "@/features/studio/diorama";
 import { roomExtents } from "@/lib/roomDims";
 import { focusFraming } from "@/lib/focusFraming";
 import { RoomSwitchCamera } from "./RoomSwitchCamera";
@@ -441,8 +442,8 @@ export function ThreeDCanvasScene({
             actually clicks a texture/color, so each wall simply renders
             its real covering; a 'plaster'-kind covering still gets the
             plaster PBR via WallSegment's own `covering.kind` check. */}
-        {/* The active room, not rendered at all while another room is the one
-            being looked at.
+        {/* The active room, faded out and then not rendered at all while
+            another room is the one being looked at (FocusFade).
             
             Unmounted rather than hidden with `visible={false}`: that flag does
             NOT remove an object from raycasting — three's Raycaster tests
@@ -451,7 +452,7 @@ export function ThreeDCanvasScene({
             invisible one in front of it. Toggling focus is a deliberate press,
             not per-frame work, so the remount costs nothing that matters (the
             GLTFs stay in drei's cache). */}
-        {isRoomVisible(focusedRoomId, room.id) && (
+        <FocusFade show={isRoomVisible(focusedRoomId, room.id)}>
         <group>
         <RoomScene
           room={room}
@@ -497,7 +498,7 @@ export function ThreeDCanvasScene({
           onArm={onArmOpening}
         />
         </group>
-        )}
+        </FocusFade>
         {/* The active room's own focus button, floated above it like the
             siblings' — it is a room in the flat too, and isolating the one you
             are editing is the most likely thing to want. */}
@@ -541,7 +542,7 @@ export function ThreeDCanvasScene({
             }}
           />
         )}
-        {isRoomVisible(focusedRoomId, room.id) && (
+        <FocusFade show={isRoomVisible(focusedRoomId, room.id)}>
         <group>
         <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
           onDelete={(id) => { useRoomStore.getState().removeFurniture(id); selectFurniture(null); }}
@@ -581,7 +582,7 @@ export function ThreeDCanvasScene({
           </group>
         ))}
         </group>
-        )}
+        </FocusFade>
             </>
           )}
         </WallsBehindCamera>

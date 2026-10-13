@@ -12,7 +12,7 @@
  * All geometry is procedural from room dimensions and merged into single
  * meshes per part — no per-segment meshes.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeBufferGeometries } from 'three-stdlib'
@@ -129,6 +129,59 @@ export function WallFade({ hidden, children }: { hidden: boolean; children: Reac
     if (opacity.current === 1) touched.current = false
   })
 
+  return <group ref={group}>{children}</group>
+}
+
+/**
+ * A whole room fading in and out of the flat, for focus.
+ *
+ * Focusing a room used to take the others away in one frame and unfocusing
+ * dropped them back the same way; the user asked for it to be smooth. This
+ * ramps the subtree's materials the way `WallFade` does (≈300 ms), and only
+ * once a room has faded right out is it unmounted — it has to go, not just
+ * turn invisible: three's raycaster ignores `visible`, so a hidden room left
+ * mounted would still take the taps meant for the focused one. A room coming
+ * back mounts at nothing and ramps up.
+ *
+ * Materials can be shared (cached models), so they are put back as they were
+ * when the room leaves, rather than left switched off for whoever else uses
+ * them.
+ */
+export function FocusFade({ show, children, seconds = 0.3 }: { show: boolean; children: React.ReactNode; seconds?: number }) {
+  const group = useRef<THREE.Group>(null)
+  const [mounted, setMounted] = useState(show)
+  const opacity = useRef(show ? 1 : 0)
+  const settled = useRef(true)
+  const leaving = useRef(false)
+
+  useEffect(() => {
+    settled.current = false
+    if (show) { leaving.current = false; setMounted(true) }
+  }, [show])
+
+  useFrame((_, dt) => {
+    const g = group.current
+    if (!g || settled.current) return
+    const target = show ? 1 : 0
+    const step = dt / seconds
+    opacity.current = target > opacity.current
+      ? Math.min(target, opacity.current + step)
+      : Math.max(target, opacity.current - step)
+    applyFade(g, opacity.current)
+    if (opacity.current === target) {
+      settled.current = true
+      if (!show && !leaving.current) { leaving.current = true; setMounted(false) }
+    }
+  })
+
+  // Put shared materials back once this room is gone. The group is captured
+  // while mounted: by the time the cleanup runs, the ref is already cleared.
+  useEffect(() => {
+    const g = group.current
+    return () => { if (g) applyFade(g, 1) }
+  }, [mounted])
+
+  if (!mounted) return null
   return <group ref={group}>{children}</group>
 }
 
