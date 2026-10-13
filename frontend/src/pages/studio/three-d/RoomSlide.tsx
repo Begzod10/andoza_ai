@@ -28,7 +28,21 @@ const GRAB_M = 0.35;
 
 /** The arrows' half-lengths on a room. */
 function arrowReach(t: MoveTarget) {
-  return { x: Math.max(0.6, t.w / 2 - 0.2), z: Math.max(0.6, t.d / 2 - 0.2) };
+  // Short of the wall handles, which sit HANDLE_INSET_M in from each wall.
+  return { x: Math.max(0.4, t.w / 2 - 0.75), z: Math.max(0.4, t.d / 2 - 0.75) };
+}
+
+/** How far in from its wall a resize handle sits, metres. */
+const HANDLE_INSET_M = 0.3;
+export type WallSide = 'A' | 'B' | 'C' | 'D';
+/** Where each wall's resize handle sits: A at −z, B at +x, C at +z, D at −x. */
+export function handlePoints(t: MoveTarget): { side: WallSide; x: number; z: number }[] {
+  return [
+    { side: 'A', x: t.cx, z: t.cz - t.d / 2 + HANDLE_INSET_M },
+    { side: 'B', x: t.cx + t.w / 2 - HANDLE_INSET_M, z: t.cz },
+    { side: 'C', x: t.cx, z: t.cz + t.d / 2 - HANDLE_INSET_M },
+    { side: 'D', x: t.cx - t.w / 2 + HANDLE_INSET_M, z: t.cz },
+  ];
 }
 
 /**
@@ -39,7 +53,7 @@ function arrowReach(t: MoveTarget) {
  * clears the selection on empty floor. The scene's own pointer events are off
  * meanwhile, so no wall ring or door panel answers.
  */
-export function RoomMoveInput({ rooms, selected, axis, onSelect, onDrag, onDragEnd }: {
+export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd }: {
   rooms: readonly MoveTarget[];
   /** The selected room as it stands now (live). */
   selected: MoveTarget | null;
@@ -49,12 +63,18 @@ export function RoomMoveInput({ rooms, selected, axis, onSelect, onDrag, onDragE
   onSelect: (id: string | null) => void;
   onDrag: (delta: number) => void;
   onDragEnd: () => void;
+  /** Whether the selected room's walls can be dragged to resize it. */
+  resizable: boolean;
+  /** A wall handle dragged by `delta` metres along its axis (outwards for B
+   *  and C, which face +x and +z). */
+  onResize: (side: WallSide, delta: number) => void;
+  onResizeEnd: () => void;
 }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
   const set = useThree((s) => s.set);
-  const latest = useRef({ rooms, selected, axis, onSelect, onDrag, onDragEnd });
-  latest.current = { rooms, selected, axis, onSelect, onDrag, onDragEnd };
+  const latest = useRef({ rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd });
+  latest.current = { rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd };
 
   useEffect(() => {
     set((st) => ({ events: { ...st.events, enabled: false } }));
@@ -68,13 +88,22 @@ export function RoomMoveInput({ rooms, selected, axis, onSelect, onDrag, onDragE
       const p = new THREE.Vector3();
       return ray.ray.intersectPlane(floor, p) ? p : null;
     };
-    let drag: { pointer: number; axis: 'x' | 'z'; start: THREE.Vector3 } | null = null;
+    let drag: { pointer: number; axis: 'x' | 'z'; start: THREE.Vector3; side?: WallSide } | null = null;
     let tap: { pointer: number; x: number; y: number } | null = null;
 
     const down = (e: PointerEvent) => {
       if (drag || e.target !== gl.domElement) return;
       const p = ground(e);
-      const { selected: sel, axis } = latest.current;
+      const { selected: sel, axis, resizable } = latest.current;
+      // A wall handle first: it sits where the arrow does not reach.
+      if (p && sel && resizable) {
+        const h = handlePoints(sel).find((hp) => Math.hypot(p.x - hp.x, p.z - hp.z) < GRAB_M);
+        if (h) {
+          e.stopPropagation();
+          drag = { pointer: e.pointerId, axis: h.side === 'B' || h.side === 'D' ? 'x' : 'z', start: p, side: h.side };
+          return;
+        }
+      }
       if (p && sel && axis) {
         const along = axis === 'x' ? p.x - sel.cx : p.z - sel.cz;
         const across = axis === 'x' ? p.z - sel.cz : p.x - sel.cx;
@@ -91,15 +120,20 @@ export function RoomMoveInput({ rooms, selected, axis, onSelect, onDrag, onDragE
       if (drag && e.pointerId === drag.pointer) {
         e.stopPropagation();
         const p = ground(e);
-        if (p) latest.current.onDrag(drag.axis === 'x' ? p.x - drag.start.x : p.z - drag.start.z);
+        const d = p ? (drag.axis === 'x' ? p.x - drag.start.x : p.z - drag.start.z) : null;
+        if (d !== null) {
+          if (drag.side) latest.current.onResize(drag.side, d);
+          else latest.current.onDrag(d);
+        }
       } else if (tap && e.pointerId === tap.pointer && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) {
         tap = null; // it was the view being turned
       }
     };
     const up = (e: PointerEvent) => {
       if (drag && e.pointerId === drag.pointer) {
+        const wasResize = !!drag.side;
         drag = null;
-        latest.current.onDragEnd();
+        if (wasResize) latest.current.onResizeEnd(); else latest.current.onDragEnd();
         return;
       }
       if (tap && e.pointerId === tap.pointer) {
@@ -241,6 +275,114 @@ export function GapField({ position, gapMm, onCommit }: {
         mm
       </label>
     </Html>
+  );
+}
+
+/** The selected room's wall handles — drag one to move that wall. */
+export function ResizeHandles({ target }: { target: MoveTarget }) {
+  return (
+    <>
+      {handlePoints(target).map((h) => (
+        <group key={h.side} position={[h.x, 0.07, h.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={999}>
+          <mesh>
+            <circleGeometry args={[0.17, 24]} />
+            <meshBasicMaterial color="#2E5BFF" depthTest={false} transparent opacity={0.95} />
+          </mesh>
+          <mesh position={[0, 0, 0.001]}>
+            <circleGeometry args={[0.11, 24]} />
+            <meshBasicMaterial color="#FFFFFF" depthTest={false} transparent opacity={0.98} />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The room's new size while a wall is dragged: its floor outlined, the moving
+ * wall drawn where it is going, and the dimensions as they change — the room
+ * along the changing direction, and its width × depth. The real walls take
+ * the size when the finger lifts.
+ */
+export function ResizeGhost({ box, side, height }: { box: MoveTarget; side: WallSide; height: number }) {
+  const alongX = side === 'B' || side === 'D';
+  const edge = side === 'B' ? box.cx + box.w / 2 : side === 'D' ? box.cx - box.w / 2 : side === 'C' ? box.cz + box.d / 2 : box.cz - box.d / 2;
+  const wallPos: [number, number, number] = alongX ? [edge, height / 2, box.cz] : [box.cx, height / 2, edge];
+  const wallLen = alongX ? box.d : box.w;
+  const size = alongX ? box.w : box.d;
+  const from: [number, number, number] = alongX ? [box.cx - box.w / 2, 0.1, box.cz] : [box.cx, 0.1, box.cz - box.d / 2];
+  const to: [number, number, number] = alongX ? [box.cx + box.w / 2, 0.1, box.cz] : [box.cx, 0.1, box.cz + box.d / 2];
+  return (
+    <group renderOrder={998}>
+      <mesh position={[box.cx, 0.03, box.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[box.w, box.d]} />
+        <meshBasicMaterial color="#2E5BFF" transparent opacity={0.16} depthTest={false} />
+      </mesh>
+      <mesh position={wallPos} rotation={[0, alongX ? Math.PI / 2 : 0, 0]}>
+        <planeGeometry args={[wallLen, height]} />
+        <meshBasicMaterial color="#2E5BFF" transparent opacity={0.3} side={THREE.DoubleSide} depthTest={false} />
+      </mesh>
+      <DimLine from={from} to={to} />
+      <Html position={[(from[0] + to[0]) / 2, 0.1, (from[2] + to[2]) / 2]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
+        <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FF2E9A', color: '#fff', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+          {size.toFixed(2)} m
+        </span>
+      </Html>
+      <Html position={[box.cx, height + 0.2, box.cz]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
+        <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {box.w.toFixed(2)} × {box.d.toFixed(2)} m
+        </span>
+      </Html>
+    </group>
+  );
+}
+
+/** The selected room's size, typed — width and depth in mm. */
+export function SizeField({ position, widthMm, depthMm, onWidth, onDepth }: {
+  position: [number, number, number];
+  widthMm: number;
+  depthMm: number;
+  onWidth: (mm: number) => void;
+  onDepth: (mm: number) => void;
+}) {
+  return (
+    <Html position={position} center zIndexRange={[95, 0]}>
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 999,
+          background: 'rgba(255,255,255,0.96)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          fontSize: 12, fontWeight: 600, color: '#1E3A8A', whiteSpace: 'nowrap', pointerEvents: 'auto',
+        }}
+      >
+        <MmInput value={widthMm} onCommit={onWidth} label="Eni" />
+        ×
+        <MmInput value={depthMm} onCommit={onDepth} label="Bo'yi" />
+        mm
+      </div>
+    </Html>
+  );
+}
+
+function MmInput({ value, onCommit, label }: { value: number; onCommit: (mm: number) => void; label: string }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const commit = () => {
+    const v = Number(draft);
+    if (draft.trim() === '' || !Number.isFinite(v)) { setDraft(String(value)); return; }
+    onCommit(Math.round(v));
+  };
+  return (
+    <input
+      aria-label={label}
+      title={label}
+      inputMode="numeric"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      style={{ width: 56, border: '1px solid #CBD5E1', borderRadius: 8, padding: '2px 6px', fontSize: 13, textAlign: 'right' }}
+    />
   );
 }
 

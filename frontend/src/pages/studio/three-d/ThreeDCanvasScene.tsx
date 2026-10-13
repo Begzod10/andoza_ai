@@ -3,7 +3,9 @@ import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { shiftedPose } from "@/lib/roomSwitch";
-import { CameraRefBridge, DoorDimensions, GapField, RoomMoveArrows, RoomMoveInput } from "./RoomSlide";
+import { CameraRefBridge, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput, SizeField } from "./RoomSlide";
+import { isResizable, minSizeMm, resizeBox, resizeGeometry, type Side } from "@/lib/resizeRoom";
+import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { partitionDoorSpans } from "@/lib/partitionDoors";
 import { slideAxisAgainst, slideTo, type RoomBox } from "@/lib/slideRoom";
 import { moveAlong } from "@/lib/moveRoom";
@@ -329,10 +331,13 @@ export function ThreeDCanvasScene({
     return typeof mm === "number" && mm > 0 ? mm / 1000 : 0.2;
   })();
 
-  /** Saves a move of `id` by (dx, dz), metres, in the open room's frame. */
-  const persistMove = async (id: string, dx: number, dz: number) => {
+  /** Saves a move of `id` by (dx, dz), metres, in the open room's frame —
+   *  and, for a resize, its new geometry with it (one save for both: the
+   *  centre moves so the opposite wall can stay put). */
+  const persistMove = async (id: string, dx: number, dz: number, newGeometry?: RoomGeometry) => {
     const abs = computeAbsolutePositions(aptRooms ?? [], room.id, W, D);
     if (id === room.id) {
+      if (newGeometry) useRoomStore.setState({ geometry: newGeometry, isDirty: true });
       // The flat is drawn around the open room, so moving it re-anchors
       // everything else; the camera moves with them, so the picture holds.
       const from = activeLayoutPos ?? abs.get(room.id) ?? { x: 0, z: 0 };
@@ -348,11 +353,19 @@ export function ThreeDCanvasScene({
     const from = abs.get(id);
     if (!r || !from) return;
     const layoutPos = { x: from.x + dx, z: from.z + dz };
-    // The whole state goes back: the server replaces it wholesale.
-    const state = { ...((r as { state?: Record<string, unknown> }).state ?? {}), layoutPos };
+    // The whole state goes back: the server replaces it wholesale. A state
+    // that carries its own copy of the geometry gets the new one too, or a
+    // reload could read the old size back from it.
+    const prevState = (r as { state?: Record<string, unknown> }).state ?? {};
+    const state = {
+      ...prevState,
+      layoutPos,
+      ...(newGeometry && prevState.geometry ? { geometry: newGeometry } : {}),
+    };
+    const apiGeometry = newGeometry ? storeGeometryToApiGeometry(newGeometry) : undefined;
     queryClient.setQueryData<Room[]>(["apt-rooms", room.apartment_id], (list) =>
-      list?.map((x) => (x.id === id ? ({ ...x, state } as Room) : x)));
-    try { await updateRoom(id, { state }); } catch { /* shown where it stands; re-fetched next time */ }
+      list?.map((x) => (x.id === id ? ({ ...x, state, ...(apiGeometry ? { geometry: apiGeometry } : {}) } as Room) : x)));
+    try { await updateRoom(id, { state, ...(apiGeometry ? { geometry: apiGeometry } : {}) }); } catch { /* shown where it stands; re-fetched next time */ }
   };
   /** Puts the selected room at `to` for good: saved. */
   const commitTo = (to: { cx: number; cz: number } | null) => {
@@ -362,6 +375,44 @@ export function ThreeDCanvasScene({
     if (Math.abs(dx) < 1e-6 && Math.abs(dz) < 1e-6) return;
     void persistMove(selBox.id, dx, dz);
   };
+  // ── Resizing the selected room by its walls (lib/resizeRoom) ───────────
+  /** The selected room's geometry, in store form. */
+  const selGeometry = !selBox ? null
+    : selBox.id === room.id ? geometry
+    : siblingsPlaced.find((sp) => sp.id === selBox.id)?.geometry ?? null;
+  const resizable = !!selGeometry && isResizable(selGeometry);
+  const selHeight = !selBox || selBox.id === room.id ? H
+    : (aptRooms?.find((x) => x.id === selBox.id)?.ceiling_h ?? H);
+  const [resizeLive, setResizeLive] = useState<{ side: Side; box: RoomBox } | null>(null);
+  const resizeLiveRef = useRef<{ side: Side; box: RoomBox } | null>(null);
+  useEffect(() => { setResizeLive(null); resizeLiveRef.current = null; }, [slidingId, moveMode]);
+  const edgeOf = (b: RoomBox, side: Side) =>
+    side === 'B' ? b.cx + b.w / 2 : side === 'D' ? b.cx - b.w / 2 : side === 'C' ? b.cz + b.d / 2 : b.cz - b.d / 2;
+  /** Puts the selected room at its new size for good: geometry and centre
+   *  saved together. */
+  const commitResize = (side: Side, box: RoomBox | null) => {
+    setResizeLive(null);
+    if (!selBox || !selGeometry || !box) return;
+    const across = side === 'B' || side === 'D';
+    const sizeMm = Math.round((across ? box.w : box.d) * 1000);
+    if (Math.abs(sizeMm - (across ? selBox.w : selBox.d) * 1000) < 1) return;
+    const { geometry: next, shiftM } = resizeGeometry(selGeometry, side, sizeMm);
+    void persistMove(selBox.id, shiftM.dx, shiftM.dz, next);
+  };
+  /** A typed size: the wall that moves is the one away from the neighbour,
+   *  so the wall the two rooms share stays where it is. */
+  const typedSize = (dim: 'W' | 'D', mm: number) => {
+    if (!selBox || !selGeometry) return;
+    const n = moveSlide?.neighbour;
+    const side: Side = dim === 'W'
+      ? (n && moveSlide?.axis === 'z' && n.cx > selBox.cx ? 'D' : 'B')
+      : (n && moveSlide?.axis === 'x' && n.cz > selBox.cz ? 'A' : 'C');
+    const sign = side === 'B' || side === 'C' ? 1 : -1;
+    const fixed = edgeOf(selBox, side) - sign * (dim === 'W' ? selBox.w : selBox.d);
+    const box = resizeBox(selBox, side, fixed + sign * mm / 1000, flatBoxes, { minM: minSizeMm(selGeometry, side) / 1000, snap: false });
+    commitResize(side, box);
+  };
+
   /** An exact placement — a snap button or a typed figure — not snapped. */
   const placeAt = (axis: 'x' | 'z', wanted: number) => {
     if (!liveBox) return;
@@ -722,6 +773,17 @@ export function ThreeDCanvasScene({
             rooms={flatBoxes.map((b) => (liveBox && b.id === liveBox.id ? liveBox : b))}
             selected={liveBox}
             axis={moveSlide?.axis ?? null}
+            resizable={resizable}
+            onResize={(side, delta) => {
+              if (!selBox || !selGeometry) return;
+              const box = resizeBox(selBox, side, edgeOf(selBox, side) + delta, flatBoxes, { minM: minSizeMm(selGeometry, side) / 1000 });
+              if (box) { resizeLiveRef.current = { side, box }; setResizeLive({ side, box }); }
+            }}
+            onResizeEnd={() => {
+              const live = resizeLiveRef.current;
+              resizeLiveRef.current = null;
+              if (live) commitResize(live.side, live.box);
+            }}
             onSelect={(id) => setSlidingId(id)}
             onDrag={(delta) => {
               if (!selBox || !liveBox || !moveSlide) return;
@@ -740,7 +802,23 @@ export function ThreeDCanvasScene({
             }}
           />
         )}
-        {moveMode && liveBox && moveSlide && (() => {
+        {moveMode && liveBox && resizable && (
+          resizeLive
+            ? <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} />
+            : (
+              <>
+                <ResizeHandles target={liveBox} />
+                <SizeField
+                  position={[liveBox.cx, selHeight + 0.7, liveBox.cz]}
+                  widthMm={Math.round(liveBox.w * 1000)}
+                  depthMm={Math.round(liveBox.d * 1000)}
+                  onWidth={(mm) => typedSize('W', mm)}
+                  onDepth={(mm) => typedSize('D', mm)}
+                />
+              </>
+            )
+        )}
+        {moveMode && liveBox && moveSlide && !resizeLive && (() => {
           const axis = moveSlide.axis;
           const across = axis === 'x' ? 'z' : 'x';
           const n = moveSlide.neighbour;

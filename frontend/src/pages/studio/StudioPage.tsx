@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { useNoPageZoom } from "@/hooks/useNoPageZoom";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
@@ -11,7 +12,6 @@ import type { Room } from "@/lib/api";
 import { uz } from "@/locale/uz";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
-import { wallElementsToApiPositions } from "@/lib/wallPositions";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 import { WebOnly } from "@/lib/embedded";
 import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
@@ -212,38 +212,9 @@ export default function StudioPage() {
         layoutPos: s.layoutPos,
       };
 
-      // Geometry in backend format: lengths in metres, positions 0-1 fraction
-      const geometryPayload = {
-        walls: s.geometry.walls.map(w => {
-          // Store mm (left edge, possibly an unresolved auto placeholder) →
-          // API centre fractions — the single conversion point on the way out,
-          // mirroring apiPositionToStoreMm on the way in. Resolving first means
-          // what we save is what the studio was drawing.
-          const positions = wallElementsToApiPositions(w.elements, w.length)
-          return {
-            id: w.id,
-            length: w.length / 1000,
-            elements: w.elements.map((e, i) => ({
-              type: e.type,
-              width: e.width / 1000,
-              height: e.height / 1000,
-              sill_height: (e.sill_height ?? 0) / 1000,
-              position: positions[i],
-              // Window type — the API geometry is authoritative on reload, so
-              // without this the picked style would be lost on every refresh
-              style_id: e.styleId ?? null,
-              sashes: e.sashes ?? null,
-            })),
-          }
-        }),
-        // Polygon (N-wall) rooms carry their outline in `vertices` (mm in the
-        // store). Without re-emitting it here the save drops the polygon and
-        // the backend rebuilds a rectangle / rejects the room (422). Same
-        // mm→m convention as the walls above. Omitted for plain 4-wall rooms.
-        ...(s.geometry.vertices
-          ? { vertices: s.geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number]) }
-          : {}),
-      };
+      // Geometry in backend format: lengths in metres, positions 0-1
+      // fractions, a polygon's outline kept (lib/apiRoomGeometry).
+      const geometryPayload = storeGeometryToApiGeometry(s.geometry);
 
       // Try to update existing DB room first
       if (roomId) {

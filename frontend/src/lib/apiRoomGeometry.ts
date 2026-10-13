@@ -24,8 +24,9 @@
  * into millimetres by `apiPositionToStoreMm` rather than by hand here.
  */
 import { nanoid } from 'nanoid'
-import { apiPositionToStoreMm } from '@/lib/wallPositions'
+import { apiPositionToStoreMm, wallElementsToApiPositions } from '@/lib/wallPositions'
 import type { RoomGeometry, RoomPayloadGeometry, WallElement } from '@/store/types'
+import type { RoomGeometryData } from '@/lib/api/rooms'
 
 /**
  * How an element's id is minted.
@@ -110,4 +111,37 @@ export function apiGeometryToStoreGeometry(
       Math.round(zM * 1000),
     ]) as [number, number][] | undefined,
   }
+}
+
+/**
+ * Store geometry → the API's: lengths in metres, openings as centre
+ * fractions (auto placeholders resolved first, so what is saved is what was
+ * drawn), the window style and sashes kept, and a polygon's outline in
+ * metres. The one conversion on the way out — the studio's save and saving a
+ * neighbouring room the user resized in place both go through it.
+ */
+export function storeGeometryToApiGeometry(geometry: RoomGeometry): RoomGeometryData {
+  return {
+    walls: geometry.walls.map((w) => {
+      const positions = wallElementsToApiPositions(w.elements, w.length)
+      return {
+        id: w.id,
+        length: w.length / 1000,
+        elements: w.elements.map((e, i) => ({
+          type: e.type,
+          width: e.width / 1000,
+          height: e.height / 1000,
+          sill_height: (e.sill_height ?? 0) / 1000,
+          position: positions[i],
+          style_id: e.styleId ?? null,
+          sashes: e.sashes ?? null,
+        })),
+      }
+    }),
+    // Polygon rooms carry their outline; without it the backend rebuilds a
+    // rectangle or rejects the room. Omitted for plain 4-wall rooms.
+    ...(geometry.vertices
+      ? { vertices: geometry.vertices.map(([x, z]) => [x / 1000, z / 1000] as [number, number]) }
+      : {}),
+  } as RoomGeometryData
 }
