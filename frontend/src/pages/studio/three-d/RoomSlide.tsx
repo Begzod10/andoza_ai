@@ -53,7 +53,10 @@ export function handlePoints(t: MoveTarget): { side: WallSide; x: number; z: num
  * clears the selection on empty floor. The scene's own pointer events are off
  * meanwhile, so no wall ring or door panel answers.
  */
-export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd }: {
+/** A wall handle: where it is, and the axis its wall moves along. */
+export interface WallHandle { key: string; x: number; z: number; axis: 'x' | 'z' }
+
+export function RoomMoveInput({ rooms, selected, axis, handles, onSelect, onDrag, onDragEnd, onResize, onResizeEnd }: {
   rooms: readonly MoveTarget[];
   /** The selected room as it stands now (live). */
   selected: MoveTarget | null;
@@ -63,18 +66,17 @@ export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDr
   onSelect: (id: string | null) => void;
   onDrag: (delta: number) => void;
   onDragEnd: () => void;
-  /** Whether the selected room's walls can be dragged to resize it. */
-  resizable: boolean;
-  /** A wall handle dragged by `delta` metres along its axis (outwards for B
-   *  and C, which face +x and +z). */
-  onResize: (side: WallSide, delta: number) => void;
+  /** The selected room's wall handles; empty when it cannot be resized. */
+  handles: WallHandle[];
+  /** A wall handle dragged by `delta` metres along its axis (world +x / +z). */
+  onResize: (key: string, delta: number) => void;
   onResizeEnd: () => void;
 }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
   const set = useThree((s) => s.set);
-  const latest = useRef({ rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd });
-  latest.current = { rooms, selected, axis, resizable, onSelect, onDrag, onDragEnd, onResize, onResizeEnd };
+  const latest = useRef({ rooms, selected, axis, handles, onSelect, onDrag, onDragEnd, onResize, onResizeEnd });
+  latest.current = { rooms, selected, axis, handles, onSelect, onDrag, onDragEnd, onResize, onResizeEnd };
 
   useEffect(() => {
     set((st) => ({ events: { ...st.events, enabled: false } }));
@@ -88,19 +90,19 @@ export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDr
       const p = new THREE.Vector3();
       return ray.ray.intersectPlane(floor, p) ? p : null;
     };
-    let drag: { pointer: number; axis: 'x' | 'z'; start: THREE.Vector3; side?: WallSide } | null = null;
+    let drag: { pointer: number; axis: 'x' | 'z'; start: THREE.Vector3; handle?: string } | null = null;
     let tap: { pointer: number; x: number; y: number } | null = null;
 
     const down = (e: PointerEvent) => {
       if (drag || e.target !== gl.domElement) return;
       const p = ground(e);
-      const { selected: sel, axis, resizable } = latest.current;
+      const { selected: sel, axis, handles } = latest.current;
       // A wall handle first: it sits where the arrow does not reach.
-      if (p && sel && resizable) {
-        const h = handlePoints(sel).find((hp) => Math.hypot(p.x - hp.x, p.z - hp.z) < GRAB_M);
+      if (p && sel && handles.length) {
+        const h = handles.find((hp) => Math.hypot(p.x - hp.x, p.z - hp.z) < GRAB_M);
         if (h) {
           e.stopPropagation();
-          drag = { pointer: e.pointerId, axis: h.side === 'B' || h.side === 'D' ? 'x' : 'z', start: p, side: h.side };
+          drag = { pointer: e.pointerId, axis: h.axis, start: p, handle: h.key };
           return;
         }
       }
@@ -122,7 +124,7 @@ export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDr
         const p = ground(e);
         const d = p ? (drag.axis === 'x' ? p.x - drag.start.x : p.z - drag.start.z) : null;
         if (d !== null) {
-          if (drag.side) latest.current.onResize(drag.side, d);
+          if (drag.handle) latest.current.onResize(drag.handle, d);
           else latest.current.onDrag(d);
         }
       } else if (tap && e.pointerId === tap.pointer && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) {
@@ -131,7 +133,7 @@ export function RoomMoveInput({ rooms, selected, axis, resizable, onSelect, onDr
     };
     const up = (e: PointerEvent) => {
       if (drag && e.pointerId === drag.pointer) {
-        const wasResize = !!drag.side;
+        const wasResize = !!drag.handle;
         drag = null;
         if (wasResize) latest.current.onResizeEnd(); else latest.current.onDragEnd();
         return;
@@ -279,11 +281,11 @@ export function GapField({ position, gapMm, onCommit }: {
 }
 
 /** The selected room's wall handles — drag one to move that wall. */
-export function ResizeHandles({ target }: { target: MoveTarget }) {
+export function ResizeHandles({ points }: { points: WallHandle[] }) {
   return (
     <>
-      {handlePoints(target).map((h) => (
-        <group key={h.side} position={[h.x, 0.07, h.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={999}>
+      {points.map((h) => (
+        <group key={h.key} position={[h.x, 0.07, h.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={999}>
           <mesh>
             <circleGeometry args={[0.17, 24]} />
             <meshBasicMaterial color="#2E5BFF" depthTest={false} transparent opacity={0.95} />
@@ -348,20 +350,37 @@ export function ResizeGhost({ box, side, height, note }: {
   );
 }
 
+/** A polygon room's new outline while one of its walls is dragged, with the
+ *  new lengths of the walls either side of it. */
+export function PolygonGhost({ outline, labels }: { outline: [number, number][]; labels: { x: number; z: number; text: string }[] }) {
+  return (
+    <>
+      <CutOutline outline={outline} color="#2E5BFF" />
+      {labels.map((l, i) => (
+        <Html key={i} position={[l.x, 0.12, l.z]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
+          <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FF2E9A', color: '#fff', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            {l.text}
+          </span>
+        </Html>
+      ))}
+    </>
+  );
+}
+
 /** A neighbour's new outline where the room being resized cuts into it —
  *  shown while dragging, before the confirm. */
-export function CutOutline({ outline, height = 0.08 }: { outline: [number, number][]; height?: number }) {
+export function CutOutline({ outline, height = 0.08, color = '#F59E0B' }: { outline: [number, number][]; height?: number; color?: string }) {
   // A THREE.Line mounted as a primitive: the JSX <line> is SVG's.
   const line = useMemo(() => {
     const pts = outline.map(([x, z]) => new THREE.Vector3(x, height, z));
     pts.push(pts[0].clone());
     const l = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: '#F59E0B', depthTest: false }),
+      new THREE.LineBasicMaterial({ color, depthTest: false }),
     );
     l.renderOrder = 999;
     return l;
-  }, [outline, height]);
+  }, [outline, height, color]);
   useEffect(() => () => { line.geometry.dispose(); (line.material as THREE.Material).dispose(); }, [line]);
   return <primitive object={line} />;
 }

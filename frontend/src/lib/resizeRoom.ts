@@ -42,6 +42,15 @@ const sideWalls = (side: Side) => (changes(side) === 'W' ? ['A', 'C'] : ['B', 'D
 /** Whether the moving wall is at the end the side walls are measured from. */
 const movesStart = (side: Side) => side === 'D' || side === 'A'
 
+/** Per side wall, how far positions along it moved because its start did
+ *  (moving the −x or −z wall), mm — for sockets, which resizeGeometry does
+ *  not hold. */
+export function sideWallShiftMm(side: Side, deltaMm: number): Record<string, number> {
+  if (!movesStart(side)) return {}
+  const [a, b] = sideWalls(side)
+  return { [a]: deltaMm, [b]: deltaMm }
+}
+
 /** The smallest the changing dimension may become, mm. */
 export function minSizeMm(g: RoomGeometry, side: Side): number {
   let min = MIN_ROOM_MM

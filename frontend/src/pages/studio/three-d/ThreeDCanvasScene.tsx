@@ -3,14 +3,16 @@ import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { shiftedPose } from "@/lib/roomSwitch";
-import { CameraRefBridge, CutOutline, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput } from "./RoomSlide";
+import { CameraRefBridge, CutOutline, DoorDimensions, GapField, PolygonGhost, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput, handlePoints, type WallHandle } from "./RoomSlide";
+import { isRectilinear, moveEdge, outwardNormal, polygonCentre, type EdgeMove } from "@/lib/resizePolygon";
+import { keepContentInPlace, type RoomThings } from "@/lib/keepContent";
 import { clipRoom, outlineOf, type RoomContent } from "@/lib/clipRoom";
 import { flatBoxOf } from "@/lib/flatBoxes";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { isResizable, minSizeMm, resizeBox, resizeGeometry, type Side } from "@/lib/resizeRoom";
+import { isResizable, minSizeMm, resizeBox, resizeGeometry, sideWallShiftMm, type Side } from "@/lib/resizeRoom";
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { partitionDoorSpans } from "@/lib/partitionDoors";
-import { slideAxisAgainst, slideTo, type RoomBox } from "@/lib/slideRoom";
+import { partsOf, slideAxisAgainst, slideTo, type RoomBox } from "@/lib/slideRoom";
 import { moveAlong, nearestNeighbour } from "@/lib/moveRoom";
 import { useRoomMoveStore } from "@/store/roomMoveStore";
 import { FocusFade } from "@/features/studio/diorama";
@@ -397,10 +399,27 @@ export function ThreeDCanvasScene({
   const selGeometry = !selBox ? null
     : selBox.id === room.id ? geometry
     : siblingsPlaced.find((sp) => sp.id === selBox.id)?.geometry ?? null;
+  /** A rectangle resizes by its four sides; a right-angled polygon (an L,
+   *  a notched room) by any of its walls (lib/resizePolygon). */
   const resizable = !!selGeometry && isResizable(selGeometry);
+  const polyResizable = !!selGeometry && !resizable && isRectilinear(selGeometry);
+  /** Where the selected room's origin stands in the flat. */
+  const selOrigin = !selBox ? { x: 0, z: 0 }
+    : selBox.id === room.id ? { x: 0, z: 0 }
+    : (() => { const sp = siblingsPlaced.find((x) => x.id === selBox.id); return sp ? { x: sp.offsetXM, z: sp.offsetZM } : { x: 0, z: 0 }; })();
+  /** A polygon room's outline in the flat. */
+  const polyWorld = (g: RoomGeometry, origin: { x: number; z: number }): [number, number][] => {
+    const m = polygonCentre(g);
+    return (g.vertices ?? []).map(([x, z]) => [origin.x + (x - m.x) / 1000, origin.z + (z - m.z) / 1000]);
+  };
+  /** Things in the selected room, which a resize keeps where they are. */
+  const thingsOf = (id: string): RoomThings => {
+    const c = contentOf(id);
+    return c ? { furniture: c.furniture, lights: c.lights, electricals: c.electricals } : {};
+  };
   const selHeight = !selBox || selBox.id === room.id ? H
     : (aptRooms?.find((x) => x.id === selBox.id)?.ceiling_h ?? H);
-  type ResizeLive = { side: Side; box: RoomBox; cuts: RoomCut[]; blocked?: string };
+  type ResizeLive = { side: Side; box: RoomBox; cuts: RoomCut[]; blocked?: string; poly?: { edge: number; move: EdgeMove } };
   const [resizeLive, setResizeLive] = useState<ResizeLive | null>(null);
   const resizeLiveRef = useRef<ResizeLive | null>(null);
   const confirm = useConfirm();
@@ -481,7 +500,11 @@ export function ThreeDCanvasScene({
     const sizeMm = Math.round((across ? box.w : box.d) * 1000);
     if (Math.abs(sizeMm - (across ? selBox.w : selBox.d) * 1000) < 1) return;
     const { geometry: next, shiftM } = resizeGeometry(selGeometry, side, sizeMm);
-    void persistMove(selBox.id, shiftM.dx, shiftM.dz, next);
+    const before = { W: selBox.w, D: selBox.d };
+    const after = { W: across ? sizeMm / 1000 : selBox.w, D: across ? selBox.d : sizeMm / 1000 };
+    const delta = sizeMm - (across ? selBox.w : selBox.d) * 1000;
+    void persistMove(selBox.id, shiftM.dx, shiftM.dz, next,
+      keepContentInPlace(thingsOf(selBox.id), shiftM, before, after, sideWallShiftMm(side, delta)));
     // Each room it grew into, cut — its new shape, its things moved inside.
     for (const c of cuts) {
       const { furniture, lights, electricals, designState } = c.content;
@@ -491,6 +514,57 @@ export function ThreeDCanvasScene({
       });
     }
   };
+
+  /** A polygon room's wall `edge` moved out by `deltaM`, or as far towards
+   *  it as allowed: the outline valid (lib/resizePolygon), not into another
+   *  room, within 500 mm of the nearest one. */
+  const polyMove = (edge: number, deltaM: number): ResizeLive | null => {
+    if (!selBox || !selGeometry) return null;
+    const valid = (dMm: number) => {
+      const m = moveEdge(selGeometry, edge, dMm);
+      if (!m) return null;
+      const box = flatBoxOf(selBox.id, m.geometry, selOrigin.x + m.shiftM.dx, selOrigin.z + m.shiftM.dz);
+      const others = flatBoxes.filter((b) => b.id !== selBox.id);
+      const clash = partsOf(box).some((a) => others.flatMap(partsOf).some((o) =>
+        Math.min(a.cx + a.w / 2, o.cx + o.w / 2) - Math.max(a.cx - a.w / 2, o.cx - o.w / 2) > 0.01 &&
+        Math.min(a.cz + a.d / 2, o.cz + o.d / 2) - Math.max(a.cz - a.d / 2, o.cz - o.d / 2) > 0.01));
+      if (clash) return null;
+      if (others.length && (nearestNeighbour(box, others)?.gapM ?? 0) > 0.5 + 1e-6) return null;
+      return { box, move: m };
+    };
+    // Whole centimetres while dragging.
+    const want = Math.round(deltaM * 100) * 10;
+    let hit = valid(want);
+    let at = want;
+    if (!hit) {
+      let good = 0, bad = want;
+      for (let i = 0; i < 30; i++) {
+        const mid = (good + bad) / 2;
+        if (valid(mid)) good = mid; else bad = mid;
+      }
+      at = Math.round(good);
+      hit = valid(at);
+    }
+    if (!hit || Math.abs(at) < 1) return null;
+    return { side: 'A', box: hit.box, cuts: [], poly: { edge, move: hit.move } };
+  };
+  const commitPolyResize = (live: ResizeLive) => {
+    setResizeLive(null);
+    if (!selBox || !live.poly) return;
+    const { move } = live.poly;
+    void persistMove(selBox.id, move.shiftM.dx, move.shiftM.dz, move.geometry,
+      keepContentInPlace(thingsOf(selBox.id), move.shiftM, { W: selBox.w, D: selBox.d }, { W: live.box.w, D: live.box.d }, move.positionShiftMm));
+  };
+  /** The selected room's wall handles: four sides, or every wall of a
+   *  right-angled polygon, each a little inside its wall's middle. */
+  const wallHandles: WallHandle[] = !liveBox ? []
+    : resizable ? handlePoints(liveBox).map((h) => ({ key: h.side, x: h.x, z: h.z, axis: h.side === 'B' || h.side === 'D' ? 'x' : 'z' }))
+    : polyResizable && selGeometry ? polyWorld(selGeometry, selOrigin).map(([x1, z1], i, pts) => {
+        const [x2, z2] = pts[(i + 1) % pts.length];
+        const n = outwardNormal(selGeometry, i);
+        return { key: `e${i}`, x: (x1 + x2) / 2 - n.x * 0.3, z: (z1 + z2) / 2 - n.z * 0.3, axis: n.x !== 0 ? 'x' as const : 'z' as const };
+      })
+    : [];
 
   /** An exact placement — a snap button or a typed figure — not snapped. */
   const placeAt = (axis: 'x' | 'z', wanted: number) => {
@@ -852,16 +926,27 @@ export function ThreeDCanvasScene({
             rooms={flatBoxes.map((b) => (liveBox && b.id === liveBox.id ? liveBox : b))}
             selected={liveBox}
             axis={moveSlide?.axis ?? null}
-            resizable={resizable}
-            onResize={(side, delta) => {
-              if (!selBox) return;
-              const live = resizeWithCuts(side, edgeOf(selBox, side) + delta);
+            handles={wallHandles}
+            onResize={(key, delta) => {
+              if (!selBox || !selGeometry) return;
+              let live: ResizeLive | null;
+              if (key.startsWith('e')) {
+                // Along the wall's own outward normal.
+                const edge = Number(key.slice(1));
+                const n = outwardNormal(selGeometry, edge);
+                live = polyMove(edge, delta * (n.x !== 0 ? n.x : n.z));
+              } else {
+                const side = key as Side;
+                live = resizeWithCuts(side, edgeOf(selBox, side) + delta);
+              }
               if (live) { resizeLiveRef.current = live; setResizeLive(live); }
             }}
             onResizeEnd={() => {
               const live = resizeLiveRef.current;
               resizeLiveRef.current = null;
-              if (live) void commitResize(live.side, live.box, live.cuts);
+              if (!live) return;
+              if (live.poly) commitPolyResize(live);
+              else void commitResize(live.side, live.box, live.cuts);
             }}
             onSelect={(id) => setSlidingId(id)}
             onDrag={(delta) => {
@@ -881,15 +966,26 @@ export function ThreeDCanvasScene({
             }}
           />
         )}
-        {moveMode && liveBox && resizable && (
-          resizeLive
+        {moveMode && liveBox && (resizable || polyResizable) && (
+          resizeLive?.poly && selGeometry
+            ? (() => {
+              const { edge, move } = resizeLive.poly;
+              const pts = polyWorld(move.geometry, { x: selOrigin.x + move.shiftM.dx, z: selOrigin.z + move.shiftM.dz });
+              const n = pts.length;
+              const labels = [(edge - 1 + n) % n, (edge + 1) % n].map((k) => {
+                const [x1, z1] = pts[k], [x2, z2] = pts[(k + 1) % n];
+                return { x: (x1 + x2) / 2, z: (z1 + z2) / 2, text: `${(move.geometry.walls[k].length / 1000).toFixed(2)} m` };
+              });
+              return <PolygonGhost outline={pts} labels={labels} />;
+            })()
+            : resizeLive
             ? (
               <>
                 <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} note={resizeLive.blocked} />
                 {resizeLive.cuts.map((c) => <CutOutline key={c.id} outline={outlineOf(c.content)} />)}
               </>
             )
-            : <ResizeHandles target={liveBox} />
+            : <ResizeHandles points={wallHandles} />
         )}
         {moveMode && liveBox && moveSlide && !resizeLive && (() => {
           const axis = moveSlide.axis;
