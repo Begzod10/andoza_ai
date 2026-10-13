@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MoveRoomsButton } from "./three-d/RoomSlide";
+import { useRoomMoveStore } from "@/store/roomMoveStore";
 import { beginRoomSwitch } from "@/lib/roomSwitch";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { createPortal } from "react-dom";
@@ -348,6 +350,10 @@ export default function ThreeDPage() {
   // the press point for quick edits without leaving the current phase.
   const { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
   const viewLocked = useViewLockStore((st) => st.locked);
+  const moveRoomsOn = useRoomMoveStore((st) => st.active);
+  const toggleMoveRooms = useRoomMoveStore((st) => st.toggle);
+  // A tool, not a preference: put down when the studio is left.
+  useEffect(() => () => useRoomMoveStore.getState().set(false), []);
   const toggleViewLock = useViewLockStore((st) => st.toggle);
   /** Locking also puts away whatever was already up — a ring, a selection's
    *  panel, an armed door — or the lock would leave it stranded on screen. */
@@ -953,6 +959,12 @@ export default function ThreeDPage() {
                 {viewLocked ? <path d="M8 11V8a4 4 0 0 1 8 0v3" /> : <path d="M8 11V8a4 4 0 0 1 7.5-1.9" />}
               </svg>
             </button>
+
+            {/* Move rooms: X / Z arrows on a tapped room (RoomSlide.tsx).
+                Only in a flat of several rooms, and not while locked. */}
+            {!viewLocked && (aptRooms?.length ?? 0) > 1 && (
+              <MoveRoomsButton active={moveRoomsOn} onClick={toggleMoveRooms} />
+            )}
 
             {/* Render, once a camera is chosen — and only then, because it is
                 the picture from THAT camera it would make. The 360 camera goes

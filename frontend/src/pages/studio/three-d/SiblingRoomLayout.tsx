@@ -1,5 +1,4 @@
 import { useMemo, type RefObject } from "react";
-import { MoveRoomButton } from "./RoomSlide";
 import { FocusFade } from "@/features/studio/diorama";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
@@ -101,17 +100,12 @@ export function FocusButton({ focused, onClick }: { focused: boolean; onClick: (
 
 /** The same button for the room the user is actually editing, floated above
  *  it. The active room has no sibling label bar to live in. */
-export function ActiveRoomFocusButton({ H, focused, onClick, moving = false, onMove }: {
+export function ActiveRoomFocusButton({ H, focused, onClick }: {
   H: number; focused: boolean; onClick: () => void;
-  /** Slides the room along its neighbour's wall; absent when it has none. */
-  moving?: boolean; onMove?: () => void;
 }) {
   return (
     <Html position={[0, H + 0.3, 0]} center zIndexRange={[90, 0]} style={{ pointerEvents: 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <FocusButton focused={focused} onClick={onClick} />
-        {onMove && <MoveRoomButton active={moving} onClick={onMove} />}
-      </div>
+      <FocusButton focused={focused} onClick={onClick} />
     </Html>
   );
 }
@@ -130,10 +124,7 @@ export function SiblingRooms({
   siblingPlans,
   onDelete,
   onOpen,
-  movingId = null,
   positionOverride = null,
-  canMove,
-  onMove,
   focusedRoomId,
   onToggleFocus,
 }: {
@@ -151,13 +142,8 @@ export function SiblingRooms({
   onDelete: (roomId: string, name: string) => void;
   /** Opens a neighbouring room in place, from a tap on it (lib/roomSwitch). */
   onOpen: (roomId: string, e: ThreeEvent<MouseEvent>) => void;
-  /** The room being slid along its neighbour's wall, if any. */
-  movingId?: string | null;
-  /** Where that room stands while it is being slid (open room's frame). */
+  /** Where a room being moved stands mid-drag (open room's frame). */
   positionOverride?: { id: string; x: number; z: number } | null;
-  /** Whether a room stands against a neighbour, and so can be slid. */
-  canMove?: (roomId: string) => boolean;
-  onMove?: (roomId: string) => void;
   /** The room being looked at alone, or null for the whole flat. */
   focusedRoomId: string | null;
   onToggleFocus: (roomId: string) => void;
@@ -220,9 +206,6 @@ export function SiblingRooms({
                   focused={focusedRoomId === sib.id}
                   onClick={() => onToggleFocus(sib.id)}
                 />
-                {onMove && canMove?.(sib.id) && (
-                  <MoveRoomButton active={movingId === sib.id} onClick={() => onMove(sib.id)} />
-                )}
                 {/* An edit, so it goes while the view is locked; focus is
                     looking, so it stays. */}
                 {!locked && (
