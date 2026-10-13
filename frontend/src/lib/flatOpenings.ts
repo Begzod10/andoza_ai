@@ -79,11 +79,18 @@ import type { RoomGeometry, WallElement } from '@/store/roomStore'
 export function drawsOpeningLining(
   el: WallElement,
   wallId: string,
-  partitionWalls?: ReadonlySet<string>,
+  // Kept for the call sites; no longer decides anything. A room's own opening
+  // on its wall against the open room used to be skipped here, so its 200 mm
+  // reveal and the old brown frame ring would not stand inside the open room.
+  // The ring is gone, and skipping it left a door that the neighbour cannot
+  // share — one hanging half past the neighbour's wall after a room was moved
+  // — as a bare hole with nothing in it, drawn by nobody ("two holes, no
+  // doors"). Every opening a room owns is drawn by that room; only a hole it
+  // merely cuts for another room's door (`bare`) is not.
+  _partitionWalls?: ReadonlySet<string>,
 ): boolean {
-  if (el.bare) return false
-  if (partitionWalls?.has(wallId) && !el.sharedPartition) return false
-  return true
+  void wallId
+  return !el.bare
 }
 
 /**

@@ -233,3 +233,18 @@ describe('a shared doorway while one room is focused', () => {
     }
   })
 })
+
+describe('a door in a partition that the neighbour cannot share', () => {
+  // The user's flat d6b6bb15 after rooms were moved: the 4 x 3 room's two
+  // doors on wall D each hang half past the small 1.5 x 1.6 room next to it,
+  // so neither is a shared doorway — and with the small room open, the big
+  // room's wall facing it counted as a partition, which dropped their lining
+  // and leaves: "two holes, no doors".
+  const big: PlacedRoom = { id: 'big', geometry: rect(4000, 3000, { D: [door('d1', 166), door('d2', 1890)] }), offsetXM: 0, offsetZM: 0 }
+  const small: PlacedRoom = { id: 'small', geometry: rect(1500, 1600), offsetXM: -2.95, offsetZM: 0 }
+  it('is still drawn, once, with the small room open', () => {
+    const inv = openingInventory(planOf([big, small], 'small'))
+    expect(inv.get('big:d1')).toMatchObject({ linings: 1, leaves: 1 })
+    expect(inv.get('big:d2')).toMatchObject({ linings: 1, leaves: 1 })
+  })
+})
