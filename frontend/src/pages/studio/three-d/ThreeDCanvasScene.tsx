@@ -1,4 +1,6 @@
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { roomExtents } from "@/lib/roomDims";
+import { focusFraming } from "@/lib/focusFraming";
 import { RoomSwitchCamera } from "./RoomSwitchCamera";
 import { OpeningLeaves } from "@/components/studio/DoorLeaves";
 import { ViewLockGate } from "./ViewLockGate";
@@ -227,6 +229,28 @@ export function ThreeDCanvasScene({
     [geometry, room.id, siblingsPlaced, focusedRoomId],
   );
   const shellGeometry = flatPlan.active.shell;
+  /**
+   * The camera's framing, moved onto what is being looked at: the focused
+   * room, or the whole flat when nothing is focused — so the orbit pivots on
+   * that, not on whichever room happens to be open (lib/focusFraming).
+   * Keyed on the numbers, not the arrays: the flat's room list is refetched
+   * now and then, and a fresh array with the same values would otherwise send
+   * the camera flying back to the framing under the user's hands.
+   */
+  const framedCamRaw = useMemo(() => focusFraming(
+    cam,
+    [
+      { id: room.id, cx: 0, cz: 0, w: W, d: D },
+      ...siblingsPlaced.map((s) => {
+        const e = roomExtents(s.geometry);
+        return { id: s.id, cx: s.offsetXM, cz: s.offsetZM, w: e.W, d: e.D };
+      }),
+    ],
+    focusedRoomId,
+  ), [cam, room.id, W, D, siblingsPlaced, focusedRoomId]);
+  const framedCamKey = JSON.stringify(framedCamRaw);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const framedCam = useMemo(() => framedCamRaw, [framedCamKey]);
   /** The room's own openings, carrying their partition marks so a shared
    *  door's leaf hangs at the end of its measured lining — the editable layer. */
   const ownOpeningGeometry = flatPlan.active.leaves[0].geometry;
@@ -636,8 +660,8 @@ export function ThreeDCanvasScene({
         <MultiTouchPan panSpeed={0.9} />
 
         <CameraAnimator
-          position={cam.position}
-          target={cam.target}
+          position={framedCam.position}
+          target={framedCam.target}
           controlsRef={controlsRef}
           version={presetVersion}
         />
