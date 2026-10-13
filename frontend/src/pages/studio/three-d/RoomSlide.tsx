@@ -337,55 +337,6 @@ export function ResizeGhost({ box, side, height }: { box: MoveTarget; side: Wall
   );
 }
 
-/** The selected room's size, typed — width and depth in mm. */
-export function SizeField({ position, widthMm, depthMm, onWidth, onDepth }: {
-  position: [number, number, number];
-  widthMm: number;
-  depthMm: number;
-  onWidth: (mm: number) => void;
-  onDepth: (mm: number) => void;
-}) {
-  return (
-    <Html position={position} center zIndexRange={[95, 0]}>
-      <div
-        onPointerDown={(e) => e.stopPropagation()}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 999,
-          background: 'rgba(255,255,255,0.96)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          fontSize: 12, fontWeight: 600, color: '#1E3A8A', whiteSpace: 'nowrap', pointerEvents: 'auto',
-        }}
-      >
-        <MmInput value={widthMm} onCommit={onWidth} label="Eni" />
-        ×
-        <MmInput value={depthMm} onCommit={onDepth} label="Bo'yi" />
-        mm
-      </div>
-    </Html>
-  );
-}
-
-function MmInput({ value, onCommit, label }: { value: number; onCommit: (mm: number) => void; label: string }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => { setDraft(String(value)); }, [value]);
-  const commit = () => {
-    const v = Number(draft);
-    if (draft.trim() === '' || !Number.isFinite(v)) { setDraft(String(value)); return; }
-    onCommit(Math.round(v));
-  };
-  return (
-    <input
-      aria-label={label}
-      title={label}
-      inputMode="numeric"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-      style={{ width: 56, border: '1px solid #CBD5E1', borderRadius: 8, padding: '2px 6px', fontSize: 13, textAlign: 'right' }}
-    />
-  );
-}
-
 /** The button beside the lock. */
 export function MoveRoomsButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (

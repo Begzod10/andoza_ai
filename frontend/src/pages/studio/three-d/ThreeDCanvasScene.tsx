@@ -3,7 +3,7 @@ import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { shiftedPose } from "@/lib/roomSwitch";
-import { CameraRefBridge, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput, SizeField } from "./RoomSlide";
+import { CameraRefBridge, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput } from "./RoomSlide";
 import { isResizable, minSizeMm, resizeBox, resizeGeometry, type Side } from "@/lib/resizeRoom";
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { partitionDoorSpans } from "@/lib/partitionDoors";
@@ -399,19 +399,6 @@ export function ThreeDCanvasScene({
     const { geometry: next, shiftM } = resizeGeometry(selGeometry, side, sizeMm);
     void persistMove(selBox.id, shiftM.dx, shiftM.dz, next);
   };
-  /** A typed size: the wall that moves is the one away from the neighbour,
-   *  so the wall the two rooms share stays where it is. */
-  const typedSize = (dim: 'W' | 'D', mm: number) => {
-    if (!selBox || !selGeometry) return;
-    const n = moveSlide?.neighbour;
-    const side: Side = dim === 'W'
-      ? (n && moveSlide?.axis === 'z' && n.cx > selBox.cx ? 'D' : 'B')
-      : (n && moveSlide?.axis === 'x' && n.cz > selBox.cz ? 'A' : 'C');
-    const sign = side === 'B' || side === 'C' ? 1 : -1;
-    const fixed = edgeOf(selBox, side) - sign * (dim === 'W' ? selBox.w : selBox.d);
-    const box = resizeBox(selBox, side, fixed + sign * mm / 1000, flatBoxes, { minM: minSizeMm(selGeometry, side) / 1000, snap: false });
-    commitResize(side, box);
-  };
 
   /** An exact placement — a snap button or a typed figure — not snapped. */
   const placeAt = (axis: 'x' | 'z', wanted: number) => {
@@ -805,18 +792,7 @@ export function ThreeDCanvasScene({
         {moveMode && liveBox && resizable && (
           resizeLive
             ? <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} />
-            : (
-              <>
-                <ResizeHandles target={liveBox} />
-                <SizeField
-                  position={[liveBox.cx, selHeight + 0.7, liveBox.cz]}
-                  widthMm={Math.round(liveBox.w * 1000)}
-                  depthMm={Math.round(liveBox.d * 1000)}
-                  onWidth={(mm) => typedSize('W', mm)}
-                  onDepth={(mm) => typedSize('D', mm)}
-                />
-              </>
-            )
+            : <ResizeHandles target={liveBox} />
         )}
         {moveMode && liveBox && moveSlide && !resizeLive && (() => {
           const axis = moveSlide.axis;
