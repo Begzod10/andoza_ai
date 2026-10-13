@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useNoPageZoom } from "@/hooks/useNoPageZoom";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +27,9 @@ const getIsDirty = () => useRoomStore.getState().isDirty;
 export default function StudioPage() {
   // Opened by direct link, outside AppShell — apply the theme here too.
   useAppThemeAttribute();
+  // A pinch here is for the 3D view; the page itself must not zoom, or the
+  // bottom buttons and the ⋮ menu end up off screen.
+  useNoPageZoom();
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
