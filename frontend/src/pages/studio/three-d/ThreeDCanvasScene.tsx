@@ -106,6 +106,15 @@ function OrbitZoomLimit({ controlsRef, W, D, H }: {
   return null
 }
 
+/** Why a wall stopped growing into a neighbour, said at the wall. */
+const BLOCKED_SAYS: Record<string, string> = {
+  opening: "Eshik yoki deraza bor — kesib bo'lmaydi",
+  split: "Xona ikkiga bo'linib ketadi",
+  hole: "Xona ichida teshik qoladi",
+  gone: "Qo'shni xona butunlay yo'qoladi",
+  shape: "Bu xonaning shakli kesilmaydi",
+};
+
 /** What a cut carries besides its geometry — store field names, the same
  *  in a saved state blob. */
 type CutExtras = Pick<RoomContent, 'furniture' | 'lights' | 'electricals' | 'designState'>;
@@ -391,7 +400,7 @@ export function ThreeDCanvasScene({
   const resizable = !!selGeometry && isResizable(selGeometry);
   const selHeight = !selBox || selBox.id === room.id ? H
     : (aptRooms?.find((x) => x.id === selBox.id)?.ceiling_h ?? H);
-  type ResizeLive = { side: Side; box: RoomBox; cuts: RoomCut[] };
+  type ResizeLive = { side: Side; box: RoomBox; cuts: RoomCut[]; blocked?: string };
   const [resizeLive, setResizeLive] = useState<ResizeLive | null>(null);
   const resizeLiveRef = useRef<ResizeLive | null>(null);
   const confirm = useConfirm();
@@ -416,7 +425,7 @@ export function ThreeDCanvasScene({
    * had from it (its gap, or the default partition when it was further than
    * the 500 mm limit); null when one of them cannot be cut there.
    */
-  const cutsAt = (box: RoomBox): RoomCut[] | null => {
+  const cutsAt = (box: RoomBox): RoomCut[] | { refused: string } => {
     if (!selBox) return [];
     const out: RoomCut[] = [];
     for (const o of flatBoxes) {
@@ -427,7 +436,7 @@ export function ThreeDCanvasScene({
       const content = contentOf(o.id);
       if (!content) continue;
       const r = clipRoom(content, cutter);
-      if (r.kind === 'refused') return null;
+      if (r.kind === 'refused') return { refused: r.reason };
       if (r.kind === 'cut') out.push({ id: o.id, from: content.centre, content: r.content });
     }
     return out;
@@ -440,17 +449,18 @@ export function ThreeDCanvasScene({
     const at = (e: number, snap = true) => resizeBox(selBox, side, e, flatBoxes, { minM, snap, mayCut: cuttable });
     const box = at(wanted);
     if (!box) return null;
-    const cuts = cutsAt(box);
-    if (cuts) return { side, box, cuts };
+    const first = cutsAt(box);
+    if (Array.isArray(first)) return { side, box, cuts: first };
     // Back off to the furthest edge any cut there allows.
     let good = edgeOf(selBox, side), bad = edgeOf(box, side);
     for (let i = 0; i < 30; i++) {
       const mid = (good + bad) / 2;
       const b = at(mid, false);
-      if (b && cutsAt(b)) good = mid; else bad = mid;
+      if (b && Array.isArray(cutsAt(b))) good = mid; else bad = mid;
     }
     const b = at(good, false);
-    return b ? { side, box: b, cuts: cutsAt(b) ?? [] } : null;
+    const there = b ? cutsAt(b) : null;
+    return b ? { side, box: b, cuts: Array.isArray(there) ? there : [], blocked: BLOCKED_SAYS[first.refused] ?? first.refused } : null;
   };
   useEffect(() => { setResizeLive(null); resizeLiveRef.current = null; }, [slidingId, moveMode]);
   const edgeOf = (b: RoomBox, side: Side) =>
@@ -875,7 +885,7 @@ export function ThreeDCanvasScene({
           resizeLive
             ? (
               <>
-                <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} />
+                <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} note={resizeLive.blocked} />
                 {resizeLive.cuts.map((c) => <CutOutline key={c.id} outline={outlineOf(c.content)} />)}
               </>
             )

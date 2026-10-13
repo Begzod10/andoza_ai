@@ -51,8 +51,23 @@ describe('clipRoom', () => {
     expect(clipRoom(room(), { x0: -0.5, x1: 0.5, z0: -0.5, z1: 0.5 })).toMatchObject({ kind: 'refused', reason: 'hole' })
   })
 
-  it('refuses an arm thinner than a metre', () => {
-    expect(clipRoom(room(), { x0: 1, x1: 3, z0: -2, z1: 0.8 })).toMatchObject({ kind: 'refused', reason: 'thin' })
+  it('takes a strip that would be left thinner than a metre along with the cut', () => {
+    // The corner cut would leave x 1 … 2, z 0.8 … 1.5 — 0.7 m. That strip
+    // goes too, so the room is simply shorter: x −2 … 1, still a rectangle.
+    // (Refusing instead blocked nearly every cut in the user's tight flat.)
+    const r = clipRoom(room(), { x0: 1, x1: 3, z0: -2, z1: 0.8 })
+    expect(r.kind).toBe('cut')
+    if (r.kind !== 'cut') return
+    expect(r.content.geometry.walls.map((w) => w.id)).toEqual(['A', 'B', 'C', 'D'])
+    expect(r.content.geometry.walls[0].length).toBe(3000)
+  })
+
+  it("takes a sliver beside the cut too, the user's real case", () => {
+    // 2 m deep room; the cut leaves 1 cm along one edge.
+    const r = clipRoom(room(), { x0: 1, x1: 3, z0: -1.49, z1: 2 })
+    expect(r.kind).toBe('cut')
+    if (r.kind !== 'cut') return
+    expect(r.content.geometry.walls[0].length).toBe(3000)
   })
 
   it('refuses to cut through a door, trim included', () => {

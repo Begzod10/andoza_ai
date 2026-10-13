@@ -304,7 +304,11 @@ export function ResizeHandles({ target }: { target: MoveTarget }) {
  * along the changing direction, and its width × depth. The real walls take
  * the size when the finger lifts.
  */
-export function ResizeGhost({ box, side, height }: { box: MoveTarget; side: WallSide; height: number }) {
+export function ResizeGhost({ box, side, height, note }: {
+  box: MoveTarget; side: WallSide; height: number;
+  /** Why the wall stopped short, said where it stopped. */
+  note?: string;
+}) {
   const alongX = side === 'B' || side === 'D';
   const edge = side === 'B' ? box.cx + box.w / 2 : side === 'D' ? box.cx - box.w / 2 : side === 'C' ? box.cz + box.d / 2 : box.cz - box.d / 2;
   const wallPos: [number, number, number] = alongX ? [edge, height / 2, box.cz] : [box.cx, height / 2, edge];
@@ -323,6 +327,13 @@ export function ResizeGhost({ box, side, height }: { box: MoveTarget; side: Wall
         <meshBasicMaterial color="#2E5BFF" transparent opacity={0.3} side={THREE.DoubleSide} depthTest={false} />
       </mesh>
       <DimLine from={from} to={to} />
+      {note && (
+        <Html position={[wallPos[0], height + 0.15, wallPos[2]]} center zIndexRange={[61, 0]} style={{ pointerEvents: 'none' }}>
+          <span style={{ padding: '3px 9px', borderRadius: 999, background: '#F59E0B', color: '#111827', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            {note}
+          </span>
+        </Html>
+      )}
       <Html position={[(from[0] + to[0]) / 2, 0.1, (from[2] + to[2]) / 2]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FF2E9A', color: '#fff', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
           {size.toFixed(2)} m

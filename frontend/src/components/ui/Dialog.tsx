@@ -33,10 +33,13 @@ export function Dialog({ open, onOpenChange, title, description, children, class
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
+        {/* Above the 3D view's floating labels and buttons (drei <Html>, which
+            reach z-index 210): at z-40/50 the room buttons and the gap field
+            were drawn on top of the confirm for cutting a neighbour. */}
+        <RadixDialog.Overlay className="fixed inset-0 z-[400] bg-black/40" />
         <RadixDialog.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-[410] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2',
             themed ? 'rounded-3xl border border-line bg-card text-ink shadow-panel' : 'rounded-2xl bg-white border border-neutral-200 shadow-lg',
             'max-h-[85vh] overflow-y-auto',
             'focus:outline-none',

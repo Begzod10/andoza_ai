@@ -12,9 +12,10 @@
  *  - An L (a corner taken, 6 corners) or a notch (8): the room becomes a
  *    polygon room — walls W1..Wn, its outline in `vertices`, drawn centred on
  *    the vertex mean like every polygon room.
- *  - Refused: splitting it in two, a hole in it, an arm under a metre, or a
- *    cut through a door or window (trim included). The caller stops the
- *    growing wall short of that.
+ *  - A strip under a metre that the cut would leave beside it goes with the
+ *    cut, so the room never keeps a sliver.
+ *  - Refused: splitting it in two, a hole in it, or a cut through a door or
+ *    window (trim included). The caller stops the growing wall short of that.
  *  - Doors, windows and sockets stay where they are on what is left of their
  *    walls; each new wall takes the finish (and panels) of the wall it is
  *    part of; furniture and lights keep their place in the flat, and those in
@@ -70,14 +71,24 @@ function rectLines(r: Rect): Line[] {
   ]
 }
 
-export function clipRoom(room: RoomContent, cutter: Rect): ClipResult {
+export function clipRoom(room: RoomContent, asked: Rect): ClipResult {
   const g = room.geometry
   if (!isAbcd(g)) return { kind: 'refused', reason: 'shape' }
   const W = lengthOf(g, 'A') / 1000, D = lengthOf(g, 'B') / 1000
   const R: Rect = { x0: room.centre.x - W / 2, x1: room.centre.x + W / 2, z0: room.centre.z - D / 2, z1: room.centre.z + D / 2 }
-  const ox = Math.min(R.x1, cutter.x1) - Math.max(R.x0, cutter.x0)
-  const oz = Math.min(R.z1, cutter.z1) - Math.max(R.z0, cutter.z0)
+  const ox = Math.min(R.x1, asked.x1) - Math.max(R.x0, asked.x0)
+  const oz = Math.min(R.z1, asked.z1) - Math.max(R.z0, asked.z0)
   if (ox <= EPS || oz <= EPS) return { kind: 'unchanged' }
+
+  // A strip under a metre left between the cut and one of the room's walls
+  // goes with the cut: nobody builds a 1 cm sliver of room, and refusing
+  // instead blocked nearly every cut in the user's tight flat ("wall resizing
+  // into another room is not working").
+  const cutter = { ...asked }
+  if (cutter.x0 > R.x0 + EPS && cutter.x0 - R.x0 < MIN_ARM_M) cutter.x0 = R.x0
+  if (cutter.x1 < R.x1 - EPS && R.x1 - cutter.x1 < MIN_ARM_M) cutter.x1 = R.x1
+  if (cutter.z0 > R.z0 + EPS && cutter.z0 - R.z0 < MIN_ARM_M) cutter.z0 = R.z0
+  if (cutter.z1 < R.z1 - EPS && R.z1 - cutter.z1 < MIN_ARM_M) cutter.z1 = R.z1
 
   // Which of the room's sides the cutter reaches past.
   const past = {
