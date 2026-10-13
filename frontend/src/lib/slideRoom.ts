@@ -73,17 +73,35 @@ export function slideTo(
   { neighbour, axis }: Slide,
   wanted: number,
   others: readonly RoomBox[],
-  /** Off for a typed figure, which means exactly that; on for a drag. */
-  { snap = true }: { snap?: boolean } = {},
+  /** `snap`: off for a typed figure, which means exactly that; on for a drag.
+   *  `keep`: doors in the partition that must stay inside both walls, trim
+   *  and all — `fixed` the neighbour's (absolute spans along the axis), `own`
+   *  the moving room's (spans relative to its centre; they travel with it). */
+  { snap = true, keep }: { snap?: boolean; keep?: { fixed?: [number, number][]; own?: [number, number][]; trimM: number } } = {},
 ): { cx: number; cz: number } | null {
   const len = axis === 'x' ? room.w : room.d
   const [n0, n1] = span(neighbour, axis)
-  const lo = n0 - len / 2 + MIN_SHARED_M
-  const hi = n1 + len / 2 - MIN_SHARED_M
+  let lo = n0 - len / 2 + MIN_SHARED_M
+  let hi = n1 + len / 2 - MIN_SHARED_M
+  if (keep) {
+    const t = keep.trimM
+    // The neighbour's door stays within this room's wall.
+    for (const [a, b] of keep.fixed ?? []) {
+      hi = Math.min(hi, a - t + len / 2)
+      lo = Math.max(lo, b + t - len / 2)
+    }
+    // This room's door stays within the neighbour's wall.
+    for (const [a, b] of keep.own ?? []) {
+      lo = Math.max(lo, n0 - a + t)
+      hi = Math.min(hi, n1 - b - t)
+    }
+    // A door that already does not fit leaves the room where it is.
+    if (lo > hi) return null
+  }
   let c = Math.min(hi, Math.max(lo, wanted))
   if (snap) {
     for (const at of [n0 + len / 2, (n0 + n1) / 2, n1 - len / 2]) {
-      if (Math.abs(c - at) < SNAP_M) { c = at; break }
+      if (Math.abs(c - at) < SNAP_M && at >= lo && at <= hi) { c = at; break }
     }
   }
   const moved: RoomBox = axis === 'x' ? { ...room, cx: c } : { ...room, cz: c }

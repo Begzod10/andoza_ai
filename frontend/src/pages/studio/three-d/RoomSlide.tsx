@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useViewLockStore } from "@/store/viewLockStore";
@@ -38,19 +39,22 @@ function arrowReach(t: MoveTarget) {
  * clears the selection on empty floor. The scene's own pointer events are off
  * meanwhile, so no wall ring or door panel answers.
  */
-export function RoomMoveInput({ rooms, selected, onSelect, onDrag, onDragEnd }: {
+export function RoomMoveInput({ rooms, selected, axis, onSelect, onDrag, onDragEnd }: {
   rooms: readonly MoveTarget[];
   /** The selected room as it stands now (live). */
   selected: MoveTarget | null;
+  /** The one direction it moves in — along the wall it shares with its
+   *  neighbour; null when it stands against none. */
+  axis: 'x' | 'z' | null;
   onSelect: (id: string | null) => void;
-  onDrag: (axis: 'x' | 'z', delta: number) => void;
+  onDrag: (delta: number) => void;
   onDragEnd: () => void;
 }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
   const set = useThree((s) => s.set);
-  const latest = useRef({ rooms, selected, onSelect, onDrag, onDragEnd });
-  latest.current = { rooms, selected, onSelect, onDrag, onDragEnd };
+  const latest = useRef({ rooms, selected, axis, onSelect, onDrag, onDragEnd });
+  latest.current = { rooms, selected, axis, onSelect, onDrag, onDragEnd };
 
   useEffect(() => {
     set((st) => ({ events: { ...st.events, enabled: false } }));
@@ -70,14 +74,12 @@ export function RoomMoveInput({ rooms, selected, onSelect, onDrag, onDragEnd }: 
     const down = (e: PointerEvent) => {
       if (drag || e.target !== gl.domElement) return;
       const p = ground(e);
-      const sel = latest.current.selected;
-      if (p && sel) {
-        const dx = p.x - sel.cx, dz = p.z - sel.cz;
-        const reach = arrowReach(sel);
-        const onX = Math.abs(dz) < GRAB_M && Math.abs(dx) <= reach.x + 0.3;
-        const onZ = Math.abs(dx) < GRAB_M && Math.abs(dz) <= reach.z + 0.3;
-        const axis = onX && (!onZ || Math.abs(dx) >= Math.abs(dz)) ? 'x' : onZ ? 'z' : null;
-        if (axis) {
+      const { selected: sel, axis } = latest.current;
+      if (p && sel && axis) {
+        const along = axis === 'x' ? p.x - sel.cx : p.z - sel.cz;
+        const across = axis === 'x' ? p.z - sel.cz : p.x - sel.cx;
+        const reach = arrowReach(sel)[axis];
+        if (Math.abs(across) < GRAB_M && Math.abs(along) <= reach + 0.3) {
           e.stopPropagation();
           drag = { pointer: e.pointerId, axis, start: p };
           return;
@@ -89,7 +91,7 @@ export function RoomMoveInput({ rooms, selected, onSelect, onDrag, onDragEnd }: 
       if (drag && e.pointerId === drag.pointer) {
         e.stopPropagation();
         const p = ground(e);
-        if (p) latest.current.onDrag(drag.axis, drag.axis === 'x' ? p.x - drag.start.x : p.z - drag.start.z);
+        if (p) latest.current.onDrag(drag.axis === 'x' ? p.x - drag.start.x : p.z - drag.start.z);
       } else if (tap && e.pointerId === tap.pointer && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) {
         tap = null; // it was the view being turned
       }
@@ -142,15 +144,103 @@ function FloorArrow({ axis, reach, color }: { axis: 'x' | 'z'; reach: number; co
   );
 }
 
-/** The selected room's arrows: red along X, blue along Z, crossing at its
- *  centre, a little above the floor and drawn over everything. */
-export function RoomMoveArrows({ target }: { target: MoveTarget }) {
+/** The selected room's arrow, along the wall it shares with its neighbour —
+ *  the one direction it moves in; the gap across is typed (`GapField`). */
+export function RoomMoveArrows({ target, axis }: { target: MoveTarget; axis: 'x' | 'z' }) {
   const reach = arrowReach(target);
   return (
     <group position={[target.cx, 0.06, target.cz]} renderOrder={999}>
-      <FloorArrow axis="x" reach={reach.x} color="#E5484D" />
-      <FloorArrow axis="z" reach={reach.z} color="#2E5BFF" />
+      <FloorArrow axis={axis} reach={reach[axis]} color="#E5484D" />
     </group>
+  );
+}
+
+/**
+ * The dimensions either side of a shared door while its room moves — from
+ * each of the door's edges to the moving room's wall end on that side, the
+ * way a selected door shows its 0.80 m / 1.30 m.
+ */
+export function DoorDimensions({ axis, lineAcross, room, doors, height = 1.3 }: {
+  axis: 'x' | 'z';
+  /** Where the partition runs, across the axis. */
+  lineAcross: number;
+  /** The moving room's wall along the axis, live. */
+  room: [number, number];
+  /** Door spans along the axis, live; [] for none. */
+  doors: [number, number][];
+  height?: number;
+}) {
+  const at = (along: number): [number, number, number] =>
+    axis === 'x' ? [along, height, lineAcross] : [lineAcross, height, along];
+  const items: { a: number; b: number }[] = [];
+  for (const [d0, d1] of doors) {
+    items.push({ a: room[0], b: d0 }, { a: d1, b: room[1] });
+  }
+  return (
+    <>
+      {items.map(({ a, b }, i) => (
+        <group key={i}>
+          <DimLine from={at(a)} to={at(b)} />
+          <Html position={at((a + b) / 2)} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
+            <span style={{
+              padding: '2px 7px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff',
+              fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>
+              {(Math.max(0, b - a)).toFixed(2)} m
+            </span>
+          </Html>
+        </group>
+      ))}
+    </>
+  );
+}
+
+function DimLine({ from, to }: { from: [number, number, number]; to: [number, number, number] }) {
+  const geo = useMemo(() => new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]), [from, to]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return (
+    <lineSegments geometry={geo} renderOrder={999}>
+      <lineBasicMaterial color="#FF2E9A" depthTest={false} />
+    </lineSegments>
+  );
+}
+
+/** The gap to the neighbour, typed — up to 500 mm, the user's limit. Sits
+ *  over the partition, in the scene, instead of a panel. */
+export function GapField({ position, gapMm, onCommit }: {
+  position: [number, number, number];
+  gapMm: number;
+  onCommit: (mm: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(gapMm));
+  useEffect(() => { setDraft(String(gapMm)); }, [gapMm]);
+  const commit = () => {
+    const v = Number(draft);
+    if (draft.trim() === '' || !Number.isFinite(v)) { setDraft(String(gapMm)); return; }
+    onCommit(Math.max(0, Math.min(500, Math.round(v))));
+  };
+  return (
+    <Html position={position} center zIndexRange={[95, 0]}>
+      <label
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 999,
+          background: 'rgba(255,255,255,0.96)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          fontSize: 12, fontWeight: 600, color: '#1E3A8A', whiteSpace: 'nowrap', pointerEvents: 'auto',
+        }}
+      >
+        Oraliq
+        <input
+          inputMode="numeric"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          style={{ width: 52, border: '1px solid #CBD5E1', borderRadius: 8, padding: '2px 6px', fontSize: 13, textAlign: 'right' }}
+        />
+        mm
+      </label>
+    </Html>
   );
 }
 
@@ -171,74 +261,5 @@ export function MoveRoomsButton({ active, onClick }: { active: boolean; onClick:
         <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
       </svg>
     </button>
-  );
-}
-
-/** The panel for the selected room — at the top of the view, clear of the
- *  room and its arrows, which sit low on a phone's screen: where it stands against its nearest
- *  neighbour, the ways to put it exactly somewhere, undo and done. */
-export function RoomMovePanel({
-  gapMm, startMm, endMm, alongWall, onGapMm, onStartMm, onSnap, canUndo, onUndo, onDone,
-}: {
-  gapMm: number | null;
-  startMm: number | null;
-  endMm: number | null;
-  /** Whether it stands along a neighbour's wall (the snaps and offset apply). */
-  alongWall: boolean;
-  onGapMm: (mm: number) => void;
-  onStartMm: (mm: number) => void;
-  onSnap: (where: 'start' | 'centre' | 'end') => void;
-  canUndo: boolean;
-  onUndo: () => void;
-  onDone: () => void;
-}) {
-  const chip = "px-3 py-2 min-h-[40px] rounded-full text-xs font-semibold bg-card-soft text-ink border border-line";
-  return (
-    <div
-      className="absolute left-1/2 -translate-x-1/2 top-3 z-30 w-[min(92vw,360px)] rounded-2xl bg-card/95 shadow-xl ring-1 ring-black/10 p-3 text-sm text-ink"
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <p className="font-semibold mb-1">Xonani siljitish</p>
-      <p className="text-xs text-ink-muted mb-2">
-        Qizil va ko'k strelkalarni suring.
-        {gapMm !== null && <> Qo'shnigacha: {gapMm} mm.</>}
-        {alongWall && startMm !== null && endMm !== null && <> Boshi: {(startMm / 1000).toFixed(2)} m · Oxiri: {(endMm / 1000).toFixed(2)} m</>}
-      </p>
-      {alongWall && (
-        <div className="flex gap-1.5 mb-2">
-          <button className={chip} onClick={() => onSnap('start')}>Boshiga</button>
-          <button className={chip} onClick={() => onSnap('centre')}>O'rtaga</button>
-          <button className={chip} onClick={() => onSnap('end')}>Oxiriga</button>
-        </div>
-      )}
-      <div className="flex gap-2 mb-3">
-        <MmField label="Oraliq (mm)" value={gapMm} onCommit={onGapMm} />
-        {alongWall && <MmField label="Boshidan (mm)" value={startMm} onCommit={onStartMm} />}
-      </div>
-      <div className="flex gap-2">
-        <button className="flex-1 min-h-[44px] rounded-full border border-line text-ink font-semibold disabled:opacity-40" disabled={!canUndo} onClick={onUndo}>Bekor</button>
-        <button className="flex-1 min-h-[44px] rounded-full bg-brand text-white font-semibold" onClick={onDone}>Tayyor</button>
-      </div>
-    </div>
-  );
-}
-
-function MmField({ label, value, onCommit }: { label: string; value: number | null; onCommit: (mm: number) => void }) {
-  const [draft, setDraft] = useState(value === null ? '' : String(value));
-  useEffect(() => { setDraft(value === null ? '' : String(value)); }, [value]);
-  const commit = () => { const v = Number(draft); if (draft.trim() !== '' && Number.isFinite(v)) onCommit(v); };
-  return (
-    <label className="flex-1 min-w-0 flex flex-col gap-1 text-xs text-ink-muted">
-      {label}
-      <input
-        inputMode="numeric"
-        value={draft}
-        disabled={value === null}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
-        className="w-full min-w-0 min-h-[40px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
-      />
-    </label>
   );
 }
