@@ -337,6 +337,24 @@ export function ResizeGhost({ box, side, height }: { box: MoveTarget; side: Wall
   );
 }
 
+/** A neighbour's new outline where the room being resized cuts into it —
+ *  shown while dragging, before the confirm. */
+export function CutOutline({ outline, height = 0.08 }: { outline: [number, number][]; height?: number }) {
+  // A THREE.Line mounted as a primitive: the JSX <line> is SVG's.
+  const line = useMemo(() => {
+    const pts = outline.map(([x, z]) => new THREE.Vector3(x, height, z));
+    pts.push(pts[0].clone());
+    const l = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: '#F59E0B', depthTest: false }),
+    );
+    l.renderOrder = 999;
+    return l;
+  }, [outline, height]);
+  useEffect(() => () => { line.geometry.dispose(); (line.material as THREE.Material).dispose(); }, [line]);
+  return <primitive object={line} />;
+}
+
 /** The button beside the lock. */
 export function MoveRoomsButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (

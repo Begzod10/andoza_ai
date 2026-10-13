@@ -18,9 +18,20 @@ export interface RoomBox {
   /** Centre. */
   cx: number
   cz: number
-  /** Footprint along x and z. */
+  /** Footprint along x and z — the outer rectangle. */
   w: number
   d: number
+  /** For a room that is not a rectangle (an L or a notched room, after a
+   *  neighbour grew into it): the rectangles it is made of, all with this
+   *  room's id. Absent for a rectangle, which is its own one part. Every
+   *  overlap and distance is taken against these, so the corner that was cut
+   *  away is free space, not part of the room. */
+  parts?: RoomBox[]
+}
+
+/** The rectangles a room is made of. */
+export function partsOf(b: RoomBox): RoomBox[] {
+  return b.parts?.length ? b.parts : [b]
 }
 
 export interface Slide {
@@ -49,7 +60,7 @@ const gapBetween = (a: number[], b: number[]) => Math.max(b[0] - a[1], a[0] - b[
  */
 export function slideAxisAgainst(room: RoomBox, others: readonly RoomBox[]): Slide | null {
   let best: (Slide & { shared: number }) | null = null
-  for (const o of others) {
+  for (const o of others.flatMap(partsOf)) {
     if (o.id === room.id) continue
     for (const axis of ['x', 'z'] as const) {
       // Sliding along z means standing side by side in x.
@@ -105,7 +116,7 @@ export function slideTo(
     }
   }
   const moved: RoomBox = axis === 'x' ? { ...room, cx: c } : { ...room, cz: c }
-  for (const o of others) {
+  for (const o of others.flatMap(partsOf)) {
     if (o.id === room.id) continue
     if (overlap(span(moved, 'x'), span(o, 'x')) > 0.01 && overlap(span(moved, 'z'), span(o, 'z')) > 0.01) return null
   }

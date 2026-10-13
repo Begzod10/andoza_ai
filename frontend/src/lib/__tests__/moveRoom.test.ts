@@ -58,3 +58,28 @@ describe('nearestNeighbour', () => {
     expect(n.gapM).toBeCloseTo(0.2)
   })
 })
+
+describe('an L-shaped neighbour', () => {
+  // After a cut: an L whose outer rectangle is x −2 … 2, z −1.5 … 1.5, with
+  // its +x −z corner (x 1 … 2, z −1.5 … 0) gone — and a room sitting in it.
+  const L: RoomBox = {
+    id: 'L', cx: 0, cz: 0, w: 4, d: 3,
+    parts: [
+      { id: 'L', cx: -0.5, cz: 0, w: 3, d: 3 },
+      { id: 'L', cx: 1.5, cz: 0.75, w: 1, d: 1.5 },
+    ],
+  }
+  const inNotch: RoomBox = { id: 'r', cx: 1.6, cz: -0.85, w: 0.6, d: 0.9 }
+
+  it('is not an obstacle where its corner was cut away', () => {
+    const p = moveAlong(inNotch, 'x', 1.7, [L, inNotch], { snap: false })
+    expect(p).not.toBeNull()
+    expect(p!.cx).toBeCloseTo(1.7)
+  })
+
+  it('is measured to its nearest part, not its outer rectangle', () => {
+    // x 1.3 … 1.9 against the main part ending at x 1: 0.3 m — the outer
+    // rectangle would have said 0.
+    expect(nearestNeighbour(inNotch, [L])!.gapM).toBeCloseTo(0.3)
+  })
+})

@@ -3,15 +3,17 @@ import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useViewLockStore } from "@/store/viewLockStore";
 import { shiftedPose } from "@/lib/roomSwitch";
-import { CameraRefBridge, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput } from "./RoomSlide";
+import { CameraRefBridge, CutOutline, DoorDimensions, GapField, ResizeGhost, ResizeHandles, RoomMoveArrows, RoomMoveInput } from "./RoomSlide";
+import { clipRoom, outlineOf, type RoomContent } from "@/lib/clipRoom";
+import { flatBoxOf } from "@/lib/flatBoxes";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { isResizable, minSizeMm, resizeBox, resizeGeometry, type Side } from "@/lib/resizeRoom";
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { partitionDoorSpans } from "@/lib/partitionDoors";
 import { slideAxisAgainst, slideTo, type RoomBox } from "@/lib/slideRoom";
-import { moveAlong } from "@/lib/moveRoom";
+import { moveAlong, nearestNeighbour } from "@/lib/moveRoom";
 import { useRoomMoveStore } from "@/store/roomMoveStore";
 import { FocusFade } from "@/features/studio/diorama";
-import { roomExtents } from "@/lib/roomDims";
 import { focusFraming } from "@/lib/focusFraming";
 import { RoomSwitchCamera } from "./RoomSwitchCamera";
 import { OpeningLeaves } from "@/components/studio/DoorLeaves";
@@ -103,6 +105,12 @@ function OrbitZoomLimit({ controlsRef, W, D, H }: {
   }, [controlsRef, W, D, H, size.width, size.height, invalidate])
   return null
 }
+
+/** What a cut carries besides its geometry — store field names, the same
+ *  in a saved state blob. */
+type CutExtras = Pick<RoomContent, 'furniture' | 'lights' | 'electricals' | 'designState'>;
+/** A room cut where the selected room grows into it (lib/clipRoom). */
+type RoomCut = { id: string; from: { x: number; z: number }; content: RoomContent };
 
 /**
  * The 3D studio's R3F <Canvas> tree: lighting/environment, the room shell
@@ -252,13 +260,12 @@ export function ThreeDCanvasScene({
    * the camera flying back to the framing under the user's hands.
    */
   /** Every room's footprint in the open room's frame (it at 0, 0). */
+  // A polygon room's footprint is its real outline, placed by its vertex
+  // mean, with the rectangles it is made of (lib/flatBoxes).
   const flatBoxes = useMemo<RoomBox[]>(() => [
-    { id: room.id, cx: 0, cz: 0, w: W, d: D },
-    ...siblingsPlaced.map((s) => {
-      const e = roomExtents(s.geometry);
-      return { id: s.id, cx: s.offsetXM, cz: s.offsetZM, w: e.W, d: e.D };
-    }),
-  ], [room.id, W, D, siblingsPlaced]);
+    flatBoxOf(room.id, geometry, 0, 0),
+    ...siblingsPlaced.map((s) => flatBoxOf(s.id, s.geometry, s.offsetXM, s.offsetZM)),
+  ], [room.id, geometry, siblingsPlaced]);
   // Read, not depended on: a room slid along its neighbour changes the flat's
   // footprint, and re-framing the camera for that would yank the view away
   // from the room the user just placed. The framing follows focus and the
@@ -334,10 +341,10 @@ export function ThreeDCanvasScene({
   /** Saves a move of `id` by (dx, dz), metres, in the open room's frame —
    *  and, for a resize, its new geometry with it (one save for both: the
    *  centre moves so the opposite wall can stay put). */
-  const persistMove = async (id: string, dx: number, dz: number, newGeometry?: RoomGeometry) => {
+  const persistMove = async (id: string, dx: number, dz: number, newGeometry?: RoomGeometry, extra?: CutExtras) => {
     const abs = computeAbsolutePositions(aptRooms ?? [], room.id, W, D);
     if (id === room.id) {
-      if (newGeometry) useRoomStore.setState({ geometry: newGeometry, isDirty: true });
+      if (newGeometry) useRoomStore.setState({ geometry: newGeometry, ...(extra ?? {}), isDirty: true });
       // The flat is drawn around the open room, so moving it re-anchors
       // everything else; the camera moves with them, so the picture holds.
       const from = activeLayoutPos ?? abs.get(room.id) ?? { x: 0, z: 0 };
@@ -359,6 +366,7 @@ export function ThreeDCanvasScene({
     const prevState = (r as { state?: Record<string, unknown> }).state ?? {};
     const state = {
       ...prevState,
+      ...(extra ?? {}),
       layoutPos,
       ...(newGeometry && prevState.geometry ? { geometry: newGeometry } : {}),
     };
@@ -383,21 +391,95 @@ export function ThreeDCanvasScene({
   const resizable = !!selGeometry && isResizable(selGeometry);
   const selHeight = !selBox || selBox.id === room.id ? H
     : (aptRooms?.find((x) => x.id === selBox.id)?.ceiling_h ?? H);
-  const [resizeLive, setResizeLive] = useState<{ side: Side; box: RoomBox } | null>(null);
-  const resizeLiveRef = useRef<{ side: Side; box: RoomBox } | null>(null);
+  type ResizeLive = { side: Side; box: RoomBox; cuts: RoomCut[] };
+  const [resizeLive, setResizeLive] = useState<ResizeLive | null>(null);
+  const resizeLiveRef = useRef<ResizeLive | null>(null);
+  const confirm = useConfirm();
+  /** A room's own content, for cutting it (lib/clipRoom). */
+  const contentOf = (id: string): RoomContent | null => {
+    if (id === room.id) {
+      const st = useRoomStore.getState();
+      return { geometry, centre: { x: 0, z: 0 }, furniture: st.furniture, lights: st.lights, electricals: st.electricals, designState: st.designState };
+    }
+    const sp = siblingsPlaced.find((x) => x.id === id);
+    const r = aptRooms?.find((x) => x.id === id);
+    if (!sp || !r) return null;
+    const st = (r.state ?? {}) as Partial<CutExtras>;
+    return { geometry: sp.geometry, centre: { x: sp.offsetXM, z: sp.offsetZM }, furniture: st.furniture, lights: st.lights, electricals: st.electricals, designState: st.designState };
+  };
+  const cuttable = (id: string) => {
+    const c = id === selBox?.id ? null : contentOf(id);
+    return !!c && isResizable(c.geometry);
+  };
+  /**
+   * The rooms the selected room cuts at `box`, each keeping the offset it
+   * had from it (its gap, or the default partition when it was further than
+   * the 500 mm limit); null when one of them cannot be cut there.
+   */
+  const cutsAt = (box: RoomBox): RoomCut[] | null => {
+    if (!selBox) return [];
+    const out: RoomCut[] = [];
+    for (const o of flatBoxes) {
+      if (o.id === selBox.id || !cuttable(o.id)) continue;
+      const was = nearestNeighbour(selBox, [o])?.gapM ?? Infinity;
+      const g = was <= 0.5 ? was : 0.2;
+      const cutter = { x0: box.cx - box.w / 2 - g, x1: box.cx + box.w / 2 + g, z0: box.cz - box.d / 2 - g, z1: box.cz + box.d / 2 + g };
+      const content = contentOf(o.id);
+      if (!content) continue;
+      const r = clipRoom(content, cutter);
+      if (r.kind === 'refused') return null;
+      if (r.kind === 'cut') out.push({ id: o.id, from: content.centre, content: r.content });
+    }
+    return out;
+  };
+  /** The selected room resized towards `wanted`, cutting where it may and
+   *  stopping short where a cut is refused. */
+  const resizeWithCuts = (side: Side, wanted: number): ResizeLive | null => {
+    if (!selBox || !selGeometry) return null;
+    const minM = minSizeMm(selGeometry, side) / 1000;
+    const at = (e: number, snap = true) => resizeBox(selBox, side, e, flatBoxes, { minM, snap, mayCut: cuttable });
+    const box = at(wanted);
+    if (!box) return null;
+    const cuts = cutsAt(box);
+    if (cuts) return { side, box, cuts };
+    // Back off to the furthest edge any cut there allows.
+    let good = edgeOf(selBox, side), bad = edgeOf(box, side);
+    for (let i = 0; i < 30; i++) {
+      const mid = (good + bad) / 2;
+      const b = at(mid, false);
+      if (b && cutsAt(b)) good = mid; else bad = mid;
+    }
+    const b = at(good, false);
+    return b ? { side, box: b, cuts: cutsAt(b) ?? [] } : null;
+  };
   useEffect(() => { setResizeLive(null); resizeLiveRef.current = null; }, [slidingId, moveMode]);
   const edgeOf = (b: RoomBox, side: Side) =>
     side === 'B' ? b.cx + b.w / 2 : side === 'D' ? b.cx - b.w / 2 : side === 'C' ? b.cz + b.d / 2 : b.cz - b.d / 2;
   /** Puts the selected room at its new size for good: geometry and centre
    *  saved together. */
-  const commitResize = (side: Side, box: RoomBox | null) => {
+  const commitResize = async (side: Side, box: RoomBox | null, cuts: RoomCut[] = []) => {
     setResizeLive(null);
     if (!selBox || !selGeometry || !box) return;
+    if (cuts.length) {
+      const ok = await confirm({
+        title: "Qo'shni xona shakli o'zgaradi",
+        description: "Bu xona qo'shni xonaga kiradi va u xonaning shakli o'zgaradi. Davom etasizmi?",
+      });
+      if (!ok) return;
+    }
     const across = side === 'B' || side === 'D';
     const sizeMm = Math.round((across ? box.w : box.d) * 1000);
     if (Math.abs(sizeMm - (across ? selBox.w : selBox.d) * 1000) < 1) return;
     const { geometry: next, shiftM } = resizeGeometry(selGeometry, side, sizeMm);
     void persistMove(selBox.id, shiftM.dx, shiftM.dz, next);
+    // Each room it grew into, cut — its new shape, its things moved inside.
+    for (const c of cuts) {
+      const { furniture, lights, electricals, designState } = c.content;
+      void persistMove(c.id, c.content.centre.x - c.from.x, c.content.centre.z - c.from.z, c.content.geometry, {
+        ...(furniture ? { furniture } : {}), ...(lights ? { lights } : {}),
+        ...(electricals ? { electricals } : {}), ...(designState ? { designState } : {}),
+      });
+    }
   };
 
   /** An exact placement — a snap button or a typed figure — not snapped. */
@@ -762,14 +844,14 @@ export function ThreeDCanvasScene({
             axis={moveSlide?.axis ?? null}
             resizable={resizable}
             onResize={(side, delta) => {
-              if (!selBox || !selGeometry) return;
-              const box = resizeBox(selBox, side, edgeOf(selBox, side) + delta, flatBoxes, { minM: minSizeMm(selGeometry, side) / 1000 });
-              if (box) { resizeLiveRef.current = { side, box }; setResizeLive({ side, box }); }
+              if (!selBox) return;
+              const live = resizeWithCuts(side, edgeOf(selBox, side) + delta);
+              if (live) { resizeLiveRef.current = live; setResizeLive(live); }
             }}
             onResizeEnd={() => {
               const live = resizeLiveRef.current;
               resizeLiveRef.current = null;
-              if (live) commitResize(live.side, live.box);
+              if (live) void commitResize(live.side, live.box, live.cuts);
             }}
             onSelect={(id) => setSlidingId(id)}
             onDrag={(delta) => {
@@ -791,7 +873,12 @@ export function ThreeDCanvasScene({
         )}
         {moveMode && liveBox && resizable && (
           resizeLive
-            ? <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} />
+            ? (
+              <>
+                <ResizeGhost box={resizeLive.box} side={resizeLive.side} height={selHeight} />
+                {resizeLive.cuts.map((c) => <CutOutline key={c.id} outline={outlineOf(c.content)} />)}
+              </>
+            )
             : <ResizeHandles target={liveBox} />
         )}
         {moveMode && liveBox && moveSlide && !resizeLive && (() => {

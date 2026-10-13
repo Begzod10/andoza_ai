@@ -20,7 +20,7 @@
  */
 import { resolveElementPositions } from '@/lib/wallPositions'
 import { nearestNeighbour, MAX_DETACH_M } from '@/lib/moveRoom'
-import type { RoomBox } from '@/lib/slideRoom'
+import { partsOf, type RoomBox } from '@/lib/slideRoom'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 
 /** Which wall moves: A at −z, B at +x, C at +z, D at −x. */
@@ -105,7 +105,13 @@ const FLUSH_SNAP_M = 0.1
  */
 export function resizeBox(
   box: RoomBox, side: Side, wantedEdge: number, others: readonly RoomBox[],
-  { minM, snap = true }: { minM: number; snap?: boolean },
+  { minM, snap = true, mayCut }: {
+    minM: number
+    snap?: boolean
+    /** Rooms this one may grow into — they are cut to make room
+     *  (lib/clipRoom) — rather than stop at. */
+    mayCut?: (roomId: string) => boolean
+  },
 ): RoomBox | null {
   const axis = axisOf(side)
   const across: Axis = axis === 'x' ? 'z' : 'x'
@@ -114,18 +120,20 @@ export function resizeBox(
   const fixed = sign > 0 ? b0 : b1
   const current = sign > 0 ? b1 : b0
   const rest = others.filter((o) => o.id !== box.id)
+  const restParts = rest.flatMap(partsOf)
   let edge = wantedEdge
 
   if (snap) {
     let best = FLUSH_SNAP_M
     let flush: number | null = null
-    for (const o of rest) for (const e of span(o, axis)) {
+    for (const o of restParts) for (const e of span(o, axis)) {
       if (Math.abs(e - edge) < best) { best = Math.abs(e - edge); flush = e }
     }
     edge = flush ?? fixed + sign * Math.round((sign * (edge - fixed)) * 100) / 100
   }
   // Not past another room standing in the way.
-  for (const o of rest) {
+  for (const o of restParts) {
+    if (mayCut?.(o.id)) continue
     if (overlap(span(box, across), span(o, across)) <= 0.01) continue
     const [o0, o1] = span(o, axis)
     if (sign > 0 && o0 >= current - 1e-6) edge = Math.min(edge, o0)

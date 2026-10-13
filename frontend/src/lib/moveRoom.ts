@@ -11,7 +11,7 @@
  *
  * Pure geometry on axis-aligned footprints, metres, in one frame.
  */
-import type { RoomBox } from '@/lib/slideRoom'
+import { partsOf, type RoomBox } from '@/lib/slideRoom'
 
 /** How far a room may come away from its nearest neighbour. */
 export const MAX_DETACH_M = 0.5
@@ -25,8 +25,14 @@ const overlap = (a: [number, number], b: [number, number]) => Math.min(a[1], b[1
 const gapBetween = (a: [number, number], b: [number, number]) => Math.max(b[0] - a[1], a[0] - b[1])
 const at = (room: RoomBox, axis: Axis, c: number): RoomBox => (axis === 'x' ? { ...room, cx: c } : { ...room, cz: c })
 
-/** Clear distance between two footprints (0 when touching or overlapping). */
+/** Clear distance between two rooms — their nearest parts (0 when touching
+ *  or overlapping). */
 function distance(a: RoomBox, b: RoomBox): number {
+  let best = Infinity
+  for (const pa of partsOf(a)) for (const pb of partsOf(b)) best = Math.min(best, rectDistance(pa, pb))
+  return best
+}
+function rectDistance(a: RoomBox, b: RoomBox): number {
   const gx = Math.max(0, gapBetween(span(a, 'x'), span(b, 'x')))
   const gz = Math.max(0, gapBetween(span(a, 'z'), span(b, 'z')))
   return Math.hypot(gx, gz)
@@ -55,6 +61,7 @@ export function moveAlong(
   { snap = true, wallThicknessM = 0.2 }: { snap?: boolean; wallThicknessM?: number } = {},
 ): { cx: number; cz: number } | null {
   const rest = others.filter((o) => o.id !== room.id)
+  const restParts = rest.flatMap(partsOf)
   const across: Axis = axis === 'x' ? 'z' : 'x'
   const len = axis === 'x' ? room.w : room.d
   const c0 = axis === 'x' ? room.cx : room.cz
@@ -62,7 +69,7 @@ export function moveAlong(
 
   if (snap) {
     const candidates: number[] = []
-    for (const o of rest) {
+    for (const o of restParts) {
       const [o0, o1] = span(o, axis)
       // Facing each other along this axis: touching at the wall thickness.
       if (overlap(span(room, across), span(o, across)) > 0) {
@@ -82,7 +89,7 @@ export function moveAlong(
   // Stop at contact with anything in the way.
   let lo = -Infinity
   let hi = Infinity
-  for (const o of rest) {
+  for (const o of restParts) {
     if (overlap(span(room, across), span(o, across)) <= 0.01) continue
     const [o0, o1] = span(o, axis)
     if (o0 >= c0 + len / 2 - 1e-6) hi = Math.min(hi, o0 - len / 2)
