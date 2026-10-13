@@ -1,4 +1,10 @@
-import { Suspense, useEffect, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { updateRoom } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useViewLockStore } from "@/store/viewLockStore";
+import { shiftedPose } from "@/lib/roomSwitch";
+import { CameraRefBridge, RoomSlideDrag, RoomSlidePanel } from "./RoomSlide";
+import { slideAxisAgainst, slideTo, slideEdges, type RoomBox } from "@/lib/slideRoom";
 import { FocusFade } from "@/features/studio/diorama";
 import { roomExtents } from "@/lib/roomDims";
 import { focusFraming } from "@/lib/focusFraming";
@@ -25,7 +31,7 @@ import { type CutawayMode } from "@/features/studio/diorama";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
-import { computeOccupiedSides, flatExtent, placedSiblingRooms } from "./helpers";
+import { computeAbsolutePositions, computeOccupiedSides, flatExtent, placedSiblingRooms } from "./helpers";
 import { flatRenderPlan } from "@/lib/flatOpenings";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
@@ -111,7 +117,7 @@ export function ThreeDCanvasScene({
   selOpening, selectOpening, updateElement, removeElement,
   controlsRef,
   addingRoom, handleAddRoom, aptRooms, activeLayoutPos,
-  handleDeleteSibling, onSwitchRoom,
+  handleDeleteSibling, onSwitchRoom, onSaveRoom,
   toolMode, selectedFurId, selectFurniture, selectedPart, selectFurniturePart,
   showScan, showQibla, replacedGhosts, setScanSwap,
   selectedDoorId, selectDoor,
@@ -165,6 +171,8 @@ export function ThreeDCanvasScene({
   handleDeleteSibling: (id: string, name: string) => Promise<void>;
   /** Opens a tapped neighbour in place, keeping the view (lib/roomSwitch). */
   onSwitchRoom: (roomId: string, offset: { offsetXM: number; offsetZM: number }, tap: { x: number; y: number }) => void;
+  /** Saves the open room — after sliding it along its neighbour. */
+  onSaveRoom: () => Promise<void>;
   toolMode: ToolMode;
   selectedFurId: string | null;
   selectFurniture: (id: string | null) => void;
@@ -238,17 +246,87 @@ export function ThreeDCanvasScene({
    * now and then, and a fresh array with the same values would otherwise send
    * the camera flying back to the framing under the user's hands.
    */
-  const framedCamRaw = useMemo(() => focusFraming(
-    cam,
-    [
-      { id: room.id, cx: 0, cz: 0, w: W, d: D },
-      ...siblingsPlaced.map((s) => {
-        const e = roomExtents(s.geometry);
-        return { id: s.id, cx: s.offsetXM, cz: s.offsetZM, w: e.W, d: e.D };
-      }),
-    ],
-    focusedRoomId,
-  ), [cam, room.id, W, D, siblingsPlaced, focusedRoomId]);
+  /** Every room's footprint in the open room's frame (it at 0, 0). */
+  const flatBoxes = useMemo<RoomBox[]>(() => [
+    { id: room.id, cx: 0, cz: 0, w: W, d: D },
+    ...siblingsPlaced.map((s) => {
+      const e = roomExtents(s.geometry);
+      return { id: s.id, cx: s.offsetXM, cz: s.offsetZM, w: e.W, d: e.D };
+    }),
+  ], [room.id, W, D, siblingsPlaced]);
+  // Read, not depended on: a room slid along its neighbour changes the flat's
+  // footprint, and re-framing the camera for that would yank the view away
+  // from the room the user just placed. The framing follows focus and the
+  // open room.
+  const flatBoxesRef = useRef(flatBoxes);
+  flatBoxesRef.current = flatBoxes;
+  const framedCamRaw = useMemo(
+    () => focusFraming(cam, flatBoxesRef.current, focusedRoomId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cam, room.id, focusedRoomId, aptRooms ? aptRooms.length : 0],
+  );
+
+  // ── Sliding a room along its neighbour's wall (lib/slideRoom) ──────────
+  const [slidingId, setSlidingId] = useState<string | null>(null);
+  const cameraRef = useRef<THREE.Camera | null>(null);
+  /** Where the sliding room stands right now (open room's frame); null
+   *  until it has been moved. */
+  const [slideLive, setSlideLive] = useState<{ cx: number; cz: number } | null>(null);
+  const slideStartRef = useRef<{ cx: number; cz: number } | null>(null);
+  const locked = useViewLockStore((st) => st.locked);
+  const queryClient = useQueryClient();
+  useEffect(() => { setSlidingId(null); setSlideLive(null); }, [room.id]);
+  const slideOf = (id: string) => {
+    const box = flatBoxes.find((b) => b.id === id);
+    return box ? slideAxisAgainst(box, flatBoxes) : null;
+  };
+  const sliding = slidingId ? slideOf(slidingId) : null;
+  const slidingBox = slidingId ? flatBoxes.find((b) => b.id === slidingId) ?? null : null;
+  const liveBox = slidingBox && slideLive ? { ...slidingBox, ...slideLive } : slidingBox;
+  const slideTowards = (wanted: number, snap = true) => {
+    if (!slidingBox || !sliding) return;
+    const next = slideTo(slidingBox, sliding, wanted, flatBoxes, { snap });
+    if (next) setSlideLive(next);
+  };
+  const startSlide = (id: string) => {
+    if (slidingId === id) { setSlidingId(null); setSlideLive(null); return; }
+    // The neighbour has to be on screen to slide against it.
+    setFocusedRoomId(null);
+    setSlidingId(id);
+    setSlideLive(null);
+  };
+  const endSlide = async (keep: boolean) => {
+    const id = slidingId;
+    const box = slidingBox;
+    const live = slideLive;
+    setSlidingId(null);
+    setSlideLive(null);
+    if (!keep || !id || !box || !live) return;
+    const dx = live.cx - box.cx, dz = live.cz - box.cz;
+    if (Math.abs(dx) < 1e-6 && Math.abs(dz) < 1e-6) return;
+    const abs = computeAbsolutePositions(aptRooms ?? [], room.id, W, D);
+    if (id === room.id) {
+      // The flat is drawn around the open room, so moving it re-anchors
+      // everything else; the camera moves with them, so the picture holds.
+      const from = activeLayoutPos ?? abs.get(room.id) ?? { x: 0, z: 0 };
+      useRoomStore.getState().setLayoutPos({ x: from.x + dx, z: from.z + dz });
+      const camera = cameraRef.current;
+      const controls = controlsRef.current;
+      if (camera) { const p = shiftedPose({ offsetXM: dx, offsetZM: dz }, camera.position); camera.position.set(p.x, p.y, p.z); }
+      if (controls) { const t = shiftedPose({ offsetXM: dx, offsetZM: dz }, controls.target); controls.target.set(t.x, t.y, t.z); controls.update(); }
+      try { await onSaveRoom(); } catch { /* kept in the store; saved with the next save */ }
+      return;
+    }
+    const r = aptRooms?.find((x) => x.id === id);
+    const from = abs.get(id);
+    if (!r || !from) return;
+    const layoutPos = { x: from.x + dx, z: from.z + dz };
+    // The whole state goes back: the server replaces it wholesale.
+    const state = { ...((r as { state?: Record<string, unknown> }).state ?? {}), layoutPos };
+    queryClient.setQueryData<Room[]>(["apt-rooms", room.apartment_id], (list) =>
+      list?.map((x) => (x.id === id ? ({ ...x, state } as Room) : x)));
+    try { await updateRoom(id, { state }); } catch { /* shown where it stands; re-fetched next time */ }
+  };
   const framedCamKey = JSON.stringify(framedCamRaw);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const framedCam = useMemo(() => framedCamRaw, [framedCamKey]);
@@ -453,7 +531,7 @@ export function ThreeDCanvasScene({
             not per-frame work, so the remount costs nothing that matters (the
             GLTFs stay in drei's cache). */}
         <FocusFade show={isRoomVisible(focusedRoomId, room.id)}>
-        <group>
+        <group position={slidingId === room.id && slideLive ? [slideLive.cx, 0, slideLive.cz] : [0, 0, 0]}>
         <RoomScene
           room={room}
           geometry={shellGeometry}
@@ -507,6 +585,8 @@ export function ThreeDCanvasScene({
             H={H}
             focused={focusedRoomId === room.id}
             onClick={() => setFocusedRoomId((cur) => toggleRoomFocus(cur, room.id))}
+            moving={slidingId === room.id}
+            onMove={!locked && slideOf(room.id) ? () => startSlide(room.id) : undefined}
           />
         )}
         <SwapButtons W={W} D={D} H={H} />
@@ -532,6 +612,10 @@ export function ThreeDCanvasScene({
             focusedRoomId={focusedRoomId}
             onToggleFocus={(id) => setFocusedRoomId((cur) => toggleRoomFocus(cur, id))}
             onDelete={handleDeleteSibling}
+            movingId={slidingId}
+            positionOverride={slidingId && slidingId !== room.id && slideLive ? { id: slidingId, x: slideLive.cx, z: slideLive.cz } : null}
+            canMove={(id) => !locked && !!slideOf(id)}
+            onMove={startSlide}
             onOpen={(id, e) => {
               const sib = siblingsPlaced.find((s) => s.id === id);
               onSwitchRoom(
@@ -543,7 +627,7 @@ export function ThreeDCanvasScene({
           />
         )}
         <FocusFade show={isRoomVisible(focusedRoomId, room.id)}>
-        <group>
+        <group position={slidingId === room.id && slideLive ? [slideLive.cx, 0, slideLive.cz] : [0, 0, 0]}>
         <DraggableFurnitureModels controlsRef={controlsRef} roomW={W} roomD={D} toolMode={toolMode} selectedId={selectedFurId} onSelectItem={selectFurniture}
           onDelete={(id) => { useRoomStore.getState().removeFurniture(id); selectFurniture(null); }}
           selectedPart={selectedPart} onSelectPart={selectFurniturePart} />
@@ -597,6 +681,18 @@ export function ThreeDCanvasScene({
             so it goes back to fitting that room alone. */}
         {/* The lock: while it is on, nothing in the scene takes a tap. */}
         <ViewLockGate />
+        <CameraRefBridge cameraRef={cameraRef} />
+        {slidingId && sliding && slidingBox && (
+          <RoomSlideDrag
+            onDrag={(from, to) => {
+              const start = slideStartRef.current ?? { cx: (liveBox ?? slidingBox).cx, cz: (liveBox ?? slidingBox).cz };
+              slideStartRef.current = start;
+              const delta = sliding.axis === 'x' ? to.x - from.x : to.z - from.z;
+              slideTowards((sliding.axis === 'x' ? start.cx : start.cz) + delta);
+            }}
+            onDragEnd={() => { slideStartRef.current = null; }}
+          />
+        )}
         {/* Keeps the view still when a tapped neighbour becomes the open room. */}
         <RoomSwitchCamera controlsRef={controlsRef} />
         <OrbitZoomLimit
@@ -676,6 +772,23 @@ export function ThreeDCanvasScene({
     </Canvas>
     </CanvasErrorBoundary>
     <SceneLoadingOverlay />
+    {slidingId && sliding && liveBox && (() => {
+      const edges = slideEdges(liveBox, sliding);
+      const len = sliding.axis === 'x' ? liveBox.w : liveBox.d;
+      const [n0, n1] = sliding.axis === 'x'
+        ? [sliding.neighbour.cx - sliding.neighbour.w / 2, sliding.neighbour.cx + sliding.neighbour.w / 2]
+        : [sliding.neighbour.cz - sliding.neighbour.d / 2, sliding.neighbour.cz + sliding.neighbour.d / 2];
+      return (
+        <RoomSlidePanel
+          startMm={edges.startMm}
+          endMm={edges.endMm}
+          onSnap={(where) => slideTowards(where === 'start' ? n0 + len / 2 : where === 'end' ? n1 - len / 2 : (n0 + n1) / 2, false)}
+          onStartMm={(mm) => slideTowards(n0 + mm / 1000 + len / 2, false)}
+          onCancel={() => void endSlide(false)}
+          onDone={() => void endSlide(true)}
+        />
+      );
+    })()}
     </>
   );
 }

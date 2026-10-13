@@ -1052,6 +1052,7 @@ export default function ThreeDPage() {
             aptRooms={aptRooms}
             activeLayoutPos={activeLayoutPos}
             handleDeleteSibling={handleDeleteSibling}
+            onSaveRoom={onSave}
             onSwitchRoom={async (id, offset, tap) => {
               // "Seamless switch": open the tapped room without the view
               // moving, and replay the tap on it (lib/roomSwitch). Its data
