@@ -12,10 +12,10 @@ vi.mock('@/lib/api', () => ({
   ADMIN_PLACEMENTS: ['pol', 'devor', 'shift'],
 }))
 
-const model = (styles?: string[]): AdminFurniture => ({
+const model = (styles?: string[], styles_source?: string | null): AdminFurniture => ({
   id: 'm1', store_id: null, store_name: null, category: 'divan', room_type: null, placement: 'pol',
   name_uz: 'Divan', price_uzs: null, glb_url: null, thumbnail_url: null, footprint_w: null, footprint_d: null,
-  is_active: true, created_at: '2026-10-19T00:00:00Z', ...(styles ? { styles } : {}),
+  is_active: true, created_at: '2026-10-19T00:00:00Z', ...(styles ? { styles } : {}), ...(styles_source !== undefined ? { styles_source } : {}),
 })
 
 function open(m: AdminFurniture) {
@@ -43,5 +43,15 @@ describe('admin model edit — styles', () => {
   it('an older model without styles opens with none and says it suits every style', () => {
     open(model())
     expect(screen.getByText('Hamma uslubga mos')).toBeInTheDocument()
+  })
+
+  it("notes when the AI set the styles, and not otherwise", () => {
+    open(model(['loft'], 'ai'))
+    expect(screen.getByText("AI qo'ygan — tekshirib, kerak bo'lsa tuzating")).toBeInTheDocument()
+  })
+
+  it.each([['manual' as string | null], [null], [undefined]])('no AI note when source is %s', (src) => {
+    open(model(['loft'], src))
+    expect(screen.queryByText(/AI qo'ygan/)).not.toBeInTheDocument()
   })
 })

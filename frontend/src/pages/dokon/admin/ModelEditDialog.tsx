@@ -112,6 +112,9 @@ export function ModelEditDialog({
         </div>
 
         <StyleChips value={styles} onChange={setStyles} />
+        {model?.styles_source === "ai" && (
+          <p className="text-xs text-ink-muted -mt-2">AI qo'ygan — tekshirib, kerak bo'lsa tuzating</p>
+        )}
 
         <Select themed
           label="Xonada joylashuvi"

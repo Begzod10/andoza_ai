@@ -86,6 +86,8 @@ export interface AdminFurniture {
   height_cm?: number | null;
   /** Styles the model suits; empty = every style. */
   styles?: string[];
+  /** Who set the styles: null = nobody yet. */
+  styles_source?: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -134,6 +136,11 @@ export async function uploadAdminFurniture(input: UploadAdminFurnitureInput): Pr
   if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
   if (input.styles?.length) form.append("styles", input.styles.join(","));
   return apiClient<AdminFurniture>("/admin/furniture", { method: "POST", body: form });
+}
+
+/** Queue the AI to set styles on every model that has none. */
+export async function classifyFurnitureStyles(): Promise<{ queued: number }> {
+  return apiClient<{ queued: number }>("/admin/furniture/classify-styles", { method: "POST" });
 }
 
 export async function updateAdminFurniture(

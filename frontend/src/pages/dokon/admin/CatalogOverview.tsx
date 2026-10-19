@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Package, Plus, Store as StoreIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MetricCard } from "@/components/ui/MetricCard";
 import {
+  classifyFurnitureStyles,
   deleteAdminFurniture,
   listAdminFurniture,
   listAdminStores,
@@ -61,6 +62,20 @@ export function CatalogOverview({
   const unassignedModels = models.filter((m) => !m.store_id);
   const filteredUnassignedModels = filterModels(unassignedModels, filters);
   const activeStoreCount = stores.filter((s) => s.is_active).length;
+
+  const classifyMutation = useMutation({
+    mutationFn: classifyFurnitureStyles,
+    onSuccess: () => {
+      onError(null);
+      queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
+    },
+    onError: (err) => onError(errorMessage(err, "AI so'rovi bajarilmadi")),
+  });
+  const classifyNotice = classifyMutation.isSuccess
+    ? classifyMutation.data.queued > 0
+      ? `${classifyMutation.data.queued} ta model navbatga qo'yildi. Bir necha daqiqada uslublar paydo bo'ladi.`
+      : "Uslubi qo'yilmagan model yo'q."
+    : null;
 
   async function handleDeleteModel(model: AdminFurniture) {
     if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
@@ -134,10 +149,26 @@ export function CatalogOverview({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-on-app">Do'konsiz modellar</h2>
-            <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
-              Qo'shish
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={classifyMutation.isPending}
+                disabled={classifyMutation.isPending}
+                onClick={() => classifyMutation.mutate()}
+              >
+                AI bilan uslub qo'yish
+              </Button>
+              <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
+                Qo'shish
+              </Button>
+            </div>
           </div>
+          {classifyNotice && (
+            <p role="status" className="text-xs text-ink-muted">
+              {classifyNotice}
+            </p>
+          )}
 
           {unassignedModels.length > 0 && <ModelFilterBar filters={filters} onChange={setFilters} />}
 
