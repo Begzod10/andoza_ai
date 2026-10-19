@@ -98,3 +98,18 @@ describe('admin 3D model dialog — build the model from a photo', () => {
     expect(api.createPhotoModel).not.toHaveBeenCalled()
   })
 })
+
+describe('admin 3D model dialog — styles', () => {
+  it('sends the chosen styles with the upload', async () => {
+    api.uploadAdminFurniture.mockResolvedValue({})
+    open()
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Divan' } })
+    const glb = document.querySelector('input[type=file][accept=".glb"]') as HTMLInputElement
+    fireEvent.change(glb, { target: { files: [new File(['x'], 'divan.glb')] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Hi-Tech' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zamonaviy' }))
+    fireEvent.click(submit())
+    await waitFor(() => expect(api.uploadAdminFurniture).toHaveBeenCalled())
+    expect(api.uploadAdminFurniture.mock.calls[0][0].styles).toEqual(['hitech', 'zamonaviy'])
+  })
+})

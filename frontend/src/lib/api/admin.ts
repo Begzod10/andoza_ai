@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import type { FurnitureStyle } from "../furnitureStyles";
 
 // ---------- Admin: shops and 3D-model catalog ----------
 //
@@ -83,6 +84,8 @@ export interface AdminFurniture {
   footprint_w: number | null;
   footprint_d: number | null;
   height_cm?: number | null;
+  /** Styles the model suits; empty = every style. */
+  styles?: string[];
   is_active: boolean;
   created_at: string;
 }
@@ -99,6 +102,8 @@ export interface UploadAdminFurnitureInput {
   footprint_w?: number | null;
   footprint_d?: number | null;
   height_cm?: number | null;
+  /** Styles the model suits; empty or omitted = every style. */
+  styles?: FurnitureStyle[];
 }
 
 export async function listAdminFurniture(params: {
@@ -127,6 +132,7 @@ export async function uploadAdminFurniture(input: UploadAdminFurnitureInput): Pr
   if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
   if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
   if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
+  if (input.styles?.length) form.append("styles", input.styles.join(","));
   return apiClient<AdminFurniture>("/admin/furniture", { method: "POST", body: form });
 }
 
@@ -141,6 +147,7 @@ export async function updateAdminFurniture(
     price_uzs: number | null;
     footprint_w: number | null;
     footprint_d: number | null;
+    styles: FurnitureStyle[];
     is_active: boolean;
   }>,
 ): Promise<AdminFurniture> {

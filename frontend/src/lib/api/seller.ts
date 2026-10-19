@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import type { FurnitureStyle } from "../furnitureStyles";
 import type { AdminFurnitureCategory, AdminPlacement, AdminRoomType } from "./admin";
 import type { OrderLine, OrderStatus } from "./orders";
 
@@ -33,6 +34,8 @@ export interface SellerModel {
   footprint_d: number | null;
   /** Centimetres; measured from the model on upload, null for older models. */
   height_cm?: number | null;
+  /** Styles the model suits; empty = every style. */
+  styles?: string[];
   is_active: boolean;
   status: ModerationStatus;
   moderation_note: string | null;
@@ -87,6 +90,8 @@ export interface UploadModelInput {
   footprint_w?: number | null;
   footprint_d?: number | null;
   height_cm?: number | null;
+  /** Styles the model suits; empty or omitted = every style. */
+  styles?: FurnitureStyle[];
 }
 
 /** Upload a .glb into the caller's shop. It waits for an admin before it shows. */
@@ -102,12 +107,13 @@ export async function uploadMyModel(input: UploadModelInput): Promise<SellerMode
   if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
   if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
   if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
+  if (input.styles?.length) form.append("styles", input.styles.join(","));
   return apiClient<SellerModel>("/seller/furniture", { method: "POST", body: form });
 }
 
 export async function updateMyModel(
   id: string,
-  patch: Partial<{ name_uz: string; price_uzs: number | null; is_active: boolean }>,
+  patch: Partial<{ name_uz: string; price_uzs: number | null; is_active: boolean; styles: FurnitureStyle[] }>,
 ): Promise<SellerModel> {
   return apiClient<SellerModel>(`/seller/furniture/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }

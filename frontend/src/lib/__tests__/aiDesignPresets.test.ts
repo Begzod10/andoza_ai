@@ -5,6 +5,7 @@ import { LIGHT_TYPES } from '@/lib/lightCatalog'
 import { OBOY_PATTERNS } from '@/lib/oboyPatterns'
 import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
 import { trimProfilesOf } from '@/lib/trimProfiles'
+import { FURNITURE_STYLES } from '../furnitureStyles'
 import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
 
 const item = (id: string, name: string, category: string, room_type: string | null = null): CatalogFurniture => ({
@@ -135,5 +136,34 @@ describe('design presets', () => {
     const plan = presetPlan('neoklassika', CATALOG)!
     expect(plan.trim).toBeDefined()
     expect(plan.trim).toEqual(DESIGN_PRESETS.find((p) => p.id === 'neoklassika')!.trim)
+  })
+
+  it('every style names a furniture style the catalog knows', () => {
+    const known: readonly string[] = FURNITURE_STYLES.map((s) => s.id)
+    for (const p of DESIGN_PRESETS) expect(known, p.id).toContain(p.furnitureStyle)
+    expect(DESIGN_PRESETS.find((p) => p.id === 'dark')!.furnitureStyle).toBe('zamonaviy')
+  })
+
+  it('a style takes a sofa of its own style over one made for the room', () => {
+    const cat = [
+      { ...item('room', 'Divan', 'divan', 'mehmonxona'), styles: ['klassik'] },
+      { ...item('mine', 'Divan', 'divan'), styles: ['hitech'] },
+    ]
+    expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('mine')
+  })
+
+  it('an unstyled piece comes before one of another style', () => {
+    const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }, { ...item('any', 'Divan', 'divan'), styles: [] }]
+    expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('any')
+  })
+
+  it('with nothing of its style, a piece of another style still fills the room', () => {
+    const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }]
+    expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')
+  })
+
+  it('a catalog with no styles at all (or an old cached one without the field) picks by room as before', () => {
+    const cat = [item('any', 'Divan', 'divan'), item('room', 'Divan', 'divan', 'mehmonxona')]
+    expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('room')
   })
 })

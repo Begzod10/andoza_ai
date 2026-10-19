@@ -21,6 +21,8 @@ export interface CatalogFurniture {
   footprint_d: number | null;
   /** Centimetres; null for models uploaded before it was measured. */
   height_cm?: number | null;
+  /** Styles the model suits; empty = every style. Absent in older cached responses. */
+  styles?: string[];
 }
 
 export interface PaginatedCatalogFurniture {

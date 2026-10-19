@@ -21,6 +21,7 @@ class FurnitureOut(BaseModel):
     footprint_w: float | None
     footprint_d: float | None
     height_cm: float | None = None
+    styles: list[str] = []
 
 
 class PaginatedFurniture(BaseModel):

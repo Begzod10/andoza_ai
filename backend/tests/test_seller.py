@@ -79,7 +79,7 @@ def _model(store, status="approved", **kw):
         id=uuid.uuid4(), store_id=store.id if store else None, category="divan", room_type=None,
         placement="pol", name_uz="Divan", price_uzs=1000, glb_key="furniture/a.glb", thumbnail_key=None,
         footprint_w=None, footprint_d=None, is_active=status == "approved", status=status,
-        moderation_note=None, created_at=datetime.now(timezone.utc),
+        moderation_note=None, created_at=datetime.now(timezone.utc), styles=[],
     )
     for k, v in kw.items():
         setattr(f, k, v)
@@ -222,6 +222,22 @@ class TestUpload:
         assert (f.store_id, f.status, f.is_active, f.price_uzs) == (store.id, "pending", False, 150000)
         assert up.await_args.args[0] == GLB
 
+    def test_upload_styles_are_stored_in_catalog_order(self, client):
+        u = _user()
+        store = _store(u)
+        db = _as(u, [_R(store), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client, styles="hitech,zamonaviy")
+        assert res.status_code == 201 and res.json()["styles"] == ["zamonaviy", "hitech"]
+        assert db.add.call_args.args[0].styles == ["zamonaviy", "hitech"]
+
+    def test_empty_styles_in_the_form_means_every_style_not_422(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client, styles="")
+        assert res.status_code == 201 and res.json()["styles"] == []
+
     def test_a_new_model_is_queued_for_compressing(self, client):
         u = _user()
         _as(u, [_R(_store(u)), _R(0)])
@@ -287,7 +303,7 @@ class TestUpload:
         assert _upload(client, data=b"").status_code == 400
         assert _upload(client, data=GLB + b"x" * (50 * 1024 * 1024)).status_code == 413
 
-    @pytest.mark.parametrize("field,value", [("category", "spaceship"), ("room_type", "garage"), ("placement", "floating")])
+    @pytest.mark.parametrize("field,value", [("category", "spaceship"), ("room_type", "garage"), ("placement", "floating"), ("styles", "barokko")])
     def test_unknown_choices_are_422(self, client, field, value):
         u = _user()
         _as(u, [_R(_store(u)), _R(0)])
@@ -341,6 +357,20 @@ class TestOwnModels:
         _as(u, [_R(store), _R(m)])
         res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"price_uzs": 99, "is_active": False})
         assert res.status_code == 200 and (m.price_uzs, m.is_active) == (99, False)
+
+    def test_edit_sets_and_clears_styles_and_leaves_them_alone_otherwise(self, client):
+        u = _user()
+        store = _store(u)
+        m = _model(store)
+        _as(u, [_R(store), _R(m)])
+        url = f"/api/v1/seller/furniture/{m.id}"
+        assert client.patch(url, json={"styles": ["milliy"]}).json()["styles"] == ["milliy"]
+        _as(u, [_R(store), _R(m)])
+        assert client.patch(url, json={"name_uz": "x"}).json()["styles"] == ["milliy"]
+        _as(u, [_R(store), _R(m)])
+        assert client.patch(url, json={"styles": []}).json()["styles"] == []
+        _as(u, [_R(store), _R(m)])
+        assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
 
     def test_a_pending_model_cannot_be_switched_on_to_skip_review(self, client):
         u = _user()

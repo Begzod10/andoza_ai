@@ -1,0 +1,39 @@
+import { FURNITURE_STYLES, type FurnitureStyle } from "@/lib/furnitureStyles";
+
+/** Pick the design styles a model suits. None picked = it suits every style. */
+export function StyleChips({
+  value,
+  onChange,
+}: {
+  value: FurnitureStyle[];
+  onChange: (next: FurnitureStyle[]) => void;
+}) {
+  function toggle(id: FurnitureStyle) {
+    onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
+  }
+
+  return (
+    <div>
+      <span className="block text-sm font-medium text-ink mb-1.5">Uslublar</span>
+      <div className="flex flex-wrap gap-2">
+        {FURNITURE_STYLES.map(({ id, label }) => {
+          const on = value.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                on ? "bg-brand text-white border-brand" : "border-line text-ink-muted hover:text-ink hover:border-ink-muted"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {value.length === 0 && <p className="mt-1.5 text-xs text-ink-muted">Hamma uslubga mos</p>}
+    </div>
+  );
+}

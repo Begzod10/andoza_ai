@@ -77,3 +77,13 @@ class TestUrls:
 
         assert _out(_user_model("models/u/a.opt.glb"), _request()).url.endswith("/models/u/a.opt.glb")
         assert not _out(_user_model(None), _request()).url.endswith(".opt.glb")
+
+
+def test_catalog_item_carries_styles_empty_when_unstyled():
+    from app.routers.catalog import _furniture_out
+
+    plain = _furniture_out(_request(), _furniture(None))
+    assert plain.model_dump()["styles"] == []
+    styled = _furniture(None)
+    styled.styles = ["loft"]
+    assert _furniture_out(_request(), styled).model_dump()["styles"] == ["loft"]

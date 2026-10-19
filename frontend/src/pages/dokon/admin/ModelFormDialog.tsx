@@ -18,6 +18,8 @@ import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
+import { StyleChips } from "@/components/dokon/StyleChips";
+import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 /**
@@ -44,6 +46,7 @@ export function ModelFormDialog({
   const [category, setCategory] = useState<AdminFurnitureCategory>("divan");
   const [roomType, setRoomType] = useState<AdminRoomType | "">("");
   const [placement, setPlacement] = useState<AdminPlacement>("pol");
+  const [styles, setStyles] = useState<FurnitureStyle[]>([]);
   const [storeId, setStoreId] = useState("");
   const [priceUzs, setPriceUzs] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -57,6 +60,7 @@ export function ModelFormDialog({
     setCategory("divan");
     setRoomType("");
     setPlacement("pol");
+    setStyles([]);
     setStoreId("");
     setPriceUzs("");
     setFile(null);
@@ -77,6 +81,7 @@ export function ModelFormDialog({
         category,
         room_type: roomType || null,
         placement,
+        styles,
         store_id: fixedStoreId ?? storeId ?? null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
         ...sizeFields(measured),
@@ -130,6 +135,8 @@ export function ModelFormDialog({
             ))}
           </Select>
         </div>
+
+        <StyleChips value={styles} onChange={setStyles} />
 
         <Select themed
           label="Xonada joylashuvi"

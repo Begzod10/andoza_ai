@@ -365,6 +365,29 @@ class TestUploadFurnitureModel:
         response = self._post(client, store_id=str(uuid.uuid4()))
         assert response.status_code == 404
 
+    def test_upload_styles_are_stored_in_catalog_order(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client, styles="klassik,neoklassika")
+        assert response.status_code == 201
+        assert response.json()["styles"] == ["neoklassika", "klassik"]
+        assert db.add.call_args.args[0].styles == ["neoklassika", "klassik"]
+
+    def test_empty_styles_in_the_form_means_every_style(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client, styles="")
+        assert response.status_code == 201 and response.json()["styles"] == []
+
+    def test_rejects_unknown_style(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        response = self._post(client, styles="x")
+        assert response.status_code == 422
+        db.add.assert_not_called()
+
     def test_stores_model_with_room_type_and_returns_urls(self, client):
         store = _store()
         db = _db(_Result(one=store))
@@ -419,6 +442,24 @@ class TestUpdateFurniture:
         assert body["room_type"] == "mehmonxona"
         assert body["is_active"] is False
         assert body["name_uz"] == "Divan"  # untouched
+
+    def test_edit_sets_clears_and_preserves_styles(self, client):
+        furniture = Furniture(
+            id=uuid.uuid4(), store_id=None, category="divan", placement="pol",
+            name_uz="Divan", glb_key="furniture/a.glb",
+        )
+        furniture.store = None
+        url = f"/api/v1/admin/furniture/{furniture.id}"
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": ["loft"]}).json()["styles"] == ["loft"]
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"name_uz": "x"}).json()["styles"] == ["loft"]
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": None}).json()["styles"] == ["loft"]
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": []}).json()["styles"] == []
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
 
     def test_missing_is_404(self, client):
         db = _db(_Result(one=None))

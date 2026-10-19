@@ -15,8 +15,13 @@ import {
   type AdminRoomType,
   type AdminStore,
 } from "@/lib/api";
+import { StyleChips } from "@/components/dokon/StyleChips";
+import { FURNITURE_STYLES, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
+
+const knownStyles = (raw?: string[]) =>
+  (raw ?? []).filter((s): s is FurnitureStyle => FURNITURE_STYLES.some((f) => f.id === s));
 
 /**
  * Edit an existing 3D model's metadata. The GLB/thumbnail file itself isn't
@@ -41,6 +46,7 @@ export function ModelEditDialog({
   const [category, setCategory] = useState<AdminFurnitureCategory>("boshqa");
   const [roomType, setRoomType] = useState<AdminRoomType | "">("");
   const [placement, setPlacement] = useState<AdminPlacement>("pol");
+  const [styles, setStyles] = useState<FurnitureStyle[]>([]);
   const [storeId, setStoreId] = useState("");
   const [priceUzs, setPriceUzs] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -52,6 +58,7 @@ export function ModelEditDialog({
     setCategory(model.category as AdminFurnitureCategory);
     setRoomType((model.room_type as AdminRoomType) ?? "");
     setPlacement(model.placement);
+    setStyles(knownStyles(model.styles));
     setStoreId(model.store_id ?? "");
     setPriceUzs(model.price_uzs != null ? String(model.price_uzs) : "");
     setIsActive(model.is_active);
@@ -65,6 +72,7 @@ export function ModelEditDialog({
         category,
         room_type: roomType || null,
         placement,
+        styles,
         store_id: storeId || null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
         is_active: isActive,
@@ -105,6 +113,8 @@ export function ModelEditDialog({
             ))}
           </Select>
         </div>
+
+        <StyleChips value={styles} onChange={setStyles} />
 
         <Select themed
           label="Xonada joylashuvi"
