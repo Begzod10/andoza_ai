@@ -165,6 +165,42 @@ class TestDesignRoom:
         assert "qorong'i atmosfera" in message and "F1: Divan" in message and "A 4 m (deraza)" in message and "wall_A" in message and "corner_A_B" in message
         assert "4 x 3 m" in message and "chandelier" in message
 
+    # ── with an inspiration image ──────────────────────────────────────────
+
+    def _image(self):
+        from app.services.design_image import PreparedImage
+        return PreparedImage("image/jpeg", "QUJD", 10, 10)
+
+    async def test_with_an_image_the_model_gets_the_picture_and_the_image_instructions(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("faqat ranglarini ol", ROOM, ITEMS, user_id="u", image=self._image())
+        sent = call.await_args.kwargs
+        content = sent["messages"][0]["content"]
+        assert content[0] == {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "QUJD"}}
+        text = content[1]["text"]
+        assert "faqat ranglarini ol" in text and ad._IMAGE_INSTRUCTIONS in text and "F1: Divan" in text
+        assert sent["user_id"] is None  # the router counts it, in its own pool
+
+    async def test_with_an_image_and_no_prompt_the_default_prompt_is_used(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert ad._IMAGE_DEFAULT_PROMPT in call.await_args.kwargs["messages"][0]["content"][1]["text"]
+
+    async def test_an_image_plan_is_checked_like_any_other(self):
+        invented = {**GOOD, "furniture": [{"id": "F1", "zone": "wall_A"}, {"id": "F99", "zone": "center"}]}
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply(json.dumps(invented)))):
+            p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert [f["id"] for f in p.furniture] == ["uuid-sofa"]
+
+    async def test_without_an_image_nothing_changes(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("qorong'i xona", ROOM, ITEMS, user_id="u")
+        sent = call.await_args.kwargs
+        assert isinstance(sent["messages"][0]["content"], str) and sent["user_id"] == "u"
+
     async def test_an_unreadable_answer_is_a_design_error(self):
         with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply("kechirasiz"))):
             with pytest.raises(ad.DesignError):
