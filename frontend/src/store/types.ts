@@ -122,6 +122,9 @@ export interface PlacedLight {
   beamDeg?: number
   /** Individually switched off while the room lights are on. */
   off?: boolean
+  /** Put in by a design (the AI designer or a ready-made style), not by the user: the next
+   *  design applied replaces these and leaves the user's own lights alone. */
+  fromDesign?: boolean
 }
 
 export interface PlacedFurniture {
