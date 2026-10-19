@@ -11,7 +11,14 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.services.pinterest_pin import NotAPinUrl, resolve_pin_id
+from app.services.design_image import MAX_DESIGN_IMAGE_BYTES, ImageTooLarge
+from app.services.pinterest_pin import (
+    NotAPinUrl,
+    PinNotFound,
+    PinterestUnavailable,
+    fetch_pin_image,
+    resolve_pin_id,
+)
 
 
 class _Net:
@@ -123,3 +130,106 @@ async def test_a_pin_it_host_that_answers_405_to_head_is_asked_with_get():
     async with net.client() as client:
         assert await resolve_pin_id("https://pin.it/xyz", client) == "555555555"
     assert [r.method for r in net.seen] == ["HEAD", "GET"]
+
+
+
+# ── fetch_pin_image ──────────────────────────────────────────────────────────
+
+PIN = "123456789"
+OEMBED = "https://www.pinterest.com/oembed.json?url=https%3A%2F%2Fwww.pinterest.com%2Fpin%2F123456789%2F"
+THUMB_236 = "https://i.pinimg.com/236x/03/8b/x.jpg"
+THUMB_736 = "https://i.pinimg.com/736x/03/8b/x.jpg"
+JPEG = b"\xff\xd8\xff" + b"JPG"
+
+
+def _oembed(thumb: str = THUMB_236) -> httpx.Response:
+    return httpx.Response(200, json={"type": "rich", "thumbnail_url": thumb})
+
+
+def _jpeg(body: bytes = JPEG) -> httpx.Response:
+    return httpx.Response(200, content=body, headers={"Content-Type": "image/jpeg"})
+
+
+async def _fetch(net: _Net):
+    async with net.client() as client:
+        return await fetch_pin_image(PIN, client)
+
+
+async def test_the_736_version_of_the_oembed_thumbnail_is_fetched():
+    net = _Net({OEMBED: _oembed(), THUMB_736: _jpeg()})
+    image = await _fetch(net)
+    assert (image.url, image.content_type, image.data) == (THUMB_736, "image/jpeg", JPEG)
+    assert str(net.seen[0].url) == OEMBED
+
+
+async def test_without_a_736_version_the_original_thumbnail_is_used():
+    net = _Net({OEMBED: _oembed(), THUMB_736: httpx.Response(404), THUMB_236: _jpeg()})
+    assert (await _fetch(net)).url == THUMB_236
+
+
+async def test_a_thumbnail_not_on_pinimg_is_never_requested():
+    net = _Net({OEMBED: _oembed("https://evil.com/236x/x.jpg")})
+    with pytest.raises(PinterestUnavailable):
+        await _fetch(net)
+    assert all(r.url.host != "evil.com" for r in net.seen)
+
+
+@pytest.mark.parametrize("status", [400, 404])
+async def test_an_unknown_or_private_pin_is_not_found(status):
+    with pytest.raises(PinNotFound):
+        await _fetch(_Net({OEMBED: httpx.Response(status)}))
+
+
+@pytest.mark.parametrize("answer", ["500", "timeout", "not json"])
+async def test_pinterest_failing_is_unavailable(answer):
+    def handler(request):
+        if answer == "timeout":
+            raise httpx.ReadTimeout("slow", request=request)
+        if answer == "500":
+            return httpx.Response(500)
+        return httpx.Response(200, text="<html>not json</html>")
+
+    with pytest.raises(PinterestUnavailable):
+        await _fetch(_Net(handler=handler))
+
+
+async def test_an_image_response_that_is_not_an_image_is_unavailable():
+    net = _Net({OEMBED: _oembed(), THUMB_736: httpx.Response(200, text="<html/>", headers={"Content-Type": "text/html"})})
+    with pytest.raises(PinterestUnavailable):
+        await _fetch(net)
+
+
+async def test_an_image_over_10_mb_is_too_large():
+    net = _Net({OEMBED: _oembed(), THUMB_736: _jpeg(JPEG + b"0" * MAX_DESIGN_IMAGE_BYTES)})
+    with pytest.raises(ImageTooLarge):
+        await _fetch(net)
+
+
+async def test_no_request_follows_redirects():
+    net = _Net({OEMBED: _oembed(), THUMB_736: _redirect("https://evil.com/x.jpg", 302)})
+    with pytest.raises(PinterestUnavailable):
+        await _fetch(net)
+    assert all(r.url.host != "evil.com" for r in net.seen)
+
+
+# Review Focus
+async def test_a_thumbnail_that_is_not_236x_is_used_as_is():
+    thumb = "https://i.pinimg.com/564x/03/8b/x.jpg"
+    net = _Net({OEMBED: _oembed(thumb), thumb: _jpeg()})
+    assert (await _fetch(net)).url == thumb
+    assert [str(r.url) for r in net.seen] == [OEMBED, thumb]
+
+
+async def test_a_chunked_image_without_content_length_still_stops_at_10_mb():
+    async def chunks():  # no Content-Length: httpx sends it chunked
+        yield JPEG
+        for _ in range(11):
+            yield b"0" * (1024 * 1024)
+
+    def handler(request):
+        if str(request.url) == OEMBED:
+            return _oembed()
+        return httpx.Response(200, content=chunks(), headers={"Content-Type": "image/jpeg"})
+
+    with pytest.raises(ImageTooLarge):
+        await _fetch(_Net(handler=handler))

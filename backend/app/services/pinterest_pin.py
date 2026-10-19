@@ -17,9 +17,12 @@ Because the link comes from the user, the server must not be steerable by it:
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+
+from app.services.design_image import MAX_DESIGN_IMAGE_BYTES, ImageTooLarge
 
 # Pinterest and its country domains, with an optional short subdomain (www, api,
 # mx, ru...). Anchored at both ends, so "pinterest.com.evil.com" does not match.
@@ -31,6 +34,10 @@ SHORT_HOST = "pin.it"
 _PIN_ID_RE = re.compile(r"(\d{5,25})/?$")
 _MAX_REDIRECTS = 3
 _REDIRECT_TIMEOUT = 5.0
+_OEMBED = "https://www.pinterest.com/oembed.json"
+_OEMBED_TIMEOUT = 8.0
+_IMAGE_TIMEOUT = 10.0
+_IMAGE_HOST = "i.pinimg.com"
 
 
 class NotAPinUrl(Exception):
@@ -103,3 +110,65 @@ async def _next_hop(url: str, client: httpx.AsyncClient) -> str:
     if not response.is_redirect or not location:
         raise NotAPinUrl(url)
     return urljoin(url, location)
+
+
+@dataclass(frozen=True)
+class PinImage:
+    data: bytes
+    content_type: str
+    url: str
+
+
+async def fetch_pin_image(pin_id: str, client: httpx.AsyncClient) -> PinImage:
+    """The pin's picture, as large as Pinterest's CDN offers it up to 736 px.
+
+    oEmbed gives a 236 px thumbnail on i.pinimg.com; the same path under /736x/
+    is the bigger copy. Neither is documented by Pinterest, so a missing 736x
+    falls back to the thumbnail itself."""
+    canonical = f"https://www.pinterest.com/pin/{pin_id}/"
+    try:
+        response = await client.get(_OEMBED, params={"url": canonical}, timeout=_OEMBED_TIMEOUT)
+    except httpx.HTTPError as exc:
+        raise PinterestUnavailable(str(exc)) from exc
+    if response.status_code in (400, 404):
+        raise PinNotFound(pin_id)
+    if response.status_code != 200:
+        raise PinterestUnavailable(f"oembed {response.status_code}")
+    try:
+        thumbnail = response.json().get("thumbnail_url")
+    except (ValueError, AttributeError) as exc:
+        raise PinterestUnavailable("oembed is not json") from exc
+    if not isinstance(thumbnail, str):
+        raise PinterestUnavailable("no thumbnail")
+    parts = urlsplit(thumbnail)
+    if parts.scheme != "https" or parts.hostname != _IMAGE_HOST:
+        raise PinterestUnavailable("thumbnail is not on i.pinimg.com")
+
+    candidates = [thumbnail]
+    if "/236x/" in parts.path:
+        candidates.insert(0, thumbnail.replace("/236x/", "/736x/", 1))
+    for url in candidates:
+        image = await _download(url, client)
+        if image is not None:
+            return image
+    raise PinterestUnavailable("no image")
+
+
+async def _download(url: str, client: httpx.AsyncClient) -> PinImage | None:
+    """The image at *url*, or None on a 404 (try the next candidate). Stops reading
+    the moment it passes MAX_DESIGN_IMAGE_BYTES, Content-Length or not."""
+    try:
+        async with client.stream("GET", url, timeout=_IMAGE_TIMEOUT) as response:
+            if response.status_code == 404:
+                return None
+            content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if response.status_code != 200 or not content_type.startswith("image/"):
+                raise PinterestUnavailable(f"image {response.status_code} {content_type}")
+            data = bytearray()
+            async for chunk in response.aiter_bytes():
+                data += chunk
+                if len(data) > MAX_DESIGN_IMAGE_BYTES:
+                    raise ImageTooLarge(len(data))
+    except httpx.HTTPError as exc:
+        raise PinterestUnavailable(str(exc)) from exc
+    return PinImage(data=bytes(data), content_type=content_type, url=url)
