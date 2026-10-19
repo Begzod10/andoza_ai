@@ -67,4 +67,15 @@ describe('CatalogOverview — AI style pass', () => {
     resolve({ queued: 1 })
     await waitFor(() => expect(btn).not.toBeDisabled())
   })
+
+  it('drops the old result when a later request fails', async () => {
+    api.classifyFurnitureStyles.mockResolvedValueOnce({ queued: 4 }).mockRejectedValueOnce(new Error('boom'))
+    renderIt()
+    const btn = await screen.findByRole('button', { name: BTN })
+    fireEvent.click(btn)
+    expect(await screen.findByRole('status')).toHaveTextContent('navbatga qo')
+    fireEvent.click(btn)
+    await waitFor(() => expect(api.classifyFurnitureStyles).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText(/navbatga qo/)).not.toBeInTheDocument())
+  })
 })

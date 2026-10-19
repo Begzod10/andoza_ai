@@ -90,6 +90,23 @@ export function CatalogOverview({
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={classifyMutation.isPending}
+          disabled={classifyMutation.isPending}
+          onClick={() => classifyMutation.mutate()}
+        >
+          AI bilan uslub qo'yish
+        </Button>
+        {classifyNotice && (
+          <p role="status" className="text-xs text-ink-muted">
+            {classifyNotice}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard themed
           label="Jami do'konlar"
@@ -149,26 +166,10 @@ export function CatalogOverview({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-on-app">Do'konsiz modellar</h2>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                loading={classifyMutation.isPending}
-                disabled={classifyMutation.isPending}
-                onClick={() => classifyMutation.mutate()}
-              >
-                AI bilan uslub qo'yish
-              </Button>
-              <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
-                Qo'shish
-              </Button>
-            </div>
+            <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
+              Qo'shish
+            </Button>
           </div>
-          {classifyNotice && (
-            <p role="status" className="text-xs text-ink-muted">
-              {classifyNotice}
-            </p>
-          )}
 
           {unassignedModels.length > 0 && <ModelFilterBar filters={filters} onChange={setFilters} />}
 
