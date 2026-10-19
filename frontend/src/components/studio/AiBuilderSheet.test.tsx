@@ -395,7 +395,8 @@ describe('AiBuilderSheet — design from an inspiration image', () => {
 
 describe('AiBuilderSheet — design from a Pinterest pin', () => {
   const PIN = 'https://www.pinterest.com/pin/516647388484185204/'
-  const paste = (text: string) => fireEvent.change(screen.getByLabelText('Pinterest havolasi'), { target: { value: text } })
+  const paste = (text: string) =>
+    fireEvent.paste(screen.getByLabelText('Pinterest havolasi'), { clipboardData: { getData: () => text } })
   const picture = () => new File(['x'], 'pin.jpg', { type: 'image/jpeg' })
 
   it('turns a pasted pin link into a chip and removes it with ✕', () => {
@@ -445,10 +446,30 @@ describe('AiBuilderSheet — design from a Pinterest pin', () => {
     expect(aiDesignFromPin).not.toHaveBeenCalled()
   })
 
+  it('a link typed key by key is taken whole, not at the first moment it looks like Pinterest', async () => {
+    // Found in the real check: "https://www.pinterest.c" already passed the quick check,
+    // so the field turned into a chip mid-typing and kept the truncated link.
+    aiDesignFromPin.mockResolvedValueOnce(PLAN)
+    renderSheet()
+    const field = screen.getByLabelText('Pinterest havolasi')
+    for (let i = 1; i <= PIN.length; i++) fireEvent.change(field, { target: { value: PIN.slice(0, i) } })
+    expect(screen.queryByText('Bu Pinterest pin havolasi emas')).toBeNull()  // no nagging while typing
+    fireEvent.blur(field)
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
+    fireEvent.click(screen.getByText("Pinterest'dan dizayn yaratish"))
+    await waitFor(() => expect(aiDesignFromPin).toHaveBeenCalledWith('room-1', PIN, '', 'mehmonxona'))
+  })
+
+  it('a prompt that merely mentions Pinterest while being typed stays a prompt', () => {
+    renderSheet()
+    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: 'https://www.pinterest.c' } })
+    expect(screen.queryByText('📌 Pinterest pin')).toBeNull()
+  })
+
   // Review Focus 5
   it('a pin link pasted into the prompt box moves to the link field', () => {
     renderSheet()
-    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: `  ${PIN}  ` } })
+    fireEvent.paste(screen.getByLabelText('Dizayn tavsifi'), { clipboardData: { getData: () => `  ${PIN}  ` } })
     expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
     expect((screen.getByLabelText('Dizayn tavsifi') as HTMLTextAreaElement).value).toBe('')
   })

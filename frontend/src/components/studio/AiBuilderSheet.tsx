@@ -157,16 +157,27 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     setPinUrl(text.trim())
   }
 
-  function changePinInput(text: string) {
-    setPinInput(text)
+  /** The link is taken when it is complete: pasted, or left with blur / Enter. Checking
+   *  on every keystroke took "https://www.pinterest.c" mid-typing and kept it truncated. */
+  function commitPinInput(text: string = pinInput) {
+    if (!text.trim()) return
     if (looksLikePinUrl(text)) takePin(text)
-    else setImageError(/^\s*https?:\/\//i.test(text) ? uz.ai.pin_xato : "")
+    else setImageError(uz.ai.pin_xato)
+  }
+
+  function pastePin(e: React.ClipboardEvent<HTMLInputElement>) {
+    e.preventDefault()
+    const text = e.clipboardData.getData("text")
+    setPinInput(text)
+    commitPinInput(text)
   }
 
   /** A pin link pasted into the prompt box is meant as the source, not as words. */
-  function changePrompt(text: string) {
-    if (looksLikePinUrl(text)) { takePin(text); setPrompt(""); return }
-    setPrompt(text)
+  function pastePrompt(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const text = e.clipboardData.getData("text")
+    if (!looksLikePinUrl(text)) return
+    e.preventDefault()
+    takePin(text)
   }
 
   function removeImage() {
@@ -267,7 +278,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
         <form onSubmit={generate} className="space-y-2">
           <textarea
             value={prompt}
-            onChange={(e) => changePrompt(e.target.value)}
+            onChange={(e) => setPrompt(e.target.value)}
+            onPaste={pastePrompt}
             placeholder={image || pinUrl ? uz.ai.rasm_placeholder : uz.ai.builder_placeholder}
             disabled={running}
             rows={3}
@@ -325,7 +337,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
             <input
               type="url"
               value={pinInput}
-              onChange={(e) => changePinInput(e.target.value)}
+              onChange={(e) => { setPinInput(e.target.value); setImageError("") }}
+              onPaste={pastePin}
+              onBlur={() => commitPinInput()}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPinInput() } }}
               placeholder={uz.ai.pin_placeholder}
               aria-label={uz.ai.pin_label}
               disabled={running}
