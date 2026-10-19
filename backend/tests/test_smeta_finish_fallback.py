@@ -61,7 +61,7 @@ def lines_of(r, category, **kw):
     ("parquet", "laminat", PARKET),   # parquet is laid and priced like laminate
     ("tile", "plitka", PLITKA),
 ])
-def test_a_floor_type_without_a_product_is_priced_from_the_cheapest_shop_product(floor_type, category, chosen):
+def test_a_floor_type_without_a_product_is_priced_from_the_median_shop_product(floor_type, category, chosen):
     r = room({"floorType": floor_type, "floorConfigured": True})
     [floor] = lines_of(r, category)
     assert chosen.name_uz in floor.label
@@ -105,7 +105,7 @@ def test_with_no_shop_product_of_that_kind_the_floor_still_gets_its_skirting():
 
 # ── wallpaper and paint ──────────────────────────────────────────────────────
 
-def test_a_wallpaper_pattern_without_a_product_is_priced_from_the_cheapest_roll():
+def test_a_wallpaper_pattern_without_a_product_is_priced_from_the_median_roll():
     r = room({"wallCoverings": {"ALL": {"kind": "oboy", "patternId": "gul", "baseColor": "#f3e6cf", "accentColor": "#9e2b25"}}})
     oboy = lines_of(r, "oboy")
     assert len(oboy) == 4
@@ -120,7 +120,7 @@ def test_with_no_roll_in_any_shop_the_wallpaper_still_says_so():
     assert oboy and all(ln.subtotal_uzs == 0 and ln.is_approximate for ln in oboy)
 
 
-def test_a_paint_colour_without_a_product_is_priced_from_the_cheapest_paint():
+def test_a_paint_colour_without_a_product_is_priced_from_the_median_paint():
     r = room({"wallCoverings": {"ALL": {"kind": "paint", "color": "#f4f5f6"}}})
     [paint] = lines_of(r, "boyoq")
     assert BOYOQ.name_uz in paint.label and paint.unit_price_uzs == BOYOQ.price_uzs

@@ -24,7 +24,7 @@ export function StyleChips({
               type="button"
               aria-pressed={on}
               onClick={() => toggle(id)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+              className={`min-h-[40px] rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                 on ? "bg-brand text-white border-brand" : "border-line text-ink-muted hover:text-ink hover:border-ink-muted"
               }`}
             >

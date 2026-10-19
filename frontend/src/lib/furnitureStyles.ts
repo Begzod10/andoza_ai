@@ -20,3 +20,9 @@ export const FURNITURE_STYLES: { id: FurnitureStyle; label: string }[] = [
   { id: 'loft', label: 'Loft' },
   { id: 'milliy', label: 'Milliy' },
 ]
+
+/** The styles in `raw` the app knows, in the order given: a model saved with a style this
+ *  build has never heard of, or an older one without the field, still opens cleanly. */
+export function knownStyles(raw?: string[]): FurnitureStyle[] {
+  return (raw ?? []).filter((s): s is FurnitureStyle => FURNITURE_STYLES.some((f) => f.id === s))
+}

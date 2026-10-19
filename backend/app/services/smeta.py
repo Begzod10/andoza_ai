@@ -65,7 +65,8 @@ GALTEL_PIECE_M: float = 2.0        # standard ceiling cornice (galtel) strip len
 # Per 2 m polystyrene/polyurethane cornice strip: the median of the market prices seen on
 # 2026-10-19 (wert.uz TERMOTECH PENOPLAST LUX 5 460-17 160 so'm, its 80x80 model 7 800 so'm per 2 m;
 # prom.uz De-Baget (TEPLODOM) 7 500-24 000 so'm, its 50x50 model 7 500 so'm per 2 m;
-# stroyka.uz 8 000-13 500 so'm).
+# stroyka.uz 8 000-13 500 so'm). The so'm-priced listings across the three, sorted, have
+# a median of 10 920 so'm, rounded to 11 000.
 GALTEL_PIECE_PRICE_UZS: int = 11_000
 
 ELEC_POINTS_DEFAULT: int = 8      # sockets + switches estimate per room
@@ -814,7 +815,7 @@ def _wallpaper_lines(
     """Per-wall oboy (wallpaper) lines.
 
     A wall with a pattern but no product of its own (the AI designer and the ready-made
-    styles never pick one) is priced from ``stand_in``, the cheapest roll in the shops,
+    styles never pick one) is priced from ``stand_in``, the median roll in the shops,
     and flagged approximate.
 
     Reads wall geometry from room.geometry (lengths may be in mm; applies
@@ -1062,7 +1063,7 @@ def _designed_floor_lines(
     room: "Room", norms_map: "dict[str, Norm]", catalog: "dict[str, Material]",
 ) -> list[ComputedLine]:
     """A floor chosen by type in the studio (the AI designer and the ready-made styles do
-    this) with no shop product behind it: priced from the cheapest shop product of that
+    this) with no shop product behind it: priced from the median shop product of that
     kind, flagged approximate, with its skirting. Without any such product only the
     skirting is listed. A floor nobody chose (floorConfigured not true) adds nothing."""
     ds = _design_state(room)

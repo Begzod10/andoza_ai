@@ -39,7 +39,7 @@ const secondaryButton =
   "inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand-light hover:text-accent disabled:opacity-60";
 
 /** The floor type is chosen in the studio (by hand, by the AI designer or a ready-made
- *  style) but no shop product for it. The estimate prices it from the cheapest shop product
+ *  style) but no shop product for it. The estimate prices it from the median shop product
  *  when there is one ("stand_in": the price is approximate) and otherwise leaves it out
  *  ("left_out"); either way the page says so rather than show a total that looks settled.
  *  A bare concrete floor has nothing to buy. */
