@@ -319,6 +319,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
             <div className="rounded-2xl bg-blue-50 px-4 py-3">
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
               <p className="mt-1 text-sm leading-snug text-gray-700">{plan.summary}</p>
+              {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
             </div>
 
             <PartRow id="walls" title={uz.ai.qism_devor} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>

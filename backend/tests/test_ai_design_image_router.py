@@ -153,3 +153,38 @@ def test_the_text_endpoint_still_works_through_the_shared_helper(env):
     assert m.design.await_args.args[0] == "qorong'i xona"
     assert m.design.await_args.kwargs.get("image") is None
     m.budget.assert_not_awaited()  # the text designer counts in call_llm, as before
+
+
+def test_the_image_is_decoded_off_the_event_loop(env):
+    # Final review: a big decode on the loop thread froze every other request.
+    import threading
+    from app.services import design_image
+
+    client, m = env
+    threads = []
+    real = design_image.prepare_design_image
+
+    def spy(*a, **k):
+        threads.append(threading.current_thread().name)
+        return real(*a, **k)
+
+    with patch("app.routers.ai.prepare_design_image", new=spy):
+        assert _post(client).status_code == 200
+    assert threads and "AnyIO worker thread" in threads[0]
+
+
+def test_an_oversized_upload_is_refused_before_it_reaches_the_image_check(env):
+    # Final review: the whole body was read into memory, then measured.
+    client, m = env
+    with patch("app.routers.ai.prepare_design_image") as prepare:
+        response = _post(client, image=b"\xff\xd8\xff" + b"0" * (10 * 1024 * 1024))
+    assert response.status_code == 413
+    prepare.assert_not_called()
+
+
+def test_an_unlisted_type_is_refused_before_reading(env):
+    client, m = env
+    with patch("app.routers.ai.prepare_design_image") as prepare:
+        response = _post(client, image=b"x", ctype="image/heic")
+    assert response.status_code == 415
+    prepare.assert_not_called()

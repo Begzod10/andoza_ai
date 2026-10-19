@@ -140,6 +140,12 @@ class TestValidate:
         bad = plan(walls={"main": {"type": "oboy", "pattern": "damask", "base_color": "#eee"}})
         assert "main" not in bad.walls
 
+    def test_image_notes_are_kept_as_text_and_clipped(self):
+        assert plan(image_notes="  Rasmda kamin bor  ").image_notes == "Rasmda kamin bor"
+        assert plan(image_notes={"x": 1}).image_notes == ""
+        assert len(plan(image_notes="a" * 2000).image_notes) <= 600
+        assert plan().image_notes == ""
+
     def test_nothing_usable_at_all_is_an_error(self):
         with pytest.raises(ad.DesignError):
             ad.validate_plan({"title": "x", "walls": {}, "floor": {"type": "marble"}, "lights": [], "furniture": []}, BY_LABEL, WALLS)
@@ -193,6 +199,17 @@ class TestDesignRoom:
         with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply(json.dumps(invented)))):
             p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
         assert [f["id"] for f in p.furniture] == ["uuid-sofa"]
+
+    async def test_what_the_image_had_and_the_catalog_lacked_survives_the_summary_check(self):
+        # Final review: the model said in summary what it took from the picture and what
+        # the catalog lacked; reconcile_summary saw colours/kinds not in the plan and
+        # replaced the whole summary. Those notes now travel in image_notes, untouched.
+        notes = "Rasmda kamin va zaytun rangli devor bor edi, katalogda kamin yo'q."
+        reply = {**GOOD, "image_notes": notes}
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply(json.dumps(reply)))):
+            p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert p.image_notes == notes
+        assert "image_notes" in ad._IMAGE_INSTRUCTIONS
 
     async def test_without_an_image_nothing_changes(self):
         call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))

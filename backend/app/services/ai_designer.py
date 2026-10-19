@@ -90,6 +90,10 @@ class DesignPlan:
     lights: list[dict[str, str]] = field(default_factory=list)
     furniture: list[dict[str, str]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Image designs only: what the picture had and what the catalog lacked. Kept out of
+    # summary because reconcile_summary (rightly) rejects a summary naming things the
+    # plan does not apply, and these notes are about exactly such things.
+    image_notes: str = ""
 
     def is_empty(self) -> bool:
         return not (self.walls or self.floor or self.lights or self.furniture)
@@ -150,6 +154,7 @@ def validate_plan(
     plan = DesignPlan(
         title=str(data.get("title") or "")[:80].strip(),
         summary=_clip_summary(str(data.get("summary") or "")),
+        image_notes=data["image_notes"].strip()[:600] if isinstance(data.get("image_notes"), str) else "",
     )
     warn = plan.warnings.append
 
@@ -310,9 +315,10 @@ _IMAGE_DEFAULT_PROMPT = "Rasmdagi interyer uslubini shu xonada takrorlang."
 _IMAGE_INSTRUCTIONS = (
     "Foydalanuvchi ilhom rasmini yubordi. Rasmdan uslubni o'qing: devor rangi yoki oboy, "
     "pol turi va naqshi, chiroqlar kayfiyati, mebel turlari. Faqat yuqoridagi menyudan eng "
-    "yaqinini tanlang. Foydalanuvchi matni rasmdan ustun turadi. summary da rasmdan nimani "
-    "olganingizni va katalogda nima topilmaganini ochiq ayting. Rasmda xona bo'lmasa ham, "
-    "undagi ranglar va kayfiyatdan foydalaning."
+    "yaqinini tanlang. Foydalanuvchi matni rasmdan ustun turadi. summary faqat tanlangan "
+    "dizaynni tasvirlasin. JSON ga qo'shimcha \"image_notes\" maydonini qo'shing: unda "
+    "rasmdan nimani olganingizni va katalogda nima topilmaganini ochiq ayting (1-3 gap). "
+    "Rasmda xona bo'lmasa ham, undagi ranglar va kayfiyatdan foydalaning."
 )
 
 

@@ -364,6 +364,14 @@ describe('AiBuilderSheet — design from an inspiration image', () => {
     expect(await screen.findByText('Bugungi rasmdan dizayn limiti tugadi')).toBeInTheDocument()
   })
 
+  it('shows what the image had and the catalog lacked under the summary', async () => {
+    aiDesignFromImage.mockResolvedValueOnce({ ...PLAN, image_notes: "Rasmda kamin bor edi, katalogda yo'q." })
+    renderSheet()
+    pick(picture())
+    fireEvent.click(screen.getByText('Rasmdan dizayn yaratish'))
+    expect(await screen.findByText("Rasmda kamin bor edi, katalogda yo'q.")).toBeInTheDocument()
+  })
+
   // Review Focus 5
   it('after the image is removed the prompt is required again and goes to the text designer', async () => {
     aiDesign.mockResolvedValueOnce(PLAN)

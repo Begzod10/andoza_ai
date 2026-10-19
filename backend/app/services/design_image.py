@@ -9,13 +9,14 @@ liked) and the designer takes its style from it. Before the model sees it:
   * it is re-encoded as a plain JPEG, which turns it the right way up and drops
     the EXIF a phone photo carries (its GPS position among it).
 
-It stays in memory. Nothing here writes the image anywhere.
+Nothing here writes the image anywhere, and it is never stored. (Starlette may
+spool a large upload to a temporary file for the length of the request; that file
+is deleted when the request ends.) This is CPU-bound: call it off the event loop.
 """
 from __future__ import annotations
 
 import base64
 import io
-import warnings
 from dataclasses import dataclass
 
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -23,10 +24,13 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 MAX_DESIGN_IMAGE_BYTES = 10 * 1024 * 1024
 _LONG_SIDE = 1024
 _JPEG_QUALITY = 85
-# Above any real photo (a 108 MP phone camera gives ~1.1e8 pixels) and far below
-# what a forged header can claim. Pillow warns above it and refuses at twice it;
-# the warning is turned into a refusal here too.
-_MAX_PIXELS = 120_000_000
+# Checked from the header before any pixel is decoded. A 10 MB JPEG rarely holds
+# more than ~50 MP, and the 1024 px output gains nothing from more. It sits below
+# Pillow's own bomb guard, which is left as it is: Pillow's limit is process-wide,
+# and this runs in a worker thread beside other requests.
+_MAX_PIXELS = 60_000_000
+
+DESIGN_IMAGE_TYPES = ("image/jpeg", "image/png", "image/webp")
 
 _SIGNATURES = {
     "image/jpeg": lambda b: b[:3] == b"\xff\xd8\xff",
@@ -62,16 +66,11 @@ def prepare_design_image(data: bytes, content_type: str | None) -> PreparedImage
         raise UnsupportedImage("content does not match its type")
 
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            previous = Image.MAX_IMAGE_PIXELS
-            Image.MAX_IMAGE_PIXELS = _MAX_PIXELS
-            try:
-                img = Image.open(io.BytesIO(data))
-                img.load()
-            finally:
-                Image.MAX_IMAGE_PIXELS = previous
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        img = Image.open(io.BytesIO(data))  # reads the header only
+        if img.width * img.height > _MAX_PIXELS:
+            raise UnsupportedImage(f"{img.width}x{img.height} is too many pixels")
+        img.load()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise UnsupportedImage(str(exc)) from exc
 
     img = ImageOps.exif_transpose(img)

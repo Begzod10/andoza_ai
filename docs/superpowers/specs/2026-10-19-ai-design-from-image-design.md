@@ -8,7 +8,7 @@ Foydalanuvchi ilhom rasmini yuklaydi (Pinterest skrinshoti, Instagram yoki o'zi 
 **Muvaffaqiyat mezoni:**
 - studiyada rasm (va ixtiyoriy matn) yuborilsa, hozirgi AI dizayn kabi qo'llanadigan reja keladi;
 - reja faqat katalogdagi narsalardan iborat bo'ladi, `summary` esa rasmdan nima olinganini va katalogda nima yo'qligini aytadi;
-- rasm hech qayerda saqlanmaydi;
+- rasm hech qayerda saqlanmaydi (Starlette katta yuklamani so'rov davomida vaqtinchalik faylga yozishi mumkin, so'rov tugashi bilan u o'chiriladi);
 - pullik chaqiruvlar alohida kunlik limit bilan cheklanadi;
 - mavjud `/ai-design` endpoint'i va uning mijozlari (web, mobil) o'zgarmaydi.
 
@@ -33,7 +33,7 @@ Foydalanuvchi ilhom rasmini yuklaydi (Pinterest skrinshoti, Instagram yoki o'zi 
    - mavjud contract'ga tegilmaydi;
    - bitta chaqiruv ikkitadan tez va arzon.
 2. **Rasm va ixtiyoriy matn.** Rasm asosiy manba, matn uni aniqlashtiradi ("faqat ranglarini ol"). Ikkalasi qarama-qarshi kelsa, matn ustun.
-3. **Rasm faqat xotirada.** Diskka, S3 ga, bazaga yoki logga yozilmaydi. EXIF, jumladan joylashuv, olib tashlanadi.
+3. **Rasm saqlanmaydi.** Diskka, S3 ga, bazaga yoki logga yozilmaydi. Yagona istisno: Starlette 1 MB dan katta yuklamani so'rov davomida vaqtinchalik faylga yozadi va so'rov tugashi bilan o'chiradi. EXIF, jumladan joylashuv, olib tashlanadi. *(Yakuniy review'dan keyin aniqlashtirildi.)*
 4. **Alohida limit pool.** `image_design` pool'i va `IMAGE_DESIGN_DAILY_LIMIT` sozlamasi (standart 10), renderlar va "rasmdan model" bilan bir xil andozada (`check_and_increment_budget_for`). Matnli `builder` pool'idan qo'shimcha hisoblanmaydi.
 
 ## Backend
@@ -86,7 +86,7 @@ Shu tartib tufayli noto'g'ri fayl yoki birovning xonasi limitdan hisoblanmaydi.
   - `prompt` bo'sh bo'lsa, `build_user_message` ga "rasmdagi uslubni takrorla" degan standart ko'rsatma beriladi;
   - rasm bilan chaqiruvda `call_llm` ga `user_id=None` beriladi, chunki limitni router alohida pool'da hisoblaydi;
   - model, `validate_plan` va `reconcile_summary` o'zgarishsiz qoladi.
-- **`_IMAGE_INSTRUCTIONS`** (prompt matni). Rasmdagi devor rangi yoki oboy, pol turi va naqshi, chiroq kayfiyati va mebel turlarini o'qish. Faqat berilgan menyudan eng yaqinini tanlash. `summary` da rasmdan nima olinganini va katalogda nima topilmaganini ochiq aytish. Rasmda xona ko'rinmasa ham (masalan, faqat rang palitrasi), undagi ranglar va kayfiyatdan foydalanish.
+- **`_IMAGE_INSTRUCTIONS`** (prompt matni). Rasmdagi devor rangi yoki oboy, pol turi va naqshi, chiroq kayfiyati va mebel turlarini o'qish. Faqat berilgan menyudan eng yaqinini tanlash. `summary` faqat tanlangan dizaynni tasvirlaydi. Rasmdan nima olingani va katalogda nima topilmagani alohida `image_notes` maydonida aytiladi. Bu maydon `reconcile_summary` tekshiruvidan o'tmaydi va javobda qaytariladi, web uni `summary` ostida ko'rsatadi. *(Yakuniy review'dan keyin: `reconcile_summary` rejada yo'q narsalarni tilga olgan summary'ni almashtirib yuborardi.)* Rasmda xona ko'rinmasa ham (masalan, faqat rang palitrasi), undagi ranglar va kayfiyatdan foydalanish.
 - **`app/routers/ai.py`.** Yangi endpoint. Furniture ro'yxatini olish, xona xulosasi va xatolarni qayta ishlash `/ai-design` bilan umumiy yordamchiga chiqariladi, takrorlanmaydi.
 - **`app/config.py`.** `IMAGE_DESIGN_DAILY_LIMIT: int = 10`.
 

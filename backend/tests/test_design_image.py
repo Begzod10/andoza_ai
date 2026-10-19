@@ -109,3 +109,26 @@ def test_exif_rotation_is_applied_before_it_is_dropped():
     exif[0x0112] = 6  # Orientation: rotate 90° clockwise to view
     p = prepare_design_image(_img("JPEG", 200, 100, exif=exif.tobytes()), "image/jpeg")
     assert (p.width, p.height) == (100, 200)
+
+
+def test_more_than_60_megapixels_is_refused_from_the_header():
+    # Final review: decoding a ~100 MP photo stalled the worker and needed
+    # Pillow's global cap raised. The cap is ours now, read from the header.
+    buf = io.BytesIO()
+    Image.new("1", (8000, 8000)).save(buf, format="PNG")  # 64 MP, a few KB
+    with pytest.raises(UnsupportedImage):
+        prepare_design_image(buf.getvalue(), "image/png")
+
+
+def test_pillows_global_cap_is_left_alone(monkeypatch):
+    seen = []
+    real_open = Image.open
+
+    def spy(*a, **k):
+        seen.append(Image.MAX_IMAGE_PIXELS)
+        return real_open(*a, **k)
+
+    monkeypatch.setattr(Image, "open", spy)
+    before = Image.MAX_IMAGE_PIXELS
+    prepare_design_image(_img("JPEG", 300, 200), "image/jpeg")
+    assert seen == [before]  # never swapped, even while decoding

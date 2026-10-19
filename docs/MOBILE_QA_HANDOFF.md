@@ -156,7 +156,9 @@ Foydalanuvchi ilhom rasmini yuboradi (Pinterest skrinshoti, Instagram yoki o'zi 
 
 **Limit:** har bir urinish pullik vision chaqiruvi. Bitta user uchun kuniga 10 ta (`IMAGE_DESIGN_DAILY_LIMIT`), matnli AI dizayn limitidan alohida. Noto'g'ri fayl yoki birovning xonasi limitdan hisoblanmaydi.
 
-**Maxfiylik:** rasm serverda saqlanmaydi. U 1024 px gacha kichraytiriladi va EXIF (joylashuv ham) olib tashlanadi.
+**Maxfiylik:** rasm serverda saqlanmaydi. U 1024 px gacha kichraytiriladi va EXIF (joylashuv ham) olib tashlanadi. Katta yuklama so'rov davomida vaqtinchalik faylga yozilishi mumkin, so'rov tugashi bilan u o'chiriladi.
+
+**`image_notes`:** rasm bilan yaratilgan rejada qo'shimcha matn maydoni bor: rasmdan nima olingani va katalogda nima topilmagani. Bo'sh bo'lishi mumkin. Uni `summary` ostida ko'rsating.
 
 ### Mobil'da qilinadigan ishlar
 - **Studio WebView'da ochilsa:** web'dagi "Rasm qo'shish" tugmasi `<input type="file">` ishlatadi. Flutter WebView'da fayl tanlash ishlashi uchun WebView'ga fayl tanlash (file chooser) va galereya ruxsati kerak. Busiz tugma hech narsa qilmaydi.

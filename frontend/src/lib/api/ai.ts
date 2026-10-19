@@ -45,6 +45,8 @@ export interface AiDesignPlan {
   furniture: Array<{ id: string; name: string; zone: string }>;
   /** What the server dropped from the model's answer (an invented id, a bad colour). */
   warnings: string[];
+  /** Image designs only: what the picture had and what the catalog lacked. */
+  image_notes?: string;
 }
 
 export interface SmetaAskResponse {

@@ -12,6 +12,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -28,7 +29,14 @@ from app.models.room import Room
 from app.schemas.estimate import EstimateResponse
 from app.services.ai_builder import RoomDraft, run_ai_builder
 from app.services.ai_designer import DesignError, design_room
-from app.services.design_image import ImageTooLarge, PreparedImage, UnsupportedImage, prepare_design_image
+from app.services.design_image import (
+    DESIGN_IMAGE_TYPES,
+    MAX_DESIGN_IMAGE_BYTES,
+    ImageTooLarge,
+    PreparedImage,
+    UnsupportedImage,
+    prepare_design_image,
+)
 from app.services.llm import check_and_increment_budget_for
 from app.services.estimate_catalog import load_estimate_catalog
 from app.services.smeta import compute_estimate
@@ -225,15 +233,22 @@ async def ai_design_from_image(
     room_type: str | None = Form(default=None, max_length=20),
 ) -> dict:
     """Checked in this order so that nothing refused costs the user a try: AI on, the
-    caller's room, the image, then the daily limit of its own pool. The image stays in
-    memory; only its size reaches the log."""
+    caller's room, the image, then the daily limit of its own pool. The image is never
+    stored; only its size reaches the log."""
     from app.services.llm import BudgetExceededError
 
     _require_ai()
     room = await _get_owned_room(room_id, current_user.id, db)
-    data = await image.read()
+    if image.content_type not in DESIGN_IMAGE_TYPES:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Faqat JPEG, PNG yoki WebP rasm yuklang")
+    # Read in chunks and stop at the cap, rather than load any size into memory first.
+    data = bytearray()
+    while chunk := await image.read(1024 * 1024):
+        data += chunk
+        if len(data) > MAX_DESIGN_IMAGE_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Rasm hajmi 10 MB dan oshmasligi kerak")
     try:
-        prepared = prepare_design_image(data, image.content_type)
+        prepared = await run_in_threadpool(prepare_design_image, bytes(data), image.content_type)
     except ImageTooLarge:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Rasm hajmi 10 MB dan oshmasligi kerak")
     except UnsupportedImage:
