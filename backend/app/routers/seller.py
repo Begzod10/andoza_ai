@@ -90,6 +90,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         category=f.category,
         room_type=f.room_type,
         styles=f.styles or [],
+        styles_source=f.styles_source,
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
@@ -288,6 +289,7 @@ async def upload_furniture(
         category=category,
         room_type=room_type,
         styles=style_list,
+        styles_source="manual" if style_list else None,
         placement=placement,
         name_uz=name_uz.strip(),
         price_uzs=price_uzs,
@@ -340,6 +342,7 @@ async def update_furniture(
         else:
             try:
                 changes["styles"] = normalize_styles(changes["styles"])
+                changes["styles_source"] = "manual"
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
     # Only an approved model may be shown: this switch hides and re-shows it, it

@@ -374,6 +374,22 @@ class TestUploadFurnitureModel:
         assert response.json()["styles"] == ["neoklassika", "klassik"]
         assert db.add.call_args.args[0].styles == ["neoklassika", "klassik"]
 
+    def test_upload_with_styles_records_manual_source(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client, styles="loft")
+        assert response.status_code == 201 and response.json()["styles_source"] == "manual"
+        assert db.add.call_args.args[0].styles_source == "manual"
+
+    def test_upload_without_styles_leaves_source_null(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client)
+        assert response.status_code == 201 and response.json()["styles_source"] is None
+        assert db.add.call_args.args[0].styles_source is None
+
     def test_empty_styles_in_the_form_means_every_style(self, client):
         db = _db()
         _as(_user(is_admin=True), db)
@@ -460,6 +476,21 @@ class TestUpdateFurniture:
         assert client.patch(url, json={"styles": []}).json()["styles"] == []
         _as(_user(is_admin=True), _db(_Result(one=furniture)))
         assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
+
+    def test_edit_records_manual_source_only_when_styles_sent(self, client):
+        furniture = Furniture(
+            id=uuid.uuid4(), store_id=None, category="divan", placement="pol",
+            name_uz="Divan", glb_key="furniture/a.glb", styles_source=None,
+        )
+        furniture.store = None
+        url = f"/api/v1/admin/furniture/{furniture.id}"
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"name_uz": "x"}).json()["styles_source"] is None
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": None}).json()["styles_source"] is None
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": []}).json()["styles_source"] == "manual"
+        assert furniture.styles_source == "manual"
 
     def test_missing_is_404(self, client):
         db = _db(_Result(one=None))

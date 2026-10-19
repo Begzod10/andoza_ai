@@ -128,6 +128,7 @@ class FurnitureAdminOut(BaseModel):
     footprint_d: float | None
     height_cm: float | None = None
     styles: list[str] = []
+    styles_source: str | None = None
     is_active: bool
     created_at: datetime
 

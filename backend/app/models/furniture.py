@@ -70,6 +70,11 @@ class Furniture(Base):
         comment="Design styles this model suits (neoklassika/klassik/zamonaviy/...); "
                 "empty means it suits every style",
     )
+    styles_source: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        comment="Who set styles: manual (seller/admin), ai, or null (never set)",
+    )
     placement: Mapped[str] = mapped_column(
         String(10),
         nullable=False,

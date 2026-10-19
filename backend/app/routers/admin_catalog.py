@@ -98,6 +98,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
         height_cm=float(f.height_cm) if f.height_cm is not None else None,
         styles=f.styles or [],
+        styles_source=f.styles_source,
         is_active=f.is_active,
         created_at=f.created_at,
     )
@@ -356,6 +357,7 @@ async def upload_furniture_model(
         footprint_d=footprint_d,
         height_cm=height_cm,
         styles=style_list,
+        styles_source="manual" if style_list else None,
     )
     db.add(furniture)
     await db.flush()
@@ -446,6 +448,7 @@ async def update_furniture(
         else:
             try:
                 updates["styles"] = normalize_styles(updates["styles"])
+                updates["styles_source"] = "manual"
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
     new_store: Store | None = furniture.store

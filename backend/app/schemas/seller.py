@@ -102,6 +102,7 @@ class SellerFurnitureOut(BaseModel):
     category: str
     room_type: str | None
     styles: list[str] = []
+    styles_source: str | None = None
     placement: str
     name_uz: str
     price_uzs: int | None
