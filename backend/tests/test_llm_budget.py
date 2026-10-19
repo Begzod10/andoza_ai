@@ -85,3 +85,22 @@ async def test_builder_and_explainer_pools_are_separate(fake_redis):
 
         # exhausting builder must not affect explainer for same user
         await check_and_increment_budget("u7", "explainer")
+
+
+@pytest.mark.asyncio
+async def test_budget_exhausted_reads_the_pool_without_counting(fake_redis):
+    # Lets the pin endpoint refuse an over-limit user before it calls Pinterest,
+    # while a refused or failed attempt still does not use up a try.
+    from app.services.llm import budget_exhausted, check_and_increment_budget_for
+
+    with patch("app.services.llm.get_redis", return_value=fake_redis):
+        await _exhaustion_steps(budget_exhausted, check_and_increment_budget_for)
+
+
+async def _exhaustion_steps(budget_exhausted, check_and_increment_budget_for):
+    assert await budget_exhausted("u-ex", "image_design", 2) is False
+    await check_and_increment_budget_for("u-ex", "image_design", 2)
+    assert await budget_exhausted("u-ex", "image_design", 2) is False
+    await check_and_increment_budget_for("u-ex", "image_design", 2)
+    assert await budget_exhausted("u-ex", "image_design", 2) is True
+    assert await budget_exhausted("someone-else", "image_design", 2) is False

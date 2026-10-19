@@ -13,7 +13,7 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -37,7 +37,15 @@ from app.services.design_image import (
     UnsupportedImage,
     prepare_design_image,
 )
-from app.services.llm import check_and_increment_budget_for
+from app.services.llm import budget_exhausted, check_and_increment_budget_for
+from app.services.pinterest_pin import (
+    NotAPinUrl,
+    PinNotFound,
+    PinterestUnavailable,
+    fetch_pin_image,
+    pinterest_client,
+    resolve_pin_id,
+)
 from app.services.estimate_catalog import load_estimate_catalog
 from app.services.smeta import compute_estimate
 
@@ -263,6 +271,72 @@ async def ai_design_from_image(
     return await _run_design(
         room, (prompt or "").strip(), room_type, db, str(current_user.id), image=prepared,
     )
+
+
+class AiDesignPinRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=500)
+    prompt: str | None = Field(default=None, max_length=500)
+    room_type: str | None = Field(default=None, max_length=20)
+
+
+@router.post(
+    "/rooms/{room_id}/ai-design/pin",
+    summary="Pinterest pin havolasidan (va ixtiyoriy matndan) butun xona dizayni",
+    response_model=None,
+)
+async def ai_design_from_pin(
+    room_id: uuid.UUID,
+    body: AiDesignPinRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> dict | JSONResponse:
+    """The image-design pipeline fed from a pin. Nothing that fails on Pinterest's
+    side, or on the link itself, counts against the user's daily tries: the limit
+    is taken only once the pin's image has been fetched and checked. Neither the
+    link nor the image is stored; the log gets the pin id and the image size."""
+    from app.services.llm import BudgetExceededError
+
+    _require_ai()
+    room = await _get_owned_room(room_id, current_user.id, db)
+    # Refuse an over-limit user before any Pinterest request (repeated fetches would
+    # get our server throttled by Pinterest for everyone); the try itself is still
+    # counted only once the pin's image is in hand.
+    if await budget_exhausted(str(current_user.id), "image_design", settings.IMAGE_DESIGN_DAILY_LIMIT):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi rasmdan dizayn limiti tugadi")
+    async with pinterest_client() as client:
+        try:
+            pin_id = await resolve_pin_id(body.url, client)
+            pin = await fetch_pin_image(pin_id, client)
+        except NotAPinUrl:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Bu Pinterest pin havolasi emas")
+        except PinNotFound:
+            # Returned, not raised: the app-wide 404 handler (main.py) rewrites every
+            # raised 404 to "Not found", and the user needs to know it is the pin.
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Pin topilmadi yoki u yopiq"})
+        except PinterestUnavailable:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Pinterest hozir javob bermadi. Birozdan keyin urinib ko'ring",
+            )
+        except ImageTooLarge:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Rasm hajmi 10 MB dan oshmasligi kerak")
+    try:
+        prepared = await run_in_threadpool(prepare_design_image, pin.data, pin.content_type)
+    except ImageTooLarge:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Rasm hajmi 10 MB dan oshmasligi kerak")
+    except UnsupportedImage:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Faqat JPEG, PNG yoki WebP rasm yuklang")
+    try:
+        await check_and_increment_budget_for(
+            str(current_user.id), "image_design", settings.IMAGE_DESIGN_DAILY_LIMIT,
+        )
+    except BudgetExceededError:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi rasmdan dizayn limiti tugadi")
+    log.info("ai_design.pin", pin_id=pin_id, width=prepared.width, height=prepared.height)
+    plan = await _run_design(
+        room, (body.prompt or "").strip(), body.room_type, db, str(current_user.id), image=prepared,
+    )
+    return {**plan, "pin_image_url": pin.url}
 
 
 # ---------------------------------------------------------------------------

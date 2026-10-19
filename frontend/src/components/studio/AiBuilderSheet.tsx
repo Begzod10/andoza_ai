@@ -2,7 +2,7 @@ import * as React from "react"
 import { ImagePlus } from "lucide-react"
 import { BottomSheet } from "@/components/ui/BottomSheet"
 import { uz } from "@/locale/uz"
-import { aiDesign, aiDesignFromImage } from "@/lib/api"
+import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
@@ -91,6 +91,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
   const [image, setImage] = React.useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const [imageError, setImageError] = React.useState("")
+  // A Pinterest pin link: the other inspiration source. One source at a time.
+  const [pinUrl, setPinUrl] = React.useState<string | null>(null)
+  const [pinInput, setPinInput] = React.useState("")
   const fileInput = React.useRef<HTMLInputElement>(null)
   const [running, setRunning] = React.useState(false)
   const [plan, setPlan] = React.useState<AiDesignPlan | null>(null)
@@ -142,8 +145,40 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     if (!IMAGE_TYPES.includes(file.type)) { setImageError(uz.ai.rasm_turi_xato); return }
     if (file.size > MAX_IMAGE_BYTES) { setImageError(uz.ai.rasm_hajmi_xato); return }
     setImageError("")
+    setPinUrl(null)
     setImage(file)
     setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function takePin(text: string) {
+    removeImage()
+    setImageError("")
+    setPinInput("")
+    setPinUrl(text.trim())
+  }
+
+  /** The link is taken when it is complete: pasted, or left with blur / Enter. Checking
+   *  on every keystroke took "https://www.pinterest.c" mid-typing and kept it truncated. */
+  function commitPinInput(text: string = pinInput) {
+    if (!text.trim()) return
+    if (looksLikePinUrl(text)) takePin(text)
+    else setImageError(uz.ai.pin_xato)
+  }
+
+  function pastePin(e: React.ClipboardEvent<HTMLInputElement>) {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData("text")
+    const text = findPinUrl(pasted) ?? pasted
+    setPinInput(text)
+    commitPinInput(text)
+  }
+
+  /** A pin link pasted into the prompt box is meant as the source, not as words. */
+  function pastePrompt(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const found = findPinUrl(e.clipboardData.getData("text"))
+    if (!found) return
+    e.preventDefault()
+    takePin(found)
   }
 
   function removeImage() {
@@ -152,7 +187,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     if (fileInput.current) fileInput.current.value = ""
   }
 
-  const canSend = !running && (image !== null || prompt.trim().length >= 3)
+  const canSend = !running && (pinUrl !== null || image !== null || prompt.trim().length >= 3)
 
   async function generate(e?: React.FormEvent) {
     e?.preventDefault()
@@ -162,9 +197,11 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     setNotice("")
     let next: AiDesignPlan
     try {
-      next = image
-        ? await aiDesignFromImage(roomId, image, prompt.trim(), roomType)
-        : await aiDesign(roomId, prompt.trim(), roomType)
+      next = pinUrl
+        ? await aiDesignFromPin(roomId, pinUrl, prompt.trim(), roomType)
+        : image
+          ? await aiDesignFromImage(roomId, image, prompt.trim(), roomType)
+          : await aiDesign(roomId, prompt.trim(), roomType)
     } catch (err) {
       setPlan(null)
       setError(errorText(err))
@@ -243,7 +280,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder={image ? uz.ai.rasm_placeholder : uz.ai.builder_placeholder}
+            onPaste={pastePrompt}
+            placeholder={image || pinUrl ? uz.ai.rasm_placeholder : uz.ai.builder_placeholder}
             disabled={running}
             rows={3}
             maxLength={500}
@@ -283,6 +321,33 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
               </div>
             )}
           </div>
+          {pinUrl ? (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[#E60023]/10 px-3 py-1.5 text-xs font-semibold text-[#B8001C]">{uz.ai.pin_chip}</span>
+              <button
+                type="button"
+                aria-label={uz.ai.pin_olib_tashlash}
+                onClick={() => setPinUrl(null)}
+                disabled={running}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <input
+              type="url"
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value); setImageError("") }}
+              onPaste={pastePin}
+              onBlur={() => commitPinInput()}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPinInput() } }}
+              placeholder={uz.ai.pin_placeholder}
+              aria-label={uz.ai.pin_label}
+              disabled={running}
+              className="w-full rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3B63DE]/40"
+            />
+          )}
           {imageError && <p role="alert" className="text-xs text-red-600">{imageError}</p>}
           <p className="pt-1 text-xs font-semibold text-gray-500">{uz.ai.ai_namunalari}</p>
           <div className="flex flex-wrap gap-1.5">
@@ -303,7 +368,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
             disabled={!canSend}
             className="w-full rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] py-3 text-sm font-semibold text-white shadow-soft-accent transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0"
           >
-            {running ? uz.ai.oylayapti : plan ? uz.ai.boshqa_variant : image ? uz.ai.rasmdan_yarat : uz.ai.dizayn_yarat}
+            {running ? uz.ai.oylayapti : plan ? uz.ai.boshqa_variant : pinUrl ? uz.ai.pindan_yarat : image ? uz.ai.rasmdan_yarat : uz.ai.dizayn_yarat}
           </button>
         </form>
 
@@ -320,6 +385,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
               <p className="mt-1 text-sm leading-snug text-gray-700">{plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
+              {plan.pin_image_url && (
+                <img src={plan.pin_image_url} alt={uz.ai.pin_asosida} title={uz.ai.pin_asosida} className="mt-2 h-20 rounded-xl object-cover" />
+              )}
             </div>
 
             <PartRow id="walls" title={uz.ai.qism_devor} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>

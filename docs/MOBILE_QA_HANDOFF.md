@@ -165,3 +165,39 @@ Foydalanuvchi ilhom rasmini yuboradi (Pinterest skrinshoti, Instagram yoki o'zi 
 - **iPhone HEIC:** iPhone suratlari ko'pincha HEIC formatida bo'ladi va backend ularni 415 bilan rad etadi. Native tanlashda rasmni JPEG ga o'girib yuboring.
 - **Native ekran qilinsa:** yuqoridagi contract bo'yicha `multipart` yuboring. Xato matnlarini `detail` dan to'g'ridan-to'g'ri ko'rsatsa bo'ladi, ular o'zbekcha.
 - **2-bosqich (keyin):** Pinterest ilovasidan "Share → andoza.ai" (Android share intent / iOS share extension). Ulashilgan rasm shu endpoint'ga yuboriladi.
+
+---
+
+## 6. Yangi funksiya: Pinterest havolasidan AI dizayn (2026-10-19)
+
+Foydalanuvchi rasmni saqlab yuklash o'rniga Pinterest pin havolasini beradi. Server pin rasmini o'zi oladi (Pinterest oEmbed orqali, `i.pinimg.com` dan, 736 px gacha) va 5-bo'limdagi quvurga beradi. Spec: [docs/superpowers/specs/2026-10-19-ai-design-from-pinterest-design.md](superpowers/specs/2026-10-19-ai-design-from-pinterest-design.md).
+
+### API
+`POST /api/v1/rooms/{room_id}/ai-design/pin`, `application/json`:
+
+| Maydon | Majburiy | Cheklov |
+|---|---|---|
+| `url` | ha | 500 belgigacha. `https://(www.\|mx.\|…)pinterest.<domen>/pin/<id>/`, slug'li `/pin/<slug>--<id>/` yoki `https://pin.it/<kod>` |
+| `prompt` | yo'q | 500 belgigacha |
+| `room_type` | yo'q | 20 belgigacha |
+
+**Javob:** 5-bo'limdagi bilan bir xil reja (`image_notes` bilan) va **`pin_image_url`**: server olgan rasm manzili. Uni foydalanuvchiga "Shu pin asosida" deb ko'rsating.
+
+| Kod | Holat | `detail` |
+|---|---|---|
+| 422 | Pinterest pin havolasi emas (boshqa sayt, `http://`, doska yoki profil havolasi va h.k.) | `"Bu Pinterest pin havolasi emas"` |
+| 404 | pin topilmadi yoki yopiq | `"Pin topilmadi yoki u yopiq"` |
+| 502 | Pinterest javob bermadi | `"Pinterest hozir javob bermadi. Birozdan keyin urinib ko'ring"` |
+| 413 / 415 / 429 / 503 | 5-bo'lim bilan bir xil | 5-bo'lim bilan bir xil |
+
+**Limit:** 5-bo'lim bilan **umumiy** (`image_design`, kuniga 10 ta). Havola xato bo'lsa yoki Pinterest javob bermasa, limitdan hisoblanmaydi.
+
+> Diqqat: ilovadagi boshqa 404 javoblar matni global handler tufayli `"Not found"` bo'lib keladi. Bu endpoint'dagi pin 404'i esa haqiqiy matnni qaytaradi.
+
+### Mobil'da qilinadigan ishlar
+- **Share → andoza.ai (asosiy maqsad):** Pinterest ilovasi pinni ulashganda odatda matn beradi, masalan `"Check out this Pin! https://pin.it/AbCd12"`. Matndan birinchi `https://…` bo'lagini ajratib, `url` sifatida yuboring:
+  - Android: `ACTION_SEND` intent, `text/plain`;
+  - iOS: Share Extension.
+  Foydalanuvchiga qaysi xonaga qo'llashni tanlatish kerak, chunki endpoint `room_id` talab qiladi.
+- **Studio WebView'da:** web'dagi "Pinterest havolasi" maydoni bor, qo'shimcha ish kerak emas.
+- **Sinash:** haqiqiy `pin.it` qisqa havolasi local'da sinalmagan (topilmadi). Ulashishni qilganda telefondagi Pinterest ilovasidan olingan `pin.it` bilan albatta sinab ko'ring.
