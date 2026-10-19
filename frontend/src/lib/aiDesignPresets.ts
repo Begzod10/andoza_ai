@@ -33,6 +33,41 @@ interface Preset {
 }
 
 export const DESIGN_PRESETS: Preset[] = [
+  // The four most asked for in Uzbek flats come first.
+  {
+    id: 'neoklassika', label: 'Neoklassika', title: 'Neoklassika: och va nafis',
+    summary: "Och bej devorlar, och eman parket va nafis qandil klassikani yengil, zamonaviy ko'rinishda beradi.",
+    walls: { main: { type: 'paint', color: '#efe9df' }, accent: { wall: 'C', color: '#d9cdb8' } },
+    floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
+    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
+    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+  },
+  {
+    id: 'zamonaviy', label: 'Zamonaviy', title: 'Zamonaviy: neytral va qulay',
+    summary: "Kulrang-bej devorlar, grafit aksent, yog'ochsimon laminat va LED yoritish xonani sodda va qulay qiladi.",
+    walls: { main: { type: 'paint', color: '#d9d6d0' }, accent: { wall: 'C', color: '#8c8a86' } },
+    floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
+    lights: [{ type: 'led_linear', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }, { type: 'floor_lamp', zone: 'corner_CD' }],
+    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }, { kind: 'gilam', zone: 'center' }],
+  },
+  {
+    id: 'hitech', label: 'Hi-Tech', title: 'Hi-Tech: kontrast va texnologik',
+    summary: "Oq devorlar, to'q antratsit aksent, yaltiroq plitka va LED yoritish texnologik, aniq chiziqli ko'rinish beradi.",
+    walls: { main: { type: 'paint', color: '#f4f5f6' }, accent: { wall: 'C', color: '#2b2f33' } },
+    floor: { type: 'tile', pattern: null, tint: null },
+    lights: [{ type: 'led_panel', zone: 'center' }, { type: 'led_track', zone: 'wall_A' }, { type: 'spotlight', zone: 'wall_C' }],
+    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+  },
+  {
+    // The studio has no ganch or islimi texture yet: a warm floral wallpaper, dark
+    // walnut, a chandelier and a rug give the feel with what it can draw.
+    id: 'milliy', label: 'Milliy', title: "Milliy: iliq sharqona ruh",
+    summary: "Krem va to'q qizil gulli oboy, to'q yong'oq parket, qandil va gilam iliq, sharqona uy ruhini beradi.",
+    walls: { main: { type: 'oboy', pattern: 'gul', base_color: '#f3e6cf', accent_color: '#9e2b25' } },
+    floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
+    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
+    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'gilam', zone: 'center' }, { kind: 'stol', zone: 'center' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'shkaf', zone: 'wall_A' }],
+  },
   {
     id: 'dark', label: "Qorong'i", title: "Qorong'i, iliq atmosfera",
     summary: "To'q kulrang devorlar va to'q parket chuqur, xotirjam muhit beradi. Kam va iliq yorug'lik shu kayfiyatni saqlaydi.",
