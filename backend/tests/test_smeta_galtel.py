@@ -68,3 +68,7 @@ def test_a_shop_cornice_sold_by_the_metre_is_priced_per_metre():
 
 def test_a_room_with_no_perimeter_gets_no_cornice_line():
     assert galtel(room({"id": "t140"}, perimeter=0)) == []
+
+
+def test_the_standard_strip_is_priced_at_the_market_median():
+    assert GALTEL_PIECE_PRICE_UZS == 11_000
