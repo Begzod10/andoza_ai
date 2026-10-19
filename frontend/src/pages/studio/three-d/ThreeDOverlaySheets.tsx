@@ -22,7 +22,7 @@ export function ThreeDOverlaySheets({
   elementsSheetOpen, setElementsSheetOpen,
   pendingWindowSpot, setPendingWindowSpot,
   wallGeom, computeOpeningRect, addElement, setSelectedWall,
-  showAiSheet, setShowAiSheet, onSave, roomId, roomType,
+  showAiSheet, setShowAiSheet, onSave, roomId, roomType, aiPin,
   radial, radialItems, closeRadial,
 }: {
   showAddSheet: boolean;
@@ -49,6 +49,8 @@ export function ThreeDOverlaySheets({
   setShowAiSheet: Dispatch<SetStateAction<boolean>>;
   /** Saves the room: an applied AI design is saved at once. */
   onSave?: () => Promise<void>;
+  /** A pin the studio was opened with (`?ai_pin=`): the AI sheet starts from it. */
+  aiPin?: string | null;
   roomId: string;
   roomType?: string;
   radial: RadialState;
@@ -93,7 +95,7 @@ export function ThreeDOverlaySheets({
         initialSillHeight={pendingWindowSpot?.initialSillHeight}
         onConfirm={handleNewWindowConfirm}
       />
-      <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} onSave={onSave} roomId={roomId} roomType={roomType} />
+      <AiBuilderSheet open={showAiSheet} onOpenChange={setShowAiSheet} onSave={onSave} roomId={roomId} roomType={roomType} initialPinUrl={aiPin} />
 
       {/* Surface long-press radial menu ("aylana") */}
       {radial && (

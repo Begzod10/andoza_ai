@@ -135,6 +135,14 @@ export function findPinUrl(text: string): string | null {
   return text.match(/https:\/\/\S+/g)?.find(looksLikePinUrl) ?? null;
 }
 
+/** The pin link handed to the studio as `?ai_pin=…`, or null. The mobile app opens
+ *  the studio this way after a pin is shared to it from the Pinterest app; the value
+ *  may be the whole share text ("Check out this Pin! https://pin.it/…"). */
+export function pinParam(search: string): string | null {
+  const raw = new URLSearchParams(search).get("ai_pin");
+  return raw ? findPinUrl(raw) : null;
+}
+
 /** The same plan as aiDesign, styled after a Pinterest pin. The server fetches the
  *  pin's picture; the answer says which one in pin_image_url. */
 export async function aiDesignFromPin(

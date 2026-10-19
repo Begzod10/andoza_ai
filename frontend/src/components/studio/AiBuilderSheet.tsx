@@ -21,6 +21,8 @@ interface AiBuilderSheetProps {
   roomId: string
   /** The room's kind (mehmonxona, yotoqxona...), so the pieces made for it are offered first. */
   roomType?: string
+  /** A Pinterest pin to start from, e.g. one shared to the mobile app (`?ai_pin=`). */
+  initialPinUrl?: string | null
 }
 
 /** The server answers errors as {"detail": "..."}; apiClient throws the raw body. */
@@ -85,14 +87,14 @@ function PartRow({
   )
 }
 
-export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }: AiBuilderSheetProps) {
+export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, initialPinUrl }: AiBuilderSheetProps) {
   const [prompt, setPrompt] = React.useState("")
   // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
   const [image, setImage] = React.useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const [imageError, setImageError] = React.useState("")
   // A Pinterest pin link: the other inspiration source. One source at a time.
-  const [pinUrl, setPinUrl] = React.useState<string | null>(null)
+  const [pinUrl, setPinUrl] = React.useState<string | null>(initialPinUrl ?? null)
   const [pinInput, setPinInput] = React.useState("")
   const fileInput = React.useRef<HTMLInputElement>(null)
   const [running, setRunning] = React.useState(false)

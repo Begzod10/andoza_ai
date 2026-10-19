@@ -16,7 +16,7 @@ import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
-import { deleteRoom, updateRoom, listCatalogFurniture } from "@/lib/api";
+import { deleteRoom, updateRoom, listCatalogFurniture, pinParam } from "@/lib/api";
 import type { Room } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MebelPlanView } from "@/features/studio/MebelPlanView";
@@ -331,7 +331,19 @@ export default function ThreeDPage() {
   const [pendingWindowSpot, setPendingWindowSpot] = useState<{
     wallId: string; point: { x: number; y: number; z: number }; initialSillHeight: number;
   } | null>(null);
-  const [showAiSheet, setShowAiSheet] = useState(false);
+  // A pin shared to the mobile app arrives as ?ai_pin=…: open the AI sheet with it.
+  const [aiPin] = useState(() => pinParam(location.search));
+  const [showAiSheet, setShowAiSheet] = useState(aiPin !== null);
+  // Drop the param once read: the tab strip carries location.search to the other
+  // studio tabs, and the sheet must not reopen with the same pin there.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has('ai_pin')) return;
+    params.delete('ai_pin');
+    const rest = params.toString();
+    navigate({ search: rest ? `?${rest}` : '' }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
   const [showRender, setShowRender] = useState(false);
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
@@ -1159,6 +1171,7 @@ export default function ThreeDPage() {
         onSave={onSave}
         roomId={room.id}
         roomType={room.room_type}
+        aiPin={aiPin}
         radial={radial}
         radialItems={(r) => buildRadialItems(r, {
           setSelectedWall, setActivePhase, setShowPanel, createOpening,
