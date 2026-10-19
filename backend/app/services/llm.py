@@ -140,11 +140,25 @@ def _provider() -> tuple[str, str | None]:
     return settings.OPENAI_API_KEY, settings.OPENAI_BASE_URL or None
 
 _client: Optional[AsyncOpenAI] = None
+_client_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 def get_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
+    """Return the shared AsyncOpenAI client, rebuilt whenever the running loop changes.
+
+    The client's connection pool is bound to the event loop it first ran under. The API
+    process has one loop for its lifetime, so this is a plain singleton there. A Celery
+    task runs each job in its own ``asyncio.run``; reusing the previous job's client would
+    hit a kept-alive connection of a closed loop ("Event loop is closed"). Same approach
+    as ``get_redis()`` in app/core/cache.py.
+    """
+    global _client, _client_loop
+    try:
+        current_loop: Optional[asyncio.AbstractEventLoop] = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+
+    if _client is None or (current_loop is not None and current_loop is not _client_loop):
         from httpx import Timeout
         # Set longer timeout for AI calls (default 60s → 120s)
         timeout = Timeout(120.0)
@@ -154,6 +168,7 @@ def get_client() -> AsyncOpenAI:
             base_url=base_url or OPENAI_DEFAULT_BASE_URL,
             timeout=timeout,
         )
+        _client_loop = current_loop
     return _client
 
 
