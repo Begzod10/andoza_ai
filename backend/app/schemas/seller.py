@@ -5,7 +5,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.admin_catalog import FURNITURE_CATEGORIES, PLACEMENTS, ROOM_TYPES  # noqa: F401  (re-exported for the router)
+from app.schemas.admin_catalog import (  # noqa: F401  (re-exported for the router)
+    FURNITURE_CATEGORIES,
+    PLACEMENTS,
+    ROOM_TYPES,
+    normalize_styles,
+    parse_styles_form,
+)
 from app.schemas.auth import normalize_contact_phone
 from app.schemas.usta_profile import PendingUstaOut
 
@@ -81,6 +87,7 @@ class SellerFurnitureUpdate(BaseModel):
     name_uz: str | None = Field(default=None, min_length=1, max_length=200)
     category: str | None = None
     room_type: str | None = None
+    styles: list[str] | None = None
     placement: str | None = None
     price_uzs: int | None = Field(default=None, ge=0)
     footprint_w: float | None = Field(default=None, gt=0, le=2000)
@@ -94,6 +101,7 @@ class SellerFurnitureOut(BaseModel):
     id: UUID
     category: str
     room_type: str | None
+    styles: list[str] = []
     placement: str
     name_uz: str
     price_uzs: int | None

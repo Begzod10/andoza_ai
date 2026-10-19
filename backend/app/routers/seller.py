@@ -35,6 +35,8 @@ from app.schemas.seller import (
     FURNITURE_CATEGORIES,
     PLACEMENTS,
     ROOM_TYPES,
+    normalize_styles,
+    parse_styles_form,
     SellerFurnitureOut,
     SellerFurniturePage,
     SellerFurnitureUpdate,
@@ -87,6 +89,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         id=f.id,
         category=f.category,
         room_type=f.room_type,
+        styles=f.styles or [],
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
@@ -211,6 +214,7 @@ async def upload_furniture(
     name_uz: str = Form(..., min_length=1, max_length=200),
     category: str = Form(...),
     room_type: str | None = Form(default=None),
+    styles: str | None = Form(default=None),
     placement: str = Form(default="pol"),
     price_uzs: int | None = Form(default=None, ge=0),
     footprint_w: float | None = Form(default=None, gt=0, le=2000),
@@ -226,6 +230,10 @@ async def upload_furniture(
         raise HTTPException(status_code=422, detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri (yoki bo'sh) bo'lishi kerak")
     if placement not in PLACEMENTS:
         raise HTTPException(status_code=422, detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak")
+    try:
+        style_list = parse_styles_form(styles)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     pending = (await db.execute(
         select(func.count()).select_from(Furniture)
@@ -279,6 +287,7 @@ async def upload_furniture(
         store_id=store.id,
         category=category,
         room_type=room_type,
+        styles=style_list,
         placement=placement,
         name_uz=name_uz.strip(),
         price_uzs=price_uzs,
@@ -325,6 +334,14 @@ async def update_furniture(
         raise HTTPException(status_code=422, detail="room_type noto'g'ri")
     if "placement" in changes and changes["placement"] not in PLACEMENTS:
         raise HTTPException(status_code=422, detail="placement noto'g'ri")
+    if "styles" in changes:
+        if changes["styles"] is None:
+            del changes["styles"]  # null means "leave as is", never "wipe"
+        else:
+            try:
+                changes["styles"] = normalize_styles(changes["styles"])
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
     # Only an approved model may be shown: this switch hides and re-shows it, it
     # does not bypass moderation.
     if changes.get("is_active") is True and f.status != "approved":

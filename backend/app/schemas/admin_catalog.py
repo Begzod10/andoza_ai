@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 from uuid import UUID
 
@@ -11,6 +12,25 @@ FURNITURE_CATEGORIES = {"divan", "stol", "stul", "karavot", "shkaf", "lampa", "b
 # Kept in sync with frontend/src/locale/uz.ts wizard room-type labels.
 # A model with room_type=None is usable in every room ("barchasi").
 ROOM_TYPES = {"mehmonxona", "oshxona", "yotoqxona", "hammom", "balkon"}
+
+# Design styles a model can suit, in display order. A model with styles=[]
+# suits every style. Kept in sync with the frontend style labels.
+FURNITURE_STYLES = ("neoklassika", "klassik", "zamonaviy", "hitech", "minimalist", "skandinav", "loft", "milliy")
+
+
+def normalize_styles(values: Iterable[str] | None) -> list[str]:
+    """Trim, lower-case, de-duplicate and order styles; unknown ones raise ValueError."""
+    cleaned = {v.strip().lower() for v in (values or []) if v and v.strip()}
+    unknown = cleaned - set(FURNITURE_STYLES)
+    if unknown:
+        raise ValueError(f"styles {', '.join(FURNITURE_STYLES)} dan bo'lishi kerak")
+    return [s for s in FURNITURE_STYLES if s in cleaned]
+
+
+def parse_styles_form(raw: str | None) -> list[str]:
+    """A multipart form sends styles as one comma-separated string."""
+    return normalize_styles(raw.split(",")) if raw else []
+
 
 # Where the model sits inside a room, once placed: floor-standing,
 # wall-mounted, or ceiling-hung. Matches the pol/devor/shift vocabulary

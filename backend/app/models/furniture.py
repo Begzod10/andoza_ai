@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -61,6 +61,14 @@ class Furniture(Base):
         index=True,
         comment="Room this model is meant for (mehmonxona/oshxona/yotoqxona/"
                 "hammom/balkon); null means usable in every room",
+    )
+    styles: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)),
+        nullable=False,
+        default=list,
+        server_default="{}",
+        comment="Design styles this model suits (neoklassika/klassik/zamonaviy/...); "
+                "empty means it suits every style",
     )
     placement: Mapped[str] = mapped_column(
         String(10),
