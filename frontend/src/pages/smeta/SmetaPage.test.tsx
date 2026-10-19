@@ -403,6 +403,36 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     expect(note.querySelector('a')!.getAttribute('href')).toBe('/studio/room-1/ichkarida?phase=pol')
   })
 
+  it('when the floor is priced from the cheapest shop product, it says the price is approximate', async () => {
+    // The estimate now prices a floor chosen by type from the cheapest shop product:
+    // "left out" would be wrong, but the user should still pick their own.
+    const { getRoom } = await import('@/lib/api')
+    vi.mocked(getRoom).mockResolvedValueOnce({
+      id: 'room-1', apartment_id: 'apt-1', name: 'Xona', floor_area: 12,
+      surfaces: {}, state: { designState: { floorType: 'parquet', floorConfigured: true } },
+    } as never)
+    previewEstimate.mockResolvedValueOnce({
+      ...ESTIMATE_RESPONSE,
+      lines: [{ label: 'Parket: Massiv parket', formula: '', quantity: 12, unit: 'm²', unit_price: 210_000, total_uzs: 2_520_000, is_approximate: true, category: 'laminat' }],
+    })
+    renderSmetaPage()
+    const note = await screen.findByRole('status', { name: 'Pol narxi taxminiy' })
+    expect(note.textContent).toContain("eng arzon")
+    expect(note.querySelector('a')!.getAttribute('href')).toBe('/studio/room-1/ichkarida?phase=pol')
+    expect(screen.queryByRole('status', { name: 'Pol smetaga kirmadi' })).toBeNull()
+  })
+
+  it('says nothing about a bare concrete floor', async () => {
+    const { getRoom } = await import('@/lib/api')
+    vi.mocked(getRoom).mockResolvedValueOnce({
+      id: 'room-1', apartment_id: 'apt-1', name: 'Xona', floor_area: 12,
+      surfaces: {}, state: { designState: { floorType: 'concrete', floorConfigured: true } },
+    } as never)
+    renderSmetaPage()
+    await screen.findByText('PDF yuklab olish')
+    expect(screen.queryByRole('status', { name: 'Pol smetaga kirmadi' })).toBeNull()
+  })
+
   it('says nothing about the floor when a floor product is chosen', async () => {
     const { getRoom } = await import('@/lib/api')
     vi.mocked(getRoom).mockResolvedValueOnce({
