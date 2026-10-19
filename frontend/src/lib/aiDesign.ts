@@ -67,8 +67,8 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
 
 /**
  * Puts the chosen parts of a plan into the room, on top of what is there: the wall finish and the
- * floor are replaced, an earlier design's lights are replaced (the user's own stay), and furniture
- * is added (the user's own pieces stay, and new ones avoid them). Returns what was applied; `restoreDesign(snapshot)` undoes it.
+ * floor are replaced, and an earlier design's lights and furniture are replaced: the user's own
+ * stay, and new pieces avoid them. Returns what was applied; `restoreDesign(snapshot)` undoes it.
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[]): AppliedCounts {
   const store = useRoomStore.getState()
@@ -123,6 +123,9 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
   }
 
   if (parts.furniture) {
+    // An earlier design's pieces go before the new ones are placed, so they neither stay nor
+    // crowd the new ones out; the user's own stay, and the new ones avoid them.
+    for (const f of useRoomStore.getState().furniture) if (f.fromDesign) store.removeFurniture(f.id)
     const byId = new Map(catalog.map((c) => [c.id, c]))
     const taken: Rect[] = useRoomStore.getState().furniture.map((f) => {
       const size = sizeOf(byId.get(f.furniture_id))
@@ -143,7 +146,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       if (!rug && spot.fit !== 'ok') { applied.skipped++; continue }
       if (!rug) taken.push(spot.rect)
       store.placeFurniture({
-        id: nanoid(), furniture_id: entry.p.id, x: spot.x * 1000, y: spot.z * 1000, rotation: spot.rotation,
+        id: nanoid(), furniture_id: entry.p.id, x: spot.x * 1000, y: spot.z * 1000, rotation: spot.rotation, fromDesign: true,
       })
       applied.furniture++
     }

@@ -177,6 +177,40 @@ describe('lights from an earlier design', () => {
   })
 })
 
+describe('furniture from an earlier design', () => {
+  it('a second design replaces the pieces the first one put in, instead of adding a second sofa', () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const ids = useRoomStore.getState().furniture.map((f) => f.furniture_id).sort()
+    expect(ids).toEqual(['rug', 'sofa', 'table'])
+  })
+
+  it("keeps the user's own pieces, and the new ones still avoid them", () => {
+    useRoomStore.getState().placeFurniture({ id: 'mine', furniture_id: 'sofa', x: 100, y: 100, rotation: 0 })
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const furniture = useRoomStore.getState().furniture
+    expect(furniture.filter((f) => f.id === 'mine')).toHaveLength(1)
+    expect(furniture.filter((f) => f.fromDesign)).toHaveLength(furniture.length - 1)
+    expect(furniture.every((f) => f.id === 'mine' || f.fromDesign === true)).toBe(true)
+  })
+
+  it("with furniture switched off, the earlier design's pieces stay", () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const before = useRoomStore.getState().furniture.length
+    applyDesignPlan(plan(), { ...ALL_PARTS, furniture: false }, catalog)
+    expect(useRoomStore.getState().furniture).toHaveLength(before)
+  })
+
+  it("undo brings the earlier design's pieces back", () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const before = snapshotDesign()
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    restoreDesign(before)
+    expect(useRoomStore.getState().furniture).toEqual(before.furniture)
+  })
+})
+
 describe('ceiling and trim', () => {
   const trimmed = (): AiDesignPlan => ({
     ...plan(),
