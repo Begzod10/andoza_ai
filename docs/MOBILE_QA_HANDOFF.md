@@ -81,7 +81,7 @@ Mobil client `detail`ni ham ro'yxat, ham satr sifatida o'qiy olishi kerak.
 - Yopiq do'konlar mahsulotlari `GET /furniture` va `GET /materials`da endi ko'rinmaydi.
 
 ### 1.6 Migration'lar
-Production'da allaqachon bajarilgan: `1786000036` (`leads.contact_phone`), `1786000037` (`draft_rooms.user_id`).
+Production'da allaqachon bajarilgan: `1786000036` (`leads.contact_phone`), `1786000037` (`draft_rooms.user_id`), `1786000038` (`furniture.styles`, 7-bo'lim).
 
 ---
 
@@ -201,3 +201,58 @@ Foydalanuvchi rasmni saqlab yuklash o'rniga Pinterest pin havolasini beradi. Ser
   Foydalanuvchiga qaysi xonaga qo'llashni tanlatish kerak, chunki endpoint `room_id` talab qiladi.
 - **Studio WebView'da:** web'dagi "Pinterest havolasi" maydoni bor, qo'shimcha ish kerak emas.
 - **Sinash:** haqiqiy `pin.it` qisqa havolasi local'da sinalmagan (topilmadi). Ulashishni qilganda telefondagi Pinterest ilovasidan olingan `pin.it` bilan albatta sinab ko'ring.
+
+---
+
+## 7. Tayyor uslublar, smeta narxlari va mebel uslubi (2026-10-19)
+
+PR'lar (hammasi `master`da, production'ga deploy bo'lgan): [#24](https://github.com/Begzod10/andoza_ai/pull/24), [#25](https://github.com/Begzod10/andoza_ai/pull/25), [#26](https://github.com/Begzod10/andoza_ai/pull/26), [#27](https://github.com/Begzod10/andoza_ai/pull/27), [#28](https://github.com/Begzod10/andoza_ai/pull/28), [#29](https://github.com/Begzod10/andoza_ai/pull/29), [#30](https://github.com/Begzod10/andoza_ai/pull/30), [#31](https://github.com/Begzod10/andoza_ai/pull/31), [#32](https://github.com/Begzod10/andoza_ai/pull/32). Spec: [docs/superpowers/specs/2026-10-19-mebel-uslubi-va-smeta-design.md](superpowers/specs/2026-10-19-mebel-uslubi-va-smeta-design.md).
+
+Studio va Smeta WebView'da ochilsa, 7.1 va 7.2 dagi o'zgarishlar mobilga o'zi o'tadi. Native ekranlar uchun quyidagi contract'lar muhim.
+
+### 7.1 Tayyor uslublar (studio, AIsiz)
+- **Uslublar ro'yxati.** Ro'yxat boshiga 4 ta yangi uslub qo'shildi: **Neoklassika, Zamonaviy, Hi-Tech, Milliy**. Eski 5 tasi (Qorong'i, Skandinav, Klassik, Loft, Minimalist) ulardan keyin keladi. Manba: `frontend/src/lib/aiDesignPresets.ts` (`DESIGN_PRESETS`). Native studio ekrani bo'lsa, ro'yxat va qiymatlarni shu fayldan oling.
+- **Shift va bezaklar.** Har bir uslub endi xona holatining `designState` ida quyidagilarni ham o'rnatadi:
+  - `ceiling: { design, settings }`, ya'ni shift turi, rangi va LED harorati;
+  - `skirting: { id }` (plintus);
+  - `cornice: { id } | null` (galtel; `null` = galtelsiz).
+- **AI rejalari** bu maydonlarni yubormaydi va mavjud shift yoki plintusga tegmaydi.
+- **⚠️ Xona holatini saqlash.** Uslub qo'ygan chiroq va mebel elementlarida (`state.lights[]`, `state.furniture[]`) endi `fromDesign: true` belgisi bor. Keyingi uslub faqat shu belgili elementlarni almashtiradi, foydalanuvchi qo'yganlari qoladi. **Mobil ilova xona holatini o'qib qayta saqlasa, elementlardagi noma'lum maydonlarni (`fromDesign`, `name`, `unitPriceUzs` va boshqalar) saqlab qolishi shart.** Aks holda keyingi uslub eski chiroq va mebelni almashtirmay, ustiga qo'shib yuboradi.
+
+### 7.2 Smeta (`POST /rooms/{id}/estimate/preview` va `/estimate`)
+Javob formati o'zgarmagan, lekin yangi qatorlar paydo bo'ladi:
+- **Pol, plintus, oboy va bo'yoq.** Foydalanuvchi faqat pol turini (`designState.floorType` + `floorConfigured: true`), oboy naqshini yoki bo'yoq rangini tanlagan, lekin do'kon mahsulotini tanlamagan bo'lsa, narx shu turdagi do'kon mahsulotlarining **o'rta (mediana)** narxidan olinadi.
+  - Oldin pol va plintus qatori umuman chiqmasdi, oboy esa 0 so'm edi.
+  - Bunday qatorda `is_approximate: true` va `warning: "Mahsulot tanlanmagan — do'kondagi o'rtacha narx olindi. Aniq narx uchun o'zingiz mahsulot tanlang."` bo'ladi.
+  - Parket qatori `"Parket: …"` deb, laminat `"Laminat: …"` deb nomlanadi; `category` ikkalasida `"laminat"`.
+- **Galtel.** `designState.cornice` da profil bo'lsa, `category: "shift"` qatori qo'shiladi: `"Galtel T 56 (2 m dona)"`. Miqdor perimetrdan hisoblanadi, standart narx 11 000 so'm (2 m polosa), qator `is_approximate: true`.
+- **Pol izohi.** Web Smeta sahifasi ilgari pol turi tanlangan, lekin mahsulot tanlanmagan bo'lsa "pol smetaga kirmadi" degan ogohlantirish ko'rsatardi. Endi:
+  - javobda `category` `laminat` yoki `plitka` qatori bo'lsa, "narx do'kondagi o'rtacha poldan olindi (taxminiy)" deydi;
+  - bunday qator bo'lmasa, avvalgidek "kirmadi" deydi;
+  - beton pol uchun hech narsa demaydi.
+
+  Native Smeta ekranida shunday banner bo'lsa, xuddi shunday moslang. Namuna: `frontend/src/pages/smeta/SmetaPage.tsx` (`floorNote`).
+
+### 7.3 Mebel uslubi (`furniture.styles`)
+- **Maydon.** Katalog, sotuvchi va admin furniture javoblarida yangi `styles: string[]` maydoni bor.
+  - Qiymatlar: `neoklassika, klassik, zamonaviy, hitech, minimalist, skandinav, loft, milliy`.
+  - Bo'sh ro'yxat "hamma uslubga mos" degani.
+  - Maydon qo'shimcha: eski mijoz uni e'tiborsiz qoldirsa ham ishlaydi.
+- **Yuklash** (`POST /seller/furniture`, admin `POST /admin/furniture`, multipart): ixtiyoriy `styles` maydoni, vergul bilan ajratilgan (`"zamonaviy,minimalist"`). Bo'sh yoki yo'q bo'lsa `[]`.
+- **Tahrirlash** (`PATCH /seller/furniture/{id}`, admin PATCH, JSON):
+  - `styles: string[]` bo'lsa, shu uslublar saqlanadi;
+  - `[]` bo'lsa, uslublar tozalanadi;
+  - yuborilmasa yoki `null` bo'lsa, uslublar o'zgarmaydi.
+- **Validatsiya.** Noma'lum uslub 422 qaytaradi: `"styles neoklassika, klassik, … dan bo'lishi kerak"`. Saqlashda takrorlar olib tashlanadi va yuqoridagi tartibga keltiriladi.
+- **Studio** tayyor uslubi avval o'z uslubidagi mebelni, keyin uslubsiz mebelni, eng oxirida boshqa uslubdagi mebelni tanlaydi.
+
+### Mobil'da qilinadigan ishlar
+- **Sotuvchi model yuklash va tahrirlash ekranlari** (agar mobil'da bo'lsa): "Uslub" tanlovini qo'shing (bir nechtasini tanlash mumkin, hech biri tanlanmasa "Hamma uslubga mos"). O'zbekcha nomlar: Neoklassika, Klassik, Zamonaviy, Hi-Tech, Minimalist, Skandinav, Loft, Milliy. Namuna: `frontend/src/components/dokon/StyleChips.tsx`.
+- **Xona holatini saqlash:** 7.1 dagi ⚠️ bandini tekshiring. Bu eng muhim nuqta.
+- **Native Smeta ekrani:** yangi taxminiy qatorlar va `warning` matnini ko'rsating, pol bannerini 7.2 bo'yicha moslang.
+- **Productionda sinash:**
+  - mebel bor xonada ikki uslubni ketma-ket qo'llang: ikkinchi divan paydo bo'lmasligi kerak;
+  - admin bitta mebelga uslub qo'ysin, keyin o'sha uslub qo'llansin: shu mebel tanlanishi kerak.
+
+  Ikkalasi ham lokalda sinalmagan, chunki lokal katalogda mebel yo'q.
+
