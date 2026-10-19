@@ -101,6 +101,18 @@ export async function aiDesign(roomId: string, prompt: string, roomType?: string
   });
 }
 
+/** The same plan as aiDesign, styled after an inspiration image (a Pinterest screenshot,
+ *  a photo of a room). The prompt is optional and refines it ("faqat ranglarini ol"). */
+export async function aiDesignFromImage(
+  roomId: string, image: File, prompt?: string, roomType?: string,
+): Promise<AiDesignPlan> {
+  const form = new FormData();
+  form.append("image", image);
+  if (prompt?.trim()) form.append("prompt", prompt.trim());
+  if (roomType) form.append("room_type", roomType);
+  return apiClient<AiDesignPlan>(`/rooms/${roomId}/ai-design/image`, { method: "POST", body: form });
+}
+
 export async function smetaAsk(
   roomId: string,
   question: string

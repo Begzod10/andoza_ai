@@ -1,13 +1,17 @@
 import * as React from "react"
+import { ImagePlus } from "lucide-react"
 import { BottomSheet } from "@/components/ui/BottomSheet"
 import { uz } from "@/locale/uz"
-import { aiDesign } from "@/lib/api"
+import { aiDesign, aiDesignFromImage } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
 import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
+
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 interface AiBuilderSheetProps {
   open: boolean
@@ -83,6 +87,11 @@ function PartRow({
 
 export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }: AiBuilderSheetProps) {
   const [prompt, setPrompt] = React.useState("")
+  // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
+  const [image, setImage] = React.useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
+  const [imageError, setImageError] = React.useState("")
+  const fileInput = React.useRef<HTMLInputElement>(null)
   const [running, setRunning] = React.useState(false)
   const [plan, setPlan] = React.useState<AiDesignPlan | null>(null)
   const [parts, setParts] = React.useState<DesignParts>(ALL_PARTS)
@@ -126,15 +135,36 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
     setNotice(((await persist()) ? uz.ai.qollandi_saqlandi : uz.ai.qollandi_saqlanmadi) + extra)
   }
 
+  React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
+
+  function pickImage(file: File | undefined) {
+    if (!file) return
+    if (!IMAGE_TYPES.includes(file.type)) { setImageError(uz.ai.rasm_turi_xato); return }
+    if (file.size > MAX_IMAGE_BYTES) { setImageError(uz.ai.rasm_hajmi_xato); return }
+    setImageError("")
+    setImage(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function removeImage() {
+    setImage(null)
+    setPreviewUrl(null)
+    if (fileInput.current) fileInput.current.value = ""
+  }
+
+  const canSend = !running && (image !== null || prompt.trim().length >= 3)
+
   async function generate(e?: React.FormEvent) {
     e?.preventDefault()
-    if (prompt.trim().length < 3 || running) return
+    if (!canSend) return
     setRunning(true)
     setError("")
     setNotice("")
     let next: AiDesignPlan
     try {
-      next = await aiDesign(roomId, prompt.trim(), roomType)
+      next = image
+        ? await aiDesignFromImage(roomId, image, prompt.trim(), roomType)
+        : await aiDesign(roomId, prompt.trim(), roomType)
     } catch (err) {
       setPlan(null)
       setError(errorText(err))
@@ -213,13 +243,47 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder={uz.ai.builder_placeholder}
+            placeholder={image ? uz.ai.rasm_placeholder : uz.ai.builder_placeholder}
             disabled={running}
             rows={3}
             maxLength={500}
             aria-label={uz.ai.dizayn_tavsifi}
             className="w-full resize-none rounded-2xl bg-soft px-3 py-2 text-sm shadow-soft-pressed focus:outline-none focus:shadow-soft-pressed-deep disabled:opacity-60"
           />
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              accept={IMAGE_TYPES.join(",")}
+              aria-label={uz.ai.rasm_input}
+              className="hidden"
+              onChange={(e) => pickImage(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              disabled={running}
+              onClick={() => fileInput.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-[#3B63DE] hover:text-[#3B63DE] disabled:opacity-60"
+            >
+              <ImagePlus size={14} aria-hidden="true" />
+              {uz.ai.rasm_qoshish}
+            </button>
+            {previewUrl && (
+              <div className="relative">
+                <img src={previewUrl} alt={uz.ai.rasm_preview} className="h-12 w-12 rounded-xl object-cover" />
+                <button
+                  type="button"
+                  aria-label={uz.ai.rasm_olib_tashlash}
+                  onClick={removeImage}
+                  disabled={running}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+          {imageError && <p role="alert" className="text-xs text-red-600">{imageError}</p>}
           <p className="pt-1 text-xs font-semibold text-gray-500">{uz.ai.ai_namunalari}</p>
           <div className="flex flex-wrap gap-1.5">
             {uz.ai.dizayner_misollar.map((example) => (
@@ -236,10 +300,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
           </div>
           <button
             type="submit"
-            disabled={running || prompt.trim().length < 3}
+            disabled={!canSend}
             className="w-full rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] py-3 text-sm font-semibold text-white shadow-soft-accent transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0"
           >
-            {running ? uz.ai.oylayapti : plan ? uz.ai.boshqa_variant : uz.ai.dizayn_yarat}
+            {running ? uz.ai.oylayapti : plan ? uz.ai.boshqa_variant : image ? uz.ai.rasmdan_yarat : uz.ai.dizayn_yarat}
           </button>
         </form>
 
