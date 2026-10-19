@@ -129,3 +129,39 @@ Bu xatolar web frontend kodida edi. Flutter'da bu ekranlar native yozilgan bo'ls
 4. Natijani shu formatda yozing: ekran, xato, qadamlar, tuzatish. Shunda web va mobil hisobotlari bir-biriga mos bo'ladi.
 
 Telefon tekshiruvi uchun web'dagi namuna: `frontend/src/lib/phone.ts`. Backend'dagisi: `backend/app/schemas/auth.py` (`normalize_contact_phone`).
+
+---
+
+## 5. Yangi funksiya: rasmdan AI dizayn (2026-10-19)
+
+Foydalanuvchi ilhom rasmini yuboradi (Pinterest skrinshoti, Instagram yoki o'zi olgan surat), AI undagi uslubni o'qib, xonaga katalogdan dizayn rejasini tuzadi. Bu Pinterest integratsiyasining 1-bosqichi. Spec: [docs/superpowers/specs/2026-10-19-ai-design-from-image-design.md](superpowers/specs/2026-10-19-ai-design-from-image-design.md).
+
+### API
+`POST /api/v1/rooms/{room_id}/ai-design/image`, `multipart/form-data`:
+
+| Maydon | Majburiy | Cheklov |
+|---|---|---|
+| `image` | ha | JPEG, PNG yoki WebP, 10 MB gacha. Tur birinchi baytlardan ham tekshiriladi |
+| `prompt` | yo'q | 500 belgigacha, masalan "faqat ranglarini ol". Matn rasmdan ustun turadi |
+| `room_type` | yo'q | 20 belgigacha, `/ai-design` dagi bilan bir xil |
+
+**Javob:** `POST /ai-design` bilan **aynan bir xil** reja (`title`, `summary`, `walls`, `floor`, `lights`, `furniture`, `warnings`), shuning uchun mavjud "qo'llash" kodini qayta ishlating.
+
+| Kod | Holat | `detail` |
+|---|---|---|
+| 413 | 10 MB dan katta | `"Rasm hajmi 10 MB dan oshmasligi kerak"` |
+| 415 | rasm emas yoki turi qo'llanmaydi (HEIC ham) | `"Faqat JPEG, PNG yoki WebP rasm yuklang"` |
+| 429 | kunlik limit tugagan | `"Bugungi rasmdan dizayn limiti tugadi"` |
+| 422 / 502 / 503 | AI reja bermadi / provayder xatosi / AI o'chiq | `/ai-design` dagi bilan bir xil |
+
+**Limit:** har bir urinish pullik vision chaqiruvi. Bitta user uchun kuniga 10 ta (`IMAGE_DESIGN_DAILY_LIMIT`), matnli AI dizayn limitidan alohida. Noto'g'ri fayl yoki birovning xonasi limitdan hisoblanmaydi.
+
+**Maxfiylik:** rasm serverda saqlanmaydi. U 1024 px gacha kichraytiriladi va EXIF (joylashuv ham) olib tashlanadi. Katta yuklama so'rov davomida vaqtinchalik faylga yozilishi mumkin, so'rov tugashi bilan u o'chiriladi.
+
+**`image_notes`:** rasm bilan yaratilgan rejada qo'shimcha matn maydoni bor: rasmdan nima olingani va katalogda nima topilmagani. Bo'sh bo'lishi mumkin. Uni `summary` ostida ko'rsating.
+
+### Mobil'da qilinadigan ishlar
+- **Studio WebView'da ochilsa:** web'dagi "Rasm qo'shish" tugmasi `<input type="file">` ishlatadi. Flutter WebView'da fayl tanlash ishlashi uchun WebView'ga fayl tanlash (file chooser) va galereya ruxsati kerak. Busiz tugma hech narsa qilmaydi.
+- **iPhone HEIC:** iPhone suratlari ko'pincha HEIC formatida bo'ladi va backend ularni 415 bilan rad etadi. Native tanlashda rasmni JPEG ga o'girib yuboring.
+- **Native ekran qilinsa:** yuqoridagi contract bo'yicha `multipart` yuboring. Xato matnlarini `detail` dan to'g'ridan-to'g'ri ko'rsatsa bo'ladi, ular o'zbekcha.
+- **2-bosqich (keyin):** Pinterest ilovasidan "Share → andoza.ai" (Android share intent / iOS share extension). Ulashilgan rasm shu endpoint'ga yuboriladi.

@@ -140,6 +140,12 @@ class TestValidate:
         bad = plan(walls={"main": {"type": "oboy", "pattern": "damask", "base_color": "#eee"}})
         assert "main" not in bad.walls
 
+    def test_image_notes_are_kept_as_text_and_clipped(self):
+        assert plan(image_notes="  Rasmda kamin bor  ").image_notes == "Rasmda kamin bor"
+        assert plan(image_notes={"x": 1}).image_notes == ""
+        assert len(plan(image_notes="a" * 2000).image_notes) <= 600
+        assert plan().image_notes == ""
+
     def test_nothing_usable_at_all_is_an_error(self):
         with pytest.raises(ad.DesignError):
             ad.validate_plan({"title": "x", "walls": {}, "floor": {"type": "marble"}, "lights": [], "furniture": []}, BY_LABEL, WALLS)
@@ -164,6 +170,53 @@ class TestDesignRoom:
         message = sent["messages"][0]["content"]
         assert "qorong'i atmosfera" in message and "F1: Divan" in message and "A 4 m (deraza)" in message and "wall_A" in message and "corner_A_B" in message
         assert "4 x 3 m" in message and "chandelier" in message
+
+    # ── with an inspiration image ──────────────────────────────────────────
+
+    def _image(self):
+        from app.services.design_image import PreparedImage
+        return PreparedImage("image/jpeg", "QUJD", 10, 10)
+
+    async def test_with_an_image_the_model_gets_the_picture_and_the_image_instructions(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("faqat ranglarini ol", ROOM, ITEMS, user_id="u", image=self._image())
+        sent = call.await_args.kwargs
+        content = sent["messages"][0]["content"]
+        assert content[0] == {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "QUJD"}}
+        text = content[1]["text"]
+        assert "faqat ranglarini ol" in text and ad._IMAGE_INSTRUCTIONS in text and "F1: Divan" in text
+        assert sent["user_id"] is None  # the router counts it, in its own pool
+
+    async def test_with_an_image_and_no_prompt_the_default_prompt_is_used(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert ad._IMAGE_DEFAULT_PROMPT in call.await_args.kwargs["messages"][0]["content"][1]["text"]
+
+    async def test_an_image_plan_is_checked_like_any_other(self):
+        invented = {**GOOD, "furniture": [{"id": "F1", "zone": "wall_A"}, {"id": "F99", "zone": "center"}]}
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply(json.dumps(invented)))):
+            p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert [f["id"] for f in p.furniture] == ["uuid-sofa"]
+
+    async def test_what_the_image_had_and_the_catalog_lacked_survives_the_summary_check(self):
+        # Final review: the model said in summary what it took from the picture and what
+        # the catalog lacked; reconcile_summary saw colours/kinds not in the plan and
+        # replaced the whole summary. Those notes now travel in image_notes, untouched.
+        notes = "Rasmda kamin va zaytun rangli devor bor edi, katalogda kamin yo'q."
+        reply = {**GOOD, "image_notes": notes}
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply(json.dumps(reply)))):
+            p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        assert p.image_notes == notes
+        assert "image_notes" in ad._IMAGE_INSTRUCTIONS
+
+    async def test_without_an_image_nothing_changes(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("qorong'i xona", ROOM, ITEMS, user_id="u")
+        sent = call.await_args.kwargs
+        assert isinstance(sent["messages"][0]["content"], str) and sent["user_id"] == "u"
 
     async def test_an_unreadable_answer_is_a_design_error(self):
         with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=self._reply("kechirasiz"))):

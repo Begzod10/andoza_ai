@@ -56,6 +56,7 @@ kirmaydi. Kalitlarni hech qachon commit qilmang.
 | `MODEL_FROM_PHOTO_DAILY_LIMIT` | `10` | Foydalanuvchiga kuniga nechta model (`0` — o'chiq). |
 | `MYARCHITECT_API_KEY`, `MYARCHITECT_API_URL` | — | Fotorealistik render (MyArchitectAI). |
 | `RENDER_DAILY_LIMIT` | `30` | Foydalanuvchiga kuniga nechta render (`0` — o'chiq). |
+| `IMAGE_DESIGN_DAILY_LIMIT` | `10` | Foydalanuvchiga kuniga nechta "rasmdan AI dizayn" (har biri pullik vision chaqiruvi). Rasm 10 MB gacha. Hostdagi nginx'da `client_max_body_size` kamida `12m` bo'lishi kerak: undan katta so'rovlarni chekkada to'xtatadi, kichikroq qiymat esa haqiqiy rasmlarni ham rad etadi. |
 
 ## Frontend
 | O'zgaruvchi | Vazifasi |

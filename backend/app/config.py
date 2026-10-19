@@ -174,6 +174,9 @@ class Settings(BaseSettings):
     MYARCHITECT_API_KEY: str = ""
     MYARCHITECT_API_URL: str = "https://api.myarchitectai.com/v1"
     RENDER_DAILY_LIMIT: int = 30
+    # Each "design from an inspiration image" is one paid vision call; this caps a
+    # user's tries per day, in its own pool (not the text designer's).
+    IMAGE_DESIGN_DAILY_LIMIT: int = 10
 
     # ------------------------------------------------------------------ #
     # Application

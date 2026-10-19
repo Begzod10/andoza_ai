@@ -6,7 +6,11 @@ import type { AiDesignPlan } from '@/lib/api'
 import { AiBuilderSheet, zoneLabel } from './AiBuilderSheet'
 
 const aiDesign = vi.fn()
-vi.mock('@/lib/api', () => ({ aiDesign: (...args: unknown[]) => aiDesign(...args) }))
+const aiDesignFromImage = vi.fn()
+vi.mock('@/lib/api', () => ({
+  aiDesign: (...args: unknown[]) => aiDesign(...args),
+  aiDesignFromImage: (...args: unknown[]) => aiDesignFromImage(...args),
+}))
 
 const PLAN: AiDesignPlan = {
   title: "Qorong'i uslub", summary: "To'q ranglar va iliq yorug'lik.", warnings: [],
@@ -29,6 +33,9 @@ const savesBadly = () => vi.fn(async () => undefined)
 
 beforeEach(() => {
   aiDesign.mockReset()
+  aiDesignFromImage.mockReset()
+  URL.createObjectURL = vi.fn(() => 'blob:preview') as typeof URL.createObjectURL
+  URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL
   useRoomStore.getState().resetRoom()
   useRoomStore.setState({
     geometry: { walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? 3000 : 4000, elements: [] })) } as RoomGeometry,
@@ -297,5 +304,83 @@ describe('zoneLabel', () => {
     expect(zoneLabel('corner_CD')).toBe('C–D burchak')
     expect(zoneLabel('corner_W2_W3')).toBe('W2–W3 burchak')
     expect(zoneLabel('wall_W4')).toBe('W4 devor')
+  })
+})
+
+
+describe('AiBuilderSheet — design from an inspiration image', () => {
+  const picture = (type = 'image/jpeg', size = 1000) => {
+    const f = new File(['x'], 'pin.jpg', { type })
+    Object.defineProperty(f, 'size', { value: size })
+    return f
+  }
+  const pick = (file: File) => fireEvent.change(screen.getByLabelText('Ilhom rasmi'), { target: { files: [file] } })
+
+  it('shows a preview of the picked image and removes it with ✕', () => {
+    renderSheet()
+    pick(picture())
+    expect(screen.getByAltText('Tanlangan rasm').getAttribute('src')).toBe('blob:preview')
+    fireEvent.click(screen.getByLabelText('Rasmni olib tashlash'))
+    expect(screen.queryByAltText('Tanlangan rasm')).toBeNull()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview')
+  })
+
+  it('lets an image go with an empty prompt, and names the button for it', () => {
+    renderSheet()
+    pick(picture())
+    const button = screen.getByText('Rasmdan dizayn yaratish').closest('button')
+    expect(button).toBeEnabled()
+    expect(screen.getByLabelText('Dizayn tavsifi').getAttribute('placeholder')).toBe('Ixtiyoriy: masalan, faqat ranglarini ol')
+  })
+
+  it('sends the image with the prompt and room kind, and applies the plan', async () => {
+    aiDesignFromImage.mockResolvedValueOnce(PLAN)
+    renderSheet()
+    const file = picture()
+    pick(file)
+    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: 'faqat ranglarini ol' } })
+    fireEvent.click(screen.getByText('Rasmdan dizayn yaratish'))
+    await screen.findByText("Qorong'i uslub")
+    expect(aiDesignFromImage).toHaveBeenCalledWith('room-1', file, 'faqat ranglarini ol', 'mehmonxona')
+    expect(aiDesign).not.toHaveBeenCalled()
+    await waitFor(() => expect(useRoomStore.getState().furniture.length + useRoomStore.getState().lights.length).toBeGreaterThan(0))
+  })
+
+  it('refuses a wrong type or an over-10-MB file before sending', () => {
+    renderSheet()
+    pick(picture('image/gif'))
+    expect(screen.getByText('Faqat JPEG, PNG yoki WebP rasm yuklang')).toBeInTheDocument()
+    expect(screen.queryByAltText('Tanlangan rasm')).toBeNull()
+    pick(picture('image/png', 10 * 1024 * 1024 + 1))
+    expect(screen.getByText('Rasm hajmi 10 MB dan oshmasligi kerak')).toBeInTheDocument()
+    expect(aiDesignFromImage).not.toHaveBeenCalled()
+  })
+
+  it("shows the server's limit message on 429", async () => {
+    aiDesignFromImage.mockRejectedValueOnce(new Error('{"detail":"Bugungi rasmdan dizayn limiti tugadi"}'))
+    renderSheet()
+    pick(picture())
+    fireEvent.click(screen.getByText('Rasmdan dizayn yaratish'))
+    expect(await screen.findByText('Bugungi rasmdan dizayn limiti tugadi')).toBeInTheDocument()
+  })
+
+  it('shows what the image had and the catalog lacked under the summary', async () => {
+    aiDesignFromImage.mockResolvedValueOnce({ ...PLAN, image_notes: "Rasmda kamin bor edi, katalogda yo'q." })
+    renderSheet()
+    pick(picture())
+    fireEvent.click(screen.getByText('Rasmdan dizayn yaratish'))
+    expect(await screen.findByText("Rasmda kamin bor edi, katalogda yo'q.")).toBeInTheDocument()
+  })
+
+  // Review Focus 5
+  it('after the image is removed the prompt is required again and goes to the text designer', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    renderSheet()
+    pick(picture())
+    fireEvent.click(screen.getByLabelText('Rasmni olib tashlash'))
+    expect(screen.getByText('Dizayn yaratish').closest('button')).toBeDisabled()
+    await generate()
+    expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'mehmonxona')
+    expect(aiDesignFromImage).not.toHaveBeenCalled()
   })
 })

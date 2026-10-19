@@ -28,6 +28,7 @@ import structlog
 
 from app.config import settings
 from app.services.ai_design_text import reconcile_summary
+from app.services.design_image import PreparedImage
 from app.services.llm import call_llm
 from app.services.smeta import LIGHT_TYPE_NAMES
 
@@ -89,6 +90,10 @@ class DesignPlan:
     lights: list[dict[str, str]] = field(default_factory=list)
     furniture: list[dict[str, str]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Image designs only: what the picture had and what the catalog lacked. Kept out of
+    # summary because reconcile_summary (rightly) rejects a summary naming things the
+    # plan does not apply, and these notes are about exactly such things.
+    image_notes: str = ""
 
     def is_empty(self) -> bool:
         return not (self.walls or self.floor or self.lights or self.furniture)
@@ -149,6 +154,7 @@ def validate_plan(
     plan = DesignPlan(
         title=str(data.get("title") or "")[:80].strip(),
         summary=_clip_summary(str(data.get("summary") or "")),
+        image_notes=data["image_notes"].strip()[:600] if isinstance(data.get("image_notes"), str) else "",
     )
     warn = plan.warnings.append
 
@@ -305,6 +311,17 @@ JSON shakli:
 Pol naqshi va tint faqat parquet va laminate uchun; plitka va beton uchun null."""
 
 
+_IMAGE_DEFAULT_PROMPT = "Rasmdagi interyer uslubini shu xonada takrorlang."
+_IMAGE_INSTRUCTIONS = (
+    "Foydalanuvchi ilhom rasmini yubordi. Rasmdan uslubni o'qing: devor rangi yoki oboy, "
+    "pol turi va naqshi, chiroqlar kayfiyati, mebel turlari. Faqat yuqoridagi menyudan eng "
+    "yaqinini tanlang. Foydalanuvchi matni rasmdan ustun turadi. summary faqat tanlangan "
+    "dizaynni tasvirlasin. JSON ga qo'shimcha \"image_notes\" maydonini qo'shing: unda "
+    "rasmdan nimani olganingizni va katalogda nima topilmaganini ochiq ayting (1-3 gap). "
+    "Rasmda xona bo'lmasa ham, undagi ranglar va kayfiyatdan foydalaning."
+)
+
+
 def build_user_message(
     prompt: str, room: dict, light_menu: str, furniture_lines: list[str],
 ) -> str:
@@ -336,17 +353,30 @@ def build_user_message(
 
 async def design_room(
     prompt: str, room: dict, furniture_items: list[dict], *, user_id: str,
+    image: PreparedImage | None = None,
 ) -> DesignPlan:
-    """The plan for *room* from *prompt*. Raises DesignError when the answer is unusable;
-    BudgetExceededError and provider errors pass through for the router to report."""
+    """The plan for *room* from *prompt*, and from *image* when the user sent an
+    inspiration picture. Raises DesignError when the answer is unusable;
+    BudgetExceededError and provider errors pass through for the router to report.
+
+    With an image the daily limit is the router's own pool, so it is not counted
+    against the text designer's here (user_id=None)."""
     lines, by_label = furniture_menu(furniture_items, room.get("room_type"))
     light_menu = ", ".join(f"{k} ({v})" for k, v in LIGHT_TYPE_NAMES.items())
+    if image is None:
+        content: str | list[dict] = build_user_message(prompt, room, light_menu, lines)
+    else:
+        text = build_user_message(prompt or _IMAGE_DEFAULT_PROMPT, room, light_menu, lines)
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": image.data_b64}},
+            {"type": "text", "text": text + "\n\n" + _IMAGE_INSTRUCTIONS},
+        ]
     response = await call_llm(
         model=settings.AI_MODEL_BUILDER,
         system=_SYSTEM,
-        messages=[{"role": "user", "content": build_user_message(prompt, room, light_menu, lines)}],
+        messages=[{"role": "user", "content": content}],
         max_tokens=2500,
-        user_id=user_id,
+        user_id=user_id if image is None else None,
         model_type="builder",
         timeout=60.0,
         max_retries=2,
