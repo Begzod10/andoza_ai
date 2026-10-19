@@ -38,12 +38,22 @@ function errorDetail(err: unknown): string | null {
 const secondaryButton =
   "inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand-light hover:text-accent disabled:opacity-60";
 
-/** The floor type is chosen in the studio, but no shop product for it: the
- *  estimate has nothing to price the floor with and leaves it out, which the
- *  page must say rather than show a total that looks complete. */
-function floorLeftOut(room: { surfaces?: Record<string, unknown> | null; state?: Record<string, unknown> | null } | undefined): boolean {
+/** The floor type is chosen in the studio (by hand, by the AI designer or a ready-made
+ *  style) but no shop product for it. The estimate prices it from the cheapest shop product
+ *  when there is one ("stand_in": the price is approximate) and otherwise leaves it out
+ *  ("left_out"); either way the page says so rather than show a total that looks settled.
+ *  A bare concrete floor has nothing to buy. */
+type FloorNote = "left_out" | "stand_in" | null
+
+const FLOOR_LINE_CATEGORIES = new Set(["laminat", "parket", "plitka"])
+
+function floorNote(
+  room: { surfaces?: Record<string, unknown> | null; state?: Record<string, unknown> | null } | undefined,
+  lines: EstimateResponse["lines"] | undefined,
+): FloorNote {
   const design = (room?.state as { designState?: { floorType?: string | null; floorConfigured?: boolean } } | null)?.designState;
-  return Boolean(design?.floorConfigured && design.floorType && !room?.surfaces?.floor);
+  if (!design?.floorConfigured || !design.floorType || design.floorType === "concrete" || room?.surfaces?.floor) return null;
+  return (lines ?? []).some((l) => FLOOR_LINE_CATEGORIES.has(l.category ?? "")) ? "stand_in" : "left_out";
 }
 
 export default function SmetaPage() {
@@ -113,6 +123,7 @@ export default function SmetaPage() {
     queryFn: () => getRoom(roomId!),
     enabled: !!roomId,
   });
+  const floorNoteKind = floorNote(room, estimate?.lines);
 
   // Live preview — hits the transient /estimate/preview route, which
   // computes but never persists. Used for the initial auto-calc and for
@@ -258,13 +269,15 @@ export default function SmetaPage() {
             renders as a normal-flow row here instead of a viewport overlay. */}
         {roomId && <StudioTabStrip roomId={roomId} variant="inline" />}
 
-        {floorLeftOut(room) && (
+        {floorNoteKind && (
           <div
             role="status"
-            aria-label="Pol smetaga kirmadi"
+            aria-label={floorNoteKind === "stand_in" ? "Pol narxi taxminiy" : "Pol smetaga kirmadi"}
             className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-ink"
           >
-            Pol uchun mahsulot tanlanmagan, shuning uchun pol smetaga kirmadi.{" "}
+            {floorNoteKind === "stand_in"
+              ? "Pol uchun mahsulot tanlanmagan, narx do'kondagi eng arzon poldan olindi (taxminiy)."
+              : "Pol uchun mahsulot tanlanmagan, shuning uchun pol smetaga kirmadi."}{" "}
             <Link to={`/studio/${roomId}/ichkarida?phase=pol`} className="font-semibold text-accent hover:underline">
               Pol tanlash
             </Link>

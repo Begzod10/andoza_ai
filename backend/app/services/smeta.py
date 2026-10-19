@@ -124,6 +124,13 @@ FURNITURE_CATALOG_PRICES_UZS: dict[str, int] = {
 }
 FURNITURE_FALLBACK_PRICE_UZS: int = 2_000_000
 
+# On a floor, wallpaper or paint line priced from the cheapest shop product because the
+# user (or the AI designer / a ready-made style) chose the finish but not a product.
+FINISH_STAND_IN_NOTE = (
+    "Mahsulot tanlanmagan — do'kondagi eng arzon narx olindi. "
+    "Aniq narx uchun o'zingiz mahsulot tanlang."
+)
+
 # ---------------------------------------------------------------------------
 # Light fixture pricing
 #
@@ -795,8 +802,13 @@ def _wallpaper_lines(
     materials_map: dict[str, "Material"],
     norm: "Norm | None",
     norms_map: "dict[str, Norm]",
+    stand_in: "Material | None" = None,
 ) -> list[ComputedLine]:
     """Per-wall oboy (wallpaper) lines.
+
+    A wall with a pattern but no product of its own (the AI designer and the ready-made
+    styles never pick one) is priced from ``stand_in``, the cheapest roll in the shops,
+    and flagged approximate.
 
     Reads wall geometry from room.geometry (lengths may be in mm; applies
     _to_metres heuristic).  Reads which walls have oboy covering from
@@ -856,6 +868,9 @@ def _wallpaper_lines(
 
         mat_id = wall_surfaces.get(wall_key) or wall_surfaces.get("ALL")
         material = materials_map.get(mat_id) if mat_id else None
+        standing_in = material is None and stand_in is not None
+        if standing_in:
+            material = stand_in
 
         # Roll dimensions: prefer the selected product's OWN real roll size
         # (Material.roll_width_cm/roll_length_m) when set — pricing every
@@ -914,11 +929,11 @@ def _wallpaper_lines(
             category="oboy",
             material_id=str(material.id) if material else None,
             store_name=_store_name(material) if material else None,
-            is_approximate=material_missing,
+            is_approximate=material_missing or standing_in,
             warning=(
                 "Material topilmadi — narx smetaga kirmadi. "
                 "Devor uchun material tanlang."
-            ) if material_missing else None,
+            ) if material_missing else (FINISH_STAND_IN_NOTE if standing_in else None),
         ))
 
     return lines
@@ -955,8 +970,9 @@ def _laminate_lines(
         qty, unit = round(packs * pack_m2, 2), "m²"
         formula += f" = {qty:.2f} m²"
 
+    kind = "Parket" if getattr(material, "category", None) == "parket" else "Laminat"
     lines.append(_make_line(
-        label=f"Laminat: {material.name_uz}",
+        label=f"{kind}: {material.name_uz}",
         formula=formula,
         qty=qty,
         unit=unit,
@@ -1024,6 +1040,44 @@ def _plinth_line(
         is_approximate=plinth_approximate,
         warning=plinth_warning,
     )
+
+
+# floorType (the studio's) -> how it is laid and priced, and the shop finishes to price it
+# from, best first. Concrete is not bought, so it has no entry.
+_DESIGNED_FLOORS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "laminate": ("laminat", ("finish:laminat",)),
+    "parquet": ("laminat", ("finish:parket", "finish:laminat")),
+    "tile": ("plitka", ("finish:plitka",)),
+}
+
+
+def _designed_floor_lines(
+    room: "Room", norms_map: "dict[str, Norm]", catalog: "dict[str, Material]",
+) -> list[ComputedLine]:
+    """A floor chosen by type in the studio (the AI designer and the ready-made styles do
+    this) with no shop product behind it: priced from the cheapest shop product of that
+    kind, flagged approximate, with its skirting. Without any such product only the
+    skirting is listed. A floor nobody chose (floorConfigured not true) adds nothing."""
+    ds = _design_state(room)
+    if ds.get("floorConfigured") is not True or _float(room.floor_area) <= 0:
+        return []
+    laid = _DESIGNED_FLOORS.get(str(ds.get("floorType") or ""))
+    if laid is None:
+        return []
+    kind, keys = laid
+    stand_in = next((catalog[k] for k in keys if catalog.get(k) is not None), None)
+    if stand_in is None:
+        return [_plinth_line(room, norms_map, catalog.get("plintus"))]
+    if kind == "plitka":
+        lines = _tile_lines(room, stand_in, norms_map, catalog.get("plintus"))
+    else:
+        norm = norms_map.get("laminat") or norms_map.get("parket")
+        lines = _laminate_lines(room, stand_in, norm, norms_map, catalog.get("plintus"))
+    lines[0].is_approximate = True
+    lines[0].warning = FINISH_STAND_IN_NOTE
+    if lines[0].store_name is None:
+        lines[0].store_name = _store_name(stand_in)
+    return lines
 
 
 def _tile_lines(
@@ -1571,6 +1625,11 @@ def compute_estimate(
                 lines.append(_paint_only_line(material, boyoq_norm, area, wall_ids))
             elif fallback_boyoq_mat is not None:
                 lines.append(_paint_only_line(fallback_boyoq_mat, boyoq_norm, area, wall_ids))
+            elif catalog.get("finish:boyoq") is not None:
+                lines.append(_paint_only_line(
+                    catalog["finish:boyoq"], boyoq_norm, area, wall_ids,
+                    is_approximate=True, warning=FINISH_STAND_IN_NOTE,
+                ))
             else:
                 stand_in = _PaintMaterialLike(
                     "Bo'yoq (material tanlanmagan)", PAINT_FALLBACK_PRICE_PER_LITER_UZS,
@@ -1589,7 +1648,9 @@ def compute_estimate(
     # ------------------------------------------------------------------ #
     if has_any_oboy:
         oboy_norm = norms_map.get("oboy")
-        lines.extend(_wallpaper_lines(room, wall_surfaces_map, materials_map, oboy_norm, norms_map))
+        lines.extend(_wallpaper_lines(
+            room, wall_surfaces_map, materials_map, oboy_norm, norms_map, catalog.get("finish:oboy"),
+        ))
 
     # ------------------------------------------------------------------ #
     # 2b. Custom photo wallpaper ("texture") — no catalog price exists;   #
@@ -1607,6 +1668,8 @@ def compute_estimate(
     # ------------------------------------------------------------------ #
     floor_already_done = floor_state == "tayyor"
     floor_mat = materials_map.get(floor_mid) if floor_mid else None
+    if floor_mat is None and not floor_already_done:
+        lines.extend(_designed_floor_lines(room, norms_map, catalog))
     if floor_mat is not None and not floor_already_done:
         if floor_mat.category in ("laminat", "parket"):
             laminat_norm = norms_map.get("laminat") or norms_map.get("parket")
