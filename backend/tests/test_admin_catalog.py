@@ -891,3 +891,51 @@ class TestAdminWritesDeferInvalidation:
         invalidate.assert_not_awaited()
         hooks = db.info["after_commit_hooks"]
         assert [hook.args[0] for hook in hooks] == [prefix]
+
+
+class TestClassifyStyles:
+    URL = "/api/v1/admin/furniture/classify-styles"
+
+    def test_queues_every_unstyled_model(self, client):
+        ids = [uuid.uuid4() for _ in range(3)]
+        db = _db(_Result(many=ids))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ) as enqueue:
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.status_code == 200
+        assert response.json() == {"queued": 3}
+        assert [c.args[0] for c in enqueue.call_args_list] == [str(i) for i in ids]
+
+    def test_only_selects_models_nobody_styled(self, client):
+        db = _db(_Result(many=[]))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ):
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.json() == {"queued": 0}
+        sql = str(db.execute.call_args.args[0])
+        assert "styles_source IS NULL" in sql
+
+    def test_refuses_when_ai_is_off(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ) as enqueue:
+            cfg.AI_FEATURES_ENABLED = False
+            response = client.post(self.URL)
+        assert response.status_code == 503
+        assert response.json()["detail"] == "AI hozir o'chirilgan"
+        enqueue.assert_not_called()
+
+    def test_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.post(self.URL)
+        assert response.status_code == 403
+        db.execute.assert_not_called()
