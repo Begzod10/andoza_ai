@@ -139,6 +139,44 @@ describe('applyDesignPlan', () => {
   })
 })
 
+describe('lights from an earlier design', () => {
+  it('a second design replaces the lights the first one put in, instead of adding to them', () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const p = plan(); p.lights = [{ type: 'led_panel', zone: 'center' }]
+    applyDesignPlan(p, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().lights.map((l) => l.type)).toEqual(['led_panel'])
+  })
+
+  it("keeps the lights the user placed", () => {
+    useRoomStore.getState().addLight({ id: 'mine', xMm: 500, zMm: 500, type: 'spotlight' })
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const lights = useRoomStore.getState().lights
+    expect(lights.filter((l) => l.id === 'mine')).toHaveLength(1)
+    expect(lights).toHaveLength(1 + plan().lights.length)
+  })
+
+  it('marks the lights it puts in as the design\'s', () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    expect(useRoomStore.getState().lights.every((l) => l.fromDesign === true)).toBe(true)
+  })
+
+  it('with lights switched off, the earlier design\'s lights stay', () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    applyDesignPlan(plan(), { ...ALL_PARTS, lights: false }, catalog)
+    expect(useRoomStore.getState().lights).toHaveLength(plan().lights.length)
+  })
+
+  it('undo brings the earlier design\'s lights back', () => {
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    const before = snapshotDesign()
+    const p = plan(); p.lights = [{ type: 'led_panel', zone: 'center' }]
+    applyDesignPlan(p, ALL_PARTS, catalog)
+    restoreDesign(before)
+    expect(useRoomStore.getState().lights).toEqual(before.lights)
+  })
+})
+
 describe('ceiling and trim', () => {
   const trimmed = (): AiDesignPlan => ({
     ...plan(),

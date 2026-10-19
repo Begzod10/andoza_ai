@@ -67,8 +67,8 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
 
 /**
  * Puts the chosen parts of a plan into the room, on top of what is there: the wall finish and the
- * floor are replaced, lights and furniture are added (the user's own pieces stay, and new ones
- * avoid them). Returns what was applied; `restoreDesign(snapshot)` undoes it.
+ * floor are replaced, an earlier design's lights are replaced (the user's own stay), and furniture
+ * is added (the user's own pieces stay, and new ones avoid them). Returns what was applied; `restoreDesign(snapshot)` undoes it.
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[]): AppliedCounts {
   const store = useRoomStore.getState()
@@ -108,6 +108,8 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
   const model = roomModel(geometry)
 
   if (parts.lights) {
+    // An earlier design's lights go; the user's own stay (and new ones are added beside them).
+    for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
     const nthByZone = new Map<string, number>()
     for (const light of plan.lights) {
       const type = lightType(light.type)
@@ -115,7 +117,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const nth = nthByZone.get(key) ?? 0
       nthByZone.set(key, nth + 1)
       const spot = lightSpot(light.zone, type.mount, model, nth)
-      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot })
+      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
       applied.lights++
     }
   }
