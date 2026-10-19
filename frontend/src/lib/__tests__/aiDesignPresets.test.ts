@@ -157,6 +157,19 @@ describe('design presets', () => {
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('any')
   })
 
+  it('a piece of its own style comes before an unstyled one', () => {
+    const cat = [{ ...item('any', 'Divan', 'divan'), styles: [] }, { ...item('mine', 'Divan', 'divan'), styles: ['hitech'] }]
+    expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('mine')
+  })
+
+  it('between two pieces of its style, the one made for the room wins', () => {
+    const cat = [
+      { ...item('other-room', 'Divan', 'divan', 'yotoqxona'), styles: ['hitech'] },
+      { ...item('this-room', 'Divan', 'divan', 'mehmonxona'), styles: ['hitech'] },
+    ]
+    expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('this-room')
+  })
+
   it('with nothing of its style, a piece of another style still fills the room', () => {
     const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }]
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')

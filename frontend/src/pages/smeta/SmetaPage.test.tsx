@@ -403,8 +403,8 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     expect(note.querySelector('a')!.getAttribute('href')).toBe('/studio/room-1/ichkarida?phase=pol')
   })
 
-  it('when the floor is priced from the cheapest shop product, it says the price is approximate', async () => {
-    // The estimate now prices a floor chosen by type from the cheapest shop product:
+  it('when the floor is priced from the median shop product, it says the price is approximate', async () => {
+    // The estimate now prices a floor chosen by type from the median shop product:
     // "left out" would be wrong, but the user should still pick their own.
     const { getRoom } = await import('@/lib/api')
     vi.mocked(getRoom).mockResolvedValueOnce({

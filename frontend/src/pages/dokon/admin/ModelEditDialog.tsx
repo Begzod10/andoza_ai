@@ -16,12 +16,9 @@ import {
   type AdminStore,
 } from "@/lib/api";
 import { StyleChips } from "@/components/dokon/StyleChips";
-import { FURNITURE_STYLES, type FurnitureStyle } from "@/lib/furnitureStyles";
+import { knownStyles, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
-
-const knownStyles = (raw?: string[]) =>
-  (raw ?? []).filter((s): s is FurnitureStyle => FURNITURE_STYLES.some((f) => f.id === s));
 
 /**
  * Edit an existing 3D model's metadata. The GLB/thumbnail file itself isn't

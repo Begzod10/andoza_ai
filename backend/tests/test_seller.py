@@ -372,6 +372,15 @@ class TestOwnModels:
         _as(u, [_R(store), _R(m)])
         assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
 
+    def test_an_explicit_null_leaves_the_styles_alone(self, client):
+        u = _user()
+        store = _store(u)
+        m = _model(store)
+        m.styles = ["loft"]
+        _as(u, [_R(store), _R(m)])
+        res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"styles": None})
+        assert res.status_code == 200 and res.json()["styles"] == ["loft"] and m.styles == ["loft"]
+
     def test_a_pending_model_cannot_be_switched_on_to_skip_review(self, client):
         u = _user()
         store = _store(u)
