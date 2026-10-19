@@ -55,3 +55,39 @@ describe('admin model edit — styles', () => {
     expect(screen.queryByText(/AI qo'ygan/)).not.toBeInTheDocument()
   })
 })
+
+describe('admin model edit — when styles are sent', () => {
+  // The backend marks styles 'manual' whenever `styles` is in the PATCH, which locks the
+  // AI out; so only send them when the admin actually set or confirmed them.
+  it('a name-only save of a never-styled model leaves styles out', async () => {
+    open(model([], null))
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Yangi divan' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    const payload = api.updateAdminFurniture.mock.calls[0][1]
+    expect(payload.name_uz).toBe('Yangi divan')
+    expect(payload).not.toHaveProperty('styles')
+  })
+
+  it('an unchanged manual set is not resent', async () => {
+    open(model(['loft', 'milliy'], 'manual'))
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    expect(api.updateAdminFurniture.mock.calls[0][1]).not.toHaveProperty('styles')
+  })
+
+  it('changing a chip sends styles', async () => {
+    open(model([], null))
+    fireEvent.click(screen.getByRole('button', { name: 'Loft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    expect(api.updateAdminFurniture.mock.calls[0][1].styles).toEqual(['loft'])
+  })
+
+  it('saving AI-set styles unchanged sends them, confirming them', async () => {
+    open(model(['loft'], 'ai'))
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    expect(api.updateAdminFurniture.mock.calls[0][1].styles).toEqual(['loft'])
+  })
+})

@@ -16,7 +16,7 @@ import {
   type AdminStore,
 } from "@/lib/api";
 import { StyleChips } from "@/components/dokon/StyleChips";
-import { knownStyles, type FurnitureStyle } from "@/lib/furnitureStyles";
+import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "./errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
 
@@ -69,7 +69,7 @@ export function ModelEditDialog({
         category,
         room_type: roomType || null,
         placement,
-        styles,
+        ...stylesPatch(knownStyles(model.styles), styles, model.styles_source),
         store_id: storeId || null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
         is_active: isActive,

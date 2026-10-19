@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { updateMyModel, type SellerModel } from "@/lib/api";
 import { StyleChips } from "@/components/dokon/StyleChips";
-import { knownStyles, type FurnitureStyle } from "@/lib/furnitureStyles";
+import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 
 /** Name, price and styles. The 3D file itself is not replaceable — upload a new model
@@ -25,7 +25,12 @@ export function ModelEditDialog({
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
-    mutationFn: () => updateMyModel(model.id, { name_uz: name.trim(), price_uzs: price ? Number(price) : null, styles }),
+    mutationFn: () =>
+      updateMyModel(model.id, {
+        name_uz: name.trim(),
+        price_uzs: price ? Number(price) : null,
+        ...stylesPatch(knownStyles(model.styles), styles, model.styles_source),
+      }),
     onSuccess: (saved) => {
       onSaved(saved);
       onClose();
