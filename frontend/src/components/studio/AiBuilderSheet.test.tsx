@@ -7,10 +7,16 @@ import { AiBuilderSheet, zoneLabel } from './AiBuilderSheet'
 
 const aiDesign = vi.fn()
 const aiDesignFromImage = vi.fn()
-vi.mock('@/lib/api', () => ({
-  aiDesign: (...args: unknown[]) => aiDesign(...args),
-  aiDesignFromImage: (...args: unknown[]) => aiDesignFromImage(...args),
-}))
+const aiDesignFromPin = vi.fn()
+vi.mock('@/lib/api', async () => {
+  const { looksLikePinUrl } = await vi.importActual<typeof import('@/lib/api/ai')>('@/lib/api/ai')
+  return {
+    aiDesign: (...args: unknown[]) => aiDesign(...args),
+    aiDesignFromImage: (...args: unknown[]) => aiDesignFromImage(...args),
+    aiDesignFromPin: (...args: unknown[]) => aiDesignFromPin(...args),
+    looksLikePinUrl,
+  }
+})
 
 const PLAN: AiDesignPlan = {
   title: "Qorong'i uslub", summary: "To'q ranglar va iliq yorug'lik.", warnings: [],
@@ -34,6 +40,7 @@ const savesBadly = () => vi.fn(async () => undefined)
 beforeEach(() => {
   aiDesign.mockReset()
   aiDesignFromImage.mockReset()
+  aiDesignFromPin.mockReset()
   URL.createObjectURL = vi.fn(() => 'blob:preview') as typeof URL.createObjectURL
   URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL
   useRoomStore.getState().resetRoom()
@@ -382,5 +389,67 @@ describe('AiBuilderSheet — design from an inspiration image', () => {
     await generate()
     expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'mehmonxona')
     expect(aiDesignFromImage).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('AiBuilderSheet — design from a Pinterest pin', () => {
+  const PIN = 'https://www.pinterest.com/pin/516647388484185204/'
+  const paste = (text: string) => fireEvent.change(screen.getByLabelText('Pinterest havolasi'), { target: { value: text } })
+  const picture = () => new File(['x'], 'pin.jpg', { type: 'image/jpeg' })
+
+  it('turns a pasted pin link into a chip and removes it with ✕', () => {
+    renderSheet()
+    paste(PIN)
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Havolani olib tashlash'))
+    expect(screen.queryByText('📌 Pinterest pin')).toBeNull()
+  })
+
+  it('keeps one source: a link replaces the picked image, and an image replaces the link', () => {
+    renderSheet()
+    fireEvent.change(screen.getByLabelText('Ilhom rasmi'), { target: { files: [picture()] } })
+    expect(screen.getByAltText('Tanlangan rasm')).toBeInTheDocument()
+    paste(PIN)
+    expect(screen.queryByAltText('Tanlangan rasm')).toBeNull()
+    fireEvent.change(screen.getByLabelText('Ilhom rasmi'), { target: { files: [picture()] } })
+    expect(screen.queryByText('📌 Pinterest pin')).toBeNull()
+  })
+
+  it('refuses a link that is not Pinterest before sending', () => {
+    renderSheet()
+    paste('https://example.com/x')
+    expect(screen.getByText('Bu Pinterest pin havolasi emas')).toBeInTheDocument()
+    expect(screen.queryByText('📌 Pinterest pin')).toBeNull()
+    expect(aiDesignFromPin).not.toHaveBeenCalled()
+  })
+
+  it('sends the link with the prompt and room kind, applies the plan and shows the pin it came from', async () => {
+    aiDesignFromPin.mockResolvedValueOnce({ ...PLAN, pin_image_url: 'https://i.pinimg.com/736x/x.jpg' })
+    renderSheet()
+    paste(PIN)
+    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: 'faqat ranglarini ol' } })
+    fireEvent.click(screen.getByText("Pinterest'dan dizayn yaratish"))
+    await screen.findByText("Qorong'i uslub")
+    expect(aiDesignFromPin).toHaveBeenCalledWith('room-1', PIN, 'faqat ranglarini ol', 'mehmonxona')
+    expect(screen.getByAltText('Shu pin asosida').getAttribute('src')).toBe('https://i.pinimg.com/736x/x.jpg')
+  })
+
+  it('after the link is removed the prompt is required again and goes to the text designer', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    renderSheet()
+    paste(PIN)
+    fireEvent.click(screen.getByLabelText('Havolani olib tashlash'))
+    expect(screen.getByText('Dizayn yaratish').closest('button')).toBeDisabled()
+    await generate()
+    expect(aiDesignFromPin).not.toHaveBeenCalled()
+  })
+
+  // Review Focus 5
+  it('a pin link pasted into the prompt box moves to the link field', () => {
+    renderSheet()
+    fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: `  ${PIN}  ` } })
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
+    expect((screen.getByLabelText('Dizayn tavsifi') as HTMLTextAreaElement).value).toBe('')
   })
 })

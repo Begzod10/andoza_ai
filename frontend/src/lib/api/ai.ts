@@ -47,6 +47,8 @@ export interface AiDesignPlan {
   warnings: string[];
   /** Image designs only: what the picture had and what the catalog lacked. */
   image_notes?: string;
+  /** Pin designs only: the pin's picture the design was made from. */
+  pin_image_url?: string;
 }
 
 export interface SmetaAskResponse {
@@ -113,6 +115,29 @@ export async function aiDesignFromImage(
   if (prompt?.trim()) form.append("prompt", prompt.trim());
   if (roomType) form.append("room_type", roomType);
   return apiClient<AiDesignPlan>(`/rooms/${roomId}/ai-design/image`, { method: "POST", body: form });
+}
+
+/** A quick check before sending: https and a Pinterest host (pin.it, *.pinterest.*).
+ *  The server checks properly; this only spares a request for an obvious mistake. */
+export function looksLikePinUrl(text: string): boolean {
+  try {
+    const url = new URL(text.trim());
+    const host = url.hostname.replace(/\.$/, "").toLowerCase();
+    return url.protocol === "https:" && (host === "pin.it" || /(^|\.)pinterest\.[a-z.]+$/.test(host));
+  } catch {
+    return false;
+  }
+}
+
+/** The same plan as aiDesign, styled after a Pinterest pin. The server fetches the
+ *  pin's picture; the answer says which one in pin_image_url. */
+export async function aiDesignFromPin(
+  roomId: string, url: string, prompt?: string, roomType?: string,
+): Promise<AiDesignPlan> {
+  return apiClient<AiDesignPlan>(`/rooms/${roomId}/ai-design/pin`, {
+    method: "POST",
+    body: JSON.stringify({ url, prompt: prompt?.trim() || null, room_type: roomType ?? null }),
+  });
 }
 
 export async function smetaAsk(
