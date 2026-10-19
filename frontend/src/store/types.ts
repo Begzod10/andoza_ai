@@ -146,6 +146,9 @@ export interface PlacedFurniture {
    *  time (see placeFurniture) — there is no shared catalog slug to price a
    *  one-off upload by, so the price travels with the placed instance itself. */
   unitPriceUzs?: number
+  /** Put in by a design (the AI designer or a ready-made style), not by the user: the next
+   *  design applied replaces these and leaves the user's own pieces alone. */
+  fromDesign?: boolean
 }
 
 export interface UserFurnitureEntry {
