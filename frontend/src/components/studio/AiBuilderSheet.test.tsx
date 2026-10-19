@@ -9,12 +9,13 @@ const aiDesign = vi.fn()
 const aiDesignFromImage = vi.fn()
 const aiDesignFromPin = vi.fn()
 vi.mock('@/lib/api', async () => {
-  const { looksLikePinUrl } = await vi.importActual<typeof import('@/lib/api/ai')>('@/lib/api/ai')
+  const { looksLikePinUrl, findPinUrl } = await vi.importActual<typeof import('@/lib/api/ai')>('@/lib/api/ai')
   return {
     aiDesign: (...args: unknown[]) => aiDesign(...args),
     aiDesignFromImage: (...args: unknown[]) => aiDesignFromImage(...args),
     aiDesignFromPin: (...args: unknown[]) => aiDesignFromPin(...args),
     looksLikePinUrl,
+    findPinUrl,
   }
 })
 
@@ -464,6 +465,23 @@ describe('AiBuilderSheet — design from a Pinterest pin', () => {
     renderSheet()
     fireEvent.change(screen.getByLabelText('Dizayn tavsifi'), { target: { value: 'https://www.pinterest.c' } })
     expect(screen.queryByText('📌 Pinterest pin')).toBeNull()
+  })
+
+  it("takes the link out of Pinterest's share text, pasted into either box", async () => {
+    // Final review: Pinterest's share puts "Check out this Pin! https://pin.it/…" on the
+    // clipboard; pasted into the prompt box it went to the text designer as prose.
+    aiDesignFromPin.mockResolvedValueOnce(PLAN)
+    renderSheet()
+    const share = 'Check out this Pin! https://pin.it/AbCd12'
+    fireEvent.paste(screen.getByLabelText('Dizayn tavsifi'), { clipboardData: { getData: () => share } })
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
+    expect((screen.getByLabelText('Dizayn tavsifi') as HTMLTextAreaElement).value).toBe('')
+    fireEvent.click(screen.getByText("Pinterest'dan dizayn yaratish"))
+    await waitFor(() => expect(aiDesignFromPin).toHaveBeenCalledWith('room-1', 'https://pin.it/AbCd12', '', 'mehmonxona'))
+
+    fireEvent.click(screen.getByLabelText('Havolani olib tashlash'))
+    paste(share)
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
   })
 
   // Review Focus 5

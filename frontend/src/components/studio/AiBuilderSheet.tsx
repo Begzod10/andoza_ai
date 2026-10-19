@@ -2,7 +2,7 @@ import * as React from "react"
 import { ImagePlus } from "lucide-react"
 import { BottomSheet } from "@/components/ui/BottomSheet"
 import { uz } from "@/locale/uz"
-import { aiDesign, aiDesignFromImage, aiDesignFromPin, looksLikePinUrl } from "@/lib/api"
+import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
@@ -167,17 +167,18 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
 
   function pastePin(e: React.ClipboardEvent<HTMLInputElement>) {
     e.preventDefault()
-    const text = e.clipboardData.getData("text")
+    const pasted = e.clipboardData.getData("text")
+    const text = findPinUrl(pasted) ?? pasted
     setPinInput(text)
     commitPinInput(text)
   }
 
   /** A pin link pasted into the prompt box is meant as the source, not as words. */
   function pastePrompt(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const text = e.clipboardData.getData("text")
-    if (!looksLikePinUrl(text)) return
+    const found = findPinUrl(e.clipboardData.getData("text"))
+    if (!found) return
     e.preventDefault()
-    takePin(text)
+    takePin(found)
   }
 
   function removeImage() {

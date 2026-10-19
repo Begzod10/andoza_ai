@@ -172,3 +172,16 @@ def test_someone_elses_room_is_404_before_anything_is_fetched(env):
     assert _post(client).status_code == 404
     m.resolve.assert_not_awaited()
     m.fetch.assert_not_awaited()
+
+
+
+def test_a_user_already_over_the_limit_makes_no_pinterest_request(env):
+    # Final review: the limit was only taken after Pinterest had been fetched, so a
+    # user over it could keep the server fetching pins (and get our IP throttled).
+    client, m = env
+    with patch("app.routers.ai.budget_exhausted", new=AsyncMock(return_value=True)):
+        response = _post(client)
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Bugungi rasmdan dizayn limiti tugadi"
+    m.resolve.assert_not_awaited()
+    m.fetch.assert_not_awaited()

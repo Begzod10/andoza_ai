@@ -37,7 +37,7 @@ from app.services.design_image import (
     UnsupportedImage,
     prepare_design_image,
 )
-from app.services.llm import check_and_increment_budget_for
+from app.services.llm import budget_exhausted, check_and_increment_budget_for
 from app.services.pinterest_pin import (
     NotAPinUrl,
     PinNotFound,
@@ -298,6 +298,11 @@ async def ai_design_from_pin(
 
     _require_ai()
     room = await _get_owned_room(room_id, current_user.id, db)
+    # Refuse an over-limit user before any Pinterest request (repeated fetches would
+    # get our server throttled by Pinterest for everyone); the try itself is still
+    # counted only once the pin's image is in hand.
+    if await budget_exhausted(str(current_user.id), "image_design", settings.IMAGE_DESIGN_DAILY_LIMIT):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi rasmdan dizayn limiti tugadi")
     async with pinterest_client() as client:
         try:
             pin_id = await resolve_pin_id(body.url, client)

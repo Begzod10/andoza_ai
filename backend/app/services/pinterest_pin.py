@@ -60,8 +60,14 @@ def pinterest_client() -> httpx.AsyncClient:
 
 def _checked_host(url: str) -> tuple[str, str]:
     """(host, path) of a well-formed https link on a Pinterest host."""
+    stripped = url.strip()
+    # urlsplit quietly drops tabs and newlines for the check, while the raw string
+    # would still reach httpx (which refuses control characters with an error that
+    # is not an HTTPError). Refuse them here, as not a link.
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in stripped):
+        raise NotAPinUrl(url)
     try:
-        parts = urlsplit(url.strip())
+        parts = urlsplit(stripped)
         port = parts.port
     except ValueError as exc:
         raise NotAPinUrl(url) from exc
@@ -104,6 +110,8 @@ async def _next_hop(url: str, client: httpx.AsyncClient) -> str:
         response = await client.head(url, timeout=_REDIRECT_TIMEOUT)
         if response.status_code == 405:
             response = await client.get(url, timeout=_REDIRECT_TIMEOUT)
+    except httpx.InvalidURL as exc:
+        raise NotAPinUrl(url) from exc
     except httpx.HTTPError as exc:
         raise PinterestUnavailable(str(exc)) from exc
     location = response.headers.get("Location")
@@ -147,19 +155,21 @@ async def fetch_pin_image(pin_id: str, client: httpx.AsyncClient) -> PinImage:
     candidates = [thumbnail]
     if "/236x/" in parts.path:
         candidates.insert(0, thumbnail.replace("/236x/", "/736x/", 1))
-    for url in candidates:
-        image = await _download(url, client)
+    for i, url in enumerate(candidates):
+        image = await _download(url, client, last=i == len(candidates) - 1)
         if image is not None:
             return image
     raise PinterestUnavailable("no image")
 
 
-async def _download(url: str, client: httpx.AsyncClient) -> PinImage | None:
-    """The image at *url*, or None on a 404 (try the next candidate). Stops reading
-    the moment it passes MAX_DESIGN_IMAGE_BYTES, Content-Length or not."""
+async def _download(url: str, client: httpx.AsyncClient, *, last: bool) -> PinImage | None:
+    """The image at *url*, or None when the next candidate should be tried: a 404,
+    or any non-200 while this is not the last candidate (the 736x copy is an
+    undocumented convention; the thumbnail oEmbed handed out is the fallback).
+    Stops reading the moment it passes MAX_DESIGN_IMAGE_BYTES, Content-Length or not."""
     try:
         async with client.stream("GET", url, timeout=_IMAGE_TIMEOUT) as response:
-            if response.status_code == 404:
+            if response.status_code == 404 or (response.status_code != 200 and not last):
                 return None
             content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
             if response.status_code != 200 or not content_type.startswith("image/"):

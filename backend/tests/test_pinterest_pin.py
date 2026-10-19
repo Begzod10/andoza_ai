@@ -74,6 +74,9 @@ async def test_pin_links_resolve_to_their_id_without_any_request(url, pin_id):
         "https://www.pinterest.com/pin/123/",
         "not a url",
         "",
+        "https://pin.it/abc\u0000",   # final review: reached httpx and gave a 500
+        "https://pin.it/abc\u007f",
+        "https://pin.it/ab\tcd",
     ],
 )
 async def test_anything_else_is_not_a_pin_url(url):
@@ -233,3 +236,13 @@ async def test_a_chunked_image_without_content_length_still_stops_at_10_mb():
 
     with pytest.raises(ImageTooLarge):
         await _fetch(_Net(handler=handler))
+
+
+
+@pytest.mark.parametrize("status", [403, 500, 302])
+async def test_any_failure_of_the_736_variant_falls_back_to_the_original(status):
+    # Final review: only a 404 fell back, so a blocked 736x gave a 502 while the
+    # thumbnail Pinterest handed out was fine.
+    failing = _redirect("https://i.pinimg.com/other.jpg", status) if status == 302 else httpx.Response(status)
+    net = _Net({OEMBED: _oembed(), THUMB_736: failing, THUMB_236: _jpeg()})
+    assert (await _fetch(net)).url == THUMB_236

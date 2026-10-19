@@ -105,6 +105,14 @@ async def check_and_increment_budget_for(user_id: str, pool: str, limit: int) ->
         raise BudgetExceededError()
 
 
+async def budget_exhausted(user_id: str, pool: str, limit: int) -> bool:
+    """Whether *pool* is already used up today, without counting a try. For a caller
+    that must refuse an over-limit user before doing outside work (fetching a
+    Pinterest pin), but counts the try only once that work has succeeded."""
+    count = await get_redis().get(_budget_key(user_id, pool))
+    return count is not None and int(count) >= limit
+
+
 # ---------------------------------------------------------------------------
 # OpenAI client
 # ---------------------------------------------------------------------------

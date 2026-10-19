@@ -129,6 +129,12 @@ export function looksLikePinUrl(text: string): boolean {
   }
 }
 
+/** The pin link inside a pasted text, e.g. Pinterest's share text
+ *  "Check out this Pin! https://pin.it/AbCd12", or null when there is none. */
+export function findPinUrl(text: string): string | null {
+  return text.match(/https:\/\/\S+/g)?.find(looksLikePinUrl) ?? null;
+}
+
 /** The same plan as aiDesign, styled after a Pinterest pin. The server fetches the
  *  pin's picture; the answer says which one in pin_image_url. */
 export async function aiDesignFromPin(
