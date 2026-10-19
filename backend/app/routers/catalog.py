@@ -145,6 +145,7 @@ def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
         footprint_w=f.footprint_w,
         footprint_d=f.footprint_d,
         height_cm=f.height_cm,
+        styles=f.styles or [],
     )
 
 

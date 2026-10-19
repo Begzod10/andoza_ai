@@ -33,6 +33,8 @@ from app.schemas.admin_catalog import (
     UstaAdminOut,
     UstaCreate,
     UstaUpdate,
+    normalize_styles,
+    parse_styles_form,
 )
 
 logger = structlog.get_logger(__name__)
@@ -95,6 +97,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         footprint_w=float(f.footprint_w) if f.footprint_w is not None else None,
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
         height_cm=float(f.height_cm) if f.height_cm is not None else None,
+        styles=f.styles or [],
         is_active=f.is_active,
         created_at=f.created_at,
     )
@@ -246,6 +249,7 @@ async def upload_furniture_model(
     footprint_w: float | None = Form(default=None),
     footprint_d: float | None = Form(default=None),
     height_cm: float | None = Form(default=None, gt=0, le=1000),
+    styles: str | None = Form(default=None),
     thumbnail: UploadFile | None = None,
 ) -> FurnitureAdminOut:
     """Store the model's `.glb` (and optional preview thumbnail) and record
@@ -266,6 +270,10 @@ async def upload_furniture_model(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak",
         )
+    try:
+        style_list = parse_styles_form(styles)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if price_uzs is not None and price_uzs < 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -347,6 +355,7 @@ async def upload_furniture_model(
         footprint_w=footprint_w,
         footprint_d=footprint_d,
         height_cm=height_cm,
+        styles=style_list,
     )
     db.add(furniture)
     await db.flush()
@@ -431,6 +440,14 @@ async def update_furniture(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model topilmadi")
 
     updates = payload.model_dump(exclude_unset=True)
+    if "styles" in updates:
+        if updates["styles"] is None:
+            del updates["styles"]  # null means "leave as is", never "wipe"
+        else:
+            try:
+                updates["styles"] = normalize_styles(updates["styles"])
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
     new_store: Store | None = furniture.store
     if "store_id" in updates:
         if updates["store_id"] is None:

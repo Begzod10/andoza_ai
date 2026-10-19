@@ -109,6 +109,7 @@ class FurnitureUpdate(BaseModel):
     footprint_w: float | None = Field(default=None, gt=0)
     footprint_d: float | None = Field(default=None, gt=0)
     height_cm: float | None = Field(default=None, gt=0, le=1000)
+    styles: list[str] | None = None
     is_active: bool | None = None
 
 
@@ -126,6 +127,7 @@ class FurnitureAdminOut(BaseModel):
     footprint_w: float | None
     footprint_d: float | None
     height_cm: float | None = None
+    styles: list[str] = []
     is_active: bool
     created_at: datetime
 
