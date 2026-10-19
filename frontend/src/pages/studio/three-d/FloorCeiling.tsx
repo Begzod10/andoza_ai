@@ -1,5 +1,5 @@
-import { memo, useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { useThree } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   ceilingDesign, resolveCeilingSettings, buildCeilingParts,
@@ -428,6 +428,15 @@ export function DoorwayFloors({ niches, pattern, width, depth, fallbackColor, fl
 
 // ─── Ceiling designs ──────────────────────────────────────────────────────────
 
+/** Whether a dropped ceiling's boxes should draw for a camera at this height (world metres).
+ *  The slab faces down and vanishes from above on its own, but the boxes are solid from every
+ *  side: seen from over the room they covered it like a lid. */
+export function ceilingProfileVisible(cameraY: number, ceilingY: number): boolean {
+  return cameraY < ceilingY
+}
+
+const _ceilingWorld = new THREE.Vector3()
+
 /**
  * The room's ceiling: the structural slab, plus whatever profile is built
  * below it.
@@ -466,6 +475,14 @@ export const Ceiling = memo(function Ceiling({
   // cannot be picked, so the highlight has to go with it — a tint glowing in
   // an open-topped top view would be painting a ceiling that isn't shown.
   const showSelected = !!isSelected && !hidden
+  const profileRef = useRef<THREE.Group>(null)
+  useFrame(({ camera }) => {
+    const g = profileRef.current
+    if (!g) return
+    _ceilingWorld.set(0, H, 0)
+    g.parent?.localToWorld(_ceilingWorld)
+    g.visible = ceilingProfileVisible(camera.position.y, _ceilingWorld.y)
+  })
 
   return (
     <group onClick={onClick}>
@@ -490,12 +507,14 @@ export const Ceiling = memo(function Ceiling({
         />
       </mesh>
       {!hidden && parts.length > 0 && (
-        <CeilingProfile
-          parts={parts}
-          color={resolved.color}
-          stripK={resolved.stripK}
-          selected={showSelected}
-        />
+        <group ref={profileRef}>
+          <CeilingProfile
+            parts={parts}
+            color={resolved.color}
+            stripK={resolved.stripK}
+            selected={showSelected}
+          />
+        </group>
       )}
     </group>
   )

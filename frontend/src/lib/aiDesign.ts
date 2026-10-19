@@ -83,6 +83,10 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
         : { kind: 'oboy', patternId: main.pattern, baseColor: main.base_color, accentColor: main.accent_color },
     )
     if (plan.walls.accent) store.setWallCovering(plan.walls.accent.wall, { kind: 'paint', color: plan.walls.accent.color })
+    if (plan.trim) {
+      const { ceiling, skirting, cornice } = plan.trim
+      store.setDesignState({ ceiling, skirting, cornice })
+    }
     applied.walls = true
   }
 

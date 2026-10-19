@@ -3,6 +3,8 @@ import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
 import { OBOY_PATTERNS } from '@/lib/oboyPatterns'
+import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
+import { trimProfilesOf } from '@/lib/trimProfiles'
 import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
 
 const item = (id: string, name: string, category: string, room_type: string | null = null): CatalogFurniture => ({
@@ -103,5 +105,35 @@ describe('design presets', () => {
 
   it('is undefined for an unknown style', () => {
     expect(presetPlan('nonsense', CATALOG)).toBeUndefined()
+  })
+
+  it('every style sets a ceiling, a skirting and a cornice the studio can draw', () => {
+    const ceilings: readonly string[] = CEILING_DESIGNS.map((d) => d.id)
+    const skirtings: readonly string[] = trimProfilesOf('skirting').map((d) => d.id)
+    const cornices: readonly string[] = trimProfilesOf('cornice').map((d) => d.id)
+    for (const p of DESIGN_PRESETS) {
+      expect(ceilings, p.id).toContain(p.trim.ceiling.design)
+      expect(skirtings, p.id).toContain(p.trim.skirting.id)
+      if (p.trim.cornice) expect(cornices, p.id).toContain(p.trim.cornice.id)
+      const color = p.trim.ceiling.settings?.color
+      if (color) expect(color, p.id).toMatch(/^#[0-9a-f]{6}$/i)
+    }
+  })
+
+  it('the classical and national styles get a moulded cornice; hi-tech stays plain', () => {
+    const byId = Object.fromEntries(DESIGN_PRESETS.map((p) => [p.id, p]))
+    for (const id of ['neoklassika', 'klassik', 'milliy']) {
+      expect(byId[id].trim.cornice, id).not.toBeNull()
+      expect(byId[id].trim.skirting.id, id).not.toBe('tekis')
+    }
+    expect(byId.hitech.trim.cornice).toBeNull()
+    expect(byId.hitech.trim.skirting.id).toBe('tekis')
+    expect(byId.hitech.trim.ceiling.design).toBe('floating')
+  })
+
+  it('the plan carries the style\'s ceiling and trim', () => {
+    const plan = presetPlan('neoklassika', CATALOG)!
+    expect(plan.trim).toBeDefined()
+    expect(plan.trim).toEqual(DESIGN_PRESETS.find((p) => p.id === 'neoklassika')!.trim)
   })
 })

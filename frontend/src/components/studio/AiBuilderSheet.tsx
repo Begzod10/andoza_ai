@@ -9,6 +9,8 @@ import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib
 import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
+import { ceilingDesign } from "@/lib/ceilingDesigns"
+import { trimProfileDef } from "@/lib/trimProfiles"
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -390,7 +392,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
               )}
             </div>
 
-            <PartRow id="walls" title={uz.ai.qism_devor} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>
+            <PartRow id="walls" title={plan.trim ? uz.ai.qism_devor_shift : uz.ai.qism_devor} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>
               {main?.type === "paint" && <Swatch color={main.color} label={main.color} />}
               {main?.type === "oboy" && (
                 <span className="inline-flex flex-wrap items-center gap-2">
@@ -402,6 +404,13 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType }:
               {plan.walls.accent && (
                 <span className="ml-3 inline-flex items-center gap-1.5">
                   {plan.walls.accent.wall} {uz.ai.chetki_devor}: <Swatch color={plan.walls.accent.color} />
+                </span>
+              )}
+              {plan.trim && (
+                <span className="mt-1 block text-xs text-gray-600">
+                  {uz.ai.shift_label}: {ceilingDesign(plan.trim.ceiling.design).label}
+                  {", "}
+                  {plan.trim.cornice ? `${uz.ai.galtel_label} ${trimProfileDef(plan.trim.cornice.id, "cornice").label}` : uz.ai.galtel_yoq}
                 </span>
               )}
             </PartRow>

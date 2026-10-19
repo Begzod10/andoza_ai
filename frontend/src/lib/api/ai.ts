@@ -1,4 +1,6 @@
 import { apiClient, BASE_URL, handleUnauthorized } from "./client";
+import type { CeilingDesignId, CeilingSettings } from "@/lib/ceilingDesigns";
+import type { TrimState } from "@/lib/trimProfiles";
 
 // ---------- AI types ----------
 
@@ -31,6 +33,12 @@ export interface AiRoomPatch {
 }
 
 /** One piece of an AI design's plan: the model chose WHAT, and a zone for roughly WHERE. */
+export interface DesignTrim {
+  ceiling: { design: CeilingDesignId; settings?: Partial<CeilingSettings> };
+  skirting: TrimState;
+  cornice: TrimState | null;
+}
+
 export interface AiDesignPlan {
   title: string;
   summary: string;
@@ -43,6 +51,9 @@ export interface AiDesignPlan {
   floor: { type: string; pattern: string | null; tint: string | null } | null;
   lights: Array<{ type: string; zone: string }>;
   furniture: Array<{ id: string; name: string; zone: string }>;
+  /** Ready-made styles only: the ceiling profile, the skirting and the cornice (null takes one
+   *  off). The AI designer does not send it, so its plans leave all three as they are. */
+  trim?: DesignTrim;
   /** What the server dropped from the model's answer (an invented id, a bad colour). */
   warnings: string[];
   /** Image designs only: what the picture had and what the catalog lacked. */
