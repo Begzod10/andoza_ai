@@ -1,4 +1,4 @@
-import type { AiDesignPlan, CatalogFurniture } from '@/lib/api'
+import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -30,6 +30,8 @@ interface Preset {
   floor: NonNullable<AiDesignPlan['floor']>
   lights: AiDesignPlan['lights']
   furniture: Array<{ kind: Kind; zone: string }>
+  /** The ceiling, skirting and cornice: half of what tells one style from another. */
+  trim: DesignTrim
 }
 
 export const DESIGN_PRESETS: Preset[] = [
@@ -41,6 +43,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+    trim: { ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', strip: true, stripK: 3000 } }, skirting: { id: 'b054' }, cornice: { id: 't140' } },
   },
   {
     id: 'zamonaviy', label: 'Zamonaviy', title: 'Zamonaviy: neytral va qulay',
@@ -49,6 +52,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
     lights: [{ type: 'led_linear', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }, { type: 'floor_lamp', zone: 'corner_CD' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }, { kind: 'gilam', zone: 'center' }],
+    trim: { ceiling: { design: 'flat', settings: { color: '#f2f1ee', strip: true, stripK: 3000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
     id: 'hitech', label: 'Hi-Tech', title: 'Hi-Tech: kontrast va texnologik',
@@ -57,6 +61,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'led_track', zone: 'wall_A' }, { type: 'spotlight', zone: 'wall_C' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+    trim: { ceiling: { design: 'floating', settings: { color: '#ffffff', strip: true, stripK: 4000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
     // The studio has no ganch or islimi texture yet: a warm floral wallpaper, dark
@@ -67,6 +72,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'gilam', zone: 'center' }, { kind: 'stol', zone: 'center' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'shkaf', zone: 'wall_A' }],
+    trim: { ceiling: { design: 'recessed', settings: { color: '#f3e6cf', strip: true, stripK: 2700 } }, skirting: { id: 'b055' }, cornice: { id: 't56' } },
   },
   {
     id: 'dark', label: "Qorong'i", title: "Qorong'i, iliq atmosfera",
@@ -75,6 +81,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#3d2b1f' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_BC' }, { type: 'led_linear', zone: 'wall_C' }],
     furniture: [{ kind: 'divan', zone: 'wall_A' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'tumba', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }],
+    trim: { ceiling: { design: 'border', settings: { color: '#2f2f2f', strip: true, stripK: 2700 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
     id: 'skandinav', label: 'Skandinav', title: 'Yorug skandinav uslubi',
@@ -83,6 +90,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#d2b48c' },
     lights: [{ type: 'pendant', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_CD' }, { type: 'spotlight', zone: 'wall_A' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'kreslo', zone: 'corner_AB' }],
+    trim: { ceiling: { design: 'flat', settings: { color: '#ffffff', strip: false } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
     id: 'klassik', label: 'Klassik', title: 'Klassik, oltin detallar',
@@ -91,6 +99,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#8a5a33' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'floor_lamp', zone: 'corner_AB' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'shkaf', zone: 'wall_A' }],
+    trim: { ceiling: { design: 'double_layer', settings: { color: '#f5f1e6', strip: true, stripK: 2700 } }, skirting: { id: 'b053' }, cornice: { id: 't339' } },
   },
   {
     id: 'loft', label: 'Loft', title: "Loft: beton va g'isht",
@@ -99,6 +108,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'concrete', pattern: null, tint: null },
     lights: [{ type: 'track', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_AB' }, { type: 'spotlight', zone: 'wall_C' }],
     furniture: [{ kind: 'divan', zone: 'wall_B' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }],
+    trim: { ceiling: { design: 'non_drop', settings: { color: '#bdbab4' } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
     id: 'minimalist', label: 'Minimalist', title: 'Minimalist, oq va kulrang',
@@ -107,6 +117,7 @@ export const DESIGN_PRESETS: Preset[] = [
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }],
     furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }],
+    trim: { ceiling: { design: 'non_drop', settings: { color: '#ffffff' } }, skirting: { id: 'tekis' }, cornice: null },
   },
 ]
 
@@ -154,6 +165,6 @@ export function presetPlan(
     },
     floor: preset.floor,
     lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
-    furniture, warnings: [],
+    furniture, trim: preset.trim, warnings: [],
   }
 }

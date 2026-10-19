@@ -139,6 +139,52 @@ describe('applyDesignPlan', () => {
   })
 })
 
+describe('ceiling and trim', () => {
+  const trimmed = (): AiDesignPlan => ({
+    ...plan(),
+    trim: {
+      ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', stripK: 3000 } },
+      skirting: { id: 'b054' },
+      cornice: { id: 't140' },
+    },
+  })
+
+  it('a style sets the ceiling, the skirting and the cornice with the walls', () => {
+    applyDesignPlan(trimmed(), ALL_PARTS, catalog)
+    const ds = useRoomStore.getState().designState
+    expect(ds.ceiling).toEqual({ design: 'double_layer', settings: { color: '#f4f1ea', stripK: 3000 } })
+    expect(ds.skirting).toEqual({ id: 'b054' })
+    expect(ds.cornice).toEqual({ id: 't140' })
+  })
+
+  it('a style with no cornice takes an earlier one off', () => {
+    useRoomStore.getState().setDesignState({ cornice: { id: 't56' } })
+    const p = trimmed(); p.trim!.cornice = null
+    applyDesignPlan(p, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().designState.cornice).toBeNull()
+  })
+
+  it('walls switched off leave the ceiling and trim alone', () => {
+    const before = useRoomStore.getState().designState
+    applyDesignPlan(trimmed(), { ...ALL_PARTS, walls: false }, catalog)
+    const ds = useRoomStore.getState().designState
+    expect([ds.ceiling, ds.skirting, ds.cornice]).toEqual([before.ceiling, before.skirting, before.cornice])
+  })
+
+  it('an AI plan, which has no trim, leaves them alone', () => {
+    useRoomStore.getState().setDesignState({ skirting: { id: 'b052' } })
+    applyDesignPlan(plan(), ALL_PARTS, catalog)
+    expect(useRoomStore.getState().designState.skirting).toEqual({ id: 'b052' })
+  })
+
+  it('undo puts the ceiling and trim back', () => {
+    const before = snapshotDesign()
+    applyDesignPlan(trimmed(), ALL_PARTS, catalog)
+    restoreDesign(before)
+    expect(useRoomStore.getState().designState).toEqual(before.designState)
+  })
+})
+
 describe('snapshot and restore', () => {
   it('puts the room back exactly as it was', () => {
     useRoomStore.getState().placeFurniture({ id: 'mine', furniture_id: 'sofa', x: 100, y: 100, rotation: 0 })
