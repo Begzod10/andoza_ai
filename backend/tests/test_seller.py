@@ -79,7 +79,7 @@ def _model(store, status="approved", **kw):
         id=uuid.uuid4(), store_id=store.id if store else None, category="divan", room_type=None,
         placement="pol", name_uz="Divan", price_uzs=1000, glb_key="furniture/a.glb", thumbnail_key=None,
         footprint_w=None, footprint_d=None, is_active=status == "approved", status=status,
-        moderation_note=None, created_at=datetime.now(timezone.utc), styles=[],
+        moderation_note=None, created_at=datetime.now(timezone.utc), styles=[], styles_source=None,
     )
     for k, v in kw.items():
         setattr(f, k, v)
@@ -231,6 +231,22 @@ class TestUpload:
         assert res.status_code == 201 and res.json()["styles"] == ["zamonaviy", "hitech"]
         assert db.add.call_args.args[0].styles == ["zamonaviy", "hitech"]
 
+    def test_upload_with_styles_records_manual_source(self, client):
+        u = _user()
+        db = _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client, styles="loft")
+        assert res.status_code == 201 and res.json()["styles_source"] == "manual"
+        assert db.add.call_args.args[0].styles_source == "manual"
+
+    def test_upload_without_styles_leaves_source_null(self, client):
+        u = _user()
+        db = _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")):
+            res = _upload(client)
+        assert res.status_code == 201 and res.json()["styles_source"] is None
+        assert db.add.call_args.args[0].styles_source is None
+
     def test_empty_styles_in_the_form_means_every_style_not_422(self, client):
         u = _user()
         _as(u, [_R(_store(u)), _R(0)])
@@ -248,6 +264,26 @@ class TestUpload:
             res = _upload(client)
         assert res.status_code == 201
         assert sent == [("furniture", res.json()["id"])]
+
+    def test_an_unstyled_upload_is_queued_for_the_ai(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        sent = []
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")), \
+                patch("app.routers.seller.enqueue_style_after_commit",
+                      side_effect=lambda db, fid: sent.append(fid)):
+            res = _upload(client)
+        assert res.status_code == 201
+        assert sent == [res.json()["id"]]
+
+    def test_a_styled_upload_is_not_queued_for_the_ai(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")), \
+                patch("app.routers.seller.enqueue_style_after_commit") as q:
+            res = _upload(client, styles="loft")
+        assert res.status_code == 201
+        q.assert_not_called()
 
     def test_the_measured_size_of_the_model_is_stored_with_it(self, client):
         u = _user()
@@ -371,6 +407,30 @@ class TestOwnModels:
         assert client.patch(url, json={"styles": []}).json()["styles"] == []
         _as(u, [_R(store), _R(m)])
         assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
+
+    def test_patch_styles_marks_manual_even_when_empty(self, client):
+        u = _user()
+        store = _store(u)
+        m = _model(store)
+        _as(u, [_R(store), _R(m)])
+        res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"styles": []})
+        assert res.status_code == 200 and res.json()["styles_source"] == "manual" and m.styles_source == "manual"
+
+    def test_patch_without_styles_keeps_source_null(self, client):
+        u = _user()
+        store = _store(u)
+        m = _model(store)
+        _as(u, [_R(store), _R(m)])
+        res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"price_uzs": 5})
+        assert res.status_code == 200 and m.styles_source is None and res.json()["styles_source"] is None
+
+    def test_patch_null_styles_keeps_source_null(self, client):
+        u = _user()
+        store = _store(u)
+        m = _model(store)
+        _as(u, [_R(store), _R(m)])
+        res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"styles": None})
+        assert res.status_code == 200 and m.styles_source is None
 
     def test_an_explicit_null_leaves_the_styles_alone(self, client):
         u = _user()

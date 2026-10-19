@@ -20,6 +20,7 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.database import run_after_commit
 from app.core.model_files import is_glb_with_meshes, model_keys, served_key
+from app.services.furniture_style_queue import enqueue_style_after_commit
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.furniture import Furniture
 from app.models.order import Order
@@ -90,6 +91,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         category=f.category,
         room_type=f.room_type,
         styles=f.styles or [],
+        styles_source=f.styles_source,
         placement=f.placement,
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
@@ -288,6 +290,7 @@ async def upload_furniture(
         category=category,
         room_type=room_type,
         styles=style_list,
+        styles_source="manual" if style_list else None,
         placement=placement,
         name_uz=name_uz.strip(),
         price_uzs=price_uzs,
@@ -303,6 +306,8 @@ async def upload_furniture(
     await db.flush()
     await db.refresh(furniture)
     enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
+    if not style_list:
+        enqueue_style_after_commit(db, str(furniture.id))
     logger.info("seller_model_uploaded", id=str(furniture.id), store_id=str(store.id), user_id=str(current_user.id))
     return _out(furniture, request)
 
@@ -340,6 +345,7 @@ async def update_furniture(
         else:
             try:
                 changes["styles"] = normalize_styles(changes["styles"])
+                changes["styles_source"] = "manual"
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
     # Only an approved model may be shown: this switch hides and re-shows it, it

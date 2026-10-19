@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Package, Plus, Store as StoreIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MetricCard } from "@/components/ui/MetricCard";
 import {
+  classifyFurnitureStyles,
   deleteAdminFurniture,
   listAdminFurniture,
   listAdminStores,
@@ -62,6 +63,20 @@ export function CatalogOverview({
   const filteredUnassignedModels = filterModels(unassignedModels, filters);
   const activeStoreCount = stores.filter((s) => s.is_active).length;
 
+  const classifyMutation = useMutation({
+    mutationFn: classifyFurnitureStyles,
+    onSuccess: () => {
+      onError(null);
+      queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
+    },
+    onError: (err) => onError(errorMessage(err, "AI so'rovi bajarilmadi")),
+  });
+  const classifyNotice = classifyMutation.isSuccess
+    ? classifyMutation.data.queued > 0
+      ? `${classifyMutation.data.queued} ta model navbatga qo'yildi. Bir necha daqiqada uslublar paydo bo'ladi.`
+      : "Uslubi qo'yilmagan model yo'q."
+    : null;
+
   async function handleDeleteModel(model: AdminFurniture) {
     if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
     try {
@@ -75,6 +90,23 @@ export function CatalogOverview({
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={classifyMutation.isPending}
+          disabled={classifyMutation.isPending}
+          onClick={() => classifyMutation.mutate()}
+        >
+          AI bilan uslub qo'yish
+        </Button>
+        {classifyNotice && (
+          <p role="status" className="text-xs text-ink-muted">
+            {classifyNotice}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard themed
           label="Jami do'konlar"

@@ -36,6 +36,8 @@ export interface SellerModel {
   height_cm?: number | null;
   /** Styles the model suits; empty = every style. */
   styles?: string[];
+  /** Who set the styles: null = nobody yet. */
+  styles_source?: string | null;
   is_active: boolean;
   status: ModerationStatus;
   moderation_note: string | null;

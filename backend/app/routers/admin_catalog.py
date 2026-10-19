@@ -10,9 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
+from app.config import settings
 from app.core.cache import cache_delete_prefix
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
+from app.services.furniture_style_queue import enqueue_style, enqueue_style_after_commit
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.database import run_after_commit
 from app.models.furniture import Furniture
@@ -98,6 +100,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         footprint_d=float(f.footprint_d) if f.footprint_d is not None else None,
         height_cm=float(f.height_cm) if f.height_cm is not None else None,
         styles=f.styles or [],
+        styles_source=f.styles_source,
         is_active=f.is_active,
         created_at=f.created_at,
     )
@@ -356,12 +359,15 @@ async def upload_furniture_model(
         footprint_d=footprint_d,
         height_cm=height_cm,
         styles=style_list,
+        styles_source="manual" if style_list else None,
     )
     db.add(furniture)
     await db.flush()
     await db.refresh(furniture)
     _invalidate_after_commit(db, "furniture:")
     enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
+    if not style_list:
+        enqueue_style_after_commit(db, str(furniture.id))
 
     logger.info(
         "furniture_model_uploaded",
@@ -402,6 +408,24 @@ async def list_furniture_admin(
     )
     items = result.scalars().all()
     return [_furniture_out(f, request, f.store.name if f.store else None) for f in items]
+
+
+@router.post(
+    "/furniture/classify-styles",
+    summary="Send every model nobody styled to the AI (admin only)",
+)
+async def classify_unstyled_furniture(admin: AdminUser, db: DbSession) -> dict[str, int]:
+    if not settings.AI_FEATURES_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI hozir o'chirilgan",
+        )
+    result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
+    ids = list(result.scalars().all())
+    for furniture_id in ids:
+        enqueue_style(str(furniture_id))
+    logger.info("furniture_style_backfill_queued", count=len(ids), admin_id=str(admin.id))
+    return {"queued": len(ids)}
 
 
 @router.patch(
@@ -446,6 +470,7 @@ async def update_furniture(
         else:
             try:
                 updates["styles"] = normalize_styles(updates["styles"])
+                updates["styles_source"] = "manual"
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
     new_store: Store | None = furniture.store

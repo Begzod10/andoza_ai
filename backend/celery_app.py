@@ -12,7 +12,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 # empty and the tasks live in app/tasks/media.py. Without this list both the
 # worker and the converter start with an empty [tasks] registry and reject
 # every dispatched job as "Received unregistered task of type ...".
-app = Celery("uytamir", include=["app.tasks.media", "app.tasks.push"])
+app = Celery("uytamir", include=["app.tasks.media", "app.tasks.push", "app.tasks.furniture_styles"])
 
 app.conf.update(
     # Transport

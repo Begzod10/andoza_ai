@@ -332,6 +332,26 @@ class TestUploadFurnitureModel:
         assert response.status_code == 201
         assert sent == [("furniture", response.json()["id"])]
 
+    def test_an_unstyled_upload_is_queued_for_the_ai(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        sent = []
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"), \
+                patch("app.routers.admin_catalog.enqueue_style_after_commit",
+                      side_effect=lambda db, fid: sent.append(fid)):
+            response = self._post(client)
+        assert response.status_code == 201
+        assert sent == [response.json()["id"]]
+
+    def test_a_styled_upload_is_not_queued_for_the_ai(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"), \
+                patch("app.routers.admin_catalog.enqueue_style_after_commit") as q:
+            response = self._post(client, styles="loft")
+        assert response.status_code == 201
+        q.assert_not_called()
+
     def test_stores_the_measured_size_with_the_model(self, client):
         db = _db()
         _as(_user(is_admin=True), db)
@@ -373,6 +393,22 @@ class TestUploadFurnitureModel:
         assert response.status_code == 201
         assert response.json()["styles"] == ["neoklassika", "klassik"]
         assert db.add.call_args.args[0].styles == ["neoklassika", "klassik"]
+
+    def test_upload_with_styles_records_manual_source(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client, styles="loft")
+        assert response.status_code == 201 and response.json()["styles_source"] == "manual"
+        assert db.add.call_args.args[0].styles_source == "manual"
+
+    def test_upload_without_styles_leaves_source_null(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"):
+            response = self._post(client)
+        assert response.status_code == 201 and response.json()["styles_source"] is None
+        assert db.add.call_args.args[0].styles_source is None
 
     def test_empty_styles_in_the_form_means_every_style(self, client):
         db = _db()
@@ -460,6 +496,21 @@ class TestUpdateFurniture:
         assert client.patch(url, json={"styles": []}).json()["styles"] == []
         _as(_user(is_admin=True), _db(_Result(one=furniture)))
         assert client.patch(url, json={"styles": ["barokko"]}).status_code == 422
+
+    def test_edit_records_manual_source_only_when_styles_sent(self, client):
+        furniture = Furniture(
+            id=uuid.uuid4(), store_id=None, category="divan", placement="pol",
+            name_uz="Divan", glb_key="furniture/a.glb", styles_source=None,
+        )
+        furniture.store = None
+        url = f"/api/v1/admin/furniture/{furniture.id}"
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"name_uz": "x"}).json()["styles_source"] is None
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": None}).json()["styles_source"] is None
+        _as(_user(is_admin=True), _db(_Result(one=furniture)))
+        assert client.patch(url, json={"styles": []}).json()["styles_source"] == "manual"
+        assert furniture.styles_source == "manual"
 
     def test_missing_is_404(self, client):
         db = _db(_Result(one=None))
@@ -840,3 +891,51 @@ class TestAdminWritesDeferInvalidation:
         invalidate.assert_not_awaited()
         hooks = db.info["after_commit_hooks"]
         assert [hook.args[0] for hook in hooks] == [prefix]
+
+
+class TestClassifyStyles:
+    URL = "/api/v1/admin/furniture/classify-styles"
+
+    def test_queues_every_unstyled_model(self, client):
+        ids = [uuid.uuid4() for _ in range(3)]
+        db = _db(_Result(many=ids))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ) as enqueue:
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.status_code == 200
+        assert response.json() == {"queued": 3}
+        assert [c.args[0] for c in enqueue.call_args_list] == [str(i) for i in ids]
+
+    def test_only_selects_models_nobody_styled(self, client):
+        db = _db(_Result(many=[]))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ):
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.json() == {"queued": 0}
+        sql = str(db.execute.call_args.args[0])
+        assert "styles_source IS NULL" in sql
+
+    def test_refuses_when_ai_is_off(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ) as enqueue:
+            cfg.AI_FEATURES_ENABLED = False
+            response = client.post(self.URL)
+        assert response.status_code == 503
+        assert response.json()["detail"] == "AI hozir o'chirilgan"
+        enqueue.assert_not_called()
+
+    def test_refuses_non_admin(self, client):
+        db = _db()
+        _as(_user(is_admin=False), db)
+        response = client.post(self.URL)
+        assert response.status_code == 403
+        db.execute.assert_not_called()
