@@ -20,6 +20,7 @@ from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.database import run_after_commit
 from app.core.model_files import is_glb_with_meshes, model_keys, served_key
+from app.services.furniture_style_queue import enqueue_style_after_commit
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.models.furniture import Furniture
 from app.models.order import Order
@@ -305,6 +306,8 @@ async def upload_furniture(
     await db.flush()
     await db.refresh(furniture)
     enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
+    if not style_list:
+        enqueue_style_after_commit(db, str(furniture.id))
     logger.info("seller_model_uploaded", id=str(furniture.id), store_id=str(store.id), user_id=str(current_user.id))
     return _out(furniture, request)
 

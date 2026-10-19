@@ -265,6 +265,26 @@ class TestUpload:
         assert res.status_code == 201
         assert sent == [("furniture", res.json()["id"])]
 
+    def test_an_unstyled_upload_is_queued_for_the_ai(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        sent = []
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")), \
+                patch("app.routers.seller.enqueue_style_after_commit",
+                      side_effect=lambda db, fid: sent.append(fid)):
+            res = _upload(client)
+        assert res.status_code == 201
+        assert sent == [res.json()["id"]]
+
+    def test_a_styled_upload_is_not_queued_for_the_ai(self, client):
+        u = _user()
+        _as(u, [_R(_store(u)), _R(0)])
+        with patch("app.routers.seller.upload_file", new=AsyncMock(return_value="furniture/x.glb")), \
+                patch("app.routers.seller.enqueue_style_after_commit") as q:
+            res = _upload(client, styles="loft")
+        assert res.status_code == 201
+        q.assert_not_called()
+
     def test_the_measured_size_of_the_model_is_stored_with_it(self, client):
         u = _user()
         db = _as(u, [_R(_store(u)), _R(0)])

@@ -13,6 +13,7 @@ from app.api.v1.deps import AdminUser, DbSession
 from app.core.cache import cache_delete_prefix
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
+from app.services.furniture_style_queue import enqueue_style_after_commit
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.database import run_after_commit
 from app.models.furniture import Furniture
@@ -364,6 +365,8 @@ async def upload_furniture_model(
     await db.refresh(furniture)
     _invalidate_after_commit(db, "furniture:")
     enqueue_optimize_after_commit(db, "furniture", str(furniture.id))
+    if not style_list:
+        enqueue_style_after_commit(db, str(furniture.id))
 
     logger.info(
         "furniture_model_uploaded",

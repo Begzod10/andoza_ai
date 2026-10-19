@@ -332,6 +332,26 @@ class TestUploadFurnitureModel:
         assert response.status_code == 201
         assert sent == [("furniture", response.json()["id"])]
 
+    def test_an_unstyled_upload_is_queued_for_the_ai(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        sent = []
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"), \
+                patch("app.routers.admin_catalog.enqueue_style_after_commit",
+                      side_effect=lambda db, fid: sent.append(fid)):
+            response = self._post(client)
+        assert response.status_code == 201
+        assert sent == [response.json()["id"]]
+
+    def test_a_styled_upload_is_not_queued_for_the_ai(self, client):
+        db = _db()
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.upload_file", return_value="/media/furniture/abc.glb"), \
+                patch("app.routers.admin_catalog.enqueue_style_after_commit") as q:
+            response = self._post(client, styles="loft")
+        assert response.status_code == 201
+        q.assert_not_called()
+
     def test_stores_the_measured_size_with_the_model(self, client):
         db = _db()
         _as(_user(is_admin=True), db)
