@@ -11,7 +11,7 @@ import mimetypes
 
 from app.config import settings
 from app.core.cache import cache_delete_prefix
-from app.core.storage import download_file
+from app.core.storage import download_file, storage_key_from
 from app.services.design_image import prepare_design_image
 from app.services.furniture_style_ai import classify_furniture_styles
 from celery_app import app
@@ -38,14 +38,18 @@ async def run_classification(furniture_id: str) -> dict:
     if styles_source is not None:
         return {"status": "skipped", "styles": []}
 
+    # A model with a picture is only classified from that picture: a name-only guess
+    # would be saved as 'ai' for good. If the picture cannot be read now, write
+    # nothing so a later run retries. Name-only is for models with no picture at all.
     image = None
     if thumbnail_key:
+        key = storage_key_from(thumbnail_key)
         try:
-            data = await download_file(thumbnail_key)
-            image = prepare_design_image(data, mimetypes.guess_type(thumbnail_key)[0])
-        except Exception as exc:  # noqa: BLE001 — no picture: go on from the name
+            data = await download_file(key)
+            image = prepare_design_image(data, mimetypes.guess_type(key)[0])
+        except Exception as exc:  # noqa: BLE001 — unreadable picture: retry later
             logger.warning("furniture_style_thumbnail_unusable id=%s error=%s", furniture_id, exc)
-            image = None
+            return {"status": "failed", "styles": []}
 
     try:
         styles = await classify_furniture_styles(name_uz, category, image)

@@ -128,6 +128,26 @@ async def download_file(key: str) -> bytes:
     return await anyio.to_thread.run_sync(_get)
 
 
+def storage_key_from(stored: str) -> str:
+    """The storage key behind a value an upload route stored.
+
+    With S3 configured, :func:`upload_file` returns the object's public URL and
+    routes store that (e.g. ``Furniture.thumbnail_key``); reading the object back
+    with :func:`download_file` needs the bare key. Strips either public URL prefix
+    :func:`upload_file` builds; anything else (a plain key, an unrelated URL) is
+    returned unchanged.
+    """
+    prefixes = []
+    if settings.S3_BUCKET:
+        if settings.S3_ENDPOINT_URL:
+            prefixes.append(f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET}/")
+        prefixes.append(f"https://{settings.S3_BUCKET}.s3.{settings.S3_REGION}.amazonaws.com/")
+    for prefix in prefixes:
+        if stored.startswith(prefix):
+            return stored[len(prefix):]
+    return stored
+
+
 def public_url(storage_key: str) -> str:
     """URL for a stored key — S3 objects are already absolute, local keys are
     relative to MEDIA_URL_PREFIX."""

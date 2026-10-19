@@ -88,25 +88,36 @@ class TestRun:
         assert _run()["status"] == "failed"
         assert calls["saved"] == []
 
-    def test_a_missing_thumbnail_means_no_image(self, world):
+    def test_a_failing_download_saves_nothing_and_skips_the_ai(self, world):
+        # A picture exists but cannot be read: do not settle for a name-only guess
+        # (it would be saved as 'ai' for good); leave it for the next run.
         calls = world(download=FileNotFoundError("gone"))
-        assert _run()["status"] == "classified"
-        assert calls["ai"][0][2] is None
+        assert _run() == {"status": "failed", "styles": []}
+        assert calls["ai"] == [] and calls["saved"] == [] and calls["cache"] == []
 
-    def test_a_thumbnail_that_is_not_an_image_means_no_image(self, world, monkeypatch):
+    def test_a_thumbnail_that_is_not_an_image_saves_nothing(self, world, monkeypatch):
         calls = world()
 
         def bad(data, ct):
             raise ValueError("not an image")
 
         monkeypatch.setattr(fs, "prepare_design_image", bad)
-        assert _run()["status"] == "classified"
-        assert calls["ai"][0][2] is None
+        assert _run() == {"status": "failed", "styles": []}
+        assert calls["ai"] == [] and calls["saved"] == []
 
-    def test_no_thumbnail_key_means_no_download(self, world):
+    def test_a_public_s3_url_thumbnail_is_downloaded_by_its_key(self, world, monkeypatch):
+        monkeypatch.setattr(settings, "S3_ENDPOINT_URL", "https://s3.example.uz")
+        monkeypatch.setattr(settings, "S3_BUCKET", "andoza")
+        calls = world(row=("Divan", "divan", "https://s3.example.uz/andoza/furniture/t.jpg", None))
+        assert _run()["status"] == "classified"
+        assert calls["downloads"] == ["furniture/t.jpg"]
+        assert calls["ai"][0][2] is not None
+
+    def test_no_thumbnail_key_means_a_name_only_call(self, world):
         calls = world(row=("Divan", "divan", None, None))
-        _run()
-        assert calls["downloads"] == [] and calls["ai"][0][2] is None
+        assert _run()["status"] == "classified"
+        assert calls["downloads"] == []
+        assert calls["ai"] == [("Divan", "divan", None)]
 
     def test_ai_switched_off_skips(self, world):
         calls = world(ai_enabled=False)
