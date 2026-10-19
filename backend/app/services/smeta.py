@@ -62,7 +62,11 @@ PUTTY_BAG_PRICE_UZS: int = 85_000    # hardcoded Tashkent 2024 avg
 
 PLINTH_PIECE_PRICE_UZS: int = 35_000  # per 2.5 m plinth strip
 GALTEL_PIECE_M: float = 2.0        # standard ceiling cornice (galtel) strip length
-GALTEL_PIECE_PRICE_UZS: int = 40_000  # per 2 m polystyrene/polyurethane cornice strip
+# Per 2 m polystyrene/polyurethane cornice strip: the median of the market prices seen on
+# 2026-10-19 (wert.uz TERMOTECH PENOPLAST LUX 5 460-17 160 so'm, its 80x80 model 7 800 so'm per 2 m;
+# prom.uz De-Baget (TEPLODOM) 7 500-24 000 so'm, its 50x50 model 7 500 so'm per 2 m;
+# stroyka.uz 8 000-13 500 so'm).
+GALTEL_PIECE_PRICE_UZS: int = 11_000
 
 ELEC_POINTS_DEFAULT: int = 8      # sockets + switches estimate per room
 ELEC_AVG_RUN_M: float = 8.0
@@ -127,10 +131,10 @@ FURNITURE_CATALOG_PRICES_UZS: dict[str, int] = {
 }
 FURNITURE_FALLBACK_PRICE_UZS: int = 2_000_000
 
-# On a floor, wallpaper or paint line priced from the cheapest shop product because the
+# On a floor, wallpaper or paint line priced from the median shop product because the
 # user (or the AI designer / a ready-made style) chose the finish but not a product.
 FINISH_STAND_IN_NOTE = (
-    "Mahsulot tanlanmagan — do'kondagi eng arzon narx olindi. "
+    "Mahsulot tanlanmagan — do'kondagi o'rtacha narx olindi. "
     "Aniq narx uchun o'zingiz mahsulot tanlang."
 )
 
@@ -1118,7 +1122,7 @@ def _galtel_line(room: "Room", material: "Material | None" = None) -> ComputedLi
         formula=f"{working} ÷ {GALTEL_PIECE_M:g} m → {pieces} dona",
         qty=pieces, unit="dona", price_uzs=GALTEL_PIECE_PRICE_UZS, category="shift",
         is_approximate=True,
-        warning="Taxminiy narx — galtel do'kondan tanlanmagan, standart 2 m polosa narxi olindi.",
+        warning="Taxminiy narx — galtel do'kondan tanlanmagan, bozordagi o'rtacha 2 m polosa narxi olindi.",
     )
 
 

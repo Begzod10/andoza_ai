@@ -4,7 +4,7 @@ A floor, a wallpaper or a paint the studio put in the room without a shop produc
 The AI designer and the ready-made styles set a floor TYPE ("laminate"), a
 wallpaper PATTERN ("gul") and a paint COLOUR, never a product. The estimate
 used to leave the floor (and its skirting) out entirely, price the wallpaper at
-0 and the paint at a fixed constant. Now each is priced from the cheapest active
+0 and the paint at a fixed constant. Now each is priced from the median active
 shop product of its kind and flagged approximate, so the user sees a real
 number and knows to pick their own product.
 """
@@ -124,26 +124,37 @@ def test_a_paint_colour_without_a_product_is_priced_from_the_cheapest_paint():
     r = room({"wallCoverings": {"ALL": {"kind": "paint", "color": "#f4f5f6"}}})
     [paint] = lines_of(r, "boyoq")
     assert BOYOQ.name_uz in paint.label and paint.unit_price_uzs == BOYOQ.price_uzs
-    assert paint.is_approximate and "tanlanmagan" in paint.warning
+    assert paint.is_approximate and "tanlanmagan" in paint.warning and "o'rtacha" in paint.warning
 
 
 # ── the loader ───────────────────────────────────────────────────────────────
 
-def test_the_cheapest_active_product_of_each_finish_is_kept_by_its_selling_unit():
-    picked = ec.pick_cheapest_finishes([
-        product("laminat", 95_000, "m2"),
-        product("laminat", 31_000, "dona"),          # a laminate-category strip, not a floor by the m²
-        product("laminat", 60_000, "m2", active=False),
-        product("laminat", 80_000, "m2", name="cheapest"),
-        product("plitka", 120_000, "m2"),
-        product("oboy", 85_000, "rulon", name="roll"),
-        product("oboy", 40_000, "m2"),               # not sold by the roll
-        product("boyoq", 42_000, "litr", name="paint"),
-        product("gips", 1_000, "qop"),
+@pytest.mark.parametrize(("prices", "chosen"), [
+    ([95_000], 95_000),
+    ([80_000, 95_000], 80_000),             # an even count keeps the lower middle one
+    ([120_000, 80_000, 95_000], 95_000),
+    ([60_000, 80_000, 95_000, 210_000], 80_000),
+])
+def test_the_median_product_of_a_finish_is_kept(prices, chosen):
+    picked = ec.pick_median_finishes([product("laminat", p, "m2") for p in prices])
+    assert picked["finish:laminat"].price_uzs == chosen
+
+
+def test_inactive_and_wrong_unit_products_do_not_count_towards_the_median():
+    picked = ec.pick_median_finishes([
+        product("laminat", 10_000, "m2", active=False), product("laminat", 31_000, "dona"),
+        product("laminat", 80_000, "m2"), product("laminat", 95_000, "m2"), product("laminat", 120_000, "m2"),
+        product("oboy", 40_000, "m2"), product("gips", 1_000, "qop"),
     ])
-    assert set(picked) == {"finish:laminat", "finish:plitka", "finish:oboy", "finish:boyoq"}
-    assert picked["finish:laminat"].name_uz == "cheapest"
-    assert picked["finish:oboy"].name_uz == "roll"
+    assert set(picked) == {"finish:laminat"}
+    assert picked["finish:laminat"].price_uzs == 95_000
+
+
+def test_the_median_is_by_unit_cost():
+    small = product("boyoq", 60_000, "litr"); small.pack_qty = 1      # 60 000 / l
+    big = product("boyoq", 200_000, "litr"); big.pack_qty = 5         # 40 000 / l
+    mid = product("boyoq", 50_000, "litr"); mid.pack_qty = 1          # 50 000 / l
+    assert ec.pick_median_finishes([small, big, mid])["finish:boyoq"] is mid
 
 
 async def test_the_loader_hands_the_engine_both_the_keyed_products_and_the_finishes():

@@ -4,7 +4,7 @@ A few lines of an estimate are not something the user picks: the plaster, primer
 putty under a wall finish, the skirting, the cable, the ceiling board, the light fittings.
 Each shop product that is the price for one of them carries a ``smeta_key`` (and, for a
 bag or a strip, ``pack_qty``/``pack_unit``: what one pack holds). This module loads them and
-keeps the cheapest per key (and, under "finish:<category>", the cheapest floor, wallpaper
+keeps the cheapest per key (and, under "finish:<category>", the median floor, wallpaper
 and paint, see FINISH_UNITS), so the engine (app.services.smeta.compute_estimate, which does
 no I/O) is handed a plain dict.
 """
@@ -47,18 +47,20 @@ FINISH_UNITS: dict[str, set[str]] = {
 }
 
 
-def pick_cheapest_finishes(materials: Iterable[Material]) -> dict[str, Material]:
-    """{"finish:<category>": the cheapest active product of that finish}, the stand-in price
-    for a finish nobody picked a product for (the line says so)."""
-    best: dict[str, Material] = {}
+def pick_median_finishes(materials: Iterable[Material]) -> dict[str, Material]:
+    """{"finish:<category>": the median-priced active product of that finish}, the stand-in
+    price for a finish nobody picked a product for (the line says so). Products compare by
+    unit cost; with an even count the lower of the two middle ones is kept."""
+    groups: dict[str, list[Material]] = {}
     for m in materials:
         units = FINISH_UNITS.get(str(m.category))
         if not units or str(m.unit) not in units or not m.is_active:
             continue
-        key = f"finish:{m.category}"
-        if key not in best or unit_cost(m) < unit_cost(best[key]):
-            best[key] = m
-    return best
+        groups.setdefault(f"finish:{m.category}", []).append(m)
+    return {
+        key: sorted(items, key=unit_cost)[(len(items) - 1) // 2]
+        for key, items in groups.items()
+    }
 
 
 async def load_estimate_catalog(db: Any) -> dict[str, Material]:
@@ -75,7 +77,7 @@ async def load_estimate_catalog(db: Any) -> dict[str, Material]:
             )
         )
         rows = result.scalars().all()
-        return {**pick_cheapest(rows), **pick_cheapest_finishes(rows)}
+        return {**pick_cheapest(rows), **pick_median_finishes(rows)}
     except Exception as exc:
         log.warning("estimate_catalog.load_failed", error=str(exc))
         return {}

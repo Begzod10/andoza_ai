@@ -417,7 +417,7 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     })
     renderSmetaPage()
     const note = await screen.findByRole('status', { name: 'Pol narxi taxminiy' })
-    expect(note.textContent).toContain("eng arzon")
+    expect(note.textContent).toContain("o'rtacha")
     expect(note.querySelector('a')!.getAttribute('href')).toBe('/studio/room-1/ichkarida?phase=pol')
     expect(screen.queryByRole('status', { name: 'Pol smetaga kirmadi' })).toBeNull()
   })
