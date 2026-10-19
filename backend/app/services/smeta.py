@@ -127,10 +127,10 @@ FURNITURE_CATALOG_PRICES_UZS: dict[str, int] = {
 }
 FURNITURE_FALLBACK_PRICE_UZS: int = 2_000_000
 
-# On a floor, wallpaper or paint line priced from the cheapest shop product because the
+# On a floor, wallpaper or paint line priced from the median shop product because the
 # user (or the AI designer / a ready-made style) chose the finish but not a product.
 FINISH_STAND_IN_NOTE = (
-    "Mahsulot tanlanmagan — do'kondagi eng arzon narx olindi. "
+    "Mahsulot tanlanmagan — do'kondagi o'rtacha narx olindi. "
     "Aniq narx uchun o'zingiz mahsulot tanlang."
 )
 

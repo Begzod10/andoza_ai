@@ -276,7 +276,7 @@ export default function SmetaPage() {
             className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-ink"
           >
             {floorNoteKind === "stand_in"
-              ? "Pol uchun mahsulot tanlanmagan, narx do'kondagi eng arzon poldan olindi (taxminiy)."
+              ? "Pol uchun mahsulot tanlanmagan, narx do'kondagi o'rtacha poldan olindi (taxminiy)."
               : "Pol uchun mahsulot tanlanmagan, shuning uchun pol smetaga kirmadi."}{" "}
             <Link to={`/studio/${roomId}/ichkarida?phase=pol`} className="font-semibold text-accent hover:underline">
               Pol tanlash
