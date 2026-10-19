@@ -22,6 +22,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// /studio/:roomId opens its first tab. The query string goes along: the mobile
+// app opens a room with ?focus=1 (after a scan) or ?ai_pin=… (a shared pin),
+// and a bare <Navigate to="ichkarida"> dropped both.
+export function StudioIndexRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "ichkarida", search }} replace />;
+}
+
 // Public landing at "/" for guests; authenticated users skip straight to their
 // projects so "/" keeps behaving like the app entry for logged-in users.
 function LandingGate() {
@@ -164,7 +172,7 @@ const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="ichkarida" replace />,
+        element: <StudioIndexRedirect />,
       },
       {
         path: "yuqori",
