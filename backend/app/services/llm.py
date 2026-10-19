@@ -188,6 +188,22 @@ def _to_openai_messages(messages: list[dict]) -> list[dict]:
         if role == "user":
             if isinstance(content, str):
                 openai_messages.append({"role": "user", "content": content})
+            elif any(isinstance(item, dict) and item.get("type") == "image" for item in content):
+                # A picture with its text (the designer's inspiration image): sent as
+                # OpenAI content parts, in order. Flattening to text would drop it.
+                parts = []
+                for item in content:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("type") == "image":
+                        src = item["source"]
+                        parts.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{src['media_type']};base64,{src['data']}"},
+                        })
+                    elif item.get("type") == "text":
+                        parts.append({"type": "text", "text": item.get("text", "")})
+                openai_messages.append({"role": "user", "content": parts})
             else:
                 # Handle tool results and text
                 import json
