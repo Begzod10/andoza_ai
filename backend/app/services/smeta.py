@@ -28,6 +28,7 @@ how far the room's substrate prep has progressed.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -60,6 +61,8 @@ PUTTY_BAG_KG: int = 25
 PUTTY_BAG_PRICE_UZS: int = 85_000    # hardcoded Tashkent 2024 avg
 
 PLINTH_PIECE_PRICE_UZS: int = 35_000  # per 2.5 m plinth strip
+GALTEL_PIECE_M: float = 2.0        # standard ceiling cornice (galtel) strip length
+GALTEL_PIECE_PRICE_UZS: int = 40_000  # per 2 m polystyrene/polyurethane cornice strip
 
 ELEC_POINTS_DEFAULT: int = 8      # sockets + switches estimate per room
 ELEC_AVG_RUN_M: float = 8.0
@@ -1080,6 +1083,45 @@ def _designed_floor_lines(
     return lines
 
 
+def _galtel_line(room: "Room", material: "Material | None" = None) -> ComputedLine | None:
+    """Ceiling cornice (galtel): the whole perimeter, doors included (it runs above them).
+    Only when the studio draws one: designState.cornice is an object with a profile id; a
+    plain absence or null means none. Priced from the shop's "galtel" product (by the metre,
+    or in strips of a known length), otherwise from a standard strip, flagged approximate."""
+    cornice = _design_state(room).get("cornice")
+    perimeter = _float(room.perimeter)
+    if not isinstance(cornice, dict) or not cornice.get("id") or perimeter <= 0:
+        return None
+    profile = re.sub(r"^([a-z]+)(\d+)$", lambda m: f"{m.group(1).upper()} {m.group(2)}", str(cornice["id"]))
+    working = f"Perimetr {perimeter:.2f} m"
+
+    if material is not None and str(getattr(material, "unit", "")) == "m":
+        metres = math.ceil(perimeter)
+        return _make_line(
+            label=f"Galtel: {material.name_uz}", formula=f"{working} → {metres} m",
+            qty=metres, unit="m", price_uzs=int(material.price_uzs), category="shift",
+            is_approximate=False, **_shop(material),
+        )
+    strip_m = _pack_of(material, "m")
+    if strip_m and str(getattr(material, "unit", "")) in _SOLD_BY_PACK_UNITS:
+        pieces = math.ceil(perimeter / strip_m)
+        return _make_line(
+            label=f"Galtel: {_named(material.name_uz, f'{strip_m:g} m')}",
+            formula=f"{working} ÷ {strip_m:g} m → {pieces} dona",
+            qty=pieces, unit="dona", price_uzs=int(material.price_uzs), category="shift",
+            is_approximate=False, **_shop(material),
+        )
+
+    pieces = math.ceil(perimeter / GALTEL_PIECE_M)
+    return _make_line(
+        label=f"Galtel {profile} ({GALTEL_PIECE_M:g} m dona)",
+        formula=f"{working} ÷ {GALTEL_PIECE_M:g} m → {pieces} dona",
+        qty=pieces, unit="dona", price_uzs=GALTEL_PIECE_PRICE_UZS, category="shift",
+        is_approximate=True,
+        warning="Taxminiy narx — galtel do'kondan tanlanmagan, standart 2 m polosa narxi olindi.",
+    )
+
+
 def _tile_lines(
     room: "Room",
     material: "Material",
@@ -1686,6 +1728,12 @@ def compute_estimate(
     ceiling_already_done = ceiling_state == "tayyor"
     if not ceiling_already_done:
         lines.extend(_ceiling_construction_lines(room, norms_map, catalog))
+
+    # The cornice the studio draws (a choice of its own, made by the user or a ready-made
+    # style), so it is listed whatever stage the ceiling itself is at.
+    galtel = _galtel_line(room, catalog.get("galtel"))
+    if galtel is not None:
+        lines.append(galtel)
 
     # ------------------------------------------------------------------ #
     # 4. Furniture ("jihoz") — every distinct item the user has placed     #
