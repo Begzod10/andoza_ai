@@ -400,6 +400,11 @@ describe('AiBuilderSheet — design from a Pinterest pin', () => {
     fireEvent.paste(screen.getByLabelText('Pinterest havolasi'), { clipboardData: { getData: () => text } })
   const picture = () => new File(['x'], 'pin.jpg', { type: 'image/jpeg' })
 
+  it('starts from a pin handed in by the mobile app (?ai_pin=)', () => {
+    renderSheet({ initialPinUrl: PIN })
+    expect(screen.getByText('📌 Pinterest pin')).toBeInTheDocument()
+  })
+
   it('turns a pasted pin link into a chip and removes it with ✕', () => {
     renderSheet()
     paste(PIN)
