@@ -1,4 +1,5 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
+import type { FurnitureStyle } from '@/lib/furnitureStyles'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -24,6 +25,8 @@ const KIND_MATCH: Record<Kind, RegExp> = {
 interface Preset {
   id: string
   label: string
+  /** The furniture style this preset pulls from the catalog first. */
+  furnitureStyle: FurnitureStyle
   title: string
   summary: string
   walls: AiDesignPlan['walls']
@@ -37,7 +40,7 @@ interface Preset {
 export const DESIGN_PRESETS: Preset[] = [
   // The four most asked for in Uzbek flats come first.
   {
-    id: 'neoklassika', label: 'Neoklassika', title: 'Neoklassika: och va nafis',
+    id: 'neoklassika', label: 'Neoklassika', furnitureStyle: 'neoklassika', title: 'Neoklassika: och va nafis',
     summary: "Och bej devorlar, och eman parket va nafis qandil klassikani yengil, zamonaviy ko'rinishda beradi.",
     walls: { main: { type: 'paint', color: '#efe9df' }, accent: { wall: 'C', color: '#d9cdb8' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
@@ -46,7 +49,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', strip: true, stripK: 3000 } }, skirting: { id: 'b054' }, cornice: { id: 't140' } },
   },
   {
-    id: 'zamonaviy', label: 'Zamonaviy', title: 'Zamonaviy: neytral va qulay',
+    id: 'zamonaviy', label: 'Zamonaviy', furnitureStyle: 'zamonaviy', title: 'Zamonaviy: neytral va qulay',
     summary: "Kulrang-bej devorlar, grafit aksent, yog'ochsimon laminat va LED yoritish xonani sodda va qulay qiladi.",
     walls: { main: { type: 'paint', color: '#d9d6d0' }, accent: { wall: 'C', color: '#8c8a86' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
@@ -55,7 +58,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'flat', settings: { color: '#f2f1ee', strip: true, stripK: 3000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'hitech', label: 'Hi-Tech', title: 'Hi-Tech: kontrast va texnologik',
+    id: 'hitech', label: 'Hi-Tech', furnitureStyle: 'hitech', title: 'Hi-Tech: kontrast va texnologik',
     summary: "Oq devorlar, to'q antratsit aksent, yaltiroq plitka va LED yoritish texnologik, aniq chiziqli ko'rinish beradi.",
     walls: { main: { type: 'paint', color: '#f4f5f6' }, accent: { wall: 'C', color: '#2b2f33' } },
     floor: { type: 'tile', pattern: null, tint: null },
@@ -66,7 +69,7 @@ export const DESIGN_PRESETS: Preset[] = [
   {
     // The studio has no ganch or islimi texture yet: a warm floral wallpaper, dark
     // walnut, a chandelier and a rug give the feel with what it can draw.
-    id: 'milliy', label: 'Milliy', title: "Milliy: iliq sharqona ruh",
+    id: 'milliy', label: 'Milliy', furnitureStyle: 'milliy', title: "Milliy: iliq sharqona ruh",
     summary: "Krem va to'q qizil gulli oboy, to'q yong'oq parket, qandil va gilam iliq, sharqona uy ruhini beradi.",
     walls: { main: { type: 'oboy', pattern: 'gul', base_color: '#f3e6cf', accent_color: '#9e2b25' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
@@ -75,7 +78,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'recessed', settings: { color: '#f3e6cf', strip: true, stripK: 2700 } }, skirting: { id: 'b055' }, cornice: { id: 't56' } },
   },
   {
-    id: 'dark', label: "Qorong'i", title: "Qorong'i, iliq atmosfera",
+    id: 'dark', label: "Qorong'i", furnitureStyle: 'zamonaviy', title: "Qorong'i, iliq atmosfera",
     summary: "To'q kulrang devorlar va to'q parket chuqur, xotirjam muhit beradi. Kam va iliq yorug'lik shu kayfiyatni saqlaydi.",
     walls: { main: { type: 'paint', color: '#2c2c2c' }, accent: { wall: 'C', color: '#1a1a1a' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#3d2b1f' },
@@ -84,7 +87,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'border', settings: { color: '#2f2f2f', strip: true, stripK: 2700 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'skandinav', label: 'Skandinav', title: 'Yorug skandinav uslubi',
+    id: 'skandinav', label: 'Skandinav', furnitureStyle: 'skandinav', title: 'Yorug skandinav uslubi',
     summary: "Och devorlar, tabiiy yog'och pol va yumshoq yorug'lik xonani keng va qulay qiladi.",
     walls: { main: { type: 'paint', color: '#f5f3ee' }, accent: { wall: 'C', color: '#dcd6c8' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#d2b48c' },
@@ -93,7 +96,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'flat', settings: { color: '#ffffff', strip: false } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'klassik', label: 'Klassik', title: 'Klassik, oltin detallar',
+    id: 'klassik', label: 'Klassik', furnitureStyle: 'klassik', title: 'Klassik, oltin detallar',
     summary: "Damask oboy, issiq jigarrang parket va qandil an'anaviy, boy ko'rinish beradi.",
     walls: { main: { type: 'oboy', pattern: 'damask', base_color: '#f5f1e6', accent_color: '#d4af37' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#8a5a33' },
@@ -102,7 +105,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f5f1e6', strip: true, stripK: 2700 } }, skirting: { id: 'b053' }, cornice: { id: 't339' } },
   },
   {
-    id: 'loft', label: 'Loft', title: "Loft: beton va g'isht",
+    id: 'loft', label: 'Loft', furnitureStyle: 'loft', title: "Loft: beton va g'isht",
     summary: "Kulrang devorlar, g'ishtsimon devor va beton pol sanoat uslubini beradi, trek chiroqlar buni to'ldiradi.",
     walls: { main: { type: 'paint', color: '#4a4a4a' }, accent: { wall: 'C', color: '#a0522d' } },
     floor: { type: 'concrete', pattern: null, tint: null },
@@ -111,7 +114,7 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'non_drop', settings: { color: '#bdbab4' } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'minimalist', label: 'Minimalist', title: 'Minimalist, oq va kulrang',
+    id: 'minimalist', label: 'Minimalist', furnitureStyle: 'minimalist', title: 'Minimalist, oq va kulrang',
     summary: "Oq devorlar, och plitka pol va oz sonli mebel xonani toza va sodda qoldiradi.",
     walls: { main: { type: 'paint', color: '#ffffff' }, accent: { wall: 'C', color: '#e8e8e8' } },
     floor: { type: 'tile', pattern: null, tint: null },
@@ -121,10 +124,29 @@ export const DESIGN_PRESETS: Preset[] = [
   },
 ]
 
-/** The first catalog piece of this kind, preferring one made for this kind of room. */
-function pick(kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>): CatalogFurniture | undefined {
-  const fits = catalog.filter((c) => !used.has(c.id) && KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`))
-  return fits.find((c) => c.room_type === roomType) ?? fits.find((c) => c.room_type === null) ?? fits[0]
+/**
+ * The catalog piece of this kind that best suits the style, then the room. A piece of the style
+ * scores 2, an unstyled one (fits every style) 1, another style 0; the room scores the same way.
+ * Style outranks room; a tie keeps catalog order. `styles` may be missing on an old cached catalog.
+ */
+function pick(
+  kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
+): CatalogFurniture | undefined {
+  let best: CatalogFurniture | undefined
+  let bestScore: [number, number] = [-1, -1]
+  for (const c of catalog) {
+    if (used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
+    const styles = c.styles ?? []
+    const score: [number, number] = [
+      styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
+      c.room_type === roomType ? 2 : c.room_type === null ? 1 : 0,
+    ]
+    if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1])) {
+      best = c
+      bestScore = score
+    }
+  }
+  return best
 }
 
 /**
@@ -151,7 +173,7 @@ export function presetPlan(
   const used = new Set<string>()
   const furniture: AiDesignPlan['furniture'] = []
   for (const want of preset.furniture) {
-    const item = pick(want.kind, catalog, roomType, used)
+    const item = pick(want.kind, catalog, roomType, used, preset.furnitureStyle)
     if (!item) continue
     used.add(item.id)
     furniture.push({ id: item.id, name: item.name_uz, zone: resolveWalls(want.zone, wallIds) })
