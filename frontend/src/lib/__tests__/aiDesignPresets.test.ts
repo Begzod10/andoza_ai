@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
+import { OBOY_PATTERNS } from '@/lib/oboyPatterns'
 import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
 
 const item = (id: string, name: string, category: string, room_type: string | null = null): CatalogFurniture => ({
@@ -36,6 +37,24 @@ describe('design presets', () => {
     }
     for (const f of plan.furniture) expect(zones).toContain(f.zone)
     expect(plan.title && plan.summary).toBeTruthy()
+  })
+
+  it('offers the styles most asked for in Uzbekistan first', () => {
+    expect(DESIGN_PRESETS.slice(0, 4).map((p) => [p.id, p.label])).toEqual([
+      ['neoklassika', 'Neoklassika'],
+      ['zamonaviy', 'Zamonaviy'],
+      ['hitech', 'Hi-Tech'],
+      ['milliy', 'Milliy'],
+    ])
+    expect(DESIGN_PRESETS.map((p) => p.id)).toEqual(expect.arrayContaining(['dark', 'skandinav', 'klassik', 'loft', 'minimalist']))
+    expect(new Set(DESIGN_PRESETS.map((p) => p.id)).size).toBe(DESIGN_PRESETS.length)
+  })
+
+  it('a wallpaper wall uses a pattern the studio can draw', () => {
+    const known: readonly string[] = OBOY_PATTERNS.map((p) => p.id)
+    for (const p of DESIGN_PRESETS) {
+      if (p.walls.main?.type === 'oboy') expect(known).toContain(p.walls.main.pattern)
+    }
   })
 
   it('wall lamps are on a wall, and a tint only goes with a wood floor', () => {
