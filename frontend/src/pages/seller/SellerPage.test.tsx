@@ -238,3 +238,43 @@ describe('building the 3D model from a photo (inside the upload dialog)', () => 
     expect(api.createPhotoModel).not.toHaveBeenCalled()
   })
 })
+
+describe('model styles', () => {
+  it('sends the styles chosen in the upload dialog', async () => {
+    api.getMyStore.mockResolvedValue(store())
+    api.listMyModels.mockResolvedValue({ total: 0, page: 1, per_page: 100, items: [] })
+    api.uploadMyModel.mockResolvedValue(model({ status: 'pending', is_active: false }))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Yangi model/ }))
+    fireEvent.change(await screen.findByLabelText('Nomi'), { target: { value: 'Divan' } })
+    const glb = document.querySelector('input[type=file][accept=".glb"]') as HTMLInputElement
+    fireEvent.change(glb, { target: { files: [new File(['x'], 'divan.glb')] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Hi-Tech' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zamonaviy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yuklash' }))
+    await waitFor(() => expect(api.uploadMyModel).toHaveBeenCalled())
+    expect(api.uploadMyModel.mock.calls[0][0].styles).toEqual(['hitech', 'zamonaviy'])
+  })
+
+  it('edits the styles of an existing model, prefilled from the model', async () => {
+    api.getMyStore.mockResolvedValue(store())
+    api.listMyModels.mockResolvedValue({ total: 1, page: 1, per_page: 100, items: [model({ styles: ['loft'] })] })
+    api.updateMyModel.mockResolvedValue(model({ styles: ['loft', 'klassik'] }))
+    renderPage()
+    fireEvent.click(await screen.findByTitle('Tahrirlash'))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'Loft' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Klassik' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateMyModel).toHaveBeenCalled())
+    expect(api.updateMyModel.mock.calls[0][1].styles).toEqual(['loft', 'klassik'])
+  })
+
+  it('an older model without styles opens with none chosen', async () => {
+    api.getMyStore.mockResolvedValue(store())
+    api.listMyModels.mockResolvedValue({ total: 1, page: 1, per_page: 100, items: [model()] })
+    renderPage()
+    fireEvent.click(await screen.findByTitle('Tahrirlash'))
+    expect(await screen.findByText('Hamma uslubga mos')).toBeInTheDocument()
+  })
+})

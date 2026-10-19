@@ -4,9 +4,11 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { updateMyModel, type SellerModel } from "@/lib/api";
+import { StyleChips } from "@/components/dokon/StyleChips";
+import { FURNITURE_STYLES, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 
-/** Name and price. The 3D file itself is not replaceable — upload a new model
+/** Name, price and styles. The 3D file itself is not replaceable — upload a new model
  *  instead, which goes back through review. */
 export function ModelEditDialog({
   model,
@@ -19,10 +21,13 @@ export function ModelEditDialog({
 }) {
   const [name, setName] = useState(model.name_uz);
   const [price, setPrice] = useState(model.price_uzs != null ? String(model.price_uzs) : "");
+  const [styles, setStyles] = useState<FurnitureStyle[]>(() =>
+    (model.styles ?? []).filter((s): s is FurnitureStyle => FURNITURE_STYLES.some((f) => f.id === s)),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
-    mutationFn: () => updateMyModel(model.id, { name_uz: name.trim(), price_uzs: price ? Number(price) : null }),
+    mutationFn: () => updateMyModel(model.id, { name_uz: name.trim(), price_uzs: price ? Number(price) : null, styles }),
     onSuccess: (saved) => {
       onSaved(saved);
       onClose();
@@ -42,6 +47,7 @@ export function ModelEditDialog({
       >
         <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} />
         <Input themed label="Narxi (so'm)" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+        <StyleChips value={styles} onChange={setStyles} />
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={onClose}>Bekor qilish</Button>

@@ -17,6 +17,8 @@ import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
+import { StyleChips } from "@/components/dokon/StyleChips";
+import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
 
 const MAX_GLB_MB = 50;
@@ -35,6 +37,7 @@ export function SellerModelFormDialog({
   const [category, setCategory] = useState<AdminFurnitureCategory>("divan");
   const [roomType, setRoomType] = useState<AdminRoomType | "">("");
   const [placement, setPlacement] = useState<AdminPlacement>("pol");
+  const [styles, setStyles] = useState<FurnitureStyle[]>([]);
   const [priceUzs, setPriceUzs] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
@@ -45,7 +48,7 @@ export function SellerModelFormDialog({
   const [building, setBuilding] = useState(false);
 
   function reset() {
-    setNameUz(""); setCategory("divan"); setRoomType(""); setPlacement("pol");
+    setNameUz(""); setCategory("divan"); setRoomType(""); setPlacement("pol"); setStyles([]);
     setPriceUzs(""); setFile(null); setThumbnail(null); setError(null);
   }
 
@@ -72,6 +75,7 @@ export function SellerModelFormDialog({
         category,
         room_type: roomType || null,
         placement,
+        styles,
         price_uzs: priceUzs ? Number(priceUzs) : null,
         ...sizeFields(measured),
       });
@@ -114,6 +118,8 @@ export function SellerModelFormDialog({
             {ADMIN_ROOM_TYPES.map((r) => <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>)}
           </Select>
         </div>
+
+        <StyleChips value={styles} onChange={setStyles} />
 
         <div className="grid grid-cols-2 gap-3">
           <Select themed label="Xonada joylashuvi" value={placement} onChange={(e) => setPlacement(e.target.value as AdminPlacement)}>
