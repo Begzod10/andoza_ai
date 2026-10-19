@@ -11,7 +11,7 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -28,6 +28,8 @@ from app.models.room import Room
 from app.schemas.estimate import EstimateResponse
 from app.services.ai_builder import RoomDraft, run_ai_builder
 from app.services.ai_designer import DesignError, design_room
+from app.services.design_image import ImageTooLarge, PreparedImage, UnsupportedImage, prepare_design_image
+from app.services.llm import check_and_increment_budget_for
 from app.services.estimate_catalog import load_estimate_catalog
 from app.services.smeta import compute_estimate
 
@@ -152,24 +154,14 @@ def _room_summary(room: Room, room_type: str | None) -> dict:
     }
 
 
-@router.post(
-    "/rooms/{room_id}/ai-design",
-    summary="Bitta jumladan butun xona dizayni (devor, pol, chiroq, mebel)",
-)
-async def ai_design(
-    room_id: uuid.UUID,
-    body: AiDesignRequest,
-    current_user: CurrentUser,
-    db: DbSession,
+async def _run_design(
+    room: Room, prompt: str, room_type: str | None, db: DbSession, user_id: str,
+    image: PreparedImage | None = None,
 ) -> dict:
+    """The designer's plan for *room*, as both /ai-design endpoints answer it: the live
+    catalog, the room's summary, and the model's errors turned into HTTP ones."""
     from app.services.llm import BudgetExceededError
 
-    if not settings.AI_FEATURES_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI xususiyatlari hozircha yoqilmagan.",
-        )
-    room = await _get_owned_room(room_id, current_user.id, db)
     result = await db.execute(select(Furniture).where(Furniture.is_active.is_(True)))
     furniture = [
         {
@@ -182,19 +174,80 @@ async def ai_design(
     ]
     try:
         plan = await design_room(
-            body.prompt, _room_summary(room, body.room_type), furniture, user_id=str(current_user.id),
+            prompt, _room_summary(room, room_type), furniture, user_id=user_id, image=image,
         )
     except BudgetExceededError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
     except DesignError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except Exception as exc:  # provider down, bad key, timeout
-        log.warning("ai_design.failed", error=str(exc))
+        log.warning("ai_design.failed", error=str(exc), with_image=image is not None)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI hozir javob bermadi. Birozdan keyin qayta urinib ko'ring.",
         )
     return dataclasses.asdict(plan)
+
+
+def _require_ai() -> None:
+    if not settings.AI_FEATURES_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI xususiyatlari hozircha yoqilmagan.",
+        )
+
+
+@router.post(
+    "/rooms/{room_id}/ai-design",
+    summary="Bitta jumladan butun xona dizayni (devor, pol, chiroq, mebel)",
+)
+async def ai_design(
+    room_id: uuid.UUID,
+    body: AiDesignRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> dict:
+    _require_ai()
+    room = await _get_owned_room(room_id, current_user.id, db)
+    return await _run_design(room, body.prompt, body.room_type, db, str(current_user.id))
+
+
+@router.post(
+    "/rooms/{room_id}/ai-design/image",
+    summary="Ilhom rasmidan (va ixtiyoriy matndan) butun xona dizayni",
+)
+async def ai_design_from_image(
+    room_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+    image: UploadFile = File(...),
+    prompt: str | None = Form(default=None, max_length=500),
+    room_type: str | None = Form(default=None, max_length=20),
+) -> dict:
+    """Checked in this order so that nothing refused costs the user a try: AI on, the
+    caller's room, the image, then the daily limit of its own pool. The image stays in
+    memory; only its size reaches the log."""
+    from app.services.llm import BudgetExceededError
+
+    _require_ai()
+    room = await _get_owned_room(room_id, current_user.id, db)
+    data = await image.read()
+    try:
+        prepared = prepare_design_image(data, image.content_type)
+    except ImageTooLarge:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Rasm hajmi 10 MB dan oshmasligi kerak")
+    except UnsupportedImage:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Faqat JPEG, PNG yoki WebP rasm yuklang")
+    try:
+        await check_and_increment_budget_for(
+            str(current_user.id), "image_design", settings.IMAGE_DESIGN_DAILY_LIMIT,
+        )
+    except BudgetExceededError:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi rasmdan dizayn limiti tugadi")
+    log.info("ai_design.image", bytes=len(data), width=prepared.width, height=prepared.height)
+    return await _run_design(
+        room, (prompt or "").strip(), room_type, db, str(current_user.id), image=prepared,
+    )
 
 
 # ---------------------------------------------------------------------------
