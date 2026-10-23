@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Boxes, Plus } from "lucide-react";
 import {
@@ -80,10 +80,19 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
     placeholderData: keepPreviousData,
   });
   const stores = useQuery({ queryKey: ["admin", "stores"], queryFn: listAdminStores });
-  // A list that won't load is reported in the panel's error line, like the other sections.
+  // A list that won't load is reported in the panel's error line, like the other sections,
+  // and that report is withdrawn once the list loads again. A list that never failed leaves
+  // the line alone: it is shared with the other admin sections.
+  const reportedLoadError = useRef(false);
   useEffect(() => {
-    if (materials.error) onError(errorMessage(materials.error, "Materiallarni yuklab bo'lmadi"));
-  }, [materials.error, onError]);
+    if (materials.error) {
+      onError(errorMessage(materials.error, "Materiallarni yuklab bo'lmadi"));
+      reportedLoadError.current = true;
+    } else if (materials.isSuccess && reportedLoadError.current) {
+      onError(null);
+      reportedLoadError.current = false;
+    }
+  }, [materials.error, materials.isSuccess, onError]);
 
   // The studio's paint, wallpaper and floor pickers list materials too (["materials", ...]).
   const refresh = () => {

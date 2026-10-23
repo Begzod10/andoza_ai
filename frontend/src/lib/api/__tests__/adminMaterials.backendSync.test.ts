@@ -10,7 +10,9 @@ const backend = (path: string) => readFileSync(resolve(__dirname, '../../../../.
 const quoted = (text: string) => [...text.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])
 const block = (text: string, start: RegExp, end: string) => {
   const from = text.search(start)
-  return text.slice(from, text.indexOf(end, from))
+  if (from < 0) throw new Error(`backend block not found: ${start}`)
+  // Comments could hold quoted words that are not values.
+  return text.slice(from, text.indexOf(end, from)).replace(/#.*$/gm, '')
 }
 
 describe('admin material lists match the backend', () => {

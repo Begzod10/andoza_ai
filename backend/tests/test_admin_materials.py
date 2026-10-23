@@ -240,3 +240,17 @@ class TestPatchNumbers:
         r = client.patch(f"{URL}/{m.id}", json={"name_uz": "  "})
         assert r.status_code == 422 and r.json()["detail"] == "Nomi 1 dan 200 belgigacha bo'lishi kerak"
 
+
+
+class TestNameTrim:
+    def test_the_name_is_stored_trimmed(self, client):
+        db = _admin_db(store=_store())
+        r = client.post(URL, json=_body(name_uz="  Galtel 2m  "))
+        assert r.status_code == 201 and db.add.call_args[0][0].name_uz == "Galtel 2m"
+
+    def test_a_padded_name_over_200_characters_is_refused_not_a_500(self, client):
+        _admin_db(store=_store())
+        r = client.post(URL, json=_body(name_uz=" " * 10 + "x" * 195))
+        assert r.status_code == 201  # 195 characters once trimmed: fine
+        r = client.post(URL, json=_body(name_uz=" " * 10 + "x" * 201))
+        assert r.status_code == 422 and r.json()["detail"] == "Nomi 1 dan 200 belgigacha bo'lishi kerak"

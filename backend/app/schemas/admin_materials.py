@@ -29,6 +29,12 @@ class _MaterialFields(BaseModel):
     roll_width_cm: float | None = None
     roll_length_m: float | None = None
 
+    @field_validator("name_uz", mode="before")
+    @classmethod
+    def _strip_name(cls, v):
+        # Stored as checked: the router measures the trimmed name, so it must save it too.
+        return v.strip() if isinstance(v, str) else v
+
     @field_validator("smeta_key", mode="before")
     @classmethod
     def _strip_key(cls, v):
