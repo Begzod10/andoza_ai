@@ -100,6 +100,30 @@ services:
     stop_grace_period: 300s
     restart: unless-stopped
 
+  # The AI style pass (`styles` queue): one AI call per unstyled furniture model.
+  # A backfill can queue hundreds of them; on `default` they would hold up push
+  # notifications behind them, so they get this small worker of their own. Same
+  # image; the shared media volume is where it reads model thumbnails when storage
+  # is local (not S3).
+  styles-worker:
+    build: ./backend
+    command: celery -A celery_app worker -l info -Q styles -c 2
+    working_dir: /app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    # Warm shutdown on deploy: let an AI call in flight finish (under a minute).
+    stop_grace_period: 120s
+    restart: unless-stopped
+
   # Room-scan GLB overlays on the `converter` queue, built in-process from the
   # parametric scan data with numpy + trimesh. No USD reader and no Blender:
   # this VPS's QEMU vCPU has no SSE4.2, Blender refuses to start on it and

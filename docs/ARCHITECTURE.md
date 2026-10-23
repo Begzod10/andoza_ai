@@ -25,10 +25,11 @@ Brauzer / iOS ilova (Capacitor WebView)
 
  worker    ── Celery, navbatlar: default, media (-c 4)
  converter ── Celery, navbat: converter (-c 2) — skaner GLB'lari, model siqish
+ styles-worker ── Celery, navbat: styles (-c 2) — mebel uslubini AI bilan qo'yish
  beat      ── Celery beat (hozircha jadval bo'sh)
 ```
 
-Hamma backend konteynerlari (`api`, `worker`, `converter`, `beat`) bitta
+Hamma backend konteynerlari (`api`, `worker`, `converter`, `styles-worker`, `beat`) bitta
 `backend/Dockerfile` imijidan quriladi va `media_data` volume'ni bo'lishadi.
 `api` ishga tushganda `alembic upgrade head` migratsiyalarni o'zi qo'llaydi.
 

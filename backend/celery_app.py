@@ -33,6 +33,9 @@ app.conf.update(
         "app.tasks.media.convert_room_scan*": {"queue": "converter"},
         "app.tasks.media.optimize_model_glb": {"queue": "converter"},
         "app.tasks.media.*": {"queue": "media"},
+        # The AI style pass: a big backfill must not hold up push notifications on
+        # `default`, so it has its own queue and its own small worker (styles-worker).
+        "app.tasks.furniture_styles.*": {"queue": "styles"},
         "app.tasks.ai.*": {"queue": "ai-gpu"},
         "app.tasks.*": {"queue": "default"},
     },

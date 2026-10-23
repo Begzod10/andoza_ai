@@ -66,6 +66,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # The AI style pass (`styles` queue), kept off `default` as in production.
+  styles-worker:
+    build: ./backend
+    command: celery -A celery_app worker -l info -Q styles -c 2
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Consumes only the `converter` queue (room-scan GLB overlays). Same image as
   # api/worker: the build is pure Python (numpy + trimesh) over the parametric
   # scan data, so there is nothing extra to install and no architecture pin — it

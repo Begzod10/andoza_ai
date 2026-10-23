@@ -126,10 +126,10 @@ class TestRun:
 
 
 class TestRouting:
-    def test_task_is_registered_and_routed_to_the_default_queue(self):
+    def test_task_is_registered_and_routed_to_the_styles_queue(self):
         assert TASK_NAME in celery_app.app.tasks
         route = celery_app.app.amqp.router.route({}, TASK_NAME)
-        assert route["queue"].name == "default"
+        assert route["queue"].name == "styles"
 
     def test_the_task_has_no_rate_limit(self):
         # A Celery rate limit parks waiting tasks in the prefetch window, which then
