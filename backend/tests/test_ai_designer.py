@@ -249,7 +249,7 @@ from tests.test_estimate_router import _Result, _as, _db, _room, _user, client  
 
 def _furniture_row(**kw):
     d = dict(id=uuid.uuid4(), name_uz="Divan", category="divan", room_type="mehmonxona", placement="pol",
-             footprint_w=210, footprint_d=95)
+             footprint_w=210, footprint_d=95, styles=[])
     d.update(kw)
     return SimpleNamespace(**d)
 
@@ -378,3 +378,59 @@ def test_lamps_are_not_offered_as_furniture():
     ]
     _, by_label = ad.furniture_menu(items, "mehmonxona")
     assert [v["name"] for v in by_label.values()] == ["Divan"]
+
+
+# --- furniture styles -------------------------------------------------------------------
+
+def _styled(id_, styles, room_type="mehmonxona"):
+    return {"id": id_, "name_uz": f"Divan {id_}", "category": "divan", "room_type": room_type,
+            "placement": "pol", "styles": styles}
+
+
+def test_the_menu_shows_a_piece_s_styles_and_leaves_unstyled_lines_as_they_were():
+    lines, _ = ad.furniture_menu([_styled("a", ["zamonaviy", "hitech"]), _styled("b", [])], "mehmonxona")
+    assert lines[0] == "F1: Divan a (divan, polga, uslub: Zamonaviy, Hi-Tech)"
+    assert lines[1] == "F2: Divan b (divan, polga)"
+
+
+@pytest.mark.parametrize(("prompt", "wanted"), [
+    ("Hi-Tech uslubida mehmonxona", {"hitech"}),
+    ("hitech, qora va oq", {"hitech"}),
+    ("Neoklassika, och bej", {"neoklassika"}),
+    ("klassik uslub, oltin detallar", {"klassik"}),
+    ("milliy uslub, gilam", {"milliy"}),
+    ("zamonaviy va loft aralash", {"zamonaviy", "loft"}),
+    ("Skandinav, yorug'", {"skandinav"}),
+    ("minimalist oq xona", {"minimalist"}),
+    ("qorong'i, iliq atmosfera", set()),
+])
+def test_styles_named_in_the_request_are_recognised(prompt, wanted):
+    assert ad.styles_in_prompt(prompt) == wanted
+
+
+def test_pieces_of_the_requested_style_come_first_among_those_that_fit_the_room():
+    items = [_styled("plain", []), _styled("loft", ["loft"]), _styled("other-room", ["hitech"], "yotoqxona"),
+             _styled("hi", ["hitech"])]
+    _, by_label = ad.furniture_menu(items, "mehmonxona", "hi-tech uslubida")
+    assert [v["id"] for v in by_label.values()][:1] == ["hi"]
+    # the room still comes first: the hitech piece for another room is not ahead of this room's pieces
+    order = [v["id"] for v in by_label.values()]
+    assert order.index("other-room") > order.index("plain")
+
+
+def test_without_a_style_in_the_request_the_order_is_as_before():
+    items = [_styled("plain", []), _styled("hi", ["hitech"])]
+    _, by_label = ad.furniture_menu(items, "mehmonxona", "iliq va yorug'")
+    assert [v["id"] for v in by_label.values()] == ["plain", "hi"]
+
+
+def test_the_designer_is_told_to_prefer_the_requested_style():
+    assert "Uslubi yozilmagan mebel hamma uslubga mos" in ad._SYSTEM
+
+
+def test_the_endpoint_hands_the_designer_each_piece_s_styles(client):
+    _as(_user(), _db(_Result(one=_room()), _Result(many=[_furniture_row(styles=["loft"])])))
+    with patch.object(settings, "AI_FEATURES_ENABLED", True), \
+         patch("app.routers.ai.design_room", new=AsyncMock(return_value=ad.DesignPlan(title="t", summary="s", walls={"main": {"type": "paint", "color": "#ffffff"}}))) as design:
+        client.post(f"/api/v1/rooms/{uuid.uuid4()}/ai-design", json={"prompt": "loft uslubi"})
+    assert design.await_args.args[2][0]["styles"] == ["loft"]
