@@ -62,7 +62,12 @@ interface Props {
   y: number
   surface: RadialSurface
   items: RadialItem[]
+  /** The ring closing after a pick that hands over elsewhere (`closesMenu`). */
   onClose: () => void
+  /** A tap anywhere away from the ring, or Escape at the top level: the user
+   *  is done with the surface, not just the ring — the page drops the
+   *  selection the ring came with as well. Falls back to `onClose`. */
+  onDismiss?: () => void
 }
 
 const SURFACE_LABEL: Record<RadialSurface, string> = {
@@ -119,7 +124,8 @@ function shownFor(trail: RadialItem[], items: RadialItem[]): RadialItem[] {
   return trail.length ? trail[trail.length - 1].children ?? [] : items
 }
 
-export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Props) {
+export default function SurfaceRadialMenu({ x, y, surface, items, onClose, onDismiss }: Props) {
+  const dismiss = onDismiss ?? onClose
   /** The path drilled into, deepest last — a stack rather than a single item
    *  because a choice can lead to another (a tile size, then its texture). */
   const [trail, setTrail] = useState<RadialItem[]>([])
@@ -148,11 +154,11 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
         const back = trail.slice(0, -1)
         setTrail(back)
         setOffset(openingOffsetFor(surface, back, shownFor(back, items)))
-      } else onClose()
+      } else dismiss()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, drill, trail, surface, items])
+  }, [dismiss, drill, trail, surface, items])
 
   const shown = drill?.children ?? items
   const n = shown.length
@@ -234,7 +240,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose }: Pro
       onPointerUp={(e) => {
         e.stopPropagation()
         // A turn that happened to start on the backdrop must not also dismiss.
-        if (!onTurnEnd()) onClose()
+        if (!onTurnEnd()) dismiss()
       }}
       onContextMenu={(e) => e.preventDefault()}
       style={{ touchAction: 'none' }}

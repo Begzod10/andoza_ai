@@ -23,7 +23,7 @@ export function ThreeDOverlaySheets({
   pendingWindowSpot, setPendingWindowSpot,
   wallGeom, computeOpeningRect, addElement, setSelectedWall,
   showAiSheet, setShowAiSheet, onSave, roomId, roomType, aiPin,
-  radial, radialItems, closeRadial,
+  radial, radialItems, closeRadial, dismissRadial,
 }: {
   showAddSheet: boolean;
   setShowAddSheet: Dispatch<SetStateAction<boolean>>;
@@ -56,6 +56,9 @@ export function ThreeDOverlaySheets({
   radial: RadialState;
   radialItems: (r: NonNullable<RadialState>) => RadialItem[];
   closeRadial: () => void;
+  /** A tap away from the ring: closes it AND drops the selection it came
+   *  with, so one tap is enough ("to other place one click should work"). */
+  dismissRadial: () => void;
 }) {
   function handleNewWindowConfirm(values: NewWindowValues) {
     if (!pendingWindowSpot) return;
@@ -105,6 +108,7 @@ export function ThreeDOverlaySheets({
           surface={radial.surface}
           items={radialItems(radial)}
           onClose={closeRadial}
+          onDismiss={dismissRadial}
         />
       )}
     </>

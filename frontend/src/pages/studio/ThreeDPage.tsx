@@ -361,6 +361,15 @@ export default function ThreeDPage() {
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
   const { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
+  /** A tap away from an open ring. One tap selected the surface and opened
+   *  its ring; one tap elsewhere takes both away — unless that tap was the
+   *  second of a double tap arming a door, which keeps the door selected. */
+  const dismissRadial = () => {
+    const armed = closeRadial();
+    if (armed) return;
+    clearAllSelections();
+    setSelectedWall(null);
+  };
   const viewLocked = useViewLockStore((st) => st.locked);
   const moveRoomsOn = useRoomMoveStore((st) => st.active);
   const toggleMoveRooms = useRoomMoveStore((st) => st.toggle);
@@ -1212,6 +1221,7 @@ export default function ThreeDPage() {
             }),
         })}
         closeRadial={closeRadial}
+        dismissRadial={dismissRadial}
       />
     </div>
   );
