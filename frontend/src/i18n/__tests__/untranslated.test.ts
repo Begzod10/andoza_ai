@@ -13,12 +13,16 @@ export const MIGRATED_DIRS: string[] = [
   "src/components/studio/PanoramaViewer.tsx",
   "src/components/studio/RenderSheet.tsx",
   "src/pages/studio/three-d/QiblaMarker.tsx",
+  "src/pages/auth",
+  "src/pages/profile",
+  "src/components/layout",
+  "src/components/ui",
 ];
 
 // Strings that may stay as literals: the brand, the language names, and
 // symbols/abbreviations that are the same in every language.
 export const ALLOW: string[] = [
-  "andoza.ai", "O'zbekcha", "Русский", "English",
+  "andoza.ai", "andoza.ai v1.0.0", "O'zbekcha", "Русский", "English",
   "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
 ];
 
@@ -44,6 +48,7 @@ function literalsOf(node: ts.Node): ts.Node[] {
   if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) {
     return literalsOf(node.expression);
   }
+  if (ts.isTemplateExpression(node)) return [node];
   if (ts.isConditionalExpression(node)) return [...literalsOf(node.whenTrue), ...literalsOf(node.whenFalse)];
   if (ts.isBinaryExpression(node)) {
     const op = node.operatorToken.kind;
@@ -75,7 +80,13 @@ export function findUntranslated(source: string, fileName = "file.tsx"): string[
     found.push(`${fileName}:${line + 1}: ${value}`);
   };
   const reportAll = (node: ts.Node) => {
-    for (const literal of literalsOf(node)) report(literal, (literal as ts.StringLiteral).text);
+    for (const literal of literalsOf(node)) {
+      if (ts.isTemplateExpression(literal)) {
+        // Only the fixed text around the `${}` holes is a literal.
+        report(literal, literal.head.text);
+        for (const span of literal.templateSpans) report(span, span.literal.text);
+      } else report(literal, (literal as ts.StringLiteral).text);
+    }
   };
 
   const visit = (node: ts.Node) => {
@@ -139,6 +150,12 @@ describe("findUntranslated", () => {
       confirm({ title: ok ? "Ha" : "Yo'q", description: "Aniq" })
     `;
     expect(findUntranslated(code)).toHaveLength(6);
+  });
+
+  it("checks the fixed text of a template literal, not its holes", () => {
+    expect(findUntranslated("setError(`Xato: ${m}`)")).toHaveLength(1);
+    expect(findUntranslated("const a = <p className={`px-2 ${x}`} />")).toEqual([]);
+    expect(findUntranslated("setError(`${a} va ${b}`)")).toHaveLength(1);
   });
 
   it("sees letters of any script", () => {

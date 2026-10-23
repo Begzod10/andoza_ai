@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Dialog } from './Dialog'
 import { Button } from './Button'
 
@@ -43,6 +44,7 @@ interface Pending extends ConfirmOptions {
 
 /** Hosts the one confirm dialog the whole app shares; mount once near the root. */
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const [pending, setPending] = React.useState<Pending | null>(null)
 
   const confirm = React.useCallback<ConfirmFn>(
@@ -76,14 +78,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       >
         <div className="flex justify-end gap-2">
           <Button variant="soft" size="sm" onClick={() => settle(false)}>
-            {pending?.cancelLabel ?? 'Bekor qilish'}
+            {pending?.cancelLabel ?? t('common.bekor')}
           </Button>
           <Button
             variant={pending?.destructive ? 'danger' : 'primary'}
             size="sm"
             onClick={() => settle(true)}
           >
-            {pending?.confirmLabel ?? (pending?.destructive ? "O'chirish" : 'Tasdiqlash')}
+            {pending?.confirmLabel ?? (pending?.destructive ? t('common.ochirish') : t('common.tasdiqlash'))}
           </Button>
         </div>
       </Dialog>

@@ -8,16 +8,25 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel } from "@/components/ui/Panel";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
+import { LANGUAGES } from "@/i18n";
+import { useLocale } from "@/i18n/useLocale";
 
-const MENU_ITEMS: Array<{ icon: LucideIcon; tone: "blue" | "orange" | "violet" | "green"; label: string; hint: string; to: string }> = [
-  { icon: FolderOpen, tone: "blue", label: "Mening loyihalarim", hint: "Barcha xonalar va dizaynlar", to: "/projects" },
-  { icon: Calculator, tone: "orange", label: "Yangi hisob-kitob", hint: "Xona o'lchamlaridan smeta", to: "/wizard" },
-  { icon: Users, tone: "violet", label: "Ustalar", hint: "Tasdiqlangan ustalar", to: "/ustalar" },
-  { icon: Store, tone: "green", label: "Sotuvchi paneli", hint: "Do'kon va modellaringiz", to: "/seller" },
+const MENU_ITEMS: Array<{
+  icon: LucideIcon;
+  tone: "blue" | "orange" | "violet" | "green";
+  label: "profile.mening_loyihalarim" | "profile.yangi_hisob_kitob" | "profile.ustalar" | "profile.sotuvchi_paneli";
+  hint: "profile.mening_loyihalarim_izoh" | "profile.yangi_hisob_kitob_izoh" | "profile.ustalar_izoh" | "profile.sotuvchi_paneli_izoh";
+  to: string;
+}> = [
+  { icon: FolderOpen, tone: "blue", label: "profile.mening_loyihalarim", hint: "profile.mening_loyihalarim_izoh", to: "/projects" },
+  { icon: Calculator, tone: "orange", label: "profile.yangi_hisob_kitob", hint: "profile.yangi_hisob_kitob_izoh", to: "/wizard" },
+  { icon: Users, tone: "violet", label: "profile.ustalar", hint: "profile.ustalar_izoh", to: "/ustalar" },
+  { icon: Store, tone: "green", label: "profile.sotuvchi_paneli", hint: "profile.sotuvchi_paneli_izoh", to: "/seller" },
 ];
 
 export default function ProfilePage() {
   const { t } = useTranslation()
+  const { language, setLanguage } = useLocale();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
   const user = useAuthStore((s) => s.user);
@@ -30,7 +39,7 @@ export default function ProfilePage() {
     if (me.data) setUser(me.data);
   }, [me.data, setUser]);
 
-  const displayName = user?.name || user?.username || user?.phone || "Foydalanuvchi";
+  const displayName = user?.name || user?.username || user?.phone || t("profile.foydalanuvchi");
   const secondary = user?.username ? `@${user.username}` : user?.phone ?? "";
 
   async function handleLogout() {
@@ -83,13 +92,31 @@ export default function ProfilePage() {
               >
                 <IconBubble tone={item.tone}><Icon size={22} aria-hidden="true" /></IconBubble>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-bold text-ink">{item.label}</span>
-                  <span className="block text-xs text-ink-muted">{item.hint}</span>
+                  <span className="block text-[15px] font-bold text-ink">{t(item.label)}</span>
+                  <span className="block text-xs text-ink-muted">{t(item.hint)}</span>
                 </span>
                 <ChevronRight size={18} className="text-ink-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </button>
             );
           })}
+        </Panel>
+
+        <Panel className="mt-4 p-5 lg:col-start-2">
+          <h2 className="text-sm font-bold text-ink">{t("profile.til")}</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {LANGUAGES.map(({ id, label }) => (
+              <Button
+                key={id}
+                variant={id === language ? "primary" : "soft"}
+                size="sm"
+                lang={id}
+                aria-pressed={id === language}
+                onClick={() => setLanguage(id)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </Panel>
 
         <Panel className="mt-4 border border-red-500/30 p-5 lg:col-start-2">

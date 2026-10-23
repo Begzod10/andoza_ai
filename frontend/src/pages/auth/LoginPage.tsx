@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import RegisterBackground from "./RegisterBackground";
 import GoogleSignInButton from "./GoogleSignInButton";
 import { Button } from "@/components/ui/Button";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 
 // Field on the themed card: soft inset surface, brand ring on focus.
 const FIELD_BASE =
@@ -108,14 +109,14 @@ export default function LoginPage() {
   // ── Username/password login ──────────────────────────────────
   async function handleLogin() {
     resetError();
-    if (!username.trim() || !password) { setError("Username va parol majburiy."); return; }
+    if (!username.trim() || !password) { setError(t("auth.xato_username_parol")); return; }
     setLoading(true);
     try {
       const res = await loginWithPassword({ username: username.trim(), password });
       setAuthenticated(res.user);
       navigate(from, { replace: true });
     } catch {
-      setError("Username yoki parol noto'g'ri.");
+      setError(t("auth.xato_login"));
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ export default function LoginPage() {
       setAuthenticated(res.user);
       navigate(from, { replace: true });
     } catch {
-      setError("Google orqali kirib bo'lmadi. Qayta urinib ko'ring.");
+      setError(t("auth.xato_google"));
     } finally {
       setLoading(false);
     }
@@ -139,11 +140,11 @@ export default function LoginPage() {
   // ── Register ──────────────────────────────────────────────────
   async function handleRegister() {
     resetError();
-    if (!username.trim()) { setError("Username majburiy."); return; }
-    if (username.trim().length < 3) { setError("Username kamida 3 ta belgidan iborat bo'lishi kerak."); return; }
-    if (!password) { setError("Parol majburiy."); return; }
-    if (password.length < 6) { setError("Parol kamida 6 ta belgidan iborat bo'lishi kerak."); return; }
-    if (password !== confirmPassword) { setError("Parollar mos kelmadi."); return; }
+    if (!username.trim()) { setError(t("auth.xato_username")); return; }
+    if (username.trim().length < 3) { setError(t("auth.xato_username_qisqa")); return; }
+    if (!password) { setError(t("auth.xato_parol")); return; }
+    if (password.length < 6) { setError(t("auth.xato_parol_qisqa")); return; }
+    if (password !== confirmPassword) { setError(t("auth.xato_parollar_mos_emas")); return; }
     setLoading(true);
     try {
       const res = await registerUser({ username: username.trim(), password, name: name.trim() || undefined });
@@ -152,9 +153,9 @@ export default function LoginPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("409") || msg.toLowerCase().includes("band")) {
-        setError("Bu username allaqachon band. Boshqa username tanlang.");
+        setError(t("auth.xato_username_band"));
       } else {
-        setError("Ro'yxatdan o'tishda xato yuz berdi.");
+        setError(t("auth.xato_royxatdan_otish"));
       }
     } finally {
       setLoading(false);
@@ -164,6 +165,7 @@ export default function LoginPage() {
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="relative min-h-screen bg-paper flex flex-col items-center justify-center px-5">
+      <LanguageSwitcher className="absolute right-4 top-4 z-20" />
       {/* Renovation scene behind the whole auth page (login + register). */}
       <RegisterBackground />
 
@@ -186,20 +188,20 @@ export default function LoginPage() {
             <h2 className="text-xl font-extrabold text-ink mb-5">{t("auth.kirish")}</h2>
             <div className="space-y-4">
               <div>
-                <label className={LABEL}>Username</label>
+                <label className={LABEL}>{t("auth.username")}</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="username"
+                  placeholder={t("auth.username_placeholder")}
                   autoComplete="username"
                   autoFocus
                   className={FIELD_BASE}
                 />
               </div>
               <div>
-                <label className={LABEL}>Parol</label>
+                <label className={LABEL}>{t("auth.parol")}</label>
                 <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -235,30 +237,30 @@ export default function LoginPage() {
             <h2 className="text-xl font-extrabold text-ink mb-5">{t("auth.royxatdan_otish")}</h2>
             <div className="space-y-4">
               <div>
-                <label className={LABEL}>Ism (ixtiyoriy)</label>
+                <label className={LABEL}>{t("auth.ism_ixtiyoriy")}</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ismingiz"
+                  placeholder={t("auth.ismingiz")}
                   autoComplete="name"
                   autoFocus
                   className={FIELD_BASE}
                 />
               </div>
               <div>
-                <label className={LABEL}>Username</label>
+                <label className={LABEL}>{t("auth.username")}</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="username"
+                  placeholder={t("auth.username_placeholder")}
                   autoComplete="username"
                   className={FIELD_BASE}
                 />
               </div>
               <div>
-                <label className={LABEL}>Parol</label>
+                <label className={LABEL}>{t("auth.parol")}</label>
                 <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -267,7 +269,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className={LABEL}>Parolni tasdiqlang</label>
+                <label className={LABEL}>{t("auth.parolni_tasdiqlang")}</label>
                 <PasswordInput
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -288,7 +290,7 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">
-                Allaqachon akkauntingiz bormi?{' '}
+                {t("auth.allaqachon_akkaunt")}{' '}
                 <button
                   onClick={() => switchMode("login")}
                   className="font-bold text-accent hover:underline transition-colors"

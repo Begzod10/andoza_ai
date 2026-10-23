@@ -1,4 +1,5 @@
 import { apiClient, BASE_URL, tryRefresh } from "./client";
+import type { Language } from "@/i18n";
 
 // ---------- Auth types ----------
 
@@ -9,6 +10,8 @@ export interface AuthUser {
   name: string | null;
   /** Admins may delete shared library content (uploaded wallpapers). */
   is_admin?: boolean;
+  /** The interface language this account chose; older cached users have none. */
+  language?: Language;
   created_at: string;
 }
 
@@ -40,6 +43,14 @@ export async function verifyOTP(phone: string, code: string): Promise<LoginRespo
   return apiClient<LoginResponse>("/auth/otp/verify", {
     method: "POST",
     body: JSON.stringify({ phone, code }),
+  });
+}
+
+/** Save account settings (today: the interface language). Answers the updated user. */
+export async function updateMe(patch: { language: Language }): Promise<AuthUser> {
+  return apiClient<AuthUser>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
   });
 }
 

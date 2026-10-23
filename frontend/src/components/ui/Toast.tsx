@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import * as RadixToast from '@radix-ui/react-toast'
 import { cn } from '@/lib/utils'
 
@@ -81,6 +82,7 @@ interface ToastItemProps extends ToastData {
  * Single toast notification item.
  */
 function ToastItem({ id, variant = 'default', title, description, onClose }: ToastItemProps) {
+  const { t } = useTranslation()
   return (
     <RadixToast.Root
       duration={3000}
@@ -129,7 +131,7 @@ function ToastItem({ id, variant = 'default', title, description, onClose }: Toa
           'text-neutral-400 hover:text-neutral-600',
           'hover:bg-neutral-200',
         )}
-        aria-label="Yopish"
+        aria-label={t('common.yopish')}
       >
         <svg
           width="14"

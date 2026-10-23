@@ -1,4 +1,5 @@
 import { useThemeStore } from '@/store/themeStore'
+import { useTranslation } from 'react-i18next'
 
 function SunIcon() {
   return (
@@ -23,6 +24,7 @@ function MoonIcon() {
  * this button overrides that until the next explicit change.
  */
 export function ThemeToggle() {
+  const { t } = useTranslation()
   const theme = useThemeStore((s) => s.theme)
   const toggle = useThemeStore((s) => s.toggle)
   const isNight = theme === 'night'
@@ -31,8 +33,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-label={isNight ? 'Kunduzgi rejimga o‘tish' : 'Tungi rejimga o‘tish'}
-      title={isNight ? 'Kunduzgi rejim' : 'Tungi rejim'}
+      aria-label={isNight ? t('layout.kunduzgi_rejimga') : t('layout.tungi_rejimga')}
+      title={isNight ? t('layout.kunduzgi_rejim') : t('layout.tungi_rejim')}
       className="flex h-11 w-11 items-center justify-center rounded-2xl text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
     >
       {isNight ? <SunIcon /> : <MoonIcon />}

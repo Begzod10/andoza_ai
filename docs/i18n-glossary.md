@@ -107,3 +107,12 @@ wording per term, in every language.
 
 Money: `so'm` / `сум` / `UZS`. `formatUZS` writes them next to the amount:
 `1 250 000 so'm` (uz), `1 250 000 сум` (ru, plain spaces), `1,250,000 UZS` (en).
+
+Added with auth, profile and layout:
+
+| Uzbek | Russian | English |
+| --- | --- | --- |
+| uy (bosh sahifa) | дом | home |
+| kunduzgi / tungi rejim | дневной / ночной режим | day / night mode |
+| username | имя пользователя | username |
+| razmer / plan | размеры / план | dimensions / plan |
