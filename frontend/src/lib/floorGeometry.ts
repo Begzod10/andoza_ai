@@ -951,6 +951,11 @@ export interface BuiltFloor {
   /** One per board the floor is laid from: a parquet deals twelve different
    *  boards out across the room, and each needs its own image. */
   materials: THREE.MeshStandardMaterial[]
+  /** Puts the wall clipping planes where the floor is drawn: call with the
+   *  group's world matrix whenever it may have moved (a neighbouring room is
+   *  drawn at its offset in the flat; the room being edited at the origin).
+   *  Nothing to do for a polygon floor, which is cut analytically. */
+  placeClipPlanes(matrixWorld: THREE.Matrix4): void
   dispose(): void
 }
 
@@ -994,12 +999,18 @@ export function buildFloorGroup(
   const { classes, count, resolved } = computeFloorPieces(state, W, D, fallbackBaseColor, baseAngleRad)
 
   const clip = 0.02
-  const clippingPlanes = clipPoly ? undefined : [
+  // In the floor's OWN frame. three.js applies clipping planes in world
+  // space, and these used to be handed over as they are — right for the room
+  // being edited, which sits at the origin, and wrong for every other room of
+  // the flat: a neighbour drawn at its offset lost every plank outside the
+  // open room's rectangle. `placeClipPlanes` moves them with the floor.
+  const localPlanes = clipPoly ? undefined : [
     new THREE.Plane(new THREE.Vector3(-1, 0, 0), W / 2 + clip),
     new THREE.Plane(new THREE.Vector3(1, 0, 0), W / 2 + clip),
     new THREE.Plane(new THREE.Vector3(0, 0, -1), D / 2 + clip),
     new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2 + clip),
   ]
+  const clippingPlanes = localPlanes?.map((pl) => pl.clone())
 
   // A tile's arris is the white edge of the porcelain, not a strip of the
   // marble printed on its face — so the rim can take a material of its own.
@@ -1152,6 +1163,11 @@ export function buildFloorGroup(
     classCount: classes.length,
     material,
     materials,
+    placeClipPlanes(matrixWorld: THREE.Matrix4) {
+      if (!localPlanes || !clippingPlanes) return
+      // The same Plane objects every material holds, moved in place.
+      localPlanes.forEach((pl, i) => clippingPlanes[i].copy(pl).applyMatrix4(matrixWorld))
+    },
     dispose() {
       for (const g of geometries) g.dispose()
       for (const m of materials) m.dispose()
