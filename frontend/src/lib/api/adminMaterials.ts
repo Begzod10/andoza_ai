@@ -22,6 +22,8 @@ export interface AdminMaterial {
   color_hex: string | null;
   image_url: string | null;
   is_active: boolean;
+  /** False when the shop is closed, pending or rejected: users don't see the product. */
+  store_open?: boolean;
 }
 
 export interface MaterialInput {

@@ -36,6 +36,7 @@ function Row({ material: m, busy, onEdit, onToggle }: {
         <div className="flex flex-wrap gap-1.5">
           {smeta && <span className="rounded-full border border-line bg-card-soft px-2.5 py-0.5 text-[11px] font-bold text-ink">{`Smeta: ${smeta}`}</span>}
           {!m.is_active && <span className="rounded-full border border-line bg-card-soft px-2.5 py-0.5 text-[11px] font-bold text-ink-muted">Yashirin</span>}
+          {m.store_open === false && <span className="rounded-full border border-line bg-card-soft px-2.5 py-0.5 text-[11px] font-bold text-ink-muted" title="Do'kon yopiq yoki moderatsiyada: foydalanuvchilar bu materialni ko'rmaydi">Do'kon yopiq</span>}
         </div>
       </div>
       <div className="flex gap-2">
@@ -58,12 +59,13 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   // Dialog state: 'new' = add, a material = edit, null = closed.
   const [editing, setEditing] = useState<AdminMaterial | null | "new">(null);
 
+  // Any filter change goes back to the first page, in the same render as the filter
+  // (an effect would first fetch the new filter's old page).
+  const filterBy = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPageNo(1); };
   useEffect(() => {
-    const t = setTimeout(() => setQ(search.trim()), SEARCH_DEBOUNCE_MS);
+    const t = setTimeout(() => { setQ(search.trim()); setPageNo(1); }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [search]);
-  // Any filter change goes back to the first page.
-  useEffect(() => setPageNo(1), [category, storeId, smetaOnly, q]);
 
   const filters = {
     ...(category && { category }),
@@ -79,11 +81,16 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   });
   const stores = useQuery({ queryKey: ["admin", "stores"], queryFn: listAdminStores });
 
+  // The studio's paint, wallpaper and floor pickers list materials too (["materials", ...]).
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: KEY });
+    void queryClient.invalidateQueries({ queryKey: ["materials"] });
+  };
   const toggle = useMutation({
     mutationFn: (m: AdminMaterial) => updateAdminMaterial(m.id, { is_active: !m.is_active }),
     onSuccess: () => onError(null),
     onError: (err) => onError(errorMessage(err, "Materialni o'zgartirib bo'lmadi")),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: KEY }),
+    onSettled: () => refresh(),
   });
 
   const data = materials.data;
@@ -100,17 +107,17 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
           </Button>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Select themed label="Kategoriya" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <Select themed label="Kategoriya" value={category} onChange={(e) => filterBy(setCategory)(e.target.value)}>
             <option value="">Hammasi</option>
             {MATERIAL_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </Select>
-          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+          <Select themed label="Do'kon" value={storeId} onChange={(e) => filterBy(setStoreId)(e.target.value)}>
             <option value="">Hammasi</option>
             {(stores.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
           <Input themed label="Qidirish" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nomi bo'yicha" />
           <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
-            <input type="checkbox" checked={smetaOnly} onChange={(e) => setSmetaOnly(e.target.checked)} />
+            <input type="checkbox" checked={smetaOnly} onChange={(e) => filterBy(setSmetaOnly)(e.target.checked)} />
             Faqat smeta mahsulotlari
           </label>
         </div>
@@ -142,7 +149,7 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
         onOpenChange={(o) => { if (!o) setEditing(null); }}
         material={editing === "new" ? null : editing}
         stores={stores.data ?? []}
-        onSaved={() => { onError(null); void queryClient.invalidateQueries({ queryKey: KEY }); }}
+        onSaved={() => { onError(null); refresh(); }}
       />
     </section>
   );

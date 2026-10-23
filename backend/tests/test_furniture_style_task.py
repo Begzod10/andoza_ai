@@ -131,6 +131,11 @@ class TestRouting:
         route = celery_app.app.amqp.router.route({}, TASK_NAME)
         assert route["queue"].name == "default"
 
+    def test_the_task_has_no_rate_limit(self):
+        # A Celery rate limit parks waiting tasks in the prefetch window, which then
+        # blocks push notifications on the same worker for the whole backfill.
+        assert fs.classify_furniture_styles_task.rate_limit is None
+
 
 class TestQueue:
     def test_a_broken_broker_does_not_raise(self, monkeypatch):

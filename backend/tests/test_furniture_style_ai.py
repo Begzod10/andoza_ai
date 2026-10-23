@@ -52,3 +52,19 @@ async def test_without_a_picture_only_the_name_goes(fake_llm):
     content = fake_llm.calls[0]["messages"][0]["content"]
     assert not any(isinstance(b, dict) and b.get("type") == "image" for b in content)
     assert "Hi-Tech stol" in content[0]["text"]
+
+
+async def test_the_call_is_cheap_and_deterministic(fake_llm, monkeypatch):
+    monkeypatch.setattr("app.services.furniture_style_ai.settings.AI_MODEL_BUILDER", "vision-model")
+    await classify_furniture_styles("Divan", "divan", None)
+    call = fake_llm.calls[0]
+    assert (call["model"], call["max_tokens"], call["temperature"]) == ("vision-model", 200, 0)
+
+
+async def test_a_provider_error_reaches_the_caller(monkeypatch):
+    async def boom(**kwargs):
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr("app.services.furniture_style_ai.call_llm", boom)
+    with pytest.raises(RuntimeError):
+        await classify_furniture_styles("Divan", "divan", None)

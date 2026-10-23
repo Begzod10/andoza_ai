@@ -896,6 +896,65 @@ class TestAdminWritesDeferInvalidation:
 class TestClassifyStyles:
     URL = "/api/v1/admin/furniture/classify-styles"
 
+    @pytest.fixture(autouse=True)
+    def _free(self):
+        with patch("app.routers.admin_catalog._claim_backfill", new=AsyncMock(return_value=True)) as claim, \
+             patch("app.routers.admin_catalog._release_backfill", new=AsyncMock()) as release:
+            self.claim, self.release = claim, release
+            yield
+
+    def test_a_second_press_while_the_queue_runs_queues_nothing(self, client):
+        db = _db(_Result(many=[uuid.uuid4()]))
+        _as(_user(is_admin=True), db)
+        self.claim.return_value = False
+        with patch("app.routers.admin_catalog.settings") as cfg, patch(
+            "app.routers.admin_catalog.enqueue_style"
+        ) as enqueue:
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.status_code == 409
+        assert response.json()["detail"] == "AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring"
+        enqueue.assert_not_called()
+        db.execute.assert_not_called()
+
+    def test_the_lock_is_stretched_to_cover_a_big_batch(self, client):
+        ids = [uuid.uuid4() for _ in range(400)]
+        db = _db(_Result(many=ids))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch("app.routers.admin_catalog.enqueue_style"), \
+             patch("app.routers.admin_catalog._extend_backfill", new=AsyncMock()) as extend:
+            cfg.AI_FEATURES_ENABLED = True
+            client.post(self.URL)
+        extend.assert_awaited_once_with(400)
+
+    def test_redis_down_is_a_clean_503(self, client):
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        db = _db(_Result(many=[]))
+        _as(_user(is_admin=True), db)
+        self.claim.side_effect = RedisConnectionError("down")
+        with patch("app.routers.admin_catalog.settings") as cfg, patch("app.routers.admin_catalog.enqueue_style"):
+            cfg.AI_FEATURES_ENABLED = True
+            response = client.post(self.URL)
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Navbat xizmati ishlamayapti"
+
+    def test_a_failure_after_claiming_frees_the_lock(self, client):
+        db = _db()
+        db.execute = AsyncMock(side_effect=RuntimeError("db down"))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch("app.routers.admin_catalog.enqueue_style"):
+            cfg.AI_FEATURES_ENABLED = True
+            TestClient(app, raise_server_exceptions=False).post(self.URL)
+        self.release.assert_awaited_once()
+
+    def test_nothing_to_queue_frees_the_button_at_once(self, client):
+        db = _db(_Result(many=[]))
+        _as(_user(is_admin=True), db)
+        with patch("app.routers.admin_catalog.settings") as cfg, patch("app.routers.admin_catalog.enqueue_style"):
+            cfg.AI_FEATURES_ENABLED = True
+            client.post(self.URL)
+        self.release.assert_awaited_once()
+
     def test_queues_every_unstyled_model(self, client):
         ids = [uuid.uuid4() for _ in range(3)]
         db = _db(_Result(many=ids))
@@ -939,3 +998,37 @@ class TestClassifyStyles:
         response = client.post(self.URL)
         assert response.status_code == 403
         db.execute.assert_not_called()
+
+
+class _FakeRedis:
+    def __init__(self):
+        self.keys: dict[str, tuple[str, int]] = {}
+
+    async def set(self, key, value, nx=False, ex=None):
+        if nx and key in self.keys:
+            return None
+        self.keys[key] = (value, ex)
+        return True
+
+    async def delete(self, key):
+        self.keys.pop(key, None)
+
+    async def expire(self, key, seconds):
+        if key in self.keys:
+            self.keys[key] = (self.keys[key][0], seconds)
+
+
+async def test_the_backfill_lock_holds_for_15_minutes_and_can_be_freed(monkeypatch):
+    from app.routers import admin_catalog as ac
+    fake = _FakeRedis()
+    monkeypatch.setattr(ac, "get_redis", lambda: fake)
+    assert await ac._claim_backfill() is True
+    assert await ac._claim_backfill() is False
+    assert list(fake.keys.values())[0][1] == 15 * 60
+    await ac._extend_backfill(400)
+    assert list(fake.keys.values())[0][1] == 400 * 5 + 300
+    await ac._extend_backfill(10)  # never shorter than the base 15 minutes
+    assert list(fake.keys.values())[0][1] == 15 * 60
+    await ac._release_backfill()
+    assert await ac._claim_backfill() is True
+

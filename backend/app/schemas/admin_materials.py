@@ -23,7 +23,8 @@ class _MaterialFields(BaseModel):
     unit: str | None = None
     price_uzs: int | None = Field(default=None, gt=0)
     pack_qty: float | None = Field(default=None, gt=0)
-    pack_unit: str | None = Field(default=None, pattern=r"^(kg|litr|m|m2|dona)$")
+    # Checked against PACK_UNITS in the router, for an Uzbek message.
+    pack_unit: str | None = Field(default=None, max_length=10)
     smeta_key: str | None = Field(default=None, max_length=40)
     roll_width_cm: float | None = Field(default=None, gt=0)
     roll_length_m: float | None = Field(default=None, gt=0)
@@ -71,6 +72,8 @@ class AdminMaterialOut(BaseModel):
     color_hex: str | None = None
     image_url: str | None = None
     is_active: bool
+    # False when the shop is closed, pending or rejected: users don't see the product.
+    store_open: bool = True
 
     model_config = {"from_attributes": True}
 

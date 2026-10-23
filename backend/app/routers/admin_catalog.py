@@ -4,6 +4,7 @@ import functools
 import uuid as uuid_module
 
 import structlog
+from redis.exceptions import RedisError
 from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
 from app.config import settings
-from app.core.cache import cache_delete_prefix
+from app.core.cache import cache_delete_prefix, get_redis
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
 from app.services.furniture_style_queue import enqueue_style, enqueue_style_after_commit
@@ -410,6 +411,30 @@ async def list_furniture_admin(
     return [_furniture_out(f, request, f.store.name if f.store else None) for f in items]
 
 
+# One AI style pass at a time: pressing the button again before the queue drains would
+# pay for every unstyled model a second time (the AI is called before the conditional
+# write). The lock expires on its own; it is stretched to the batch so it outlives the
+# queue (about 5 s per model is generous with 4 worker slots and one AI call each).
+_BACKFILL_LOCK = "furniture:classify-styles:running"
+_BACKFILL_LOCK_SECONDS = 15 * 60
+_BACKFILL_SECONDS_PER_MODEL = 5
+
+
+async def _claim_backfill() -> bool:
+    """True if this request may start the AI style pass (no other one is running)."""
+    return bool(await get_redis().set(_BACKFILL_LOCK, "1", nx=True, ex=_BACKFILL_LOCK_SECONDS))
+
+
+async def _release_backfill() -> None:
+    await get_redis().delete(_BACKFILL_LOCK)
+
+
+async def _extend_backfill(count: int) -> None:
+    """Keep the lock until a batch of *count* models has had time to drain."""
+    seconds = max(_BACKFILL_LOCK_SECONDS, count * _BACKFILL_SECONDS_PER_MODEL + 300)
+    await get_redis().expire(_BACKFILL_LOCK, seconds)
+
+
 @router.post(
     "/furniture/classify-styles",
     summary="Send every model nobody styled to the AI (admin only)",
@@ -420,10 +445,31 @@ async def classify_unstyled_furniture(admin: AdminUser, db: DbSession) -> dict[s
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI hozir o'chirilgan",
         )
-    result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
-    ids = list(result.scalars().all())
-    for furniture_id in ids:
-        enqueue_style(str(furniture_id))
+    try:
+        claimed = await _claim_backfill()
+    except RedisError as exc:
+        # The broker is the same Redis: nothing could be queued anyway.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Navbat xizmati ishlamayapti",
+        ) from exc
+    if not claimed:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring",
+        )
+    try:
+        result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
+        ids = list(result.scalars().all())
+        if not ids:
+            await _release_backfill()
+        else:
+            await _extend_backfill(len(ids))
+        for furniture_id in ids:
+            enqueue_style(str(furniture_id))
+    except Exception:
+        # Nothing (or not everything) was queued: don't keep the button locked for it.
+        await _release_backfill()
+        raise
     logger.info("furniture_style_backfill_queued", count=len(ids), admin_id=str(admin.id))
     return {"queued": len(ids)}
 
