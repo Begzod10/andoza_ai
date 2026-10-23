@@ -110,7 +110,7 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
         ) : (
           <>
             <h2 className="text-lg font-bold text-neutral-900 mb-4">
-              {usta.name} {t("ustalar.boglaning")}
+              {t("ustalar.boglaning_ism", { name: usta.name })}
             </h2>
             <div className="space-y-3">
               <label className="block">

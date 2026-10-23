@@ -11,6 +11,11 @@ export const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 
 
 const NO_SESSION_RETRY_PATHS = new Set(["/auth/login", "/auth/google"]);
 
+/** For the raw `fetch` calls that bypass `apiClient`: the app's language. */
+export function languageHeaders(): Record<string, string> {
+  return { "Accept-Language": currentLanguage() };
+}
+
 function handleUnauthorized(): never {
   window.location.href = "/login";
   throw new Error("Unauthorized");
@@ -50,7 +55,7 @@ export async function apiClient<T>(
   const buildHeaders = (): HeadersInit => ({
     ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
-    "Accept-Language": currentLanguage(),
+    ...languageHeaders(),
   });
 
   const response = await fetch(`${BASE_URL}${path}`, {

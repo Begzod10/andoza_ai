@@ -134,7 +134,8 @@
     "narxi_arzon": "Price: low to high",
     "narxi_qimmat": "Price: high to low",
     "eng_yaxshi": "Top rated",
-    "tavsif": "Find approved craftsmen and get in touch with them."
+    "tavsif": "Find approved craftsmen and get in touch with them.",
+    "boglaning_ism": "Contact {{name}}"
   },
   "errors": {
     "tarmoq_xatosi": "Network error. Check your internet connection.",
@@ -170,11 +171,11 @@
       "Bright Scandinavian style, natural wood",
       "Classic, golden details, with wallpaper",
       "Loft: concrete and brick tones",
-      "Minimalist, white and grey",
+      "Minimalist, white and gray",
       "Neoclassical: light beige and an elegant chandelier",
       "Hi-tech: white, black and LED lighting",
       "National style: warm colors, a carpet and a floral pattern",
-      "Soft, cosy, warm colors"
+      "Soft, cozy, warm colors"
     ],
     "dizayn_tavsifi": "Design description",
     "tayyor_uslublar": "Ready-made styles (no AI, instant)",
@@ -218,13 +219,13 @@
     "qism_chiroq": "Light fixtures",
     "qism_mebel": "Furniture",
     "chetki_devor": "wall",
-    "markaz": "centre",
+    "markaz": "center",
     "burchak": "corner",
     "izoh_qoshimcha": "This is a suggestion: switch off any parts you do not want and apply it. Furniture is added to what you already have.",
     "yuborish": "Send",
     "qollash": "Apply",
     "bekor": "Cancel",
-    "fikrlanmoqda": "Analysing...",
+    "fikrlanmoqda": "Analyzing...",
     "draft_tayyor": "The AI suggestion is ready. Take a look.",
     "qollandi": "The changes were applied.",
     "xato": "AI error. Please try again.",
@@ -279,7 +280,7 @@
     "oshirilmoqda": "Upscaling the quality (4K)...",
     "rejim_oddiy": "Standard",
     "rejim_360": "360° panorama",
-    "panorama_izoh": "A 360° image is taken from the centre of the room — you can rotate the result",
+    "panorama_izoh": "A 360° image is taken from the center of the room — you can rotate the result",
     "panorama_olinmadi": "Could not capture the panorama. Check that the 3D view is open.",
     "viewer": {
       "nom": "360° panorama",

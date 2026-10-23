@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyLanguage } from "@/i18n";
-import { apiClient } from "../client";
+import { apiClient, languageHeaders } from "../client";
+import { aiBuildStream } from "../ai";
+import { getEstimatePDF } from "../estimates";
 
 function res(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -45,5 +47,28 @@ describe("apiClient Accept-Language", () => {
     await apiClient("/projects");
     expect(sent(fetchMock.mock.calls[0])["Accept-Language"]).toBe("ru");
     expect(sent(fetchMock.mock.calls[2])["Accept-Language"]).toBe("ru");
+  });
+});
+
+describe("raw fetches", () => {
+  it("languageHeaders carries the current language", () => {
+    applyLanguage("en");
+    expect(languageHeaders()).toEqual({ "Accept-Language": "en" });
+  });
+
+  it("the ai-build stream sends it", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response("data: {\"type\":\"done\"}\n\n", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    applyLanguage("ru");
+    for await (const _ of aiBuildStream("r1", "x")) void _;
+    expect(sent(fetchMock.mock.calls[0])["Accept-Language"]).toBe("ru");
+  });
+
+  it("the estimate PDF request sends it", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response("pdf", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    applyLanguage("en");
+    await getEstimatePDF("r1");
+    expect(sent(fetchMock.mock.calls[0])["Accept-Language"]).toBe("en");
   });
 });

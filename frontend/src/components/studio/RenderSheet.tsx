@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { createRender, createRelight, createUpscale, listRenders, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
 import type { SavedRender } from "@/lib/api"
 import { panoramaJpeg } from "@/lib/panoramaSnap"
@@ -10,7 +11,7 @@ import type { LightingMood } from "@/lib/api"
 type Phase = "idle" | "capturing" | "rendering" | "relighting" | "upscaling" | "done" | "error"
 
 /** One picture the sheet can show: the render itself, or a relit copy of it. */
-interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
+interface Version { url: string; key: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
@@ -85,7 +86,6 @@ export function RenderSheet({
     setVersions([{
       url: absolute(row.url), key: row.key, panorama: row.panorama, upscaled: row.kind === "upscale",
       lighting: (row.lighting as LightingMood | null) ?? undefined,
-      label: row.kind === "upscale" ? "4K" : row.lighting ? t(`render.yorugliq.${row.lighting as LightingMood}`) ?? row.lighting : t("render.asl"),
     }])
     setActive(0)
     setPhase("done")
@@ -119,7 +119,7 @@ export function RenderSheet({
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt, roomId)
       const outcome = await waitForRender(job_id, controller.signal)
-      const first: Version = { url: absolute(outcome.url), key: outcome.key, label: t("render.asl"), panorama }
+      const first: Version = { url: absolute(outcome.url), key: outcome.key, panorama }
       setVersions([first])
       setActive(0)
       // The prompt the picture was actually made from: when the user wrote none
@@ -153,7 +153,7 @@ export function RenderSheet({
       const { job_id } = await createRelight(base.key, mood)
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
-        url: absolute(outcome.url), key: outcome.key, label: t(`render.yorugliq.${mood}`), lighting: mood,
+        url: absolute(outcome.url), key: outcome.key, lighting: mood,
         panorama: base.panorama, // a relit panorama is still a panorama
       }
       setVersions((v) => [...v, next])
@@ -181,7 +181,7 @@ export function RenderSheet({
       const { job_id } = await createUpscale(base.key)
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
-        url: absolute(outcome.url), key: outcome.key, label: "4K", lighting: base.lighting,
+        url: absolute(outcome.url), key: outcome.key, lighting: base.lighting,
         panorama: base.panorama, upscaled: true,
       }
       setVersions((v) => [...v, next])
@@ -309,7 +309,7 @@ export function RenderSheet({
                     }`}
                   >
                     <img src={v.url} alt="" className="h-14 w-20 object-cover" />
-                    <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">{v.label}</span>
+                    <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">{v.upscaled ? "4K" : v.lighting ? t(`render.yorugliq.${v.lighting}`, { defaultValue: v.lighting }) : t("render.asl")}</span>
                   </button>
                 ))}
               </div>
@@ -358,7 +358,7 @@ export function RenderSheet({
                       type="button"
                       onClick={() => showSaved(row)}
                       disabled={busy}
-                      aria-label={`${t("render.saqlangan")}: ${new Date(row.created_at).toLocaleString()}`}
+                      aria-label={`${t("render.saqlangan")}: ${new Date(row.created_at).toLocaleString(intlLocale())}`}
                       className={`shrink-0 overflow-hidden rounded-xl ring-2 transition disabled:opacity-60 ${
                         current?.key === row.key ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
                       }`}

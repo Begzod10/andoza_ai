@@ -5,9 +5,9 @@ import { formatUZS, formatUZSCompact } from "../utils";
 afterEach(() => applyLanguage("uz"));
 
 describe("formatUZS by language", () => {
-  it("uz: spaces and so'm", () => {
+  it("uz: thin spaces (U+2009) and soʻm (U+02BB)", () => {
     applyLanguage("uz");
-    expect(formatUZS(1250000)).toBe("1 250 000 soʻm");
+    expect(formatUZS(1250000)).toBe("1\u2009250\u2009000 so\u02bbm");
   });
   it("ru: plain spaces and сум", () => {
     applyLanguage("ru");

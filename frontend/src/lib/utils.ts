@@ -9,8 +9,8 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-/** Digit-group separator per language: a plain space (uz, ru) or a comma (en). */
-const GROUP_SEPARATOR: Record<Language, string> = { uz: " ", ru: " ", en: "," };
+/** Digit-group separator per language: a thin space U+2009 (uz, as it always was), a plain space (ru) or a comma (en). */
+const GROUP_SEPARATOR: Record<Language, string> = { uz: "\u2009", ru: " ", en: "," };
 
 function groupDigits(whole: number, language: Language): string {
   return Math.trunc(whole)

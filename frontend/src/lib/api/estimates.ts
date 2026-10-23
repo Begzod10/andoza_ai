@@ -1,4 +1,4 @@
-import { apiClient, BASE_URL, handleUnauthorized } from "./client";
+import { apiClient, BASE_URL, handleUnauthorized, languageHeaders } from "./client";
 
 // ---------- Estimate types ----------
 
@@ -74,7 +74,7 @@ export async function getEstimatePDF(roomId: string, opts?: { market?: boolean }
   const query = opts?.market ? "?market=true" : "";
   const response = await fetch(`${BASE_URL}/rooms/${roomId}/estimate/pdf${query}`, {
     credentials: "include",
-    headers: { Accept: "application/pdf" },
+    headers: { Accept: "application/pdf", ...languageHeaders() },
   });
 
   if (response.status === 401) {

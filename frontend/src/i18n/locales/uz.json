@@ -134,7 +134,8 @@
     "narxi_arzon": "Narxi: arzondan qimmatga",
     "narxi_qimmat": "Narxi: qimmatdan arzonga",
     "eng_yaxshi": "Eng yaxshi reyting",
-    "tavsif": "Tasdiqlangan ustalarni toping va ular bilan bog'laning."
+    "tavsif": "Tasdiqlangan ustalarni toping va ular bilan bog'laning.",
+    "boglaning_ism": "{{name}} bilan bog'laning"
   },
   "errors": {
     "tarmoq_xatosi": "Tarmoq xatosi. Internetni tekshiring.",
