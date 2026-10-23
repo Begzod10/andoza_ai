@@ -206,7 +206,8 @@ class TestSeedData:
 
     def test_every_estimate_line_has_at_least_one_product(self):
         keys = {r["smeta_key"] for r in self.ROWS}
-        assert set(seed.KEY_PACK_UNIT) <= keys
+        # galtel has no seed product: the admin adds it
+        assert set(seed.KEY_PACK_UNIT) - {"galtel"} <= keys
         assert {f"light:{t}" for t in LIGHT_CATALOG_PRICES_UZS} <= keys
 
 

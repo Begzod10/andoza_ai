@@ -9,7 +9,16 @@ describe('errorMessage', () => {
 
   it('shows other messages as they came', () => {
     expect(errorMessage(new Error('Narx noto\'g\'ri'), 'x')).toBe("Narx noto'g'ri")
-    expect(errorMessage(new Error('{"detail":[{"msg":"bad"}]}'), 'x')).toBe('{"detail":[{"msg":"bad"}]}')
+  })
+
+  it("joins the msg of pydantic's list-shaped detail", () => {
+    expect(errorMessage(new Error('{"detail":[{"loc":["body","a"],"msg":"too small","type":"x"},{"msg":"too long"}]}'), 'x'))
+      .toBe('too small, too long')
+  })
+
+  it('falls back when a list detail has no messages', () => {
+    expect(errorMessage(new Error('{"detail":[]}'), 'Saqlab bo\'lmadi')).toBe("Saqlab bo'lmadi")
+    expect(errorMessage(new Error('{"detail":[{"loc":[]}]}'), 'x')).toBe('x')
   })
 
   it('falls back when there is nothing to show', () => {

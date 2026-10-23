@@ -28,19 +28,12 @@ from app.database import AsyncSessionLocal
 from app.models.material import Material
 from app.models.store import Store
 from app.services.smeta import LIGHT_CATALOG_PRICES_UZS, LIGHT_TYPE_NAMES
+from app.services.smeta_keys import KEY_PACK_UNIT  # noqa: F401  (re-exported)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
 LM, QB, SM = "Leroy Merlin Tashkent", "Qurilish Bozori", "Stroy Master"
-
-# The pack unit each fixed key must be sold with, to be of any use to the engine.
-KEY_PACK_UNIT: dict[str, str | None] = {
-    "suvoq": "kg", "grunt": "kg", "shpatlyovka": "kg",
-    "plintus": "m", "gipsokarton": "m2", "profil": "m", "led_lenta": "m",
-    "kabel": None,  # sold per metre: no pack
-}
-
 
 def _p(store, name, category, unit, price, key, pack_qty=None, pack_unit=None) -> dict:
     return dict(store=store, name_uz=name, category=category, unit=unit, price_uzs=price,

@@ -10,6 +10,13 @@ export function errorMessage(err: unknown, fallback: string): string {
   try {
     const detail = JSON.parse(err.message)?.detail;
     if (typeof detail === "string" && detail) return detail;
+    // FastAPI/pydantic validation errors: [{loc, msg, type}, ...].
+    if (Array.isArray(detail)) {
+      const msgs = detail
+        .map((d) => (d && typeof d.msg === "string" ? d.msg : ""))
+        .filter(Boolean);
+      return msgs.length ? msgs.join(", ") : fallback;
+    }
   } catch {
     /* not JSON — show it as it came */
   }
