@@ -131,6 +131,9 @@ class TestRouting:
         route = celery_app.app.amqp.router.route({}, TASK_NAME)
         assert route["queue"].name == "default"
 
+    def test_a_big_backfill_cannot_take_every_worker_slot(self):
+        assert fs.classify_furniture_styles_task.rate_limit == "20/m"
+
 
 class TestQueue:
     def test_a_broken_broker_does_not_raise(self, monkeypatch):

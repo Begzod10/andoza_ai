@@ -424,14 +424,6 @@ class TestOwnModels:
         res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"price_uzs": 5})
         assert res.status_code == 200 and m.styles_source is None and res.json()["styles_source"] is None
 
-    def test_patch_null_styles_keeps_source_null(self, client):
-        u = _user()
-        store = _store(u)
-        m = _model(store)
-        _as(u, [_R(store), _R(m)])
-        res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"styles": None})
-        assert res.status_code == 200 and m.styles_source is None
-
     def test_an_explicit_null_leaves_the_styles_alone(self, client):
         u = _user()
         store = _store(u)
@@ -440,6 +432,7 @@ class TestOwnModels:
         _as(u, [_R(store), _R(m)])
         res = client.patch(f"/api/v1/seller/furniture/{m.id}", json={"styles": None})
         assert res.status_code == 200 and res.json()["styles"] == ["loft"] and m.styles == ["loft"]
+        assert m.styles_source is None
 
     def test_a_pending_model_cannot_be_switched_on_to_skip_review(self, client):
         u = _user()

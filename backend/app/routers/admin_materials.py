@@ -13,6 +13,7 @@ from app.database import run_after_commit
 from app.models.material import Material, MaterialCategory, MaterialUnit
 from app.models.store import Store
 from app.schemas.admin_materials import (
+    PACK_UNITS,
     AdminMaterialOut,
     MaterialCreate,
     MaterialUpdate,
@@ -34,6 +35,8 @@ def _problem(m: dict) -> str | None:
         return "Kategoriya noto'g'ri"
     if m["unit"] not in MaterialUnit.enums:
         return "Birlik noto'g'ri"
+    if m["pack_unit"] is not None and m["pack_unit"] not in PACK_UNITS:
+        return "Qadoq birligi noto'g'ri"
     if (m["pack_qty"] is None) != (m["pack_unit"] is None):
         return "Qadoq hajmi va birligi birga kiritiladi"
     if m["category"] != "oboy" and (
@@ -47,9 +50,14 @@ def _reject(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
 
-def _out(m: Material, store_name: str | None = None) -> AdminMaterialOut:
+def _out(m: Material, store: Store | None = None) -> AdminMaterialOut:
+    """The row as the admin sees it. *store* is passed when the relationship may be
+    stale (just created, or moved to another shop)."""
+    store = store if store is not None else m.store
     out = AdminMaterialOut.model_validate(m)
-    out.store_name = store_name if store_name is not None else (m.store.name if m.store else None)
+    out.store_name = store.name if store else None
+    # A closed, pending or rejected shop hides its products from users (in_open_shop).
+    out.store_open = bool(store.is_active) if store else True
     return out
 
 
@@ -72,7 +80,9 @@ async def list_materials(
     if smeta:
         filters.append(Material.smeta_key.is_not(None))
     if q:
-        filters.append(Material.name_uz.ilike(f"%{q}%"))
+        # % and _ in the search are letters, not wildcards.
+        literal = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filters.append(Material.name_uz.ilike(f"%{literal}%", escape="\\"))
 
     total = (await db.execute(select(func.count()).select_from(Material).where(*filters))).scalar_one()
     rows = (
@@ -80,7 +90,7 @@ async def list_materials(
             select(Material)
             .options(selectinload(Material.store))
             .where(*filters)
-            .order_by(Material.category, Material.name_uz)
+            .order_by(Material.category, Material.name_uz, Material.id)
             .offset((page - 1) * per_page)
             .limit(per_page)
         )
@@ -113,7 +123,7 @@ async def create_material(body: MaterialCreate, admin: AdminUser, db: DbSession)
     await db.flush()
     await db.refresh(material)
     run_after_commit(db, functools.partial(cache_delete_prefix, "materials:"))
-    return _out(material, store.name)
+    return _out(material, store)
 
 
 @router.patch("/{material_id}", response_model=AdminMaterialOut, summary="Edit a material (admin only)")
@@ -135,14 +145,13 @@ async def update_material(
     if problem:
         raise _reject(problem)
 
-    store_name = None
+    new_store = None
     if "store_id" in changes and changes["store_id"] != material.store_id:
-        store = await db.get(Store, changes["store_id"])
-        if store is None:
+        new_store = await db.get(Store, changes["store_id"])
+        if new_store is None:
             raise _reject("Do'kon topilmadi")
-        store_name = store.name
     for key, value in changes.items():
         setattr(material, key, value)
     await db.flush()
     run_after_commit(db, functools.partial(cache_delete_prefix, "materials:"))
-    return _out(material, store_name)
+    return _out(material, new_store)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import AdminUser, DbSession
 from app.config import settings
-from app.core.cache import cache_delete_prefix
+from app.core.cache import cache_delete_prefix, get_redis
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
 from app.services.furniture_style_queue import enqueue_style, enqueue_style_after_commit
@@ -410,6 +410,22 @@ async def list_furniture_admin(
     return [_furniture_out(f, request, f.store.name if f.store else None) for f in items]
 
 
+# One AI style pass at a time: pressing the button again before the queue drains would
+# pay for every unstyled model a second time (the AI is called before the conditional
+# write). The lock simply expires; the queue for a few hundred models drains well within it.
+_BACKFILL_LOCK = "furniture:classify-styles:running"
+_BACKFILL_LOCK_SECONDS = 15 * 60
+
+
+async def _claim_backfill() -> bool:
+    """True if this request may start the AI style pass (no other one is running)."""
+    return bool(await get_redis().set(_BACKFILL_LOCK, "1", nx=True, ex=_BACKFILL_LOCK_SECONDS))
+
+
+async def _release_backfill() -> None:
+    await get_redis().delete(_BACKFILL_LOCK)
+
+
 @router.post(
     "/furniture/classify-styles",
     summary="Send every model nobody styled to the AI (admin only)",
@@ -420,8 +436,15 @@ async def classify_unstyled_furniture(admin: AdminUser, db: DbSession) -> dict[s
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI hozir o'chirilgan",
         )
+    if not await _claim_backfill():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring",
+        )
     result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
     ids = list(result.scalars().all())
+    if not ids:
+        await _release_backfill()
     for furniture_id in ids:
         enqueue_style(str(furniture_id))
     logger.info("furniture_style_backfill_queued", count=len(ids), admin_id=str(admin.id))

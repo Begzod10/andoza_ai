@@ -180,3 +180,41 @@ class TestList:
         compiled = stmt.compile(dialect=postgresql.dialect())
         assert "%O'sim%" in compiled.params.values()
         assert "O'sim" not in sql  # bound, never interpolated
+
+    def test_rows_with_the_same_name_keep_a_stable_order(self, client):
+        db = _db(_Result(one=0, many=[]))
+        _as(_user(is_admin=True), db)
+        client.get(URL)
+        sql = str(db.execute.call_args_list[-1][0][0].compile(dialect=postgresql.dialect()))
+        assert sql.split("ORDER BY")[1].split("LIMIT")[0].strip().endswith("materials.id")
+
+    def test_percent_and_underscore_in_the_search_are_literal(self, client):
+        db = _db(_Result(one=0, many=[]))
+        _as(_user(is_admin=True), db)
+        client.get(URL, params={"q": "50%_off"})
+        compiled = db.execute.call_args_list[-1][0][0].compile(dialect=postgresql.dialect())
+        assert "%50\\%\\_off%" in compiled.params.values()
+        assert "ESCAPE" in str(compiled)
+
+    def test_a_material_of_a_closed_shop_says_so(self, client):
+        closed = _store("Yopiq"); closed.is_active = False
+        open_ = _store("Ochiq"); open_.is_active = True
+        db = _db(_Result(one=2, many=[_material(store=closed), _material(store=open_)]))
+        _as(_user(is_admin=True), db)
+        items = client.get(URL).json()["items"]
+        assert [i["store_open"] for i in items] == [False, True]
+
+
+class TestPackUnit:
+    def test_an_unknown_pack_unit_gets_an_uzbek_message(self, client):
+        _admin_db(store=_store())
+        r = client.post(URL, json=_body(pack_unit="кг"))
+        assert r.status_code == 422 and r.json()["detail"] == "Qadoq birligi noto'g'ri"
+
+
+class TestPricePatch:
+    def test_a_price_only_edit_changes_just_the_price(self, client):
+        m = _material(price_uzs=50000)
+        _admin_db(material=m)
+        r = client.patch(f"{URL}/{m.id}", json={"price_uzs": 61000})
+        assert r.status_code == 200 and m.price_uzs == 61000 and m.category == "gips"
