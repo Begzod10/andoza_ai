@@ -20,6 +20,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 import structlog
 
 from app.config import settings
+from app.services.ai_designer import styles_in_prompt
 from app.services.llm import call_llm
 
 log = structlog.get_logger(__name__)
@@ -46,7 +47,9 @@ DEVOR/POL/SHIFT RANGLARI O'ZGARTIRISH:
 - Har bir apply_material chaqiruvida oq, kulrang, pushti va boshqa ranglarni sinab ko'ring
 
 MEBEL JOYLASHUVI:
-- list_furniture() orqali katalogni oling va keyin place_furniture() bilan joylashtiring"""
+- list_furniture() orqali katalogni oling va keyin place_furniture() bilan joylashtiring
+- Har bir mebelda styles ro'yxati bor (bo'sh = hamma uslubga mos). So'rovda uslub aytilsa
+  ("Hi-Tech uslubida"), shu uslubdagi mebelni tanlang; bunday mebel bo'lmasa, uslubsizini"""
 
 # ---------------------------------------------------------------------------
 # Tool definitions (name/description/input_schema — translated to the
@@ -213,6 +216,22 @@ def _sse(event: dict) -> str:
 # Main async generator
 # ---------------------------------------------------------------------------
 
+def furniture_for_prompt(items: list[dict], prompt: str) -> list[dict]:
+    """The catalog with the pieces of a style the request names first, then unstyled ones (they
+    suit any style), then the rest, so the 60 the agent is shown are not the wrong ones. Without a
+    style in the request the order is kept. Same matching as the AI designer (`styles_in_prompt`).
+    """
+    wanted = styles_in_prompt(prompt)
+    if not wanted:
+        return items
+
+    def rank(item: dict) -> int:
+        styles = set(item.get("styles") or [])
+        return 0 if wanted & styles else 1 if not styles else 2
+
+    return sorted(items, key=rank)
+
+
 async def run_ai_builder(
     *,
     user_id: str,
@@ -272,6 +291,7 @@ async def run_ai_builder(
                 if cat
                 else furniture_list
             )
+            items = furniture_for_prompt(items, prompt)
             return json.dumps(items[:60], ensure_ascii=False, default=str), True
 
         if name == "set_room_geometry":
