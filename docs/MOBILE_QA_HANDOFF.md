@@ -127,6 +127,7 @@ Bu xatolar web frontend kodida edi. Flutter'da bu ekranlar native yozilgan bo'ls
 2. 2-bo'limdagi har bir qatorni mobil'da sinab chiqing. Xato takrorlansa, "Web'dagi tuzatish (mantiq)" ustunidagidek tuzating va har biriga test yozing.
 3. Usta ekranlarini (3-bo'lim) alohida sinab chiqing.
 4. Natijani shu formatda yozing: ekran, xato, qadamlar, tuzatish. Shunda web va mobil hisobotlari bir-biriga mos bo'ladi.
+5. Keyin yangi funksiyalar (5–8-bo'limlar). Ularning ichida eng muhimi **7.1 va 7.4 dagi ⚠️ bandlar**: xona holatini saqlaganda noma'lum maydonlarni yo'qotmaslik va mebel tahririda `styles` ni faqat o'zgarganda yuborish. Ikkalasi ham jim buziladi, xato chiqmaydi.
 
 Telefon tekshiruvi uchun web'dagi namuna: `frontend/src/lib/phone.ts`. Backend'dagisi: `backend/app/schemas/auth.py` (`normalize_contact_phone`).
 
@@ -269,4 +270,21 @@ PR: [#34](https://github.com/Begzod10/andoza_ai/pull/34). Spec: [docs/superpower
   - admin bitta mebelga uslub qo'ysin, keyin o'sha uslub qo'llansin: shu mebel tanlanishi kerak.
 
   Ikkalasi ham lokalda sinalmagan, chunki lokal katalogda mebel yo'q.
+
+---
+
+## 8. 2026-10-23 dagi o'zgarishlar: mobil'ga ta'siri
+
+PR'lar (hammasi `master`da va production'da): [#36](https://github.com/Begzod10/andoza_ai/pull/36), [#37](https://github.com/Begzod10/andoza_ai/pull/37), [#38](https://github.com/Begzod10/andoza_ai/pull/38), [#39](https://github.com/Begzod10/andoza_ai/pull/39). Hech biri mobil ishlatadigan contract'ni buzmaydi. Mobil'da majburiy ish yo'q, quyidagilar ma'lumot uchun.
+
+| PR | Nima | Mobil'ga ta'siri |
+|---|---|---|
+| #36 | Backend AI dizayner (`/ai-design`, `/ai-design/image`, `/ai-design/pin`) katalogdagi mebel uslubini (`styles`) ko'radi va so'rovda uslub nomi bo'lsa ("hi-tech", "neoklassika", "milliy"…), shu uslubdagi mebelni afzal ko'radi | Contract o'zgarmagan, faqat natija yaxshilanadi. Mobil'da uslubni so'rov matniga qo'shib berish (masalan, uslub tanlovi "Hi-Tech uslubida…" deb prompt'ga qo'shilsa) foydali bo'lishi mumkin |
+| #37 | Admin panelda "Materiallar" bo'limi: `GET/POST/PATCH /api/v1/admin/materials` (faqat admin) | Faqat admin web uchun. Mobil'da admin ekrani bo'lmasa, ta'siri yo'q. Mobil studiyadagi bo'yoq, oboy va pol ro'yxatlari (`/materials`) admin o'zgartirgan narx va mahsulotlarni ko'rsatadi; yashirilgan material ro'yxatdan chiqadi |
+| #38 | Admin materiallar ro'yxatiga `store_open` qo'shildi; AI uslub tugmasi (`POST /admin/furniture/classify-styles`) navbat tugamaguncha qayta bosilsa **409** (`"AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring"`), Redis ishlamasa **503** (`"Navbat xizmati ishlamayapti"`) qaytaradi | Faqat admin. Mobil bu endpoint'larni chaqirsa, 409 va 503 `detail` matnini to'g'ridan-to'g'ri ko'rsatsin |
+| #39 | AI uslub vazifalari alohida `styles` navbatda, yangi `styles-worker` konteynerida ishlaydi | Faqat server ichki tuzilishi. Push bildirishnomalar endi AI backfill ortida kutib qolmaydi |
+
+### Smeta natijasiga ta'siri (7.2 ga qo'shimcha)
+- Admin endi smeta mahsulotlarini (galtel, plintus, suvoq, bo'yoq va boshqalar) paneldan qo'shadi. Masalan, `galtel` kalitli mahsulot qo'shilsa, smetadagi galtel qatori taxminiy 11 000 so'm o'rniga shu mahsulot narxi bilan va `is_approximate: false` bo'lib chiqadi.
+- Javob formati o'zgarmagan, mobil Smeta ekrani hech narsani o'zgartirishi shart emas.
 
