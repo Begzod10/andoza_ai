@@ -81,7 +81,7 @@ Mobil client `detail`ni ham ro'yxat, ham satr sifatida o'qiy olishi kerak.
 - Yopiq do'konlar mahsulotlari `GET /furniture` va `GET /materials`da endi ko'rinmaydi.
 
 ### 1.6 Migration'lar
-Production'da allaqachon bajarilgan: `1786000036` (`leads.contact_phone`), `1786000037` (`draft_rooms.user_id`), `1786000038` (`furniture.styles`, 7-bo'lim).
+Production'da allaqachon bajarilgan: `1786000036` (`leads.contact_phone`), `1786000037` (`draft_rooms.user_id`), `1786000038` (`furniture.styles`, 7-bo'lim), `1786000039` (`furniture.styles_source`, 7.4).
 
 ---
 
@@ -246,7 +246,21 @@ Javob formati o'zgarmagan, lekin yangi qatorlar paydo bo'ladi:
 - **Validatsiya.** Noma'lum uslub 422 qaytaradi: `"styles neoklassika, klassik, … dan bo'lishi kerak"`. Saqlashda takrorlar olib tashlanadi va yuqoridagi tartibga keltiriladi.
 - **Studio** tayyor uslubi avval o'z uslubidagi mebelni, keyin uslubsiz mebelni, eng oxirida boshqa uslubdagi mebelni tanlaydi.
 
+### 7.4 Uslubni AI qo'yadi (`styles_source`)
+PR: [#34](https://github.com/Begzod10/andoza_ai/pull/34). Spec: [docs/superpowers/specs/2026-10-19-mebel-uslubi-ai-design.md](superpowers/specs/2026-10-19-mebel-uslubi-ai-design.md).
+- **Yangi maydon.** Sotuvchi va admin furniture javoblarida `styles_source: "manual" | "ai" | null` bor. Katalog (`/catalog/furniture`) javobida bu maydon **yo'q**. Qiymatlari:
+  - `null`: uslubni hali hech kim qo'ymagan;
+  - `"manual"`: sotuvchi yoki admin qo'ygan;
+  - `"ai"`: AI qo'ygan.
+- **Server o'zi ishlaydi.** Uslubsiz yuklangan mebel fonda AI'ga yuboriladi: AI preview rasm, nom va kategoriyaga qarab 0–3 ta uslub qo'yadi. AI faqat `styles_source = null` bo'lgan mebelga yozadi. Mobil'dan hech narsa chaqirish shart emas.
+- **⚠️ PATCH qoidasi.** PATCH so'rovida `styles` kaliti bo'lsa (`[]` bo'lsa ham), mebel `"manual"` bo'ladi va AI unga boshqa hech qachon tegmaydi.
+  - Shuning uchun mobil tahrirlash ekrani `styles` ni **faqat foydalanuvchi uslubni o'zgartirganda** yuborishi kerak. AI qo'ygan uslubni foydalanuvchi tasdiqlab saqlaganda ham yuborilishi mumkin.
+  - Faqat narx yoki nom o'zgartirilganda `styles` yuborilmasin. Aks holda mebel AI'dan butunlay chiqib qoladi.
+  - Namuna: `frontend/src/lib/furnitureStyles.ts` (`stylesPatch`).
+- **Admin endpoint** `POST /admin/furniture/classify-styles` → `{"queued": N}`. AI o'chiq bo'lsa 503: `"AI hozir o'chirilgan"`. U faqat admin uchun, mobil'ga kerak bo'lmasa kerak.
+
 ### Mobil'da qilinadigan ishlar
+- **Tahrirlash ekranida `styles` faqat o'zgarganda yuborilsin** (7.4 dagi ⚠️). Bu AI uslublari ishlashi uchun muhim.
 - **Sotuvchi model yuklash va tahrirlash ekranlari** (agar mobil'da bo'lsa): "Uslub" tanlovini qo'shing (bir nechtasini tanlash mumkin, hech biri tanlanmasa "Hamma uslubga mos"). O'zbekcha nomlar: Neoklassika, Klassik, Zamonaviy, Hi-Tech, Minimalist, Skandinav, Loft, Milliy. Namuna: `frontend/src/components/dokon/StyleChips.tsx`.
 - **Xona holatini saqlash:** 7.1 dagi ⚠️ bandini tekshiring. Bu eng muhim nuqta.
 - **Native Smeta ekrani:** yangi taxminiy qatorlar va `warning` matnini ko'rsating, pol bannerini 7.2 bo'yicha moslang.
