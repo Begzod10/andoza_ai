@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { qiblaBearing, bearingToScene, compassPoint } from "@/lib/qibla";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore } from "@/store/roomStore";
 
 /**
@@ -16,6 +16,7 @@ import { useRoomStore } from "@/store/roomStore";
 const noRaycast = () => null;
 
 export function QiblaMarker({ W, D, visible }: { W: number; D: number; visible: boolean }) {
+  const { t } = useTranslation()
   const location = useRoomStore((st) => st.designState.location);
   const bearing = useMemo(
     () => qiblaBearing(location?.latitude, location?.longitude),
@@ -55,7 +56,7 @@ export function QiblaMarker({ W, D, visible }: { W: number; D: number; visible: 
       </mesh>
       <Html position={[len + 0.2, 0, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
         <div className="px-2 py-1 rounded-full bg-emerald-600 text-white text-[11px] font-semibold shadow whitespace-nowrap">
-          {uz.studio.qibla.nomi} · {Math.round(bearing)}° {compassPoint(bearing)}
+          {t("studio.qibla.nomi")} · {Math.round(bearing)}° {compassPoint(bearing)}
         </div>
       </Html>
     </group>

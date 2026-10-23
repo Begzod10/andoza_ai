@@ -62,7 +62,7 @@ import { SUN_INTENSITY } from "./three-d/SceneEnvironment";
 import { ToolsDrawerPanel } from "./three-d/ToolsDrawerPanel";
 import { DesignPanelDock } from "./three-d/DesignPanelDock";
 import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
@@ -118,6 +118,7 @@ export interface StudioContext {
 export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
+  const { t } = useTranslation()
   const { room, onSave, tabSlot, menuSlot, closeMenu } = useOutletContext<StudioContext>();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
@@ -841,24 +842,24 @@ export default function ThreeDPage() {
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sichqoncha</p>
               <ul className="space-y-0.5 mb-2">
                 <li>Chap tugma — aylantirish</li>
-                <li>O'ng / o'rta tugma — surish</li>
-                <li>G'ildirak — yaqinlashtirish</li>
+                <li>{t("studio.yordam.sichqoncha_ong")}</li>
+                <li>{t("studio.yordam.gildirak")}</li>
                 <li>Ikki marta bosish — shu nuqtaga fokus</li>
-                <li>Bo'sh joyga ikki marta — markazga qaytish</li>
-                <li>Pastki o'ngdagi o'qlar — ko'rinishni burish</li>
+                <li>{t("studio.yordam.bosh_joy")}</li>
+                <li>{t("studio.yordam.oqlar")}</li>
               </ul>
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sensor ekran</p>
               <ul className="space-y-0.5 mb-2">
                 <li>Bir barmoq — aylantirish</li>
-                <li>Ikki barmoq — surish va masshtab</li>
+                <li>{t("studio.yordam.ikki_barmoq")}</li>
               </ul>
               <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
               <ul className="space-y-0.5">
-                <li><b>1–5</b> — Tanlash / Siljitish / Aylantirish / O'lcham / Qismlar</li>
+                <li><b>1–5</b> {t("studio.yordam.tanlash_1_5")}</li>
                 <li><b>K</b> — Ichki / Tashqi</li>
                 <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
-                <li><b>F</b> — Markazlash &nbsp; <b>Del</b> — O'chirish</li>
-                <li><b>Esc</b> — bekor qilish</li>
+                <li><b>F</b> — Markazlash &nbsp; <b>Del</b> {t("studio.yordam.ochirish")}</li>
+                <li><b>Esc</b> {t("studio.yordam.esc")}</li>
               </ul>
             </div>
           )}
@@ -871,7 +872,7 @@ export default function ThreeDPage() {
             <div className="absolute top-28 sm:top-16 left-3 z-10 flex flex-col gap-2">
               <button
                 onClick={() => setElementsSheetOpen(true)}
-                title="Eshik va derazalarni qo'shish yoki tahrirlash"
+                title={t("studio.eshik_deraza_tahrirlash")}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/95 border border-gray-200 shadow-md text-[12px] font-semibold text-gray-700 hover:bg-white transition-colors"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -985,10 +986,10 @@ export default function ThreeDPage() {
             {panorama && (
               <button
                 onClick={() => setShowRender(true)}
-                title={uz.render.sarlavha}
+                title={t("render.sarlavha")}
                 className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
               >
-                {uz.render.nomi}
+                {t("render.nomi")}
               </button>
             )}
 
@@ -1016,7 +1017,7 @@ export default function ThreeDPage() {
                   title={`${cameraAspect.width} x ${cameraAspect.height}`}
                   className="px-4 h-12 rounded-full bg-brand text-white text-[13px] font-bold shadow-lg ring-1 ring-brand/40"
                 >
-                  {uz.render.nomi}
+                  {t("render.nomi")}
                 </button>
               </>
             )}
@@ -1030,7 +1031,7 @@ export default function ThreeDPage() {
           <div className="lg:hidden">
             <QuarterArcMenu
               className="bottom-5 right-4"
-              label="Qo'shish menyusi"
+              label={t("studio.qoshish_menyusi")}
               categories={arcCategories}
             />
           </div>

@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { currentLanguage, type Language } from "@/i18n";
 
 /**
  * Merge Tailwind CSS class names with clsx support.
@@ -8,9 +9,20 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+/** Digit-group separator per language: a plain space (uz, ru) or a comma (en). */
+const GROUP_SEPARATOR: Record<Language, string> = { uz: " ", ru: " ", en: "," };
+
+function groupDigits(whole: number, language: Language): string {
+  return Math.trunc(whole)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, GROUP_SEPARATOR[language]);
+}
+
 /**
- * Format a soʻm amount as human-readable UZS currency.
- * Example: 1240000 -> "1 240 000 soʻm"
+ * Format a soʻm amount as human-readable UZS currency, in the interface
+ * language: "1 240 000 soʻm" (uz), "1 240 000 сум" (ru), "1,240,000 UZS" (en).
+ * Separators are written out (plain spaces, never the NBSP that Intl uses for
+ * ru) so the text wraps and compares the same everywhere.
  *
  * Despite the old name/docstring, every real caller (SmetaPage.tsx, fed by
  * ComputedLine.unit_price_uzs/subtotal_uzs and ComputedEstimate.total_uzs
@@ -21,11 +33,11 @@ export function cn(...inputs: ClassValue[]): string {
  * the Smeta page 100x too low.
  */
 export function formatUZS(soum: number): string {
-  const formatted = Math.trunc(soum)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, " "); // thin space
-  return `${formatted} soʻm`;
+  const language = currentLanguage();
+  return `${groupDigits(soum, language)} ${CURRENCY[language]}`;
 }
+
+const CURRENCY: Record<Language, string> = { uz: "soʻm", ru: "сум", en: "UZS" };
 
 /**
  * Format a so'm amount as USD, converted at *usdRate* so'm-per-1-USD (from
@@ -45,18 +57,25 @@ export function formatUSDFromUZS(soum: number, usdRate: number): string {
 /**
  * Format a so'm amount compactly for tight spaces (a nav-tab badge, a
  * running-total chip) where formatUZS's full digit string doesn't fit.
- * Examples: 60_987_000 -> "61 mln so'm", 850_000 -> "850 ming so'm",
- * 4_500 -> "4 500 so'm" (falls back to formatUZS below 1 000).
+ * uz: 60_987_000 -> "61 mln so'm", 850_000 -> "850 ming so'm";
+ * ru: "61 млн сум", "850 тыс. сум"; en: "61M UZS", "850K UZS".
+ * Below 1 000 it falls back to formatUZS.
  */
 export function formatUZSCompact(soum: number): string {
+  const language = currentLanguage();
   const abs = Math.abs(soum);
   if (abs >= 1_000_000) {
     const millions = Math.round((soum / 1_000_000) * 10) / 10;
     const rounded = Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1);
+    if (language === "ru") return `${rounded.replace(".", ",")} млн сум`;
+    if (language === "en") return `${rounded}M UZS`;
     return `${rounded} mln so'm`;
   }
   if (abs >= 1_000) {
-    return `${Math.round(soum / 1_000)} ming so'm`;
+    const thousands = Math.round(soum / 1_000);
+    if (language === "ru") return `${thousands} тыс. сум`;
+    if (language === "en") return `${thousands}K UZS`;
+    return `${thousands} ming so'm`;
   }
   return formatUZS(soum);
 }

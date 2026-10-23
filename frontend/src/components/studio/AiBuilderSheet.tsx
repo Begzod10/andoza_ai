@@ -1,7 +1,8 @@
 import * as React from "react"
 import { ImagePlus } from "lucide-react"
 import { BottomSheet } from "@/components/ui/BottomSheet"
-import { uz } from "@/locale/uz"
+import { useTranslation } from "react-i18next"
+import i18n from "@/i18n"
 import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
@@ -36,17 +37,17 @@ function errorText(err: unknown): string {
   } catch {
     /* not JSON */
   }
-  return uz.ai.xato
+  return i18n.t("ai.xato")
 }
 
 export function zoneLabel(zone: string): string {
-  if (zone === "center") return uz.ai.markaz
-  if (zone.startsWith("wall_")) return `${zone.slice(5)} ${uz.ai.chetki_devor}`
+  if (zone === "center") return i18n.t("ai.markaz")
+  if (zone.startsWith("wall_")) return `${zone.slice(5)} ${i18n.t("ai.chetki_devor")}`
   if (zone.startsWith("corner_")) {
     const rest = zone.slice(7)
     // corner_<a>_<b>; the old four-wall spelling is corner_AB.
     const [a, b] = rest.includes("_") ? rest.split("_") : [rest.slice(0, 1), rest.slice(1)]
-    return `${a}–${b} ${uz.ai.burchak}`
+    return `${a}–${b} ${i18n.t("ai.burchak")}`
   }
   return zone
 }
@@ -90,6 +91,7 @@ function PartRow({
 }
 
 export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, initialPinUrl }: AiBuilderSheetProps) {
+  const { t } = useTranslation()
   const [prompt, setPrompt] = React.useState("")
   // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
   const [image, setImage] = React.useState<File | null>(null)
@@ -133,21 +135,21 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
     setUndo(base)
     setBarHidden(false)
     const applied = applyDesignPlan(next, nextParts, catalogFurniture)
-    const extra = applied.skipped > 0 ? ` ${uz.ai.sigmadi(applied.skipped)}` : ""
+    const extra = applied.skipped > 0 ? ` ${t("ai.sigmadi", { count: applied.skipped })}` : ""
     if (!onSaveRef.current) {
-      setNotice(uz.ai.qollandi_saqlang + extra)
+      setNotice(t("ai.qollandi_saqlang") + extra)
       return
     }
-    setNotice(uz.ai.saqlanmoqda)
-    setNotice(((await persist()) ? uz.ai.qollandi_saqlandi : uz.ai.qollandi_saqlanmadi) + extra)
+    setNotice(t("ai.saqlanmoqda"))
+    setNotice(((await persist()) ? t("ai.qollandi_saqlandi") : t("ai.qollandi_saqlanmadi")) + extra)
   }
 
   React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
   function pickImage(file: File | undefined) {
     if (!file) return
-    if (!IMAGE_TYPES.includes(file.type)) { setImageError(uz.ai.rasm_turi_xato); return }
-    if (file.size > MAX_IMAGE_BYTES) { setImageError(uz.ai.rasm_hajmi_xato); return }
+    if (!IMAGE_TYPES.includes(file.type)) { setImageError(t("ai.rasm_turi_xato")); return }
+    if (file.size > MAX_IMAGE_BYTES) { setImageError(t("ai.rasm_hajmi_xato")); return }
     setImageError("")
     setPinUrl(null)
     setImage(file)
@@ -166,7 +168,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
   function commitPinInput(text: string = pinInput) {
     if (!text.trim()) return
     if (looksLikePinUrl(text)) takePin(text)
-    else setImageError(uz.ai.pin_xato)
+    else setImageError(t("ai.pin_xato"))
   }
 
   function pastePin(e: React.ClipboardEvent<HTMLInputElement>) {
@@ -246,11 +248,11 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
     setUndo(null)
     setPlan(null)
     if (!onSaveRef.current) {
-      setNotice(uz.ai.qaytarildi)
+      setNotice(t("ai.qaytarildi"))
       return
     }
-    setNotice(uz.ai.saqlanmoqda)
-    setNotice((await persist()) ? uz.ai.qaytarildi_saqlandi : uz.ai.qaytarildi_saqlanmadi)
+    setNotice(t("ai.saqlanmoqda"))
+    setNotice((await persist()) ? t("ai.qaytarildi_saqlandi") : t("ai.qaytarildi_saqlanmadi"))
   }
 
   function close() {
@@ -262,10 +264,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
 
   return (
     <>
-    <BottomSheet open={open} onOpenChange={close} title={uz.ai.builder_title} defaultSnap="full">
+    <BottomSheet open={open} onOpenChange={close} title={t("ai.builder_title")} defaultSnap="full">
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto px-4 pb-4">
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-gray-500">{uz.ai.tayyor_uslublar}</p>
+          <p className="text-xs font-semibold text-gray-500">{t("ai.tayyor_uslublar")}</p>
           <div className="flex flex-wrap gap-1.5">
             {DESIGN_PRESETS.map((preset) => (
               <button
@@ -285,11 +287,11 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onPaste={pastePrompt}
-            placeholder={image || pinUrl ? uz.ai.rasm_placeholder : uz.ai.builder_placeholder}
+            placeholder={image || pinUrl ? t("ai.rasm_placeholder") : t("ai.builder_placeholder")}
             disabled={running}
             rows={3}
             maxLength={500}
-            aria-label={uz.ai.dizayn_tavsifi}
+            aria-label={t("ai.dizayn_tavsifi")}
             className="w-full resize-none rounded-2xl bg-soft px-3 py-2 text-sm shadow-soft-pressed focus:outline-none focus:shadow-soft-pressed-deep disabled:opacity-60"
           />
           <div className="flex items-center gap-2">
@@ -297,7 +299,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               ref={fileInput}
               type="file"
               accept={IMAGE_TYPES.join(",")}
-              aria-label={uz.ai.rasm_input}
+              aria-label={t("ai.rasm_input")}
               className="hidden"
               onChange={(e) => pickImage(e.target.files?.[0])}
             />
@@ -308,14 +310,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-[#3B63DE] hover:text-[#3B63DE] disabled:opacity-60"
             >
               <ImagePlus size={14} aria-hidden="true" />
-              {uz.ai.rasm_qoshish}
+              {t("ai.rasm_qoshish")}
             </button>
             {previewUrl && (
               <div className="relative">
-                <img src={previewUrl} alt={uz.ai.rasm_preview} className="h-12 w-12 rounded-xl object-cover" />
+                <img src={previewUrl} alt={t("ai.rasm_preview")} className="h-12 w-12 rounded-xl object-cover" />
                 <button
                   type="button"
-                  aria-label={uz.ai.rasm_olib_tashlash}
+                  aria-label={t("ai.rasm_olib_tashlash")}
                   onClick={removeImage}
                   disabled={running}
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white"
@@ -327,10 +329,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
           </div>
           {pinUrl ? (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-[#E60023]/10 px-3 py-1.5 text-xs font-semibold text-[#B8001C]">{uz.ai.pin_chip}</span>
+              <span className="rounded-full bg-[#E60023]/10 px-3 py-1.5 text-xs font-semibold text-[#B8001C]">{t("ai.pin_chip")}</span>
               <button
                 type="button"
-                aria-label={uz.ai.pin_olib_tashlash}
+                aria-label={t("ai.pin_olib_tashlash")}
                 onClick={() => setPinUrl(null)}
                 disabled={running}
                 className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white"
@@ -346,16 +348,16 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               onPaste={pastePin}
               onBlur={() => commitPinInput()}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPinInput() } }}
-              placeholder={uz.ai.pin_placeholder}
-              aria-label={uz.ai.pin_label}
+              placeholder={t("ai.pin_placeholder")}
+              aria-label={t("ai.pin_label")}
               disabled={running}
               className="w-full rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3B63DE]/40"
             />
           )}
           {imageError && <p role="alert" className="text-xs text-red-600">{imageError}</p>}
-          <p className="pt-1 text-xs font-semibold text-gray-500">{uz.ai.ai_namunalari}</p>
+          <p className="pt-1 text-xs font-semibold text-gray-500">{t("ai.ai_namunalari")}</p>
           <div className="flex flex-wrap gap-1.5">
-            {uz.ai.dizayner_misollar.map((example) => (
+            {t("ai.dizayner_misollar", { returnObjects: true }).map((example) => (
               <button
                 key={example}
                 type="button"
@@ -372,14 +374,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
             disabled={!canSend}
             className="w-full rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] py-3 text-sm font-semibold text-white shadow-soft-accent transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0"
           >
-            {running ? uz.ai.oylayapti : plan ? uz.ai.boshqa_variant : pinUrl ? uz.ai.pindan_yarat : image ? uz.ai.rasmdan_yarat : uz.ai.dizayn_yarat}
+            {running ? t("ai.oylayapti") : plan ? t("ai.boshqa_variant") : pinUrl ? t("ai.pindan_yarat") : image ? t("ai.rasmdan_yarat") : t("ai.dizayn_yarat")}
           </button>
         </form>
 
         {error && !running && (
           <div role="alert" className="space-y-1">
             <p className="text-sm text-red-600">{error}</p>
-            <p className="text-xs text-gray-600">{uz.ai.ai_ishlamadi_uslub}</p>
+            <p className="text-xs text-gray-600">{t("ai.ai_ishlamadi_uslub")}</p>
           </div>
         )}
 
@@ -390,11 +392,11 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               <p className="mt-1 text-sm leading-snug text-gray-700">{plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
               {plan.pin_image_url && (
-                <img src={plan.pin_image_url} alt={uz.ai.pin_asosida} title={uz.ai.pin_asosida} className="mt-2 h-20 rounded-xl object-cover" />
+                <img src={plan.pin_image_url} alt={t("ai.pin_asosida")} title={t("ai.pin_asosida")} className="mt-2 h-20 rounded-xl object-cover" />
               )}
             </div>
 
-            <PartRow id="walls" title={plan.trim ? uz.ai.qism_devor_shift : uz.ai.qism_devor} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>
+            <PartRow id="walls" title={plan.trim ? t("ai.qism_devor_shift") : t("ai.qism_devor")} enabled={!!main} checked={parts.walls} onChange={(on) => changeParts({ ...parts, walls: on })}>
               {main?.type === "paint" && <Swatch color={main.color} label={main.color} />}
               {main?.type === "oboy" && (
                 <span className="inline-flex flex-wrap items-center gap-2">
@@ -405,19 +407,19 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               )}
               {plan.walls.accent && (
                 <span className="ml-3 inline-flex items-center gap-1.5">
-                  {plan.walls.accent.wall} {uz.ai.chetki_devor}: <Swatch color={plan.walls.accent.color} />
+                  {plan.walls.accent.wall} {t("ai.chetki_devor")}: <Swatch color={plan.walls.accent.color} />
                 </span>
               )}
               {plan.trim && (
                 <span className="mt-1 block text-xs text-gray-600">
-                  {uz.ai.shift_label}: {ceilingDesign(plan.trim.ceiling.design).label}
+                  {t("ai.shift_label")}: {ceilingDesign(plan.trim.ceiling.design).label}
                   {", "}
-                  {plan.trim.cornice ? `${uz.ai.galtel_label} ${trimProfileDef(plan.trim.cornice.id, "cornice").label}` : uz.ai.galtel_yoq}
+                  {plan.trim.cornice ? `${t("ai.galtel_label")} ${trimProfileDef(plan.trim.cornice.id, "cornice").label}` : t("ai.galtel_yoq")}
                 </span>
               )}
             </PartRow>
 
-            <PartRow id="floor" title={uz.ai.qism_pol} enabled={!!plan.floor} checked={parts.floor} onChange={(on) => changeParts({ ...parts, floor: on })}>
+            <PartRow id="floor" title={t("ai.qism_pol")} enabled={!!plan.floor} checked={parts.floor} onChange={(on) => changeParts({ ...parts, floor: on })}>
               {plan.floor && (
                 <span className="inline-flex flex-wrap items-center gap-2">
                   <span>{plan.floor.type}{plan.floor.pattern ? ` · ${plan.floor.pattern}` : ""}</span>
@@ -426,16 +428,16 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               )}
             </PartRow>
 
-            <PartRow id="lights" title={uz.ai.qism_chiroq} enabled={lightNames.length > 0} checked={parts.lights} onChange={(on) => changeParts({ ...parts, lights: on })}>
+            <PartRow id="lights" title={t("ai.qism_chiroq")} enabled={lightNames.length > 0} checked={parts.lights} onChange={(on) => changeParts({ ...parts, lights: on })}>
               {lightNames.join(", ")}
             </PartRow>
 
-            <PartRow id="furniture" title={uz.ai.qism_mebel} enabled={plan.furniture.length > 0} checked={parts.furniture} onChange={(on) => changeParts({ ...parts, furniture: on })}>
+            <PartRow id="furniture" title={t("ai.qism_mebel")} enabled={plan.furniture.length > 0} checked={parts.furniture} onChange={(on) => changeParts({ ...parts, furniture: on })}>
               {plan.furniture.map((f) => `${f.name} (${zoneLabel(f.zone)})`).join(", ")}
             </PartRow>
 
-            {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{uz.ai.mebel_topilmadi}</p>}
-            <p className="text-[11px] leading-snug text-gray-500">{uz.ai.izoh_qoshimcha}</p>
+            {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{t("ai.mebel_topilmadi")}</p>}
+            <p className="text-[11px] leading-snug text-gray-500">{t("ai.izoh_qoshimcha")}</p>
 
             {undo && (
               <button
@@ -443,7 +445,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
                 onClick={() => void revert()}
                 className="w-full rounded-full border-2 border-gray-300 py-2.5 text-sm font-semibold text-gray-700 hover:border-[#3B63DE]"
               >
-                {uz.ai.qaytarish}
+                {t("ai.qaytarish")}
               </button>
             )}
           </section>
@@ -462,17 +464,17 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
         {/* The message is what says whether it was saved: it wraps rather than being cut, and on a narrow
             screen the buttons drop to a row of their own. */}
         <div className="min-w-0 flex-1 basis-[11rem]">
-          <p className="truncate text-sm font-bold text-gray-900">{plan?.title ?? uz.ai.qollandi_sarlavha}</p>
+          <p className="truncate text-sm font-bold text-gray-900">{plan?.title ?? t("ai.qollandi_sarlavha")}</p>
           <p className="text-xs leading-snug text-gray-600">{notice}</p>
         </div>
         <div className="ml-auto flex items-center gap-1">
         <button type="button" onClick={() => void revert()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">
-          {uz.ai.qaytarish}
+          {t("ai.qaytarish")}
         </button>
         <button type="button" onClick={() => onOpenChange(true)} className="rounded-full bg-[#3B63DE]/10 px-3 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20">
-          {uz.ai.batafsil}
+          {t("ai.batafsil")}
         </button>
-        <button type="button" onClick={() => setBarHidden(true)} aria-label={uz.common.yopish} className="px-1 text-gray-400 hover:text-gray-700">✕</button>
+        <button type="button" onClick={() => setBarHidden(true)} aria-label={t("common.yopish")} className="px-1 text-gray-400 hover:text-gray-700">✕</button>
         </div>
       </div>
     )}

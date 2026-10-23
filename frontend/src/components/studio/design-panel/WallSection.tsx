@@ -2,7 +2,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials, previewEstimate } from "@/lib/api";
 import type { Room, Material } from "@/lib/api";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, resolveWallColor } from "@/store/roomStore";
 import type { WallCovering, DesignState } from "@/store/roomStore";
 import { computeOboyRolls } from "@/lib/oboySmeta";
@@ -59,6 +59,7 @@ export function WallSection({
   room, selectedWall, onWallChange, syncToApi, applyWallCovering,
   handleSetPaintColor, handleSetFloorType, renderTexturePicker, applyWallpaper,
 }: WallSectionProps) {
+  const { t } = useTranslation()
   const textureUvwIdBase = React.useId();
   const designState = useRoomStore((s) => s.designState);
   const geometry = useRoomStore((s) => s.geometry);
@@ -226,7 +227,7 @@ export function WallSection({
       {/* Paint colors */}
       {coveringMode === "paint" && (
         <section className="pt-5 border-t border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.devor_rangi")}</h3>
           <div className="flex flex-wrap gap-2">
             {WALL_COLORS.map((color) => {
               const isSelected = wallColorForPreview === color;
@@ -261,7 +262,7 @@ export function WallSection({
 
           {(boyoqProducts.length > 0 || boyoqQuery) && (
             <div className="mt-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t("studio.dokondan_tanlang")}</h3>
               <input
                 type="text"
                 value={boyoqQuery}
@@ -284,7 +285,7 @@ export function WallSection({
                     ))}
                   </div>
                   <p className="text-[11px] text-gray-500 mt-1.5">
-                    Do'kondan tanlangan rang smetaga aniq narx bilan kiradi.
+                    {t("studio.rang_dokon_izoh")}
                   </p>
                 </>
               )}
@@ -314,7 +315,7 @@ export function WallSection({
                       onClick={() => applyWallCovering({ kind: 'paint', color: '#F5F0E8' })}
                       className="text-xs text-red-400 hover:text-red-600 mt-0.5"
                     >
-                      O'chirish
+                      {t("common.ochirish")}
                     </button>
                   </div>
                 </div>
@@ -335,7 +336,7 @@ export function WallSection({
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${textureUvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">Vertikal cho'zish</label>
+                      <label htmlFor={`${textureUvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">{t("studio.vertikal_cho_zish")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{c.repeatY.toFixed(2)}×</span>
                     </div>
                     <input id={`${textureUvwIdBase}-scale-y`} type="range" min="0.1" max="4" step="0.05" value={c.repeatY}

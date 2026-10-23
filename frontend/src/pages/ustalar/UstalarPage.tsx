@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { getUstalar, createLead } from "@/lib/api";
 import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Usta, UstalarParams } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +26,7 @@ function UstaCard({
   usta: Usta;
   onContact: (usta: Usta) => void;
 }) {
+  const { t } = useTranslation()
   return (
     <Panel interactive className="flex animate-pop-in flex-col gap-4 p-5">
       <div className="flex items-start gap-3.5">
@@ -44,7 +45,7 @@ function UstaCard({
             <StarRating rating={usta.rating} />
             {usta.verified && (
               <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-500">
-                ✓ {uz.ustalar.verified}
+                ✓ {t("ustalar.verified")}
               </span>
             )}
           </div>
@@ -53,20 +54,20 @@ function UstaCard({
 
       <div className="grid grid-cols-2 gap-2.5">
         <Tile className="p-3">
-          <p className="text-xs font-medium text-ink-muted">{uz.ustalar.tajriba}</p>
+          <p className="text-xs font-medium text-ink-muted">{t("ustalar.tajriba")}</p>
           <p className="mt-0.5 text-lg font-extrabold tabular-nums text-ink">{usta.jobs_count}</p>
         </Tile>
         <Tile className="p-3">
-          <p className="text-xs font-medium text-ink-muted">{uz.ustalar.narx}</p>
+          <p className="text-xs font-medium text-ink-muted">{t("ustalar.narx")}</p>
           <p className="mt-0.5 text-sm font-extrabold tabular-nums text-ink">
             {usta.price_min.toLocaleString()} – {usta.price_max.toLocaleString()}
           </p>
-          <p className="text-[11px] text-ink-muted">{uz.ustalar.soum_m2}</p>
+          <p className="text-[11px] text-ink-muted">{t("ustalar.soum_m2")}</p>
         </Tile>
       </div>
 
       <Button variant="primary" className="w-full" onClick={() => onContact(usta)}>
-        {uz.ustalar.usta_chaqirish}
+        {t("ustalar.usta_chaqirish")}
       </Button>
     </Panel>
   );
@@ -80,6 +81,7 @@ interface ContactModalProps {
 }
 
 function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
+  const { t } = useTranslation()
   const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [success, setSuccess] = useState(false);
@@ -101,31 +103,31 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
           <div className="text-center py-6">
             <p className="text-4xl mb-4">✓</p>
             <h3 className="text-lg font-bold text-success mb-2">
-              {uz.ustalar.muvaffaqiyat}
+              {t("ustalar.muvaffaqiyat")}
             </h3>
-            <Button className="mt-4" onClick={onClose}>{uz.common.yopish}</Button>
+            <Button className="mt-4" onClick={onClose}>{t("common.yopish")}</Button>
           </div>
         ) : (
           <>
             <h2 className="text-lg font-bold text-neutral-900 mb-4">
-              {usta.name} {uz.ustalar.boglaning}
+              {usta.name} {t("ustalar.boglaning")}
             </h2>
             <div className="space-y-3">
               <label className="block">
                 <span className="text-sm font-medium text-neutral-700">
-                  {uz.auth.telefon}
+                  {t("auth.telefon")}
                 </span>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }}
-                  placeholder={uz.auth.telefon_placeholder}
+                  placeholder={t("auth.telefon_placeholder")}
                   className="mt-1 block w-full rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-neutral-700">
-                  {uz.ustalar.izoh}
+                  {t("ustalar.izoh")}
                 </span>
                 <textarea
                   value={message}
@@ -139,16 +141,16 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
             {phoneError ? (
               <p role="alert" className="mt-3 text-sm text-red-600">{PHONE_ERROR}</p>
             ) : mutation.isError && (
-              <p role="alert" className="mt-3 text-sm text-red-600">{uz.errors.nomalum_xato}</p>
+              <p role="alert" className="mt-3 text-sm text-red-600">{t("errors.nomalum_xato")}</p>
             )}
             <div className="mt-5 flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={onClose}>{uz.common.bekor}</Button>
+              <Button variant="secondary" className="flex-1" onClick={onClose}>{t("common.bekor")}</Button>
               <Button
                 className="flex-1"
                 onClick={() => (isUzPhone(phone) ? mutation.mutate() : setPhoneError(true))}
                 disabled={mutation.isPending || !phone}
               >
-                {mutation.isPending ? uz.common.yuklanmoqda : uz.ustalar.yuborish}
+                {mutation.isPending ? t("common.yuklanmoqda") : t("ustalar.yuborish")}
               </Button>
             </div>
           </>
@@ -158,14 +160,15 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
   );
 }
 
-const SORT_OPTIONS: { key: UstalarParams["sort"]; label: string }[] = [
-  { key: undefined, label: uz.ustalar.hammasi },
-  { key: "rating", label: uz.ustalar.eng_yaxshi },
-  { key: "price_asc", label: uz.ustalar.narxi_arzon },
-  { key: "price_desc", label: uz.ustalar.narxi_qimmat },
+const SORT_OPTIONS: { key: UstalarParams["sort"]; label: "ustalar.hammasi" | "ustalar.eng_yaxshi" | "ustalar.narxi_arzon" | "ustalar.narxi_qimmat" }[] = [
+  { key: undefined, label: "ustalar.hammasi" },
+  { key: "rating", label: "ustalar.eng_yaxshi" },
+  { key: "price_asc", label: "ustalar.narxi_arzon" },
+  { key: "price_desc", label: "ustalar.narxi_qimmat" },
 ];
 
 export default function UstalarPage() {
+  const { t } = useTranslation()
   const [sort, setSort] = useState<UstalarParams["sort"]>(undefined);
   const [selectedUsta, setSelectedUsta] = useState<Usta | null>(null);
   const roomId = useSearchParams()[0].get("room") ?? undefined;
@@ -181,8 +184,8 @@ export default function UstalarPage() {
         {/* The title, what the page is for, and how the list is ordered. */}
         <Panel className="mb-5 flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-[28px] font-extrabold leading-tight text-ink">{uz.ustalar.sarlavha}</h1>
-            <p className="mt-1 text-sm text-ink-muted">Tasdiqlangan ustalarni toping va ular bilan bog'laning.</p>
+            <h1 className="text-[28px] font-extrabold leading-tight text-ink">{t("ustalar.sarlavha")}</h1>
+            <p className="mt-1 text-sm text-ink-muted">{t("ustalar.tavsif")}</p>
           </div>
           <div role="group" aria-label="Saralash" className="flex flex-wrap gap-2 self-start">
             {SORT_OPTIONS.map((opt) => (
@@ -198,7 +201,7 @@ export default function UstalarPage() {
                     : "bg-card-soft text-ink-muted hover:text-ink"
                 )}
               >
-                {opt.label}
+                {t(opt.label)}
               </button>
             ))}
           </div>
@@ -214,11 +217,11 @@ export default function UstalarPage() {
           )}
 
           {isError && (
-            <p className="py-8 text-center text-red-500">{uz.errors.tarmoq_xatosi}</p>
+            <p className="py-8 text-center text-red-500">{t("errors.tarmoq_xatosi")}</p>
           )}
 
           {!isLoading && !isError && ustalar.length === 0 && (
-            <p className="py-12 text-center text-on-app-muted">{uz.empty.ustalar_yoq}</p>
+            <p className="py-12 text-center text-on-app-muted">{t("empty.ustalar_yoq")}</p>
           )}
 
           {!isLoading && !isError && ustalar.length > 0 && (

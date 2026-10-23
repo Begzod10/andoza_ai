@@ -9,7 +9,7 @@ import {
   createShareLink, revokeShareLink,
 } from "@/lib/api";
 import type { Room } from "@/lib/api";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
@@ -25,6 +25,7 @@ import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 const getIsDirty = () => useRoomStore.getState().isDirty;
 
 export default function StudioPage() {
+  const { t } = useTranslation()
   // Opened by direct link, outside AppShell — apply the theme here too.
   useAppThemeAttribute();
   // A pinch here is for the 3D view; the page itself must not zoom, or the
@@ -469,7 +470,7 @@ export default function StudioPage() {
             <button
               onClick={handleSave}
               disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
-              title={saveStatus === 'error' ? uz.errors.server_xato : "Saqlash"}
+              title={saveStatus === 'error' ? t("errors.server_xato") : t("common.saqlash")}
               className={[
                 "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
                 "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
@@ -501,7 +502,7 @@ export default function StudioPage() {
                   : saveStatus === 'saved'
                     ? 'Saqlandi'
                     : saveStatus === 'error'
-                      ? uz.errors.server_xato
+                      ? t("errors.server_xato")
                       : 'Saqlash'}
               </span>
             </button>
@@ -534,7 +535,7 @@ export default function StudioPage() {
                   }}
                   className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
                 >
-                  O'chirish
+                  {t("common.ochirish")}
                 </button>
             </StudioMenu>
               {sharePopoverOpen && (
@@ -562,7 +563,7 @@ export default function StudioPage() {
                   {!shareBusy && shareToken && (
                     <>
                       <p className="text-[11px] text-ink-muted mb-2">
-                        Bu havolaga ega bo'lgan har kim xonani faqat ko'rishi mumkin — tahrirlash imkonsiz.
+                        {t("studio.havola_faqat_korish")}
                       </p>
                       <div className="flex items-center gap-1.5">
                         <input
@@ -591,7 +592,7 @@ export default function StudioPage() {
                         onClick={handleRevokeShareLink}
                         className="mt-2.5 w-full text-left text-[11px] text-red-500 hover:bg-red-500/10 rounded-md px-2 py-1.5 font-medium transition-colors"
                       >
-                        Bekor qilish
+                        {t("common.bekor")}
                       </button>
                     </>
                   )}
@@ -625,7 +626,7 @@ export default function StudioPage() {
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-full">
-              <span className="text-muted animate-pulse">{uz.common.yuklanmoqda}</span>
+              <span className="text-muted animate-pulse">{t("common.yuklanmoqda")}</span>
             </div>
           }
         >

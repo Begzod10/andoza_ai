@@ -1,6 +1,6 @@
 import * as React from "react"
 import { BottomSheet } from "@/components/ui/BottomSheet"
-import { uz } from "@/locale/uz"
+import { useTranslation } from "react-i18next";
 import { smetaAsk } from "@/lib/api"
 
 interface SmetaAskDrawerProps {
@@ -17,18 +17,14 @@ interface ChatMessage {
   text: string
 }
 
-const SUGGESTED = [
-  uz.ai.tavsiya_1,
-  uz.ai.tavsiya_2,
-  uz.ai.tavsiya_3,
-]
-
 export function SmetaAskDrawer({
   open,
   onOpenChange,
   roomId,
   onHighlight,
 }: SmetaAskDrawerProps) {
+  const { t } = useTranslation()
+  const suggested = [t("ai.tavsiya_1"), t("ai.tavsiya_2"), t("ai.tavsiya_3")]
   const [input, setInput] = React.useState("")
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [loading, setLoading] = React.useState(false)
@@ -57,7 +53,7 @@ export function SmetaAskDrawer({
         onHighlight(res.related_line_ids)
       }
     } catch (exc: unknown) {
-      const msg = exc instanceof Error ? exc.message : uz.errors.nomalum_xato
+      const msg = exc instanceof Error ? exc.message : t("errors.nomalum_xato")
       setError(msg)
     } finally {
       setLoading(false)
@@ -73,7 +69,7 @@ export function SmetaAskDrawer({
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
-      title={uz.ai.smeta_sarlavha}
+      title={t("ai.smeta_sarlavha")}
       defaultSnap="full"
     >
       <div className="flex flex-col h-full pb-4 px-4 gap-3">
@@ -81,8 +77,8 @@ export function SmetaAskDrawer({
         <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
           {messages.length === 0 && (
             <div className="space-y-2 mt-2">
-              <p className="text-sm text-muted">{uz.ai.smeta_savol_hint}</p>
-              {SUGGESTED.map((s) => (
+              <p className="text-sm text-muted">{t("ai.smeta_savol_hint")}</p>
+              {suggested.map((s) => (
                 <button
                   key={s}
                   onClick={() => handleAsk(s)}
@@ -132,7 +128,7 @@ export function SmetaAskDrawer({
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={uz.ai.smeta_placeholder}
+            placeholder={t("ai.smeta_placeholder")}
             disabled={loading}
             className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-60"
           />
@@ -141,7 +137,7 @@ export function SmetaAskDrawer({
             disabled={loading || !input.trim()}
             className="px-4 py-2 text-sm font-semibold rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] text-white shadow-soft-accent hover:-translate-y-[1px] active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0 disabled:active:scale-100 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus"
           >
-            {uz.ai.yuborish}
+            {t("ai.yuborish")}
           </button>
         </form>
       </div>

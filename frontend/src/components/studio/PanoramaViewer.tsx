@@ -4,7 +4,7 @@ import {
   DEFAULT_VIEW, KEY_STEP, applyDrag, capVelocity, clampFov, clampPitch, decayVelocity, pinchFov, wrapYaw, zoomFov,
   type PanoView,
 } from "@/lib/panoramaView";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 
 type Status = "loading" | "ready" | "failed";
 
@@ -24,6 +24,7 @@ const AUTO_ROTATE_RAD_PER_MS = 0.00018; // a full turn in about 35 s
  * plain image instead of nothing.
  */
 export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
+  const { t } = useTranslation()
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [autoRotate, setAutoRotate] = useState(false);
@@ -258,7 +259,7 @@ export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt:
       <div className={`relative overflow-hidden ${className}`}>
         <img src={src} alt={alt} className="h-full w-full object-cover" />
         <p className="absolute inset-x-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-center text-[11px] text-white">
-          {uz.render.viewer.ochilmadi}
+          {t("render.viewer.ochilmadi")}
         </p>
       </div>
     );
@@ -295,17 +296,17 @@ export function PanoramaViewer({ src, alt, className = "" }: { src: string; alt:
         className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-black/70"
       >
         <span aria-hidden>{expanded ? "✕" : "⛶"}</span>
-        {expanded ? uz.common.yopish : uz.render.viewer.toliq}
+        {expanded ? t("common.yopish") : t("render.viewer.toliq")}
       </button>
       {status === "ready" && (
         <p style={bottomInset} className="pointer-events-none absolute bottom-2 left-2 max-w-[60%] rounded-lg bg-black/45 px-2 py-1 text-[10px] leading-tight text-white/90">
-          {uz.render.viewer.maslahat}
+          {t("render.viewer.maslahat")}
         </p>
       )}
       <div style={bottomInset} className="absolute bottom-2 right-2 flex gap-1.5">
         {([
-          [uz.render.viewer.avto, () => setAutoRotate((v) => !v), autoRotate, "↻"],
-          [uz.render.viewer.boshiga, () => resetRef.current(), undefined, "⟲"],
+          [t("render.viewer.avto"), () => setAutoRotate((v) => !v), autoRotate, "↻"],
+          [t("render.viewer.boshiga"), () => resetRef.current(), undefined, "⟲"],
         ] as const).map(([label, onClick, pressed, icon]) => (
           <button
             key={label}

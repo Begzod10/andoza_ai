@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listWallpapers, uploadWallpaper } from "@/lib/api";
 import type { FloorPatternSettings } from "@/lib/floorGeometry";
 import { useRoomStore } from "@/store/roomStore";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { FLOOR_TYPES } from "./shared";
 import { FloorPatternGroup, SkirtingGroup } from "./FloorControls";
 
@@ -17,6 +17,7 @@ import { FloorPatternGroup, SkirtingGroup } from "./FloorControls";
 export function FloorSection({ onSetFloorType }: {
   onSetFloorType(type: string): void;
 }) {
+  const { t } = useTranslation()
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
   // Until the user picks something the 3D view shows a neutral floor, not the
@@ -96,10 +97,10 @@ export function FloorSection({ onSetFloorType }: {
 
   return (
     <section>
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.pol_turi")}</h3>
       {!floorConfigured && !floorTexture && !floorPattern && (
         <p className="mb-2 text-[11px] leading-snug text-gray-500">
-          Pol hali tanlanmagan. Tur tanlang, u 3D da darhol ko'rinadi.
+          {t("studio.pol_tanlanmagan")}
         </p>
       )}
       <div className="space-y-2">
@@ -185,7 +186,7 @@ export function FloorSection({ onSetFloorType }: {
             Teksturani olib tashlash
           </button>
         )}
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">O'z rasmingiz</h3>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">{t("studio.oz_rasmingiz")}</h3>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
         <button
           onClick={() => { setError(null); fileRef.current?.click(); }}
@@ -211,7 +212,7 @@ export function FloorSection({ onSetFloorType }: {
               onClick={() => applyTexture(null)}
               className="text-xs text-red-500 hover:text-red-600 font-medium"
             >
-              O'chirish
+              {t("common.ochirish")}
             </button>
           </div>
         )}

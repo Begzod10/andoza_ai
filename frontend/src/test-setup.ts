@@ -3,6 +3,10 @@
 // with "Invalid Chai property" instead of a real assertion result.
 import "@testing-library/jest-dom";
 
+// The suite's texts are Uzbek: pin the interface language so a developer's
+// browser or OS language never changes what the tests see.
+import { applyLanguage } from "@/i18n";
+
 // Neither jsdom nor Node gives these tests a working Web Storage here: Node's
 // own `localStorage` global is inert without --localstorage-file, and this
 // jsdom build exposes none on `window`. Zustand's persist middleware reads the
@@ -42,3 +46,5 @@ if (!("ResizeObserver" in globalThis)) {
     disconnect() {}
   };
 }
+
+applyLanguage("uz");

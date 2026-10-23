@@ -2,7 +2,8 @@ import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMaterials, uploadWallpaper } from "@/lib/api";
 import type { Material } from "@/lib/api";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { useRoomStore } from "@/store/roomStore";
 import { useDebounce } from "@/hooks/useDebounce";
 import { FLOOR_TYPES } from "./shared";
@@ -27,6 +28,7 @@ const DEFAULT_FLOOR_TEX_SETTINGS = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY
 export function WallFloorTargetPanel({ handleSetFloorType }: {
   handleSetFloorType(type: string): void;
 }) {
+  const { t } = useTranslation()
   const uvwIdBase = React.useId();
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
@@ -161,7 +163,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
       {floorMode === 'turi' && (
         <section>
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.pol_turi")}</h3>
           <div className="space-y-2">
             {FLOOR_TYPES.map((ft) => (
               <button
@@ -180,7 +182,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
           {floorMaterialCategory && (
             <div className="mt-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Do'kondan tanlang</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t("studio.dokondan_tanlang")}</h3>
               <input
                 type="text"
                 value={floorQuery}
@@ -213,14 +215,14 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                           />
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">{product.name_uz}</p>
-                            <p className="text-xs text-muted">{product.price_uzs.toLocaleString("uz-UZ")} so'm/{product.unit}</p>
+                            <p className="text-xs text-muted">{t("common.price_per_unit", { price: product.price_uzs.toLocaleString(intlLocale()), unit: product.unit })}</p>
                           </div>
                         </button>
                       );
                     })}
                   </div>
                   <p className="text-[11px] text-gray-500 mt-1.5">
-                    Do'kondan tanlangan pol materiali smetaga aniq narx bilan kiradi.
+                    {t("studio.pol_dokon_izoh")}
                   </p>
                 </>
               )}
@@ -271,7 +273,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                       onClick={() => applyFloorImage(null)}
                       className="text-xs text-red-400 hover:text-red-600 mt-0.5"
                     >
-                      O'chirish
+                      {t("common.ochirish")}
                     </button>
                   </div>
                 </div>
@@ -282,8 +284,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                     nothing; the Naqsh settings above are the knobs then. */}
                 {floorPattern ? (
                   <p className="text-[11px] text-gray-500 leading-snug">
-                    Naqsh yoqilgan — rasm har bir taxtaga alohida yopishtiriladi.
-                    O'lchamini "Naqsh → Sozlamalar" dan o'zgartiring.
+                    {t("studio.naqsh_yoqilgan")}
                   </p>
                 ) : (
                 <div className="space-y-2.5 p-3 bg-gray-50 rounded-xl border border-gray-100">

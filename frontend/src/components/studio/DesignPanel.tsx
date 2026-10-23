@@ -6,7 +6,7 @@ import {
 } from "@/lib/api";
 import type { Room, Wallpaper } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, DEFAULT_DESIGN_STATE } from "@/store/roomStore";
 import type { WallCovering, FloorType, DesignState } from "@/store/roomStore";
 import { LightPanel } from "@/components/studio/LightPanel";
@@ -35,6 +35,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   /** A 2D plan is on screen, so the palette arms rather than auto-places. */
   planMode?: boolean;
 }) {
+  const { t } = useTranslation()
   useRestoreUserModels()
 
   const designState = useRoomStore((s) => s.designState);
@@ -263,8 +264,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
                     // thumbnail grid, so only the tappable area grows.
                     <button
                       onClick={() => handleWallpaperDelete(w)}
-                      title="Kutubxonadan o'chirish"
-                      aria-label="Kutubxonadan o'chirish"
+                      title={t("studio.kutubxonadan_ochirish")}
+                      aria-label={t("studio.kutubxonadan_ochirish")}
                       className="absolute -top-[18px] -right-[18px] w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-500"
                     >
                       <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow text-[10px] leading-none">
@@ -276,8 +277,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               ))}
             </div>
             <p className="text-[10px] leading-4 text-gray-500">
-              Yuklangan rasmlar hamma foydalanuvchilar uchun saqlanadi
-              {isAdmin ? '.' : "; ularni faqat administrator o'chira oladi."}
+              {isAdmin ? t("studio.yuklangan_rasmlar_admin") : t("studio.yuklangan_rasmlar")}
             </p>
           </div>
         )}
@@ -381,10 +381,10 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
         {phase === 'montaj' && <MontajSection />}
 
         {mutation.isPending && (
-          <p className="text-xs text-muted animate-pulse">{uz.common.saqlash}...</p>
+          <p className="text-xs text-muted animate-pulse">{t("common.saqlash")}...</p>
         )}
         {mutation.isError && (
-          <p className="text-xs text-amber-600">Oflayn rejimda — o'zgarishlar saqlandi</p>
+          <p className="text-xs text-amber-600">{t("studio.oflayn_saqlandi")}</p>
         )}
 
         {/* Reset button — separated with its own divider from whatever setting
@@ -399,25 +399,25 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
               onClick={armReset}
               className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors"
             >
-              Dizaynni bekor qilish
+              {t("studio.dizaynni_bekor_qilish")}
             </button>
           ) : (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
               <p className="text-sm font-semibold text-red-700">
-                Ishonchingiz komilmi? Barcha dizayn o'zgarishlari o'chiriladi.
+                {t("studio.dizaynni_bekor_tasdiq")}
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={cancelReset}
                   className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Bekor qilish
+                  {t("common.bekor")}
                 </button>
                 <button
                   onClick={confirmReset}
                   className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  Ha, o'chirish
+                  {t("studio.ha_ochirish")}
                 </button>
               </div>
             </div>

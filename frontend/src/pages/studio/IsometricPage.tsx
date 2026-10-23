@@ -2,7 +2,7 @@ import * as React from "react";
 import { useOutletContext } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { updateRoom } from "@/lib/api";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, resolveWallColor, resolveWallCovering } from "@/store/roomStore";
 import type { WallCovering } from "@/store/roomStore";
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
@@ -30,6 +30,7 @@ const FLOOR_TYPES = [
 ]
 
 export default function IsometricPage() {
+  const { t } = useTranslation()
   const { room } = useOutletContext<StudioContext>();
   const { designState, setDesignState, setWallCovering, geometry, ceilingHeight } = useRoomStore();
 
@@ -298,7 +299,7 @@ export default function IsometricPage() {
 
         {coveringMode === 'paint' && (
           <section className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.devor_rangi")}</h3>
             <div className="flex flex-wrap gap-2">
               {WALL_COLORS.map((color) => (
                 <button
@@ -373,7 +374,7 @@ export default function IsometricPage() {
 
         {/* Floor type */}
         <section className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.pol_turi")}</h3>
           <div className="space-y-2">
             {FLOOR_TYPES.map((ft) => (
               <button
@@ -409,10 +410,10 @@ export default function IsometricPage() {
         )}
 
         {mutation.isPending && (
-          <p className="text-xs text-muted animate-pulse mt-2">{uz.common.saqlash}...</p>
+          <p className="text-xs text-muted animate-pulse mt-2">{t("common.saqlash")}...</p>
         )}
         {mutation.isError && (
-          <p className="text-xs text-amber-600 mt-2">Oflayn rejimda — o'zgarishlar saqlandi</p>
+          <p className="text-xs text-amber-600 mt-2">{t("studio.oflayn_saqlandi")}</p>
         )}
       </aside>
     </div>

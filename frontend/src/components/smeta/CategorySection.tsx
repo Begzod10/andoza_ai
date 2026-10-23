@@ -1,6 +1,7 @@
 import { ChevronDown, Armchair, Grid3x3, Hammer, Layers, Package, PaintRoller, Zap, type LucideIcon } from "lucide-react";
 import { GROUP_COLOUR, formatQuantity, formatShare, type GroupKey, type LineGroup } from "@/lib/smetaGroups";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 
 const GROUP_ICON: Record<GroupKey, LucideIcon> = {
   tayyorlash: Hammer,
@@ -39,6 +40,7 @@ export function CategorySection({
   /** Line positions (as strings) the AI helper just pointed at. */
   highlighted: Set<string>;
 }) {
+  const { t } = useTranslation()
   const Icon = GROUP_ICON[group.key];
   const colour = GROUP_COLOUR[group.key];
   const panelId = `smeta-group-${group.key}`;
@@ -60,9 +62,9 @@ export function CategorySection({
           <Icon size={20} strokeWidth={2.2} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-ink">{uz.smeta.toifa[group.key]}</span>
+          <span className="block font-semibold text-ink">{t(`smeta.toifa.${group.key}`)}</span>
           <span className="block text-xs text-ink-muted">
-            {group.items.length} {uz.smeta.qator} · {formatShare(group.share)}
+            {t("smeta.qator", { count: group.items.length })} · {formatShare(group.share)}
           </span>
         </span>
         <span className="text-right font-bold tabular-nums text-ink">{fmt(group.subtotal)}</span>
@@ -89,13 +91,13 @@ export function CategorySection({
                   {line.label}
                   {line.price_source === "market" && (
                     <span className="ml-2 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 align-middle text-[11px] font-medium text-emerald-500">
-                      {uz.smeta.bozor_belgi}
+                      {t("smeta.bozor_belgi")}
                     </span>
                   )}
                   {line.is_approximate && (
                     // orange-cta is the brand orange darkened to 5.2:1 on white (the plain brand orange is 2.8:1). The default Tailwind orange-700 does not exist here: `orange` is a single colour in the config.
                     <span className="ml-2 inline-block rounded-full bg-orange-500/15 px-2 py-0.5 align-middle text-[11px] font-medium text-orange-500">
-                      {uz.smeta.taxminiy}
+                      {t("smeta.taxminiy")}
                     </span>
                   )}
                 </p>
@@ -105,12 +107,12 @@ export function CategorySection({
                 {line.price_source === "market" && (
                   <p className="mt-0.5 text-xs leading-snug text-emerald-500">
                     {line.store_name}
-                    {line.price_checked_at && ` · ${new Date(line.price_checked_at).toLocaleDateString("uz-UZ")}`}
+                    {line.price_checked_at && ` · ${new Date(line.price_checked_at).toLocaleDateString(intlLocale())}`}
                     {line.source_url && /^https?:\/\//i.test(line.source_url) && (
                       <>
                         {" · "}
                         <a href={line.source_url} target="_blank" rel="noopener noreferrer" className="underline">
-                          {uz.smeta.bozor_manba}
+                          {t("smeta.bozor_manba")}
                         </a>
                       </>
                     )}
@@ -118,7 +120,7 @@ export function CategorySection({
                 )}
                 {line.price_source !== "market" && line.store_name && (
                   <p className="mt-0.5 text-xs leading-snug text-ink-muted">
-                    {uz.smeta.dokon}: {line.store_name}
+                    {t("smeta.dokon")}: {line.store_name}
                   </p>
                 )}
                 {line.formula && !repeatsQuantityLine(line) && <p className="mt-0.5 text-xs leading-snug text-ink-muted">{line.formula}</p>}

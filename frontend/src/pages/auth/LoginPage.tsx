@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { loginWithGoogle, loginWithPassword, registerUser } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import RegisterBackground from "./RegisterBackground";
 import GoogleSignInButton from "./GoogleSignInButton";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +35,7 @@ function PasswordInput({
   autoComplete?: string;
   autoFocus?: boolean;
 }) {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -52,8 +53,8 @@ function PasswordInput({
         type="button"
         onClick={() => setShow((s) => !s)}
         tabIndex={-1}
-        aria-label={show ? "Parolni yashirish" : "Parolni ko'rsatish"}
-        title={show ? "Parolni yashirish" : "Parolni ko'rsatish"}
+        aria-label={show ? t("auth.parolni_yashirish") : t("auth.parolni_korsatish")}
+        title={show ? t("auth.parolni_yashirish") : t("auth.parolni_korsatish")}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink transition-colors"
       >
         {show ? <EyeOffIcon /> : <EyeIcon />}
@@ -83,6 +84,7 @@ function EyeOffIcon() {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate();
   const location = useLocation();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
@@ -181,7 +183,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm rounded-3xl border border-line bg-card/90 p-8 shadow-panel backdrop-blur-xl">
         {mode === "login" ? (
           <>
-            <h2 className="text-xl font-extrabold text-ink mb-5">Kirish</h2>
+            <h2 className="text-xl font-extrabold text-ink mb-5">{t("auth.kirish")}</h2>
             <div className="space-y-4">
               <div>
                 <label className={LABEL}>Username</label>
@@ -211,26 +213,26 @@ export default function LoginPage() {
             {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{error}</p>}
 
             <Button size="lg" className="mt-6 w-full" onClick={handleLogin} disabled={loading}>
-              {loading ? uz.common.yuklanmoqda : "Kirish"}
+              {loading ? t("common.yuklanmoqda") : t("auth.kirish")}
             </Button>
 
             <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
 
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-muted">
-                Akkauntingiz yo'qmi?{' '}
+                {t("auth.akkaunt_yoqmi")}{' '}
                 <button
                   onClick={() => switchMode("register")}
                   className="font-bold text-accent hover:underline transition-colors"
                 >
-                  Ro'yxatdan o'tish
+                  {t("auth.royxatdan_otish")}
                 </button>
               </p>
             </div>
           </>
         ) : (
           <>
-            <h2 className="text-xl font-extrabold text-ink mb-5">Ro'yxatdan o'tish</h2>
+            <h2 className="text-xl font-extrabold text-ink mb-5">{t("auth.royxatdan_otish")}</h2>
             <div className="space-y-4">
               <div>
                 <label className={LABEL}>Ism (ixtiyoriy)</label>
@@ -279,7 +281,7 @@ export default function LoginPage() {
             {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{error}</p>}
 
             <Button size="lg" className="mt-6 w-full" onClick={handleRegister} disabled={loading}>
-              {loading ? uz.common.yuklanmoqda : "Ro'yxatdan o'tish"}
+              {loading ? t("common.yuklanmoqda") : t("auth.royxatdan_otish")}
             </Button>
 
             <GoogleSignInButton onCredential={handleGoogleCredential} theme={theme} />
@@ -291,7 +293,7 @@ export default function LoginPage() {
                   onClick={() => switchMode("login")}
                   className="font-bold text-accent hover:underline transition-colors"
                 >
-                  Kirish
+                  {t("auth.kirish")}
                 </button>
               </p>
             </div>

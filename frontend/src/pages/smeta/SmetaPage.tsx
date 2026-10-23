@@ -3,9 +3,10 @@ import { useToast } from "@/components/ui/Toast";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createEstimate, previewEstimate, getEstimatePDF, getRoom } from "@/lib/api";
+import { intlLocale } from "@/i18n";
 import { formatUZS, formatUSDFromUZS } from "@/lib/utils";
 import { groupEstimateLines, groupKeyFor, totalsFor, type GroupKey } from "@/lib/smetaGroups";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import type { EstimateResponse } from "@/lib/api";
 import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
 import { CategorySection } from "@/components/smeta/CategorySection";
@@ -57,6 +58,7 @@ function floorNote(
 }
 
 export default function SmetaPage() {
+  const { t } = useTranslation()
   // Opened by direct link, outside AppShell — apply the theme here too.
   useAppThemeAttribute();
   const { roomId } = useParams<{ roomId: string }>();
@@ -149,9 +151,9 @@ export default function SmetaPage() {
       setEstimate(data);
       const updated = data.market_updated ?? 0;
       setMarketMode(updated > 0);
-      setMarketNote(updated > 0 ? `${updated} ${uz.smeta.bozor_yangilandi}` : uz.smeta.bozor_topilmadi);
+      setMarketNote(updated > 0 ? t("smeta.bozor_yangilandi", { count: updated }) : t("smeta.bozor_topilmadi"));
     },
-    onError: (err) => setMarketError(errorDetail(err) ?? uz.smeta.bozor_xato),
+    onError: (err) => setMarketError(errorDetail(err) ?? t("smeta.bozor_xato")),
   });
 
   // Explicit save — the only path that persists a snapshot. A separate
@@ -193,7 +195,7 @@ export default function SmetaPage() {
       const blob = await (marketMode ? getEstimatePDF(roomId, { market: true }) : getEstimatePDF(roomId));
       downloadBlob(blob, `smeta-${roomId}.pdf`);
     } catch {
-      toast({ variant: 'error', title: uz.errors.pdf_xato });
+      toast({ variant: 'error', title: t("errors.pdf_xato") });
     } finally {
       setPdfLoading(false);
     }
@@ -227,12 +229,12 @@ export default function SmetaPage() {
       {estimate && view && !heroVisible && (
         <div className="fixed inset-x-0 top-0 z-30 border-b border-line bg-card/95 shadow-panel backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{uz.smeta.jami}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t("smeta.jami")}</span>
             <span className="text-lg font-extrabold tabular-nums text-accent">{fmt(view.total)}</span>
             <button
               type="button"
               onClick={() => window.scrollTo?.({ top: 0, behavior: "smooth" })}
-              aria-label={uz.smeta.tepaga}
+              aria-label={t("smeta.tepaga")}
               className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-ink hover:border-brand-light hover:text-accent"
             >
               ↑
@@ -250,10 +252,10 @@ export default function SmetaPage() {
               to={`/studio/${roomId}`}
               className="text-ink-muted hover:text-ink text-sm"
             >
-              ← {uz.common.orqaga}
+              ← {t("common.orqaga")}
             </Link>
           </WebOnly>
-          <h1 className="text-xl font-bold text-ink">{uz.smeta.sarlavha}</h1>
+          <h1 className="text-xl font-bold text-ink">{t("smeta.sarlavha")}</h1>
           {room && (
             <span className="ml-auto text-sm text-ink-muted">
               {room.name}
@@ -289,20 +291,20 @@ export default function SmetaPage() {
         {!estimate && (
           <div className="text-center py-12">
             {mutation.isPending ? (
-              <p className="text-ink-muted animate-pulse">{uz.common.yuklanmoqda}</p>
+              <p className="text-ink-muted animate-pulse">{t("common.yuklanmoqda")}</p>
             ) : (
               <>
-                <p className="text-ink-muted mb-6">{uz.empty.smeta_yoq}</p>
+                <p className="text-ink-muted mb-6">{t("empty.smeta_yoq")}</p>
                 <button
                   onClick={() => mutation.mutate()}
                   className="bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow px-8 py-3 rounded-full font-semibold transition-all hover:-translate-y-px"
                 >
-                  {uz.smeta.hisoblash}
+                  {t("smeta.hisoblash")}
                 </button>
               </>
             )}
             {mutation.isError && (
-              <p className="mt-4 text-red-600 text-sm">{uz.errors.smeta_xato}</p>
+              <p className="mt-4 text-red-600 text-sm">{t("errors.smeta_xato")}</p>
             )}
           </div>
         )}
@@ -316,17 +318,17 @@ export default function SmetaPage() {
             <section ref={heroRef} className="rounded-3xl border border-line bg-card p-5 shadow-panel sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{uz.smeta.jami}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t("smeta.jami")}</p>
                   <p className="mt-1 text-3xl font-extrabold tabular-nums text-accent sm:text-4xl">
                     {fmt(view!.total)}
                   </p>
                   {/* Full-opacity brand is 7.4:1 on white; the /70 it replaced was 3.65:1. */}
                   <p className="mt-1 text-sm text-accent">
-                    {uz.smeta.diapazon}: {fmt(view!.min)} – {fmt(view!.max)}
+                    {t("smeta.diapazon")}: {fmt(view!.min)} – {fmt(view!.max)}
                   </p>
                   {view!.approx > 0 && (
                     <p className="mt-0.5 text-sm text-orange-500">
-                      {uz.smeta.shundan_taxminiy}: ~{fmt(view!.approx)}
+                      {t("smeta.shundan_taxminiy")}: ~{fmt(view!.approx)}
                     </p>
                   )}
                 </div>
@@ -364,13 +366,13 @@ export default function SmetaPage() {
                           includeFurniture === on ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow" : "text-ink-muted hover:text-ink"
                         }`}
                       >
-                        {on ? uz.smeta.mebel_bilan : uz.smeta.faqat_tamir}
+                        {on ? t("smeta.mebel_bilan") : t("smeta.faqat_tamir")}
                       </button>
                     ))}
                   </div>
                   {!includeFurniture && (
                     <span className="text-xs text-ink-muted">
-                      {uz.smeta.mebel_kirmagan}: {fmt(furnitureTotal)}
+                      {t("smeta.mebel_kirmagan")}: {fmt(furnitureTotal)}
                     </span>
                   )}
                 </div>
@@ -378,15 +380,15 @@ export default function SmetaPage() {
 
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl bg-card-soft px-4 py-3">
-                  <p className="text-xs text-ink-muted">{uz.smeta.minimal}</p>
+                  <p className="text-xs text-ink-muted">{t("smeta.minimal")}</p>
                   <p className="mt-0.5 font-bold tabular-nums text-ink">{fmt(view!.min)}</p>
                 </div>
                 <div className="rounded-2xl bg-card-soft px-4 py-3">
-                  <p className="text-xs text-ink-muted">{uz.smeta.maksimal}</p>
+                  <p className="text-xs text-ink-muted">{t("smeta.maksimal")}</p>
                   <p className="mt-0.5 font-bold tabular-nums text-ink">{fmt(view!.max)}</p>
                 </div>
                 <div className="col-span-2 rounded-2xl bg-card-soft px-4 py-3 sm:col-span-1">
-                  <p className="text-xs text-ink-muted">{uz.smeta.elektr_ishlari}</p>
+                  <p className="text-xs text-ink-muted">{t("smeta.elektr_ishlari")}</p>
                   <p className="mt-0.5 font-bold text-ink">
                     {estimate.has_electrical
                       ? estimate.electrical_confirmed
@@ -417,7 +419,7 @@ export default function SmetaPage() {
                     onClick={() => mutation.mutate()}
                     className="text-xs font-semibold underline"
                   >
-                    {uz.smeta.bozor_qaytish}
+                    {t("smeta.bozor_qaytish")}
                   </button>
                 )}
               </div>
@@ -433,7 +435,7 @@ export default function SmetaPage() {
                     onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))}
                     className="text-xs font-semibold text-accent hover:underline"
                   >
-                    {allFolded ? uz.smeta.hammasini_yoyish : uz.smeta.hammasini_yigish}
+                    {allFolded ? t("smeta.hammasini_yoyish") : t("smeta.hammasini_yigish")}
                   </button>
                 </div>
                 {groups.map((group) => (
@@ -457,7 +459,7 @@ export default function SmetaPage() {
                   disabled={pdfLoading}
                   className="flex items-center gap-2 bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow px-6 py-2.5 rounded-full text-sm font-semibold transition-all hover:-translate-y-px disabled:opacity-60"
                 >
-                  {pdfLoading ? uz.common.yuklanmoqda : uz.smeta.pdf_yuklab}
+                  {pdfLoading ? t("common.yuklanmoqda") : t("smeta.pdf_yuklab")}
                 </button>
                 {/* Only this button persists an Estimate row — opening the
                     page or hitting "Qayta hisoblash" is preview-only. */}
@@ -467,37 +469,37 @@ export default function SmetaPage() {
                   className="flex items-center gap-2 border-2 border-brand-light text-accent px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-brand-light/10 transition-colors disabled:opacity-60"
                 >
                   {saveMutation.isPending
-                    ? uz.common.yuklanmoqda
+                    ? t("common.yuklanmoqda")
                     : saveStatus === "saved"
-                      ? uz.smeta.saqlandi
-                      : uz.smeta.saqlash}
+                      ? t("smeta.saqlandi")
+                      : t("smeta.saqlash")}
                 </button>
               </div>
               {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className={secondaryButton}>
-                  {uz.smeta.qayta_hisoblash}
+                  {t("smeta.qayta_hisoblash")}
                 </button>
                 {estimate.market_prices_available && (
                   <button onClick={() => marketMutation.mutate()} disabled={marketMutation.isPending} className={secondaryButton}>
-                    {marketMutation.isPending ? uz.smeta.bozor_qidirilmoqda : uz.smeta.bozor_yangilash}
+                    {marketMutation.isPending ? t("smeta.bozor_qidirilmoqda") : t("smeta.bozor_yangilash")}
                   </button>
                 )}
                 <button onClick={() => setAskOpen(true)} className={secondaryButton}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
                   </svg>
-                  {uz.ai.smeta_sarlavha}
+                  {t("ai.smeta_sarlavha")}
                 </button>
                 <Link to={`/ustalar?room=${roomId}`} className={secondaryButton}>
-                  {uz.ustalar.usta_chaqirish}
+                  {t("ustalar.usta_chaqirish")}
                 </Link>
               </div>
             </div>
 
             <p className="text-xs text-on-app-muted">
               Hisoblab chiqildi:{" "}
-              {new Date(estimate.created_at).toLocaleString("uz-UZ")}
+              {new Date(estimate.created_at).toLocaleString(intlLocale())}
             </p>
           </div>
         )}

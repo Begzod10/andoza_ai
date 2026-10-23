@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Calculator, FolderOpen, LogOut, Store, User, Users, type LucideIcon } from "lucide-react";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { getMe, logoutApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ const MENU_ITEMS: Array<{ icon: LucideIcon; tone: "blue" | "orange" | "violet" |
 ];
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
   const user = useAuthStore((s) => s.user);
@@ -52,9 +53,9 @@ export default function ProfilePage() {
         <Panel className="relative mb-4 overflow-hidden p-6 lg:mb-0">
           <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#5B84F5]/30 blur-3xl" />
           <div className="relative flex items-center justify-between">
-            <h1 className="text-sm font-semibold text-ink-muted">{uz.nav.profil}</h1>
+            <h1 className="text-sm font-semibold text-ink-muted">{t("nav.profil")}</h1>
             <Button variant="soft" size="sm" onClick={handleLogout} leftIcon={<LogOut size={14} aria-hidden="true" />}>
-              {uz.auth.chiqish}
+              {t("auth.chiqish")}
             </Button>
           </div>
 
@@ -92,12 +93,12 @@ export default function ProfilePage() {
         </Panel>
 
         <Panel className="mt-4 border border-red-500/30 p-5 lg:col-start-2">
-          <h2 className="text-sm font-bold text-red-500">Hisobni o'chirish</h2>
+          <h2 className="text-sm font-bold text-red-500">{t("profile.hisobni_ochirish")}</h2>
           <p className="mt-1 text-xs text-ink-muted">
-            Hisobingiz, loyihalar, rasmlar va buyurtmalar butunlay o'chiriladi.
+            {t("profile.hisobni_ochirish_izoh")}
           </p>
           <Button variant="danger" size="sm" className="mt-3" onClick={() => setDeleting(true)}>
-            Hisobni o'chirish
+            {t("profile.hisobni_ochirish")}
           </Button>
         </Panel>
       </div>
