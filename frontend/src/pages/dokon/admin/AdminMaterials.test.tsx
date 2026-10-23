@@ -168,3 +168,12 @@ describe('AdminMaterials — tidy-ups', () => {
   })
 })
 
+describe('AdminMaterials — load errors', () => {
+  it("reports a list that won't load through the panel's error, like the other sections", async () => {
+    api.listAdminMaterials.mockRejectedValue(new Error(JSON.stringify({ detail: 'Server xatosi' })))
+    const { onError } = mount()
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('Server xatosi'))
+    expect(screen.getByText("Yuklab bo'lmadi")).toBeInTheDocument()
+  })
+})
+

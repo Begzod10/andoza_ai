@@ -29,8 +29,24 @@ _FIELDS = (
 )
 
 
+# Also checked, but set on the row separately from _FIELDS.
+_CHECKED = (*_FIELDS, "name_uz", "price_uzs")
+
+
+def _positive(value) -> bool:
+    return value is None or value > 0
+
+
 def _problem(m: dict) -> str | None:
     """First thing wrong with a material's (merged) state, or None."""
+    if not 1 <= len((m["name_uz"] or "").strip()) <= 200:
+        return "Nomi 1 dan 200 belgigacha bo'lishi kerak"
+    if not (m["price_uzs"] is not None and m["price_uzs"] > 0):
+        return "Narx musbat bo'lishi kerak"
+    if not _positive(m["pack_qty"]):
+        return "Qadoq hajmi musbat bo'lishi kerak"
+    if not (_positive(m["roll_width_cm"]) and _positive(m["roll_length_m"])):
+        return "Rulon o'lchami musbat bo'lishi kerak"
     if m["category"] not in MaterialCategory.enums:
         return "Kategoriya noto'g'ri"
     if m["unit"] not in MaterialUnit.enums:
@@ -105,7 +121,7 @@ async def list_materials(
     summary="Add a material (admin only)",
 )
 async def create_material(body: MaterialCreate, admin: AdminUser, db: DbSession) -> AdminMaterialOut:
-    problem = _problem({f: getattr(body, f) for f in _FIELDS})
+    problem = _problem({f: getattr(body, f) for f in _CHECKED})
     if problem:
         raise _reject(problem)
     store = await db.get(Store, body.store_id)
@@ -139,8 +155,8 @@ async def update_material(
         raise HTTPException(status_code=404, detail="Material topilmadi")
 
     changes = body.model_dump(exclude_unset=True)
-    merged = {f: getattr(material, f) for f in _FIELDS}
-    merged.update({k: v for k, v in changes.items() if k in _FIELDS})
+    merged = {f: getattr(material, f) for f in _CHECKED}
+    merged.update({k: v for k, v in changes.items() if k in _CHECKED})
     problem = _problem(merged)
     if problem:
         raise _reject(problem)
