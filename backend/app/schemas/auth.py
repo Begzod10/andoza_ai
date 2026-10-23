@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+LANGUAGES = ("uz", "ru", "en")
 
 _PHONE_RE = re.compile(r"^\+?998\d{9}$")
 
@@ -52,9 +55,14 @@ class UserOut(BaseModel):
     name: str | None
     # Admins may remove shared library content (uploaded wallpapers)
     is_admin: bool = False
+    language: str = "uz"
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MeUpdate(BaseModel):
+    language: Literal["uz", "ru", "en"]
 
 
 class LoginResponse(BaseModel):

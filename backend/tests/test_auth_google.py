@@ -55,6 +55,8 @@ class _FakeUserDb:
             obj.created_at = datetime.now(timezone.utc)
         if getattr(obj, "is_admin", None) is None:
             obj.is_admin = False
+        if getattr(obj, "language", None) is None:
+            obj.language = "uz"
         if getattr(obj, "is_active", None) is None:
             obj.is_active = True
 
@@ -152,7 +154,7 @@ def test_response_matches_password_login_shape(client, verifier):
     assert set(body) == {"user", "access_token", "refresh_token", "token_type"}
     assert body["access_token"] is None and body["refresh_token"] is None
     assert body["token_type"] == "bearer"
-    assert set(body["user"]) == {"id", "phone", "username", "name", "is_admin", "created_at"}
+    assert set(body["user"]) == {"id", "phone", "username", "name", "is_admin", "language", "created_at"}
 
 
 def test_native_client_gets_tokens_in_body(client, verifier):

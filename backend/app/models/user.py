@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,6 +12,9 @@ from app.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("language IN ('uz','ru','en')", name="ck_users_language"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -47,6 +50,10 @@ class User(Base):
     # Only admins may remove shared library content (e.g. uploaded wallpapers)
     is_admin: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
+    )
+    # Interface language the person chose (uz / ru / en)
+    language: Mapped[str] = mapped_column(
+        String(5), default="uz", server_default="uz", nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

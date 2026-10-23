@@ -18,7 +18,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
+from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, MeUpdate, OTPRequest, OTPVerify, RegisterRequest, UserOut
 
 def _hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
@@ -284,6 +284,22 @@ async def verify_otp_endpoint(
     summary="Return current user from cookie session",
 )
 async def get_me(current_user: CurrentUser) -> UserOut:
+    return UserOut.model_validate(current_user)
+
+
+@router.patch(
+    "/me",
+    response_model=UserOut,
+    summary="Update the current user's settings (interface language)",
+)
+async def update_me(
+    body: MeUpdate,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> UserOut:
+    current_user.language = body.language
+    db.add(current_user)
+    await db.flush()
     return UserOut.model_validate(current_user)
 
 

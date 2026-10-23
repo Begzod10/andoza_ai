@@ -145,6 +145,8 @@ class FakeDb:
             obj.is_active = True
         if getattr(obj, "is_admin", None) is None:
             obj.is_admin = False
+        if getattr(obj, "language", None) is None:
+            obj.language = "uz"
 
     async def flush(self) -> None:
         for obj in self._pending:

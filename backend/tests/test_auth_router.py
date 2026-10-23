@@ -87,6 +87,8 @@ class _FakeUserDb:
             obj.created_at = datetime.now(timezone.utc)
         if getattr(obj, "is_admin", None) is None:
             obj.is_admin = False
+        if getattr(obj, "language", None) is None:
+            obj.language = "uz"
 
 
 @pytest.fixture
