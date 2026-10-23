@@ -16,6 +16,7 @@ import { roomFootprint, computeAbsolutePositions } from "./helpers";
 import { isRoomVisible } from "@/lib/roomFocus";
 import { SiblingRoomBody } from "./SiblingRoomScene";
 import { useViewLockStore } from "@/store/viewLockStore";
+import { useRoomMoveStore } from "@/store/roomMoveStore";
 import type { RoomRenderPlan } from "@/lib/flatOpenings";
 
 /**
@@ -163,6 +164,10 @@ export function SiblingRooms({
   }, [rooms, activeId, activeW, activeD, activePos]);
 
   const locked = useViewLockStore((st) => st.locked);
+  // Deleting a room is a layout edit, like moving one: its button shows only
+  // while the move tool is picked up, so the flat is not dotted with red
+  // crosses while it is merely being looked at or decorated.
+  const moveMode = useRoomMoveStore((st) => st.active);
   return (
     <>
       {layout.map(({ room: sib, w, d, x, z }) => {
@@ -206,9 +211,9 @@ export function SiblingRooms({
                   focused={focusedRoomId === sib.id}
                   onClick={() => onToggleFocus(sib.id)}
                 />
-                {/* An edit, so it goes while the view is locked; focus is
-                    looking, so it stays. */}
-                {!locked && (
+                {/* An edit: only with the move tool picked up, and never while
+                    the view is locked; focus is looking, so it stays. */}
+                {moveMode && !locked && (
                   <button
                     style={SIBLING_DELETE_STYLE}
                     onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
