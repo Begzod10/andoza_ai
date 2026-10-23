@@ -4,6 +4,7 @@ import functools
 import uuid as uuid_module
 
 import structlog
+from redis.exceptions import RedisError
 from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -412,9 +413,11 @@ async def list_furniture_admin(
 
 # One AI style pass at a time: pressing the button again before the queue drains would
 # pay for every unstyled model a second time (the AI is called before the conditional
-# write). The lock simply expires; the queue for a few hundred models drains well within it.
+# write). The lock expires on its own; it is stretched to the batch so it outlives the
+# queue (about 5 s per model is generous with 4 worker slots and one AI call each).
 _BACKFILL_LOCK = "furniture:classify-styles:running"
 _BACKFILL_LOCK_SECONDS = 15 * 60
+_BACKFILL_SECONDS_PER_MODEL = 5
 
 
 async def _claim_backfill() -> bool:
@@ -424,6 +427,12 @@ async def _claim_backfill() -> bool:
 
 async def _release_backfill() -> None:
     await get_redis().delete(_BACKFILL_LOCK)
+
+
+async def _extend_backfill(count: int) -> None:
+    """Keep the lock until a batch of *count* models has had time to drain."""
+    seconds = max(_BACKFILL_LOCK_SECONDS, count * _BACKFILL_SECONDS_PER_MODEL + 300)
+    await get_redis().expire(_BACKFILL_LOCK, seconds)
 
 
 @router.post(
@@ -436,17 +445,31 @@ async def classify_unstyled_furniture(admin: AdminUser, db: DbSession) -> dict[s
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI hozir o'chirilgan",
         )
-    if not await _claim_backfill():
+    try:
+        claimed = await _claim_backfill()
+    except RedisError as exc:
+        # The broker is the same Redis: nothing could be queued anyway.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Navbat xizmati ishlamayapti",
+        ) from exc
+    if not claimed:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring",
         )
-    result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
-    ids = list(result.scalars().all())
-    if not ids:
+    try:
+        result = await db.execute(select(Furniture.id).where(Furniture.styles_source.is_(None)))
+        ids = list(result.scalars().all())
+        if not ids:
+            await _release_backfill()
+        else:
+            await _extend_backfill(len(ids))
+        for furniture_id in ids:
+            enqueue_style(str(furniture_id))
+    except Exception:
+        # Nothing (or not everything) was queued: don't keep the button locked for it.
         await _release_backfill()
-    for furniture_id in ids:
-        enqueue_style(str(furniture_id))
+        raise
     logger.info("furniture_style_backfill_queued", count=len(ids), admin_id=str(admin.id))
     return {"queued": len(ids)}
 

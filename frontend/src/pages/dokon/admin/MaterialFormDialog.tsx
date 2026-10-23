@@ -54,8 +54,10 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
 
   const isOboy = category === "oboy";
   const price = num(priceStr);
+  // Pack size and unit go together (the backend refuses one without the other).
+  const packMismatch = !!packQty.trim() !== !!packUnit;
   const valid = !!storeId && !!category && !!name.trim() && !!unit && price != null && Number.isFinite(price) && price > 0
-    && !!packQty.trim() === !!packUnit;
+    && !packMismatch;
 
   const pickSmetaKey = (id: string) => {
     setSmetaKey(id);
@@ -138,11 +140,9 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
           <Select themed label="Qadoq birligi" value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setAutofilled(false); }}>
             <option value="">— yo'q —</option>
             {PACK_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
-            {/* A unit saved before the list was fixed stays visible instead of silently blank. */}
-            {packUnit && !PACK_UNITS.some((u) => u.id === packUnit) && <option value={packUnit}>{packUnit}</option>}
           </Select>
         </div>
-        {!!packQty.trim() !== !!packUnit && (
+        {packMismatch && (
           <p className="-mt-2 text-xs text-ink-muted">Qadoq hajmi va birligini birga kiriting</p>
         )}
 

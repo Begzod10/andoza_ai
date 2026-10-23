@@ -63,13 +63,7 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   // (an effect would first fetch the new filter's old page).
   const filterBy = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPageNo(1); };
   useEffect(() => {
-    const t = setTimeout(() => {
-      const next = search.trim();
-      setQ((cur) => {
-        if (cur !== next) setPageNo(1);
-        return next;
-      });
-    }, SEARCH_DEBOUNCE_MS);
+    const t = setTimeout(() => { setQ(search.trim()); setPageNo(1); }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [search]);
 

@@ -240,10 +240,5 @@ describe('MaterialFormDialog — tidy-ups', () => {
     set('Qadoq birligi', 'kg')
     expect(screen.queryByText('Qadoq hajmi va birligini birga kiriting')).not.toBeInTheDocument()
   })
-
-  it('keeps showing a pack unit saved before the list was fixed', () => {
-    mount({ ...existing, pack_unit: 'sm' })
-    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('sm')
-  })
 })
 

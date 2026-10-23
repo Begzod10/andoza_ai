@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 # No `name=`: the default module-path name is what `app.tasks.*` in celery_app.py
 # routes to the "default" queue, which the prod worker consumes.
-# rate_limit: a big backfill must not take every slot of the worker that also sends
-# push notifications.
-@app.task(bind=True, max_retries=0, rate_limit="20/m")
+# No rate_limit: Celery parks rate-limited tasks in the prefetch window, which would
+# stop the same worker from taking push notifications for the whole backfill.
+@app.task(bind=True, max_retries=0)
 def classify_furniture_styles_task(self, furniture_id: str) -> dict:
     import asyncio
 
