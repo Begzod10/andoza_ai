@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Boxes, Plus } from "lucide-react";
 import {
@@ -80,6 +80,19 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
     placeholderData: keepPreviousData,
   });
   const stores = useQuery({ queryKey: ["admin", "stores"], queryFn: listAdminStores });
+  // A list that won't load is reported in the panel's error line, like the other sections,
+  // and that report is withdrawn once the list loads again. A list that never failed leaves
+  // the line alone: it is shared with the other admin sections.
+  const reportedLoadError = useRef(false);
+  useEffect(() => {
+    if (materials.error) {
+      onError(errorMessage(materials.error, "Materiallarni yuklab bo'lmadi"));
+      reportedLoadError.current = true;
+    } else if (materials.isSuccess && reportedLoadError.current) {
+      onError(null);
+      reportedLoadError.current = false;
+    }
+  }, [materials.error, materials.isSuccess, onError]);
 
   // The studio's paint, wallpaper and floor pickers list materials too (["materials", ...]).
   const refresh = () => {
@@ -126,7 +139,7 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
       {materials.isLoading ? (
         <div className="h-24 animate-pulse rounded-3xl bg-card" />
       ) : materials.isError ? (
-        <p className="text-sm text-red-500">{errorMessage(materials.error, "Materiallarni yuklab bo'lmadi")}</p>
+        <Panel className="px-4 py-6 text-center text-sm text-ink-muted">Yuklab bo'lmadi</Panel>
       ) : !data || data.items.length === 0 ? (
         <Panel className="px-4 py-6 text-center text-sm text-ink-muted">Material topilmadi.</Panel>
       ) : (

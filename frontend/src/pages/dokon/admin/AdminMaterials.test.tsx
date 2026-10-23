@@ -168,3 +168,28 @@ describe('AdminMaterials — tidy-ups', () => {
   })
 })
 
+describe('AdminMaterials — load errors', () => {
+  it("reports a list that won't load through the panel's error, like the other sections", async () => {
+    api.listAdminMaterials.mockRejectedValue(new Error(JSON.stringify({ detail: 'Server xatosi' })))
+    const { onError } = mount()
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('Server xatosi'))
+    expect(screen.getByText("Yuklab bo'lmadi")).toBeInTheDocument()
+  })
+
+  it('clears its own error once the list loads again, and leaves others alone otherwise', async () => {
+    api.listAdminMaterials.mockRejectedValueOnce(new Error(JSON.stringify({ detail: 'Server xatosi' })))
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const onError = vi.fn()
+    render(<QueryClientProvider client={qc}><AdminMaterials onError={onError} /></QueryClientProvider>)
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('Server xatosi'))
+    await qc.refetchQueries()
+    await waitFor(() => expect(onError).toHaveBeenLastCalledWith(null))
+  })
+
+  it('never clears the panel error when its own list never failed', async () => {
+    const { onError } = mount()
+    await screen.findByText('Gips suvoq')
+    expect(onError).not.toHaveBeenCalled()
+  })
+})
+
