@@ -11,6 +11,7 @@ vi.mock('@/lib/api', async () => {
     MATERIAL_CATEGORIES: consts.MATERIAL_CATEGORIES,
     MATERIAL_UNITS: consts.MATERIAL_UNITS,
     SMETA_KEYS: consts.SMETA_KEYS,
+    PACK_UNITS: consts.PACK_UNITS,
     createAdminMaterial: (...a: unknown[]) => api.createAdminMaterial(...a),
     updateAdminMaterial: (...a: unknown[]) => api.updateAdminMaterial(...a),
   }
@@ -98,12 +99,39 @@ describe('MaterialFormDialog pack unit', () => {
 
   it('never overwrites a pack unit the user entered, even after the key is removed and re-picked', () => {
     mount()
-    set('Qadoq birligi', 'qop')
+    set('Qadoq birligi', 'litr')
     set('Smeta kaliti', 'suvoq')
-    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('qop')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('litr')
     set('Smeta kaliti', '')
     set('Smeta kaliti', 'plintus')
-    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('qop')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('litr')
+  })
+
+  it('replaces a unit the previous key filled, but not one the user picked', () => {
+    mount()
+    set('Smeta kaliti', 'suvoq')
+    set('Smeta kaliti', 'plintus')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('m')
+    set('Smeta kaliti', 'kabel')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('')
+  })
+
+  it('keeps a picked unit when another key is chosen', () => {
+    mount()
+    set('Qadoq birligi', 'litr')
+    set('Smeta kaliti', 'suvoq')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('litr')
+  })
+
+  it('blocks Saqlash when only one of pack size and unit is filled', () => {
+    mount()
+    fillRequired()
+    set('Qadoq hajmi', '30')
+    expect(save()).toBeDisabled()
+    set('Qadoq birligi', 'kg')
+    expect(save()).toBeEnabled()
+    set('Qadoq hajmi', '')
+    expect(save()).toBeDisabled()
   })
 
   it('leaves the pack unit empty for a key without one', () => {

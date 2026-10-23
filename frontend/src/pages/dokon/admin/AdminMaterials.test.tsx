@@ -13,6 +13,7 @@ vi.mock('@/lib/api', async () => {
     MATERIAL_CATEGORIES: consts.MATERIAL_CATEGORIES,
     MATERIAL_UNITS: consts.MATERIAL_UNITS,
     SMETA_KEYS: consts.SMETA_KEYS,
+    PACK_UNITS: consts.PACK_UNITS,
     listAdminMaterials: (...a: unknown[]) => api.listAdminMaterials(...a),
     updateAdminMaterial: (...a: unknown[]) => api.updateAdminMaterial(...a),
     createAdminMaterial: (...a: unknown[]) => api.createAdminMaterial(...a),

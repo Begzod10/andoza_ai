@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
-  MATERIAL_CATEGORIES, MATERIAL_UNITS, SMETA_KEYS, createAdminMaterial, updateAdminMaterial,
+  MATERIAL_CATEGORIES, MATERIAL_UNITS, PACK_UNITS, SMETA_KEYS, createAdminMaterial, updateAdminMaterial,
   type AdminMaterial, type AdminStore, type MaterialInput,
 } from "@/lib/api";
 import { errorMessage } from "./errorMessage";
@@ -29,6 +29,8 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
   const [priceStr, setPriceStr] = useState("");
   const [packQty, setPackQty] = useState("");
   const [packUnit, setPackUnit] = useState("");
+  // True while the pack unit is one the smeta key filled in (not one the admin picked).
+  const [autofilled, setAutofilled] = useState(false);
   const [smetaKey, setSmetaKey] = useState("");
   const [rollWidth, setRollWidth] = useState("");
   const [rollLength, setRollLength] = useState("");
@@ -43,6 +45,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
     setPriceStr(str(material?.price_uzs));
     setPackQty(str(material?.pack_qty));
     setPackUnit(material?.pack_unit ?? "");
+    setAutofilled(false);
     setSmetaKey(material?.smeta_key ?? "");
     setRollWidth(str(material?.roll_width_cm));
     setRollLength(str(material?.roll_length_m));
@@ -51,13 +54,17 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
 
   const isOboy = category === "oboy";
   const price = num(priceStr);
-  const valid = !!storeId && !!category && !!name.trim() && !!unit && price != null && Number.isFinite(price) && price > 0;
+  const valid = !!storeId && !!category && !!name.trim() && !!unit && price != null && Number.isFinite(price) && price > 0
+    && !!packQty.trim() === !!packUnit;
 
   const pickSmetaKey = (id: string) => {
     setSmetaKey(id);
-    const needed = SMETA_KEYS.find((k) => k.id === id)?.packUnit;
-    // Only fill an empty field — never replace what the admin typed.
-    if (needed) setPackUnit((cur) => (cur.trim() ? cur : needed));
+    const needed = SMETA_KEYS.find((k) => k.id === id)?.packUnit ?? "";
+    // Fill an empty unit, or replace one the previous key filled; never replace one the admin picked.
+    if (!packUnit || autofilled) {
+      setPackUnit(needed);
+      setAutofilled(!!needed);
+    }
   };
 
   const save = useMutation({
@@ -69,7 +76,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
         unit,
         price_uzs: price as number,
         pack_qty: num(packQty),
-        pack_unit: packUnit.trim() || null,
+        pack_unit: packUnit || null,
         smeta_key: smetaKey || null,
         roll_width_cm: isOboy ? num(rollWidth) : null,
         roll_length_m: isOboy ? num(rollLength) : null,
@@ -117,7 +124,10 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
 
         <div className="grid grid-cols-2 gap-3">
           <Input themed label="Qadoq hajmi" type="number" min={0} step="any" value={packQty} onChange={(e) => setPackQty(e.target.value)} />
-          <Input themed label="Qadoq birligi" value={packUnit} onChange={(e) => setPackUnit(e.target.value)} placeholder="kg, m, m2" />
+          <Select themed label="Qadoq birligi" value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setAutofilled(false); }}>
+            <option value="">— yo'q —</option>
+            {PACK_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+          </Select>
         </div>
 
         <Select themed label="Smeta kaliti" value={smetaKey} onChange={(e) => pickSmetaKey(e.target.value)}>

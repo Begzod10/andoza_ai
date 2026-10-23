@@ -107,6 +107,15 @@ export const MATERIAL_UNITS: { id: string; label: string }[] = [
   { id: "komplekt", label: "komplekt" },
 ];
 
+/** Pack units the backend accepts (a pydantic pattern; anything else is a 422). */
+export const PACK_UNITS: { id: string; label: string }[] = [
+  { id: "kg", label: "kg" },
+  { id: "litr", label: "litr" },
+  { id: "m", label: "m" },
+  { id: "m2", label: "m²" },
+  { id: "dona", label: "dona" },
+];
+
 export interface SmetaKeyOption {
   id: string;
   label: string;
