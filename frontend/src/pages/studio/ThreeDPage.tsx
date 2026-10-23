@@ -360,12 +360,12 @@ export default function ThreeDPage() {
   // A fast path alongside the phase-stepper rail (SHOW_PHASE_STEPPER), not a
   // replacement for it: tapping a surface opens a ring of context icons at
   // the press point for quick edits without leaving the current phase.
-  const { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
+  const { radial, holdBind, closeRadial, dismissRadial: dismissRing, armedOpening, disarmOpening, armOpening } = useSurfaceRadialMenu(controlsRef);
   /** A tap away from an open ring. One tap selected the surface and opened
    *  its ring; one tap elsewhere takes both away — unless that tap was the
    *  second of a double tap arming a door, which keeps the door selected. */
   const dismissRadial = () => {
-    const armed = closeRadial();
+    const armed = dismissRing();
     if (armed) return;
     clearAllSelections();
     setSelectedWall(null);

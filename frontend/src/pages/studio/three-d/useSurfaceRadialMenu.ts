@@ -2,6 +2,22 @@ import { useRef, useState, type RefObject } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { armsForDragging } from "@/lib/doubleTapArm";
+import { createTrailingClickGuard } from "@/lib/trailingClick";
+
+/**
+ * One guard for the page: the click that trails a tap on the ring's backdrop
+ * is swallowed at the window, in the capture phase, before react-three-fiber
+ * can turn it into a tap on the wall underneath (lib/trailingClick).
+ */
+const trailingClick = createTrailingClickGuard();
+if (typeof window !== "undefined") {
+  window.addEventListener("click", (e) => {
+    if (!trailingClick.shouldSwallow(Date.now())) return;
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+}
 
 export type RadialState = {
   surface: RadialSurface;
@@ -121,6 +137,17 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     return armed;
   }
 
+  /**
+   * A tap away from the ring (its backdrop, or Escape): closes it, and
+   * swallows the click the tap trails — on a phone that click lands on
+   * whatever is under the finger now, the very wall the ring was opened on,
+   * and opened it again. @returns whether closing armed a door for dragging.
+   */
+  function dismissRadial(): boolean {
+    trailingClick.arm(Date.now());
+    return closeRadial();
+  }
+
   /** Pointer handlers to spread onto a surface's wrapping <group>. */
   function holdBind(surface: RadialSurface, wallId?: string, elId?: string) {
     return {
@@ -133,5 +160,5 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     };
   }
 
-  return { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening };
+  return { radial, holdBind, closeRadial, dismissRadial, armedOpening, disarmOpening, armOpening };
 }
