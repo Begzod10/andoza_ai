@@ -89,7 +89,7 @@ async def _load_all_materials(db: DbSession) -> dict[str, list[dict]]:
 
 
 async def _load_all_furniture(db: DbSession) -> list[dict]:
-    """Return [{id, name_uz, category, footprint_w, footprint_d}] for all active furniture."""
+    """Return [{id, name_uz, category, footprint_w, footprint_d, price_uzs, styles}] for all active furniture."""
     result = await db.execute(
         select(Furniture).where(Furniture.is_active.is_(True))
     )
@@ -101,6 +101,7 @@ async def _load_all_furniture(db: DbSession) -> list[dict]:
             "footprint_w": float(f.footprint_w) if f.footprint_w else None,
             "footprint_d": float(f.footprint_d) if f.footprint_d else None,
             "price_uzs": f.price_uzs,
+            "styles": list(f.styles or []),
         }
         for f in result.scalars().all()
     ]

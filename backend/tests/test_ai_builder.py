@@ -20,6 +20,7 @@ from app.services.ai_builder import (
     MAX_CONSECUTIVE_FAILURES,
     MAX_TOOL_CALLS,
     RoomDraft,
+    furniture_for_prompt,
     run_ai_builder,
 )
 
@@ -261,3 +262,52 @@ async def test_furniture_placement_out_of_bounds_rejected():
     ]
     assert placement_results
     assert placement_results[0]["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# Furniture styles (the mobile AI builder puts "<Style> uslubida." in front)
+# ---------------------------------------------------------------------------
+
+_STYLED = [
+    {"id": "1", "name_uz": "Klassik divan", "category": "sofa", "styles": ["klassik"]},
+    {"id": "2", "name_uz": "Oddiy divan", "category": "sofa", "styles": []},
+    {"id": "3", "name_uz": "Hi-tech divan", "category": "sofa", "styles": ["hitech", "zamonaviy"]},
+]
+
+
+def test_furniture_for_prompt_puts_the_named_style_first_then_unstyled():
+    ordered = furniture_for_prompt(_STYLED, "Hi-Tech uslubida. Divan qo'sh")
+    assert [i["id"] for i in ordered] == ["3", "2", "1"]
+
+
+def test_furniture_for_prompt_keeps_the_order_without_a_style():
+    assert furniture_for_prompt(_STYLED, "Divan qo'sh") == _STYLED
+
+
+@pytest.mark.asyncio
+async def test_list_furniture_shows_styles_in_the_requested_order():
+    """The agent's list_furniture result carries each piece's styles, the asked style first."""
+    call_count = 0
+
+    async def _fake_llm(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_mock_llm_response(tool_calls=[{"name": "list_furniture", "input": {}}])
+        return _make_mock_llm_response(text="Tayyor.")
+
+    with patch("app.services.ai_builder.call_llm", new=AsyncMock(side_effect=_fake_llm)):
+        events = await _collect(run_ai_builder(
+            user_id="u-style",
+            prompt="Klassik uslubida. Divan qo'sh",
+            room_state=FAKE_ROOM_STATE,
+            materials_by_category=FAKE_MATERIALS,
+            furniture_list=_STYLED,
+            estimate_fn=_noop_estimate,
+        ))
+
+    result = next(e for e in events if e["type"] == "tool_result" and e["name"] == "list_furniture")
+    assert result["ok"] is True
+    shown = json.loads(result["result"])
+    assert [i["id"] for i in shown] == ["1", "2", "3"]
+    assert shown[0]["styles"] == ["klassik"]
