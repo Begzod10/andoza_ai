@@ -230,3 +230,20 @@ describe('MaterialFormDialog backend errors', () => {
     expect(await screen.findByText('Input should be greater than 0')).toBeInTheDocument()
   })
 })
+
+describe('MaterialFormDialog — tidy-ups', () => {
+  it('says why Saqlash is off when only one pack field is filled', () => {
+    mount()
+    fillRequired()
+    set('Qadoq hajmi', '30')
+    expect(screen.getByText('Qadoq hajmi va birligini birga kiriting')).toBeInTheDocument()
+    set('Qadoq birligi', 'kg')
+    expect(screen.queryByText('Qadoq hajmi va birligini birga kiriting')).not.toBeInTheDocument()
+  })
+
+  it('keeps showing a pack unit saved before the list was fixed', () => {
+    mount({ ...existing, pack_unit: 'sm' })
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('sm')
+  })
+})
+

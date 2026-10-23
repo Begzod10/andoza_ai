@@ -34,8 +34,9 @@ const page = (items: unknown[]) => ({ items, total: items.length, page: 1, per_p
 
 function mount(onError = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const invalidate = vi.spyOn(qc, 'invalidateQueries')
   render(<QueryClientProvider client={qc}><AdminMaterials onError={onError} /></QueryClientProvider>)
-  return { onError }
+  return { onError, invalidate }
 }
 
 beforeEach(() => {
@@ -52,7 +53,7 @@ describe('AdminMaterials list', () => {
     mount()
     expect(await screen.findByText('Gips suvoq')).toBeInTheDocument()
     expect(screen.getAllByText('Qurilish Mart').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Gips/, { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByText('Gips', { selector: 'span', exact: true })).toBeInTheDocument()
     expect(screen.getByText("1 250 000 so'm / qop")).toBeInTheDocument()
     expect(screen.getByText('30 kg')).toBeInTheDocument()
     expect(screen.getByText('Smeta: Suvoq')).toBeInTheDocument()
@@ -139,3 +140,31 @@ describe('AdminCatalogPanel', () => {
     expect(await screen.findByRole('heading', { name: /^Materiallar/ })).toBeInTheDocument()
   })
 })
+
+describe('AdminMaterials — tidy-ups', () => {
+  it("flags a material whose shop is closed", async () => {
+    api.listAdminMaterials.mockResolvedValue(page([material({ store_open: false })]))
+    mount()
+    expect(await screen.findByText("Do'kon yopiq")).toBeInTheDocument()
+  })
+
+  it('hiding a material also refreshes the studio material lists', async () => {
+    const { invalidate } = mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Yashirish' }))
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['materials'] }))
+  })
+
+  it('moves between pages, and a filter change goes back to page 1 in one request', async () => {
+    api.listAdminMaterials.mockResolvedValue({ items: [material()], total: 45, page: 1, per_page: 20 })
+    mount()
+    await screen.findByText('Gips suvoq')
+    fireEvent.click(screen.getByRole('button', { name: 'Keyingi' }))
+    await waitFor(() => expect(lastCall()).toMatchObject({ page: 2 }))
+    const before = api.listAdminMaterials.mock.calls.length
+    fireEvent.change(screen.getByLabelText('Kategoriya'), { target: { value: 'boyoq' } })
+    await waitFor(() => expect(lastCall()).toMatchObject({ category: 'boyoq', page: 1 }))
+    const after = api.listAdminMaterials.mock.calls.slice(before).map((c) => c[0])
+    expect(after.some((f) => f.category === 'boyoq' && f.page === 2)).toBe(false)
+  })
+})
+

@@ -138,8 +138,13 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
           <Select themed label="Qadoq birligi" value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setAutofilled(false); }}>
             <option value="">— yo'q —</option>
             {PACK_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+            {/* A unit saved before the list was fixed stays visible instead of silently blank. */}
+            {packUnit && !PACK_UNITS.some((u) => u.id === packUnit) && <option value={packUnit}>{packUnit}</option>}
           </Select>
         </div>
+        {!!packQty.trim() !== !!packUnit && (
+          <p className="-mt-2 text-xs text-ink-muted">Qadoq hajmi va birligini birga kiriting</p>
+        )}
 
         <Select themed label="Smeta kaliti" value={smetaKey} onChange={(e) => pickSmetaKey(e.target.value)}>
           <option value="">— yo'q —</option>
