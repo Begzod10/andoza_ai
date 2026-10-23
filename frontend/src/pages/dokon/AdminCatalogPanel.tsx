@@ -4,6 +4,7 @@ import { CatalogOverview } from "./admin/CatalogOverview";
 import { StoreProfile } from "./admin/StoreProfile";
 import { ModerationQueue } from "./admin/ModerationQueue";
 import { AdminOrders } from "./admin/AdminOrders";
+import { AdminMaterials } from "./admin/AdminMaterials";
 
 /**
  * Admin-only surface on the Do'kon page: create shops, and upload the 3D
@@ -30,6 +31,8 @@ export default function AdminCatalogPanel() {
       {!selectedStore && <ModerationQueue onError={setError} />}
 
       {!selectedStore && <AdminOrders onError={setError} />}
+
+      {!selectedStore && <AdminMaterials onError={setError} />}
 
       {selectedStore ? (
         <StoreProfile
