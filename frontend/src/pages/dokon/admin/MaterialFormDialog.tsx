@@ -61,9 +61,20 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
     setSmetaKey(id);
     const needed = SMETA_KEYS.find((k) => k.id === id)?.packUnit ?? "";
     // Fill an empty unit, or replace one the previous key filled; never replace one the admin picked.
+    // Sold by the key's own unit (e.g. plintus by the metre) it needs no pack, so leave it empty.
     if (!packUnit || autofilled) {
-      setPackUnit(needed);
-      setAutofilled(!!needed);
+      const fill = needed === unit ? "" : needed;
+      setPackUnit(fill);
+      setAutofilled(!!fill);
+    }
+  };
+
+  const pickUnit = (next: string) => {
+    setUnit(next);
+    // A pack unit the key filled in is pointless once the product is sold by that unit itself.
+    if (autofilled && next === packUnit) {
+      setPackUnit("");
+      setAutofilled(false);
     }
   };
 
@@ -115,7 +126,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
         <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Birlik" value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <Select themed label="Birlik" value={unit} onChange={(e) => pickUnit(e.target.value)}>
             <option value="">— tanlang —</option>
             {MATERIAL_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
           </Select>

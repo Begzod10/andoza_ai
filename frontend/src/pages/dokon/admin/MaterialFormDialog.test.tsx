@@ -134,6 +134,30 @@ describe('MaterialFormDialog pack unit', () => {
     expect(save()).toBeDisabled()
   })
 
+  it('does not autofill a pack unit when the sale unit already is the key unit', () => {
+    mount()
+    fillRequired()
+    set('Birlik', 'm')
+    set('Smeta kaliti', 'plintus')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('')
+    expect(save()).toBeEnabled()
+  })
+
+  it('still autofills the pack unit when the sale unit differs from the key unit', () => {
+    mount()
+    set('Birlik', 'dona')
+    set('Smeta kaliti', 'plintus')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('m')
+  })
+
+  it('clears an autofilled pack unit when the sale unit becomes the key unit', () => {
+    mount()
+    set('Smeta kaliti', 'plintus')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('m')
+    set('Birlik', 'm')
+    expect(screen.getByLabelText('Qadoq birligi')).toHaveValue('')
+  })
+
   it('leaves the pack unit empty for a key without one', () => {
     mount()
     set('Smeta kaliti', 'kabel')
