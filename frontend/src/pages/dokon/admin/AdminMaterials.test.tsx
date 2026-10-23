@@ -5,7 +5,7 @@ import { AdminMaterials } from './AdminMaterials'
 import AdminCatalogPanel from '../AdminCatalogPanel'
 
 const api = vi.hoisted(() => ({
-  listAdminMaterials: vi.fn(), updateAdminMaterial: vi.fn(), listAdminStores: vi.fn(),
+  listAdminMaterials: vi.fn(), updateAdminMaterial: vi.fn(), listAdminStores: vi.fn(), createAdminMaterial: vi.fn(),
 }))
 vi.mock('@/lib/api', async () => {
   const consts = await vi.importActual<typeof import('@/lib/api/adminMaterials')>('@/lib/api/adminMaterials')
@@ -15,6 +15,7 @@ vi.mock('@/lib/api', async () => {
     SMETA_KEYS: consts.SMETA_KEYS,
     listAdminMaterials: (...a: unknown[]) => api.listAdminMaterials(...a),
     updateAdminMaterial: (...a: unknown[]) => api.updateAdminMaterial(...a),
+    createAdminMaterial: (...a: unknown[]) => api.createAdminMaterial(...a),
     listAdminStores: (...a: unknown[]) => api.listAdminStores(...a),
   }
 })
@@ -114,6 +115,19 @@ describe('AdminMaterials hide/show', () => {
     const { onError } = mount()
     fireEvent.click(await screen.findByRole('button', { name: 'Yashirish' }))
     await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(String)))
+  })
+})
+
+describe('AdminMaterials dialog', () => {
+  it("opens the form from Material qo'shish and from Tahrirlash", async () => {
+    mount()
+    await screen.findByText('Gips suvoq')
+    fireEvent.click(screen.getByRole('button', { name: "Material qo'shish" }))
+    expect(await screen.findByLabelText('Nomi')).toHaveValue('')
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByLabelText('Nomi')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Tahrirlash' }))
+    expect(await screen.findByLabelText('Nomi')).toHaveValue('Gips suvoq')
   })
 })
 

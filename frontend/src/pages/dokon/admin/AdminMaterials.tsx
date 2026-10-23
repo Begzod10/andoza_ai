@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { IconBubble, Panel } from "@/components/ui/Panel";
 import { errorMessage } from "./errorMessage";
+import { MaterialFormDialog } from "./MaterialFormDialog";
 
 const KEY = ["admin", "materials"] as const;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -54,8 +55,8 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   const [search, setSearch] = useState("");
   const [q, setQ] = useState("");
   const [pageNo, setPageNo] = useState(1);
-  // Dialog state. Task 5 wires `MaterialFormDialog` to this: 'new' = add, a material = edit, null = closed.
-  const [, setEditing] = useState<AdminMaterial | null | "new">(null);
+  // Dialog state: 'new' = add, a material = edit, null = closed.
+  const [editing, setEditing] = useState<AdminMaterial | null | "new">(null);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(search.trim()), SEARCH_DEBOUNCE_MS);
@@ -136,7 +137,13 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
           <Button size="sm" variant="soft" disabled={pageNo >= pages} onClick={() => setPageNo((p) => p + 1)}>Keyingi</Button>
         </div>
       )}
-      {/* Task 5: render <MaterialFormDialog> here, driven by the `editing` state above. */}
+      <MaterialFormDialog
+        open={editing !== null}
+        onOpenChange={(o) => { if (!o) setEditing(null); }}
+        material={editing === "new" ? null : editing}
+        stores={stores.data ?? []}
+        onSaved={() => { onError(null); void queryClient.invalidateQueries({ queryKey: KEY }); }}
+      />
     </section>
   );
 }
