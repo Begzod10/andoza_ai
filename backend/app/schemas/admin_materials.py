@@ -16,18 +16,24 @@ def _clean_key(value: str | None) -> str | None:
 
 
 class _MaterialFields(BaseModel):
-    # category/unit are checked against the DB enums in the router, so a bad
-    # value gets an Uzbek message instead of a pydantic one.
+    # category/unit, the positive numbers and the name's length are checked in the
+    # router (_problem), so a bad value gets an Uzbek message instead of pydantic's.
     category: str | None = None
-    name_uz: str | None = Field(default=None, min_length=1, max_length=200)
+    name_uz: str | None = None
     unit: str | None = None
-    price_uzs: int | None = Field(default=None, gt=0)
-    pack_qty: float | None = Field(default=None, gt=0)
+    price_uzs: int | None = None
+    pack_qty: float | None = None
     # Checked against PACK_UNITS in the router, for an Uzbek message.
     pack_unit: str | None = Field(default=None, max_length=10)
     smeta_key: str | None = Field(default=None, max_length=40)
-    roll_width_cm: float | None = Field(default=None, gt=0)
-    roll_length_m: float | None = Field(default=None, gt=0)
+    roll_width_cm: float | None = None
+    roll_length_m: float | None = None
+
+    @field_validator("name_uz", mode="before")
+    @classmethod
+    def _strip_name(cls, v):
+        # Stored as checked: the router measures the trimmed name, so it must save it too.
+        return v.strip() if isinstance(v, str) else v
 
     @field_validator("smeta_key", mode="before")
     @classmethod
@@ -38,9 +44,9 @@ class _MaterialFields(BaseModel):
 class MaterialCreate(_MaterialFields):
     store_id: UUID
     category: str
-    name_uz: str = Field(min_length=1, max_length=200)
+    name_uz: str
     unit: str
-    price_uzs: int = Field(gt=0)
+    price_uzs: int
     is_active: bool = True
 
 

@@ -84,6 +84,12 @@ class TestCreate:
         ({"roll_width_cm": 53}, "Rulon o'lchami faqat oboy uchun"),
         ({"smeta_key": "suvoq"}, "suvoq uchun qadoq birligi kg bo'lishi kerak"),
         ({"smeta_key": "nomalum"}, "Bunday smeta kaliti yo'q"),
+        ({"price_uzs": 0}, "Narx musbat bo'lishi kerak"),
+        ({"price_uzs": -5}, "Narx musbat bo'lishi kerak"),
+        ({"pack_qty": 0}, "Qadoq hajmi musbat bo'lishi kerak"),
+        ({"category": "oboy", "pack_qty": None, "pack_unit": None, "smeta_key": None, "roll_width_cm": 0}, "Rulon o'lchami musbat bo'lishi kerak"),
+        ({"name_uz": ""}, "Nomi 1 dan 200 belgigacha bo'lishi kerak"),
+        ({"name_uz": "x" * 201}, "Nomi 1 dan 200 belgigacha bo'lishi kerak"),
     ])
     def test_422_messages(self, client, override, msg):
         db = _admin_db(store=_store())
@@ -218,3 +224,33 @@ class TestPricePatch:
         _admin_db(material=m)
         r = client.patch(f"{URL}/{m.id}", json={"price_uzs": 61000})
         assert r.status_code == 200 and m.price_uzs == 61000 and m.category == "gips"
+
+
+class TestPatchNumbers:
+    def test_a_zero_price_edit_gets_the_uzbek_message(self, client):
+        m = _material()
+        _admin_db(material=m)
+        r = client.patch(f"{URL}/{m.id}", json={"price_uzs": 0})
+        assert r.status_code == 422 and r.json()["detail"] == "Narx musbat bo'lishi kerak"
+        assert m.price_uzs == 50000
+
+    def test_a_blank_name_edit_gets_the_uzbek_message(self, client):
+        m = _material()
+        _admin_db(material=m)
+        r = client.patch(f"{URL}/{m.id}", json={"name_uz": "  "})
+        assert r.status_code == 422 and r.json()["detail"] == "Nomi 1 dan 200 belgigacha bo'lishi kerak"
+
+
+
+class TestNameTrim:
+    def test_the_name_is_stored_trimmed(self, client):
+        db = _admin_db(store=_store())
+        r = client.post(URL, json=_body(name_uz="  Galtel 2m  "))
+        assert r.status_code == 201 and db.add.call_args[0][0].name_uz == "Galtel 2m"
+
+    def test_a_padded_name_over_200_characters_is_refused_not_a_500(self, client):
+        _admin_db(store=_store())
+        r = client.post(URL, json=_body(name_uz=" " * 10 + "x" * 195))
+        assert r.status_code == 201  # 195 characters once trimmed: fine
+        r = client.post(URL, json=_body(name_uz=" " * 10 + "x" * 201))
+        assert r.status_code == 422 and r.json()["detail"] == "Nomi 1 dan 200 belgigacha bo'lishi kerak"
