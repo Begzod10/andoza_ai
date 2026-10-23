@@ -8,6 +8,7 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, Up
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.i18n import translate_detail
 from app.api.v1.deps import AdminUser, CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.models.store import Store
@@ -158,7 +159,7 @@ async def upload_wallpaper(
     if kind is not None and kind not in _ALLOWED_KINDS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Noto'g'ri kind — ruxsat etilgan: {', '.join(sorted(_ALLOWED_KINDS))}",
+            detail=translate_detail("Noto'g'ri kind — ruxsat etilgan: {allowed}", allowed=', '.join(sorted(_ALLOWED_KINDS))),
         )
     store: Store | None = None
     if store_id is not None:
@@ -172,12 +173,12 @@ async def upload_wallpaper(
         if value is not None and value <= 0:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"{field_name} musbat son bo'lishi kerak",
+                detail=translate_detail("{field_name} musbat son bo'lishi kerak", field_name=field_name),
             )
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Faqat rasm yuklash mumkin ({', '.join(sorted(_EXT_BY_TYPE.values()))})",
+            detail=translate_detail("Faqat rasm yuklash mumkin ({formats})", formats=', '.join(sorted(_EXT_BY_TYPE.values()))),
         )
 
     file_bytes = await file.read()
@@ -189,7 +190,7 @@ async def upload_wallpaper(
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Rasm hajmi {_MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+            detail=translate_detail("Rasm hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_FILE_SIZE_BYTES // (1024 * 1024)),
         )
 
     # Same image twice → same entry, so the library doesn't fill up with copies.

@@ -10,6 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.i18n import translate_detail
 from app.api.v1.deps import AdminUser, DbSession
 from app.config import settings
 from app.core.cache import cache_delete_prefix, get_redis
@@ -36,6 +37,7 @@ from app.schemas.admin_catalog import (
     UstaAdminOut,
     UstaCreate,
     UstaUpdate,
+    FURNITURE_STYLES,
     normalize_styles,
     parse_styles_form,
 )
@@ -121,7 +123,7 @@ async def create_store(payload: StoreCreate, admin: AdminUser, db: DbSession) ->
     if payload.partner_tier not in PARTNER_TIERS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"partner_tier {', '.join(sorted(PARTNER_TIERS))} dan biri bo'lishi kerak",
+            detail=translate_detail("partner_tier {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PARTNER_TIERS))),
         )
 
     store = Store(
@@ -165,7 +167,7 @@ async def update_store(
     if payload.partner_tier is not None and payload.partner_tier not in PARTNER_TIERS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"partner_tier {', '.join(sorted(PARTNER_TIERS))} dan biri bo'lishi kerak",
+            detail=translate_detail("partner_tier {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PARTNER_TIERS))),
         )
 
     result = await db.execute(select(Store).where(Store.id == store_id))
@@ -262,22 +264,22 @@ async def upload_furniture_model(
     if category not in FURNITURE_CATEGORIES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"category {', '.join(sorted(FURNITURE_CATEGORIES))} dan biri bo'lishi kerak",
+            detail=translate_detail("category {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(FURNITURE_CATEGORIES))),
         )
     if room_type is not None and room_type not in ROOM_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri (yoki bo'sh) bo'lishi kerak",
+            detail=translate_detail("room_type {allowed} dan biri (yoki bo'sh) bo'lishi kerak", allowed=', '.join(sorted(ROOM_TYPES))),
         )
     if placement not in PLACEMENTS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak",
+            detail=translate_detail("placement {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PLACEMENTS))),
         )
     try:
         style_list = parse_styles_form(styles)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=translate_detail("styles {allowed} dan bo'lishi kerak", allowed=", ".join(FURNITURE_STYLES))) from exc
     if price_uzs is not None and price_uzs < 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -302,7 +304,7 @@ async def upload_furniture_model(
     if len(glb_bytes) > _MAX_GLB_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fayl hajmi {_MAX_GLB_SIZE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+            detail=translate_detail("Fayl hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_GLB_SIZE_BYTES // (1024 * 1024)),
         )
 
     thumbnail_key: str | None = None
@@ -316,7 +318,7 @@ async def upload_furniture_model(
         if len(thumb_bytes) > _MAX_THUMBNAIL_SIZE_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Rasm hajmi {_MAX_THUMBNAIL_SIZE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+                detail=translate_detail("Rasm hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_THUMBNAIL_SIZE_BYTES // (1024 * 1024)),
             )
         if len(thumb_bytes) > 0:
             ext = _EXT_BY_THUMBNAIL_TYPE.get(thumbnail.content_type or "", "jpg")
@@ -489,17 +491,17 @@ async def update_furniture(
     if payload.category is not None and payload.category not in FURNITURE_CATEGORIES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"category {', '.join(sorted(FURNITURE_CATEGORIES))} dan biri bo'lishi kerak",
+            detail=translate_detail("category {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(FURNITURE_CATEGORIES))),
         )
     if payload.room_type is not None and payload.room_type not in ROOM_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri bo'lishi kerak",
+            detail=translate_detail("room_type {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(ROOM_TYPES))),
         )
     if payload.placement is not None and payload.placement not in PLACEMENTS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak",
+            detail=translate_detail("placement {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PLACEMENTS))),
         )
 
     result = await db.execute(
@@ -518,7 +520,7 @@ async def update_furniture(
                 updates["styles"] = normalize_styles(updates["styles"])
                 updates["styles_source"] = "manual"
             except ValueError as exc:
-                raise HTTPException(status_code=422, detail=str(exc)) from exc
+                raise HTTPException(status_code=422, detail=translate_detail("styles {allowed} dan bo'lishi kerak", allowed=", ".join(FURNITURE_STYLES))) from exc
     new_store: Store | None = furniture.store
     if "store_id" in updates:
         if updates["store_id"] is None:
@@ -590,7 +592,7 @@ async def create_usta(payload: UstaCreate, admin: AdminUser, db: DbSession) -> U
     if payload.category not in USTA_CATEGORIES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"category {', '.join(sorted(USTA_CATEGORIES))} dan biri bo'lishi kerak",
+            detail=translate_detail("category {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(USTA_CATEGORIES))),
         )
     _validate_usta_prices(payload.price_min, payload.price_max)
 
@@ -687,7 +689,7 @@ async def update_usta(
     if payload.category is not None and payload.category not in USTA_CATEGORIES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"category {', '.join(sorted(USTA_CATEGORIES))} dan biri bo'lishi kerak",
+            detail=translate_detail("category {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(USTA_CATEGORIES))),
         )
 
     result = await db.execute(select(Usta).where(Usta.id == usta_id))

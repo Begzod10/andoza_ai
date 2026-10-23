@@ -11,13 +11,14 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.i18n import localized
 from app.api.v1.deps import CurrentUser, DbSession
 from app.config import settings
 from app.models.apartment import Apartment
@@ -287,6 +288,7 @@ class AiDesignPinRequest(BaseModel):
 async def ai_design_from_pin(
     room_id: uuid.UUID,
     body: AiDesignPinRequest,
+    request: Request,
     current_user: CurrentUser,
     db: DbSession,
 ) -> dict | JSONResponse:
@@ -312,7 +314,7 @@ async def ai_design_from_pin(
         except PinNotFound:
             # Returned, not raised: the app-wide 404 handler (main.py) rewrites every
             # raised 404 to "Not found", and the user needs to know it is the pin.
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Pin topilmadi yoki u yopiq"})
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": localized(request, "Pin topilmadi yoki u yopiq")})
         except PinterestUnavailable:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

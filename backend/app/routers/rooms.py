@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, s
 from fastapi.responses import Response
 from sqlalchemy import select
 
+from app.i18n import translate_detail
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, download_file, upload_file
 from app.models.apartment import Apartment
@@ -389,7 +390,7 @@ async def upload_room_thumbnail(
     if file.content_type not in _THUMBNAIL_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Faqat rasm yuklash mumkin ({', '.join(sorted(_THUMBNAIL_EXT_BY_TYPE.values()))})",
+            detail=translate_detail("Faqat rasm yuklash mumkin ({formats})", formats=', '.join(sorted(_THUMBNAIL_EXT_BY_TYPE.values()))),
         )
 
     file_bytes = await file.read()
@@ -398,7 +399,7 @@ async def upload_room_thumbnail(
     if len(file_bytes) > _THUMBNAIL_MAX_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Rasm hajmi {_THUMBNAIL_MAX_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+            detail=translate_detail("Rasm hajmi {mb} MB dan oshmasligi kerak", mb=_THUMBNAIL_MAX_BYTES // (1024 * 1024)),
         )
 
     ext = _THUMBNAIL_EXT_BY_TYPE.get(file.content_type or "", "jpg")

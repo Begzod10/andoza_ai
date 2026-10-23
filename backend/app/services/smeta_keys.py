@@ -5,6 +5,7 @@ carry a key the estimate engine understands, sold in a form the engine can price
 """
 from __future__ import annotations
 
+from app.i18n import translate_detail
 from app.services.smeta import _SOLD_BY_PACK_UNITS, LIGHT_CATALOG_PRICES_UZS
 
 # The pack unit each fixed key must be sold with, to be of any use to the engine.
@@ -34,4 +35,4 @@ def smeta_key_problem(key: str | None, unit: str, pack_qty: float | None,
     # A pack only counts for the engine when the product is sold by the pack.
     if unit == need or (pack_qty is not None and pack_unit == need and unit in _SOLD_BY_PACK_UNITS):
         return None
-    return f"{key} uchun qadoq birligi {need} bo'lishi kerak"
+    return translate_detail("{key} uchun qadoq birligi {need} bo'lishi kerak", key=key, need=need)

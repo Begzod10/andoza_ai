@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.i18n import translate_detail
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.furniture import Furniture
 from app.models.material import Material
@@ -73,7 +74,7 @@ async def _resolve_line_prices(
             # No price on file means there is nothing to charge: ask the shop.
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Narxi belgilanmagan, buyurtma berib bo'lmaydi: {', '.join(unpriced)}.",
+                detail=translate_detail("Narxi belgilanmagan, buyurtma berib bo'lmaydi: {items}.", items=', '.join(unpriced)),
             )
         furniture_prices = {fid: f.price_uzs for fid, f in found.items()}
         store_ids |= {f.store_id for f in found.values()}

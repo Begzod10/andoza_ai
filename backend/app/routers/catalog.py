@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.i18n import translate_detail
 from app.core.cache import cache_get, cache_set
 from app.core.storage import absolute_media_url, request_base_url
 from app.core.model_files import served_key
@@ -265,7 +266,7 @@ async def list_ustalar(
     if sort is not None and sort not in _USTA_SORTS:
         raise HTTPException(
             status_code=400,
-            detail=f"sort {', '.join(sorted(_USTA_SORTS))} dan biri (yoki bo'sh) bo'lishi kerak",
+            detail=translate_detail("sort {allowed} dan biri (yoki bo'sh) bo'lishi kerak", allowed=', '.join(sorted(_USTA_SORTS))),
         )
 
     # `q` is part of the cache key — otherwise two different name searches

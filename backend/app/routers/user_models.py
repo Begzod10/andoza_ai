@@ -7,6 +7,7 @@ import structlog
 from fastapi import APIRouter, Form, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy import select
 
+from app.i18n import translate_detail
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
@@ -112,7 +113,7 @@ async def upload_user_model(
     if len(file_bytes) > _MAX_MODEL_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Model hajmi {_MAX_MODEL_BYTES // (1024 * 1024)} MB dan oshmasligi kerak",
+            detail=translate_detail("Model hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_MODEL_BYTES // (1024 * 1024)),
         )
 
     thumb_bytes: bytes | None = None
