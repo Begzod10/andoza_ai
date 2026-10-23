@@ -24,6 +24,7 @@ def test_valid_combinations(key, unit, pack_qty, pack_unit):
     ("suvoq", "qop", None, None, "suvoq uchun qadoq birligi kg bo'lishi kerak"),
     ("suvoq", "qop", 30, "litr", "suvoq uchun qadoq birligi kg bo'lishi kerak"),
     ("galtel", "dona", None, None, "galtel uchun qadoq birligi m bo'lishi kerak"),
+    ("plintus", "litr", 2, "m", "plintus uchun qadoq birligi m bo'lishi kerak"),
     ("kabel", "dona", None, None, "kabel metrlab (m) sotilishi kerak"),
     ("light:chandelier", "m", None, None, "chiroq dona bilan sotilishi kerak"),
 ])
