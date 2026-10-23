@@ -182,7 +182,7 @@ async def _run_design(
     furniture = [
         {
             "id": str(f.id), "name_uz": f.name_uz, "category": f.category, "room_type": f.room_type,
-            "placement": f.placement,
+            "placement": f.placement, "styles": list(f.styles or []),
             "footprint_w": float(f.footprint_w) if f.footprint_w else None,
             "footprint_d": float(f.footprint_d) if f.footprint_d else None,
         }

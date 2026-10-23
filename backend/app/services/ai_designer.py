@@ -242,21 +242,52 @@ def validate_plan(
     return plan
 
 
-def furniture_menu(items: list[dict], room_type: str | None) -> tuple[list[str], dict[str, dict]]:
+# The furniture styles (backend/app/schemas/admin_catalog.py FURNITURE_STYLES) as the menu names
+# them, and how a request names them. Neoklassika is matched before klassik, which it contains.
+STYLE_LABELS: dict[str, str] = {
+    "neoklassika": "Neoklassika", "klassik": "Klassik", "zamonaviy": "Zamonaviy", "hitech": "Hi-Tech",
+    "minimalist": "Minimalist", "skandinav": "Skandinav", "loft": "Loft", "milliy": "Milliy",
+}
+_STYLE_WORDS: dict[str, re.Pattern[str]] = {
+    "neoklassika": re.compile(r"neo[-\s]?klassi|neoclassic", re.I),
+    "klassik": re.compile(r"(?<!neo)(?<!neo-)(?<!neo )klassi|(?<!neo)classic", re.I),
+    "zamonaviy": re.compile(r"zamonaviy|modern", re.I),
+    "hitech": re.compile(r"hi[-\s]?tech|xay[-\s]?tek|хай[-\s]?тек", re.I),
+    "minimalist": re.compile(r"minimal", re.I),
+    "skandinav": re.compile(r"skandinav|scandi", re.I),
+    "loft": re.compile(r"\bloft", re.I),
+    "milliy": re.compile(r"milliy|sharqona|o['ʻ’]?zbekona", re.I),
+}
+
+
+def styles_in_prompt(prompt: str) -> set[str]:
+    """The furniture styles a request names ("hi-tech uslubida" → {"hitech"})."""
+    return {style for style, words in _STYLE_WORDS.items() if words.search(prompt or "")}
+
+
+def furniture_menu(
+    items: list[dict], room_type: str | None, prompt: str = "",
+) -> tuple[list[str], dict[str, dict]]:
     """The catalog as short labelled lines for the prompt, and the label -> item map.
 
     Pieces made for this room type (and those for every room) come first, so a long catalog is
-    cut where it matters least.
+    cut where it matters least; among them, pieces of a style the request names come first, so
+    they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
     """
+    wanted = styles_in_prompt(prompt)
+
     def rank(i: dict) -> int:
         return 0 if i.get("room_type") in (None, room_type) else 1
+
+    def style_rank(i: dict) -> int:
+        return 0 if wanted & set(i.get("styles") or []) else 1
 
     # Shuffled first, so a catalog bigger than the prompt shows a different slice, and a different
     # choice, each time (the sort is stable and keeps this room type's pieces in front).
     # Lamps are the plan's lights, not furniture: offered here, a model picks a torsher twice.
     pool = [i for i in items if i.get("category") != "lampa" and not _LIGHT_LIKE.search(i["name_uz"])]
     random.shuffle(pool)
-    pool.sort(key=rank)
+    pool.sort(key=lambda i: (rank(i), style_rank(i)))
     # With enough pieces made for this room (or for every room), the others are not offered at all:
     # a dressing table has no place in a living room.
     fitting = [i for i in pool if rank(i) == 0]
@@ -271,7 +302,9 @@ def furniture_menu(items: list[dict], room_type: str | None) -> tuple[list[str],
             # The catalog stores footprints in centimetres.
             size = f", {item['footprint_w'] / 100:g}x{item['footprint_d'] / 100:g} m"
         where = {"pol": "polga", "devor": "devorga", "shift": "shiftga"}.get(item.get("placement") or "", "")
-        lines.append(f"{label}: {item['name_uz']} ({item['category']}{size}{', ' + where if where else ''})")
+        styles = [STYLE_LABELS[st] for st in (item.get("styles") or []) if st in STYLE_LABELS]
+        style = f", uslub: {', '.join(styles)}" if styles else ""
+        lines.append(f"{label}: {item['name_uz']} ({item['category']}{size}{', ' + where if where else ''}{style})")
     return lines, by_label
 
 
@@ -285,6 +318,7 @@ Qoidalar:
 - Devorni yo'p bo'yoq (paint) yoki oboy (oboy) bilan qoplang. Bitta devorni boshqa rangda (accent) ajratish mumkin.
 - Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_<devor id>.
 - Mebel: xona turi va o'lchamiga mos narsalar tanlang; soni xabarda "Mebel soni" qatorida beriladi, undan oshirmang va kamaytirmang. Faqat xona turiga mos narsalarni oling va bir xil turdan (masalan ikkita divan) ikkitasini tanlamang. Mebellarni TURLICHA tanlang: har safar bir xil to'plamga yopishib qolmang, katalogdagi boshqa mos narsalarga ham e'tibor bering. Chiroq turini (lyustra, torsher, bra) mebel sifatida qaytadan tanlamang. Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
+  Mebel qatorida "uslub: ..." bo'lsa, u shu uslubga mos. So'rovda yoki rasmda uslub aniq bo'lsa (masalan neoklassika, hi-tech, milliy), mebelni avval shu uslubdagilardan tanlang. Uslubi yozilmagan mebel hamma uslubga mos. Mos uslubdagi mebel bo'lmasa, eng yaqinini oling.
   Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) eng uzun devor oldiga qo'ying. Har bir mebelga BOSHQA joy bering: ikki mebelni bir joyga qo'ymang.
 - Oltin/zarhal talab qilinsa: devor aksenti yoki oboy accent_color uchun haqiqiy oltin tus ishlating (masalan #C9A24B yoki #B8860B), boshqa narsani oltin deb atamang.
 - Bolalar xonasi: yumshoq pastel ranglar (to'yingan, qichituvchi emas), yorqinlik yuqori, qarama-qarshilik past.
@@ -361,7 +395,7 @@ async def design_room(
 
     With an image the daily limit is the router's own pool, so it is not counted
     against the text designer's here (user_id=None)."""
-    lines, by_label = furniture_menu(furniture_items, room.get("room_type"))
+    lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt)
     light_menu = ", ".join(f"{k} ({v})" for k, v in LIGHT_TYPE_NAMES.items())
     if image is None:
         content: str | list[dict] = build_user_message(prompt, room, light_menu, lines)
