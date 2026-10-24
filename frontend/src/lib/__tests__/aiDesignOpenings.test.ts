@@ -30,6 +30,8 @@ const zonesOf = (m: ReturnType<typeof roomModel>, kind: 'door' | 'window') => m.
 const DOOR_B = [el('eshik', 900, 350)]
 // Window on wall A (z = -1.5), 1600 wide, centred: x from -0.8 to 0.8.
 const WINDOW_A = [el('deraza', 1600, 1200)]
+// A door in the middle of each of walls B, C and D: nothing wide stands on those walls.
+const DOORS_BCD = { B: [el('eshik', 900, 1050)], C: [el('eshik', 900, 1550)], D: [el('eshik', 900, 1050)] }
 
 describe('what the room model knows about openings', () => {
   it('turns each door and window into a span along its wall and a floor zone in front of it', () => {
@@ -164,7 +166,8 @@ describe('a whole plan applied to a room with a door and a window', () => {
     }
   })
 
-  it('still stands a sofa under the window when asked to', () => {
+  it('still stands a sofa under the window when that is the one wall left', () => {
+    useRoomStore.setState({ geometry: room({ A: WINDOW_A, ...DOORS_BCD }) })
     applyDesignPlan(plan([{ id: 'divan', name: 'd', zone: 'wall_A' }]), ALL_PARTS, catalog)
     const f = useRoomStore.getState().furniture[0]
     expect(f.y / 1000).toBeCloseTo(-1.5 + 0.45 + 0.04, 2)
@@ -179,12 +182,14 @@ describe('how tall a piece is, and how far a door swings', () => {
   })
   const placeAtWindow = (item: CatalogFurniture) => {
     useRoomStore.getState().resetRoom()
-    useRoomStore.setState({ geometry: room({ A: WINDOW_A }), lights: [], furniture: [] })
+    // Doors in the middle of the other walls: wall A, under the window, is the only place for it.
+    useRoomStore.setState({ geometry: room({ A: WINDOW_A, ...DOORS_BCD }), lights: [], furniture: [] })
     applyDesignPlan(
       { title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture: [{ id: item.id, name: item.name_uz, zone: 'wall_A' }] },
       ALL_PARTS, [item],
     )
     const f = useRoomStore.getState().furniture[0]
+    if (!f) return false // left out rather than stood in front of the window
     const model = roomModel(useRoomStore.getState().geometry)
     const rect: Rect = { x: f.x / 1000, z: f.y / 1000, w: 1.8, d: 0.6, rotation: f.rotation }
     return model.clear.filter((z) => z.kind === 'window').some((z) => hits(rect, z.rect))

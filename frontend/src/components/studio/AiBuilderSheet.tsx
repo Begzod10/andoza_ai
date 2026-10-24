@@ -6,7 +6,7 @@ import i18n from "@/i18n"
 import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
-import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
+import { ALL_PARTS, applyDesignPlan, droppedNotice, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
 import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
@@ -134,8 +134,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
     if (undo) restoreDesign(undo)
     setUndo(base)
     setBarHidden(false)
-    const applied = applyDesignPlan(next, nextParts, catalogFurniture)
-    const extra = applied.skipped > 0 ? ` ${t("ai.sigmadi", { count: applied.skipped })}` : ""
+    const applied = applyDesignPlan(next, nextParts, catalogFurniture, roomType)
+    const extra = applied.dropped.length > 0 ? ` ${droppedNotice(applied.dropped, t)}` : ""
     if (!onSaveRef.current) {
       setNotice(t("ai.qollandi_saqlang") + extra)
       return
