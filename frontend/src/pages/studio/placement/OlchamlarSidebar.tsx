@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { Trans, useTranslation } from 'react-i18next'
 import type { PlacedElectrical } from '@/store/roomStore'
 import { SOCKET_TYPES, SWITCH_TYPES, electricalShort } from './constants'
@@ -60,8 +61,8 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
                     <td className="px-2 py-2 text-center">
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-100 text-[10px] font-bold text-blue-800">{el.wallId}</span>
                     </td>
-                    <td className="px-2 py-2 text-right font-mono text-gray-700">{(el.positionMm/1000).toFixed(2)}{t('common.m')}</td>
-                    <td className="px-2 py-2 text-right font-mono text-blue-700 font-semibold">{(el.heightMm/1000).toFixed(2)}{t('common.m')}</td>
+                    <td className="px-2 py-2 text-right font-mono text-gray-700">{formatDecimal(el.positionMm/1000, 2)}{t('common.m')}</td>
+                    <td className="px-2 py-2 text-right font-mono text-blue-700 font-semibold">{formatDecimal(el.heightMm/1000, 2)}{t('common.m')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -97,13 +98,13 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
             <div className="border-b border-gray-100">
               <div className={`px-3 py-1.5 flex items-center justify-between ${color}`}>
                 <span className="text-[11px] font-bold">{title}</span>
-                <span className="text-[11px] font-mono font-bold">{total.toFixed(2)} {t('common.m')}</span>
+                <span className="text-[11px] font-mono font-bold">{formatDecimal(total, 2)} {t('common.m')}</span>
               </div>
               {items.map(el => (
                 <div key={el.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 border-t border-gray-50">
                   <span className="text-xs text-gray-600 truncate max-w-[110px]">{electricalShort(el.type)}</span>
                   <span className="text-xs font-mono text-gray-800 font-semibold shrink-0 ml-2">
-                    {(wireLengths[el.id] ?? 0).toFixed(2)} {t('common.m')}
+                    {formatDecimal(wireLengths[el.id] ?? 0, 2)} {t('common.m')}
                   </span>
                 </div>
               ))}
@@ -121,11 +122,11 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
             <div className="mt-auto border-t border-gray-200 px-3 py-2.5 bg-blue-50">
               <div className="flex justify-between text-xs font-bold text-blue-900">
                 <span>{t('studio.placement.olchamlar.jami_sim')}</span>
-                <span className="font-mono">{grandTotal.toFixed(2)} {t('common.m')}</span>
+                <span className="font-mono">{formatDecimal(grandTotal, 2)} {t('common.m')}</span>
               </div>
               <div className="flex justify-between text-xs text-blue-700 mt-0.5">
                 <span>{t('studio.placement.olchamlar.zaxira')}</span>
-                <span className="font-mono">{(grandTotal * 1.1).toFixed(2)} {t('common.m')}</span>
+                <span className="font-mono">{formatDecimal(grandTotal * 1.1, 2)} {t('common.m')}</span>
               </div>
             </div>
           </div>

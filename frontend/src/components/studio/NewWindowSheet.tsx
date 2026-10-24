@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { WindowStylePicker } from "@/features/studio/WindowStylePicker";
 import { DEFAULT_WINDOW_STYLE } from "@/lib/windowStyles";
@@ -72,7 +73,7 @@ function DimStepper({
           −
         </button>
         <span className="text-[15px] font-bold text-gray-900 w-14 text-center">
-          {(value / 1000).toFixed(1)} m
+          {formatDecimal(value / 1000, 1)} m
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}

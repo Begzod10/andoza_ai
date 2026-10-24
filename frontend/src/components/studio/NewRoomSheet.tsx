@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import {
   isometricRoom, clampRoomDimension,
@@ -156,7 +157,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
               </g>
             </svg>
             <p className="text-center text-[11px] font-semibold text-gray-500">
-              {areaM2.toFixed(1)} m²
+              {formatDecimal(areaM2, 1)} m²
             </p>
           </div>
         </div>

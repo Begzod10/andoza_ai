@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMaterials, uploadWallpaper } from "@/lib/api";
 import type { Material } from "@/lib/api";
@@ -290,7 +291,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${uvwIdBase}-scale-x`} className="text-xs text-gray-600 font-medium">{t("studio.dp.scale_x")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatX).toFixed(2)} m</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(1 / fs.repeatX, 2)} m</span>
                     </div>
                     <input id={`${uvwIdBase}-scale-x`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatX}
                       onChange={(e) => updateFloorTexSettings({ repeatX: parseFloat(e.target.value) })}
@@ -300,7 +301,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${uvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">{t("studio.dp.scale_y")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatY).toFixed(2)} m</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(1 / fs.repeatY, 2)} m</span>
                     </div>
                     <input id={`${uvwIdBase}-scale-y`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatY}
                       onChange={(e) => updateFloorTexSettings({ repeatY: parseFloat(e.target.value) })}
@@ -320,7 +321,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${uvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_x")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{fs.offsetX.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(fs.offsetX, 2)}</span>
                     </div>
                     <input id={`${uvwIdBase}-offset-x`} type="range" min="0" max="1" step="0.01" value={fs.offsetX}
                       onChange={(e) => updateFloorTexSettings({ offsetX: parseFloat(e.target.value) })}
@@ -330,7 +331,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${uvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_y")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{fs.offsetY.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(fs.offsetY, 2)}</span>
                     </div>
                     <input id={`${uvwIdBase}-offset-y`} type="range" min="0" max="1" step="0.01" value={fs.offsetY}
                       onChange={(e) => updateFloorTexSettings({ offsetY: parseFloat(e.target.value) })}

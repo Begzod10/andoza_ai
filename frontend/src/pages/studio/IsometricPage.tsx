@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useOutletContext } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { updateRoom } from "@/lib/api";
@@ -397,12 +398,12 @@ export default function IsometricPage() {
           <section className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-card">
             <h4 className="text-xs font-semibold text-amber-800 mb-1">{t('studio.iso.kerakli_oboy')}</h4>
             <p className="text-sm font-bold text-amber-900">
-              {t('studio.iso.jami_rulon', { count: smeta.totalRolls, area: smeta.totalAreaM2.toFixed(1) })}
+              {t('studio.iso.jami_rulon', { count: smeta.totalRolls, area: formatDecimal(smeta.totalAreaM2, 1) })}
             </p>
             <div className="mt-2 space-y-0.5">
               {smeta.perWall.map((w) => (
                 <p key={w.wallId} className="text-xs text-amber-700">
-                  {t('studio.iso.devor_rulon', { wall: w.wallId, count: w.rolls, area: w.areaM2.toFixed(1) })}
+                  {t('studio.iso.devor_rulon', { wall: w.wallId, count: w.rolls, area: formatDecimal(w.areaM2, 1) })}
                 </p>
               ))}
             </div>

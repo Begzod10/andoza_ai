@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { formatDecimal } from '@/lib/utils'
 import { defaultApartmentName, defaultRoomName } from '@/lib/defaultNames';
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { useNoPageZoom } from "@/hooks/useNoPageZoom";
@@ -373,10 +374,10 @@ export default function StudioPage() {
   // shoelace floor area (already computed in `room.area`), the wall count and
   // the ceiling height — and keep the familiar W × L × H line for rectangles.
   const dimsLabel = useMemo(() => {
-    const h = (room.ceiling_height ?? 0).toFixed(1);
+    const h = formatDecimal(room.ceiling_height ?? 0, 1);
     const isRect = hasAbcdWalls(geometry);
-    if (isRect) return t('studio.page.olchamlar_toortburchak', { length: room.length?.toFixed(1), width: room.width?.toFixed(1), height: h });
-    return t('studio.page.olchamlar_koppburchak', { area: room.area.toFixed(1), count: geometry.walls.length, height: h });
+    if (isRect) return t('studio.page.olchamlar_toortburchak', { length: room.length != null ? formatDecimal(room.length, 1) : undefined, width: room.width != null ? formatDecimal(room.width, 1) : undefined, height: h });
+    return t('studio.page.olchamlar_koppburchak', { area: formatDecimal(room.area, 1), count: geometry.walls.length, height: h });
   }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls, t]);
 
   // When a saved room loads from API and has a full state blob, restore it into the store.

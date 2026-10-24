@@ -27,6 +27,7 @@
  * on every frame of the gesture.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import * as THREE from 'three'
 import { Html } from '@react-three/drei'
@@ -497,7 +498,7 @@ function DimensionLabels({ wd, el, H, isDoor }: { wd: WallDef; el: WallElement; 
               the drag whose pointermoves they would swallow. */}
           <Html position={it.mid} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
             <div style={{ background: '#1A2340', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-              {Math.max(0, it.val).toFixed(2)} m
+              {formatDecimal(Math.max(0, it.val), 2)} m
             </div>
           </Html>
         </group>

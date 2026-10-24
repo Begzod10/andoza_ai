@@ -11,6 +11,7 @@
  * override rather than writing the current value back.
  */
 import * as React from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
@@ -284,7 +285,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         <Slider
           label={tr('studio.light.drop')}
           value={light.dropM ?? t.dropM ?? 0}
-          display={`${(light.dropM ?? t.dropM ?? 0).toFixed(2)} m`}
+          display={`${formatDecimal(light.dropM ?? t.dropM ?? 0, 2)} m`}
           min={LIGHT_LIMITS.dropM.min}
           max={Math.min(LIGHT_LIMITS.dropM.max, Math.max(0.1, ceilingHeight - 0.4))}
           step={LIGHT_LIMITS.dropM.step}
@@ -297,7 +298,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         <Slider
           label={tr('studio.light.wall_h')}
           value={light.wallHM ?? t.wallHM ?? 1.8}
-          display={`${(light.wallHM ?? t.wallHM ?? 1.8).toFixed(2)} m`}
+          display={`${formatDecimal(light.wallHM ?? t.wallHM ?? 1.8, 2)} m`}
           min={LIGHT_LIMITS.wallHM.min}
           max={Math.min(LIGHT_LIMITS.wallHM.max, Math.max(0.4, ceilingHeight - 0.2))}
           step={LIGHT_LIMITS.wallHM.step}

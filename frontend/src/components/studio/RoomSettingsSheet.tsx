@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { DoorOpen, Grid2x2 } from "lucide-react";
@@ -73,7 +74,7 @@ function MiniStepper({
         −
       </button>
       <span className="text-[12px] font-bold text-gray-800 w-12 text-center">
-        {(value / 1000).toFixed(2)} m
+        {formatDecimal(value / 1000, 2)} m
       </span>
       <button
         onClick={() => onChange(Math.min(max, value + step))}
@@ -123,7 +124,7 @@ function DimStepper({
           −
         </button>
         <span className="text-[15px] font-bold text-gray-900 w-16 text-center tabular-nums">
-          {(value / 1000).toFixed(decimals)} m
+          {formatDecimal(value / 1000, decimals)} m
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}
@@ -178,8 +179,8 @@ function RoomSummary({ geometry }: { geometry: RoomGeometry }) {
   }, [geometry]);
   // The labels are built here, outside the memo, so they follow a language change.
   const stats = [
-    { label: t("studio.room_settings.area"), value: `${figures.areaM2.toFixed(1)} m²` },
-    { label: t("studio.room_settings.perimeter"), value: `${figures.perimeterM.toFixed(1)} m` },
+    { label: t("studio.room_settings.area"), value: `${formatDecimal(figures.areaM2, 1)} m²` },
+    { label: t("studio.room_settings.perimeter"), value: `${formatDecimal(figures.perimeterM, 1)} m` },
     { label: t("studio.room_settings.openings"), value: t("studio.shared.dona_soni", { count: figures.openings }) },
   ];
 

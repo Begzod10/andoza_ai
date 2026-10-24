@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { formatDecimal } from "@/lib/utils";
 import { Suspense, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -977,7 +978,7 @@ export function ThreeDCanvasScene({
               const n = pts.length;
               const labels = [(edge - 1 + n) % n, (edge + 1) % n].map((k) => {
                 const [x1, z1] = pts[k], [x2, z2] = pts[(k + 1) % n];
-                return { x: (x1 + x2) / 2, z: (z1 + z2) / 2, text: `${(move.geometry.walls[k].length / 1000).toFixed(2)} ${i18n.t('common.m')}` };
+                return { x: (x1 + x2) / 2, z: (z1 + z2) / 2, text: `${formatDecimal(move.geometry.walls[k].length / 1000, 2)} ${i18n.t('common.m')}` };
               });
               return <PolygonGhost outline={pts} labels={labels} />;
             })()

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatDecimal } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -224,7 +225,7 @@ export function DoorDimensions({ axis, lineAcross, room, doors, height = 1.3 }: 
               padding: '2px 7px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff',
               fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
             }}>
-              {(Math.max(0, b - a)).toFixed(2)} {t('common.m')}
+              {formatDecimal(Math.max(0, b - a), 2)} {t('common.m')}
             </span>
           </Html>
         </group>
@@ -342,12 +343,12 @@ export function ResizeGhost({ box, side, height, note }: {
       )}
       <Html position={[(from[0] + to[0]) / 2, 0.1, (from[2] + to[2]) / 2]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FF2E9A', color: '#fff', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-          {size.toFixed(2)} {t('common.m')}
+          {formatDecimal(size, 2)} {t('common.m')}
         </span>
       </Html>
       <Html position={[box.cx, height + 0.2, box.cz]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
-          {box.w.toFixed(2)} × {box.d.toFixed(2)} {t('common.m')}
+          {formatDecimal(box.w, 2)} × {formatDecimal(box.d, 2)} {t('common.m')}
         </span>
       </Html>
     </group>
