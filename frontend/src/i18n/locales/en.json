@@ -119,7 +119,9 @@
         "ochirish_izoh": "To delete, click the light fixture",
         "jami": "Total: {{count}}",
         "hammasini_ochirish": "Delete all",
-        "hali_yoq": "No light fixtures added yet"
+        "hali_yoq": "No light fixtures added yet",
+        "jami_one": "Total: {{count}} light fixture",
+        "jami_other": "Total: {{count}} light fixtures"
       },
       "elektr": {
         "quti_joylash": "Click a wall to place the electrical panel",
@@ -153,7 +155,9 @@
         "jami_sim": "Total cable:",
         "zaxira": "+10% reserve:",
         "zanjir_izoh": "The dimension chain along the wall is only for A-B-C-D rooms — positions are in the table",
-        "hali_yoq": "No devices added yet"
+        "hali_yoq": "No devices added yet",
+        "jami_qurilma_one": "Total: <b>{{count}}</b> device",
+        "jami_qurilma_other": "Total: <b>{{count}}</b> devices"
       },
       "korinish_3d": "3D view",
       "chiroq_aria": "light fixture — press Enter or Delete to remove",
@@ -237,7 +241,8 @@
       "kirish": "Log in",
       "olchamlar_toortburchak": "{{length}} × {{width}} × {{height}} m",
       "olchamlar_koppburchak_one": "{{area}} m² · {{count}} wall · ceiling {{height}} m",
-      "olchamlar_koppburchak_other": "{{area}} m² · {{count}} walls · ceiling {{height}} m"
+      "olchamlar_koppburchak_other": "{{area}} m² · {{count}} walls · ceiling {{height}} m",
+      "havola_bekor": "Revoke"
     },
     "iso": {
       "preview_aria": "Isometric room preview",

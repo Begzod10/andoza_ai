@@ -126,7 +126,7 @@ export default function StudioPage() {
 
   async function handleRevokeShareLink() {
     if (!shareToken) return;
-    if (!(await confirm({ title: t('studio.page.havola_bekor_sarlavha'), description: t('studio.page.havola_bekor_matn'), confirmLabel: t('common.bekor'), cancelLabel: t('studio.page.qoldirish'), destructive: true }))) return;
+    if (!(await confirm({ title: t('studio.page.havola_bekor_sarlavha'), description: t('studio.page.havola_bekor_matn'), confirmLabel: t('studio.page.havola_bekor'), cancelLabel: t('studio.page.qoldirish'), destructive: true }))) return;
     try {
       await revokeShareLink(room.id);
       setShareToken(null);

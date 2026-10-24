@@ -125,7 +125,11 @@
         "ochirish_izoh": "Чтобы удалить, нажмите на светильник",
         "jami": "Итого: {{count}} шт.",
         "hammasini_ochirish": "Удалить все",
-        "hali_yoq": "Светильники ещё не добавлены"
+        "hali_yoq": "Светильники ещё не добавлены",
+        "jami_one": "Итого: {{count}} светильник",
+        "jami_few": "Итого: {{count}} светильника",
+        "jami_many": "Итого: {{count}} светильников",
+        "jami_other": "Итого: {{count}} светильника"
       },
       "elektr": {
         "quti_joylash": "Нажмите на стену, чтобы разместить электрощиток",
@@ -159,7 +163,11 @@
         "jami_sim": "Всего кабеля:",
         "zaxira": "+10% запас:",
         "zanjir_izoh": "Цепочка размеров вдоль стены есть только для комнат A-B-C-D — позиции в таблице",
-        "hali_yoq": "Устройства ещё не добавлены"
+        "hali_yoq": "Устройства ещё не добавлены",
+        "jami_qurilma_one": "Итого: <b>{{count}}</b> устройство",
+        "jami_qurilma_few": "Итого: <b>{{count}}</b> устройства",
+        "jami_qurilma_many": "Итого: <b>{{count}}</b> устройств",
+        "jami_qurilma_other": "Итого: <b>{{count}}</b> устройства"
       },
       "korinish_3d": "3D-вид",
       "chiroq_aria": "светильник — для удаления нажмите Enter или Delete",
@@ -245,7 +253,8 @@
       "olchamlar_koppburchak_one": "{{area}} м² · {{count}} стена · потолок {{height}} м",
       "olchamlar_koppburchak_other": "{{area}} м² · {{count}} стены · потолок {{height}} м",
       "olchamlar_koppburchak_few": "{{area}} м² · {{count}} стены · потолок {{height}} м",
-      "olchamlar_koppburchak_many": "{{area}} м² · {{count}} стен · потолок {{height}} м"
+      "olchamlar_koppburchak_many": "{{area}} м² · {{count}} стен · потолок {{height}} м",
+      "havola_bekor": "Отключить"
     },
     "iso": {
       "preview_aria": "Изометрический вид комнаты",

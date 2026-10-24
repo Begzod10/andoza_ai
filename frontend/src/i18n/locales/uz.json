@@ -119,7 +119,9 @@
         "ochirish_izoh": "O'chirish: chiroqqa bosing",
         "jami": "Jami: {{count}} ta chiroq",
         "hammasini_ochirish": "Hammasini o'chir",
-        "hali_yoq": "Hali chiroq qo'shilmagan"
+        "hali_yoq": "Hali chiroq qo'shilmagan",
+        "jami_one": "Jami: {{count}} ta chiroq",
+        "jami_other": "Jami: {{count}} ta chiroq"
       },
       "elektr": {
         "quti_joylash": "Elektr qutisini devorga bosib joylashtiring",
@@ -153,7 +155,9 @@
         "jami_sim": "Jami sim:",
         "zaxira": "+10% zaxira:",
         "zanjir_izoh": "Devor bo'ylab o'lcham zanjiri faqat A-B-C-D xonalar uchun — pozitsiyalar jadvalda",
-        "hali_yoq": "Hali qurilma qo'shilmagan"
+        "hali_yoq": "Hali qurilma qo'shilmagan",
+        "jami_qurilma_one": "Jami: <b>{{count}}</b> ta qurilma",
+        "jami_qurilma_other": "Jami: <b>{{count}}</b> ta qurilma"
       },
       "korinish_3d": "3D Ko'rinish",
       "chiroq_aria": "chirog'i — o'chirish uchun Enter yoki Delete bosing",
@@ -237,7 +241,8 @@
       "kirish": "Kirish",
       "olchamlar_toortburchak": "{{length}} × {{width}} × {{height}} m",
       "olchamlar_koppburchak_one": "{{area}} m² · {{count}} devor · shift {{height}} m",
-      "olchamlar_koppburchak_other": "{{area}} m² · {{count}} devor · shift {{height}} m"
+      "olchamlar_koppburchak_other": "{{area}} m² · {{count}} devor · shift {{height}} m",
+      "havola_bekor": "Bekor qilish"
     },
     "iso": {
       "preview_aria": "Isometric room preview",

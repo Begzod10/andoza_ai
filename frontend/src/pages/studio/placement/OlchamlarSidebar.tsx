@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import type { PlacedElectrical } from '@/store/roomStore'
 import { SOCKET_TYPES, SWITCH_TYPES, electricalShort } from './constants'
 import type { InnerTab } from './types'
@@ -67,7 +67,9 @@ export function OlchamlarSidebar({ electricals, wireLengths }: {
               </tbody>
             </table>
             <div className="px-3 py-2 border-t border-gray-100">
-              <p className="text-xs text-gray-400">{t('studio.placement.olchamlar.jami_qurilma', { count: electricals.length })}</p>
+              <p className="text-xs text-gray-400">
+                <Trans i18nKey="studio.placement.olchamlar.jami_qurilma" count={electricals.length} components={{ b: <span className="font-semibold text-gray-600" /> }} />
+              </p>
             </div>
           </div>
         )
