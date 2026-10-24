@@ -129,3 +129,22 @@ Added with projects, wizard and craftsmen:
 | perimetr | периметр | perimeter |
 | o'lchamlar | размеры | measurements |
 | bezash | оформление | decorating |
+
+Added with the studio pages (3D, placement, walkthrough):
+
+| Uzbek | Russian | English |
+| --- | --- | --- |
+| devor / shift / pol | стена / потолок / пол | wall / ceiling / floor |
+| deraza / eshik | окно / дверь | window / door |
+| karniz (galtel) | потолочный плинтус | cornice |
+| plintus | плинтус | skirting board |
+| rozetka | розетка | socket |
+| kalit | выключатель | switch |
+| elektr qutisi | электрощиток | electrical panel |
+| konditsioner | кондиционер | air conditioner |
+| sim | кабель / провод (в трассе) | cable / wire |
+| qurilma (elektr) | устройство | device |
+| oraliq | зазор | gap |
+| yurish rejimi | режим прогулки | walk mode |
+| quvur qutisi | короб для труб | pipe duct |
+| tahrirlashni qulflash | заблокировать редактирование | lock editing |

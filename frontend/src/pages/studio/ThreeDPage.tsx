@@ -655,12 +655,12 @@ export default function ThreeDPage() {
   const aptRooms = useFlatRooms(aptId, room.id);
 
   async function handleDeleteSibling(id: string, name: string) {
-    if (!(await confirm({ title: `"${name}" xonasini o'chirishni tasdiqlaysizmi?`, description: "Bu amalni qaytarib bo'lmaydi.", destructive: true }))) return;
+    if (!(await confirm({ title: t('studio.three_d.xonani_ochirish_tasdiq', { name }), description: t('studio.page.qaytarib_bolmaydi'), destructive: true }))) return;
     try {
       await deleteRoom(id);
       queryClient.invalidateQueries({ queryKey: ['apt-rooms', aptId] });
     } catch (err) {
-      toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined });
+      toast({ variant: 'error', title: t('studio.page.xona_ochirilmadi'), description: err instanceof Error ? err.message : undefined });
     }
   }
 
@@ -836,29 +836,29 @@ export default function ThreeDPage() {
           {showHelp && (
             <div className="absolute top-32 right-3 z-30 w-72 max-w-[90%] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 text-[12px] leading-5 text-gray-700">
               <div className="flex items-center justify-between mb-2">
-                <p className="font-bold text-gray-900">Boshqaruv</p>
+                <p className="font-bold text-gray-900">{t('studio.yordam.boshqaruv')}</p>
                 <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
               </div>
-              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sichqoncha</p>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">{t('studio.yordam.sichqoncha')}</p>
               <ul className="space-y-0.5 mb-2">
-                <li>Chap tugma — aylantirish</li>
+                <li>{t('studio.yordam.chap_tugma')}</li>
                 <li>{t("studio.yordam.sichqoncha_ong")}</li>
                 <li>{t("studio.yordam.gildirak")}</li>
-                <li>Ikki marta bosish — shu nuqtaga fokus</li>
+                <li>{t('studio.yordam.ikki_marta')}</li>
                 <li>{t("studio.yordam.bosh_joy")}</li>
                 <li>{t("studio.yordam.oqlar")}</li>
               </ul>
-              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Sensor ekran</p>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">{t('studio.yordam.sensor')}</p>
               <ul className="space-y-0.5 mb-2">
-                <li>Bir barmoq — aylantirish</li>
+                <li>{t('studio.yordam.bir_barmoq')}</li>
                 <li>{t("studio.yordam.ikki_barmoq")}</li>
               </ul>
-              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">Klaviatura</p>
+              <p className="font-semibold text-gray-500 text-[10px] uppercase tracking-wide mb-1">{t('studio.yordam.klaviatura')}</p>
               <ul className="space-y-0.5">
                 <li><b>1–5</b> {t("studio.yordam.tanlash_1_5")}</li>
-                <li><b>K</b> — Ichki / Tashqi</li>
-                <li><b>N</b> — Kun/Tun &nbsp; <b>L</b> — Chiroqlar</li>
-                <li><b>F</b> — Markazlash &nbsp; <b>Del</b> {t("studio.yordam.ochirish")}</li>
+                <li><b>K</b> {t('studio.yordam.ichki_tashqi')}</li>
+                <li><b>N</b> {t('studio.yordam.kun_tun')}{' \u00a0 '}<b>L</b> {t('studio.yordam.chiroqlar')}</li>
+                <li><b>F</b> {t('studio.yordam.markazlash')}{' \u00a0 '}<b>Del</b> {t("studio.yordam.ochirish")}</li>
                 <li><b>Esc</b> {t("studio.yordam.esc")}</li>
               </ul>
             </div>
@@ -881,7 +881,7 @@ export default function ThreeDPage() {
                   <rect x="16" y="6" width="5" height="7" rx="0.5" />
                   <path d="M18.5 6v7M16 9.5h5" />
                 </svg>
-                Eshik / Deraza
+                {t('studio.three_d.eshik_deraza')}
               </button>
             </div>
           )}
@@ -938,8 +938,8 @@ export default function ThreeDPage() {
 
               <button
                 onClick={() => setCameraListOpen((open) => !open)}
-                title="Kameralar"
-                aria-label="Kameralar"
+                title={t('studio.three_d.kameralar')}
+                aria-label={t('studio.three_d.kameralar')}
                 aria-expanded={cameraListOpen}
                 className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
                   cameraListOpen || panorama || cameraStation != null
@@ -959,8 +959,8 @@ export default function ThreeDPage() {
                 is on, so the room can be turned without a menu popping up. */}
             <button
               onClick={onToggleViewLock}
-              title={viewLocked ? "Tahrirlashni yoqish" : "Tahrirlashni qulflash"}
-              aria-label={viewLocked ? "Tahrirlashni yoqish" : "Tahrirlashni qulflash"}
+              title={viewLocked ? t('studio.three_d.tahrirlashni_yoqish') : t('studio.three_d.tahrirlashni_qulflash')}
+              aria-label={viewLocked ? t('studio.three_d.tahrirlashni_yoqish') : t('studio.three_d.tahrirlashni_qulflash')}
               aria-pressed={viewLocked}
               className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
                 viewLocked ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'

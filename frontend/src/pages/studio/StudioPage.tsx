@@ -103,7 +103,7 @@ export default function StudioPage() {
       const res = await createShareLink(room.id);
       setShareToken(res.share_token);
     } catch (err) {
-      toast({ variant: 'error', title: "Havolani yaratib bo'lmadi", description: err instanceof Error ? err.message : undefined });
+      toast({ variant: 'error', title: t('studio.page.havola_yaratilmadi'), description: err instanceof Error ? err.message : undefined });
       setSharePopoverOpen(false);
     } finally {
       setShareBusy(false);
@@ -126,13 +126,13 @@ export default function StudioPage() {
 
   async function handleRevokeShareLink() {
     if (!shareToken) return;
-    if (!(await confirm({ title: 'Ulashish havolasini bekor qilasizmi?', description: 'Havola endi ishlamaydi.', confirmLabel: 'Bekor qilish', cancelLabel: 'Qoldirish', destructive: true }))) return;
+    if (!(await confirm({ title: t('studio.page.havola_bekor_sarlavha'), description: t('studio.page.havola_bekor_matn'), confirmLabel: t('common.bekor'), cancelLabel: t('studio.page.qoldirish'), destructive: true }))) return;
     try {
       await revokeShareLink(room.id);
       setShareToken(null);
       setSharePopoverOpen(false);
     } catch (err) {
-      toast({ variant: 'error', title: "Havolani bekor qilib bo'lmadi", description: err instanceof Error ? err.message : undefined });
+      toast({ variant: 'error', title: t('studio.page.havola_bekor_xato'), description: err instanceof Error ? err.message : undefined });
     }
   }
 
@@ -374,9 +374,9 @@ export default function StudioPage() {
   const dimsLabel = useMemo(() => {
     const h = (room.ceiling_height ?? 0).toFixed(1);
     const isRect = hasAbcdWalls(geometry);
-    if (isRect) return `${room.length?.toFixed(1)} × ${room.width?.toFixed(1)} × ${h} m`;
-    return `${room.area.toFixed(1)} m² · ${geometry.walls.length} devor · shift ${h} m`;
-  }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls]);
+    if (isRect) return t('studio.page.olchamlar_toortburchak', { length: room.length?.toFixed(1), width: room.width?.toFixed(1), height: h });
+    return t('studio.page.olchamlar_koppburchak', { area: room.area.toFixed(1), count: geometry.walls.length, height: h });
+  }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls, t]);
 
   // When a saved room loads from API and has a full state blob, restore it into the store.
   useEffect(() => {
@@ -414,9 +414,9 @@ export default function StudioPage() {
   if (fetchStatus === "notfound" && !isDirty) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-paper gap-4">
-        <p className="text-neutral-500 text-lg">Xona topilmadi</p>
+        <p className="text-neutral-500 text-lg">{t('studio.page.xona_topilmadi')}</p>
         <a href="/wizard" className="bg-brand text-white px-6 py-2 rounded-lg font-semibold hover:bg-brand/90 transition-colors">
-          Yangi xona yaratish
+          {t('studio.page.yangi_xona_yaratish')}
         </a>
       </div>
     );
@@ -437,7 +437,7 @@ export default function StudioPage() {
             <WebOnly>
               <NavLink
                 to="/projects"
-                aria-label="Orqaga"
+                aria-label={t("common.orqaga")}
                 className="w-10 h-10 rounded-full bg-card-soft text-ink flex items-center justify-center flex-shrink-0 hover:bg-line transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -484,7 +484,7 @@ export default function StudioPage() {
               ].join(' ')}
             >
               <span className="hidden sm:inline" aria-hidden="true">
-                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : saveStatus === 'error' ? 'Xato' : 'Saqlash'}
+                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : saveStatus === 'error' ? t('studio.page.xato') : t('common.saqlash')}
               </span>
               <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7.17a1.5 1.5 0 0 1 1.06.44l1.83 1.83c.28.28.44.66.44 1.06V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-9Z"/>
@@ -498,12 +498,12 @@ export default function StudioPage() {
                   to avoid a double announcement). */}
               <span className="sr-only" aria-live="polite">
                 {saveStatus === 'saving'
-                  ? 'Saqlanmoqda...'
+                  ? t('studio.page.saqlanmoqda')
                   : saveStatus === 'saved'
-                    ? 'Saqlandi'
+                    ? t('studio.page.saqlandi')
                     : saveStatus === 'error'
                       ? t("errors.server_xato")
-                      : 'Saqlash'}
+                      : t('common.saqlash')}
               </span>
             </button>
             <div className="relative">
@@ -514,14 +514,14 @@ export default function StudioPage() {
                     onClick={handleShareClick}
                     className="w-full text-left px-4 py-2.5 text-xs text-ink hover:bg-card-soft first:rounded-t-lg transition-colors font-medium border-b border-line"
                   >
-                    Ulashish
+                    {t('studio.page.ulashish')}
                   </button>
                 )}
                 <button
                   onClick={async () => {
                     // Close the menu first: it sits above the dialog's overlay.
                     setMenuOpen(false)
-                    if (await confirm({ title: "Xonani o'chirishni tasdiqlaysizmi?", description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) {
+                    if (await confirm({ title: t('studio.page.xona_ochirish_sarlavha'), description: t('studio.page.qaytarib_bolmaydi'), destructive: true })) {
                       try {
                         await deleteRoom(room.id)
                         // The room is gone, so its unsaved edits are too —
@@ -529,7 +529,7 @@ export default function StudioPage() {
                         useRoomStore.getState().markSaved()
                         navigate('/projects')
                       } catch (err) {
-                        toast({ variant: 'error', title: "Xonani o'chirib bo'lmadi", description: err instanceof Error ? err.message : undefined })
+                        toast({ variant: 'error', title: t('studio.page.xona_ochirilmadi'), description: err instanceof Error ? err.message : undefined })
                       }
                     }
                   }}
@@ -547,18 +547,18 @@ export default function StudioPage() {
                   className="absolute right-0 top-12 bg-card text-ink rounded-lg shadow-panel border border-line z-50 w-72 p-3"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <p id="share-popover-title" className="text-xs font-semibold text-ink">Ulashish havolasi</p>
+                    <p id="share-popover-title" className="text-xs font-semibold text-ink">{t('studio.page.ulashish_havolasi')}</p>
                     <button
                       ref={shareCloseButtonRef}
                       onClick={() => setSharePopoverOpen(false)}
                       className="text-ink-muted hover:text-ink text-sm leading-none"
-                      aria-label="Yopish"
+                      aria-label={t("common.yopish")}
                     >
                       ✕
                     </button>
                   </div>
                   {shareBusy && (
-                    <p className="text-xs text-ink-muted py-2" aria-live="polite">Havola yaratilmoqda…</p>
+                    <p className="text-xs text-ink-muted py-2" aria-live="polite">{t('studio.page.havola_yaratilmoqda')}</p>
                   )}
                   {!shareBusy && shareToken && (
                     <>
@@ -584,7 +584,7 @@ export default function StudioPage() {
                           ].join(' ')}
                         >
                           <span aria-live="polite">
-                            {copyStatus === 'copied' ? 'Nusxalandi' : copyStatus === 'error' ? 'Xato' : 'Nusxalash'}
+                            {copyStatus === 'copied' ? t('studio.page.nusxalandi') : copyStatus === 'error' ? t('studio.page.xato') : t('studio.page.nusxalash')}
                           </span>
                         </button>
                       </div>
@@ -608,11 +608,11 @@ export default function StudioPage() {
         <div className="bg-warning-tint border-b border-warning/30 px-4 py-2 text-xs text-warning-dark flex items-center gap-2">
           <span>
             {fetchStatus === "auth"
-              ? "Oflayn rejim — kirish qilsangiz, loyihangiz bulutga saqlanadi."
-              : "Tarmoq xatosi — mahalliy ma'lumotlar ko'rsatilmoqda."}
+              ? t('studio.page.oflayn_kirish')
+              : t('studio.page.tarmoq_xatosi_mahalliy')}
           </span>
           {fetchStatus === "auth" && (
-            <a href="/auth" className="underline font-medium ml-1">Kirish</a>
+            <a href="/auth" className="underline font-medium ml-1">{t('studio.page.kirish')}</a>
           )}
         </div>
       )}

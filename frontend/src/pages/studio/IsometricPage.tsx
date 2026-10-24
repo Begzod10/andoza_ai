@@ -23,11 +23,11 @@ const WALL_COLORS = [
 ]
 
 const FLOOR_TYPES = [
-  { key: "parquet", label: "Parket" },
-  { key: "tile", label: "Kafel" },
-  { key: "laminate", label: "Laminat" },
-  { key: "concrete", label: "Beton" },
-]
+  { key: "parquet", labelKey: "studio.radial.parket" },
+  { key: "tile", labelKey: "studio.radial.kafel" },
+  { key: "laminate", labelKey: "studio.iso.laminat" },
+  { key: "concrete", labelKey: "studio.iso.beton" },
+] as const
 
 export default function IsometricPage() {
   const { t } = useTranslation()
@@ -191,7 +191,7 @@ export default function IsometricPage() {
         <svg
           viewBox={`0 0 ${vbW.toFixed(1)} ${vbH.toFixed(1)}`}
           style={{ width: '100%', height: '100%', maxWidth: '700px', maxHeight: '100%' }}
-          aria-label="Isometric room preview"
+          aria-label={t('studio.iso.preview_aria')}
         >
           <defs>
             <pattern id="wood" patternUnits="userSpaceOnUse" width="40" height="20">
@@ -260,7 +260,7 @@ export default function IsometricPage() {
 
         {/* Wall target selector */}
         <section className="mb-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Devor</h3>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('studio.iso.devor')}</h3>
           <div className="flex flex-wrap gap-1.5">
             {wallTargets.map(({ key, label }) => (
               <button
@@ -291,7 +291,7 @@ export default function IsometricPage() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {mode === 'paint' ? "Bo'yoq" : 'Oboy'}
+                {mode === 'paint' ? t('studio.iso.boyoq') : t('studio.radial.oboy')}
               </button>
             ))}
           </div>
@@ -324,7 +324,7 @@ export default function IsometricPage() {
 
         {coveringMode === 'oboy' && (
           <section className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Naqsh</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('studio.iso.naqsh')}</h3>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {OBOY_PATTERNS.map((p) => (
                 <button
@@ -351,7 +351,7 @@ export default function IsometricPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
+                <label className="text-xs font-medium text-gray-700 block mb-1">{t('studio.iso.asosiy_rang')}</label>
                 <input
                   type="color"
                   value={baseColor}
@@ -360,7 +360,7 @@ export default function IsometricPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>
+                <label className="text-xs font-medium text-gray-700 block mb-1">{t('studio.iso.naqsh_rangi')}</label>
                 <input
                   type="color"
                   value={accentColor}
@@ -386,7 +386,7 @@ export default function IsometricPage() {
                     : 'border-gray-200 hover:border-brand/40 text-gray-700'
                 }`}
               >
-                {ft.label}
+                {t(ft.labelKey)}
               </button>
             ))}
           </div>
@@ -395,14 +395,14 @@ export default function IsometricPage() {
         {/* Oboy smeta */}
         {smeta && smeta.totalRolls > 0 && (
           <section className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-card">
-            <h4 className="text-xs font-semibold text-amber-800 mb-1">Kerakli oboy</h4>
+            <h4 className="text-xs font-semibold text-amber-800 mb-1">{t('studio.iso.kerakli_oboy')}</h4>
             <p className="text-sm font-bold text-amber-900">
-              {smeta.totalRolls} rulon (~{smeta.totalAreaM2.toFixed(1)} m²)
+              {t('studio.iso.jami_rulon', { count: smeta.totalRolls, area: smeta.totalAreaM2.toFixed(1) })}
             </p>
             <div className="mt-2 space-y-0.5">
               {smeta.perWall.map((w) => (
                 <p key={w.wallId} className="text-xs text-amber-700">
-                  Devor {w.wallId}: {w.rolls} rulon ({w.areaM2.toFixed(1)} m²)
+                  {t('studio.iso.devor_rulon', { wall: w.wallId, count: w.rolls, area: w.areaM2.toFixed(1) })}
                 </p>
               ))}
             </div>

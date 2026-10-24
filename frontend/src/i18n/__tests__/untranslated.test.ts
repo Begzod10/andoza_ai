@@ -12,7 +12,6 @@ export const MIGRATED_DIRS: string[] = [
   "src/components/smeta/SmetaAskDrawer.tsx",
   "src/components/studio/PanoramaViewer.tsx",
   "src/components/studio/RenderSheet.tsx",
-  "src/pages/studio/three-d/QiblaMarker.tsx",
   "src/pages/auth",
   "src/pages/profile",
   "src/components/layout",
@@ -28,6 +27,7 @@ export const MIGRATED_DIRS: string[] = [
   "src/components/wizard",
   "src/pages/ustalar",
   "src/hooks",
+  "src/pages/studio",
 ];
 
 // Strings that may stay as literals: the brand, the language names, and
@@ -35,6 +35,10 @@ export const MIGRATED_DIRS: string[] = [
 export const ALLOW: string[] = [
   "andoza.ai", "andoza.ai v1.0.0", "O'zbekcha", "Русский", "English",
   "AndozaAI", "progress 0%" /* debug-only readout */, "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
+  // Keyboard keys and wiring labels that read the same in every language.
+  "Shift", "ESC", "TV", "ETH", "ANT",
+  // CSS in a <style> tag of the floor plan, not text.
+  ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1B3784); outline-offset: 2px; }",
 ];
 
 const TEXT_ATTRIBUTES = new Set(["label", "placeholder", "title", "aria-label", "alt", "description"]);
