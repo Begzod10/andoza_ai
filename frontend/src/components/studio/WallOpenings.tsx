@@ -332,7 +332,8 @@ export function WallOpenings({
                 onPointerCancel={onUp}
               >
                 <planeGeometry args={[el.width * s, el.height * s]} />
-                <meshBasicMaterial color="#2E5BFF" transparent opacity={isSel ? 0.18 : 0} depthWrite={false} side={THREE.DoubleSide} />
+                {/* Never tinted: a selected opening is marked by its edge lines below. */}
+                <meshBasicMaterial color="#2E5BFF" transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
               </mesh>
 
               {/* Keyboard path to mesh selection: three.js meshes have no

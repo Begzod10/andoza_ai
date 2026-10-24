@@ -1,4 +1,5 @@
 import * as React from "react";
+import { RectOutline } from "./SelectionOutline";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
@@ -115,7 +116,6 @@ function WallSegment({
   texAspect,
   wallLengthM,
   wallHeightM,
-  isSelected,
   plaster = false,
 }: {
   seg: Seg;
@@ -127,7 +127,6 @@ function WallSegment({
   /** Full wall length/height in metres — the UV frame every segment maps into */
   wallLengthM: number;
   wallHeightM: number;
-  isSelected: boolean;
   /** Suvoq bosqichi: render the photo-real plaster PBR material instead of the covering */
   plaster?: boolean;
 }) {
@@ -287,16 +286,13 @@ function WallSegment({
           // there. Keep IBL to a whisper and let the analytic lights, which
           // the shadow shell does stop at the walls, carry the shaping.
           envMapIntensity={PLASTER_FINISH.envMapIntensity}
-          emissive={isSelected ? "#1E40AF" : "#000000"}
-          emissiveIntensity={isSelected ? 0.15 : 0}
         />
       ) : covering.kind === 'paint' ? (
         <meshStandardMaterial ref={matRef} color={paintColor} {...surface}
           // Emulsion on plaster: the relief is the wall's, the sheen is the
           // paint's, so the roughness map modulates a value of its own rather
           // than the stucco's full 1.
-          aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={PAINT_FINISH.envMapIntensity}
-          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.22 : 0} />
+          aoMapIntensity={0.25} roughness={0.88} metalness={0} envMapIntensity={PAINT_FINISH.envMapIntensity} />
       ) : covering.kind === 'texture' && covering.finish === 'tile' ? (
         /* Tile is the one finish that is NOT the stucco wearing something:
            porcelain is laid on the plaster and hides it, so this is the only
@@ -306,16 +302,13 @@ function WallSegment({
         <meshStandardMaterial ref={matRef} map={imgMat ?? undefined}
           bumpMap={imgMat ?? undefined} bumpScale={TILE_FINISH.bumpScale}
           color="#ffffff" roughness={TILE_FINISH.roughness} metalness={TILE_FINISH.metalness}
-          envMapIntensity={TILE_FINISH.envMapIntensity}
-          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+          envMapIntensity={TILE_FINISH.envMapIntensity} />
       ) : covering.kind === 'texture' ? (
         <meshStandardMaterial ref={matRef} map={imgMat ?? undefined} {...surface}
-          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity}
-          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity} />
       ) : (
         <meshStandardMaterial ref={matRef} map={mat ?? undefined} {...surface}
-          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity}
-          emissive={isSelected ? "#1E40AF" : "#000000"} emissiveIntensity={isSelected ? 0.15 : 0} />
+          aoMapIntensity={0.2} color="#ffffff" roughness={WALLPAPER.roughness} metalness={0} envMapIntensity={WALLPAPER.envMapIntensity} />
       )}
     </mesh>
   );
@@ -769,6 +762,17 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
 
   return (
     <group onClick={onClick}>
+      {/* Selected: a blue line round the wall's inner face, a hair into the
+          room; the face itself keeps its finish (SelectionOutline). */}
+      {isSelected && (() => {
+        const faceDir = axis === 'X' ? (innerFaceDir ?? (cz <= 0 ? 1 : -1)) : (innerFaceDir ?? (cx >= 0 ? -1 : 1));
+        const ry = axis === 'X' ? (faceDir > 0 ? 0 : Math.PI) : (faceDir > 0 ? Math.PI / 2 : -Math.PI / 2);
+        const off = thickness / 2 + 0.012;
+        const pos: [number, number, number] = axis === 'X'
+          ? [cx, height / 2, cz + faceDir * off]
+          : [cx + faceDir * off, height / 2, cz];
+        return <RectOutline w={length} h={height} position={pos} rotation={[0, ry, 0]} />;
+      })()}
       {segments.map((seg, i) => (
         <WallSegment
           key={`${i}-${covering.kind === 'oboy' ? covering.patternId : 'p'}`}
@@ -779,7 +783,6 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
           texAspect={texAspect}
           wallLengthM={length}
           wallHeightM={height}
-          isSelected={isSelected}
           plaster={plaster}
         />
       ))}
@@ -793,7 +796,6 @@ export const Wall = memo(function Wall({ wallId, length, height, thickness, cove
           texAspect={texAspect}
           wallLengthM={length}
           wallHeightM={height}
-          isSelected={isSelected}
           plaster={plaster}
         />
       )}

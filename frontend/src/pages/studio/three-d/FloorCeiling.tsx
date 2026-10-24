@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { RectOutline } from "./SelectionOutline";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -225,12 +226,7 @@ export const WoodFloor = memo(function WoodFloor({
           pattern={activePattern} width={width} depth={depth}
           fallbackColor={floorColor} floorType={floorType}
         />
-        {isSelected && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={1}>
-            <planeGeometry args={[width + 0.04, depth + 0.04]} />
-            <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
-          </mesh>
-        )}
+        {isSelected && <RectOutline w={width} h={depth} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]} />}
       </group>
     );
   }
@@ -252,12 +248,7 @@ export const WoodFloor = memo(function WoodFloor({
           <meshStandardMaterial color={UNCONFIGURED_FLOOR_COLOR} roughness={0.85} metalness={0} envMapIntensity={0.25} />
         )}
       </mesh>
-      {isSelected && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
-          <planeGeometry args={[width + 0.04, depth + 0.04]} />
-          <meshBasicMaterial color="#1E40AF" opacity={0.18} transparent depthWrite={false} />
-        </mesh>
-      )}
+      {isSelected && <RectOutline w={width} h={depth} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} />}
     </group>
   );
 });
@@ -468,8 +459,7 @@ export const Ceiling = memo(function Ceiling({
   settings?: Partial<CeilingSettings>
   hidden: boolean
   meshRef: MutableRefObject<THREE.Mesh | null>
-  /** Tinted the same blue a selected wall/floor gets, so the ceiling reads as
-   *  the active surface while the panel edits it. */
+  /** Outlined in blue, like a selected wall or floor (SelectionOutline). */
   isSelected?: boolean
   /** Selects the ceiling. No stopPropagation on the group below (same as the
    *  floor's and the walls' own groups) — one tap has to both select and
@@ -510,22 +500,17 @@ export const Ceiling = memo(function Ceiling({
           side={THREE.FrontSide}
           colorWrite={!hidden}
           depthWrite={!hidden}
-          // Emissive rather than the floor's overlay plane: a dropped design
-          // hangs its panels BELOW this slab, so an overlay would end up
-          // behind them and the tint would vanish on exactly the ceilings
-          // that have something to select. Tinting the materials instead
-          // colours the slab and the panels wherever they happen to sit.
-          emissive={showSelected ? '#1E40AF' : '#000000'}
-          emissiveIntensity={showSelected ? 0.25 : 0}
         />
       </mesh>
+      {/* Selected: a blue line round the ceiling's edge, drawn over the
+          dropped panels too (no depth test), where a tint used to be. */}
+      {showSelected && <RectOutline w={W} h={D} position={[0, H - 0.012, 0]} rotation={[Math.PI / 2, 0, 0]} />}
       {!hidden && parts.length > 0 && (
         <group ref={profileRef}>
           <CeilingProfile
             parts={parts}
             color={resolved.color}
             stripK={resolved.stripK}
-            selected={showSelected}
           />
         </group>
       )}
@@ -542,15 +527,11 @@ export const Ceiling = memo(function Ceiling({
  * in the room that should not respond to the room's own lighting.
  */
 export function CeilingProfile({
-  parts, color, stripK, selected = false,
+  parts, color, stripK,
 }: {
   parts: CeilingPart[]
   color: string
   stripK: number
-  /** Selection tint, carried down so a dropped ceiling highlights as one
-   *  surface instead of just its slab. The LED strips stay untouched — they
-   *  are a light source, not a face of the ceiling. */
-  selected?: boolean
 }) {
   const stripColor = kelvinToHex(stripK)
   return (
@@ -567,11 +548,7 @@ export function CeilingProfile({
           {part.kind === 'strip' ? (
             <meshBasicMaterial color={stripColor} toneMapped={false} />
           ) : (
-            <meshStandardMaterial
-              color={color} roughness={0.92} metalness={0}
-              emissive={selected ? '#1E40AF' : '#000000'}
-              emissiveIntensity={selected ? 0.25 : 0}
-            />
+            <meshStandardMaterial color={color} roughness={0.92} metalness={0} />
           )}
         </mesh>
       ))}

@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { SelectionOutline } from "./SelectionOutline";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -509,8 +510,6 @@ function NWallRoomShell({
           color={floorPattern
             ? floorSlabColorFor(floorPattern, floorBase, designState.floorType)
             : designState.floorConfigured ? floorBase : UNCONFIGURED_FLOOR_COLOR}
-          emissive={isFloorSelected ? '#1E40AF' : '#000000'}
-          emissiveIntensity={isFloorSelected ? 0.25 : 0}
           roughness={floorPattern ? 0.92 : 0.8}
           // ShapeGeometry's front-face winding depends on the input polygon's
           // winding in its own local X-Y space, before this mesh's rotation
@@ -521,6 +520,8 @@ function NWallRoomShell({
           side={THREE.DoubleSide}
         />
       </mesh>
+      {/* Selected: a blue line round the floor's own outline (SelectionOutline). */}
+      {isFloorSelected && <SelectionOutline geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} />}
       {floorPattern && (
         <>
           <PatternFloor
@@ -581,7 +582,6 @@ function NWallRoomShell({
               ceilingDesign(designState.ceiling?.design ?? DEFAULT_CEILING_DESIGN),
               designState.ceiling?.settings,
             ).stripK}
-            selected={!!isCeilingSelected}
           />
         </group>
       )}
@@ -598,8 +598,6 @@ function NWallRoomShell({
           // greyer slab tone that made drawn rooms read dirtier than
           // rectangular ones side by side.
           color={designState.ceiling?.settings?.color ?? CEILING_SETTING_DEFAULTS.color}
-          emissive={isCeilingSelected ? '#1E40AF' : '#000000'}
-          emissiveIntensity={isCeilingSelected ? 0.25 : 0}
           roughness={0.95}
           // Indoors: see lib/surfaceFinish. The default of 1 has the ceiling
           // sampling the whole sky through its own roof.
@@ -607,6 +605,7 @@ function NWallRoomShell({
           side={ceilingSide}
         />
       </mesh>
+      {isCeilingSelected && <SelectionOutline geometry={polyGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, H - 0.012, 0]} />}
       </group>
 
       {/* The sun's occluder. Only rectangular rooms had one, so a drawn room
