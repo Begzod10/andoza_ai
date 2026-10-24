@@ -45,3 +45,17 @@ function inside(x: number, z: number, poly: [number, number][]): boolean {
   }
   return hit
 }
+
+/**
+ * The box round every room of the flat — what the zoom-out limit fits when
+ * nothing is focused, since that is what the camera then orbits (the flat's
+ * centre, lib/focusFraming). It used to fit twice the furthest reach from the
+ * OPEN room, right when the camera orbited that room and nearly double the
+ * flat once it did not: "max zoom is very far".
+ */
+export function flatBounds(boxes: readonly RoomBox[]): { W: number; D: number } {
+  if (!boxes.length) return { W: 1, D: 1 }
+  const x0 = Math.min(...boxes.map((b) => b.cx - b.w / 2)), x1 = Math.max(...boxes.map((b) => b.cx + b.w / 2))
+  const z0 = Math.min(...boxes.map((b) => b.cz - b.d / 2)), z1 = Math.max(...boxes.map((b) => b.cz + b.d / 2))
+  return { W: x1 - x0, D: z1 - z0 }
+}
