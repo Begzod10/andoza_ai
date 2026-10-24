@@ -41,6 +41,11 @@ export function StoreCard({
         <Package size={13} />
         {t("dokon.store.models", { count: modelCount })}
       </div>
+      {store.is_demo && (
+        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-500 mr-1">
+          {t("dokon.store.demo")}
+        </span>
+      )}
       {!store.is_active && (
         <span className="inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
           {t("dokon.store.inactive")}

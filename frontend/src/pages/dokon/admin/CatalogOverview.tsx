@@ -95,7 +95,7 @@ export function CatalogOverview({
       <div className="flex flex-wrap items-center gap-3">
         <Button
           size="sm"
-          variant="secondary"
+          variant="soft"
           loading={classifyMutation.isPending}
           disabled={classifyMutation.isPending}
           onClick={() => classifyMutation.mutate()}
@@ -168,7 +168,7 @@ export function CatalogOverview({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-on-app">{t("dokon.overview.unassigned_models")}</h2>
-            <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
+            <Button size="sm" variant="soft" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
               {t("common.qoshish")}
             </Button>
           </div>

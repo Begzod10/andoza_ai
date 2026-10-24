@@ -92,6 +92,11 @@ run_seed app.seed_norms "smeta norms"
 # cable, ceiling board/profile/LED strip, light fittings), with what one pack holds. After
 # the catalog seeders so their stores exist; a bad row here cannot take the others down.
 run_seed app.seed_estimate_catalog "estimate shop products"
+# Real Tashkent stores with products and photos from their public sites, for the
+# presentation, before any contract (stores.is_demo). Runs only with DEMO_STORES on
+# (docker-compose.prod.yml) and only once: an existing demo store, or an earlier
+# `python -m app.seed_demo_stores --remove`, makes it a no-op.
+run_seed app.seed_demo_stores "demo stores (presentation)"
 # The /materials response is cached 10 min; drop those keys so freshly seeded
 # rows appear immediately.
 docker compose -f "$COMPOSE_FILE" exec -T redis sh -c "redis-cli --scan --pattern 'materials:*' | xargs -r redis-cli DEL" || true

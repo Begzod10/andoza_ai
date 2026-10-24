@@ -9,7 +9,7 @@ import { CameraRefBridge, CutOutline, DoorDimensions, GapField, PolygonGhost, Re
 import { isRectilinear, moveEdge, outwardNormal, polygonCentre, type EdgeMove } from "@/lib/resizePolygon";
 import { keepContentInPlace, type RoomThings } from "@/lib/keepContent";
 import { clipRoom, outlineOf, type RoomContent } from "@/lib/clipRoom";
-import { flatBoxOf } from "@/lib/flatBoxes";
+import { flatBoxOf, flatBounds } from "@/lib/flatBoxes";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { isResizable, minSizeMm, resizeBox, resizeGeometry, sideWallShiftMm, type Side } from "@/lib/resizeRoom";
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
@@ -42,7 +42,7 @@ import { type CutawayMode } from "@/features/studio/diorama";
 import { ReleaseGLOnUnmount, CanvasErrorBoundary } from "@/features/studio/glcleanup";
 import { WallOpenings, type OpeningSel } from "@/components/studio/WallOpenings";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
-import { computeAbsolutePositions, computeOccupiedSides, flatExtent, placedSiblingRooms } from "./helpers";
+import { computeAbsolutePositions, computeOccupiedSides, placedSiblingRooms } from "./helpers";
 import { flatRenderPlan } from "@/lib/flatOpenings";
 import { QiblaMarker } from "./QiblaMarker";
 import { RoomScanReference, type ScanSwapRequest } from "./RoomScanOverlay";
@@ -239,12 +239,6 @@ export function ThreeDCanvasScene({
   // The one exception is a link that asks for it (`?focus=1`, used right after
   // a scan), which opens that room alone.
   useEffect(() => { setFocusedRoomId(initialRoomFocus(window.location.search, room.id)); }, [room.id]);
-  /** How far the flat reaches around this room — what the zoom-out limit has
-   *  to clear now that the neighbours are on screen. */
-  const flatSpan = useMemo(
-    () => flatExtent(aptRooms, room.id, W, D, activeLayoutPos),
-    [aptRooms, room.id, W, D, activeLayoutPos],
-  );
   /**
    * "that door between should be visible in both rooms": what every room of
    * the flat draws for its openings, the active room included — one plan,
@@ -575,6 +569,11 @@ export function ThreeDCanvasScene({
     if (!liveBox) return;
     commitTo(moveAlong(liveBox, axis, wanted, flatBoxes, { snap: false, wallThicknessM }));
   };
+  /** What the zoom-out limit has to fit: the focused room, else the flat. */
+  const zoomFit = useMemo(() => {
+    const f = focusedRoomId ? flatBoxes.find((b) => b.id === focusedRoomId) : null;
+    return f ? { W: f.w, D: f.d } : flatBounds(flatBoxes);
+  }, [flatBoxes, focusedRoomId]);
   const framedCamKey = JSON.stringify(framedCamRaw);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const framedCam = useMemo(() => framedCamRaw, [framedCamKey]);
@@ -1029,10 +1028,12 @@ export function ThreeDCanvasScene({
         })()}
         {/* Keeps the view still when a tapped neighbour becomes the open room. */}
         <RoomSwitchCamera controlsRef={controlsRef} />
+        {/* Fitted to what the camera orbits (lib/focusFraming): the focused
+            room, or the box round the whole flat — and not a step further. */}
         <OrbitZoomLimit
           controlsRef={controlsRef}
-          W={focusedRoomId ? W : flatSpan.W}
-          D={focusedRoomId ? D : flatSpan.D}
+          W={zoomFit.W}
+          D={zoomFit.D}
           H={H}
         />
         <OrbitControls

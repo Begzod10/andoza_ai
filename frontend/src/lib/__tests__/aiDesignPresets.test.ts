@@ -24,7 +24,7 @@ const CATALOG = [
 ]
 
 describe('design presets', () => {
-  it.each(DESIGN_PRESETS.map((p) => p.id))('%s is a plan the studio can apply: real colours, floor, lights and zones', (id) => {
+  it.each(DESIGN_PRESETS.map((p) => p.id))('%s is a plan the studio can apply: real colours, floor, lights and furniture roles', (id) => {
     const plan = presetPlan(id, CATALOG, 'mehmonxona')!
     const hex = /^#[0-9a-f]{6}$/i
     const main = plan.walls.main!
@@ -39,7 +39,7 @@ describe('design presets', () => {
       expect(LIGHT_TYPES.map((t) => t.id)).toContain(l.type)
       expect(zones).toContain(l.zone)
     }
-    for (const f of plan.furniture) expect(zones).toContain(f.zone)
+    for (const f of plan.furniture) expect(f.role).toBeTruthy()
     expect(plan.title && plan.summary).toBeTruthy()
   })
 
@@ -92,17 +92,41 @@ describe('design presets', () => {
   it("in a drawn room the preset's walls become the room's own: first to fourth wall, wrapping round", () => {
     const plan = presetPlan('dark', CATALOG, 'mehmonxona', ['W1', 'W2', 'W3'])!
     expect(plan.walls.accent!.wall).toBe('W3')
-    expect(plan.furniture.find((f) => f.id === 'sofa')!.zone).toBe('wall_W1')
     expect(plan.lights.find((l) => l.type === 'floor_lamp')!.zone).toBe('corner_W2_W3')
     expect(plan.lights.find((l) => l.type === 'led_linear')!.zone).toBe('wall_W3')
     const classic = presetPlan('klassik', CATALOG, undefined, ['W1', 'W2', 'W3'])!
     expect(classic.lights.find((l) => l.type === 'bra')!.zone).toBe('wall_W2')
-    expect(classic.furniture.find((f) => f.id === 'kreslo' || f.id === 'chair')!.zone).toBe('corner_W3_W1') // D wraps to W1
   })
 
-  it('a room with no walls puts everything in the middle', () => {
-    const plan = presetPlan('dark', CATALOG, undefined, [])!
-    expect(plan.furniture.every((f) => f.zone === 'center')).toBe(true)
+  it('every preset furniture item has a role and no zone', () => {
+    for (const p of DESIGN_PRESETS) {
+      for (const f of presetPlan(p.id, CATALOG, 'mehmonxona')!.furniture) {
+        expect(f.role, p.id).toBeTruthy()
+        expect(f.zone, p.id).toBeUndefined()
+      }
+    }
+  })
+
+  it('each kind maps to its role (the role the piece itself infers, as an AI plan would give it)', () => {
+    const roleOf = (id: string) => presetPlan('dark', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === id)!.role
+    expect(roleOf('sofa')).toBe('sofa')
+    expect(roleOf('table')).toBe('coffee_table')
+    expect(roleOf('tv')).toBe('tv_unit')
+    expect(roleOf('rug')).toBe('rug')
+    expect(roleOf('chair')).toBe('armchair')
+    // "Kitob shkafi": the name says shkaf, a wardrobe to inferRole; both stand in the storage group alike.
+    expect(presetPlan('klassik', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === 'shelf')!.role).toBe('wardrobe')
+  })
+
+  it('a table that is a dining table in the catalog plays a dining table, not a coffee table', () => {
+    const only = [item('sofa', 'Divan', 'divan'), item('kitchen-table', 'Oshxona stoli', 'stol', 'oshxona')]
+    const plan = presetPlan('minimalist', only, 'mehmonxona')!
+    expect(plan.furniture.find((f) => f.id === 'kitchen-table')!.role).toBe('dining_table')
+  })
+
+  it('a piece whose name says nothing falls back to the role of its kind', () => {
+    const plan = presetPlan('minimalist', [item('sofa', 'Model X', 'divan'), item('t', 'Model T', 'table')], undefined)!
+    expect(plan.furniture.find((f) => f.id === 't')!.role).toBe('coffee_table')
   })
 
   it('is undefined for an unknown style', () => {
@@ -174,6 +198,12 @@ describe('design presets', () => {
   it('with nothing of its style, a piece of another style still fills the room', () => {
     const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }]
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')
+  })
+
+  it('a shop listing without a 3-D model is never picked', () => {
+    const cat = [{ ...item('photo-only', 'Divan', 'divan', 'mehmonxona'), glb_url: null }, item('model', 'Divan', 'divan')]
+    expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture.map((f) => f.id)).toEqual(['model'])
+    expect(presetPlan('hitech', [cat[0]], 'mehmonxona')!.furniture).toEqual([])
   })
 
   it('a catalog with no styles at all (or an old cached one without the field) picks by room as before', () => {

@@ -276,47 +276,6 @@ export function placedSiblingRooms(
   return out;
 }
 
-/**
- * How far the whole flat reaches around the active room, metres.
- *
- * The zoom-out limit was fitted to the ACTIVE room — correct when it was the
- * only thing on screen, and wrong the moment the neighbours started being
- * drawn: the camera stopped the instant one room filled the frame, so the
- * rooms next door were rendered somewhere the user could not pull back far
- * enough to see. "Where is my old room" was partly that.
- *
- * Returns a full span about the active room's own centre — twice the furthest
- * reach on each axis — because that centre is what the camera orbits, and
- * `fitRoomDistance` turns the span into the radius of the sphere it has to
- * contain. A real bounding box would be tighter but wrong here: a flat that
- * reaches 30 m west of the active room still needs 30 m of radius, whichever
- * side the camera happens to be orbiting on.
- *
- * Lives beside `computeAbsolutePositions` rather than in the component file
- * so it can be tested without pulling the whole R3F tree into the test.
- */
-export function flatExtent(
-  rooms: Room[] | undefined,
-  activeId: string,
-  activeW: number,
-  activeD: number,
-  activePos: { x: number; z: number } | null,
-): { W: number; D: number } {
-  if (!rooms || rooms.length < 2) return { W: activeW, D: activeD };
-  const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
-  const anchor = activePos ?? abs.get(activeId) ?? { x: 0, z: 0 };
-  let reachX = activeW / 2;
-  let reachZ = activeD / 2;
-  for (const r of rooms) {
-    const { w, d } = roomFootprint(r, activeId, activeW, activeD);
-    const p = abs.get(r.id) ?? { x: 0, z: 0 };
-    reachX = Math.max(reachX, Math.abs(p.x - anchor.x) + w / 2);
-    reachZ = Math.max(reachZ, Math.abs(p.z - anchor.z) + d / 2);
-  }
-  // Doubled because the caller wants a full span about the centre, the same
-  // shape as the room's own W/D.
-  return { W: reachX * 2, D: reachZ * 2 };
-}
 
 
 /**

@@ -92,6 +92,38 @@ describe('ShopHome', () => {
     expect(screen.queryByText('Hech narsa topilmadi.')).toBeNull()
   })
 
+  it('asks the server for the chosen category and the search, in a stable page size', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Divan 2/ })
+    expect(listCatalogFurniture).toHaveBeenLastCalledWith({ page: 1, per_page: 60, category: undefined, q: undefined })
+    fireEvent.click(screen.getByRole('button', { name: 'Stol' }))
+    await waitFor(() => expect(listCatalogFurniture).toHaveBeenLastCalledWith({ page: 1, per_page: 60, category: 'stol', q: undefined }))
+    fireEvent.change(screen.getByLabelText('Qidirish'), { target: { value: ' stol ' } })
+    await waitFor(() => expect(listCatalogFurniture).toHaveBeenLastCalledWith({ page: 1, per_page: 60, category: 'stol', q: 'stol' }))
+  })
+
+  it('offers every category, not only those on the first page', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Divan 2/ })
+    for (const label of ['Divan', 'Stol', 'Stul', 'Karavot', 'Shkaf', 'Lampa', 'Boshqa']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+    }
+  })
+
+  it('reaches every product: a "show more" button loads the next page', async () => {
+    listCatalogFurniture.mockReset().mockImplementation(({ page }: { page: number }) => Promise.resolve(
+      page === 1
+        ? { items: [F('1', 'Divan 2', 'divan', 4_500_000), F('2', 'Stol 1', 'stol', 1_850_000)], total: 3, page: 1, per_page: 60 }
+        : { items: [F('3', 'Shkaf 9', 'shkaf', 2_000_000)], total: 3, page: 2, per_page: 60 },
+    ))
+    mount()
+    await screen.findByRole('button', { name: /Divan 2/ })
+    expect(screen.queryByRole('button', { name: /Shkaf 9/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: "Yana ko'rsatish" }))
+    expect(await screen.findByRole('button', { name: /Shkaf 9/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Yana ko'rsatish" })).toBeNull() // all 3 shown
+  })
+
   it('says nothing was found when the catalog is empty', async () => {
     listCatalogFurniture.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, per_page: 100 })
     mount()

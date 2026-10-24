@@ -76,6 +76,8 @@ async def list_materials(
     total = total_result.scalar_one()
 
     offset = (page - 1) * per_page
+    # Newest first, id breaking ties: without an ORDER BY, pages overlap and skip rows.
+    query = query.order_by(Material.created_at.desc(), Material.id)
     result = await db.execute(query.offset(offset).limit(per_page))
     materials = result.scalars().all()
 
@@ -164,6 +166,12 @@ async def list_furniture(
         description="Filter to models for this room; models with no room_type "
                     "(usable everywhere) are always included",
     ),
+    q: str | None = Query(default=None, max_length=100, description="Search by name_uz substring"),
+    has_model: bool = Query(
+        default=False,
+        description="Only models with a 3-D file: what the studio can place. The shop "
+                    "lists photo-only items too (e.g. the demo stores).",
+    ),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
@@ -175,7 +183,7 @@ async def list_furniture(
     # mixed-content breakage back for the TTL window.
     cache_key = (
         f"furniture:{request_base_url(request)}:"
-        f"{category}:{room_type}:{page}:{per_page}"
+        f"{category}:{room_type}:{q}:{int(has_model)}:{page}:{per_page}"
     )
     cached = await cache_get(cache_key)
     if cached is not None:
@@ -199,11 +207,20 @@ async def list_furniture(
         room_filter = Furniture.room_type.is_(None) | (Furniture.room_type == room_type)
         query = query.where(room_filter)
         count_query = count_query.where(room_filter)
+    if has_model:
+        query = query.where(Furniture.glb_key.is_not(None))
+        count_query = count_query.where(Furniture.glb_key.is_not(None))
+    if q and q.strip():
+        name_filter = Furniture.name_uz.ilike(f"%{q.strip()}%")
+        query = query.where(name_filter)
+        count_query = count_query.where(name_filter)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
 
     offset = (page - 1) * per_page
+    # Newest first, id breaking ties: without an ORDER BY, pages overlap and skip rows.
+    query = query.order_by(Furniture.created_at.desc(), Furniture.id)
     result = await db.execute(query.offset(offset).limit(per_page))
     items = result.scalars().all()
 

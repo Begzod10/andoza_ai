@@ -17,7 +17,8 @@
  * nine rooms — the "Mening xonam" ones — with `layoutPos: null`.
  */
 import { describe, it, expect } from 'vitest'
-import { computeAbsolutePositions, flatExtent, roomFootprint } from '../helpers'
+import { computeAbsolutePositions, roomFootprint } from '../helpers'
+import { flatBounds, type RoomBox } from '@/lib/flatBoxes'
 import { fitRoomDistance } from '@/lib/orbitZoom'
 import type { Room } from '@/lib/api'
 
@@ -66,21 +67,34 @@ const FOV = 68
  *  half-angle is the binding one. */
 const ASPECT = 1.8
 
+/** Every room's footprint in the flat, absolute. */
+function boxesOf(rooms: Room[], activeId: string, aw: number, ad: number): RoomBox[] {
+  const abs = computeAbsolutePositions(rooms, activeId, aw, ad)
+  return rooms.map((r) => {
+    const p = abs.get(r.id)!
+    const { w, d } = roomFootprint(r, activeId, aw, ad)
+    return { id: r.id, cx: p.x, cz: p.z, w, d }
+  })
+}
+
 /**
  * Is `room` inside the frame when the camera is pulled back as far as the
- * studio's zoom-out limit allows, orbiting the active room?
+ * studio's zoom-out limit allows?
  *
- * The limit comes from `flatExtent` → `fitRoomDistance`, and the camera orbits
- * the active room's centre, so "visible" means the room's footprint lies
- * inside the frustum at that distance from that centre — from every orbit
- * angle, which is why the span is measured as a radius about the centre.
+ * With nothing focused the camera orbits the CENTRE of the box round the
+ * whole flat (lib/focusFraming), and the limit fits that box
+ * (`flatBounds` → `fitRoomDistance`) — so "visible" means the room's
+ * footprint lies inside the frustum at that distance from that centre, from
+ * every orbit angle.
  */
 function visibleAtMaxZoomOut(
   rooms: Room[], activeId: string, roomId: string, aspect = ASPECT,
+  aw = ROOM_W, ad = ROOM_D,
 ): boolean {
-  const abs = computeAbsolutePositions(rooms, activeId, ROOM_W, ROOM_D)
-  const anchor = abs.get(activeId)!
-  const span = flatExtent(rooms, activeId, ROOM_W, ROOM_D, anchor)
+  const boxes = boxesOf(rooms, activeId, aw, ad)
+  const span = flatBounds(boxes)
+  const cx = (Math.min(...boxes.map((b) => b.cx - b.w / 2)) + Math.max(...boxes.map((b) => b.cx + b.w / 2))) / 2
+  const cz = (Math.min(...boxes.map((b) => b.cz - b.d / 2)) + Math.max(...boxes.map((b) => b.cz + b.d / 2))) / 2
   const dist = fitRoomDistance({ W: span.W, D: span.D, H }, FOV, aspect)
   const vHalf = (FOV * Math.PI) / 360
   const hHalf = Math.atan(Math.tan(vHalf) * aspect)
@@ -88,11 +102,10 @@ function visibleAtMaxZoomOut(
   // target, which is the plane the floors sit nearest to.
   const halfFrameX = dist * Math.tan(hHalf)
   const halfFrameZ = dist * Math.tan(vHalf)
-  const p = abs.get(roomId)!
-  const { w, d } = roomFootprint(rooms.find((r) => r.id === roomId)!, activeId, ROOM_W, ROOM_D)
+  const b = boxes.find((x) => x.id === roomId)!
   return (
-    Math.abs(p.x - anchor.x) + w / 2 <= halfFrameX &&
-    Math.abs(p.z - anchor.z) + d / 2 <= halfFrameZ
+    Math.abs(b.cx - cx) + b.w / 2 <= halfFrameX &&
+    Math.abs(b.cz - cz) + b.d / 2 <= halfFrameZ
   )
 }
 
@@ -184,54 +197,40 @@ describe('every room is reachable by the camera from the active room', () => {
     // limit has to be far enough to show the flat and not much further.
     //
     // `fitRoomDistance` fits the sphere around the flat into the NARROWER
-    // half-angle, which is the vertical one on a landscape canvas, so the
-    // vertical direction is where air is wasted. With the old conga-line row
-    // the frame was 132 m tall for a flat 13 m deep — ten times over. The
-    // grid brings that to about four.
-    const abs = computeAbsolutePositions(rooms, 'mening8', ROOM_W, ROOM_D)
-    const anchor = abs.get('mening8')!
-    const span = flatExtent(rooms, 'mening8', ROOM_W, ROOM_D, anchor)
+    // half-angle, which is the vertical one on a landscape canvas. Seen from
+    // every orbit angle the flat needs its diagonal on screen, so the frame
+    // is measured against that — and must not be far past it.
+    const span = flatBounds(boxesOf(rooms, 'mening8', ROOM_W, ROOM_D))
     const dist = fitRoomDistance({ W: span.W, D: span.D, H }, FOV, ASPECT)
     const frameZ = 2 * dist * Math.tan((FOV * Math.PI) / 360)
-    expect(frameZ).toBeLessThan(span.D * 5)
+    expect(frameZ).toBeLessThan(Math.hypot(span.W, span.D) * 1.5)
   })
 })
 
-describe('flatExtent', () => {
+describe('the zoom-out limit fits the flat, not twice its reach', () => {
   it('is the room itself when the flat has no other room', () => {
-    expect(flatExtent(undefined, 'solo', 5, 4, null)).toEqual({ W: 5, D: 4 })
-    expect(flatExtent([apiRoom('solo', 5, 4)], 'solo', 5, 4, null)).toEqual({ W: 5, D: 4 })
+    expect(flatBounds(boxesOf([apiRoom('solo', 5, 4)], 'solo', 5, 4))).toEqual({ W: 5, D: 4 })
   })
 
-  it('covers a neighbour created through a wall — the two-room case the user hit', () => {
+  it('shows a neighbour created through a wall, from either room', () => {
     // What the "+ add room through this wall" flow actually produces: both
     // rooms positioned, touching along x.
     const first = apiRoom('first', 4, 3, { x: 0, z: 0 })
     const second = apiRoom('second', 3.5, 3, { x: 4 / 2 + 0.1 + 3.5 / 2, z: 0 })
     const rooms = [first, second]
-    const span = flatExtent(rooms, 'second', 3.5, 3, { x: second.state!.layoutPos.x, z: 0 } as { x: number; z: number })
-    // Reaches back over the first room, so the camera can be pulled out far
-    // enough to see it — it is not clipped to the active room's own 3.5 m.
-    expect(span.W).toBeGreaterThan(3.5)
-    expect(visibleAtMaxZoomOutTwoRoom(rooms, 'second', 'first')).toBe(true)
+    const span = flatBounds(boxesOf(rooms, 'second', 3.5, 3))
+    expect(span.W).toBeCloseTo(4 + 0.1 + 3.5)
+    expect(visibleAtMaxZoomOut(rooms, 'second', 'first', ASPECT, 3.5, 3)).toBe(true)
+    expect(visibleAtMaxZoomOut(rooms, 'first', 'second', ASPECT, 4, 3)).toBe(true)
+  })
+
+  it("is no bigger for a room at the flat's edge than for one in its middle", () => {
+    // The old span was measured about the OPEN room: open the end room of a
+    // six-room row and the limit nearly doubled, leaving the flat tiny in
+    // the sky ("max zoom is very far").
+    const rooms = realApartment()
+    const end = flatBounds(boxesOf(rooms, 'xona0', ROOM_W, ROOM_D))
+    const mid = flatBounds(boxesOf(rooms, 'xona3', ROOM_W, ROOM_D))
+    expect(end).toEqual(mid)
   })
 })
-
-/** The two-room variant of `visibleAtMaxZoomOut` — different footprints, so it
- *  cannot share the fixture's single ROOM_W/ROOM_D. */
-function visibleAtMaxZoomOutTwoRoom(rooms: Room[], activeId: string, roomId: string): boolean {
-  const active = rooms.find((r) => r.id === activeId)!
-  const { w: aw, d: ad } = roomFootprint(active, 'none', 0, 0)
-  const abs = computeAbsolutePositions(rooms, activeId, aw, ad)
-  const anchor = abs.get(activeId)!
-  const span = flatExtent(rooms, activeId, aw, ad, anchor)
-  const dist = fitRoomDistance({ W: span.W, D: span.D, H }, FOV, ASPECT)
-  const vHalf = (FOV * Math.PI) / 360
-  const hHalf = Math.atan(Math.tan(vHalf) * ASPECT)
-  const p = abs.get(roomId)!
-  const { w, d } = roomFootprint(rooms.find((r) => r.id === roomId)!, activeId, aw, ad)
-  return (
-    Math.abs(p.x - anchor.x) + w / 2 <= dist * Math.tan(hHalf) &&
-    Math.abs(p.z - anchor.z) + d / 2 <= dist * Math.tan(vHalf)
-  )
-}

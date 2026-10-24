@@ -4,7 +4,7 @@
  * footprint is NOT its outer rectangle centred on its position.
  */
 import { describe, expect, it } from 'vitest'
-import { flatBoxOf } from '@/lib/flatBoxes'
+import { flatBoxOf, flatBounds } from '@/lib/flatBoxes'
 import type { RoomGeometry } from '@/store/roomStore'
 
 describe('flatBoxOf', () => {
@@ -25,5 +25,25 @@ describe('flatBoxOf', () => {
     expect(b.cz).toBeCloseTo(20 + (1.5 - mean.z))
     const area = b.parts!.reduce((s, p) => s + p.w * p.d, 0)
     expect(area).toBeCloseTo(12 - 1.5)
+  })
+})
+
+describe('flatBounds', () => {
+  // "max zoom is very far, scene rooms should fit display size fully": the
+  // zoom-out limit fits the flat's real footprint — not twice the furthest
+  // reach from the open room, which for a room at one end of the flat was
+  // nearly double the flat.
+  it('is the box round every room, wherever the open room is', () => {
+    const b = flatBounds([
+      { id: 'a', cx: 0, cz: 0, w: 4, d: 3 },
+      { id: 'b', cx: 3.95, cz: 0, w: 3.5, d: 3 },
+      { id: 'c', cx: 0.25, cz: 3.2, w: 3.5, d: 3 },
+    ])
+    expect(b.W).toBeCloseTo(5.7 + 2)      // x −2 … 5.7
+    expect(b.D).toBeCloseTo(4.7 + 1.5)    // z −1.5 … 4.7
+  })
+
+  it('is the room itself for a one-room flat', () => {
+    expect(flatBounds([{ id: 'a', cx: 1, cz: 2, w: 4, d: 3 }])).toEqual({ W: 4, D: 3 })
   })
 })
