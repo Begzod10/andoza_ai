@@ -125,10 +125,18 @@ docker compose -f docker-compose.prod.yml up -d --build frontend
 
 ## 4. nginx + HTTPS (one-time VPS setup)
 
-The site is served at `andozaai.uz` (DNS on Cloudflare, proxied, SSL/TLS mode "Full").
-The old `andoza.jumaniyozov.uz` keeps working from the same block. nginx + certbot are installed on the VPS.
+The site is served at `andozaai.uz`. Its DNS is on Cloudflare with the records
+set to **DNS only** (grey cloud): proxied, Cloudflare could open connections to the
+VPS but the replies never came back (stuck in SYN-RECV, every request a 525), so
+browsers reach nginx directly and the Let's Encrypt certificate below is the one
+they see. nginx + certbot are installed on the VPS.
 
-`/etc/nginx/sites-available/andozaai.uz` (symlinked into `sites-enabled/`):
+The old `andoza.jumaniyozov.uz` is answered by the same block: its pages redirect
+(301) to `https://andozaai.uz` with the same path, while `/api/` and `/media/` keep
+being served there so app builds that still call the old host do not break.
+
+On the VPS the file is `/etc/nginx/sites-available/andoza.jumaniyozov.uz`
+(symlinked into `sites-enabled/`):
 
 ```nginx
 server {
@@ -152,6 +160,10 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     location / {
+        # The site lives at andozaai.uz; the old domain keeps /api and /media for older app builds.
+        if ($host = andoza.jumaniyozov.uz) {
+            return 301 https://andozaai.uz$request_uri;
+        }
         proxy_pass http://127.0.0.1:5173;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -165,12 +177,23 @@ server {
 ```
 
 Enable + provision the cert (certbot rewrites the block to add `:443` + the cert
-paths + an HTTP→HTTPS redirect, and installs an auto-renew timer):
+paths + an HTTP→HTTPS redirect, and installs an auto-renew timer). One certificate,
+named `andoza.jumaniyozov.uz`, covers all three names:
 
 ```bash
-ln -s /etc/nginx/sites-available/andozaai.uz /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/andoza.jumaniyozov.uz /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
-certbot --nginx -d andozaai.uz -d www.andozaai.uz -d andoza.jumaniyozov.uz --agree-tos -m you@example.com --redirect
+certbot --nginx --expand --cert-name andoza.jumaniyozov.uz -d andoza.jumaniyozov.uz -d andozaai.uz -d www.andozaai.uz --redirect
+```
+
+certbot then writes the `:80` block with one `if ($host = …) { return 301 … }` per
+name. Point the old domain's line straight at the new one, so plain-http visits to
+it skip a hop:
+
+```nginx
+    if ($host = andoza.jumaniyozov.uz) {
+        return 301 https://andozaai.uz$request_uri;
+    } # managed by Certbot
 ```
 
 ---
@@ -195,6 +218,9 @@ certbot --nginx -d andozaai.uz -d www.andozaai.uz -d andoza.jumaniyozov.uz --agr
 curl -s -o /dev/null -w "%{http_code}\n" https://andozaai.uz/api/v1/furniture   # 200
 # HTTP redirects to HTTPS
 curl -s -o /dev/null -w "%{redirect_url}\n" http://andozaai.uz/                  # https://…
+# The old domain's pages redirect to the new one; its API still answers
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://andoza.jumaniyozov.uz/login   # 301 https://andozaai.uz/login
+curl -s -o /dev/null -w "%{http_code}\n" https://andoza.jumaniyozov.uz/api/v1/furniture       # 200
 # The built bundle points at the HTTPS API (not a raw http IP)
 JS=$(curl -s https://andozaai.uz/ | grep -oE '/assets/index-[^"]+\.js' | head -1)
 curl -s "https://andozaai.uz$JS" | grep -oE 'https://andozaai\.uz/api/v1'
