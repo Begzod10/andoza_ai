@@ -243,18 +243,18 @@ export default function SmetaPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header. Not inside the native app (lib/embedded): there the 3D/Smeta
+          strip below already names the page and leads back, and the small
+          screen is better spent on the smeta. */}
+      <WebOnly>
       <header className="border-b border-line bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          {/* The native app's AppBar has its own back arrow (see lib/embedded). */}
-          <WebOnly>
-            <Link
-              to={`/studio/${roomId}`}
-              className="text-ink-muted hover:text-ink text-sm"
-            >
-              ← {t("common.orqaga")}
-            </Link>
-          </WebOnly>
+          <Link
+            to={`/studio/${roomId}`}
+            className="text-ink-muted hover:text-ink text-sm"
+          >
+            ← {t("common.orqaga")}
+          </Link>
           <h1 className="text-xl font-bold text-ink">{t("smeta.sarlavha")}</h1>
           {room && (
             <span className="ml-auto text-sm text-ink-muted">
@@ -264,6 +264,7 @@ export default function SmetaPage() {
           )}
         </div>
       </header>
+      </WebOnly>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Stories-style tab navigation — Smeta is a regular scrolling page

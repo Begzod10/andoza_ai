@@ -91,11 +91,11 @@ describe('SmetaPage (inside the native app)', () => {
     expect(screen.getByRole('button', { name: '3D' })).toBeTruthy()
   })
 
-  it('hides only the web back link with app=1 — the toggle and title stay', () => {
+  it('drops the header row with app=1 — the 3D/Smeta toggle names the page and leads back', () => {
     renderSmetaPage('/smeta/room-1?app=1')
     expect(screen.queryByText(/Orqaga/)).toBeNull()
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
     expect(screen.getByRole('button', { name: '3D' })).toBeTruthy()
-    expect(screen.getByRole('heading', { level: 1 })).toBeTruthy()
   })
 })
 
