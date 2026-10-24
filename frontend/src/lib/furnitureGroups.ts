@@ -58,8 +58,16 @@ const DROP_PENALTY = 2
 const DOOR_WALL_PENALTY = 2
 /** Fewer chairs at the same table spot rank just below more chairs there, but above any other spot. */
 const CHAIR_PENALTY = 1e-4
-/** At most this many dining candidates per chair count, best first. */
+/** Score taken off a group slid to the end of a wall: below every first fit on any wall. */
+const END_PENALTY = 100
+/** At most this many dining candidates per chair count and orientation, best first. */
 const MAX_DINING = 12
+/**
+ * Score taken off a dining table turned with its long side across the room's long axis: enough to
+ * rank it below every candidate in the preferred orientation, with any number of chairs (fewer
+ * chairs come before turning the table), so it is used only when none of those can be.
+ */
+const ACROSS_PENALTY = 100
 
 const ALL_RULES = { doors: true, windows: true }
 const DOORS_ONLY = { doors: true, windows: false }
@@ -101,6 +109,31 @@ function alongs(wall: WallInfo, w: number, around = 0): number[] {
   for (let k = 1; k * SLIDE_STEP <= reach * 2 + 1e-9; k++) out.push(around + k * SLIDE_STEP, around - k * SLIDE_STEP)
   out.push(reach, -reach)
   return [...new Set(out.filter((a) => Math.abs(a) <= reach + 1e-9).map((a) => Math.round(a * 1e6) / 1e6))]
+}
+
+/**
+ * A group's arrangements on one wall: its anchor at the first offset that fits (the middle first),
+ * then slid as far toward either end of the wall as it still fits, ranked below every first fit
+ * (END_PENALTY), so that a later group can still find room beside it.
+ */
+function wallSlots(wall: WallInfo, w: number, tryAt: (along: number) => GroupCandidate | null): GroupCandidate[] {
+  const tries = alongs(wall, w)
+  let first: { along: number; c: GroupCandidate } | null = null
+  for (const a of tries) {
+    const c = tryAt(a)
+    if (c) { first = { along: a, c }; break }
+  }
+  if (!first) return []
+  const out = [first.c]
+  for (const sign of [1, -1]) {
+    // From the end inward; the first that fits is as far as the group slides that way.
+    const beyond = tries.filter((a) => sign * (a - first.along) > 1e-6).sort((a, b) => sign * (b - a))
+    for (const a of beyond) {
+      const c = tryAt(a)
+      if (c) { out.push({ ...c, score: c.score - END_PENALTY }); break }
+    }
+  }
+  return out
 }
 
 /** Overlap test with a cheap distance check first: most pairs are far apart. */
@@ -277,35 +310,34 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
     for (const [nArms, nTv] of countSets([arms.length, tvs.length])) {
-      for (const a of alongs(wall, sofa.w)) {
+      out.push(...wallSlots(wall, sofa.w, (a) => {
         const s: Placed = { piece: sofa, rect: atWall(wall, sofa.w, sofa.d, a) }
         let placed = build(ctx, [], [s])
-        if (!placed) continue
+        if (!placed) return null
         let focus: Pt = offset(s.rect, s.rect.d / 2 + 1)
         if (coffee) {
           const [x, z] = offset(s.rect, sofa.d / 2 + COFFEE_GAP + coffee.d / 2)
           placed = build(ctx, placed, [{ piece: coffee, rect: { x, z, w: coffee.w, d: coffee.d, rotation: s.rect.rotation } }])
-          if (!placed) continue
+          if (!placed) return null
           focus = [x, z]
         }
         if (nArms) {
           placed = placeArmchairs(ctx, placed, s.rect, arms.slice(0, nArms), focus)
-          if (!placed) continue
+          if (!placed) return null
         }
         if (nTv) {
           placed = placeTv(ctx, placed, s.rect, tvs[0])
-          if (!placed) continue
+          if (!placed) return null
         }
         const rest = alongWalls(ctx, placed, extra)
         const dropped = [...arms.slice(nArms), ...tvs.slice(nTv), ...rest.dropped]
-        out.push({
+        return {
           placed: rest.placed,
           usePoints: [sofaUsePoint(ctx, s.rect, coffee, rest.placed), ...storageUse(rest.placed)],
           dropped,
           score: wallScore(ctx, wall, s.rect, rest.placed, dropped.length, true),
-        })
-        break // one arrangement per wall and set: the first along the wall that fits
-      }
+        }
+      }))
     }
   }
   return out
@@ -426,22 +458,24 @@ function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const chairPieces = tableSplit.rest.filter((p) => p.role === 'dining_chair')
   const extra = tableSplit.rest.filter((p) => p.role !== 'dining_chair')
   const { box } = ctx.model
-  // The long side runs along the room's long axis.
+  // The long side runs along the room's long axis by preference; across it when that is all that fits.
   const roomLongX = box.maxX - box.minX >= box.maxZ - box.minZ
-  const rotation = roomLongX === table.w >= table.d ? 0 : Math.PI / 2
+  const preferred = roomLongX === table.w >= table.d ? 0 : Math.PI / 2
+  const orientations: Array<[number, number]> = [[preferred, 0]]
+  if (table.w !== table.d) orientations.push([preferred === 0 ? Math.PI / 2 : 0, ACROSS_PENALTY])
   const full = chairPieces.length ? chairCount(Math.max(table.w, table.d)) : 0
   const counts = [6, 4, 2].filter((n) => n <= full)
   if (counts.length === 0) counts.push(0)
   const centre = freeCentre(ctx)
 
-  const byCount = new Map<number, GroupCandidate[]>()
-  for (const [x, z] of floorGrid(ctx.model)) {
+  const byCount = new Map<string, GroupCandidate[]>()
+  for (const [rotation, across] of orientations) for (const [x, z] of floorGrid(ctx.model)) {
     const t: Placed = { piece: table, rect: { x, z, w: table.w, d: table.d, rotation } }
     const base = build(ctx, [], [t])
     if (!base) continue
     const spot = nearestDoor(ctx, [x, z])
       + (ctx.windows.some((w) => Math.hypot(w[0] - x, w[1] - z) <= WINDOW_NEAR) ? 1 : 0)
-      - Math.hypot(x - centre[0], z - centre[1])
+      - Math.hypot(x - centre[0], z - centre[1]) - across
     for (const n of counts) {
       const chairs = n ? chairsAround(t.rect, chairPieces[0], n) : []
       const placed = build(ctx, base, chairs)
@@ -451,12 +485,13 @@ function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
       const usePoints: Pt[] = n
         ? chairs.map((c) => offset(c.rect, -c.rect.d / 2 - BACK_USE))
         : [offset(t.rect, table.d / 2 + FRONT_USE)]
-      const list = byCount.get(n) ?? []
+      const key = `${n}:${rotation}`
+      const list = byCount.get(key) ?? []
       list.push({
         placed: rest.placed, usePoints: [...usePoints, ...storageUse(rest.placed)], dropped,
         score: spot - CHAIR_PENALTY * (full - n) - DROP_PENALTY * dropped.length,
       })
-      byCount.set(n, list)
+      byCount.set(key, list)
     }
   }
   return [...byCount.values()].flatMap((l) => l.sort((a, b) => b.score - a.score).slice(0, MAX_DINING))
@@ -473,24 +508,23 @@ function placeSleep(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
     for (const [nStands] of countSets([stands.length])) {
-      for (const a of alongs(wall, bed.w)) {
+      out.push(...wallSlots(wall, bed.w, (a) => {
         const b: Placed = { piece: bed, rect: atWall(wall, bed.w, bed.d, a) }
         let placed = build(ctx, [], [b])
-        if (!placed) continue
+        if (!placed) return null
         if (nStands) {
           placed = placeNightstands(ctx, placed, wall, a, bed, stands.slice(0, nStands))
-          if (!placed) continue
+          if (!placed) return null
         }
         const rest = alongWalls(ctx, placed, nsSplit.rest)
         const dropped = [...stands.slice(nStands), ...rest.dropped]
-        out.push({
+        return {
           placed: rest.placed,
           usePoints: [offset(b.rect, 0, b.rect.w / 2 + SIDE_USE), ...storageUse(rest.placed)],
           dropped,
           score: wallScore(ctx, wall, b.rect, rest.placed, dropped.length, true),
-        })
-        break
-      }
+        }
+      }))
     }
   }
   return out
@@ -520,7 +554,7 @@ function placeWork(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const windowWalls = ctx.model.walls.filter((w) => wallHas(ctx, w, 'window'))
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
-    for (const a of alongs(wall, desk.w)) {
+    out.push(...wallSlots(wall, desk.w, (a) => {
       const d: Placed = { piece: desk, rect: atWall(wall, desk.w, desk.d, a) }
       const group: Placed[] = [d]
       if (chair) {
@@ -528,17 +562,16 @@ function placeWork(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
         group.push({ piece: chair, rect: { x, z, w: chair.w, d: chair.d, rotation: d.rect.rotation + Math.PI } })
       }
       const placed = build(ctx, [], group)
-      if (!placed) continue
+      if (!placed) return null
       const rest = alongWalls(ctx, placed, chairSplit.rest)
       const nearLight = windowWalls.some((w) => w === wall || adjacent(w, wall))
-      out.push({
+      return {
         placed: rest.placed,
         usePoints: [chair ? offset(group[1].rect, -chair.d / 2 - BACK_USE) : offset(d.rect, desk.d / 2 + FRONT_USE), ...storageUse(rest.placed)],
         dropped: rest.dropped,
         score: wallScore(ctx, wall, d.rect, rest.placed, rest.dropped.length, false) + (nearLight ? 1 : 0),
-      })
-      break
-    }
+      }
+    }))
   }
   return out
 }

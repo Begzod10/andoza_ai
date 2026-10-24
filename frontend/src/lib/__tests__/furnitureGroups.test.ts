@@ -108,6 +108,25 @@ describe('dining', () => {
     expect(byRole(c, 'dining_chair').length).toBeLessThan(6)
     expect(byRole(c, 'dining_chair').length).toBeGreaterThan(0)
   })
+
+  const longAlongX = (c: GroupCandidate) => {
+    const t = byRole(c, 'dining_table')[0].rect
+    return Math.abs(Math.cos(t.rotation)) > 0.5 === t.w >= t.d
+  }
+
+  it("prefers the table's long side along the room's long axis", () => {
+    expect(longAlongX(best)).toBe(true)
+  })
+
+  it('turns the table across the room when only that fits', () => {
+    // 3.0 x 2.6 m, table 1.4 x 0.8: two chairs and their backs need 2.8 m across the table, which only the 3.0 m side gives.
+    const narrow = roomModel(box(3000, 2600))
+    const pieces = [piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5)]
+    const c = groupCandidates('dining', pieces, narrow, [])[0]
+    expect(c).toBeDefined()
+    expect(byRole(c, 'dining_chair').length).toBeGreaterThanOrEqual(2)
+    expect(longAlongX(c)).toBe(false)
+  })
 })
 
 describe('lounge', () => {

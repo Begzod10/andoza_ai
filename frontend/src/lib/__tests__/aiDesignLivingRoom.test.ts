@@ -87,15 +87,18 @@ describe('the screenshot living room', () => {
     expect(walkable(model, placed.map(rectOf), doorEntries(model), [target])).toBe(true)
   })
 
-  it('names what it left out, and the notice says there was not enough room', () => {
+  it('fits the dining set beside the lounge, leaving out the armchairs and two of the chairs, and says so', () => {
     const applied = applyDesignPlan(PLAN, ALL_PARTS, CATALOG, 'mehmonxona')
-    const asked = PLAN.furniture.length - 1 + 4 // one chair line stands for the four a 1.4 m table seats
-    expect(applied.furniture + applied.skipped).toBe(asked)
-    expect(applied.skipped).toBe(applied.dropped.reduce((s, d) => s + d.count, 0))
-    if (applied.skipped > 0) {
-      expect(applied.dropped.length).toBeGreaterThan(0)
-      expect(droppedNotice(applied.dropped, i18n.t)).toContain('Joy yetmadi')
-    }
+    const placed = useRoomStore.getState().furniture
+    expect(placed.filter((f) => f.furniture_id === 'table')).toHaveLength(1)
+    expect(placed.filter((f) => f.furniture_id === 'chair')).toHaveLength(2)
+    expect(placed.filter((f) => f.furniture_id === 'wardrobe')).toHaveLength(1)
+    expect(placed.filter((f) => f.furniture_id === 'pouf')).toHaveLength(1)
+    // The two armchairs and two of the four chairs a 1.4 m table seats did not fit.
+    expect(applied.dropped).toEqual([{ name: 'Kreslo', count: 2 }, { name: 'Stul', count: 2 }])
+    expect(applied.skipped).toBe(4)
+    expect(applied.furniture + applied.skipped).toBe(PLAN.furniture.length - 1 + 4) // the chair line stands for four
+    expect(droppedNotice(applied.dropped, i18n.t)).toBe("Joy yetmadi: 2 ta Kreslo, 2 ta Stul qo'yilmadi.")
   })
 })
 

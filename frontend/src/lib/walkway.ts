@@ -38,6 +38,27 @@ function distanceTo(r: Rect, px: number, pz: number): number {
   return Math.hypot(Math.max(lx, 0), Math.max(lz, 0))
 }
 
+/** The cells a path `width` wide cannot use because it would not fit inside the room, per room and width. */
+const wallMasks = new WeakMap<RoomModel, Map<number, Uint8Array>>()
+function wallMask(model: RoomModel, width: number, nx: number, nz: number): Uint8Array {
+  let byWidth = wallMasks.get(model)
+  if (!byWidth) { byWidth = new Map(); wallMasks.set(model, byWidth) }
+  let mask = byWidth.get(width)
+  if (!mask) {
+    const { minX, minZ } = model.box
+    mask = new Uint8Array(nx * nz)
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < nz; j++) {
+        // The strip next to a wall is no path: the whole width must fit inside the room.
+        const cx = minX + (i + 0.5) * CELL, cz = minZ + (j + 0.5) * CELL
+        mask[i * nz + j] = model.inside({ x: cx, z: cz, w: width, d: width, rotation: 0 }) ? 0 : 1
+      }
+    }
+    byWidth.set(width, mask)
+  }
+  return mask
+}
+
 /**
  * True when every `to` point can be reached from some `from` point along a path `width` wide
  * that keeps off the `taken` footprints. A room with no door (`from` empty) always passes.
@@ -52,12 +73,11 @@ export function walkable(model: RoomModel, taken: Rect[], from: Pt[], to: Pt[], 
     return { r, minX: Math.min(...c.map((p) => p[0])) - pad, maxX: Math.max(...c.map((p) => p[0])) + pad, minZ: Math.min(...c.map((p) => p[1])) - pad, maxZ: Math.max(...c.map((p) => p[1])) + pad }
   })
 
-  const blocked = new Uint8Array(nx * nz)
+  const blocked = wallMask(model, width, nx, nz).slice()
   for (let i = 0; i < nx; i++) {
     for (let j = 0; j < nz; j++) {
       const cx = minX + (i + 0.5) * CELL, cz = minZ + (j + 0.5) * CELL
-      // The strip next to a wall is no path: the whole width must fit inside the room.
-      let b = !model.inside({ x: cx, z: cz, w: width, d: width, rotation: 0 })
+      let b = blocked[i * nz + j] === 1
       for (let k = 0; !b && k < near.length; k++) {
         const n = near[k]
         if (cx < n.minX || cx > n.maxX || cz < n.minZ || cz > n.maxZ) continue

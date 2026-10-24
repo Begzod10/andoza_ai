@@ -103,6 +103,37 @@ describe('layoutFurniture', () => {
   })
 })
 
+describe('layoutFurniture: searching the main group', () => {
+  it('tries more than the best main arrangement: a lounge slid along its wall leaves room for the dining set', () => {
+    const model = roomModel(box(4500, 3200, { A: [el('eshik', 900, 500)], C: [el('deraza', 1400, 1550)] }))
+    const pieces = [
+      piece('Divan', 'sofa', 2.3, 0.95), piece('Ovqat stoli', 'dining_table', 1.4, 0.8), piece('Stul', 'dining_chair', 0.45, 0.5),
+      piece('Kreslo', 'armchair', 0.75, 0.75), piece('Kreslo', 'armchair', 0.75, 0.75),
+    ]
+    const { placed } = layoutFurniture(pieces, model, 'mehmonxona', [])
+    expect(placed.some((p) => p.piece.role === 'sofa')).toBe(true)
+    expect(placed.some((p) => p.piece.role === 'dining_table')).toBe(true)
+    expect(placed.filter((p) => p.piece.role === 'dining_chair').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('a main group that can only stand out of reach still lets a later group in', () => {
+    // 5 x 3 m, the door near one end of wall B (x = +2.5). The user's own long piece across the room at
+    // x = 0.5 cuts it in two: the sofa only fits on the far side, out of reach; a wardrobe fits on the door side.
+    const model = roomModel(box(5000, 3000, { B: [el('eshik', 900, 100)] }))
+    const barrier: Rect = { x: 0.5, z: 0, w: 0.5, d: 2.9, rotation: 0 }
+    const { placed, dropped } = layoutFurniture(
+      [piece('Divan', 'sofa', 2.3, 0.95), piece('Shkaf', 'wardrobe', 1.2, 0.6)], model, 'mehmonxona', [barrier],
+    )
+    const sofa = placed.find((p) => p.piece.role === 'sofa')
+    expect(sofa).toBeDefined()
+    expect(sofa!.rect.x).toBeLessThan(0.5) // on the far side: placed by the fallback
+    const wardrobe = placed.find((p) => p.piece.role === 'wardrobe')
+    expect(wardrobe).toBeDefined()
+    expect(wardrobe!.rect.x).toBeGreaterThan(0.5)
+    expect(dropped).toEqual([])
+  })
+})
+
 describe('applyDesignPlan lays the furniture out in groups', () => {
   const living = () => box(4500, 3200, { A: [el('eshik', 900, 500)], C: [el('deraza', 1400, 1550)] })
 
@@ -140,6 +171,34 @@ describe('applyDesignPlan lays the furniture out in groups', () => {
     const furniture = useRoomStore.getState().furniture
     expect(furniture.find((f) => f.id === 'mine')).toEqual(mine)
     for (const f of furniture.filter((x) => x.id !== 'mine')) expect(overlaps(rectOf(f), rectOf(mine), 0)).toBe(false)
+  })
+
+  it('a piece in a floor-covering category is a rug whatever its name or the plan says', () => {
+    useRoomStore.setState({ geometry: living() })
+    const catalog = [...CATALOG, item('persian', 'Fors naqshi', 'gilam', 200, 140)]
+    applyDesignPlan(plan([
+      { id: 'sofa', name: 'Divan', role: 'sofa' }, { id: 'persian', name: 'Fors naqshi' },
+      { id: 'persian', name: 'Fors naqshi', role: 'decor' },
+    ]), ALL_PARTS, catalog, 'mehmonxona')
+    const furniture = useRoomStore.getState().furniture
+    const sofa = furniture.find((f) => f.furniture_id === 'sofa')!
+    const rugs = furniture.filter((f) => f.furniture_id === 'persian')
+    expect(rugs).toHaveLength(2)
+    // Both lie on the same spot under the lounge, turned with the sofa: only rugs may lie on top of one another.
+    expect([rugs[1].x, rugs[1].y]).toEqual([rugs[0].x, rugs[0].y])
+    for (const r of rugs) expect(r.rotation).toBeCloseTo(sofa.rotation, 5)
+  })
+
+  it('a piece with a role the studio does not know is grouped by its category and name instead', () => {
+    useRoomStore.setState({ geometry: living() })
+    const applied = applyDesignPlan(plan([
+      { id: 'table', name: 'Ovqat stoli', role: 'banquet_table' as never }, { id: 'chair', name: 'Stul' },
+    ]), ALL_PARTS, CATALOG, 'oshxona')
+    const furniture = useRoomStore.getState().furniture
+    // Inferred as a dining table (category "stol"): chairs come round it, not one chair against a wall.
+    expect(furniture.filter((f) => f.furniture_id === 'table')).toHaveLength(1)
+    expect(furniture.filter((f) => f.furniture_id === 'chair').length).toBeGreaterThanOrEqual(2)
+    expect(applied.dropped.some((d) => d.name === 'Ovqat stoli')).toBe(false)
   })
 
   it('counts what it left out, and skipped is their total', () => {

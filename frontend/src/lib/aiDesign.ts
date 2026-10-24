@@ -11,7 +11,7 @@ import type { LightTypeId } from '@/lib/lightCatalog'
 import { lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
 import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
-import { inferRole } from '@/lib/furnitureRole'
+import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
 export interface DesignParts { walls: boolean; floor: boolean; lights: boolean; furniture: boolean }
@@ -45,6 +45,15 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   dropped: Array<{ name: string; count: number }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
+
+/** A catalog category that is a floor covering: such a piece is a rug whatever its name or the plan says. */
+const RUG_CATEGORY = /gilam|rug|carpet|kovrolin/i
+
+/** A plan piece's role: a rug by its catalog category, else the plan's own role when it is a known one, else from its category and name. */
+function roleOf(p: AiDesignPlan['furniture'][number], item: CatalogFurniture | undefined): FurnitureRole {
+  if (item && RUG_CATEGORY.test(item.category)) return 'rug'
+  return isRole(p.role) ? p.role : inferRole(item?.category, p.name)
+}
 
 /** Pieces that stand tall: they would shut out a window. (Wall-hung pieces count too, see tallOf.) */
 const TALL_PIECES = /shkaf|garderob|vitrina|stellaj|kitob|javon|pianino|bufet|komod|wardrobe|bookcase|cabinet/i
@@ -139,7 +148,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     })
     const pieces: Piece[] = plan.furniture.map((p) => {
       const item = byId.get(p.id)
-      return { id: p.id, name: p.name, role: p.role ?? inferRole(item?.category, p.name), ...sizeOf(item) }
+      return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
     })
     const { placed, dropped } = layoutFurniture(pieces, model, roomType, taken)
     // Each placed piece is its own entry, chairs round a table too (they share one plan line).

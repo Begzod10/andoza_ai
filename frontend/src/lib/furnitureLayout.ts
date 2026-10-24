@@ -2,11 +2,13 @@
  * The whole room's furniture, laid out group by group.
  *
  * The room's main group (the lounge of a living room, the dining set of a kitchen, the bed of a
- * bedroom) goes first, then the others in a fixed order. Each group takes the first of its
+ * bedroom) goes first, then the others in a fixed order. Each later group takes the first of its
  * arrangements (best first, from `groupCandidates`) that still lets a person walk from the door to
- * every group placed so far; a group with no such arrangement is left out whole. The main group
- * alone, when none passes, takes its best arrangement anyway. Rugs go last, under the middle of the
- * main group. Whatever was not placed is named, with how many, for the notice.
+ * every group placed so far; a group with no such arrangement is left out whole. The main group's
+ * best few walkable arrangements are each tried this way, and the one that gets the most pieces in
+ * wins. When none of the main group's arrangements leaves the way open, its best one is taken anyway.
+ * Rugs go last, under the middle of the main group. Whatever was not placed is named, with how
+ * many, for the notice.
  *
  * A room with no usable outline (no walls to stand things on) gets every piece in the middle, or the
  * nearest free floor to it, as before groups.
@@ -17,6 +19,8 @@ import { ROLE_GROUP, type FurnitureRole, type GroupId } from './furnitureRole'
 import { doorEntries, walkable, type Pt } from './walkway'
 
 const ORDER: GroupId[] = ['lounge', 'dining', 'sleep', 'work', 'storage', 'extra']
+/** How many of the main group's walkable arrangements are tried, each with the rest of the room. */
+const PRIMARY_TRIES = 12
 
 const BY_ROOM_TYPE: Record<string, GroupId> = { mehmonxona: 'lounge', oshxona: 'dining', yotoqxona: 'sleep' }
 /** Without a known room type, the plan's main piece decides, in this order. */
@@ -67,23 +71,49 @@ export function layoutFurniture(
   if (!byGroup.has(primary)) primary = primaryGroup(undefined, roles)
 
   const doors = doorEntries(model)
-  const solid: Rect[] = [...taken]
-  const usePoints: Pt[] = []
-  const placed: Placed[] = []
-  let primaryPlaced: Placed[] = []
+  const others = ORDER.filter((g) => g !== primary && byGroup.has(g))
+  const rects = (ps: Placed[]) => ps.map((p) => p.rect)
 
-  for (const group of [primary, ...ORDER.filter((g) => g !== primary)]) {
-    const groupPieces = byGroup.get(group)
-    if (!groupPieces) continue
-    const candidates = groupCandidates(group, groupPieces, model, solid)
-    let chosen = candidates.find((c) => walkable(model, [...solid, ...c.placed.map((p) => p.rect)], doors, [...usePoints, ...c.usePoints]))
-    if (!chosen && group === primary) chosen = candidates[0]
-    if (!chosen) continue
-    placed.push(...chosen.placed)
-    solid.push(...chosen.placed.map((p) => p.rect))
-    usePoints.push(...chosen.usePoints)
-    if (group === primary) primaryPlaced = chosen.placed
+  /** The other groups after `start`, each taking its first arrangement that keeps every use point reachable. */
+  const fill = (start: Placed[], startUse: Pt[]): Placed[] => {
+    const placed = [...start]
+    const solid = [...taken, ...rects(start)]
+    const usePoints = [...startUse]
+    for (const group of others) {
+      const chosen = groupCandidates(group, byGroup.get(group)!, model, solid)
+        .find((c) => walkable(model, [...solid, ...rects(c.placed)], doors, [...usePoints, ...c.usePoints]))
+      if (!chosen) continue
+      placed.push(...chosen.placed)
+      solid.push(...rects(chosen.placed))
+      usePoints.push(...chosen.usePoints)
+    }
+    return placed
   }
+
+  // Try the main group's best few walkable arrangements, each followed by the rest; keep the one that
+  // places the most pieces (each chair counts), the better main arrangement on a tie.
+  let best: { placed: Placed[]; primary: Placed[] } | null = null
+  const primaryPieces = byGroup.get(primary)
+  if (primaryPieces) {
+    const candidates = groupCandidates(primary, primaryPieces, model, taken)
+    let tried = 0
+    for (const c of candidates) {
+      if (tried >= PRIMARY_TRIES) break
+      if (!walkable(model, [...taken, ...rects(c.placed)], doors, c.usePoints)) continue
+      tried++
+      const placed = fill(c.placed, c.usePoints)
+      if (!best || placed.length > best.placed.length) best = { placed, primary: c.placed }
+    }
+    // None leaves the way open: the best one anyway, and only its use points that can still be reached
+    // count for the groups after it (the others would shut every later group out).
+    if (!best && candidates.length) {
+      const c = candidates[0]
+      const solid = [...taken, ...rects(c.placed)]
+      best = { placed: fill(c.placed, c.usePoints.filter((p) => walkable(model, solid, doors, [p]))), primary: c.placed }
+    }
+  }
+  const placed = best?.placed ?? fill([], [])
+  const primaryPlaced = best?.primary ?? []
 
   for (const rug of rugs) placed.push({ piece: rug, rect: rugSpot(rug, primaryPlaced, model) })
 
