@@ -10,7 +10,9 @@ and clean product names. Then the seed itself:
   with no demo store yet, so an admin's deletions and renames are never undone;
 * ``--remove`` deletes the ``is_demo`` stores and what they own, and leaves a marker
   so the next deploy does not seed them again; ``--force`` reseeds;
-* a failed seed deletes the photos it had already uploaded.
+* a failed seed deletes the photos it had already uploaded;
+* wallpapers (a demo store's oboy, priced per roll with its roll size) go in and
+  out with the stores.
 
 No database: ``_FakeSession`` interprets the ``select(Model)[.where(col == v, ...)]``
 statements the seed issues, so the real seed code runs unmodified against it.
@@ -29,6 +31,7 @@ from app.models.furniture import Furniture
 from app.models.material import Material, MaterialCategory, MaterialUnit
 from app.models.seed_marker import SeedMarker
 from app.models.store import Store
+from app.models.wallpaper import Wallpaper
 from app.schemas.admin_catalog import FURNITURE_CATEGORIES, PLACEMENTS, ROOM_TYPES
 
 CATALOG = demo.load_catalog()
@@ -132,6 +135,21 @@ def test_materials_use_the_enums_and_always_have_a_price():
         assert item["category"] in MaterialCategory.enums, item
         assert item["unit"] in MaterialUnit.enums, item
         assert isinstance(item["price_uzs"], int) and item["price_uzs"] > 0, item
+
+
+def test_wallpapers_have_a_price_a_roll_size_and_a_pattern_photo():
+    from PIL import Image
+
+    wallpapers = [item for _, item in _items("wallpaper")]
+    assert 20 <= len(wallpapers) <= 30
+    for item in wallpapers:
+        assert item["category"] == "oboy"
+        assert 0 < len(item["name_uz"]) <= 120, item  # Wallpaper.name is String(120)
+        assert isinstance(item["price_uzs"], int) and item["price_uzs"] > 0, item
+        assert 30 <= item["roll_width_cm"] <= 200, item
+        assert 3 <= item["roll_length_m"] <= 50, item
+        with Image.open(demo.DATA_DIR / item["image"]) as im:
+            assert max(im.size) <= 1024
 
 
 def test_lamps_hang_where_lamps_hang():
@@ -247,6 +265,8 @@ class _Uploads:
 
 N_FURNITURE = sum(1 for _ in _items("furniture"))
 N_MATERIALS = sum(1 for _ in _items("material"))
+N_WALLPAPERS = sum(1 for _ in _items("wallpaper"))
+N_ITEMS = N_FURNITURE + N_MATERIALS + N_WALLPAPERS
 
 
 @pytest.fixture
@@ -274,7 +294,8 @@ async def test_a_first_seed_inserts_everything_marked_demo(env):
     assert result["status"] == "seeded"
     assert (result["stores"], result["furniture"], result["materials"]) == (
         len(CATALOG["stores"]), N_FURNITURE, N_MATERIALS)
-    assert len(uploads.keys) == N_FURNITURE + N_MATERIALS
+    assert result["wallpapers"] == N_WALLPAPERS
+    assert len(uploads.keys) == N_ITEMS
     for store in session.of(Store):
         assert store.is_demo is True
         assert store.moderation_note == demo.DEMO_NOTE  # for humans reading the admin
@@ -283,6 +304,11 @@ async def test_a_first_seed_inserts_everything_marked_demo(env):
         assert f.glb_key is None and f.status == "approved" and f.is_active
         assert f.thumbnail_key.startswith("furniture/demo/") and f.thumbnail_key.endswith(".webp")
         assert f.placement in PLACEMENTS
+    for w in session.of(Wallpaper):
+        assert w.kind == "oboy" and w.storage_key.startswith("wallpapers/demo/")
+        assert w.width_cm and w.total_length_m and w.price_uzs > 0
+        assert w.content_type == "image/webp" and w.size_bytes > 0 and len(w.sha256) == 64
+        assert w.store_id in {st.id for st in session.of(Store)}
     for m in session.of(Material):
         assert m.image_url.startswith("/media/materials/demo/")
         assert m.price_uzs > 0
@@ -309,7 +335,7 @@ async def test_once_seeded_a_deploy_does_not_undo_admin_deletes_or_renames(env):
 
     assert result["status"] == "already_seeded"
     assert len(session.rows) == before
-    assert len(uploads.keys) == N_FURNITURE + N_MATERIALS  # nothing uploaded again
+    assert len(uploads.keys) == N_ITEMS  # nothing uploaded again
 
 
 async def test_after_remove_the_next_deploy_does_not_seed_again(env):
@@ -322,6 +348,7 @@ async def test_after_remove_the_next_deploy_does_not_seed_again(env):
 
     assert result["status"] == "removed"
     assert not session.of(Store) and not session.of(Furniture) and not session.of(Material)
+    assert not session.of(Wallpaper)
 
 
 async def test_force_reseeds_after_a_remove_and_clears_the_marker(env, monkeypatch):
@@ -373,23 +400,27 @@ async def test_remove_deletes_only_is_demo_stores_and_their_rows(env):
     kept_material = Material(store_id=other.id, category="laminat", name_uz="Laminat", unit="m2",
                              price_uzs=100_000, image_url="/media/materials/x.webp")
     admin_piece = Furniture(store_id=None, category="stol", name_uz="Stol", placement="pol")
-    for row in (kept_furniture, kept_material, admin_piece):
+    kept_wallpaper = Wallpaper(store_id=None, name="Mening oboyim", kind="oboy", storage_key="wallpapers/x.jpg",
+                               content_type="image/jpeg", size_bytes=10, sha256="0" * 64)
+    for row in (kept_furniture, kept_material, admin_piece, kept_wallpaper):
         session.add(row)
     await demo.seed_demo_stores()
 
     counts = await demo.remove_demo_stores()
 
     assert counts["stores"] == len(CATALOG["stores"])
-    assert (counts["furniture"], counts["materials"]) == (N_FURNITURE, N_MATERIALS)
+    assert (counts["furniture"], counts["materials"], counts["wallpapers"]) == (
+        N_FURNITURE, N_MATERIALS, N_WALLPAPERS)
     assert set(session.of(Store)) == {other, lookalike}
     assert set(session.of(Furniture)) == {kept_furniture, admin_piece}
     assert session.of(Material) == [kept_material]
+    assert session.of(Wallpaper) == [kept_wallpaper]
     # Exactly the photos this seed uploaded, deleted after the commit.
     assert sorted(deleted) == sorted(uploads.keys)
     assert counts["files_deleted"] == len(deleted)
 
     again = await demo.remove_demo_stores()
-    assert (again["stores"], again["furniture"], again["materials"]) == (0, 0, 0)
+    assert (again["stores"], again["furniture"], again["materials"], again["wallpapers"]) == (0, 0, 0, 0)
     assert len(session.of(SeedMarker)) == 1
 
 

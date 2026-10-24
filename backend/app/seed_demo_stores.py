@@ -9,7 +9,8 @@ Run inside the backend container (deploy/remote-deploy.sh calls the first one)::
 What this seeds
 ---------------
 Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Lumen LUX, Aura Lighting,
-Bestart, MAFF) with products and photos taken from their public websites by
+Bestart, MAFF, and the wallpaper shop Модные Стены) with products (furniture, floor
+and door materials, wallpapers sold by the roll) and photos taken from their public websites by
 ``scripts/demo_catalog/fetch.py`` into ``app/seed_data/demo_stores/``. There is no
 contract with these stores yet, so every store row has ``is_demo = true`` (and a
 ``moderation_note`` saying so, for humans); ``--remove`` deletes exactly those.
@@ -35,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import uuid
@@ -51,6 +53,7 @@ from app.models.furniture import Furniture
 from app.models.material import Material
 from app.models.seed_marker import SeedMarker
 from app.models.store import Store
+from app.models.wallpaper import Wallpaper
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -63,6 +66,7 @@ DATA_DIR = Path(__file__).resolve().parent / "seed_data" / "demo_stores"
 # exactly the files this seed uploaded and nothing else.
 FURNITURE_KEY = "furniture/demo/{id}_thumb.webp"
 MATERIAL_KEY = "materials/demo/{id}.webp"
+WALLPAPER_KEY = "wallpapers/demo/{id}.webp"
 
 LOGO_COLORS = ["#B45309", "#0F766E", "#1D4ED8", "#9D174D", "#4D7C0F",
                "#7C3AED", "#C2410C", "#0E7490", "#A16207", "#334155"]
@@ -96,7 +100,8 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
     them if the transaction does not commit."""
     upload = upload or upload_file
     uploaded = uploaded if uploaded is not None else []
-    counts = {"stores": 0, "furniture": 0, "materials": 0, "existing": 0, "skipped_real_store": 0}
+    counts = {"stores": 0, "furniture": 0, "materials": 0, "wallpapers": 0, "existing": 0,
+              "skipped_real_store": 0}
     for idx, data in enumerate(catalog["stores"]):
         store = await session.scalar(select(Store).where(Store.name == data["name"]))
         if store is None:
@@ -122,6 +127,12 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
             continue
 
         for item in data["items"]:
+            if item["kind"] == "wallpaper":
+                if await _add_wallpaper(session, store, item, data_dir, upload, uploaded):
+                    counts["wallpapers"] += 1
+                else:
+                    counts["existing"] += 1
+                continue
             model = Furniture if item["kind"] == "furniture" else Material
             existing = await session.scalar(
                 select(model).where(model.store_id == store.id, model.name_uz == item["name_uz"])
@@ -170,6 +181,40 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
     return counts
 
 
+async def _add_wallpaper(session, store: Store, item: dict, data_dir: Path,
+                         upload: Uploader, uploaded: list[str]) -> bool:
+    """Insert one demo wallpaper (an oboy of *store*, sold by the roll) unless a row with
+    its name in that store, or its very image in the oboy library, is already there."""
+    if await session.scalar(
+        select(Wallpaper).where(Wallpaper.store_id == store.id, Wallpaper.name == item["name_uz"])
+    ) is not None:
+        return False
+    image = (data_dir / item["image"]).read_bytes()
+    digest = hashlib.sha256(image).hexdigest()
+    # (sha256, kind) is unique: the same picture already in the library is not added twice.
+    if await session.scalar(
+        select(Wallpaper).where(Wallpaper.sha256 == digest, Wallpaper.kind == "oboy")
+    ) is not None:
+        return False
+    key = WALLPAPER_KEY.format(id=uuid.uuid4())
+    stored = await upload(image, key, content_type="image/webp")
+    uploaded.append(key)
+    session.add(Wallpaper(
+        store_id=store.id,
+        name=item["name_uz"][:120],
+        kind="oboy",
+        price_uzs=item["price_uzs"],
+        width_cm=item["roll_width_cm"],
+        total_length_m=item["roll_length_m"],
+        description=f"Rulon {item['roll_width_cm']:g} sm × {item['roll_length_m']:g} m",
+        storage_key=stored if stored.startswith("http") else key,
+        content_type="image/webp",
+        size_bytes=len(image),
+        sha256=digest,
+    ))
+    return True
+
+
 def _material_image_key(url: str | None) -> str | None:
     """The storage key behind a material image_url this seed stored, else None."""
     if not url:
@@ -182,7 +227,7 @@ def _material_image_key(url: str | None) -> str | None:
 async def _remove(session) -> tuple[dict[str, int], list[str]]:
     """Delete every is_demo store with its furniture and materials, and leave the marker
     that stops the next deploy from seeding them again; return counts and file keys."""
-    counts = {"stores": 0, "furniture": 0, "materials": 0}
+    counts = {"stores": 0, "furniture": 0, "materials": 0, "wallpapers": 0}
     keys: list[str] = []
     stores = (await session.execute(select(Store).where(Store.is_demo.is_(True)))).scalars().all()
     for store in stores:
@@ -199,6 +244,13 @@ async def _remove(session) -> tuple[dict[str, int], list[str]]:
                 keys.append(key)
             await session.delete(m)
             counts["materials"] += 1
+        # Wallpaper.store_id is ON DELETE SET NULL too: a shop-less wallpaper would stay in
+        # everyone's library, so the demo store's are deleted with it.
+        for w in (await session.execute(select(Wallpaper).where(Wallpaper.store_id == store.id))).scalars().all():
+            if "wallpapers/demo/" in (w.storage_key or ""):
+                keys.append(storage_key_from(w.storage_key))
+            await session.delete(w)
+            counts["wallpapers"] += 1
         await session.flush()
         await session.delete(store)
         counts["stores"] += 1
@@ -277,7 +329,7 @@ async def main(argv: list[str] | None = None) -> None:
         c = await remove_demo_stores()
         print(
             f"Demo stores removed: {c['stores']} stores, {c['furniture']} furniture,"
-            f" {c['materials']} materials, {c['files_deleted']} images deleted."
+            f" {c['materials']} materials, {c['wallpapers']} wallpapers, {c['files_deleted']} images deleted."
         )
         return
     c = await seed_demo_stores(force=args.force)
@@ -290,7 +342,8 @@ async def main(argv: list[str] | None = None) -> None:
     else:
         print(
             f"Demo stores seed complete: {c['stores']} stores, {c['furniture']} furniture,"
-            f" {c['materials']} materials inserted; {c['existing']} already there;"
+            f" {c['materials']} materials, {c['wallpapers']} wallpapers inserted;"
+            f" {c['existing']} already there;"
             f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
         )
 

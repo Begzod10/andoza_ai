@@ -1691,6 +1691,294 @@
      "source_url": "https://maff.uz/ru/product/2487"
     }
    ]
+  },
+  {
+   "slug": "modnie-steni",
+   "name": "Модные Стены",
+   "website": "https://www.modnie-steni.uz",
+   "phone": "+998712350708",
+   "items": [
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation DAMASK 38850-1",
+     "category": "oboy",
+     "price_uzs": 315000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/1.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-38850-1"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation Perfect 38752-1",
+     "category": "oboy",
+     "price_uzs": 315000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/2.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-38752-1"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation Perfect 38896-1",
+     "category": "oboy",
+     "price_uzs": 315000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/3.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-38896-1"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation Hitto 38500-1",
+     "category": "oboy",
+     "price_uzs": 315000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/4.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-38500-1"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98231",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/5.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98231"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98232",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/6.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98232"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98233",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/7.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98233"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98236",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/8.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98236"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ateliero 88298-14 Wella",
+     "category": "oboy",
+     "price_uzs": 120000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/9.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ateliero-106-m-88298-14-wella"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "OSTIMA 89021 Azzure",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/10.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-89021-azzure"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "OSTIMA 89022 Azzure",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/11.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-89022-azzure"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "OSTIMA 89025 Azzure",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/12.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-89025-azzure"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Московская Обойная Фабрика 4208-1",
+     "category": "oboy",
+     "price_uzs": 150000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/13.webp",
+     "source_url": "https://www.modnie-steni.uz/product/mof-106-m-4208-1-2"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Московская Обойная Фабрика 4209-1",
+     "category": "oboy",
+     "price_uzs": 150000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/14.webp",
+     "source_url": "https://www.modnie-steni.uz/product/mof-106-m-4209-1"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "МОФ 4184-9",
+     "category": "oboy",
+     "price_uzs": 180000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 25.0,
+     "image": "images/modnie-steni/15.webp",
+     "source_url": "https://www.modnie-steni.uz/product/mof-106-m-4184-9"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "АСПЕКТ ДЕЛЮКС АКЦЕНТ 70542-11",
+     "category": "oboy",
+     "price_uzs": 260000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/16.webp",
+     "source_url": "https://www.modnie-steni.uz/product/aspekt-deluxe-106-m-70542-11-lorenzo"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "АСПЕКТ ДЕЛЮКС Mario 70591-12",
+     "category": "oboy",
+     "price_uzs": 260000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/17.webp",
+     "source_url": "https://www.modnie-steni.uz/product/aspekt-deluxe-106-m-70591-12-mario"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "АСПЕКТ Deluxe 70695-12 Виола",
+     "category": "oboy",
+     "price_uzs": 260000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 25.0,
+     "image": "images/modnie-steni/18.webp",
+     "source_url": "https://www.modnie-steni.uz/product/aspekt-deluxe-106-m-70695-12-viola"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Вита 4247-2",
+     "category": "oboy",
+     "price_uzs": 150000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 25.0,
+     "image": "images/modnie-steni/19.webp",
+     "source_url": "https://www.modnie-steni.uz/product/mof-106-m-4247-2-festival"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98507",
+     "category": "oboy",
+     "price_uzs": 150000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/20.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98507-silvia"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98508",
+     "category": "oboy",
+     "price_uzs": 80000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/21.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98508-silvia"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98509",
+     "category": "oboy",
+     "price_uzs": 200000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/22.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98509-silvia"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98731 Male",
+     "category": "oboy",
+     "price_uzs": 180000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/23.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ateliero-106-m-98731-male"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98732 Male",
+     "category": "oboy",
+     "price_uzs": 180000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/24.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ateliero-106-m-98732-male"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Ostima 98739 Male",
+     "category": "oboy",
+     "price_uzs": 180000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/25.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ostima-106-m-98739-male"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "Oleron 285652",
+     "category": "oboy",
+     "price_uzs": 120000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/26.webp",
+     "source_url": "https://www.modnie-steni.uz/product/ateliero-106-m-285652-oleron"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation Hitto 79080-1",
+     "category": "oboy",
+     "price_uzs": 460000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/27.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-79080-1-eterna"
+    },
+    {
+     "kind": "wallpaper",
+     "name_uz": "AS Creation Hitto 79081-1",
+     "category": "oboy",
+     "price_uzs": 460000,
+     "roll_width_cm": 106.0,
+     "roll_length_m": 10.0,
+     "image": "images/modnie-steni/28.webp",
+     "source_url": "https://www.modnie-steni.uz/product/as-106-m-79081-1-eterna"
+    }
+   ]
   }
  ]
 }

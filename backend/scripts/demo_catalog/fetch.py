@@ -61,6 +61,7 @@ class Robots:
 
     def __init__(self, text: str) -> None:
         self.rules: list[tuple[bool, re.Pattern, int]] = []
+        self.crawl_delay = 0.0
         groups: list[tuple[list[str], list[tuple[str, str]]]] = []
         agents: list[str] = []
         rules: list[tuple[str, str]] = []
@@ -77,7 +78,7 @@ class Robots:
                     agents, rules = [], []
                 agents.append(value.lower())
                 last_was_agent = True
-            elif key in ("allow", "disallow"):
+            elif key in ("allow", "disallow", "crawl-delay"):
                 rules.append((key, value))
                 last_was_agent = False
             else:
@@ -88,6 +89,12 @@ class Robots:
             if "*" not in agents:
                 continue
             for key, value in rules:
+                if key == "crawl-delay":
+                    try:
+                        self.crawl_delay = max(self.crawl_delay, float(value))
+                    except ValueError:
+                        pass
+                    continue
                 if not value:
                     continue  # "Disallow:" with nothing = allow all
                 pattern = re.escape(value).replace(r"\*", ".*")
@@ -112,8 +119,8 @@ class Http:
         self.last = 0.0
         self.requests = 0
 
-    def _wait(self) -> None:
-        pause = DELAY_S - (time.monotonic() - self.last)
+    def _wait(self, delay: float = DELAY_S) -> None:
+        pause = max(DELAY_S, delay) - (time.monotonic() - self.last)
         if pause > 0:
             time.sleep(pause)
         self.last = time.monotonic()
@@ -143,7 +150,7 @@ class Http:
         if not self.allowed(url):
             log(f"  robots.txt disallows {url}, skipped")
             return None
-        self._wait()
+        self._wait(self._robots_for(url).crawl_delay)  # a host's Crawl-delay, if longer
         self.requests += 1
         try:
             r = self.s.get(url, timeout=30, stream=binary)
@@ -817,6 +824,90 @@ def fetch_maff(http: Http) -> list[Item]:
     return out[:PER_STORE]
 
 
+WALLPAPER_SIDE_PX = 1024
+
+
+_ROLL_RE = re.compile(r"(\d+[,.]\d+)\s*[*xх×]\s*(\d+(?:[,.]\d+)?)\s*м")
+
+
+def fetch_modnie_steni(http: Http) -> list[Item]:
+    """Модные Стены (modnie-steni.uz, Tashkent): wallpapers with a price per roll. The roll
+    size ("1,06*10 м") is in the description or the product's short summary; a product
+    without it (many give only the width) is skipped. One colourway per article."""
+    cats = [
+        "https://www.modnie-steni.uz/collection/as-creation-germaniya-2",
+        "https://www.modnie-steni.uz/collection/ostima-rossiya-3",
+        "https://www.modnie-steni.uz/collection/ateliero-rossiya-3",
+        "https://www.modnie-steni.uz/collection/moskovskaya-oboynaya-fabrika-rossiya-3",
+        "https://www.modnie-steni.uz/collection/aspekt-delux-rossiya-2",
+        "https://www.modnie-steni.uz/collection/odnotonnye-matovye-oboi-germaniya",
+        "https://www.modnie-steni.uz/collection/oboi-s-listyami-i-tsvetami",
+        "https://www.modnie-steni.uz/collection/oboi-v-vostochnom-stile",
+        "https://www.modnie-steni.uz/collection/fonovye-oboi-shtukaturka",
+        "https://www.modnie-steni.uz/collection/oboi-dlya-detskoy-komnaty",
+    ]
+    per_collection, limit = 4, 28
+    out: list[Item] = []
+    seen_urls: set[str] = set()
+    seen_articles: set[str] = set()
+    for cat_url in cats:
+        if len(out) >= limit:
+            break
+        soup = http.soup(cat_url)
+        if soup is None:
+            continue
+        links = []
+        for a in soup.find_all("a", href=True):
+            href = urljoin(cat_url, a["href"]).split("?")[0]
+            if "/product/" in href and href not in links and href not in seen_urls:
+                links.append(href)
+        got = tried = 0
+        for url in links:
+            if got >= per_collection or tried >= per_collection * 3 or len(out) >= limit:
+                break
+            code_m = re.search(r"(\d{4,})", url.rsplit("/", 1)[-1])
+            article = code_m.group(1) if code_m else url  # 38850-1 / 38850-2: one article
+            if article in seen_articles:
+                continue
+            seen_urls.add(url)
+            tried += 1
+            psoup = http.soup(url)
+            if psoup is None:
+                continue
+            prods = ld_products(psoup)
+            if not prods:
+                continue
+            p = prods[0]
+            price, image = ld_price(p), ld_image(p, url)
+            title = (p.get("name") or "").strip()
+            desc = (p.get("description") or "").strip()
+            text = text_of(psoup)
+            # The product's own block: from its title to the reviews tab.
+            i = text.find(title) if title else -1
+            block = text[i:text.find("Отзывы", i)] if i >= 0 else ""
+            m = _ROLL_RE.search(desc) or _ROLL_RE.search(block)
+            if not (price and image and m):
+                continue  # no price or no roll size: not seeded
+            width_cm = round(float(m.group(1).replace(",", ".")) * 100, 1)
+            length_m = round(float(m.group(2).replace(",", ".")), 2)
+            if not (30 <= width_cm <= 200 and 3 <= length_m <= 50):
+                continue
+            brand = re.search(r"Бренд\s+([^.\r\n]+?)(?:\.|\r|\n|$)", desc) or \
+                re.search(r"Характеристики Бренд (.+?) Страна", block)
+            collection = re.search(r"Коллекция\s+([^\r\n.]+)", desc)
+            collection_name = collection.group(1).strip() if collection else (
+                desc if desc and " " not in desc and len(desc) <= 20 else None)
+            code = re.search(r"\b(\d{4,}[\w-]*)", title)
+            parts = [x for x in (brand.group(1).strip() if brand else None, collection_name,
+                                 code.group(1) if code else None) if x]
+            name = " ".join(parts) if len(parts) >= 2 else re.sub(r"\s*\d[,.]\d+\s*м\b", "", title)
+            out.append(Item("wallpaper", clean_name(name.strip(" -"))[:120], "oboy", url, image, price,
+                            dims={"roll_width_cm": width_cm, "roll_length_m": length_m}))
+            seen_articles.add(article)
+            got += 1
+    return out
+
+
 @dataclass
 class Store:
     slug: str
@@ -844,6 +935,7 @@ STORES = [
     # which www.prom.uz's robots.txt disallows (fetch_sanat_hali is kept for reference).
     # Keng Makon yields nothing: its image CDN's robots.txt is "Disallow: /".
     Store("maff", "MAFF", "https://maff.uz", fetch_maff, "+998712055454", "@maffuzbekistan"),
+    Store("modnie-steni", "Модные Стены", "https://www.modnie-steni.uz", fetch_modnie_steni, "+998712350708"),
 ]
 
 
@@ -851,7 +943,7 @@ STORES = [
 # Driver
 # ---------------------------------------------------------------------------
 
-def to_webp(data: bytes) -> bytes | None:
+def to_webp(data: bytes, side: int = MAX_SIDE_PX) -> bytes | None:
     try:
         with Image.open(io.BytesIO(data)) as im:
             im.load()
@@ -862,7 +954,7 @@ def to_webp(data: bytes) -> bytes | None:
                 im = bg
             elif im.mode != "RGB":
                 im = im.convert("RGB")
-            im.thumbnail((MAX_SIDE_PX, MAX_SIDE_PX), Image.LANCZOS)
+            im.thumbnail((side, side), Image.LANCZOS)
             buf = io.BytesIO()
             im.save(buf, "WEBP", quality=WEBP_QUALITY, method=6)
             return buf.getvalue()
@@ -917,7 +1009,8 @@ def run(out_dir: Path, only: set[str] | None) -> None:
                 log(f"  duplicate left out: {it.name} ({it.source_url})")
                 continue
             data = http.image(quote(it.image_url, safe=":/?=&%~+,;@!$'()*#"))
-            webp = to_webp(data) if data else None
+            side = WALLPAPER_SIDE_PX if it.kind == "wallpaper" else MAX_SIDE_PX
+            webp = to_webp(data, side) if data else None
             if not webp:
                 continue
             n = len(rows) + 1
@@ -926,6 +1019,8 @@ def run(out_dir: Path, only: set[str] | None) -> None:
             row = {"kind": it.kind, "name_uz": it.name, "category": it.category, "price_uzs": it.price_uzs}
             if it.kind == "material":
                 row["unit"] = it.unit
+            elif it.kind == "wallpaper":
+                row.update(it.dims)
             else:
                 row["placement"] = it.placement
                 if it.room_type:
