@@ -841,7 +841,10 @@ export default function ThreeDPage() {
           ref={canvasBoxRef}
           // Mebelirovka 2D mode hides (but keeps mounted) the whole 3D box so
           // toggling back to 3D is instant and loses no scene state.
-          className={`flex-1 min-w-0 min-h-0 relative overflow-hidden ${(isMebelTab && mebelView === '2d') || (isChiroqTab && chiroqView === '2d') ? 'hidden' : ''}`}
+          // isolate: the scene's labels (drei <Html>, z-index up to 210) stack
+          // inside this box, so they stay under the header and its ⋮ menu,
+          // which float over the scene inside the app.
+          className={`flex-1 min-w-0 min-h-0 relative isolate overflow-hidden ${(isMebelTab && mebelView === '2d') || (isChiroqTab && chiroqView === '2d') ? 'hidden' : ''}`}
         >
 
           {/* View mode — relocated here from the tools drawer's old

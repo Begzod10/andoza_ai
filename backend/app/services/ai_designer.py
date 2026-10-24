@@ -42,6 +42,41 @@ OBOY_PATTERNS = ("yolli", "damask", "geometrik", "gul", "tekstura", "bolalar")
 LIGHT_TYPES = tuple(LIGHT_TYPE_NAMES)
 WALL_MOUNTED_LIGHTS = ("bra", "bath")
 
+# What a piece of furniture is FOR; the studio lays pieces out by role (sofa with a coffee table in
+# front, chairs around the dining table...), grouped lounge / dining / sleep / work / storage / extra.
+FURNITURE_ROLES = (
+    "sofa", "armchair", "coffee_table", "tv_unit",
+    "dining_table", "dining_chair",
+    "bed", "nightstand",
+    "desk", "desk_chair",
+    "wardrobe", "shelf",
+    "decor", "rug",
+)
+
+# Name rules, first match wins. "tumbochka" is a bedside table, so it must not reach "tumba" (a TV stand).
+_ROLE_BY_NAME: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern, re.I), role) for pattern, role in (
+        (r"gilam|rug|carpet|kovrolin", "rug"),
+        (r"jurnal|kofe|coffee", "coffee_table"),
+        (r"tumbochka|nightstand|prikrovat", "nightstand"),
+        (r"\btv\b|televizor|tumba", "tv_unit"),
+        (r"yozuv|kompyuter|desk|ish stoli", "desk"),
+        (r"kreslo|armchair", "armchair"),
+        (r"shkaf|garderob|wardrobe", "wardrobe"),
+        (r"javon|komod|stellaj|vitrina|bookcase", "shelf"),
+    )
+)
+_ROLE_BY_CATEGORY = {"divan": "sofa", "karavot": "bed", "stol": "dining_table", "stul": "dining_chair"}
+
+
+def infer_role(category: str | None, name: str) -> str:
+    """The role of a catalog piece from its name, then its category; anything else is decor."""
+    for pattern, role in _ROLE_BY_NAME:
+        if pattern.search(name or ""):
+            return role
+    return _ROLE_BY_CATEGORY.get(category or "", "decor")
+
+
 MAX_LIGHTS = 6
 MAX_FURNITURE = 8
 MAX_PER_ITEM = 2
@@ -233,8 +268,8 @@ def validate_plan(
         if counts.get(label, 0) >= MAX_PER_ITEM:
             continue
         counts[label] = counts.get(label, 0) + 1
-        zone = raw.get("zone") if raw.get("zone") in zones else "center"
-        plan.furniture.append({"id": item["id"], "name": item["name"], "zone": zone})
+        role = raw.get("role") if raw.get("role") in FURNITURE_ROLES else infer_role(category, item["name"])
+        plan.furniture.append({"id": item["id"], "name": item["name"], "role": role})
         kinds.append(category)
 
     if plan.is_empty():
@@ -317,9 +352,10 @@ Qoidalar:
 - Atmosfera yorug'ligini (iliq/sovuq, yorqin/xira) chiroq turi va devor rangi orqali bering. Qorong'i atmosfera: to'q devor, to'q pol, kam va iliq chiroqlar. Yorqin: och ranglar, ko'proq yorug'lik.
 - Devorni yo'p bo'yoq (paint) yoki oboy (oboy) bilan qoplang. Bitta devorni boshqa rangda (accent) ajratish mumkin.
 - Chiroq: odatda 1 ta asosiy (markazda) va 1-3 ta yordamchi. Devor chiroqlari (bra, bath) faqat devorga: zone = wall_<devor id>.
-- Mebel: xona turi va o'lchamiga mos narsalar tanlang; soni xabarda "Mebel soni" qatorida beriladi, undan oshirmang va kamaytirmang. Faqat xona turiga mos narsalarni oling va bir xil turdan (masalan ikkita divan) ikkitasini tanlamang. Mebellarni TURLICHA tanlang: har safar bir xil to'plamga yopishib qolmang, katalogdagi boshqa mos narsalarga ham e'tibor bering. Chiroq turini (lyustra, torsher, bra) mebel sifatida qaytadan tanlamang. Joy (zone) faqat "Zonalar" ro'yxatidan: markaz, devor oldi yoki burchak.
+- Mebel: xona turi va o'lchamiga mos narsalar tanlang; soni xabarda "Mebel soni" qatorida beriladi, undan oshirmang va kamaytirmang. Faqat xona turiga mos narsalarni oling va bir xil turdan (masalan ikkita divan) ikkitasini tanlamang. Mebellarni TURLICHA tanlang: har safar bir xil to'plamga yopishib qolmang, katalogdagi boshqa mos narsalarga ham e'tibor bering. Chiroq turini (lyustra, torsher, bra) mebel sifatida qaytadan tanlamang.
+  Har bir mebelga vazifa (role) bering, "Vazifalar" qatoridan. Joyini o'zimiz hisoblaymiz.
   Mebel qatorida "uslub: ..." bo'lsa, u shu uslubga mos. So'rovda yoki rasmda uslub aniq bo'lsa (masalan neoklassika, hi-tech, milliy), mebelni avval shu uslubdagilardan tanlang. Uslubi yozilmagan mebel hamma uslubga mos. Mos uslubdagi mebel bo'lmasa, eng yaqinini oling.
-  Eshik va derazalar oldini to'smang. Katta mebelni (divan, krovat) eng uzun devor oldiga qo'ying. Har bir mebelga BOSHQA joy bering: ikki mebelni bir joyga qo'ymang.
+  Vazifalar: sofa (divan), armchair (kreslo), coffee_table (jurnal stoli), tv_unit (TV tumba), dining_table (ovqat stoli), dining_chair (ovqat stuli, bitta model tanlang: sonini o'zimiz belgilaymiz), bed (karavot), nightstand (tumbochka), desk (yozuv stoli), desk_chair (ish stuli), wardrobe (shkaf), shelf (javon, stellaj), decor (bezak), rug (gilam).
 - Oltin/zarhal talab qilinsa: devor aksenti yoki oboy accent_color uchun haqiqiy oltin tus ishlating (masalan #C9A24B yoki #B8860B), boshqa narsani oltin deb atamang.
 - Bolalar xonasi: yumshoq pastel ranglar (to'yingan, qichituvchi emas), yorqinlik yuqori, qarama-qarshilik past.
 - title: 2-4 so'zli nom.
@@ -339,7 +375,7 @@ JSON shakli:
   },
   "floor": {"type": "<pol turi>", "pattern": "<yog'och pol naqshi yoki null>", "tint": "#RRGGBB yoki null"},
   "lights": [{"type": "<chiroq turi>", "zone": "<zona>"}],
-  "furniture": [{"id": "F1", "zone": "<zona>"}],
+  "furniture": [{"id": "F1", "role": "<vazifa>"}],
   "summary": "..."
 }
 Pol naqshi va tint faqat parquet va laminate uchun; plitka va beton uchun null."""

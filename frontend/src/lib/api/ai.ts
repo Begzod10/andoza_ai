@@ -1,6 +1,7 @@
 import { apiClient, BASE_URL, handleUnauthorized, languageHeaders } from "./client";
 import type { CeilingDesignId, CeilingSettings } from "@/lib/ceilingDesigns";
 import type { TrimState } from "@/lib/trimProfiles";
+import type { FurnitureRole } from "@/lib/furnitureRole";
 
 // ---------- AI types ----------
 
@@ -50,7 +51,7 @@ export interface AiDesignPlan {
   };
   floor: { type: string; pattern: string | null; tint: string | null } | null;
   lights: Array<{ type: string; zone: string }>;
-  furniture: Array<{ id: string; name: string; zone: string }>;
+  furniture: Array<{ id: string; name: string; role?: FurnitureRole; zone?: string }>;
   /** Ready-made styles only: the ceiling profile, the skirting and the cornice (null takes one
    *  off). The AI designer does not send it, so its plans leave all three as they are. */
   trim?: DesignTrim;
