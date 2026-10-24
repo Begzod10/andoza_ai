@@ -1,5 +1,6 @@
 /** Wording that must stay consistent with docs/i18n-glossary.md. */
 import { describe, expect, it } from "vitest";
+import uz from "../locales/uz.json";
 import ru from "../locales/ru.json";
 import en from "../locales/en.json";
 import i18n from "@/i18n";
@@ -35,5 +36,11 @@ describe("glossary terms", () => {
   it("the lights section label is plural in ru and en", () => {
     expect(i18n.t("studio.shared.chiroq", { lng: "ru" })).toBe("Светильники");
     expect(i18n.t("studio.shared.chiroq", { lng: "en" })).toBe("Light fixtures");
+  });
+});
+
+describe("uz landing paint-story cards", () => {
+  it("write the apostrophe like the rest of the locale file", () => {
+    expect(all(uz.landing.paint).filter((s) => /[\u2018\u2019\u02bb\u02bc]/.test(s))).toEqual([]);
   });
 });
