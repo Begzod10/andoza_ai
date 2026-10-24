@@ -30,6 +30,8 @@ const zonesOf = (m: ReturnType<typeof roomModel>, kind: 'door' | 'window') => m.
 const DOOR_B = [el('eshik', 900, 350)]
 // Window on wall A (z = -1.5), 1600 wide, centred: x from -0.8 to 0.8.
 const WINDOW_A = [el('deraza', 1600, 1200)]
+// A door in the middle of each of walls B, C and D: nothing wide stands on those walls.
+const DOORS_BCD = { B: [el('eshik', 900, 1050)], C: [el('eshik', 900, 1550)], D: [el('eshik', 900, 1050)] }
 
 describe('what the room model knows about openings', () => {
   it('turns each door and window into a span along its wall and a floor zone in front of it', () => {
@@ -164,7 +166,8 @@ describe('a whole plan applied to a room with a door and a window', () => {
     }
   })
 
-  it('still stands a sofa under the window when asked to', () => {
+  it('still stands a sofa under the window when that is the one wall left', () => {
+    useRoomStore.setState({ geometry: room({ A: WINDOW_A, ...DOORS_BCD }) })
     applyDesignPlan(plan([{ id: 'divan', name: 'd', zone: 'wall_A' }]), ALL_PARTS, catalog)
     const f = useRoomStore.getState().furniture[0]
     expect(f.y / 1000).toBeCloseTo(-1.5 + 0.45 + 0.04, 2)
@@ -177,31 +180,45 @@ describe('how tall a piece is, and how far a door swings', () => {
     id, name_uz: name, category, store_id: null, store_name: null, room_type: null, placement: 'pol',
     price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: 180, footprint_d: 60, height_cm,
   })
-  const placeAtWindow = (item: CatalogFurniture) => {
+  /** Lays out one piece in a room with a window on wall A; the piece's footprint, or null when it was left out. */
+  const layOut = (item: CatalogFurniture, geometry: RoomGeometry): Rect | null => {
     useRoomStore.getState().resetRoom()
-    useRoomStore.setState({ geometry: room({ A: WINDOW_A }), lights: [], furniture: [] })
+    useRoomStore.setState({ geometry, lights: [], furniture: [] })
     applyDesignPlan(
       { title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture: [{ id: item.id, name: item.name_uz, zone: 'wall_A' }] },
       ALL_PARTS, [item],
     )
     const f = useRoomStore.getState().furniture[0]
-    const model = roomModel(useRoomStore.getState().geometry)
-    const rect: Rect = { x: f.x / 1000, z: f.y / 1000, w: 1.8, d: 0.6, rotation: f.rotation }
-    return model.clear.filter((z) => z.kind === 'window').some((z) => hits(rect, z.rect))
+    return f ? { x: f.x / 1000, z: f.y / 1000, w: 1.8, d: 0.6, rotation: f.rotation } : null
+  }
+  const atWindow = (rect: Rect, geometry: RoomGeometry) => zonesOf(roomModel(geometry), 'window').some((z) => hits(rect, z))
+  /** A tall piece, in a room with free walls besides the window's: placed, and not in front of the glass. */
+  const keptFromWindow = (item: CatalogFurniture) => {
+    const geometry = room({ A: WINDOW_A })
+    const rect = layOut(item, geometry)
+    expect(rect).not.toBeNull()
+    expect(atWindow(rect!, geometry)).toBe(false)
+  }
+  /** A low piece, in a room whose other walls all have a door in the middle: it stands under the window. */
+  const standsUnderWindow = (item: CatalogFurniture) => {
+    const geometry = room({ A: WINDOW_A, ...DOORS_BCD })
+    const rect = layOut(item, geometry)
+    expect(rect).not.toBeNull()
+    expect(atWindow(rect!, geometry)).toBe(true)
   }
 
   it('keeps a piece with a measured height of a sill or more away from the window, whatever it is called', () => {
-    expect(placeAtWindow(catalogItem('a', 'dekor', 'Vaza stendi', 120))).toBe(false)
+    keptFromWindow(catalogItem('a', 'dekor', 'Vaza stendi', 120))
   })
 
   it('lets a low piece stand under the window, even one called a cupboard, when its height is known', () => {
-    expect(placeAtWindow(catalogItem('b', 'shkaf', 'Past shkaf', 70))).toBe(true)
+    standsUnderWindow(catalogItem('b', 'shkaf', 'Past shkaf', 70))
   })
 
   it('judges a piece with no height by its name, as before', () => {
-    expect(placeAtWindow(catalogItem('c', 'shkaf', 'Kiyim shkafi', null))).toBe(false)
-    expect(placeAtWindow(catalogItem('d', 'divan', 'Divan', null))).toBe(true)
-    expect(placeAtWindow(catalogItem('e', 'shkaf', 'Kiyim shkafi', undefined))).toBe(false)
+    keptFromWindow(catalogItem('c', 'shkaf', 'Kiyim shkafi', null))
+    standsUnderWindow(catalogItem('d', 'divan', 'Divan', null))
+    keptFromWindow(catalogItem('e', 'shkaf', 'Kiyim shkafi', undefined))
   })
 
   it.each([
