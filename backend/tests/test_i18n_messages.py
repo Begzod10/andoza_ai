@@ -196,3 +196,12 @@ def test_translations_are_not_empty_and_keep_placeholders():
         for lang, value in tr.items():
             assert lang in {"uz", "ru", "en"} and value.strip(), text
             assert set(re.findall(r"{(\w+)}", value)) == fields, f"{lang}: {text}"
+
+
+def test_glossary_wording_in_server_messages():
+    """docs/i18n-glossary.md: 'catalog' (en) and 'аккаунт' (ru), one wording everywhere."""
+    for source, versions in MESSAGES.items():
+        text = " ".join([source, *versions.values()])
+        assert "catalogue" not in text.lower()
+        assert "Учётная запись" not in text
+    assert translate("Inactive user account", "ru") == "Аккаунт отключён"

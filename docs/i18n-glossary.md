@@ -19,6 +19,7 @@ The brand name **andoza.ai** is never translated. Uzbek is the source language.
 | qadoq | упаковка | pack |
 | kabel | кабель | cable |
 | chiroq | светильник | light fixture |
+| downlight (тип светильника) | встраиваемый светильник | downlight |
 | smeta | смета | estimate |
 | smeta kaliti | ключ сметы | estimate key |
 | usta | мастер | craftsman |
@@ -101,9 +102,9 @@ wording per term, in every language.
 | ulashish havolasi | ссылка для доступа | share link |
 | profil | профиль | profile |
 | til | язык | language |
-| kirish | войти | log in |
+| kirish | войти | sign in |
 | ro'yxatdan o'tish | зарегистрироваться | sign up |
-| chiqish | выйти | log out |
+| chiqish | выйти | sign out |
 
 Money: `so'm` / `сум` / `UZS`. `formatUZS` writes them next to the amount:
 `1 250 000 so'm` (uz), `1 250 000 сум` (ru, plain spaces), `1,250,000 UZS` (en).
@@ -142,7 +143,7 @@ Added with the studio pages (3D, placement, walkthrough):
 | kalit | выключатель | switch |
 | elektr qutisi | электрощиток | electrical panel |
 | konditsioner | кондиционер | air conditioner |
-| sim | кабель / провод (в трассе) | cable / wire |
+| sim | кабель | cable |
 | qurilma (elektr) | устройство | device |
 | oraliq | зазор | gap |
 | yurish rejimi | режим прогулки | walk mode |
