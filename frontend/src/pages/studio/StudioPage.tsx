@@ -16,6 +16,7 @@ import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 import { WebOnly, useEmbeddedApp } from "@/lib/embedded";
+import { MENU_ICON, MENU_ROW } from "@/components/studio/menuRow";
 import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -529,9 +530,13 @@ export default function StudioPage() {
                 {room.id !== 'local' && (
                   <button
                     onClick={handleShareClick}
-                    className="w-full text-left px-4 py-2.5 text-xs text-ink hover:bg-card-soft first:rounded-t-lg transition-colors font-medium border-b border-line"
+                    className={`${MENU_ROW} border-b border-line`}
                   >
-                    {t('studio.page.ulashish')}
+                    <svg className={MENU_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                      <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+                    </svg>
+                    <span>{t('studio.page.ulashish')}</span>
                   </button>
                 )}
                 <button
@@ -550,9 +555,12 @@ export default function StudioPage() {
                       }
                     }
                   }}
-                  className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 first:rounded-t-lg last:rounded-b-lg transition-colors font-medium"
+                  className={`${MENU_ROW} !text-red-500 hover:!bg-red-500/10`}
                 >
-                  {t("common.ochirish")}
+                  <svg className={`${MENU_ICON} !text-red-500`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />
+                  </svg>
+                  <span>{t("common.ochirish")}</span>
                 </button>
             </StudioMenu>
               {sharePopoverOpen && (
