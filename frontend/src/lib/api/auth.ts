@@ -46,12 +46,25 @@ export async function verifyOTP(phone: string, code: string): Promise<LoginRespo
   });
 }
 
-/** Save account settings (today: the interface language). Answers the updated user. */
+/** Save account settings (today: the interface language). Answers the updated user.
+ *  A language change must never throw the user out: with a session that is gone
+ *  for good this rejects (the caller keeps the choice pending) instead of
+ *  sending the browser to /login, as `apiClient` would. */
 export async function updateMe(patch: { language: Language }): Promise<AuthUser> {
-  return apiClient<AuthUser>("/auth/me", {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+  const send = () =>
+    fetch(`${BASE_URL}/auth/me`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...languageHeaders() },
+      body: JSON.stringify(patch),
+    });
+  let response = await send();
+  if (response.status === 401) {
+    if (!(await tryRefresh())) throw new Error("Unauthorized");
+    response = await send();
+  }
+  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+  return (await response.json()) as AuthUser;
 }
 
 export async function getMe(): Promise<AuthUser> {
