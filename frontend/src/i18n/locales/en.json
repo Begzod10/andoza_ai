@@ -2047,6 +2047,7 @@
     },
     "store": {
       "inactive": "inactive",
+      "demo": "Demo",
       "models_one": "{{count}} model",
       "models_other": "{{count}} models",
       "models3d_one": "{{count}} 3D model",
@@ -2113,6 +2114,7 @@
         "stul": "Chair",
         "shkaf": "Wardrobe",
         "karavot": "Bed",
+        "lampa": "Lamp",
         "boshqa": "Other",
         "boyoq": "Paint",
         "oboy": "Wallpaper",
@@ -2134,6 +2136,7 @@
       "categories": "Categories",
       "catalog_failed": "The catalog did not load. Please try again in a moment.",
       "nothing": "Nothing found.",
+      "more": "Show more",
       "tab_mebel": "Furniture",
       "tab_material": "Materials"
     },

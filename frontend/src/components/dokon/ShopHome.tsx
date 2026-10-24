@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TKey } from "@/i18n";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Armchair, ReceiptText, Search, ShoppingCart } from "lucide-react";
 import { getMaterials, listCatalogFurniture } from "@/lib/api";
 import type { CatalogFurniture, Material } from "@/lib/api";
@@ -27,13 +27,19 @@ const TAB_KEYS: Record<Tab, TKey> = { mebel: "dokon.shop.tab_mebel", material: "
 /** Category names as a person reads them; anything unlisted shows as it is stored. */
 const CATEGORY_KEYS: Record<string, TKey> = {
   divan: "dokon.shop.category.divan", stol: "dokon.shop.category.stol", stul: "dokon.shop.category.stul",
-  shkaf: "dokon.shop.category.shkaf", karavot: "dokon.shop.category.karavot", boshqa: "dokon.shop.category.boshqa",
+  shkaf: "dokon.shop.category.shkaf", karavot: "dokon.shop.category.karavot", lampa: "dokon.shop.category.lampa",
+  boshqa: "dokon.shop.category.boshqa",
   boyoq: "dokon.shop.category.boyoq", oboy: "dokon.shop.category.oboy", laminat: "dokon.shop.category.laminat",
   parket: "dokon.shop.category.parket", plitka: "dokon.shop.category.plitka", gips: "dokon.shop.category.gips",
   sement: "dokon.shop.category.sement", elektr_mat: "dokon.shop.category.elektr_mat",
   santexnika: "dokon.shop.category.santexnika", eshik: "dokon.shop.category.eshik",
   deraza: "dokon.shop.category.deraza", dekorativ: "dokon.shop.category.dekorativ",
 };
+/** Every furniture category (app/schemas/admin_catalog.py FURNITURE_CATEGORIES), in chip order. */
+const FURNITURE_CATEGORIES = ["divan", "stol", "stul", "karavot", "shkaf", "lampa", "boshqa"];
+/** Furniture comes in pages of this many. */
+const FURNITURE_PAGE = 60;
+
 /** A catalog category key ("boyoq", "divan") as people read it. */
 export const categoryLabel = (c: string, t: TFunction) => (c in CATEGORY_KEYS ? t(CATEGORY_KEYS[c]) : c);
 
@@ -82,7 +88,24 @@ export function ShopHome({
   const setCategory = (c: string | null) => update({ category: c });
   const setQuery = (q: string) => update({ query: q });
 
-  const furniture = useQuery({ queryKey: ["shop", "furniture"], queryFn: () => listCatalogFurniture({ per_page: 100 }) });
+  // Category and search are asked of the server and the list comes in pages, so every
+  // product can be reached however many shops there are (the server orders it stably).
+  const furnitureQuery = query.trim() || undefined;
+  const furniturePages = useInfiniteQuery({
+    queryKey: ["shop", "furniture", category, furnitureQuery],
+    queryFn: ({ pageParam }) => listCatalogFurniture({
+      page: pageParam, per_page: FURNITURE_PAGE, category: category ?? undefined, q: furnitureQuery,
+    }),
+    initialPageParam: 1,
+    getNextPageParam: (last, all) =>
+      (all.reduce((n, p) => n + p.items.length, 0) < last.total && last.items.length > 0 ? all.length + 1 : undefined),
+    enabled: tab === "mebel",
+    placeholderData: keepPreviousData,
+  });
+  const furniture = {
+    ...furniturePages,
+    data: furniturePages.data ? { items: furniturePages.data.pages.flatMap((p) => p.items) } : undefined,
+  };
   const materials = useQuery({
     queryKey: ["shop", "materials", query],
     queryFn: () => getMaterials({ per_page: 100, q: query.trim() || undefined }),
@@ -101,11 +124,10 @@ export function ShopHome({
   );
 
   const categories = useMemo(() => {
-    const names = tab === "mebel"
-      ? (furniture.data?.items ?? []).map((f) => f.category)
-      : (materials.data ?? []).map((m) => m.category);
-    return [...new Set(names)].sort();
-  }, [tab, furniture.data, materials.data]);
+    // Furniture: every category the catalog knows (the loaded page may hold only some).
+    if (tab === "mebel") return FURNITURE_CATEGORIES;
+    return [...new Set((materials.data ?? []).map((m) => m.category))].sort();
+  }, [tab, materials.data]);
 
   const active = tab === "mebel" ? furniture : materials;
   const items: Array<CatalogFurniture | Material> = tab === "mebel" ? furnitureItems : materialItems;
@@ -224,6 +246,14 @@ export function ShopHome({
               onOpen={() => onProductSelect(f)}
             />
           ))}
+        </div>
+      )}
+
+      {tab === "mebel" && furniturePages.hasNextPage && (
+        <div className="mt-6 flex justify-center">
+          <Button variant="soft" onClick={() => void furniturePages.fetchNextPage()} disabled={furniturePages.isFetchingNextPage}>
+            {t("dokon.shop.more")}
+          </Button>
         </div>
       )}
 

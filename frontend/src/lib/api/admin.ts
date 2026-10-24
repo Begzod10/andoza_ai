@@ -30,6 +30,8 @@ export interface AdminStore {
   logo_color: string | null;
   partner_tier: string;
   is_active: boolean;
+  /** A presentation store seeded from public data, without a contract. */
+  is_demo?: boolean;
   created_at: string;
 }
 

@@ -35,6 +35,8 @@ export interface PaginatedCatalogFurniture {
 export interface CatalogFurnitureParams {
   category?: string;
   room_type?: string;
+  /** Name search, done on the server so it covers every page. */
+  q?: string;
   /** Only pieces with a 3-D model — what the studio can place. */
   has_model?: boolean;
   page?: number;
