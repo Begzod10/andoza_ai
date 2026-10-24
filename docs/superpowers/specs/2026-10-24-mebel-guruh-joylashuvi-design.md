@@ -47,7 +47,7 @@ AI dizayner va tayyor uslublar mebelni guruh bo'lib, odam ishlatadigandek joylas
 | `extra` | `decor`, `rug` |
 
 - **Backend** (`backend/app/services/ai_designer.py`):
-  - `FURNITURE_ROLES` konstantasi shu 15 ta qiymat bilan;
+  - `FURNITURE_ROLES` konstantasi shu 14 ta qiymat bilan;
   - prompt: har bir mebel uchun `{"id": "F3", "role": "<vazifa>"}` so'raladi. `zone` mebeldan olib tashlanadi, chiroqlarda qoladi;
   - `validate_plan`: `role` ro'yxatda bo'lmasa, `infer_role(category, name)` bilan topiladi va mebel elementiga `role` yoziladi. Eski `zone` maydoni bo'lsa, u e'tiborsiz qoldiriladi.
 - **`infer_role` qoidalari** (nom kichik harfda, birinchi mos kelgani olinadi):
