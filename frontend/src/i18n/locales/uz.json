@@ -2048,6 +2048,7 @@
     },
     "store": {
       "inactive": "nofaol",
+      "demo": "Namuna",
       "models_one": "{{count}} ta model",
       "models_other": "{{count}} ta model",
       "models3d_one": "{{count}} ta 3D model",
@@ -2114,6 +2115,7 @@
         "stul": "Stul",
         "shkaf": "Shkaf",
         "karavot": "Karavot",
+        "lampa": "Lampa",
         "boshqa": "Boshqa",
         "boyoq": "Bo'yoq",
         "oboy": "Oboy",
@@ -2135,6 +2137,7 @@
       "categories": "Toifalar",
       "catalog_failed": "Katalog yuklanmadi. Birozdan keyin qayta urinib ko'ring.",
       "nothing": "Hech narsa topilmadi.",
+      "more": "Yana ko'rsatish",
       "tab_mebel": "Mebel",
       "tab_material": "Materiallar"
     },

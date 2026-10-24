@@ -200,6 +200,12 @@ describe('design presets', () => {
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')
   })
 
+  it('a shop listing without a 3-D model is never picked', () => {
+    const cat = [{ ...item('photo-only', 'Divan', 'divan', 'mehmonxona'), glb_url: null }, item('model', 'Divan', 'divan')]
+    expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture.map((f) => f.id)).toEqual(['model'])
+    expect(presetPlan('hitech', [cat[0]], 'mehmonxona')!.furniture).toEqual([])
+  })
+
   it('a catalog with no styles at all (or an old cached one without the field) picks by room as before', () => {
     const cat = [item('any', 'Divan', 'divan'), item('room', 'Divan', 'divan', 'mehmonxona')]
     expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('room')

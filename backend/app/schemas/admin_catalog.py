@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Kept in sync with frontend/src/lib/furnitureCatalog.ts (FurnitureCategory)
 FURNITURE_CATEGORIES = {"divan", "stol", "stul", "karavot", "shkaf", "lampa", "boshqa"}
@@ -92,7 +92,14 @@ class StoreAdminOut(BaseModel):
     logo_color: str | None
     partner_tier: str
     is_active: bool
+    is_demo: bool = False
     created_at: datetime
+
+    @field_validator("is_demo", mode="before")
+    @classmethod
+    def _unset_is_not_demo(cls, v):
+        # A row built in Python and not yet flushed has no server default applied.
+        return bool(v)
 
 
 class FurnitureUpdate(BaseModel):

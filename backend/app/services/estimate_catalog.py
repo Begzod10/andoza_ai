@@ -17,6 +17,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models.material import Material
+from app.models.wallpaper import Wallpaper
+from app.services.smeta import WallpaperRoll, wallpaper_catalog_key
 
 log = structlog.get_logger(__name__)
 
@@ -63,6 +65,35 @@ def pick_median_finishes(materials: Iterable[Material]) -> dict[str, Material]:
     }
 
 
+async def _shop_wallpapers(db: Any) -> dict[str, WallpaperRoll]:
+    """Library wallpapers a shop sells by the roll (width, length and price all known), keyed
+    by their storage key: the studio puts one on a wall by its image URL. Empty if they
+    cannot be read, so the shop products above still price their lines."""
+    try:
+        result = await db.execute(
+            select(Wallpaper)
+            .options(selectinload(Wallpaper.store))
+            .where(
+                Wallpaper.kind == "oboy",
+                Wallpaper.price_uzs.is_not(None),
+                Wallpaper.width_cm.is_not(None),
+                Wallpaper.total_length_m.is_not(None),
+            )
+        )
+        out: dict[str, WallpaperRoll] = {}
+        for w in result.scalars().all():
+            if not (w.price_uzs and w.width_cm and w.total_length_m):
+                continue
+            out[wallpaper_catalog_key(w.storage_key)] = WallpaperRoll(
+                name=w.name, price_uzs=int(w.price_uzs), roll_width_cm=float(w.width_cm),
+                roll_length_m=float(w.total_length_m), store_name=w.store.name if w.store else None,
+            )
+        return out
+    except Exception as exc:
+        log.warning("estimate_catalog.wallpapers_failed", error=str(exc))
+        return {}
+
+
 async def load_estimate_catalog(db: Any) -> dict[str, Material]:
     """Load the estimate's shop products. An empty dict (the engine's old constants) when
     there are none, or if they cannot be read: this enrichment must not take the estimate
@@ -77,7 +108,7 @@ async def load_estimate_catalog(db: Any) -> dict[str, Material]:
             )
         )
         rows = result.scalars().all()
-        return {**pick_cheapest(rows), **pick_median_finishes(rows)}
+        return {**pick_cheapest(rows), **pick_median_finishes(rows), **await _shop_wallpapers(db)}
     except Exception as exc:
         log.warning("estimate_catalog.load_failed", error=str(exc))
         return {}

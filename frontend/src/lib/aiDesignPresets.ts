@@ -146,7 +146,8 @@ function pick(
   let best: CatalogFurniture | undefined
   let bestScore: [number, number] = [-1, -1]
   for (const c of catalog) {
-    if (used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
+    // A listing without a 3-D model (a photo-only shop item) cannot be placed in the studio.
+    if (!c.glb_url || used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
     const styles = c.styles ?? []
     const score: [number, number] = [
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,

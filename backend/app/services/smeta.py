@@ -718,6 +718,85 @@ def _texture_wall_areas(room: "Room") -> list[tuple[str, float, list[str]]]:
     return [(url, area, wall_ids) for url, (area, wall_ids) in groups.items()]
 
 
+@dataclass
+class WallpaperRoll:
+    """A shop's wallpaper from the studio library (a Wallpaper row) that the estimate can
+    price by the roll: it has a roll width, a roll length and a price per roll. Built by
+    app.services.estimate_catalog and handed in through ``catalog``."""
+
+    name: str
+    price_uzs: int
+    roll_width_cm: float
+    roll_length_m: float
+    store_name: str | None = None
+
+
+def wallpaper_catalog_key(storage_key: str) -> str:
+    """The ``catalog`` key of a shop wallpaper whose Wallpaper.storage_key is *storage_key*
+    (a bare key under local storage, the object's URL under S3)."""
+    return f"wallpaper:{storage_key}"
+
+
+def _shop_wallpaper(catalog: "dict | None", url: str) -> "WallpaperRoll | None":
+    """The shop wallpaper a texture covering's image URL is, if any. Under S3 the URL is the
+    stored key itself; under local storage it is ``<origin><MEDIA_URL_PREFIX>/<key>``."""
+    if not catalog or not url:
+        return None
+    found = catalog.get(wallpaper_catalog_key(url))
+    if found is None:
+        from app.config import settings
+
+        marker = settings.MEDIA_URL_PREFIX.rstrip("/") + "/"
+        if marker in url:
+            found = catalog.get(wallpaper_catalog_key(url.split(marker, 1)[1]))
+    return found if isinstance(found, WallpaperRoll) else None
+
+
+def _shop_wallpaper_lines(room: "Room", catalog: "dict | None") -> tuple[list[ComputedLine], set[str]]:
+    """Per-wall roll lines for texture walls showing a shop wallpaper, and the URLs priced.
+
+    Same strip-based purchasing as ``_wallpaper_lines``: full-height strips per wall, how
+    many a roll of this product's own length yields, and so how many rolls."""
+    lines: list[ComputedLine] = []
+    priced: set[str] = set()
+    geometry: dict = room.geometry or {}
+    ceiling_h_m = _to_metres(_float(room.ceiling_h, 2.7))
+    wall_coverings: dict = _design_state(room).get("wallCoverings", {})
+    for wall in geometry.get("walls", []) or []:
+        wall_key = str(wall.get("id", ""))
+        covering = wall_coverings.get(wall_key) or wall_coverings.get("ALL")
+        if not isinstance(covering, dict) or covering.get("kind") != "texture":
+            continue
+        url = covering.get("url") or ""
+        roll = _shop_wallpaper(catalog, url)
+        if roll is None:
+            continue
+        wall_length_m = _to_metres(float(wall.get("length", 0) or 0))
+        if wall_length_m <= 0 or ceiling_h_m <= 0:
+            continue
+        priced.add(url)
+        waste_factor = WASTE_FACTORS.get("", 1.10)
+        roll_width = float(roll.roll_width_cm) / 100.0
+        roll_length = float(roll.roll_length_m)
+        strips_needed = math.ceil(wall_length_m * waste_factor / roll_width)
+        strips_per_roll = max(1, math.floor(roll_length / ceiling_h_m))
+        rolls = math.ceil(strips_needed / strips_per_roll)
+        lines.append(_make_line(
+            label=f"Oboy devor {wall_key}: {roll.name}",
+            formula=(
+                f"Devor {wall_key}: {wall_length_m:.2f} m × {waste_factor:.2f} (isrof) "
+                f"÷ {roll_width:.2f} m = {strips_needed} polosa; "
+                f"1 rulon ({roll_length:g} m) = {strips_per_roll} polosa → {rolls} rulon"
+            ),
+            qty=rolls,
+            unit="rulon",
+            price_uzs=int(roll.price_uzs),
+            category="oboy",
+            store_name=roll.store_name,
+        ))
+    return lines, priced
+
+
 def _texture_line(url: str, area_m2: float, wall_ids: list[str]) -> ComputedLine:
     """Placeholder line for a custom photo wallpaper — compute_estimate has
     no deterministic price for this (it isn't a do'kon catalog Material at
@@ -1705,8 +1784,12 @@ def compute_estimate(
     #     app.services.smeta_ai for how the router backfills it).         #
     # ------------------------------------------------------------------ #
     if has_any_texture:
+        # A shop's wallpaper from the library is priced by the roll; a user's own photo
+        # has no price and keeps the AI-priced placeholder.
+        shop_lines, priced_urls = _shop_wallpaper_lines(room, catalog)
+        lines.extend(shop_lines)
         for url, area, wall_ids in _texture_wall_areas(room):
-            if area <= 0:
+            if area <= 0 or url in priced_urls:
                 continue
             lines.append(_texture_line(url, area, wall_ids))
 

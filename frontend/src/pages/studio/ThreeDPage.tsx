@@ -139,10 +139,12 @@ export default function ThreeDPage() {
   // every placement path can resolve/price them the same way as built-in and
   // user-uploaded models. Large per_page: shop catalogs are small in
   // practice and the whole studio wants the full list, not one page of it.
+  // Only pieces with a 3-D model: photo-only shop listings (the demo stores)
+  // cannot be placed, and must not push real models out of these 100.
   const setCatalogFurniture = useRoomStore((s) => s.setCatalogFurniture);
   const { data: catalogFurniturePage } = useQuery({
     queryKey: ['catalog-furniture'],
-    queryFn: () => listCatalogFurniture({ per_page: 100 }),
+    queryFn: () => listCatalogFurniture({ per_page: 100, has_model: true }),
     staleTime: 60_000,
   });
   useEffect(() => {

@@ -127,6 +127,13 @@ class Settings(BaseSettings):
     # AI features
     # ------------------------------------------------------------------ #
     AI_FEATURES_ENABLED: bool = False
+
+    # ------------------------------------------------------------------ #
+    # Presentation demo stores (app/seed_demo_stores.py)
+    # ------------------------------------------------------------------ #
+    # On: the deploy seeds the demo stores once, into a database that has none
+    # yet and has never had them removed. docker-compose.prod.yml turns it on.
+    DEMO_STORES: bool = False
     # OpenAI-compatible LLM provider — see app/services/llm.py.
     # Leave OPENAI_BASE_URL empty for api.openai.com; point it at another
     # OpenAI-compatible endpoint to switch providers, e.g. Google Gemini:

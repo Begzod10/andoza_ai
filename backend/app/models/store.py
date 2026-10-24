@@ -77,6 +77,14 @@ class Store(Base):
     moderation_note: Mapped[str | None] = mapped_column(
         String(300), nullable=True, comment="Why an admin rejected it, shown to the seller"
     )
+    is_demo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="A presentation store seeded from public data without a contract "
+                "(app/seed_demo_stores.py); `--remove` deletes exactly these",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
