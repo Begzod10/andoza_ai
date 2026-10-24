@@ -29,6 +29,29 @@ export function intlLocale(language: Language = currentLanguage()): string {
   return INTL_LOCALES[language];
 }
 
+/** A language picked while signed in that the account has not saved yet
+ *  (the PATCH failed, e.g. offline). Until it is saved it beats the
+ *  account's stored language, so a reload does not quietly undo the choice. */
+const PENDING_LANGUAGE_KEY = "andoza.lang.pending";
+
+export function pendingLanguage(): Language | null {
+  try {
+    const value = window.localStorage.getItem(PENDING_LANGUAGE_KEY);
+    return isLanguage(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setPendingLanguage(language: Language | null): void {
+  try {
+    if (language) window.localStorage.setItem(PENDING_LANGUAGE_KEY, language);
+    else window.localStorage.removeItem(PENDING_LANGUAGE_KEY);
+  } catch {
+    // Storage can be blocked: the choice then lasts until the next reload.
+  }
+}
+
 /** Where the landing's own switcher used to keep its choice. */
 const LEGACY_LANDING_KEY = "andoza.landing.lang";
 

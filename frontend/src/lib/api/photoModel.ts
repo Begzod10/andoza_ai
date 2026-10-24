@@ -1,4 +1,4 @@
-import { apiClient, BASE_URL, handleUnauthorized } from "./client";
+import { apiClient, BASE_URL, handleUnauthorized, languageHeaders } from "./client";
 
 /** The other angles of the same piece, next to the front photo. */
 export type PhotoViews = { left?: Blob; back?: Blob; right?: Blob };
@@ -20,6 +20,7 @@ export async function createPhotoModel(photo: Blob, views: PhotoViews = {}): Pro
 export async function fetchPhotoModelGlb(key: string): Promise<Blob> {
   const response = await fetch(`${BASE_URL}/models/from-photo/glb?key=${encodeURIComponent(key)}`, {
     credentials: "include",
+    headers: languageHeaders(),
   });
   if (response.status === 401) handleUnauthorized();
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { updateMe } from "@/lib/api";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore, saveAccountLanguage } from "@/store/authStore";
 import { applyLanguage, currentLanguage, type Language } from ".";
 
 /**
@@ -9,8 +8,9 @@ import { applyLanguage, currentLanguage, type Language } from ".";
  * moment the language changes, with no page reload.
  *
  * For a signed-in user the choice is also saved on the account. That save is
- * best effort: if it fails (offline) the interface stays in the new language
- * and nothing is shown; the next successful change brings the account along.
+ * best effort: if it fails (offline) the interface stays in the new language,
+ * nothing is shown, and the choice is kept as pending so the next session
+ * check keeps it and saves it again instead of reverting to the account's.
  */
 export function useLocale(): { language: Language; setLanguage(language: Language): void } {
   useTranslation(); // subscribes to language changes
@@ -20,13 +20,7 @@ export function useLocale(): { language: Language; setLanguage(language: Languag
     const { user, isAuthenticated, setUser } = useAuthStore.getState();
     if (!isAuthenticated) return;
     if (user) setUser({ ...user, language });
-    updateMe({ language }).then(
-      (saved) => {
-        const current = useAuthStore.getState().user;
-        if (current) setUser({ ...current, ...saved, language: current.language ?? saved.language });
-      },
-      () => {},
-    );
+    saveAccountLanguage(language);
   }
 
   return { language: currentLanguage(), setLanguage };

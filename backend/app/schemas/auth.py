@@ -89,6 +89,9 @@ class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=6, max_length=128)
     name: str | None = Field(default=None, max_length=100)
+    # The interface language at sign-up, so the new account does not flip
+    # the app back to the default Uzbek. Absent (older clients) means 'uz'.
+    language: Literal["uz", "ru", "en"] | None = None
 
     @field_validator("username", mode="before")
     @classmethod
@@ -105,6 +108,8 @@ class GoogleLoginRequest(BaseModel):
     """A Google ID token (JWT) from Google Identity Services / Google Sign-In."""
 
     id_token: str = Field(min_length=1, max_length=8192)
+    # Seeds a new account's language only; an existing account keeps its own.
+    language: Literal["uz", "ru", "en"] | None = None
 
 
 class DeleteAccountRequest(BaseModel):

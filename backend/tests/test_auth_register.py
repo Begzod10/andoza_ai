@@ -134,3 +134,32 @@ def test_register_refuses_what_the_sign_up_form_refuses(client, mock_redis, body
         response = client.post("/api/v1/auth/register", json=body)
     assert response.status_code == 422
     assert not hasattr(db, "_added")
+
+
+def test_register_keeps_the_language_chosen_before_sign_up(client, mock_redis):
+    """A visitor browsing in ru signs up: the new account is ru, not the
+    column default 'uz' (which would flip the app to Uzbek right away)."""
+    db = _FakeDb()
+    app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.routers.auth.get_redis", return_value=mock_redis):
+        response = client.post(
+            "/api/v1/auth/register",
+            json={"username": "rususer", "password": "Secret123", "language": "ru"},
+        )
+
+    assert response.status_code == 201
+    assert response.json()["user"]["language"] == "ru"
+    assert db._added.language == "ru"
+
+
+def test_register_rejects_an_unknown_language(client, mock_redis):
+    app.dependency_overrides[get_db] = lambda: _FakeDb()
+
+    with patch("app.routers.auth.get_redis", return_value=mock_redis):
+        response = client.post(
+            "/api/v1/auth/register",
+            json={"username": "deuser", "password": "Secret123", "language": "de"},
+        )
+
+    assert response.status_code == 422

@@ -241,3 +241,20 @@ def test_multiple_client_ids_are_all_accepted(client, verifier, monkeypatch):
 
     assert res.status_code == 200
     assert verifier["calls"][0][1] == [WEB_CLIENT_ID, ios_id]
+
+
+def test_first_sign_in_keeps_the_chosen_language(client, db, verifier):
+    res = client.post("/api/v1/auth/google", json={"id_token": "tok", "language": "en"})
+
+    assert res.status_code == 200, res.text
+    assert db.added[0].language == "en"
+
+
+def test_returning_user_language_is_not_overwritten(client, db, verifier):
+    """The language in the request only seeds a new account; an existing
+    account keeps what it chose."""
+    client.post("/api/v1/auth/google", json={"id_token": "tok", "language": "ru"})
+    second = client.post("/api/v1/auth/google", json={"id_token": "tok", "language": "en"})
+
+    assert second.status_code == 200
+    assert db.added[0].language == "ru"

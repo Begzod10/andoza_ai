@@ -403,6 +403,7 @@ async def register(
         username=body.username,
         password_hash=_hash_password(body.password),
         name=body.name,
+        language=body.language or "uz",
     )
     db.add(user)
     await db.flush()
@@ -593,7 +594,7 @@ async def login_with_google(
     if user is None:
         name = (claims.get("name") or "").strip()[:100] or None
         email = (claims.get("email") or "").strip()[:255] or None
-        user = User(google_sub=sub, email=email, name=name)
+        user = User(google_sub=sub, email=email, name=name, language=body.language or "uz")
         db.add(user)
         await db.flush()
         # Load server defaults (created_at) so UserOut serialises fully,

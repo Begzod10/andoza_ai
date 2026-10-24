@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { AuthUser } from '@/lib/api'
-import { applyLanguage, isLanguage } from '@/i18n'
+import { updateMe, type AuthUser } from '@/lib/api'
+import { applyLanguage, isLanguage, pendingLanguage, setPendingLanguage, type Language } from '@/i18n'
 
 export type { AuthUser }
 
@@ -21,7 +21,16 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
 
       setAuthenticated(user) {
-        // The account's own language wins over this browser's.
+        // The account's own language wins over this browser's, except a
+        // choice made here that the account has not saved yet: keep it and
+        // try saving it again.
+        const pending = pendingLanguage()
+        if (pending && pending !== user.language) {
+          user = { ...user, language: pending }
+          saveAccountLanguage(pending)
+        } else if (pending) {
+          setPendingLanguage(null)
+        }
         if (isLanguage(user.language)) applyLanguage(user.language)
         set({ user, isAuthenticated: true })
       },
@@ -31,6 +40,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout() {
+        setPendingLanguage(null)
         set({ user: null, isAuthenticated: false })
       },
     }),
@@ -49,6 +59,20 @@ export const useAuthStore = create<AuthStore>()(
     },
   ),
 )
+
+/** Saves the language on the signed-in account. Until the server confirms,
+ *  the choice is kept as pending (see setAuthenticated). */
+export function saveAccountLanguage(language: Language): void {
+  setPendingLanguage(language)
+  updateMe({ language }).then(
+    (saved) => {
+      if (pendingLanguage() === language) setPendingLanguage(null)
+      const { user, setUser } = useAuthStore.getState()
+      if (user) setUser({ ...user, ...saved, language: user.language ?? saved.language })
+    },
+    () => {},
+  )
+}
 
 export const selectUser = (s: AuthStore) => s.user
 export const selectIsAuthenticated = (s: AuthStore) => s.isAuthenticated
