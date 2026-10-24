@@ -7,6 +7,7 @@ import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { overlaps, roomModel, type Rect, type RoomModel, type WallInfo } from '../aiDesignLayout'
 import { chairCount, groupCandidates, type GroupCandidate, type Piece, type Placed } from '../furnitureGroups'
 import type { FurnitureRole, GroupId } from '../furnitureRole'
+import { doorEntries, walkable } from '../walkway'
 
 const el = (type: WallElement['type'], width: number, position: number): WallElement =>
   ({ id: `${type}-${position}`, type, width, height: 2000, sill_height: type === 'deraza' ? 900 : 0, position, positionAuto: false }) as WallElement
@@ -67,12 +68,19 @@ describe('dining', () => {
   const model = living()
   const best = groupCandidates('dining', DINING, model, [])[0]
 
-  it('chairs face the table', () => {
+  it('chairs face the table, square to its nearest edge', () => {
     const table = byRole(best, 'dining_table')[0].rect
     const chairs = byRole(best, 'dining_chair')
     expect(chairs).toHaveLength(6)
     for (const c of chairs) {
-      expect(angle(front(c.rect), [table.x - c.rect.x, table.z - c.rect.z])).toBeLessThan((15 * Math.PI) / 180)
+      // The chair's centre in the table's frame; the edge it sits at is the one it is beyond.
+      const rel: [number, number] = [c.rect.x - table.x, c.rect.z - table.z]
+      const u = dot(rel, right(table)), v = dot(rel, front(table))
+      const beyondSide = Math.abs(v) - table.d / 2, beyondEnd = Math.abs(u) - table.w / 2
+      const toTable: [number, number] = beyondSide > beyondEnd
+        ? [-Math.sign(v) * front(table)[0], -Math.sign(v) * front(table)[1]]
+        : [-Math.sign(u) * right(table)[0], -Math.sign(u) * right(table)[1]]
+      expect(angle(front(c.rect), toTable)).toBeLessThan((5 * Math.PI) / 180)
     }
   })
 
@@ -125,17 +133,17 @@ describe('lounge', () => {
   })
 
   it('armchairs face the coffee table', () => {
-    const arms = groupCandidates('lounge', LOUNGE, model, []).find((c) => byRole(c, 'armchair').length > 0)!
-    expect(arms).toBeDefined()
-    const ct = byRole(arms, 'coffee_table')[0].rect
-    for (const a of byRole(arms, 'armchair')) {
-      expect(angle(front(a.rect), [ct.x - a.rect.x, ct.z - a.rect.z])).toBeLessThan(Math.PI / 2)
+    const arms = byRole(best, 'armchair')
+    expect(arms).toHaveLength(2)
+    for (const a of arms) {
+      expect(angle(front(a.rect), [coffee.x - a.rect.x, coffee.z - a.rect.z])).toBeLessThan(Math.PI / 2)
     }
   })
 
   it('a tv stands across from the sofa, facing it', () => {
-    const withTv = groupCandidates('lounge', LOUNGE, model, []).find((c) => byRole(c, 'tv_unit').length > 0)!
-    const s = byRole(withTv, 'sofa')[0].rect, tv = byRole(withTv, 'tv_unit')[0].rect
+    const tvs = byRole(best, 'tv_unit')
+    expect(tvs).toHaveLength(1)
+    const s = sofa, tv = tvs[0].rect
     expect(dot(front(tv), front(s))).toBeLessThan(-0.99)
     expect(angle(front(s), [tv.x - s.x, tv.z - s.z])).toBeLessThan(Math.PI / 4)
   })
@@ -147,9 +155,35 @@ describe('lounge', () => {
     expect(wallOf(byRole(c, 'sofa')[0].rect, m).id).not.toBe('A')
   })
 
-  it('front-of-sofa use point is 0.5 m out', () => {
+  it('the sofa use point is 0.5 m out, beside the coffee table, in the room and clear', () => {
     const p = best.usePoints[0]
-    expect(dot([p[0] - sofa.x, p[1] - sofa.z], front(sofa))).toBeCloseTo(sofa.d / 2 + 0.5, 5)
+    const rel: [number, number] = [p[0] - sofa.x, p[1] - sofa.z]
+    expect(dot(rel, front(sofa))).toBeCloseTo(sofa.d / 2 + 0.5, 5)
+    expect(Math.abs(dot(rel, right(sofa)))).toBeCloseTo(coffee.w / 2 + 0.4, 5)
+    expect(pointInside(model, p)).toBe(true)
+    for (const o of best.placed) expect(inRect(p, o.rect)).toBe(false)
+  })
+
+  it('without a coffee table the use point is straight out in front', () => {
+    const c = groupCandidates('lounge', [piece('sofa', 'sofa', 2.3, 0.95)], model, [])[0]
+    const s = byRole(c, 'sofa')[0].rect, p = c.usePoints[0]
+    expect(dot([p[0] - s.x, p[1] - s.z], front(s))).toBeCloseTo(s.d / 2 + 0.5, 5)
+    expect(Math.abs(dot([p[0] - s.x, p[1] - s.z], right(s)))).toBeLessThan(1e-9)
+  })
+
+  it('a lounge candidate can be walked to from the door', () => {
+    const cands = groupCandidates('lounge', LOUNGE, model, [])
+    expect(cands.some((c) => walkable(model, c.placed.map((p) => p.rect), doorEntries(model), c.usePoints))).toBe(true)
+  })
+
+  it('keeps one armchair when only one fits', () => {
+    // 3.4 x 3.2 m: no wall takes the sofa with an armchair at both ends, but one end has room.
+    const m = roomModel(box(3400, 3200))
+    const cands = groupCandidates('lounge', LOUNGE, m, [])
+    expect(cands.every((c) => byRole(c, 'armchair').length < 2)).toBe(true)
+    const one = cands.filter((c) => byRole(c, 'armchair').length === 1)
+    expect(one.length).toBeGreaterThan(0)
+    expect(one[0].dropped.filter((p) => p.role === 'armchair')).toHaveLength(1)
   })
 })
 
@@ -172,6 +206,16 @@ describe('sleep', () => {
       }
     }
     for (const k of [0.05, 0.59]) expect(pointInside(model, at(bed, bed.d / 2 + k))).toBe(true)
+  })
+
+  it('keeps one nightstand when only one fits', () => {
+    // Something of the user's stands where the left nightstand would go, wherever the bed is.
+    const model = roomModel(box(3000, 3000))
+    const free = groupCandidates('sleep', SLEEP, model, [])[0]
+    const ns = byRole(free, 'nightstand').map((n) => n.rect)
+    const c = groupCandidates('sleep', SLEEP, model, [ns[1]])
+    const one = c.filter((x) => byRole(x, 'nightstand').length === 1)
+    expect(one.length).toBeGreaterThan(0)
   })
 
   it('nightstands beside the head', () => {
@@ -204,6 +248,22 @@ describe('work', () => {
 })
 
 describe('storage', () => {
+  it('keeps a wardrobe\'s front clear of a door swing', () => {
+    // 3 x 3 m, door on B from z -0.7 to 0.2: a 1.8 m wardrobe in the middle of A would stand clear of
+    // the swing, but its 0.7 m front would not.
+    const model = roomModel(box(3000, 3000, { B: [el('eshik', 900, 800)] }))
+    const doors = model.clear.filter((z) => z.kind === 'door').map((z) => z.rect)
+    const cands = groupCandidates('storage', [piece('wardrobe', 'wardrobe', 1.8, 0.6, true)], model, [])
+    expect(cands.length).toBeGreaterThan(0)
+    for (const c of cands) {
+      const w = byRole(c, 'wardrobe')[0].rect
+      const [x, z] = at(w, w.d / 2 + 0.35)
+      const strip: Rect = { x, z, w: w.w, d: 0.7, rotation: w.rotation }
+      for (const d of doors) expect(overlaps(strip, d, 0)).toBe(false)
+    }
+  })
+
+
   it('wardrobe keeps 0.7 m in front and is not in a door swing', () => {
     const model = living()
     const cands = groupCandidates('storage', [piece('wardrobe', 'wardrobe', 1.8, 0.6, true)], model, [])
@@ -220,7 +280,7 @@ describe('storage', () => {
 describe('every candidate keeps the rules', () => {
   const model = living()
   // Something of the user's already stands in the room.
-  const taken: Rect[] = [{ x: 1.6, z: 0.9, w: 0.8, d: 0.8, rotation: 0 }]
+  const taken: Rect[] = [{ x: 1.6, z: -0.9, w: 0.8, d: 0.8, rotation: 0 }]
   const sets: Array<[GroupId, Piece[]]> = [
     ['lounge', LOUNGE], ['dining', DINING], ['sleep', SLEEP],
     ['work', [piece('desk', 'desk', 1.2, 0.6), piece('dchair', 'desk_chair', 0.5, 0.5)]],

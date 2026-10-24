@@ -46,6 +46,8 @@ const NIGHTSTAND_GAP = 0.05
 const FRONT_USE = 0.5
 const BACK_USE = 0.4
 const SIDE_USE = 0.4
+/** The sofa's use point stands beside the coffee table, this far out from its end, metres. */
+const COFFEE_SIDE_USE = 0.4
 /** Steps: along a wall, and over the free floor for a dining table. */
 const SLIDE_STEP = 0.25
 const FLOOR_STEP = 0.25
@@ -60,6 +62,7 @@ const CHAIR_PENALTY = 1e-4
 const MAX_DINING = 12
 
 const ALL_RULES = { doors: true, windows: true }
+const DOORS_ONLY = { doors: true, windows: false }
 
 /** Chairs a dining table seats, from its long side. */
 export function chairCount(tableLongSide: number): 2 | 4 | 6 {
@@ -162,6 +165,7 @@ function fits(ctx: Ctx, placed: Placed[], next: Placed): boolean {
   const own = clearancesOf(next)
   for (const z of own.zones) {
     if (!model.inside(z) || taken.some((t) => hit(z, t, 0))) return false
+    if (blocksOpening(z, false, model, DOORS_ONLY)) return false // a door must not swing into it
     if (placed.some((p) => p.piece.role !== 'rug' && !own.allows(p) && hit(z, p.rect, 0))) return false
   }
   return true
@@ -188,13 +192,21 @@ function wallScore(ctx: Ctx, wall: WallInfo, anchor: Rect, placed: Placed[], dro
     - (avoidDoorWall && wallHas(ctx, wall, 'door') ? DOOR_WALL_PENALTY : 0) - DROP_PENALTY * dropped
 }
 
-/** Every subset of the optional pieces, the full set first, then by how few are left out. */
-function optionalSets<T>(optional: T[][]): T[][][] {
-  const present = optional.filter((g) => g.length > 0)
-  const sets: T[][][] = []
-  for (let mask = 0; mask < 1 << present.length; mask++) sets.push(present.filter((_, i) => !(mask & (1 << i))))
-  return sets.sort((a, b) => b.length - a.length)
+/**
+ * How many of each kind of optional piece to keep: every combination from all of them down to none,
+ * the fullest first. Optional pieces drop one at a time (two armchairs, then one, then none).
+ */
+function countSets(maxes: number[]): number[][] {
+  let sets: number[][] = [[]]
+  for (const max of maxes) sets = sets.flatMap((s) => Array.from({ length: max + 1 }, (_, n) => [...s, max - n]))
+  const total = (s: number[]) => s.reduce((a, b) => a + b, 0)
+  return sets.sort((a, b) => total(b) - total(a))
 }
+
+/** A small probe at a point: is it inside the room, and clear of the pieces? */
+const probe = (p: Pt): Rect => ({ x: p[0], z: p[1], w: 0.02, d: 0.02, rotation: 0 })
+const pointFree = (ctx: Ctx, p: Pt, placed: Placed[]) =>
+  ctx.model.inside(probe(p)) && !placed.some((q) => q.piece.role !== 'rug' && hit(probe(p), q.rect, 0))
 
 /** Places each piece against the first wall (longest first) that has room for it; the rest are dropped. */
 function alongWalls(ctx: Ctx, base: Placed[], pieces: Piece[]): { placed: Placed[]; dropped: Piece[] } {
@@ -264,13 +276,11 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
 
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
-    for (const set of optionalSets<Piece>([arms, tvs])) {
-      const useArms = set.includes(arms), useTv = set.includes(tvs)
+    for (const [nArms, nTv] of countSets([arms.length, tvs.length])) {
       for (const a of alongs(wall, sofa.w)) {
         const s: Placed = { piece: sofa, rect: atWall(wall, sofa.w, sofa.d, a) }
         let placed = build(ctx, [], [s])
         if (!placed) continue
-        const front = frontOf(s.rect.rotation)
         let focus: Pt = offset(s.rect, s.rect.d / 2 + 1)
         if (coffee) {
           const [x, z] = offset(s.rect, sofa.d / 2 + COFFEE_GAP + coffee.d / 2)
@@ -278,19 +288,19 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
           if (!placed) continue
           focus = [x, z]
         }
-        if (useArms) {
-          placed = placeArmchairs(ctx, placed, s.rect, arms, focus)
+        if (nArms) {
+          placed = placeArmchairs(ctx, placed, s.rect, arms.slice(0, nArms), focus)
           if (!placed) continue
         }
-        if (useTv) {
+        if (nTv) {
           placed = placeTv(ctx, placed, s.rect, tvs[0])
           if (!placed) continue
         }
         const rest = alongWalls(ctx, placed, extra)
-        const dropped = [...(useArms ? [] : arms), ...(useTv ? [] : tvs), ...rest.dropped]
+        const dropped = [...arms.slice(nArms), ...tvs.slice(nTv), ...rest.dropped]
         out.push({
           placed: rest.placed,
-          usePoints: [[s.rect.x + front[0] * (sofa.d / 2 + FRONT_USE), s.rect.z + front[1] * (sofa.d / 2 + FRONT_USE)], ...storageUse(rest.placed)],
+          usePoints: [sofaUsePoint(ctx, s.rect, coffee, rest.placed), ...storageUse(rest.placed)],
           dropped,
           score: wallScore(ctx, wall, s.rect, rest.placed, dropped.length, true),
         })
@@ -299,6 +309,22 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
     }
   }
   return out
+}
+
+/**
+ * Where a person stands to use the sofa: 0.5 m out, beside the coffee table (not on it), on the side
+ * that is in the room and clear, the one nearer the room's middle when both are. Straight out in
+ * front when there is no coffee table.
+ */
+function sofaUsePoint(ctx: Ctx, sofa: Rect, coffee: Piece | undefined, placed: Placed[]): Pt {
+  const fwd = sofa.d / 2 + FRONT_USE
+  if (!coffee) return offset(sofa, fwd)
+  const { box } = ctx.model
+  const mid: Pt = [(box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2]
+  const sides = [1, -1].map((s) => offset(sofa, fwd, s * (coffee.w / 2 + COFFEE_SIDE_USE)))
+  const near = (p: Pt) => Math.hypot(p[0] - mid[0], p[1] - mid[1])
+  const free = sides.filter((p) => pointFree(ctx, p, placed))
+  return (free.length ? free : sides).sort((a, b) => near(a) - near(b))[0]
 }
 
 /** One armchair at each end of the sofa (or one, at whichever end fits), a little ahead, turned to the focus. */
@@ -342,15 +368,20 @@ function placeTv(ctx: Ctx, base: Placed[], sofa: Rect, tv: Piece): Placed[] | nu
 
 // ---- dining ---------------------------------------------------------------------------------
 
-/** Chairs round a table: pairs along the long sides, then one at each end; each faces the centre, tucked in. */
+/**
+ * Chairs round a table: pairs along the long sides, square to the edge, then one at each end facing
+ * the centre; each tucked in.
+ */
 function chairsAround(table: Rect, chair: Piece, count: number): Placed[] {
   // Work in the table's frame: `long` along its long side, `cross` across it.
   const longW = table.w >= table.d
   const L = Math.max(table.w, table.d), S = Math.min(table.w, table.d)
-  const out: Pt[] = []
+  // Each seat in the table's frame, and the point it looks at: straight across for a long side, the centre for an end.
+  const out: Array<[Pt, Pt]> = []
   const reach = chair.d / 2 - CHAIR_TUCK
-  const sideAt = (along: number, side: 1 | -1): Pt => (longW ? [along, side * (S / 2 + reach)] : [side * (S / 2 + reach), along])
-  const endAt = (side: 1 | -1): Pt => (longW ? [side * (L / 2 + reach), 0] : [0, side * (L / 2 + reach)])
+  const sideAt = (along: number, side: 1 | -1): [Pt, Pt] =>
+    longW ? [[along, side * (S / 2 + reach)], [along, 0]] : [[side * (S / 2 + reach), along], [0, along]]
+  const endAt = (side: 1 | -1): [Pt, Pt] => [longW ? [side * (L / 2 + reach), 0] : [0, side * (L / 2 + reach)], [0, 0]]
   if (count === 2) out.push(sideAt(0, 1), sideAt(0, -1))
   else {
     out.push(sideAt(L / 4, 1), sideAt(-L / 4, 1), sideAt(L / 4, -1), sideAt(-L / 4, -1))
@@ -358,9 +389,10 @@ function chairsAround(table: Rect, chair: Piece, count: number): Placed[] {
   }
   // Local (right, front) of the table to world.
   const r = rightOf(table.rotation), f = frontOf(table.rotation)
-  return out.map(([u, v]) => {
-    const c: Pt = [table.x + r[0] * u + f[0] * v, table.z + r[1] * u + f[1] * v]
-    return { piece: chair, rect: { x: c[0], z: c[1], w: chair.w, d: chair.d, rotation: facing(c, [table.x, table.z]) } }
+  const world = ([u, v]: Pt): Pt => [table.x + r[0] * u + f[0] * v, table.z + r[1] * u + f[1] * v]
+  return out.map(([seat, look]) => {
+    const c = world(seat)
+    return { piece: chair, rect: { x: c[0], z: c[1], w: chair.w, d: chair.d, rotation: facing(c, world(look)) } }
   })
 }
 
@@ -440,21 +472,17 @@ function placeSleep(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const stands = nsSplit.got
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
-    for (const set of optionalSets<Piece>([stands])) {
-      const useStands = set.length > 0
+    for (const [nStands] of countSets([stands.length])) {
       for (const a of alongs(wall, bed.w)) {
         const b: Placed = { piece: bed, rect: atWall(wall, bed.w, bed.d, a) }
         let placed = build(ctx, [], [b])
         if (!placed) continue
-        if (useStands) {
-          const sides: Array<1 | -1> = [1, -1]
-          placed = build(ctx, placed, stands.map((n, i) => ({
-            piece: n, rect: atWall(wall, n.w, n.d, a + sides[i] * (bed.w / 2 + NIGHTSTAND_GAP + n.w / 2)),
-          })))
+        if (nStands) {
+          placed = placeNightstands(ctx, placed, wall, a, bed, stands.slice(0, nStands))
           if (!placed) continue
         }
         const rest = alongWalls(ctx, placed, nsSplit.rest)
-        const dropped = [...(useStands ? [] : stands), ...rest.dropped]
+        const dropped = [...stands.slice(nStands), ...rest.dropped]
         out.push({
           placed: rest.placed,
           usePoints: [offset(b.rect, 0, b.rect.w / 2 + SIDE_USE), ...storageUse(rest.placed)],
@@ -466,6 +494,13 @@ function placeSleep(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
     }
   }
   return out
+}
+
+/** Nightstands beside the bed's head: two, one each side; one, on whichever side fits. */
+function placeNightstands(ctx: Ctx, base: Placed[], wall: WallInfo, along: number, bed: Piece, stands: Piece[]): Placed[] | null {
+  const at = (n: Piece, side: number): Placed => ({ piece: n, rect: atWall(wall, n.w, n.d, along + side * (bed.w / 2 + NIGHTSTAND_GAP + n.w / 2)) })
+  if (stands.length === 2) return build(ctx, base, [at(stands[0], 1), at(stands[1], -1)])
+  return build(ctx, base, [at(stands[0], 1)]) ?? build(ctx, base, [at(stands[0], -1)])
 }
 
 // ---- work -----------------------------------------------------------------------------------
@@ -515,7 +550,7 @@ function placeStorage(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   // The biggest piece anchors the group; the rest find their own wall after it.
   const anchor = [...solid].sort((a, b) => b.w * b.d - a.w * a.d)[0]
   if (!anchor) return []
-  const others = pieces.filter((p) => p !== anchor)
+  const others = solid.filter((p) => p !== anchor)
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
     for (const a of alongs(wall, anchor.w)) {
@@ -523,7 +558,9 @@ function placeStorage(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
       const placed = build(ctx, [], [s])
       if (!placed) continue
       const rest = alongWalls(ctx, placed, others)
-      out.push({ placed: rest.placed, usePoints: storageUse(rest.placed), dropped: rest.dropped, score: wallScore(ctx, wall, s.rect, rest.placed, rest.dropped.length, false) })
+      // A rug is never storage; reported back rather than stood against a wall.
+      const dropped = [...rest.dropped, ...pieces.filter((p) => p.role === 'rug')]
+      out.push({ placed: rest.placed, usePoints: storageUse(rest.placed), dropped, score: wallScore(ctx, wall, s.rect, rest.placed, rest.dropped.length, false) })
       break
     }
   }
