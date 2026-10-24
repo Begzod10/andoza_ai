@@ -316,6 +316,19 @@ export function PatternFloor({ pattern, width, depth, fallbackColor, clipPolygon
     return () => { built.dispose(); };
   }, [built, invalidate]);
 
+  // The wall clipping planes are world-space: keep them on the floor wherever
+  // it is drawn — a neighbouring room sits at its offset in the flat, and
+  // moves while it is being slid. Checked each rendered frame, moved only
+  // when the matrix changed.
+  const placedAt = useRef<THREE.Matrix4 | null>(null);
+  useFrame(() => {
+    const g = built.group;
+    g.updateWorldMatrix(true, false);
+    if (placedAt.current?.equals(g.matrixWorld)) return;
+    placedAt.current = (placedAt.current ?? new THREE.Matrix4()).copy(g.matrixWorld);
+    built.placeClipPlanes(g.matrixWorld);
+  });
+
   // The plank image, hung on the shared material once loaded — separate from
   // the geometry build so picking a texture doesn't relay the whole floor
   // (the UVs are baked per plank and don't depend on which image it is).

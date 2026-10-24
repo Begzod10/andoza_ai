@@ -2,6 +2,22 @@ import { useRef, useState, type RefObject } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { RadialSurface } from "@/components/studio/SurfaceRadialMenu";
 import { armsForDragging } from "@/lib/doubleTapArm";
+import { createTrailingClickGuard } from "@/lib/trailingClick";
+
+/**
+ * One guard for the page: the click that trails a tap on the ring's backdrop
+ * is swallowed at the window, in the capture phase, before react-three-fiber
+ * can turn it into a tap on the wall underneath (lib/trailingClick).
+ */
+const trailingClick = createTrailingClickGuard();
+if (typeof window !== "undefined") {
+  window.addEventListener("click", (e) => {
+    if (!trailingClick.shouldSwallow(Date.now())) return;
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+}
 
 export type RadialState = {
   surface: RadialSurface;
@@ -104,19 +120,32 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     const cy = e.nativeEvent?.clientY ?? e.clientY ?? 0;
     if (Math.hypot(cx - holdStart.current.x, cy - holdStart.current.y) > HOLD_MOVE_TOL) clearHold();
   }
-  function closeRadial() {
+  /** @returns whether closing armed the ring's opening for dragging — the
+   *  one dismissal after which its selection must stay (the amber border). */
+  function closeRadial(): boolean {
     // A tap that dismisses the ring within half a second of it opening is the
     // second half of a double tap: the finger is still on the door. That arms
     // it for dragging; a considered dismiss a moment later does not.
     const r = radialRef.current;
-    if (armsForDragging(r, openedAt.current, Date.now())) {
-      setArmedOpening({ wallId: r!.wallId, elId: r!.elId! });
-    }
+    const armed = armsForDragging(r, openedAt.current, Date.now());
+    if (armed) setArmedOpening({ wallId: r!.wallId, elId: r!.elId! });
     setRadial(null);
     if (controlsRef.current) controlsRef.current.enabled = true;
     // Safety net: if the trailing click never arrived, don't leave the guard
     // armed or the next genuine tap would be swallowed.
     heldRef.current = false;
+    return armed;
+  }
+
+  /**
+   * A tap away from the ring (its backdrop, or Escape): closes it, and
+   * swallows the click the tap trails — on a phone that click lands on
+   * whatever is under the finger now, the very wall the ring was opened on,
+   * and opened it again. @returns whether closing armed a door for dragging.
+   */
+  function dismissRadial(): boolean {
+    trailingClick.arm(Date.now());
+    return closeRadial();
   }
 
   /** Pointer handlers to spread onto a surface's wrapping <group>. */
@@ -131,5 +160,5 @@ export function useSurfaceRadialMenu(controlsRef: RefObject<OrbitControlsImpl | 
     };
   }
 
-  return { radial, holdBind, closeRadial, armedOpening, disarmOpening, armOpening };
+  return { radial, holdBind, closeRadial, dismissRadial, armedOpening, disarmOpening, armOpening };
 }

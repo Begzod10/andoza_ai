@@ -284,6 +284,8 @@ PR'lar (hammasi `master`da va production'da): [#36](https://github.com/Begzod10/
 | #38 | Admin materiallar ro'yxatiga `store_open` qo'shildi; AI uslub tugmasi (`POST /admin/furniture/classify-styles`) navbat tugamaguncha qayta bosilsa **409** (`"AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring"`), Redis ishlamasa **503** (`"Navbat xizmati ishlamayapti"`) qaytaradi | Faqat admin. Mobil bu endpoint'larni chaqirsa, 409 va 503 `detail` matnini to'g'ridan-to'g'ri ko'rsatsin |
 | #39 | AI uslub vazifalari alohida `styles` navbatda, yangi `styles-worker` konteynerida ishlaydi | Faqat server ichki tuzilishi. Push bildirishnomalar endi AI backfill ortida kutib qolmaydi |
 
+- **Mobil AI builder** (`POST /rooms/{id}/ai-build`) ham endi mebel uslubini ko'radi: `list_furniture` har bir mebelning `styles` ini beradi va so'rovda uslub aytilsa ("Hi-Tech uslubida. …"), o'sha uslubdagi mebel ro'yxat boshida, keyin uslubsizi turadi. Mobil 1.0.0+20 uslub tanlovini so'rov boshiga shunday qo'shadi.
+
 ### Smeta natijasiga ta'siri (7.2 ga qo'shimcha)
 - Admin endi smeta mahsulotlarini (galtel, plintus, suvoq, bo'yoq va boshqalar) paneldan qo'shadi. Masalan, `galtel` kalitli mahsulot qo'shilsa, smetadagi galtel qatori taxminiy 11 000 so'm o'rniga shu mahsulot narxi bilan va `is_approximate: false` bo'lib chiqadi.
 - Javob formati o'zgarmagan, mobil Smeta ekrani hech narsani o'zgartirishi shart emas.

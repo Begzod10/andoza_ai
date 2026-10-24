@@ -167,6 +167,48 @@ describe('tapping a wall-menu button', () => {
 })
 
 /**
+ * "one click selection and option pop up, to other place one click should
+ * work for pop up disappear": a tap on a surface both selects it and opens
+ * its ring, so a tap anywhere else must take BOTH away. The backdrop reports
+ * a dismissal (`onDismiss`) distinctly from an item that closes the ring
+ * after acting (`onClose`), so the page can also drop the selection on the
+ * one and keep it on the other.
+ */
+describe('a tap away from the ring', () => {
+  it('is a dismissal, told apart from closing after a pick', () => {
+    const onClose = vi.fn()
+    const onDismiss = vi.fn()
+    act(() => {
+      render(
+        <SurfaceRadialMenu
+          x={100} y={200} surface="wall" onClose={onClose} onDismiss={onDismiss}
+          items={[{ key: 'panel', label: 'Panel', icon: RadialIcons.add, closesMenu: true, onSelect: () => {} }]}
+        />,
+      )
+    })
+    tap(document.querySelector('div.fixed.inset-0')!)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('a pick that hands over closes without dismissing', () => {
+    const onClose = vi.fn()
+    const onDismiss = vi.fn()
+    act(() => {
+      render(
+        <SurfaceRadialMenu
+          x={100} y={200} surface="wall" onClose={onClose} onDismiss={onDismiss}
+          items={[{ key: 'panel', label: 'Panel', icon: RadialIcons.add, closesMenu: true, onSelect: () => {} }]}
+        />,
+      )
+    })
+    tap(screen.getByText('Panel').closest('button')!)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onDismiss).not.toHaveBeenCalled()
+  })
+})
+
+/**
  * "a tap on wall, ceiling, floor last chosen option (color, wallpaper, tile,
  * furniture ...) should be saved as main option in order user did not waste
  * extra time scrolling to find last choice".
