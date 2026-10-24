@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, type RefObject } from "react";
 import { FocusFade } from "@/features/studio/diorama";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -30,6 +31,7 @@ import type { RoomRenderPlan } from "@/lib/flatOpenings";
 // ─── Add-room "+" buttons shown around the room in top-down view ──────────────
 
 export function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W: number; D: number; H: number; onAdd: (side: RoomSide) => void; disabled?: boolean; occupiedSides?: Set<RoomSide> }) {
+  const { t } = useTranslation();
   const btnY = H * 0.5;
   const gap = 1.5;
 
@@ -49,7 +51,7 @@ export function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W:
             style={{ ...ADD_ROOM_BTN_STYLE, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'wait' : 'pointer' }}
             onClick={() => onAdd(key)}
             disabled={disabled}
-            title="Xona qo'shish"
+            title={t('studio.three_d.xona_qoshish')}
           >
             {disabled ? '…' : '+'}
           </button>
@@ -76,10 +78,11 @@ export function AddRoomButtons({ W, D, H, onAdd, disabled, occupiedSides }: { W:
  * mysteriously lost its other rooms.
  */
 export function FocusButton({ focused, onClick }: { focused: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title={focused ? "Barcha xonalarni ko'rsatish" : "Faqat shu xonani ko'rsatish"}
+      title={focused ? t('studio.three_d.hamma_xonalar') : t('studio.three_d.faqat_shu_xona')}
       aria-pressed={focused}
       style={{
         width: 26, height: 26, borderRadius: 8, border: 'none', padding: 0,
@@ -148,6 +151,7 @@ export function SiblingRooms({
   focusedRoomId: string | null;
   onToggleFocus: (roomId: string) => void;
 }) {
+  const { t } = useTranslation();
   const layout = useMemo(() => {
     if (rooms.length < 2) return [];
     const abs = computeAbsolutePositions(rooms, activeId, activeW, activeD);
@@ -212,7 +216,7 @@ export function SiblingRooms({
                   <button
                     style={SIBLING_DELETE_STYLE}
                     onClick={(e) => { e.stopPropagation(); onDelete(sib.id, sib.name); }}
-                    title="Xonani o'chirish"
+                    title={t('studio.three_d.xonani_ochirish')}
                   >
                     ✕
                   </button>

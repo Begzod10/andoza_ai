@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import type { PlacedElectrical } from '@/store/roomStore'
 import {
   nearestEdge, offsetPolygon, perimeterCoord, perimeterCorners, perimeterPoint,
@@ -290,7 +291,9 @@ export function routeWire3D(dev: PlacedElectrical, panel: PlacedElectrical, W: n
 
 export function fmtM(mm: number): string {
   const m = mm / 1000
-  return m < 0.01 ? `${mm}mm` : `${m.toFixed(2).replace(/\.?0+$/, '')}m`
+  return m < 0.01
+    ? `${mm}${i18n.t('studio.three_d.mm')}`
+    : `${m.toFixed(2).replace(/\.?0+$/, '')}${i18n.t('common.m')}`
 }
 
 // ─── 3D Elektr view ───────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import * as React from "react";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
@@ -298,8 +299,8 @@ function NWallRoomShell({
   // reach for themselves.
   const { bind: bindHoldDelete } = useHoldToDelete()
   const setDesign = useRoomStore((s) => s.setDesignState)
-  const holdSkirting = bindHoldDelete({ label: 'Plintus', onDelete: () => setDesign({ skirting: null }) })
-  const holdCornice = bindHoldDelete({ label: 'Karniz', onDelete: () => setDesign({ cornice: null }) })
+  const holdSkirting = bindHoldDelete({ label: i18n.t('studio.radial.plintus'), onDelete: () => setDesign({ skirting: null }) })
+  const holdCornice = bindHoldDelete({ label: i18n.t('studio.radial.karniz'), onDelete: () => setDesign({ cornice: null }) })
   const verts = geometry.vertices!
   const n = verts.length
 
@@ -971,8 +972,8 @@ export const RoomScene = memo(function RoomScene({
   // Deleting a trim run means taking it out of the room: `null` is the stored
   // "deliberately off", as opposed to `undefined`, which still draws the
   // default board.
-  const holdSkirting = bindHoldDelete({ label: 'Plintus', onDelete: () => setDesignState({ skirting: null }) })
-  const holdCornice = bindHoldDelete({ label: 'Karniz', onDelete: () => setDesignState({ cornice: null }) })
+  const holdSkirting = bindHoldDelete({ label: i18n.t('studio.radial.plintus'), onDelete: () => setDesignState({ skirting: null }) })
+  const holdCornice = bindHoldDelete({ label: i18n.t('studio.radial.karniz'), onDelete: () => setDesignState({ cornice: null }) })
 
   const skirting = useMemo(
     () => (designState.skirting === null ? null : resolveTrim(designState.skirting, 'skirting')),

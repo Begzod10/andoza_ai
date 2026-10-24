@@ -134,7 +134,7 @@ export function ToolsDrawerPanel({
           {/* The flat's rooms. Nothing for a one-room project. */}
           {roomEntries.length > 0 && (
             <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Xonalar</p>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{t('studio.three_d.xonalar')}</p>
               <div className="flex flex-col gap-1.5">
                 {roomEntries.map((r) => (
                   <button
@@ -149,7 +149,7 @@ export function ToolsDrawerPanel({
                     }`}
                   >
                     <span className="truncate">{r.label}</span>
-                    {r.current && <span className="text-xs shrink-0 ml-2">Hozir</span>}
+                    {r.current && <span className="text-xs shrink-0 ml-2">{t('studio.three_d.hozir')}</span>}
                   </button>
                 ))}
               </div>
@@ -210,7 +210,7 @@ export function ToolsDrawerPanel({
                   className="flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50"
                   title={t("studio.quyosh_vaqti_toshkent")}
                 >
-                  <span className="text-xs font-medium text-ink-muted shrink-0">Vaqt:</span>
+                  <span className="text-xs font-medium text-ink-muted shrink-0">{t('studio.three_d.vaqt')}</span>
                   <span className="text-sm font-semibold text-amber-800 tabular-nums w-10 text-right">
                     {formatClock(sunHour)}
                   </span>
@@ -238,14 +238,14 @@ export function ToolsDrawerPanel({
           <div className="px-4 py-3">
             <button
               onClick={() => { closeMenu?.(); setShowAiSheet(true); }}
-              title="AI dizayner"
-              aria-label="AI dizayner"
+              title={t("ai.builder_title")}
+              aria-label={t("ai.builder_title")}
               className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
               </svg>
-              <span>AI dizayner</span>
+              <span>{t("ai.builder_title")}</span>
             </button>
           </div>
 

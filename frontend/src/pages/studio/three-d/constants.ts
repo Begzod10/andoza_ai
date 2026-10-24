@@ -178,11 +178,3 @@ export const SIBLING_FLOOR_COLOR_DEFAULT = '#D9C9A8'
 // ─── View presets ─────────────────────────────────────────────────────────────
 
 export type ViewPreset = "corner" | "front" | "back" | "top";
-
-
-export const VIEW_LABELS: Record<ViewPreset, string> = {
-  corner: "Burchak",
-  front:  "Old tomon",
-  back:   "3D",
-  top:    "Yuqori",
-};

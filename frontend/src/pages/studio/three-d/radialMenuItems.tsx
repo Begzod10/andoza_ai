@@ -1,7 +1,8 @@
 import { RadialIcons, type RadialItem } from "@/components/studio/SurfaceRadialMenu";
+import i18n from "@/i18n";
 import type { PhaseKey } from "@/lib/phases";
 import type { RadialState } from "./useSurfaceRadialMenu";
-import { CATALOG as ELECTRICAL_CATALOG } from "@/pages/studio/placement/constants";
+import { CATALOG as ELECTRICAL_CATALOG, electricalLabel } from "@/pages/studio/placement/constants";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
 import { trimProfilesOf } from "@/lib/trimProfiles";
 import { WINDOW_STYLES } from "@/lib/windowStyles";
@@ -97,8 +98,8 @@ export function buildRadialItems(
         // Paint and paper are two different decisions and now two buttons:
         // one ring of papers with a colour hidden among them was a list the
         // user had to scroll past to reach either.
-        key: 'paint', label: 'Rang', icon: RadialIcons.paint,
-        childLabel: 'Rang',
+        key: 'paint', label: i18n.t('studio.radial.rang'), icon: RadialIcons.paint,
+        childLabel: i18n.t('studio.radial.rang'),
         onSelect: () => openPaintPanel(r.wallId),
         // No panel escape among the colours: the palette IS the choice, and
         // the design panel is in the header's menu when more is wanted.
@@ -113,8 +114,8 @@ export function buildRadialItems(
         })),
       },
       {
-        key: 'oboy', label: 'Oboy', icon: RadialIcons.wallpaper,
-        childLabel: 'Oboy',
+        key: 'oboy', label: i18n.t('studio.radial.oboy'), icon: RadialIcons.wallpaper,
+        childLabel: i18n.t('studio.radial.oboy'),
         onSelect: () => openPaintPanel(r.wallId),
         children: wallpapers.length
           ? wallpapers.map((w) => ({
@@ -130,7 +131,7 @@ export function buildRadialItems(
           // and the panel is where a paper comes from. With papers to show,
           // the ring shows papers and nothing else.
           : [{
-              key: 'wp:panel', label: 'Panel', icon: RadialIcons.add,
+              key: 'wp:panel', label: i18n.t('studio.radial.panel'), icon: RadialIcons.add,
               closesMenu: true,
               onSelect: () => openPaintPanel(r.wallId),
             }],
@@ -140,8 +141,8 @@ export function buildRadialItems(
         // or a kitchen is tiled, not papered, and until now the only way to
         // get a tile onto a wall was to photograph one and upload it as a
         // paper.
-        key: 'wall-kafel', label: 'Kafel', icon: RadialIcons.floor,
-        childLabel: 'Kafel',
+        key: 'wall-kafel', label: i18n.t('studio.radial.kafel'), icon: RadialIcons.floor,
+        childLabel: i18n.t('studio.radial.kafel'),
         onSelect: () => {},
         children: TILE_SIZES.map((t) => ({
           key: `wall-kafel:${t.label}`,
@@ -169,8 +170,8 @@ export function buildRadialItems(
         // Window styles, straight from the ring. The sheet that asked for
         // width, height, style and colour is still there for a window that
         // needs to be exact — this is for the common case.
-        key: 'window', label: 'Oyna', icon: RadialIcons.window,
-        childLabel: 'Oyna',
+        key: 'window', label: i18n.t('studio.radial.oyna'), icon: RadialIcons.window,
+        childLabel: i18n.t('studio.radial.oyna'),
         onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
         children: [
           ...WINDOW_STYLES.map((st) => ({
@@ -184,7 +185,7 @@ export function buildRadialItems(
             onSelect: () => { if (r.wallId) createWindowStyled(r.wallId, r.point, st.id); },
           })),
           {
-            key: 'win:custom', label: "O'lchamli", icon: RadialIcons.add,
+            key: 'win:custom', label: i18n.t('studio.radial.olchamli'), icon: RadialIcons.add,
             closesMenu: true,
             onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'deraza'); },
           },
@@ -194,8 +195,8 @@ export function buildRadialItems(
         // The leaf designs, as the windows do it: a door is 900 x 2100
         // whatever style it wears, so the only question the ring has to ask
         // is which one.
-        key: 'door', label: 'Eshik', icon: RadialIcons.door,
-        childLabel: 'Eshik',
+        key: 'door', label: i18n.t('studio.radial.eshik'), icon: RadialIcons.door,
+        childLabel: i18n.t('studio.radial.eshik'),
         onSelect: () => { if (r.wallId) createOpening(r.wallId, r.point, 'eshik'); },
         children: DOOR_STYLES.map((st) => ({
           key: `door:${st.id}`,
@@ -211,7 +212,7 @@ export function buildRadialItems(
         // from above and hand off to the wizard; standing inside the room, the
         // wall itself already says which side, so the only thing left to ask
         // is how big — which the sheet does, with a drawing.
-        key: 'new-room', label: 'Yangi xona', icon: RadialIcons.add,
+        key: 'new-room', label: i18n.t('studio.radial.yangi_xona'), icon: RadialIcons.add,
         closesMenu: true,
         onSelect: () => addRoomThroughWall(r.wallId!),
       }] : []),
@@ -219,12 +220,12 @@ export function buildRadialItems(
         // Sockets and switches belong to a wall and to a spot on it, which is
         // exactly what a wall tap already knows — so they are offered here
         // rather than from the corner menu, which knew neither.
-        key: 'elektr', label: 'Elektr', icon: RadialIcons.socket,
-        childLabel: 'Elektr',
+        key: 'elektr', label: i18n.t('studio.radial.elektr'), icon: RadialIcons.socket,
+        childLabel: i18n.t('studio.radial.elektr'),
         onSelect: () => {},
         children: ELECTRICAL_CATALOG.map((entry) => ({
           key: `el:${entry.type}`,
-          label: entry.label,
+          label: electricalLabel(entry.type),
           icon: RadialIcons.socket,
           // Each fitting drawn face-on, from the same range the 3D ones are
           // modelled on: one socket icon repeated told the user nothing.
@@ -268,7 +269,7 @@ export function buildRadialItems(
       // and a user who added one needs a way back.
       {
         key: `${kind}:none`,
-        label: "Yo'q",
+        label: i18n.t('studio.radial.yoq'),
         icon: RadialIcons.none,
         onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)(null),
       },
@@ -292,8 +293,8 @@ export function buildRadialItems(
         // The fixtures themselves, in the ring, rather than a jump to the
         // panel: a ceiling tap already says where the light goes, and sending
         // the user to a panel threw that away and made them place it again.
-        key: 'light', label: 'Chiroq', icon: RadialIcons.light,
-        childLabel: 'Chiroq',
+        key: 'light', label: i18n.t('studio.radial.chiroq'), icon: RadialIcons.light,
+        childLabel: i18n.t('studio.radial.chiroq'),
         onSelect: () => {},
         children: LIGHT_TYPES.map((t) => ({
           key: `light:${t.id}`,
@@ -311,12 +312,12 @@ export function buildRadialItems(
         // catalogue's own section drawing, filling the button — a moulding is
         // picked by looking at it, and the flat silhouette this used to show
         // threw away the milled detail that tells the profiles apart.
-        key: 'karniz', label: 'Karniz', icon: RadialIcons.cornice,
-        childLabel: 'Karniz',
+        key: 'karniz', label: i18n.t('studio.radial.karniz'), icon: RadialIcons.cornice,
+        childLabel: i18n.t('studio.radial.karniz'),
         onSelect: () => {},
         children: [{
           key: 'cornice:none',
-          label: "Yo'q",
+          label: i18n.t('studio.radial.yoq'),
           icon: RadialIcons.none,
           onSelect: () => setCornice(null),
         }, ...trimProfilesOf('cornice').map((def) => ({
@@ -337,8 +338,8 @@ export function buildRadialItems(
         // The profiles themselves, drawn in section — the same little diagrams
         // the design panel shows. No names under them: the shape of a ceiling
         // is what is being chosen, and a label is noise beside the drawing.
-        key: 'ceiling', label: 'Shift turi', icon: RadialIcons.ceiling,
-        childLabel: 'Shift turi',
+        key: 'ceiling', label: i18n.t('studio.radial.shift_turi'), icon: RadialIcons.ceiling,
+        childLabel: i18n.t('studio.radial.shift_turi'),
         onSelect: () => {},
         // No panel escape here: the shape is the whole choice, and the drop,
         // border and cove light are still reachable from the design panel
@@ -365,8 +366,8 @@ export function buildRadialItems(
       // The laying patterns, previewed with the real geometry the floor is
       // built from — the same drawings the design panel and the corner menu
       // show, so a pattern is recognisable wherever it is picked.
-      key: 'parket', label: 'Parket', icon: RadialIcons.floor,
-      childLabel: 'Parket',
+      key: 'parket', label: i18n.t('studio.radial.parket'), icon: RadialIcons.floor,
+      childLabel: i18n.t('studio.radial.parket'),
       onSelect: () => {},
       children: FLOOR_PATTERN_DEFS.map((def) => ({
         key: `parket:${def.id}`,
@@ -382,8 +383,8 @@ export function buildRadialItems(
       // Tile is the same stack bond every time — what is actually being
       // chosen is the tile, so these are sizes rather than patterns, and each
       // previews the same square of floor so a bigger tile reads as bigger.
-      key: 'kafel', label: 'Kafel', icon: RadialIcons.floor,
-      childLabel: 'Kafel',
+      key: 'kafel', label: i18n.t('studio.radial.kafel'), icon: RadialIcons.floor,
+      childLabel: i18n.t('studio.radial.kafel'),
       onSelect: () => {},
       children: TILE_SIZES.map((t) => ({
         key: `kafel:${t.label}`,

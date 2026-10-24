@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { PlacedElectrical } from '@/store/roomStore'
 import type { PlanPolygon } from '@/lib/planPolygon'
 import { DIM_C, DIM_TICK, PAD, SCALE, WALL_STROKE } from './constants'
@@ -46,6 +47,7 @@ function VDim({ ya, yb, x, extX, label }: { ya: number; yb: number; x: number; e
 }
 
 export function DimensionOverlay({ electricals, W, D }: { electricals: PlacedElectrical[]; W: number; D: number }) {
+  useTranslation() // re-render on language change: the labels read the unit while drawing
   const rW = W * SCALE, rD = D * SCALE
   const hs = WALL_STROKE / 2
   const byWall: Record<WallId, PlacedElectrical[]> = { A: [], B: [], C: [], D: [] }
@@ -109,6 +111,7 @@ export function DimensionOverlay({ electricals, W, D }: { electricals: PlacedEle
  * so the plan says so instead of drawing a wrong chain.
  */
 export function PolyDimensionOverlay({ electricals, poly }: { electricals: PlacedElectrical[]; poly: PlanPolygon }) {
+  const { t } = useTranslation()
   const INS = 20
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -125,7 +128,7 @@ export function PolyDimensionOverlay({ electricals, poly }: { electricals: Place
         )
       })}
       <text x={PAD} y={PAD - 30} fontSize="8" fontFamily="system-ui,sans-serif" fill="#888">
-        Devor bo'ylab o'lcham zanjiri faqat A-B-C-D xonalar uchun — pozitsiyalar jadvalda
+        {t('studio.placement.olchamlar.zanjir_izoh')}
       </text>
     </g>
   )

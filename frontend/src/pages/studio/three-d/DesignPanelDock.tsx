@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Dispatch, SetStateAction } from "react";
 import { DesignPanel } from "@/components/studio/DesignPanel";
 import type { Room } from "@/lib/api";
@@ -33,6 +34,7 @@ export function DesignPanelDock({
   setArmedLightType: Dispatch<SetStateAction<LightTypeId | null>>;
   planMode: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       {/* Mobile backdrop — transparent, not dimmed: the panel now docks to
@@ -106,7 +108,7 @@ export function DesignPanelDock({
         <div className="lg:hidden flex justify-end p-2">
           <button
             onClick={() => setShowPanel(false)}
-            aria-label="Yopish"
+            aria-label={t('common.yopish')}
             className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
           >
             <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -125,8 +127,8 @@ export function DesignPanelDock({
           wrapper for why. */}
       <button
         onClick={() => setRightOpen(v => !v)}
-        title={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
-        aria-label={rightOpen ? "Dizayn panelini yopish" : "Dizayn panelini ochish"}
+        title={rightOpen ? t('studio.three_d.dizayn_paneli_yopish') : t('studio.three_d.dizayn_paneli_ochish')}
+        aria-label={rightOpen ? t('studio.three_d.dizayn_paneli_yopish') : t('studio.three_d.dizayn_paneli_ochish')}
         className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
         style={{
           position: 'absolute',

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useProgress } from "@react-three/drei";
 
 /**
@@ -8,6 +9,7 @@ import { useProgress } from "@react-three/drei";
  * global three.js loading manager, not the R3F context.
  */
 export function SceneLoadingOverlay() {
+  const { t } = useTranslation();
   const { active, progress } = useProgress();
   if (!active) return null;
   return (
@@ -16,7 +18,7 @@ export function SceneLoadingOverlay() {
         role="status"
         className="rounded-full bg-black/60 px-4 py-2 text-sm font-semibold text-white shadow-panel backdrop-blur"
       >
-        3D sahna yuklanmoqda…{progress >= 1 && ` ${Math.round(progress)}%`}
+        {t('studio.three_d.sahna_yuklanmoqda')}{progress >= 1 && ` ${Math.round(progress)}%`}
       </p>
     </div>
   );
