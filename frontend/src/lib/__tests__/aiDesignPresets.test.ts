@@ -107,14 +107,26 @@ describe('design presets', () => {
     }
   })
 
-  it('each kind maps to its role', () => {
+  it('each kind maps to its role (the role the piece itself infers, as an AI plan would give it)', () => {
     const roleOf = (id: string) => presetPlan('dark', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === id)!.role
     expect(roleOf('sofa')).toBe('sofa')
     expect(roleOf('table')).toBe('coffee_table')
     expect(roleOf('tv')).toBe('tv_unit')
     expect(roleOf('rug')).toBe('rug')
     expect(roleOf('chair')).toBe('armchair')
-    expect(presetPlan('klassik', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === 'shelf')!.role).toBe('shelf')
+    // "Kitob shkafi": the name says shkaf, a wardrobe to inferRole; both stand in the storage group alike.
+    expect(presetPlan('klassik', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === 'shelf')!.role).toBe('wardrobe')
+  })
+
+  it('a table that is a dining table in the catalog plays a dining table, not a coffee table', () => {
+    const only = [item('sofa', 'Divan', 'divan'), item('kitchen-table', 'Oshxona stoli', 'stol', 'oshxona')]
+    const plan = presetPlan('minimalist', only, 'mehmonxona')!
+    expect(plan.furniture.find((f) => f.id === 'kitchen-table')!.role).toBe('dining_table')
+  })
+
+  it('a piece whose name says nothing falls back to the role of its kind', () => {
+    const plan = presetPlan('minimalist', [item('sofa', 'Model X', 'divan'), item('t', 'Model T', 'table')], undefined)!
+    expect(plan.furniture.find((f) => f.id === 't')!.role).toBe('coffee_table')
   })
 
   it('is undefined for an unknown style', () => {

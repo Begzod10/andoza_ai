@@ -1,6 +1,6 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
-import { type FurnitureRole } from '@/lib/furnitureRole'
+import { inferRole, type FurnitureRole } from '@/lib/furnitureRole'
 import i18n, { type TKey } from '@/i18n'
 
 /**
@@ -14,7 +14,10 @@ import i18n, { type TKey } from '@/i18n'
 
 type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf'
 
-/** The role each kind plays in the room's furniture groups. */
+/**
+ * The role a kind plays when the catalog piece itself says nothing more (its name and category
+ * infer only decor). A "stol" may be a dining table: the piece's own role comes first.
+ */
 const KIND_ROLE: Record<Kind, FurnitureRole> = {
   divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
 }
@@ -184,7 +187,8 @@ export function presetPlan(
     const item = pick(want.kind, catalog, roomType, used, preset.furnitureStyle)
     if (!item) continue
     used.add(item.id)
-    furniture.push({ id: item.id, name: item.name_uz, role: KIND_ROLE[want.kind] })
+    const inferred = inferRole(item.category, item.name_uz)
+    furniture.push({ id: item.id, name: item.name_uz, role: inferred === 'decor' ? KIND_ROLE[want.kind] : inferred })
   }
   const accent = preset.walls.accent
   return {
