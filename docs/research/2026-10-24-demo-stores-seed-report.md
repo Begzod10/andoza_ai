@@ -38,13 +38,15 @@ Names follow what each store shows (Uzbek on Dafna, Russian elsewhere) and are c
 | MAFF (maff.uz) | 25 materials: laminate 10, parquet 6 (per m²), doors 9 (per piece) | UZS, all | 25, 652 KB | Floors are taken only when the page says "Цена за м²". |
 | Модные Стены (modnie-steni.uz) | 28 wallpapers (oboy) | UZS per roll, all | 28, 2.1 MB | See "Wallpapers" below. |
 | Keng Makon (kengmakon.uz) | 0 | | | **Skipped.** Its image CDN's robots.txt is `Disallow: /`. |
-| Sanat Hali (prom.uz, carpets) | 0 | | | **Dropped.** The photos are prom.uz `/upload/` files, and www.prom.uz's robots.txt disallows `/upload/`. No other carpet source was found, so there are no carpets. |
+| Sanat Hali (prom.uz, carpets) | 0 | | | **Dropped.** The photos are prom.uz `/upload/` files, and www.prom.uz's robots.txt disallows `/upload/`. Carpets now come from Divan.uz (below). |
+| Divan.uz (divan.uz, carpets) | 20 rugs (furniture, `boshqa`) | UZS per piece, all | 20, 1.1 MB | Added in catalog version 3. See "Carpets" below. |
 | Imzo (imzo.uz) | 0 | | | **Skipped.** No product page shows a price. |
 | Deraza bozori — o'rtacha narx (not a store) | 6 materials: 5 windows (deraza), 1 balcony door (eshik) | UZS, median market price | 6 drawn illustrations, 20 KB | Added in catalog version 2. See "Windows: average market prices" below. |
 
 **Total:**
 - Catalog version 1, already seeded in production: 9 stores, 134 furniture pieces, 25 materials, 28 wallpapers, 187 photos (5.5 MB).
 - Catalog version 2 adds the window store: 1 store and 6 materials.
+- Catalog version 3 adds the carpet store Divan.uz: 1 store and 20 rugs (furniture), 20 photos (1.1 MB). All demo photos together: 6.4 MB.
 
 Store contacts (phone and Telegram where published) come from `2026-10-24-uz-stores-catalogs.md` or the store's own site.
 
@@ -230,13 +232,80 @@ These are the weakest data. Two private OLX sales of ready balcony units were le
 - **Estimate (smeta):** it does not price windows or doors. Openings are only subtracted from wall areas, and door widths from the skirting. So these materials are not used there, and no change was needed.
 - **Studio:** a "deraza" opening in the studio is geometry only and is not linked to a material.
 
+## Carpets (catalog version 3)
+
+**Source:** Divan.uz (divan.uz), the Tashkent online furniture and home store (phone +998 71 205 09 75, Telegram @official_divan_uz). Its "Ковры" section is real stock with UZS prices, sizes and product photos. It has 349 carpet pages in its sitemap.
+
+- **Pages:** server-rendered. The price is in `og:title` ("купить в Ташкенте по цене 3 049 480 сум"). The size is in the specs ("Длина 200 см х Ширина 300 см"). Stock comes from `itemprop="availability"`. Only `InStock` pages with a price and a size were kept.
+- **Photos:** `og:image` from `cdn0.divan.ru`, re-encoded to WebP with the longest side 800 px.
+- **Robots:**
+  - divan.uz's robots.txt allows product pages and the sitemap. It disallows only `*order`, `/other/`, `*cgi-bin`, `*terminal` and document files.
+  - `cdn0.divan.ru` is an image proxy. It answers `403 Forbidden` for every path that is not an image, including `/robots.txt`. RFC 9309 reads a 4xx robots.txt as "no rules", and the fetcher treats any non-200 robots.txt the same way, so the photos are allowed.
+- **Fetched:** 43 requests, one at a time, 1 s apart, browser User-Agent. No login, no forms.
+- **Quirk:** the sitemap's `<loc>`s read `https://divan.uzhttp://divan2.local/product/...`. The fetcher keeps only the `/product/...` path.
+
+**What was chosen** (`fetch_divan` in `fetch.py`):
+- One size per design and one design per collection, so the demo shows 20 different rugs rather than one rug in five sizes.
+- Mostly the 160 × 230 living-room size. Every third pick is a design sold in 200 × 300 (or 200 × 290), taken in that size.
+- Sizes: 160×230 × 11, 200×300 × 5, 120×180 × 2, 200×290 × 1, 120×170 × 1.
+- Prices: 1 264 640 to 4 880 080 UZS per piece, median 2 896 930. All are machine-made rugs, mostly Turkish.
+
+**How they are seeded:**
+- They are `Furniture` rows with category `boshqa`, placement `pol` and no `room_type` (a rug suits every room).
+- `footprint_w` is the long side and `footprint_d` the short side, in cm. `height_cm` is 1. There is no GLB.
+- Names are Uzbek with the model in Latin letters: "Gilam Nuel 200×300 sm" (from "Ковер Нуэл 200x300"). A two-sided rug would read "Ikki tomonlama gilam ..."; none was picked this time.
+- "gilam" in the name is what `infer_role` (backend `ai_designer.py`, frontend `furnitureRole.ts`) maps to the `rug` role. A test checks every carpet against `infer_role`.
+- Like all demo furniture, they show in the shop with a photo, but the studio and AI designer place only pieces with a 3-D model. So the rugs are not placed in rooms until someone adds a GLB.
+
+| Name | Price (UZS) | Source |
+|---|---|---|
+| Gilam Alina-Delphi 160×230 sm | 1 676 530 | https://divan.uz/product/kover-alina-delphi-160x230 |
+| Gilam Olvi-Adagio 160×230 sm | 1 676 530 | https://divan.uz/product/kover-olvi-adagio-160x230 |
+| Gilam Nero-Tach 200×290 sm | 3 812 230 | https://divan.uz/product/kover-nero-tach-200x290 |
+| Gilam Ungaro-Ameli 160×230 sm | 2 286 730 | https://divan.uz/product/kover-ungaro-ameli-160x230 |
+| Gilam Time-Matrix 160×230 sm | 1 829 080 | https://divan.uz/product/kover-time-matrix-160x230 |
+| Gilam Nuel 200×300 sm | 3 049 480 | https://divan.uz/product/kover-nuel-200300 |
+| Gilam Stuf-Vintage 160×230 sm | 1 264 640 | https://divan.uz/product/kover-stuf-vintage-160x230 |
+| Gilam Line-Pink 160×230 sm | 2 134 180 | https://divan.uz/product/kover-line-pink-160x230 |
+| Gilam Yukken 200×300 sm | 2 896 930 | https://divan.uz/product/kover-yukken-200300 |
+| Gilam Memory-Blue 120×180 sm | 1 676 530 | https://divan.uz/product/kover-memory-blue-120x180 |
+| Gilam Mineral-Blue 160×230 sm | 2 225 710 | https://divan.uz/product/kover-mineral-blue-160x230 |
+| Gilam Mirna 200×300 sm | 2 896 930 | https://divan.uz/product/kover-mirna-200300 |
+| Gilam Rabbit-Grey 120×170 sm | 2 744 380 | https://divan.uz/product/kover-rabbit-grey-120x170 |
+| Gilam Relax-Grand 160×230 sm | 2 439 280 | https://divan.uz/product/kover-relax-grand-160x230 |
+| Gilam Findli 200×300 sm | 3 430 850 | https://divan.uz/product/kover-findli-200x300 |
+| Gilam Vivica-Grey-Blue 160×230 sm | 4 880 080 | https://divan.uz/product/kover-vivica-grey-blue-160x230 |
+| Gilam Byords-Etnik 120×180 sm | 2 896 930 | https://divan.uz/product/kover-brds-etnik-120x180 |
+| Gilam Tut Ryadom Neojidanno Bejeviy 200×300 sm | 3 125 750 | https://divan.uz/product/kover-tut-ryadom-neojidanno-bejevyj-200x300 |
+| Gilam Lata-Etnik 160×230 sm | 3 507 130 | https://divan.uz/product/kover-lata-etnik-160x230 |
+| Gilam Ardjil-Etnik-Blue 160×230 sm | 3 659 680 | https://divan.uz/product/kover-ardjil-etnik-blue-160x230 |
+
+Prices and stock as of 24.10.2026.
+
+**Carpet sources checked and not used:**
+
+| Source | Why it was not used |
+|---|---|
+| Sanat Hali (prom.uz) | Photos are under `/upload/`, which www.prom.uz's robots.txt disallows (as before). |
+| SAG (sag.uz → www.sag.uz) | A React single-page app ("sagexpressuz") with no product data in the HTML. |
+| Elexus / Gilam Market (elexus.uz → gilam-market.uz) | A site still being built. The catalog has one product, its description is admin placeholder text, and the phones are placeholders (+998 71 000-00-00). `/api/` is disallowed. Re-check later: this could become a real source. |
+| Samarkand Carpets (samarkandcarpets.com, Samarkand workshop, Shopify) | Prices are in USD, and the listing shows template-like figures ($0.00, $123, many $990). Product pages and `products.json` answered HTTP 429 to a single polite request, so I stopped. |
+| Silk Carpets Uzbekistan (silkcarpets.uz) | A handmade silk catalog with no prices ("contact us"). |
+| glotr.uz, Ковры | Images (`files.glotr.uz`) have no robots.txt and pages are allowed (Crawl-delay 10). But the carpets are Almila kids' rugs at "Цена по запросу", Elexus Luxury Carpet at per-m² prices dated 2021 (`priceValidUntil` 2022), prayer mats and 3D mats. There is no current priced rug catalog. |
+| uzsogda.com | Mostly Turkmen and Afghan carpets. Not a Tashkent shop catalog that fits. Not pursued. |
+| kover.uz, carpet.uz, carpets.uz, kovrolin.uz | The same 8 KB parked page. |
+| merinos.uz, imperiyacarpet.uz, urgaz.uz, gilam.uz, kovri.uz, carpetland.uz, khivacarpet.uz, bukharacarpet.uz | Do not resolve. bukharacarpets.com is an Indian trader. |
+| asaxiy.uz, alifshop.uz, texnomart.uz | No carpet listings found by search. |
+| OLX | Mostly private and used carpets with negotiable prices, as for wallpapers. |
+| Uzum Market | JavaScript only, `/api` disallowed (as before). |
+
 ## When the seed runs
 
 - **The flag:** it runs only when `DEMO_STORES` is on. The backend setting defaults to off. `docker-compose.prod.yml` sets `DEMO_STORES: ${DEMO_STORES:-1}` for the api service, so production seeds the demo for the presentation. `--force` runs it even with the flag off.
 - **Each row only once, by catalog version:**
-  - catalog.json has a top-level `version` (now 2). Each store and item has a `since` version. It defaults to 1, and an item inherits its store's.
+  - catalog.json has a top-level `version` (now 3). Each store and item has a `since` version. It defaults to 1, and an item inherits its store's.
   - A `seed_markers` row `demo_stores_v<N>` records the highest version applied. A deploy inserts only the rows whose `since` is greater, then replaces the marker.
-  - A database seeded before versions existed has demo stores but no version marker, and counts as version 1 applied. On the next production deploy, exactly the window store and its 6 items are added, and the marker `demo_stores_v2` is written. Later deploys do nothing.
+  - A database seeded before versions existed has demo stores but no version marker, and counts as version 1 applied. The version-2 deploy added exactly the window store and its 6 items and wrote `demo_stores_v2`. The version-3 deploy adds exactly the Divan.uz store and its 20 rugs and writes `demo_stores_v3`. Later deploys do nothing.
   - A row or store an admin deleted or renamed is never put back. A store with no new item is not even looked at.
   - **To add products later:** give them (or their new store) `"since": N+1` and bump `version` to N+1.
   - `scripts/demo_catalog/fetch.py` keeps `version`, store `since` values and the hand-made window store when it refetches.
@@ -258,6 +327,18 @@ These are the weakest data. Two private OLX sales of ready balcony units were le
 - **Flutter app:** it lives in a separate repo and reads `/furniture` without `has_model`. It will list the photo-only demo furniture, which has `glb_url = null`. Check that the mobile 3-D placement ignores entries without a `glb_url`, or add `has_model=true` there.
 
 ## Verification
+
+**Carpets (version 3):**
+- `test_seed_demo_stores.py` now has 37 tests. The new ones check:
+  - the carpet store is `divan-uz` with `since` 3, and it is the only version-3 store;
+  - every rug is `boshqa` furniture on the floor with "gilam" in its name, and `infer_role` reads it as `rug`;
+  - prices are positive UZS, the footprint matches the size in the name, and photos are 800 px or less;
+  - a database at `demo_stores_v2` gets exactly 1 store and 20 rugs and the marker `demo_stores_v3`, and nothing else;
+  - the next run adds nothing;
+  - a `--remove` at version 2 keeps the carpets out.
+- The version-1 upgrade test now expects both later stores (windows and carpets). The "later version" test now uses the catalog version + 1.
+- Full backend suite: 1428 passed, 1 skipped (`tests/test_push.py` excluded as before).
+- No frontend code changed.
 
 **Windows and catalog versions (version 2):**
 - `test_seed_demo_stores.py` now has 33 tests. The new ones check:
@@ -325,6 +406,7 @@ This deletes every `is_demo` store, its furniture, materials and wallpapers, and
 - **Rights:** there is no contract and no content licence. Every site says "all rights reserved". Remove the demo, or get written permission, before the build is used beyond the presentation.
 - **Shop owners:** the demo stores have no owner. Inquiries and orders to them reach an admin-managed shop, not the store itself.
 - **Flutter app:** see the `has_model` note above.
+- **Carpets:** Divan.uz is a furniture store whose carpet range is machine-made (mostly Turkish). There are no handmade or Uzbek-made carpets in the demo, because none of the Uzbek carpet makers or shops I checked publishes a priced, crawlable catalog (see the table above). The rugs have no 3-D model, so the AI designer does not lay them in rooms yet. A flat rug GLB, or a generated plane from the photo, would fix that.
 - **Studio wallpaper library:** the frontend pages through the whole oboy bucket, newest first. The 28 demo wallpapers are the newest, so they appear first.
 - **Window prices:** they are medians of public listings, not anyone's offer. Several things make them loose:
   - many listings give no unit, and "от" prices are floor prices;

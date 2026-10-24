@@ -908,6 +908,95 @@ def fetch_modnie_steni(http: Http) -> list[Item]:
     return out
 
 
+# divan.uz: carpets (Ковры), machine-made, mostly Turkish. Server-rendered product pages:
+# the price is in og:title ("по цене 3 049 480 сум"), the size in the specs ("Длина 200 см
+# х Ширина 300 см"), stock in itemprop availability. Photos come from cdn0.divan.ru, an
+# image proxy that answers 403 for every non-image path, robots.txt included; RFC 9309
+# reads a 4xx robots.txt as "no rules", and Http treats it the same way.
+DIVAN_CARPETS = 20
+_DIVAN_SIZE_RE = re.compile(r"Длина\s*(\d+(?:[.,]\d+)?)\s*см\s*[хx×]\s*Ширина\s*(\d+(?:[.,]\d+)?)\s*см")
+_DIVAN_DIAMETER_RE = re.compile(r"Диаметр\s*(\d+(?:[.,]\d+)?)\s*см")
+_DIVAN_PRICE_RE = re.compile(r"по цене\s*([\d\s ]+)\s*сум")
+_DIVAN_SLUG_SIZE_RE = re.compile(r"-(?:r-)?\d+(?:[xh]\d+)?$")
+_RU_TO_LATIN = str.maketrans({
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo", "ж": "j", "з": "z",
+    "и": "i", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r",
+    "с": "s", "т": "t", "у": "u", "ф": "f", "х": "x", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sh",
+    "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+})
+
+
+def latin(text: str) -> str:
+    """Russian model names in Latin letters, as an Uzbek product name spells them ("Нуэл" -> "Nuel")."""
+    out = []
+    for ch in text:
+        low = ch.lower()
+        rep = low.translate(_RU_TO_LATIN)
+        out.append(rep.capitalize() if ch != low and rep else rep)
+    return "".join(out)
+
+
+def fetch_divan(http: Http) -> list[Item]:
+    r = http.get("https://divan.uz/sitemap.tashkent.xml")
+    if r is None:
+        return []
+    # The sitemap's <loc>s read "https://divan.uzhttp://divan2.local/product/...": keep the path.
+    paths = re.findall(r"<loc>[^<]*?(/product/kover-[^<]+)</loc>", r.text)
+    urls = list(dict.fromkeys(f"https://divan.uz{p}" for p in paths))
+    # One size per design and one design per collection, so the demo shows twenty
+    # different rugs rather than one rug in five sizes.
+    designs: dict[str, list[str]] = {}
+    for u in urls:
+        designs.setdefault(_DIVAN_SLUG_SIZE_RE.sub("", u.rsplit("/", 1)[1]), []).append(u)
+    # Mostly the 160×230 living-room size; every third pick is a design sold in a large
+    # (200×290 / 200×300) size, taken in that size.
+    large = re.compile(r"-200(?:x|h)?(?:290|300)$")
+    big = [(b, next(u for u in v if large.search(u))) for b, v in designs.items() if any(large.search(u) for u in v)]
+    small = [(b, next((u for u in v if u.endswith(("160x230", "160230"))), v[0])) for b, v in designs.items()]
+    out: list[Item] = []
+    collections: set[str] = set()
+    while len(out) < DIVAN_CARPETS and (big or small):
+        pool = big if (len(out) % 3 == 2 and big) or not small else small
+        base, url = pool.pop(0)
+        collection = base.removeprefix("kover-").removeprefix("dvustoronnij-").split("-")[0]
+        if collection in collections:
+            continue
+        soup = http.soup(url)
+        if soup is None:
+            continue
+        h1 = soup.find("h1")
+        title = meta(soup, "og:title") or ""
+        price_m = _DIVAN_PRICE_RE.search(title)
+        avail = soup.find(attrs={"itemprop": "availability"})
+        if not (h1 and price_m) or (avail is not None and "InStock" not in (avail.get("content") or "")):
+            log(f"  no price or not in stock: {url}")
+            continue
+        text = text_of(soup)
+        size = _DIVAN_SIZE_RE.search(text)
+        if size:
+            a, b = sorted(float(x.replace(",", ".")) for x in size.groups())
+            label = f"{a:g}×{b:g}"
+            dims = {"footprint_w": b, "footprint_d": a, "height_cm": 1.0}
+        elif (dia := _DIVAN_DIAMETER_RE.search(text)):
+            a = float(dia.group(1).replace(",", "."))
+            label = f"Ø{a:g}"
+            dims = {"footprint_w": a, "footprint_d": a, "height_cm": 1.0}
+        else:
+            log(f"  no size: {url}")
+            continue
+        model = re.sub(r"^\s*Ковер\s+(двусторонний\s+)?", "", h1.get_text(" ", strip=True), flags=re.I)
+        model = re.sub(r"\s*\d+(?:[xх×]\d+)?\s*$", "", model).strip()
+        two_sided = "двусторонн" in h1.get_text(" ", strip=True).lower() or "dvustoronnij" in url
+        name = f"{'Ikki tomonlama gilam' if two_sided else 'Gilam'} {latin(model)} {label} sm"
+        image = meta(soup, "og:image")
+        if not image:
+            continue
+        price = to_int(re.sub(r"\D", "", price_m.group(1)))
+        out.append(furniture(name, "boshqa", url, image, price, dims, placement="pol"))
+        collections.add(collection)
+    return out
+
+
 @dataclass
 class Store:
     slug: str
@@ -936,6 +1025,8 @@ STORES = [
     # Keng Makon yields nothing: its image CDN's robots.txt is "Disallow: /".
     Store("maff", "MAFF", "https://maff.uz", fetch_maff, "+998712055454", "@maffuzbekistan"),
     Store("modnie-steni", "Модные Стены", "https://www.modnie-steni.uz", fetch_modnie_steni, "+998712350708"),
+    # Carpets, added in catalog version 3 (its "since" is kept across refetches).
+    Store("divan-uz", "Divan.uz", "https://divan.uz", fetch_divan, "+998712050975", "@official_divan_uz"),
 ]
 
 
