@@ -48,10 +48,10 @@ beforeEach(() => {
 })
 
 describe('primaryGroup', () => {
-  it('follows the room type', () => {
-    expect(primaryGroup('mehmonxona', ['bed', 'dining_table'])).toBe('lounge')
-    expect(primaryGroup('oshxona', [])).toBe('dining')
-    expect(primaryGroup('yotoqxona', [])).toBe('sleep')
+  it('follows the room type when the plan has its main piece', () => {
+    expect(primaryGroup('mehmonxona', ['bed', 'dining_table', 'sofa'])).toBe('lounge')
+    expect(primaryGroup('oshxona', ['sofa', 'dining_table'])).toBe('dining')
+    expect(primaryGroup('yotoqxona', ['sofa', 'bed'])).toBe('sleep')
   })
 
   it('without a room type, takes the main piece of the plan: a bed before a sofa, a table, a desk', () => {
@@ -210,5 +210,183 @@ describe('applyDesignPlan lays the furniture out in groups', () => {
     expect(applied.furniture).toBe(1)
     expect(applied.dropped).toEqual([{ name: 'Ovqat stoli', count: 1 }, { name: 'Stul', count: chairCount(1.4) }])
     expect(applied.skipped).toBe(1 + chairCount(1.4))
+  })
+})
+
+// ---- final review: the cases a real studio room hits ------------------------------------------
+
+/** A W x D room turned `deg` degrees (as a scanned room comes in), walls W1..W4, a door on W1. */
+const turned = (deg: number, W: number, D: number): RoomGeometry => {
+  const t = (deg * Math.PI) / 180
+  const vertices = [[0, 0], [W, 0], [W, D], [0, D]].map(([x, y]) => [Math.round(x * Math.cos(t) - y * Math.sin(t)), Math.round(x * Math.sin(t) + y * Math.cos(t))])
+  return {
+    walls: ['W1', 'W2', 'W3', 'W4'].map((id, i) => ({ id, length: i % 2 ? D : W, elements: i === 0 ? [el('eshik', 900, 500)] : [] })),
+    vertices,
+  } as unknown as RoomGeometry
+}
+/** 5 x 4.5 m with a 2.5 x 2 m notch cut out, walls W1..W6, a door on W1 and a window on W2. */
+const lshape = (): RoomGeometry => ({
+  walls: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'].map((id, i) => ({ id, length: 3000, elements: i === 0 ? [el('eshik', 900, 800)] : i === 1 ? [el('deraza', 1200, 600)] : [] })),
+  vertices: [[0, 0], [5000, 0], [5000, 2500], [2500, 2500], [2500, 4500], [0, 4500]],
+}) as unknown as RoomGeometry
+
+const fwdOf = (r: Rect): [number, number] => [Math.sin(r.rotation), Math.cos(r.rotation)]
+const rightOf = (r: Rect): [number, number] => [Math.cos(r.rotation), -Math.sin(r.rotation)]
+/** A strip `depth` deep ahead of (fwd 1) or behind (fwd -1) a rect, or beside it (side ±1). */
+const zoneAhead = (r: Rect, fwd: 1 | -1, depth: number): Rect => {
+  const f = fwdOf(r), k = fwd * (r.d / 2 + depth / 2)
+  return { x: r.x + f[0] * k, z: r.z + f[1] * k, w: r.w, d: depth, rotation: r.rotation }
+}
+const zoneBeside = (r: Rect, side: 1 | -1, depth: number): Rect => {
+  const s = rightOf(r), k = side * (r.w / 2 + depth / 2)
+  return { x: r.x + s[0] * k, z: r.z + s[1] * k, w: depth, d: r.d, rotation: r.rotation }
+}
+/** Every piece standing on the floor another group needs: bed sides and foot, chair backs, storage fronts. */
+function clearanceViolations(placed: Array<{ piece: Piece; rect: Rect }>): string[] {
+  const out: string[] = []
+  const solid = placed.filter((p) => p.piece.role !== 'rug')
+  const check = (owner: { piece: Piece; rect: Rect }, zones: Rect[], mayStand: FurnitureRole[]) => {
+    for (const p of solid) {
+      if (p === owner || mayStand.includes(p.piece.role)) continue
+      if (zones.some((z) => overlaps(z, p.rect, 0))) out.push(`${p.piece.role} on ${owner.piece.role}'s floor`)
+    }
+  }
+  for (const o of solid) {
+    const r = o.rect
+    if (o.piece.role === 'bed') check(o, [zoneBeside(r, 1, 0.6), zoneBeside(r, -1, 0.6), zoneAhead(r, 1, 0.6)], ['nightstand'])
+    if (o.piece.role === 'dining_chair') check(o, [zoneAhead(r, -1, 0.6)], ['dining_chair', 'dining_table'])
+    if (o.piece.role === 'desk_chair') check(o, [zoneAhead(r, -1, 0.6)], ['desk'])
+    if (o.piece.role === 'wardrobe' || o.piece.role === 'shelf') check(o, [zoneAhead(r, 1, 0.7)], [])
+  }
+  return out
+}
+const roles = (placed: Array<{ piece: Piece }>, role: FurnitureRole) => placed.filter((p) => p.piece.role === role)
+
+describe('final review: the main group follows the plan, not only the room type', () => {
+  it('a bedroom plan in a room the studio calls "mehmonxona" still gets its bed and nightstands', () => {
+    const model = roomModel(box(4000, 3500, { A: [el('eshik', 900, 400)], C: [el('deraza', 1400, 1300)] }))
+    const { placed } = layoutFurniture([
+      piece('bed', 'bed', 1.6, 2.1), piece('ns', 'nightstand', 0.45, 0.4), piece('ns', 'nightstand', 0.45, 0.4),
+      { ...piece('wardrobe', 'wardrobe', 1.2, 0.6), tall: true }, piece('arm', 'armchair', 0.75, 0.75), piece('tumba', 'tv_unit', 1.6, 0.4),
+    ], model, 'mehmonxona', [])
+    expect(roles(placed, 'bed')).toHaveLength(1)
+    expect(roles(placed, 'nightstand')).toHaveLength(2)
+  })
+
+  it('primaryGroup: the room type leads only when the plan has its main piece', () => {
+    expect(primaryGroup('mehmonxona', ['sofa', 'bed'])).toBe('lounge')
+    expect(primaryGroup('mehmonxona', ['bed', 'nightstand', 'armchair', 'tv_unit'])).toBe('sleep')
+    expect(primaryGroup('yotoqxona', ['sofa', 'desk'])).toBe('lounge')
+    expect(primaryGroup('oshxona', ['dining_table', 'sofa'])).toBe('dining')
+  })
+})
+
+describe('final review: the floor a piece needs stays free of the groups after it', () => {
+  it('a bedroom: no desk or desk chair on the bed sides or foot', () => {
+    const model = roomModel(box(4000, 3500, { A: [el('eshik', 900, 400)], C: [el('deraza', 1400, 1300)] }))
+    const { placed } = layoutFurniture([
+      piece('bed', 'bed', 1.6, 2.1), piece('ns', 'nightstand', 0.45, 0.4), piece('ns', 'nightstand', 0.45, 0.4),
+      { ...piece('wardrobe', 'wardrobe', 1.2, 0.6), tall: true }, { ...piece('komod', 'shelf', 1.0, 0.45), tall: true },
+      piece('desk', 'desk', 1.2, 0.6), piece('dchair', 'desk_chair', 0.5, 0.5),
+    ], model, 'yotoqxona', [])
+    expect(roles(placed, 'bed')).toHaveLength(1)
+    expect(clearanceViolations(placed)).toEqual([])
+  })
+
+  it('a 3.5 x 3 kitchen-diner: the shelf is not behind a dining chair', () => {
+    const model = roomModel(box(3500, 3000, { A: [el('eshik', 900, 400)] }))
+    const { placed } = layoutFurniture([
+      piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5),
+      piece('tv', 'tv_unit', 1.2, 0.4), { ...piece('shelf', 'shelf', 1.0, 0.4), tall: true },
+    ], model, 'mehmonxona', [])
+    expect(roles(placed, 'dining_table')).toHaveLength(1)
+    expect(clearanceViolations(placed)).toEqual([])
+  })
+})
+
+describe('final review: the sofa stands even when its coffee table cannot', () => {
+  it("4.5 x 3.2 with the user's own 1 x 1 piece in the middle: the sofa is placed", () => {
+    const model = roomModel(box(4500, 3200, { A: [el('eshik', 900, 500)], C: [el('deraza', 1400, 1550)] }))
+    const { placed, dropped } = layoutFurniture([
+      piece('sofa', 'sofa', 2.3, 0.95), piece('coffee', 'coffee_table', 1.0, 0.6), piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5),
+    ], model, 'mehmonxona', [{ x: 0, z: 0, w: 1, d: 1, rotation: 0 }])
+    expect(roles(placed, 'sofa')).toHaveLength(1)
+    expect(dropped.some((d) => d.name === 'sofa')).toBe(false)
+  })
+
+  it('3.0 x 2.0: the sofa is placed', () => {
+    // The door near a corner of a short wall. (Centred on it, its swing reaches every place a 2.3 m sofa
+    // could stand on the long walls: that room has no clean place for the sofa at all.)
+    const model = roomModel(box(3000, 2000, { B: [el('eshik', 800, 100)] }))
+    const { placed } = layoutFurniture([piece('sofa', 'sofa', 2.3, 0.95), piece('coffee', 'coffee_table', 1.0, 0.6)], model, 'mehmonxona', [])
+    expect(roles(placed, 'sofa')).toHaveLength(1)
+  })
+})
+
+describe('final review: a turned room turns the dining table with its walls', () => {
+  const pieces = [piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5)]
+  const straight = roles(layoutFurniture(pieces, roomModel(turned(0, 4000, 3500)), 'oshxona', []).placed, 'dining_chair').length
+
+  it('the unturned room seats four', () => {
+    expect(straight).toBe(4)
+  })
+
+  for (const deg of [27, 45]) {
+    it(`turned ${deg} degrees: the table's edges run along a wall and it seats as many`, () => {
+      const model = roomModel(turned(deg, 4000, 3500))
+      const { placed } = layoutFurniture(pieces, model, 'oshxona', [])
+      const table = roles(placed, 'dining_table')[0]
+      expect(table).toBeDefined()
+      const edge = -table.rect.rotation // the table's width axis, as an angle in the floor plane
+      const off = (a: number) => { const q = ((a % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2); return Math.min(q, Math.PI / 2 - q) }
+      const best = Math.min(...model.walls.map((w) => off(edge - Math.atan2(w.dirZ, w.dirX))))
+      expect(best).toBeLessThan((2 * Math.PI) / 180)
+      expect(roles(placed, 'dining_chair')).toHaveLength(straight)
+    })
+  }
+})
+
+describe('final review: the main piece stands somewhere as a last resort', () => {
+  it('an L-shaped bedroom with no wall a bed can stand free on: the bed goes in with one long side on a wall', () => {
+    const model = roomModel(lshape())
+    const { placed } = layoutFurniture([
+      piece('bed', 'bed', 1.6, 2.1), piece('ns', 'nightstand', 0.45, 0.4), piece('ns', 'nightstand', 0.45, 0.4),
+      { ...piece('wardrobe', 'wardrobe', 1.2, 0.6), tall: true }, piece('desk', 'desk', 1.2, 0.6), piece('dchair', 'desk_chair', 0.5, 0.5),
+    ], model, 'yotoqxona', [])
+    const bed = roles(placed, 'bed')[0]
+    expect(bed).toBeDefined()
+    expect(model.inside(bed.rect)).toBe(true)
+    for (const z of model.clear) if (z.kind === 'door') expect(overlaps(bed.rect, z.rect, 0)).toBe(false)
+    // 0.6 m kept free on at least one side and at the foot.
+    const sides = [zoneBeside(bed.rect, 1, 0.6), zoneBeside(bed.rect, -1, 0.6)].filter((z) => model.inside(z))
+    expect(sides.length).toBeGreaterThan(0)
+    expect(model.inside(zoneAhead(bed.rect, 1, 0.6))).toBe(true)
+    for (const p of placed) if (p !== bed && p.piece.role !== 'nightstand') expect(overlaps(p.rect, bed.rect, 0)).toBe(false)
+  })
+
+  it('4.5 x 3.6 with a door in the middle of every wall: the sofa still stands, never in a door swing', () => {
+    const model = roomModel(box(4500, 3600, { A: [el('eshik', 900, 1800)], B: [el('eshik', 900, 1300)], C: [el('eshik', 900, 1800)], D: [el('eshik', 900, 1300)] }))
+    const { placed } = layoutFurniture([
+      piece('sofa', 'sofa', 2.3, 0.95), piece('coffee', 'coffee_table', 1.0, 0.6), piece('arm', 'armchair', 0.75, 0.75),
+      piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5), { ...piece('wardrobe', 'wardrobe', 1.2, 0.6), tall: true },
+    ], model, 'mehmonxona', [])
+    const sofa = roles(placed, 'sofa')[0]
+    expect(sofa).toBeDefined()
+    expect(model.inside(sofa.rect)).toBe(true)
+    for (const p of placed) {
+      if (p.piece.role === 'rug') continue
+      for (const z of model.clear) if (z.kind === 'door') expect(overlaps(p.rect, z.rect, 0), p.piece.role).toBe(false)
+    }
+  })
+})
+
+describe('final review: a second chair model is named, not lost', () => {
+  it('two different chair models: the table gets the first, the second is listed as left out', () => {
+    const model = roomModel(box(4500, 3200, { A: [el('eshik', 900, 500)] }))
+    const { placed, dropped } = layoutFurniture([
+      piece('Ovqat stoli', 'dining_table', 1.4, 0.8), piece('Stul', 'dining_chair', 0.45, 0.5), piece('Taburet', 'dining_chair', 0.4, 0.4),
+    ], model, 'oshxona', [])
+    expect(roles(placed, 'dining_chair').every((c) => c.piece.name === 'Stul')).toBe(true)
+    expect(dropped).toContainEqual({ name: 'Taburet', count: 1 })
   })
 })

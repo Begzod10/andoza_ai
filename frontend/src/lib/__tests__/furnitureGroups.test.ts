@@ -129,6 +129,46 @@ describe('dining', () => {
   })
 })
 
+describe('dining: how many chairs before which way the table turns', () => {
+  it('every candidate seating four ranks above every one seating two; among the same count, along the long axis first', () => {
+    // The living room with its sofa on wall B: along the room only two chairs fit, turned across four do.
+    const model = living()
+    const sofa: Rect = { x: 1.73, z: 0.41, w: 2.3, d: 0.95, rotation: -Math.PI / 2 }
+    const cands = groupCandidates('dining', [piece('table', 'dining_table', 1.4, 0.8), piece('chair', 'dining_chair', 0.45, 0.5)], model, [sofa])
+    const chairs = (c: GroupCandidate) => byRole(c, 'dining_chair').length
+    const along = (c: GroupCandidate) => Math.abs(Math.cos(byRole(c, 'dining_table')[0].rect.rotation)) > 0.5
+    expect(cands.some((c) => chairs(c) === 4)).toBe(true)
+    const lastFour = cands.map(chairs).lastIndexOf(4)
+    const firstTwo = cands.map(chairs).indexOf(2)
+    expect(firstTwo === -1 || lastFour < firstTwo).toBe(true)
+    const four = cands.filter((c) => chairs(c) === 4)
+    const lastAlong = four.map(along).lastIndexOf(true), firstAcross = four.map(along).indexOf(false)
+    expect(lastAlong === -1 || firstAcross === -1 || lastAlong < firstAcross).toBe(true)
+  })
+})
+
+describe('lounge: the coffee table may go', () => {
+  it('a sofa whose coffee table cannot stand still has candidates, the table named as left out, its use point straight ahead', () => {
+    // 3.0 x 2.0 m: the sofa fits on the long wall, the coffee table in front of it does not.
+    const m = roomModel(box(3000, 2000, { B: [el('eshik', 800, 100)] }))
+    const coffee = piece('coffee', 'coffee_table', 1.0, 0.6)
+    const cands = groupCandidates('lounge', [piece('sofa', 'sofa', 2.3, 0.95), coffee], m, [])
+    const without = cands.find((c) => byRole(c, 'coffee_table').length === 0)
+    expect(without).toBeDefined()
+    expect(without!.dropped).toContain(coffee)
+    const s = byRole(without!, 'sofa')[0].rect, p = without!.usePoints[0]
+    expect(Math.abs(dot([p[0] - s.x, p[1] - s.z], right(s)))).toBeLessThan(1e-9)
+  })
+
+  it('the coffee table goes last: dropping the armchairs and the tv ranks above dropping it', () => {
+    const cands = groupCandidates('lounge', LOUNGE, living(), [])
+    const firstWithout = cands.findIndex((c) => byRole(c, 'coffee_table').length === 0)
+    const bare = cands.findIndex((c) => byRole(c, 'coffee_table').length === 1 && byRole(c, 'armchair').length === 0 && byRole(c, 'tv_unit').length === 0)
+    expect(bare).toBeGreaterThanOrEqual(0)
+    expect(firstWithout === -1 || bare < firstWithout).toBe(true)
+  })
+})
+
 describe('lounge', () => {
   const model = living()
   const best = groupCandidates('lounge', LOUNGE, model, [])[0]

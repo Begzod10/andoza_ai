@@ -8,8 +8,10 @@
  *
  * `groupCandidates` gives every arrangement of one group that fits the room as it stands (inside
  * the walls, clear of what is already there, of door swings and, for tall pieces, of windows,
- * each piece keeping the floor it needs to be used), best first. It does not check the walkway
- * from the door; the caller does that and takes the first candidate that passes.
+ * each piece keeping the floor it needs to be used, and off the floor earlier groups keep), best
+ * first. It does not check the walkway from the door; the caller does that and takes the first
+ * candidate that passes. A sofa's coffee table, its armchairs and TV, and a bed's nightstands are
+ * optional: they drop one at a time (the coffee table last) when the room has no place for them.
  *
  * World frame: metres, origin at the room's centre. A piece's front is (sin, cos) of its rotation.
  */
@@ -18,7 +20,12 @@ import type { FurnitureRole, GroupId } from './furnitureRole'
 import { doorEntries, type Pt } from './walkway'
 
 export interface Piece { id: string; name: string; role: FurnitureRole; w: number; d: number; tall: boolean }
-export interface Placed { piece: Piece; rect: Rect }
+export interface Placed {
+  piece: Piece
+  rect: Rect
+  /** A bed stood as a last resort with one long side on a wall: that side (1: its right, -1: its left). */
+  wallSide?: 1 | -1
+}
 export interface GroupCandidate {
   placed: Placed[]
   /** Where a person must be able to walk to for the group to be usable. */
@@ -56,18 +63,25 @@ const WINDOW_NEAR = 1.5
 /** Score: per optional piece left out; for a sofa or bed on a wall that has a door. */
 const DROP_PENALTY = 2
 const DOOR_WALL_PENALTY = 2
-/** Fewer chairs at the same table spot rank just below more chairs there, but above any other spot. */
-const CHAIR_PENALTY = 1e-4
+/**
+ * Score taken off a dining set per chair fewer than the table seats: more than any turn of the table
+ * and any spot, so a set seating more always ranks first (chair count, then orientation, then spot).
+ */
+const CHAIR_PENALTY = 1000
 /** Score taken off a group slid to the end of a wall: below every first fit on any wall. */
 const END_PENALTY = 100
 /** At most this many dining candidates per chair count and orientation, best first. */
 const MAX_DINING = 12
 /**
- * Score taken off a dining table turned with its long side across the room's long axis: enough to
- * rank it below every candidate in the preferred orientation, with any number of chairs (fewer
- * chairs come before turning the table), so it is used only when none of those can be.
+ * Score taken off a dining table turned with its long side across the room's longest wall: below
+ * every spot in the preferred orientation with as many chairs, but less than one chair
+ * (CHAIR_PENALTY), so the table turns before it gives up chairs.
  */
 const ACROSS_PENALTY = 100
+/** Last resort: how far a sofa or desk may stand out from its wall, past a door's swing, metres. */
+const PULL_OUT = [0.25, 0.5, 0.75, 1.0, 1.25]
+/** Score taken off per metre a piece stands out from its wall. */
+const PULL_PENALTY = 1
 
 const ALL_RULES = { doors: true, windows: true }
 const DOORS_ONLY = { doors: true, windows: false }
@@ -88,9 +102,12 @@ function offset(r: Rect, fwd: number, side = 0): Pt {
   return [r.x + f[0] * fwd + s[0] * side, r.z + f[1] * fwd + s[1] * side]
 }
 
-/** A footprint standing with its back on `wall`, `along` metres from the wall's midpoint, front into the room. */
-function atWall(wall: WallInfo, w: number, d: number, along: number): Rect {
-  const out = d / 2 + WALL_GAP
+/**
+ * A footprint standing with its back on `wall`, `along` metres from the wall's midpoint, front into
+ * the room; `pull` metres further out than against it.
+ */
+function atWall(wall: WallInfo, w: number, d: number, along: number, pull = 0): Rect {
+  const out = d / 2 + WALL_GAP + pull
   return {
     x: wall.midX + wall.nx * out + wall.dirX * along,
     z: wall.midZ + wall.nz * out + wall.dirZ * along,
@@ -162,8 +179,11 @@ function clearancesOf(p: Placed): { zones: Rect[]; allows: (other: Placed) => bo
   switch (p.piece.role) {
     case 'dining_chair': case 'desk_chair':
       return { zones: [strip(r, -1, CHAIR_BACK)], allows: () => false }
-    case 'bed':
-      return { zones: [sideStrip(r, 1, BED_CLEAR), sideStrip(r, -1, BED_CLEAR), strip(r, 1, BED_CLEAR)], allows: (o) => o.piece.role === 'nightstand' }
+    case 'bed': {
+      // Both sides and the foot; a bed with one side on a wall keeps the other side and the foot.
+      const sides = p.wallSide ? [sideStrip(r, (-p.wallSide) as 1 | -1, BED_CLEAR)] : [sideStrip(r, 1, BED_CLEAR), sideStrip(r, -1, BED_CLEAR)]
+      return { zones: [...sides, strip(r, 1, BED_CLEAR)], allows: (o) => o.piece.role === 'nightstand' }
+    }
     case 'wardrobe': case 'shelf':
       return { zones: [strip(r, 1, STORAGE_FRONT)], allows: () => false }
     default:
@@ -177,7 +197,18 @@ function tucked(a: Placed, b: Placed): boolean {
   return pair === 'dining_chair+dining_table' || pair === 'desk+desk_chair'
 }
 
-interface Ctx { model: RoomModel; taken: Rect[]; doors: Pt[]; windows: Pt[] }
+/** The floor placed pieces need to be used (bed sides and foot, chair backs, storage fronts). */
+export function clearanceZones(placed: Placed[]): Rect[] {
+  return placed.filter((p) => p.piece.role !== 'rug').flatMap((p) => clearancesOf(p).zones)
+}
+
+interface Ctx {
+  model: RoomModel; taken: Rect[]; doors: Pt[]; windows: Pt[]
+  /** Floor earlier groups need: no piece of this group may stand on it. */
+  keepClear: Rect[]
+  /** The main group's last resort: a bed may have one side on a wall, a sofa or desk stand out from it. */
+  lastResort: boolean
+}
 
 /** Can `next` join `placed`: inside, clear of what is taken, of the openings, of the group, and every piece's floor kept? */
 function fits(ctx: Ctx, placed: Placed[], next: Placed): boolean {
@@ -186,6 +217,7 @@ function fits(ctx: Ctx, placed: Placed[], next: Placed): boolean {
   if (next.piece.role === 'rug') return true
   if (!model.inside(r)) return false
   if (taken.some((t) => hit(r, t, MARGIN))) return false
+  if (ctx.keepClear.some((z) => hit(z, r, 0))) return false
   if (blocksOpening(r, next.piece.tall, model, ALL_RULES)) return false
   for (const p of placed) {
     if (p.piece.role === 'rug') continue
@@ -307,15 +339,19 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const arms = armSplit.got, tvs = tvSplit.got
   const extra = tvSplit.rest
 
+  // The coffee table is optional but goes last: an arrangement without it ranks below every one with
+  // it, slid to a wall's end or short of armchairs and the TV included.
+  const coffeePenalty = 2 * END_PENALTY
+  const pulls = ctx.lastResort ? PULL_OUT : [0]
   const out: GroupCandidate[] = []
-  for (const wall of ctx.model.walls) {
-    for (const [nArms, nTv] of countSets([arms.length, tvs.length])) {
+  for (const wall of ctx.model.walls) for (const pull of pulls) {
+    for (const [nCoffee, nArms, nTv] of countSets([coffee ? 1 : 0, arms.length, tvs.length])) {
       out.push(...wallSlots(wall, sofa.w, (a) => {
-        const s: Placed = { piece: sofa, rect: atWall(wall, sofa.w, sofa.d, a) }
+        const s: Placed = { piece: sofa, rect: atWall(wall, sofa.w, sofa.d, a, pull) }
         let placed = build(ctx, [], [s])
         if (!placed) return null
         let focus: Pt = offset(s.rect, s.rect.d / 2 + 1)
-        if (coffee) {
+        if (coffee && nCoffee) {
           const [x, z] = offset(s.rect, sofa.d / 2 + COFFEE_GAP + coffee.d / 2)
           placed = build(ctx, placed, [{ piece: coffee, rect: { x, z, w: coffee.w, d: coffee.d, rotation: s.rect.rotation } }])
           if (!placed) return null
@@ -330,12 +366,13 @@ function placeLounge(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
           if (!placed) return null
         }
         const rest = alongWalls(ctx, placed, extra)
-        const dropped = [...arms.slice(nArms), ...tvs.slice(nTv), ...rest.dropped]
+        const dropped = [...(coffee && !nCoffee ? [coffee] : []), ...arms.slice(nArms), ...tvs.slice(nTv), ...rest.dropped]
         return {
           placed: rest.placed,
-          usePoints: [sofaUsePoint(ctx, s.rect, coffee, rest.placed), ...storageUse(rest.placed)],
+          usePoints: [sofaUsePoint(ctx, s.rect, nCoffee ? coffee : undefined, rest.placed), ...storageUse(rest.placed)],
           dropped,
-          score: wallScore(ctx, wall, s.rect, rest.placed, dropped.length, true),
+          score: wallScore(ctx, wall, s.rect, rest.placed, dropped.length - (coffee && !nCoffee ? 1 : 0), !ctx.lastResort)
+            - (coffee && !nCoffee ? coffeePenalty : 0) - PULL_PENALTY * pull,
         }
       }))
     }
@@ -451,18 +488,27 @@ function floorGrid(model: RoomModel): Pt[] {
   return out
 }
 
+/** An angle folded into (-90°, 90°]: a table turned half round is the same table. */
+function halfTurn(a: number): number {
+  let r = Math.atan2(Math.sin(a), Math.cos(a))
+  if (r <= -Math.PI / 2 + 1e-9) r += Math.PI
+  else if (r > Math.PI / 2 + 1e-9) r -= Math.PI
+  return Math.abs(r) < 1e-12 ? 0 : r
+}
+
 function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const tableSplit = take(pieces, 'dining_table')
   const table = tableSplit.got[0]
   if (!table) return looseCandidate(ctx, pieces)
   const chairPieces = tableSplit.rest.filter((p) => p.role === 'dining_chair')
   const extra = tableSplit.rest.filter((p) => p.role !== 'dining_chair')
-  const { box } = ctx.model
-  // The long side runs along the room's long axis by preference; across it when that is all that fits.
-  const roomLongX = box.maxX - box.minX >= box.maxZ - box.minZ
-  const preferred = roomLongX === table.w >= table.d ? 0 : Math.PI / 2
+  // The long side runs along the room's longest wall by preference (a scanned room may stand at any
+  // angle); across it when that is all that fits, or seats more.
+  const longest = ctx.model.walls.reduce((a, b) => (b.length > a.length + 1e-9 ? b : a))
+  // The rotation that lays a table's width along the wall, then the long side's.
+  const preferred = halfTurn(Math.atan2(-longest.dirZ, longest.dirX) + (table.w >= table.d ? 0 : Math.PI / 2))
   const orientations: Array<[number, number]> = [[preferred, 0]]
-  if (table.w !== table.d) orientations.push([preferred === 0 ? Math.PI / 2 : 0, ACROSS_PENALTY])
+  if (table.w !== table.d) orientations.push([halfTurn(preferred + Math.PI / 2), ACROSS_PENALTY])
   const full = chairPieces.length ? chairCount(Math.max(table.w, table.d)) : 0
   const counts = [6, 4, 2].filter((n) => n <= full)
   if (counts.length === 0) counts.push(0)
@@ -505,6 +551,7 @@ function placeSleep(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   if (!bed) return looseCandidate(ctx, pieces)
   const nsSplit = take(bedSplit.rest, 'nightstand', 2)
   const stands = nsSplit.got
+  if (ctx.lastResort) return sideOnBeds(ctx, bed, stands, nsSplit.rest)
   const out: GroupCandidate[] = []
   for (const wall of ctx.model.walls) {
     for (const [nStands] of countSets([stands.length])) {
@@ -525,6 +572,53 @@ function placeSleep(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
           score: wallScore(ctx, wall, b.rect, rest.placed, dropped.length, true),
         }
       }))
+    }
+  }
+  return out
+}
+
+/**
+ * Last resort for a bed no wall takes head-on with room at both sides: one long side on a wall, its
+ * head as near a corner as it fits, 0.6 m kept on the open side and at the foot. At most one
+ * nightstand, at the head on the open side; the rest are left out.
+ */
+function sideOnBeds(ctx: Ctx, bed: Piece, stands: Piece[], rest: Piece[]): GroupCandidate[] {
+  const out: GroupCandidate[] = []
+  for (const wall of ctx.model.walls) {
+    const reach = wall.length / 2 - bed.d / 2 - WALL_GAP
+    if (reach < -1e-9) continue
+    for (const end of [1, -1] as const) {
+      // Head toward `end` of the wall, so the foot points back along it.
+      const f: Pt = [-end * wall.dirX, -end * wall.dirZ]
+      const rotation = Math.atan2(f[0], f[1])
+      const right = rightOf(rotation)
+      const wallSide: 1 | -1 = right[0] * wall.nx + right[1] * wall.nz < 0 ? 1 : -1
+      const out1 = bed.w / 2 + WALL_GAP
+      for (let k = 0; k * SLIDE_STEP <= 2 * Math.max(reach, 0) + 1e-9; k++) {
+        const along = end * (reach - k * SLIDE_STEP)
+        const b: Placed = {
+          piece: bed, wallSide,
+          rect: { x: wall.midX + wall.nx * out1 + wall.dirX * along, z: wall.midZ + wall.nz * out1 + wall.dirZ * along, w: bed.w, d: bed.d, rotation },
+        }
+        let placed = build(ctx, [], [b])
+        if (!placed) continue
+        const kept: Piece[] = []
+        if (stands.length) {
+          const n = stands[0]
+          const [x, z] = offset(b.rect, -bed.d / 2 + n.d / 2, -wallSide * (bed.w / 2 + NIGHTSTAND_GAP + n.w / 2))
+          const withStand = build(ctx, placed, [{ piece: n, rect: { x, z, w: n.w, d: n.d, rotation } }])
+          if (withStand) { placed = withStand; kept.push(n) }
+        }
+        const more = alongWalls(ctx, placed, rest)
+        const dropped = [...stands.filter((s) => !kept.includes(s)), ...more.dropped]
+        out.push({
+          placed: more.placed,
+          usePoints: [offset(b.rect, 0, -wallSide * (b.rect.w / 2 + SIDE_USE)), ...storageUse(more.placed)],
+          dropped,
+          score: wallScore(ctx, wall, b.rect, more.placed, dropped.length, true) - k * SLIDE_STEP,
+        })
+        break
+      }
     }
   }
   return out
@@ -553,9 +647,9 @@ function placeWork(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const chair = chairSplit.got[0]
   const windowWalls = ctx.model.walls.filter((w) => wallHas(ctx, w, 'window'))
   const out: GroupCandidate[] = []
-  for (const wall of ctx.model.walls) {
+  for (const wall of ctx.model.walls) for (const pull of ctx.lastResort ? PULL_OUT : [0]) {
     out.push(...wallSlots(wall, desk.w, (a) => {
-      const d: Placed = { piece: desk, rect: atWall(wall, desk.w, desk.d, a) }
+      const d: Placed = { piece: desk, rect: atWall(wall, desk.w, desk.d, a, pull) }
       const group: Placed[] = [d]
       if (chair) {
         const [x, z] = offset(d.rect, desk.d / 2 + chair.d / 2 - CHAIR_TUCK)
@@ -569,7 +663,7 @@ function placeWork(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
         placed: rest.placed,
         usePoints: [chair ? offset(group[1].rect, -chair.d / 2 - BACK_USE) : offset(d.rect, desk.d / 2 + FRONT_USE), ...storageUse(rest.placed)],
         dropped: rest.dropped,
-        score: wallScore(ctx, wall, d.rect, rest.placed, rest.dropped.length, false) + (nearLight ? 1 : 0),
+        score: wallScore(ctx, wall, d.rect, rest.placed, rest.dropped.length, false) + (nearLight ? 1 : 0) - PULL_PENALTY * pull,
       }
     }))
   }
@@ -639,11 +733,18 @@ const PLACERS: Record<GroupId, (ctx: Ctx, pieces: Piece[]) => GroupCandidate[]> 
   lounge: placeLounge, dining: placeDining, sleep: placeSleep, work: placeWork, storage: placeStorage, extra: placeExtra,
 }
 
+export interface GroupOptions {
+  /** Floor earlier groups need (`clearanceZones` of what they placed): kept free. */
+  keepClear?: Rect[]
+  /** The main group's last resort, when it has no arrangement otherwise. */
+  lastResort?: boolean
+}
+
 /**
  * Every arrangement of `group`'s `pieces` that fits the room around what is `taken`, best first.
  * Empty when not even the group's main piece fits.
  */
-export function groupCandidates(group: GroupId, pieces: Piece[], model: RoomModel, taken: Rect[]): GroupCandidate[] {
+export function groupCandidates(group: GroupId, pieces: Piece[], model: RoomModel, taken: Rect[], opts: GroupOptions = {}): GroupCandidate[] {
   if (pieces.length === 0) return []
   const windows: Pt[] = model.openings.flatMap((o) => {
     const w = model.walls.find((x) => x.id === o.wallId)
@@ -651,6 +752,6 @@ export function groupCandidates(group: GroupId, pieces: Piece[], model: RoomMode
     const t = (o.from + o.to) / 2
     return [[w.midX + w.dirX * t, w.midZ + w.dirZ * t] as Pt]
   })
-  const ctx: Ctx = { model, taken, doors: doorEntries(model), windows }
+  const ctx: Ctx = { model, taken, doors: doorEntries(model), windows, keepClear: opts.keepClear ?? [], lastResort: opts.lastResort === true }
   return PLACERS[group](ctx, pieces).sort((a, b) => b.score - a.score)
 }

@@ -87,18 +87,20 @@ describe('the screenshot living room', () => {
     expect(walkable(model, placed.map(rectOf), doorEntries(model), [target])).toBe(true)
   })
 
-  it('fits the dining set beside the lounge, leaving out the armchairs and two of the chairs, and says so', () => {
+  it('fits the dining set beside the lounge with all four chairs, the table turned across; leaves out the armchairs and the wardrobe, and says so', () => {
     const applied = applyDesignPlan(PLAN, ALL_PARTS, CATALOG, 'mehmonxona')
     const placed = useRoomStore.getState().furniture
-    expect(placed.filter((f) => f.furniture_id === 'table')).toHaveLength(1)
-    expect(placed.filter((f) => f.furniture_id === 'chair')).toHaveLength(2)
-    expect(placed.filter((f) => f.furniture_id === 'wardrobe')).toHaveLength(1)
+    const tables = placed.filter((f) => f.furniture_id === 'table')
+    expect(tables).toHaveLength(1)
+    // Four chairs rank above the table's way round: along the 4.5 m wall only two fit beside the sofa.
+    expect(placed.filter((f) => f.furniture_id === 'chair')).toHaveLength(4)
+    expect(Math.abs(Math.sin(tables[0].rotation))).toBeCloseTo(1, 5) // long side across the room's long axis
+    expect(placed.filter((f) => f.furniture_id === 'wardrobe')).toHaveLength(0)
     expect(placed.filter((f) => f.furniture_id === 'pouf')).toHaveLength(1)
-    // The two armchairs and two of the four chairs a 1.4 m table seats did not fit.
-    expect(applied.dropped).toEqual([{ name: 'Kreslo', count: 2 }, { name: 'Stul', count: 2 }])
-    expect(applied.skipped).toBe(4)
+    expect(applied.dropped).toEqual([{ name: 'Kreslo', count: 2 }, { name: 'Shkaf', count: 1 }])
+    expect(applied.skipped).toBe(3)
     expect(applied.furniture + applied.skipped).toBe(PLAN.furniture.length - 1 + 4) // the chair line stands for four
-    expect(droppedNotice(applied.dropped, i18n.t)).toBe("Joy yetmadi: 2 ta Kreslo, 2 ta Stul qo'yilmadi.")
+    expect(droppedNotice(applied.dropped, i18n.t)).toBe("Joy yetmadi: 2 ta Kreslo, Shkaf qo'yilmadi.")
   })
 })
 
