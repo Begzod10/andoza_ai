@@ -164,6 +164,11 @@ async def list_furniture(
         description="Filter to models for this room; models with no room_type "
                     "(usable everywhere) are always included",
     ),
+    has_model: bool = Query(
+        default=False,
+        description="Only models with a 3-D file: what the studio can place. The shop "
+                    "lists photo-only items too (e.g. the demo stores).",
+    ),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedFurniture:
@@ -175,7 +180,7 @@ async def list_furniture(
     # mixed-content breakage back for the TTL window.
     cache_key = (
         f"furniture:{request_base_url(request)}:"
-        f"{category}:{room_type}:{page}:{per_page}"
+        f"{category}:{room_type}:{int(has_model)}:{page}:{per_page}"
     )
     cached = await cache_get(cache_key)
     if cached is not None:
@@ -199,6 +204,9 @@ async def list_furniture(
         room_filter = Furniture.room_type.is_(None) | (Furniture.room_type == room_type)
         query = query.where(room_filter)
         count_query = count_query.where(room_filter)
+    if has_model:
+        query = query.where(Furniture.glb_key.is_not(None))
+        count_query = count_query.where(Furniture.glb_key.is_not(None))
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()

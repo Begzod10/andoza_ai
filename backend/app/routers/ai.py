@@ -90,9 +90,10 @@ async def _load_all_materials(db: DbSession) -> dict[str, list[dict]]:
 
 
 async def _load_all_furniture(db: DbSession) -> list[dict]:
-    """Return [{id, name_uz, category, footprint_w, footprint_d, price_uzs, styles}] for all active furniture."""
+    """Return [{id, name_uz, category, footprint_w, footprint_d, price_uzs, styles}] for all active
+    furniture the agent can place, i.e. that has a 3-D model (see _run_design)."""
     result = await db.execute(
-        select(Furniture).where(Furniture.is_active.is_(True))
+        select(Furniture).where(Furniture.is_active.is_(True), Furniture.glb_key.is_not(None))
     )
     return [
         {
@@ -180,7 +181,11 @@ async def _run_design(
     catalog, the room's summary, and the model's errors turned into HTTP ones."""
     from app.services.llm import BudgetExceededError
 
-    result = await db.execute(select(Furniture).where(Furniture.is_active.is_(True)))
+    # Only pieces with a 3-D model: a shop listing without one (a photo-only demo
+    # product, an entry whose GLB is not uploaded yet) cannot be placed in the studio.
+    result = await db.execute(
+        select(Furniture).where(Furniture.is_active.is_(True), Furniture.glb_key.is_not(None))
+    )
     furniture = [
         {
             "id": str(f.id), "name_uz": f.name_uz, "category": f.category, "room_type": f.room_type,
