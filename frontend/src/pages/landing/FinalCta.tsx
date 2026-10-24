@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 import Reveal from "./Reveal";
 
 export default function FinalCta() {
-  const { t } = useLang();
+  const { t } = useTranslation();
 
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-6 py-16 sm:py-20">
@@ -24,16 +24,16 @@ export default function FinalCta() {
 
         <div className="relative">
           <h2 className="mx-auto max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-            {t.finalCta.heading}
+            {t("landing.finalCta.heading")}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-blue-100 sm:text-lg">
-            {t.finalCta.subtitle}
+            {t("landing.finalCta.subtitle")}
           </p>
           <Link
             to="/login"
             className="mt-8 inline-flex items-center rounded-full bg-white px-8 py-3.5 text-sm font-bold text-[#1d4ed8] shadow-[0_16px_35px_-12px_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
           >
-            {t.finalCta.button}
+            {t("landing.finalCta.button")}
           </Link>
         </div>
       </Reveal>

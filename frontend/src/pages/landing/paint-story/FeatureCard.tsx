@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { PaintCardData } from "./config";
 
 /**
@@ -7,15 +8,18 @@ import type { PaintCardData } from "./config";
  * by the timeline).
  */
 export default function FeatureCard({ card }: { card: PaintCardData }) {
+  const { t } = useTranslation();
   const Icon = card.icon;
+  const texts = t("landing.paint.cards", { returnObjects: true }) as { title: string; desc: string }[];
+  const { title, desc } = texts[card.id - 1];
   return (
-    <article className="ps-card" data-card={card.id} data-place={card.place} aria-label={card.title}>
+    <article className="ps-card" data-card={card.id} data-place={card.place} aria-label={title}>
       <div className="ps-card__head">
         <span className="ps-card__num">{card.number}</span>
         <span className="ps-card__icon"><Icon strokeWidth={1.8} /></span>
       </div>
-      <h3 className="ps-card__title">{card.title}</h3>
-      <p className="ps-card__desc">{card.description}</p>
+      <h3 className="ps-card__title">{title}</h3>
+      <p className="ps-card__desc">{desc}</p>
       <span className="ps-card__film" data-film aria-hidden />
     </article>
   );

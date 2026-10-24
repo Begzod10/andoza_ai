@@ -2,7 +2,33 @@
 /* Ported verbatim from the owner's scroll-story (AndozaAI.html).
    Wrapped so it runs after React mounts the markup; returns a cleanup
    that removes listeners + cancels rAF on unmount. */
-export function initScrollStory(): () => void {
+/** The texts the story draws on its canvas and writes into its readouts. */
+export interface StoryLabels {
+  /** Metre and square metre, as written in this language. */
+  m: string;
+  m2: string;
+  wallpapers: string[];
+  plan: string;
+  view3d: string;
+  lidar: string;
+  gypsum: string;
+  start: string;
+  center: string;
+  area: string;
+  wallpaperCaps: string;
+  furnitureCaps: string;
+  addWindow: string;
+  addDoor: string;
+  wallpaper: string;
+  laminate: string;
+  skirting: string;
+  rolls(n: number): string;
+  rollsDiamond(n: number): string;
+  rollsPrice(n: number, price: string): string;
+  pieces(n: number): string;
+}
+
+export function initScrollStory(L: StoryLabels): () => void {
   let __cleanup = () => {};
 'use strict';
 var $=function(s,r){return (r||document).querySelector(s);};
@@ -57,12 +83,12 @@ var LO=[2.15,1.35],NR=180,HITS=[],NOI=[];
 
 /* wallpapers: six kinds, the hand cycles through all of them and settles on the second */
 var WPS=[
-  {name:'Yo‘l-yo‘l',price:189000},
-  {name:'Romb',price:215000},
-  {name:'Gulli',price:245000},
-  {name:'Tropik barg',price:268000},
-  {name:'Beton',price:175000},
-  {name:'Yog‘och panel',price:298000}
+  {name:L.wallpapers[0],price:189000},
+  {name:L.wallpapers[1],price:215000},
+  {name:L.wallpapers[2],price:245000},
+  {name:L.wallpapers[3],price:268000},
+  {name:L.wallpapers[4],price:175000},
+  {name:L.wallpapers[5],price:298000}
 ];
 var SEQ=[0,1,2,3,4,5,1];
 var TS=[.10,.20,.30,.40,.50,.60,.71];
@@ -89,10 +115,10 @@ var lam=Math.ceil(AREA*1.1);
 var plinth=Math.ceil((PER-doorW)/2.5);
 var labour=Math.round(wallNet*12000/1000)*1000+Math.round(AREA*40000/1000)*1000;
 var ROWS=[
-  {q:rolls+' rulon',a:rolls*WPS[FINAL].price},
-  {q:lam+' m²',a:lam*145000},
-  {q:plinth+' dona',a:plinth*68000},
-  {q:AREA.toFixed(1)+' m²',a:labour}
+  {q:L.rolls(rolls),a:rolls*WPS[FINAL].price},
+  {q:lam+' '+L.m2,a:lam*145000},
+  {q:L.pieces(plinth),a:plinth*68000},
+  {q:AREA.toFixed(1)+' '+L.m2,a:labour}
 ];
 var TOTAL=ROWS.reduce(function(s,r){return s+r.a;},0);
 
@@ -165,7 +191,7 @@ function planLabels(S,pts,fr,alpha,d1,size){
     var mxp=lerp(pa[0],pb[0],fi/2),myp=lerp(pa[1],pb[1],fi/2);
     var lc=S(mxp+nx*.4,myp+ny*.4,0);
     var L=Math.hypot(pb[0]-pa[0],pb[1]-pa[1])*fi;
-    pill(lc[0],lc[1],L.toFixed(2)+' m',alpha,size,fi<.999&&d1<1);
+    pill(lc[0],lc[1],L.toFixed(2)+' '+L.m,alpha,size,fi<.999&&d1<1);
   }
 }
 function areaLabel(S,alpha,val){
@@ -173,8 +199,8 @@ function areaLabel(S,alpha,val){
   var ac=S(2.2,1.3,0);
   ctx.save();ctx.globalAlpha=alpha;ctx.textAlign='center';
   ctx.fillStyle=PAPER;ctx.font='800 '+(W<520?26:36)+'px '+DISP;ctx.textBaseline='alphabetic';
-  ctx.fillText(val.toFixed(1)+' m²',ac[0],ac[1]+10);
-  ctx.fillStyle=ACC;ctx.font='500 '+(W<520?11:12.5)+'px '+MONO;ctx.fillText('MAYDON',ac[0],ac[1]-(W<520?22:28));
+  ctx.fillText(val.toFixed(1)+' '+L.m2,ac[0],ac[1]+10);
+  ctx.fillStyle=ACC;ctx.font='500 '+(W<520?11:12.5)+'px '+MONO;ctx.fillText(L.area,ac[0],ac[1]-(W<520?22:28));
   ctx.restore();
 }
 
@@ -490,7 +516,7 @@ function draw(m){
       ctx.beginPath();ctx.arc(0,-11,3,0,Math.PI*2);ctx.fillStyle=ACC;ctx.fill();
       ctx.beginPath();ctx.moveTo(-5,-20);ctx.lineTo(5,-20);ctx.lineTo(0,-28);ctx.closePath();ctx.fill();
       ctx.restore();
-      pill(oc[0],oc[1]+34,'LiDAR',lidFade*(1-outA),13,true);
+      pill(oc[0],oc[1]+34,L.lidar,lidFade*(1-outA),13,true);
     }
     ctx.restore();
   }
@@ -647,12 +673,12 @@ function draw(m){
       if(gapX>.02){
         var xa=useR?it.x+pc.dx:0,xb=useR?Rw:it.x,pa=S(xa,yc,0),pb=S(xb,yc,0);
         line(pa,pb);line([pa[0]-5,pa[1]-4],[pa[0]+5,pa[1]+4]);line([pb[0]-5,pb[1]-4],[pb[0]+5,pb[1]+4]);
-        ctx.restore();pill((pa[0]+pb[0])/2,(pa[1]+pb[1])/2,gapX.toFixed(2)+' m',it.dimA,sz,false);ctx.save();ctx.globalAlpha=it.dimA;ctx.strokeStyle=ACC;ctx.lineWidth=1.8;
+        ctx.restore();pill((pa[0]+pb[0])/2,(pa[1]+pb[1])/2,gapX.toFixed(2)+' '+L.m,it.dimA,sz,false);ctx.save();ctx.globalAlpha=it.dimA;ctx.strokeStyle=ACC;ctx.lineWidth=1.8;
       }
       if(gapY>.02){
         var ya=useB?it.y+pc.dy:0,yb=useB?Bw:it.y,qa=S(xc,ya,0),qb=S(xc,yb,0);
         line(qa,qb);line([qa[0]-5,qa[1]+4],[qa[0]+5,qa[1]-4]);line([qb[0]-5,qb[1]+4],[qb[0]+5,qb[1]-4]);
-        ctx.restore();pill((qa[0]+qb[0])/2,(qa[1]+qb[1])/2,gapY.toFixed(2)+' m',it.dimA,sz,false);ctx.save();
+        ctx.restore();pill((qa[0]+qb[0])/2,(qa[1]+qb[1])/2,gapY.toFixed(2)+' '+L.m,it.dimA,sz,false);ctx.save();
       }
       ctx.restore();
       if(pc.id==='karavot'){
@@ -663,7 +689,7 @@ function draw(m){
     if(furGuide>.01){
       var g0=S(WIN.center,0,0),g1=S(WIN.center,0,H);
       ctx.save();ctx.globalAlpha=furGuide;ctx.strokeStyle=ACC;ctx.lineWidth=1.8;ctx.setLineDash([6,5]);line(g0,g1);ctx.restore();
-      pill(g1[0],g1[1]-16,'markaz',furGuide,13,true);
+      pill(g1[0],g1[1]-16,L.center,furGuide,13,true);
     }
   }
 
@@ -700,7 +726,7 @@ function draw(m){
     ctx.beginPath();ctx.arc(tip[0],tip[1],12,0,Math.PI*2);ctx.strokeStyle='rgba(255,147,64,.6)';ctx.lineWidth=1.6;ctx.stroke();
     ctx.beginPath();ctx.arc(tip[0],tip[1],6,0,Math.PI*2);ctx.fillStyle=ACC;ctx.fill();
     ctx.restore();
-    if(d1<.03)pill(tip[0]+72,tip[1]-24,'boshlang',smooth(0,.06,uD),14,true);
+    if(d1<.03)pill(tip[0]+72,tip[1]-24,L.start,smooth(0,.06,uD),14,true);
   }
 
   /* scene 3: drag handles and live height */
@@ -711,7 +737,7 @@ function draw(m){
     ctx.save();ctx.globalAlpha=hA;ctx.strokeStyle=ACC;ctx.lineWidth=1.8;
     line([dx,A1[1]],[dx,A0[1]]);line([dx-6,A1[1]],[dx+6,A1[1]]);line([dx-6,A0[1]],[dx+6,A0[1]]);
     ctx.restore();
-    pill(dx-4,(A0[1]+A1[1])/2,(H*e).toFixed(2)+' m',hA,W<520?12:14.5,false);
+    pill(dx-4,(A0[1]+A1[1])/2,(H*e).toFixed(2)+' '+L.m,hA,W<520?12:14.5,false);
   }
 
   /* pickers: wallpapers (scene 4) or furniture (scene 6) with the hand that uses them */
@@ -721,8 +747,8 @@ function draw(m){
     var shown=wp.over<0?-1:(wp.q>.5?wp.over:wp.base);
     var hp0=tile(0);
     ctx.fillStyle=ACC;ctx.font='500 '+(wide?12:11)+'px '+MONO;ctx.textBaseline='alphabetic';
-    if(wide){ctx.textAlign='center';ctx.fillText('OBOY',hp0[0],hp0[1]-Tsz/2-9);}
-    else{ctx.textAlign='left';ctx.fillText('OBOY',hp0[0]-Tsz/2,hp0[1]-Tsz/2-8);}
+    if(wide){ctx.textAlign='center';ctx.fillText(L.wallpaperCaps,hp0[0],hp0[1]-Tsz/2-9);}
+    else{ctx.textAlign='left';ctx.fillText(L.wallpaperCaps,hp0[0]-Tsz/2,hp0[1]-Tsz/2-8);}
     for(var tk=0;tk<6;tk++){
       var tc=tile(tk),tx=tc[0]-Tsz/2,ty=tc[1]-Tsz/2;
       ctx.save();rr(tx,ty,Tsz,Tsz,5);ctx.clip();
@@ -761,8 +787,8 @@ function draw(m){
     ctx.save();ctx.globalAlpha=pkF;
     var hf0=tile(0);
     ctx.fillStyle=ACC;ctx.font='500 '+(wide?12:11)+'px '+MONO;ctx.textBaseline='alphabetic';
-    if(wide){ctx.textAlign='center';ctx.fillText('MEBEL',hf0[0],hf0[1]-Tsz/2-9);}
-    else{ctx.textAlign='left';ctx.fillText('MEBEL',hf0[0]-Tsz/2,hf0[1]-Tsz/2-8);}
+    if(wide){ctx.textAlign='center';ctx.fillText(L.furnitureCaps,hf0[0],hf0[1]-Tsz/2-9);}
+    else{ctx.textAlign='left';ctx.fillText(L.furnitureCaps,hf0[0]-Tsz/2,hf0[1]-Tsz/2-8);}
     for(var fk=0;fk<6;fk++){
       var pc2=PIECES[fk],fc=tile(fk),fx=fc[0]-Tsz/2,fy=fc[1]-Tsz/2;
       var placed=uF>=TSF[fk]+.12,active=uF>=TSF[fk]&&!placed;
@@ -827,7 +853,7 @@ function draw(m){
       ctx.beginPath();ctx.moveTo(mxl+23,myl+16);ctx.lineTo(mxl+23,myl+32);ctx.moveTo(mxl+15,myl+24);ctx.lineTo(mxl+31,myl+24);ctx.stroke();
       rr(mxl+16,myl+53,14,24,2);ctx.stroke();
       ctx.fillStyle=INK;ctx.font='600 16px '+BODYF;ctx.textAlign='left';ctx.textBaseline='middle';
-      ctx.fillText('Deraza qo‘shish',mxl+44,myl+24);ctx.fillText('Eshik qo‘shish',mxl+44,myl+65);
+      ctx.fillText(L.addWindow,mxl+44,myl+24);ctx.fillText(L.addDoor,mxl+44,myl+65);
       ctx.restore();
     }
     var dA=smooth(.3,.42,uN)*fadeOut;
@@ -838,22 +864,22 @@ function draw(m){
       line(q0,q1);line(q2,q3);
       [q0,q1,q2,q3].forEach(function(pt){line([pt[0],pt[1]-7],[pt[0],pt[1]+7]);});
       ctx.restore();
-      pill((q0[0]+q1[0])/2,(q0[1]+q1[1])/2,wl.toFixed(2)+' m',dA,W<520?12:14.5,false);
-      pill((q2[0]+q3[0])/2,(q2[1]+q3[1])/2,(4.7-wr).toFixed(2)+' m',dA,W<520?12:14.5,false);
+      pill((q0[0]+q1[0])/2,(q0[1]+q1[1])/2,wl.toFixed(2)+' '+L.m,dA,W<520?12:14.5,false);
+      pill((q2[0]+q3[0])/2,(q2[1]+q3[1])/2,(4.7-wr).toFixed(2)+' '+L.m,dA,W<520?12:14.5,false);
       var gA=(1-smooth(.05,.35,Math.abs(m.s-WIN.center)))*dA;
       if(gA>.01){
         var g0=S(WIN.center,0,0),g1=S(WIN.center,0,H);
         ctx.save();ctx.globalAlpha=gA;ctx.strokeStyle=ACC;ctx.lineWidth=1.8;ctx.setLineDash([6,5]);line(g0,g1);ctx.restore();
-        pill(g1[0],g1[1]-16,'markaz',gA,13,true);
+        pill(g1[0],g1[1]-16,L.center,gA,13,true);
       }
     }
   }
 
   /* scene 7: material callouts */
   if(uE>0){
-    tag(S(1.0,0,2.0),-76,-72,'Oboy',rolls+' rulon · Romb',ease(seg(uE,.05,.19)),VH);
-    tag(S(1.0,1.75,0),-40,84,'Laminat',lam+' m²',ease(seg(uE,.2,.34)),VH);
-    tag(S(.5,0,.06),-40,-64,'Plintus',plinth+' dona',ease(seg(uE,.35,.49)),VH);
+    tag(S(1.0,0,2.0),-76,-72,L.wallpaper,L.rollsDiamond(rolls),ease(seg(uE,.05,.19)),VH);
+    tag(S(1.0,1.75,0),-40,84,L.laminate,lam+' '+L.m2,ease(seg(uE,.2,.34)),VH);
+    tag(S(.5,0,.06),-40,-64,L.skirting,L.pieces(plinth),ease(seg(uE,.35,.49)),VH);
   }
 }
 
@@ -869,20 +895,20 @@ function ui(m){
   var scanA=seg(u[0],.06,.72);
   setText(el.r0a,fmt(Math.floor(scanA*180)*7));
   setText(el.r1a,walls+'/6');
-  setText(el.r1b,ar>0?(AREA*ar).toFixed(1)+' m²':'—');
-  setText(el.r2a,(H*m.e).toFixed(2)+' m');
-  setText(el.r2b,m.e>.5?'3D':'Reja');
+  setText(el.r1b,ar>0?(AREA*ar).toFixed(1)+' '+L.m2:'—');
+  setText(el.r2a,(H*m.e).toFixed(2)+' '+L.m);
+  setText(el.r2b,m.e>.5?L.view3d:L.plan);
   var wl=m.s-WIN.w/2,wr=4.7-(m.s+WIN.w/2);
-  setText(el.r4a,m.pop>.01?wl.toFixed(2)+' m':'—');
-  setText(el.r4b,m.pop>.01?wr.toFixed(2)+' m':'—');
-  setText(el.tbArea,(ar>.5||m.lab>.5)?(AREA).toFixed(1)+' m²':'—');
-  setText(el.tbView,idx===0?'LiDAR':(idx===1?'Reja':(m.e>.5?'3D':'Reja')));
+  setText(el.r4a,m.pop>.01?wl.toFixed(2)+' '+L.m:'—');
+  setText(el.r4b,m.pop>.01?wr.toFixed(2)+' '+L.m:'—');
+  setText(el.tbArea,(ar>.5||m.lab>.5)?(AREA).toFixed(1)+' '+L.m2:'—');
+  setText(el.tbView,idx===0?L.lidar:(idx===1?L.plan:(m.e>.5?L.view3d:L.plan)));
   setText(el.tbSheet,'0'+(idx+1)+'/07');
   var shown=m.wp.over<0?-1:(m.wp.q>.5?m.wp.over:m.wp.base);
   wls.forEach(function(s,n){s.classList.toggle('on',n===shown);});
   swFloor.classList.toggle('on',m.f>.5);
-  setText(el.r3a,shown<0?'Gips':WPS[shown].name);
-  setText(el.r3b,shown<0?'—':rolls+' ta · '+fmt(rolls*WPS[shown].price)+' so‘m');
+  setText(el.r3a,shown<0?L.gypsum:WPS[shown].name);
+  setText(el.r3b,shown<0?'—':L.rollsPrice(rolls,fmt(rolls*WPS[shown].price)));
   var uF=u[5],placedN=0,solidPlaced=0;
   fls.forEach(function(s,n){
     var done=uF>=TSF[n]+.12;
@@ -890,7 +916,7 @@ function ui(m){
     if(done){placedN++;if(PIECES[n].solid)solidPlaced+=PIECES[n].dx*PIECES[n].dy;}
   });
   setText(el.r5a,placedN+'/6');
-  setText(el.r5b,uF>0?(AREA-solidPlaced).toFixed(1)+' m²':'—');
+  setText(el.r5b,uF>0?(AREA-solidPlaced).toFixed(1)+' '+L.m2:'—');
   var a5=u[6];
   for(var r=0;r<rrs.length;r++){
     var row=rrs[r],tot=r===ROWS.length;

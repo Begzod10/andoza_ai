@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 
 export default function Footer() {
-  const { t } = useLang();
+  const { t } = useTranslation();
   const links = [
-    { label: t.footer.links.dokon, to: "/login" },
-    { label: t.footer.links.ustalar, to: "/login" },
-    { label: t.footer.links.kirish, to: "/login" },
-    { label: t.footer.privacy, to: "/privacy" },
-    { label: t.footer.deleteAccount, to: "/delete-account" },
+    { label: t("landing.footer.links.dokon"), to: "/login" },
+    { label: t("landing.footer.links.ustalar"), to: "/login" },
+    { label: t("landing.footer.links.kirish"), to: "/login" },
+    { label: t("landing.footer.privacy"), to: "/privacy" },
+    { label: t("landing.footer.deleteAccount"), to: "/delete-account" },
   ];
 
   return (
@@ -19,7 +19,7 @@ export default function Footer() {
             <img src="/icon.svg" alt="andoza.ai" className="h-8 w-8" />
             <span className="text-base font-bold tracking-tight">andoza.ai</span>
           </div>
-          <p className="text-sm text-neutral-500">{t.footer.tagline}</p>
+          <p className="text-sm text-neutral-500">{t("landing.footer.tagline")}</p>
         </div>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
@@ -37,7 +37,7 @@ export default function Footer() {
 
       <div className="border-t border-black/5">
         <p className="mx-auto max-w-6xl px-6 py-5 text-center text-xs text-neutral-400 sm:text-left">
-          {t.footer.copyright}
+          {t("landing.footer.copyright")}
         </p>
       </div>
     </footer>

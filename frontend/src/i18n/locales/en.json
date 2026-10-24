@@ -326,7 +326,8 @@
     "price_per_unit": "{{price}} UZS/{{unit}}",
     "tasdiqlash": "Confirm",
     "elementni_ochirish": "Delete {{name}}",
-    "yuklanmoqda_qisqa": "Loading"
+    "yuklanmoqda_qisqa": "Loading",
+    "m2": "m²"
   },
   "profile": {
     "hisobni_ochirish": "Delete account",
@@ -364,5 +365,474 @@
     "tungi_rejimga": "Switch to night mode",
     "kunduzgi_rejim": "Day mode",
     "tungi_rejim": "Night mode"
+  },
+  "landing": {
+    "nav": {
+      "login": "Log in",
+      "start": "Get started"
+    },
+    "hero": {
+      "eyebrow": "Your digital assistant for renovation",
+      "title1": "See your room in 3D",
+      "title2": "before you renovate",
+      "subtitle": "Scan, design and get an accurate estimate — buy all the materials you need from one app.",
+      "primary": "Start for free",
+      "secondary": "How it works?",
+      "note": "Free to sign up · No card required"
+    },
+    "conveyor": {
+      "pairs": [
+        {
+          "problem": "Unclear costs",
+          "problemTip": "There's no way to know upfront what materials and labor will cost",
+          "solution": "Exact estimate",
+          "solutionTip": "An exact price for every stage, calculated automatically"
+        },
+        {
+          "problem": "Many shops",
+          "problemTip": "Driving across town chasing different prices for each material",
+          "solution": "One shop",
+          "solutionTip": "Materials from 100+ shops in one place — compare and buy"
+        },
+        {
+          "problem": "Unreliable craftsman",
+          "problemTip": "It's hard to know in advance who does quality work",
+          "solution": "Verified craftsman",
+          "solutionTip": "Trusted craftsmen with ratings and reviews"
+        },
+        {
+          "problem": "Slow planning",
+          "problemTip": "Planning drags on for weeks",
+          "solution": "Fast 3D plan",
+          "solutionTip": "A ready 3D plan and visualization in minutes"
+        },
+        {
+          "problem": "Manual math",
+          "problemTip": "Hand calculations are slow and full of mistakes",
+          "solution": "Auto calculation",
+          "solutionTip": "Material quantities and prices computed automatically"
+        },
+        {
+          "problem": "Messy process",
+          "problemTip": "Not knowing where to start or what comes next",
+          "solution": "Clear stages",
+          "solutionTip": "A step-by-step plan — you stay in control"
+        }
+      ]
+    },
+    "problem": {
+      "heading": "Renovation doesn't have to be painful",
+      "items": [
+        {
+          "title": "Unclear costs",
+          "desc": "There's no way to know upfront what materials and labor will cost",
+          "fixTitle": "Instant pricing",
+          "fixDesc": "Materials and labor are calculated automatically"
+        },
+        {
+          "title": "Running between shops",
+          "desc": "A different shop and a different price for every material",
+          "fixTitle": "One place for all",
+          "fixDesc": "Shops and prices in a single app"
+        },
+        {
+          "title": "Unreliable craftsmen",
+          "desc": "It's hard to know in advance who does quality work",
+          "fixTitle": "Vetted craftsmen",
+          "fixDesc": "Choose by ratings and reviews"
+        },
+        {
+          "title": "Slow planning",
+          "desc": "Calculating everything by hand drags on for weeks",
+          "fixTitle": "Ready in minutes",
+          "fixDesc": "Plan and estimate in a few minutes"
+        }
+      ]
+    },
+    "solution": {
+      "heading": "Everything in one app",
+      "items": [
+        {
+          "title": "3D scanner",
+          "desc": "Scan your room or enter its dimensions — an accurate 3D model"
+        },
+        {
+          "title": "Design studio",
+          "desc": "Pick walls, floors, furniture and wallpaper in real time"
+        },
+        {
+          "title": "Accurate estimate",
+          "desc": "Materials and labor for every stage are calculated automatically"
+        },
+        {
+          "title": "Shop",
+          "desc": "Compare and buy materials from 100+ shops"
+        },
+        {
+          "title": "Craftsmen",
+          "desc": "Find trusted craftsmen near you"
+        },
+        {
+          "title": "Step by step",
+          "desc": "From bare walls to finished — every step under control"
+        }
+      ]
+    },
+    "how": {
+      "heading": "In three steps",
+      "steps": [
+        {
+          "title": "Scan",
+          "desc": "Scan the room with LiDAR or a photo, or enter its dimensions"
+        },
+        {
+          "title": "Design",
+          "desc": "Choose materials and furniture in the 3D studio"
+        },
+        {
+          "title": "Estimate & buy",
+          "desc": "Get an accurate estimate, find materials and craftsmen"
+        }
+      ]
+    },
+    "pricing": {
+      "heading": "Start for free",
+      "popular": "Recommended",
+      "free": {
+        "name": "Free",
+        "price": "0 UZS",
+        "features": [
+          "Room scanning",
+          "Design studio",
+          "Approximate estimate"
+        ],
+        "cta": "Get started"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "Coming soon",
+        "features": [
+          "Accurate estimate",
+          "Unlimited projects",
+          "Priority support"
+        ],
+        "cta": "Coming soon"
+      }
+    },
+    "finalCta": {
+      "heading": "Start your renovation today",
+      "subtitle": "Create your first project in just a few minutes.",
+      "button": "Start for free"
+    },
+    "footer": {
+      "tagline": "Your digital assistant for renovation",
+      "links": {
+        "dokon": "Shop",
+        "ustalar": "Craftsmen",
+        "kirish": "Log in"
+      },
+      "privacy": "Privacy Policy",
+      "deleteAccount": "Delete account",
+      "copyright": "© 2026 andoza.ai"
+    },
+    "paint": {
+      "label": "How it works — paint story",
+      "cards": [
+        {
+          "title": "Creative Design",
+          "desc": "Beautiful and modern designs for your ideas."
+        },
+        {
+          "title": "Fast Performance",
+          "desc": "Optimized for speed and a smooth experience."
+        },
+        {
+          "title": "Smart Analytics",
+          "desc": "Understand your data and grow faster."
+        },
+        {
+          "title": "Secure & Reliable",
+          "desc": "Your data is always safe with us."
+        }
+      ]
+    },
+    "story": {
+      "label": "How the app works",
+      "rail": {
+        "lidar": "LiDAR",
+        "plan": "Plan",
+        "view3d": "3D",
+        "wallpaper": "Wallpaper",
+        "window": "Window",
+        "furniture": "Furniture",
+        "estimate": "Estimate"
+      },
+      "s1": {
+        "kicker": "01 · LiDAR scanner",
+        "title": "Sweep your phone around and the room draws itself",
+        "body": "A phone with LiDAR measures the distance to the walls. One sweep collects thousands of points, and they form an accurate plan of the room.",
+        "points": "Points",
+        "accuracy": "Accuracy",
+        "accuracyValue": "±1 cm"
+      },
+      "s2": {
+        "kicker": "02 · Or draw it by hand",
+        "title": "No LiDAR? Draw the walls yourself",
+        "body": "The length of the wall you draw shows up live. Even if your hand shakes, the app straightens the plan for you. You can also add a room from a 360° photo.",
+        "walls": "Walls"
+      },
+      "area": "Area",
+      "s3": {
+        "kicker": "03 · Lift it into 3D",
+        "title": "A flat plan turns into a room",
+        "body": "Pull a corner up and the wall gets taller; pull it sideways and the room gets wider. The measurements update instantly.",
+        "height": "Height"
+      },
+      "view": "View",
+      "plan": "Plan",
+      "s4": {
+        "kicker": "04 · Wallpaper and floor",
+        "title": "Try wallpapers on by hand",
+        "body": "Pick a pattern and the wall changes right away. Laminate for the floor is tried the same way.",
+        "wallpaper": "Wallpaper",
+        "roll": "Rolls"
+      },
+      "wallpapers": {
+        "w0": "Striped",
+        "w1": "Diamond",
+        "w2": "Floral",
+        "w3": "Tropical leaf",
+        "w4": "Concrete",
+        "w5": "Wood panel"
+      },
+      "laminateOak": "Oak laminate",
+      "pricePerRoll": "{{n}} UZS / roll",
+      "pricePerSqm": "{{n}} UZS / m²",
+      "gypsum": "Gypsum",
+      "s5": {
+        "kicker": "05 · Door and window",
+        "title": "Tap a wall to add a window",
+        "body": "The window only goes on the wall you tapped. While you drag it, the distance to the wall’s edges shows live, and a guide line holds it at the center.",
+        "left": "From left",
+        "right": "From right"
+      },
+      "s6": {
+        "kicker": "06 · Furniture",
+        "title": "Drag furniture into place",
+        "body": "The bed, wardrobe and desk snap to the wall, and the distance to the wall shows live. The bed lands exactly at the center under the window.",
+        "placed": "Placed",
+        "free": "Free space"
+      },
+      "furniture": {
+        "rug": "Rug",
+        "bed": "Bed",
+        "nightstand": "Nightstand",
+        "wardrobe": "Wardrobe",
+        "desk": "Desk",
+        "chair": "Chair"
+      },
+      "dimensions": "{{n}} cm",
+      "s7": {
+        "kicker": "07 · Estimate and purchase",
+        "title": "The app works out what you need and how much",
+        "body": "The exact quantity for every wall and surface. Order materials from the Shop and choose a craftsman in the Craftsmen section.",
+        "heading": "Estimate · UZS",
+        "rowWallpaper": "Wallpaper, diamond",
+        "rowSkirting": "Skirting board, 2.5 m",
+        "rowLabor": "Craftsman’s labor",
+        "total": "Total",
+        "footnote": "Sample calculation, prices are illustrative."
+      },
+      "canvasLabel": "Room: the LiDAR scanner creates a plan, the plan turns into 3D, wallpaper is swapped by hand, a window and furniture are placed, an estimate is shown",
+      "room": "Room",
+      "bedroom": "Bedroom",
+      "sheet": "Sheet",
+      "start": "start",
+      "center": "center",
+      "addWindow": "Add window",
+      "addDoor": "Add door",
+      "laminate": "Laminate",
+      "skirting": "Skirting board",
+      "m": "m",
+      "m2": "m²",
+      "rolls_one": "{{count}} roll",
+      "rolls_other": "{{count}} rolls",
+      "rollsDiamond_one": "{{count}} roll · diamond",
+      "rollsDiamond_other": "{{count}} rolls · diamond",
+      "rollsPrice_one": "{{count}} roll · {{price}} UZS",
+      "rollsPrice_other": "{{count}} rolls · {{price}} UZS",
+      "pieces_one": "{{count}} pcs",
+      "pieces_other": "{{count}} pcs"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "updated": "Last updated",
+      "intro": "This document explains what data the andoza.ai website and the Andoza AI mobile app (the \"service\") collect, why, and who can see it. By using the service you confirm that you have read these terms.",
+      "sections": [
+        {
+          "title": "1. What we collect",
+          "body": [
+            "• Account: username or phone number, your name (optional) and a password. The password is stored only as a hash.",
+            "• Your projects: rooms, dimensions, design choices, estimates and order history.",
+            "• Photos and scans you upload: LiDAR room scans, your photos, product photos from shop owners, work photos from craftsmen.",
+            "• Shop or craftsman profile: name, district, phone, Telegram, price range (public once approved).",
+            "• Requests and orders: delivery address, phone number, payment method (a choice only; card details are not stored) and your message to a shop or craftsman.",
+            "• Technical data: a request log for security (such as the IP address) and abuse limits."
+          ]
+        },
+        {
+          "title": "2. App permissions",
+          "body": [
+            "• Camera: to scan a room and take product or work photos.",
+            "• Photo library: to pick pictures.",
+            "• LiDAR (on supported iPhones): to measure the shape of a room.",
+            "We do not ask for or collect your location (GPS)."
+          ]
+        },
+        {
+          "title": "3. How we use it",
+          "body": [
+            "• Show your room in 3D, calculate estimates and suggest designs.",
+            "• Sign you in (a code is sent to your phone by SMS).",
+            "• Connect you with shops and craftsmen: the shop or craftsman you contact sees your request.",
+            "• Security, abuse prevention and improving the service.",
+            "We do not sell your data or share it with third parties for advertising."
+          ]
+        },
+        {
+          "title": "4. Who receives it",
+          "body": [
+            "We use outside services to run the app; they receive only what they need:",
+            "• SMS provider (Eskiz or Playmobile): your phone number, to send the sign-in code.",
+            "• AI services (OpenAI or Google Gemini): your text prompt and general information about the room, for the AI designer and explanations.",
+            "• Tripo (3D model generation): a product photo when a 3D model is made from it.",
+            "• OpenStreetMap: map tiles are requested to show the craftsmen map, which exposes your device's IP address.",
+            "• Servers and file storage: data is kept on protected servers.",
+            "We may disclose data to authorities where the law requires it."
+          ]
+        },
+        {
+          "title": "5. Publicly visible data",
+          "body": [
+            "Approved shop and craftsman profiles (name, district, contact details, photos) are visible to other users. You can edit them in your profile settings. If you share a room by link, anyone with the link can view it."
+          ]
+        },
+        {
+          "title": "6. Retention and deletion",
+          "body": [
+            "We keep data while your account exists. To have your account and its data (projects, photos, profile) deleted, write to the contact below. We will review the request and delete the data as the law allows.",
+            "You can delete your account yourself in the app or on the web (Profile → Delete account), or see /delete-account."
+          ]
+        },
+        {
+          "title": "7. Security",
+          "body": [
+            "Data in transit is protected by HTTPS, passwords are stored as hashes, and SMS code attempts are rate limited. No system is perfectly secure, so do not share your password."
+          ]
+        },
+        {
+          "title": "8. Children",
+          "body": [
+            "The service is not meant for people under 16, and we do not knowingly collect their data."
+          ]
+        },
+        {
+          "title": "9. Changes",
+          "body": [
+            "If we update this policy we will publish it on this page with a new date."
+          ]
+        },
+        {
+          "title": "10. App statistics and errors",
+          "body": [
+            "The mobile app collects crash reports and usage statistics through Google Firebase (Crashlytics and Analytics): which screens were opened, the device type and the app version. This data is linked to an internal account ID and a device identifier; your name, phone number and email are never sent to these services."
+          ]
+        }
+      ],
+      "contactLabel": "Contact",
+      "back": "Back to home"
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "intro": "You can delete your andoza.ai account and its data yourself. You do not need to send a separate request.",
+      "sections": [
+        {
+          "title": "In the app",
+          "body": [
+            "• Sign in to the andoza.ai app.",
+            "• Open Profile.",
+            "• Tap \"Delete account\", enter your password (not needed if you signed in with a phone code) and confirm."
+          ]
+        },
+        {
+          "title": "On the website",
+          "body": [
+            "• Sign in with the \"Sign in\" button below.",
+            "• Go to Profile → Delete account.",
+            "• Read what will be deleted and confirm."
+          ]
+        },
+        {
+          "title": "What is deleted",
+          "body": [
+            "As soon as you confirm, the following is permanently deleted and cannot be restored:",
+            "• your account and profile;",
+            "• all projects, rooms and designs;",
+            "• uploaded photos and 3D models;",
+            "• orders;",
+            "• your shop or craftsman (usta) profile, if you have one."
+          ]
+        },
+        {
+          "title": "What may be kept",
+          "body": [
+            "Server logs kept for security (for example sign-in attempts) may be retained for a limited time and then removed. They do not contain your projects or photos."
+          ]
+        }
+      ],
+      "login": "Sign in",
+      "back": "Back to home"
+    }
+  },
+  "share": {
+    "notFoundTitle": "Link not found or no longer available",
+    "notFoundSubtitle": "This share link may have been revoked.",
+    "loading": "Loading…",
+    "credit": "Design created with andoza.ai"
+  },
+  "scan": {
+    "draw": {
+      "title": "Draw the room",
+      "hint": "Tap the corners of the room one after another",
+      "clear": "Clear",
+      "next": "Continue →"
+    },
+    "lidar": {
+      "errors": {
+        "LIDAR_UNAVAILABLE": "This device has no LiDAR sensor",
+        "USER_CANCELLED": "Scanning was canceled",
+        "CAPTURE_FAILED": "Scanning failed",
+        "BUILD_FAILED": "Could not process the room model",
+        "JSON_FAILED": "Could not read the result",
+        "UNSUPPORTED": "The LiDAR scanner is not available"
+      },
+      "unsupportedLine1": "The LiDAR scanner is only available",
+      "unsupportedLine2": "on iPhone/iPad Pro",
+      "unsupportedHint": "To enter the room dimensions by hand, use the step-by-step wizard",
+      "manualArrow": "Enter manually →",
+      "manual": "Enter manually",
+      "scanning": "Scanning…",
+      "slowly": "Move your phone slowly",
+      "retry": "Try again",
+      "title": "LiDAR scan",
+      "intro": "Apple RoomPlan detects walls, doors and windows automatically. Walk slowly around the room.",
+      "start": "Start scanning"
+    },
+    "photo360": {
+      "points": "{{captured}}/8 points",
+      "map": "360° point map",
+      "hint": "Turn your phone to the next point",
+      "capture": "Take photo"
+    }
   }
 }

@@ -1,9 +1,12 @@
 import * as React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SharedRoomPage from './SharedRoomPage'
+import { applyLanguage } from '@/i18n'
+import ru from '@/i18n/locales/ru.json'
+import en from '@/i18n/locales/en.json'
 
 // ─── Scope of this test file ───────────────────────────────────────────────
 //
@@ -40,6 +43,7 @@ function renderShared(token = 'tok123') {
 beforeEach(() => {
   getPublicRoom.mockClear()
 })
+afterEach(() => applyLanguage('uz'))
 
 describe('SharedRoomPage (public read-only share link)', () => {
   it('shows a loading message before the API responds', () => {
@@ -65,5 +69,18 @@ describe('SharedRoomPage (public read-only share link)', () => {
     renderShared('my-specific-token')
 
     expect(getPublicRoom).toHaveBeenCalledWith('my-specific-token')
+  })
+
+  it.each([['ru', ru.share], ['en', en.share]] as const)('speaks %s on the loading and not-found screens', async (language, texts) => {
+    applyLanguage(language)
+    getPublicRoom.mockReturnValue(new Promise(() => {}))
+    const loading = renderShared()
+    expect(screen.getByText(texts.loading)).toBeInTheDocument()
+    loading.unmount()
+
+    getPublicRoom.mockRejectedValue(new Error('HTTP 404'))
+    renderShared('gone')
+    expect(await screen.findByText(texts.notFoundTitle)).toBeInTheDocument()
+    expect(screen.getByText(texts.notFoundSubtitle)).toBeInTheDocument()
   })
 })

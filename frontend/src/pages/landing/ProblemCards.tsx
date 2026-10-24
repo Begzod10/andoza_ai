@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
+import type { ProblemItem } from "./types";
 
 // Same single brand hue (#2F55D4) on every card; only the light angle shifts a
 // little so the four cards feel like a set rather than clones.
@@ -64,7 +65,8 @@ function Card({
 
 /** The four renovation pain points as four brand-blue gradient flashcards. */
 export default function ProblemCards({ className }: { className?: string }) {
-  const { t } = useLang();
+  const { t } = useTranslation();
+  const items = t("landing.problem.items", { returnObjects: true }) as ProblemItem[];
   const reduce = useReducedMotion() ?? false;
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, amount: 0.25 });
@@ -77,7 +79,7 @@ export default function ProblemCards({ className }: { className?: string }) {
       animate={inView ? "show" : "hidden"}
       variants={{ show: { transition: { staggerChildren: reduce ? 0 : 0.15 } } }}
     >
-      {t.problem.items.map((item, i) => (
+      {items.map((item, i) => (
         <Card key={item.title} index={i} title={item.title} desc={item.desc} reduce={reduce} />
       ))}
     </motion.div>

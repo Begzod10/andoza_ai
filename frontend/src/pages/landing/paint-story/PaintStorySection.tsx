@@ -16,6 +16,7 @@
  */
 import { useLayoutEffect, useRef } from "react";
 import { useReducedMotion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import WallBackground from "./WallBackground";
@@ -33,6 +34,7 @@ const smooth = (a: number, b: number, v: number) => clamp01((v - a) / (b - a));
 const ss = (t: number) => t * t * (3 - 2 * t); // smoothstep
 
 export default function PaintStorySection() {
+  const { t } = useTranslation();
   const reduce = useReducedMotion() ?? false;
   const sectionRef = useRef<HTMLElement | null>(null);
 
@@ -158,7 +160,7 @@ export default function PaintStorySection() {
     <section
       ref={sectionRef}
       className={`paint-story${reduce ? " is-static" : ""}${CONFIG.debug ? " is-debug" : ""}`}
-      aria-label="How it works — paint story"
+      aria-label={t("landing.paint.label")}
     >
       <div className="ps-stage">
         <WallBackground />

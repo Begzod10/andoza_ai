@@ -326,7 +326,8 @@
     "price_per_unit": "{{price}} so'm/{{unit}}",
     "tasdiqlash": "Tasdiqlash",
     "elementni_ochirish": "{{name}}ni o'chirish",
-    "yuklanmoqda_qisqa": "Yuklanmoqda"
+    "yuklanmoqda_qisqa": "Yuklanmoqda",
+    "m2": "m²"
   },
   "profile": {
     "hisobni_ochirish": "Hisobni o'chirish",
@@ -360,9 +361,478 @@
     "razmer_plan_izoh": "O'lchamlarni kiriting yoki floorplan rasmini yuklang",
     "qolda_chizish": "Qo'lda chizish",
     "qolda_chizish_izoh": "Xona konturini o'zingiz chizib chiqing",
-    "kunduzgi_rejimga": "Kunduzgi rejimga o'ting",
-    "tungi_rejimga": "Tungi rejimga o'ting",
+    "kunduzgi_rejimga": "Kunduzgi rejimga o‘tish",
+    "tungi_rejimga": "Tungi rejimga o‘tish",
     "kunduzgi_rejim": "Kunduzgi rejim",
     "tungi_rejim": "Tungi rejim"
+  },
+  "landing": {
+    "nav": {
+      "login": "Kirish",
+      "start": "Boshlash"
+    },
+    "hero": {
+      "eyebrow": "Ta'mir uchun raqamli yordamchi",
+      "title1": "Xonangizni 3D'da ko'ring",
+      "title2": "ta'mirdan oldin",
+      "subtitle": "Skanerlang, dizayn qiling va aniq smeta oling — kerakli materiallarni bitta ilovadan sotib oling.",
+      "primary": "Bepul boshlash",
+      "secondary": "Qanday ishlaydi?",
+      "note": "Ro'yxatdan o'tish bepul · Karta talab qilinmaydi"
+    },
+    "conveyor": {
+      "pairs": [
+        {
+          "problem": "Noaniq xarajat",
+          "problemTip": "Material va ish haqi qancha turishini oldindan bilib bo'lmaydi",
+          "solution": "Aniq smeta",
+          "solutionTip": "Har bir bosqich uchun aniq narx avtomatik hisoblanadi"
+        },
+        {
+          "problem": "Ko'p do'kon aylanish",
+          "problemTip": "Har xil narx uchun shahar bo'ylab yurishga to'g'ri keladi",
+          "solution": "Bitta do'kon",
+          "solutionTip": "100+ do'kon materiali bitta joyda, solishtirib xarid qiling"
+        },
+        {
+          "problem": "Ishonchsiz usta",
+          "problemTip": "Kim sifatli ishlashini oldindan bilish qiyin",
+          "solution": "Tekshirilgan usta",
+          "solutionTip": "Reyting va sharhlar bilan ishonchli ustalar"
+        },
+        {
+          "problem": "Uzoq rejalashtirish",
+          "problemTip": "Rejalashtirish haftalab cho'zilib ketadi",
+          "solution": "Tezkor 3D reja",
+          "solutionTip": "Bir necha daqiqada tayyor 3D reja va vizualizatsiya"
+        },
+        {
+          "problem": "Qo'lda hisob",
+          "problemTip": "Qo'lda hisob-kitob xatolarga to'la va sekin",
+          "solution": "Avtomatik hisob",
+          "solutionTip": "Material miqdori va narxi avtomatik hisoblanadi"
+        },
+        {
+          "problem": "Chalkash jarayon",
+          "problemTip": "Nimadan boshlashni va keyingi qadamni bilmaslik",
+          "solution": "Aniq bosqichlar",
+          "solutionTip": "Bosqichma-bosqich aniq reja bilan nazorat sizda"
+        }
+      ]
+    },
+    "problem": {
+      "heading": "Ta'mir og'riqli bo'lishi shart emas",
+      "items": [
+        {
+          "title": "Xarajat noaniq",
+          "desc": "Materiallar va ish haqi qancha turishini oldindan bilib bo'lmaydi",
+          "fixTitle": "Narx avtomatik",
+          "fixDesc": "Material va ish haqi narxi bir zumda hisoblanadi"
+        },
+        {
+          "title": "Ko'p joyni aylanish",
+          "desc": "Har bir material uchun boshqa do'kon, boshqa narx",
+          "fixTitle": "Hammasi bir joyda",
+          "fixDesc": "Do'konlar va narxlar bitta ilovada"
+        },
+        {
+          "title": "Ishonchsiz usta",
+          "desc": "Kim sifatli ishlashini oldindan bilish qiyin",
+          "fixTitle": "Tekshirilgan ustalar",
+          "fixDesc": "Reyting va sharhlar bo'yicha usta tanlang"
+        },
+        {
+          "title": "Rejalashtirish uzoq",
+          "desc": "Hammasini qo'lda hisoblash haftalab cho'ziladi",
+          "fixTitle": "Daqiqalarda tayyor",
+          "fixDesc": "Reja va hisob-kitob bir necha daqiqada"
+        }
+      ]
+    },
+    "solution": {
+      "heading": "Barchasi bitta ilovada",
+      "items": [
+        {
+          "title": "3D skaner",
+          "desc": "Xonani skanerlang yoki o'lchamini kiriting — aniq 3D model"
+        },
+        {
+          "title": "Dizayn studiyasi",
+          "desc": "Devor, pol, mebel va oboyni real vaqtda tanlang"
+        },
+        {
+          "title": "Aniq smeta",
+          "desc": "Har bir bosqich uchun material va ish haqi avtomatik hisoblanadi"
+        },
+        {
+          "title": "Do'kon",
+          "desc": "100+ do'kondan materiallarni solishtiring va sotib oling"
+        },
+        {
+          "title": "Ustalar",
+          "desc": "Yaqin atrofdagi ishonchli ustalarni toping"
+        },
+        {
+          "title": "Bosqichma-bosqich",
+          "desc": "Korobkadan tayyor holatga — har bir qadam nazorat ostida"
+        }
+      ]
+    },
+    "how": {
+      "heading": "Uch qadamda",
+      "steps": [
+        {
+          "title": "Skanerlang",
+          "desc": "Xonani LiDAR yoki foto bilan skanerlang, yoki o'lchamini kiriting"
+        },
+        {
+          "title": "Dizayn qiling",
+          "desc": "3D studiyada materiallar va mebelni tanlang"
+        },
+        {
+          "title": "Smeta va xarid",
+          "desc": "Aniq smetani oling, material va usta toping"
+        }
+      ]
+    },
+    "pricing": {
+      "heading": "Bepul boshlang",
+      "popular": "Tavsiya etiladi",
+      "free": {
+        "name": "Bepul",
+        "price": "0 so'm",
+        "features": [
+          "Xonani skanerlash",
+          "Dizayn studiyasi",
+          "Taxminiy smeta"
+        ],
+        "cta": "Boshlash"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "Tez kunda",
+        "features": [
+          "Aniq smeta",
+          "Cheksiz loyiha",
+          "Ustuvor qo'llab-quvvatlash"
+        ],
+        "cta": "Tez kunda"
+      }
+    },
+    "finalCta": {
+      "heading": "Ta'mirni bugun boshlang",
+      "subtitle": "Bir necha daqiqada birinchi loyihangizni yarating.",
+      "button": "Bepul boshlash"
+    },
+    "footer": {
+      "tagline": "Ta'mir uchun raqamli yordamchi",
+      "links": {
+        "dokon": "Do'kon",
+        "ustalar": "Ustalar",
+        "kirish": "Kirish"
+      },
+      "privacy": "Maxfiylik siyosati",
+      "deleteAccount": "Hisobni o'chirish",
+      "copyright": "© 2026 andoza.ai"
+    },
+    "paint": {
+      "label": "Ilova qanday ishlaydi — bo‘yoq hikoyasi",
+      "cards": [
+        {
+          "title": "Ijodiy dizayn",
+          "desc": "G‘oyalaringiz uchun chiroyli va zamonaviy dizaynlar."
+        },
+        {
+          "title": "Tezkor ishlash",
+          "desc": "Tezlik va silliq ish uchun optimallashtirilgan."
+        },
+        {
+          "title": "Aqlli tahlil",
+          "desc": "Ma’lumotlaringizni tushuning va tezroq o‘sing."
+        },
+        {
+          "title": "Xavfsiz va ishonchli",
+          "desc": "Ma’lumotlaringiz biz bilan doim xavfsiz."
+        }
+      ]
+    },
+    "story": {
+      "label": "Ilova qanday ishlaydi",
+      "rail": {
+        "lidar": "LiDAR",
+        "plan": "Chizma",
+        "view3d": "3D",
+        "wallpaper": "Oboy",
+        "window": "Deraza",
+        "furniture": "Mebel",
+        "estimate": "Smeta"
+      },
+      "s1": {
+        "kicker": "01 · LiDAR skaner",
+        "title": "Telefonni aylantiring, xona o‘zi chiziladi",
+        "body": "LiDAR bor telefon devorlargacha masofani o‘lchaydi. Bir aylanishda minglab nuqta yig‘iladi va ulardan xonaning aniq chizmasi hosil bo‘ladi.",
+        "points": "Nuqtalar",
+        "accuracy": "Aniqlik",
+        "accuracyValue": "±1 sm"
+      },
+      "s2": {
+        "kicker": "02 · Yoki qo‘lda chizing",
+        "title": "LiDAR bo‘lmasa, devorlarni o‘zingiz chizing",
+        "body": "Chizayotgan devoringizning uzunligi jonli ko‘rinib turadi. Qo‘lingiz titrasa ham, ilova chizmani o‘zi to‘g‘rilaydi. 360° foto orqali ham kiritish mumkin.",
+        "walls": "Devorlar"
+      },
+      "area": "Maydon",
+      "s3": {
+        "kicker": "03 · 3D ga ko‘taring",
+        "title": "Tekis chizma xonaga aylanadi",
+        "body": "Burchakni yuqoriga tortsangiz devor balandlashadi, yon tomonga tortsangiz xona kengayadi. Metrlar shu zahotiyoq yangilanadi.",
+        "height": "Balandlik"
+      },
+      "view": "Ko‘rinish",
+      "plan": "Reja",
+      "s4": {
+        "kicker": "04 · Oboy va pol",
+        "title": "Oboyni qo‘lda almashtirib ko‘ring",
+        "body": "Turini tanlang, devor shu zahoti o‘zgaradi. Pol uchun laminat ham xuddi shunday sinaladi.",
+        "wallpaper": "Oboy",
+        "roll": "Rulon"
+      },
+      "wallpapers": {
+        "w0": "Yo‘l-yo‘l",
+        "w1": "Romb",
+        "w2": "Gulli",
+        "w3": "Tropik barg",
+        "w4": "Beton",
+        "w5": "Yog‘och panel"
+      },
+      "laminateOak": "Emanli laminat",
+      "pricePerRoll": "{{n}} so‘m / rulon",
+      "pricePerSqm": "{{n}} so‘m / m²",
+      "gypsum": "Gips",
+      "s5": {
+        "kicker": "05 · Eshik va deraza",
+        "title": "Devorni bosing, deraza qo‘shing",
+        "body": "Deraza faqat siz bosgan devorga o‘rnashadi. Sudraganda devor chetlarigacha masofa jonli chiqadi, markazga kelganda chiziq ushlab qoladi.",
+        "left": "Chapdan",
+        "right": "O‘ngdan"
+      },
+      "s6": {
+        "kicker": "06 · Mebel",
+        "title": "Mebelni sudrab joylashtiring",
+        "body": "Karavot, shkaf, stol devorga yopishadi, devorgacha masofa jonli chiqadi. Karavot deraza tagida aynan markazga tushadi.",
+        "placed": "Joylandi",
+        "free": "Bo‘sh joy"
+      },
+      "furniture": {
+        "rug": "Gilam",
+        "bed": "Karavot",
+        "nightstand": "Tumba",
+        "wardrobe": "Shkaf",
+        "desk": "Yozuv stoli",
+        "chair": "Stul"
+      },
+      "dimensions": "{{n}} sm",
+      "s7": {
+        "kicker": "07 · Smeta va xarid",
+        "title": "Nima qancha kerakligini ilova hisoblaydi",
+        "body": "Har bir devor va sirt bo‘yicha aniq miqdor. Materialni Do‘kondan buyurtma qiling, ustani Ustalar bo‘limidan tanlang.",
+        "heading": "Smeta · so‘m",
+        "rowWallpaper": "Oboy, Romb",
+        "rowSkirting": "Plintus, 2.5 m",
+        "rowLabor": "Usta ishi",
+        "total": "Jami",
+        "footnote": "Namuna hisob, narxlar shartli."
+      },
+      "canvasLabel": "Xona: LiDAR skaner chizma hosil qiladi, chizma 3D ga aylanadi, qo‘l bilan oboy almashtiriladi, deraza va mebel joylashtiriladi, smeta ko‘rsatiladi",
+      "room": "Xona",
+      "bedroom": "Yotoqxona",
+      "sheet": "Varaq",
+      "start": "boshlang",
+      "center": "markaz",
+      "addWindow": "Deraza qo‘shish",
+      "addDoor": "Eshik qo‘shish",
+      "laminate": "Laminat",
+      "skirting": "Plintus",
+      "m": "m",
+      "m2": "m²",
+      "rolls_one": "{{count}} rulon",
+      "rolls_other": "{{count}} rulon",
+      "rollsDiamond_one": "{{count}} rulon · Romb",
+      "rollsDiamond_other": "{{count}} rulon · Romb",
+      "rollsPrice_one": "{{count}} ta · {{price}} so‘m",
+      "rollsPrice_other": "{{count}} ta · {{price}} so‘m",
+      "pieces_one": "{{count}} dona",
+      "pieces_other": "{{count}} dona"
+    },
+    "privacy": {
+      "title": "Maxfiylik siyosati",
+      "updated": "Oxirgi yangilanish",
+      "intro": "Bu hujjat andoza.ai veb-sayti va Andoza AI mobil ilovasi (keyingi o'rinlarda — «xizmat») qanday ma'lumot to'plashi, nima uchun ishlatishi va kimga ko'rsatishini tushuntiradi. Xizmatdan foydalanib, siz shu shartlar bilan tanishganingizni tasdiqlaysiz.",
+      "sections": [
+        {
+          "title": "1. Qanday ma'lumot to'playmiz",
+          "body": [
+            "• Hisob: foydalanuvchi nomi yoki telefon raqami, ismingiz (ixtiyoriy) va parol. Parol faqat shifrlangan (xesh) ko'rinishda saqlanadi.",
+            "• Loyihalaringiz: xonalar, o'lchamlar, dizayn tanlovlari, smetalar va buyurtmalar tarixi.",
+            "• Yuklagan rasm va skanlaringiz: xonani LiDAR bilan skanerlash natijasi, siz yuklagan fotosuratlar, do'kon egalari yuklagan mahsulot rasmlari, ustalarning ish rasmlari.",
+            "• Do'kon yoki usta profili: nom, tuman, telefon, Telegram, narx oralig'i (profil tasdiqlangach ommaga ko'rinadi).",
+            "• Murojaat va buyurtmalar: yetkazish manzili, telefon raqami, to'lov usuli (faqat tanlov sifatida, karta ma'lumotlari saqlanmaydi) va do'kon yoki ustaga yozgan xabaringiz.",
+            "• Texnik ma'lumot: xavfsizlik uchun so'rovlar jurnali (masalan, IP manzil), suiiste'molga qarshi cheklovlar uchun."
+          ]
+        },
+        {
+          "title": "2. Ilova ruxsatlari",
+          "body": [
+            "• Kamera: xonani skanerlash va mahsulot yoki ish rasmini olish uchun.",
+            "• Galereya: rasm tanlash uchun.",
+            "• LiDAR (qo'llab-quvvatlovchi iPhone'larda): xonaning shaklini o'lchash uchun.",
+            "Joylashuvingizni (GPS) so'ramaymiz va to'plamaymiz."
+          ]
+        },
+        {
+          "title": "3. Ma'lumotdan qanday foydalanamiz",
+          "body": [
+            "• Xonani 3D ko'rsatish, smeta hisoblash va dizayn takliflarini berish.",
+            "• Hisobingizga kirishni ta'minlash (telefon raqamiga SMS kod yuboriladi).",
+            "• Do'kon va ustalar bilan aloqani yo'lga qo'yish: siz yuborgan murojaatni tegishli do'kon yoki usta ko'radi.",
+            "• Xavfsizlik, suiiste'molning oldini olish va xizmatni yaxshilash.",
+            "Ma'lumotingizni sotmaymiz va reklama maqsadida uchinchi tomonlarga bermaymiz."
+          ]
+        },
+        {
+          "title": "4. Kimlarga uzatiladi",
+          "body": [
+            "Xizmat ishlashi uchun quyidagi tashqi xizmatlardan foydalanamiz; ularga faqat kerakli ma'lumot yuboriladi:",
+            "• SMS provayder (Eskiz yoki Playmobile): kirish kodini yuborish uchun telefon raqamingiz.",
+            "• Sun'iy intellekt xizmatlari (OpenAI yoki Google Gemini): AI dizayner va tushuntirishlar uchun sizning matn so'rovingiz va xona haqidagi umumiy ma'lumot.",
+            "• Tripo (3D model yaratish): mahsulot rasmidan 3D model yaratilganda o'sha rasm.",
+            "• OpenStreetMap: ustalar xaritasini ko'rsatish uchun xarita bo'laklari so'raladi, bunda qurilmangizning IP manzili ko'rinadi.",
+            "• Serverlar va fayl saqlash: ma'lumotlar xavfsiz serverlarda saqlanadi.",
+            "Qonun talab qilgan hollarda vakolatli organlarga ma'lumot berishimiz mumkin."
+          ]
+        },
+        {
+          "title": "5. Ommaga ko'rinadigan ma'lumot",
+          "body": [
+            "Tasdiqlangan do'kon va usta profillari (nom, tuman, aloqa ma'lumotlari, rasmlar) boshqa foydalanuvchilarga ko'rinadi. Ularni profil sozlamalarida tahrirlashingiz mumkin. Xonangizni «ulashish» havolasi orqali ulashsangiz, havolani olgan har kim uni ko'ra oladi."
+          ]
+        },
+        {
+          "title": "6. Saqlash va o'chirish",
+          "body": [
+            "Ma'lumotlarni hisobingiz mavjud ekan saqlaymiz. Hisobingizni va unga bog'liq ma'lumotlarni (loyihalar, rasmlar, profil) o'chirishni so'rash uchun quyidagi aloqa manziliga yozing. So'rovni ko'rib chiqib, ma'lumotlarni qonuniy talablar doirasida o'chiramiz.",
+            "Hisobingizni ilovada yoki saytda o'zingiz o'chirishingiz mumkin (Profil → Hisobni o'chirish), batafsil: /delete-account."
+          ]
+        },
+        {
+          "title": "7. Xavfsizlik",
+          "body": [
+            "Ma'lumot uzatish HTTPS orqali himoyalanadi, parollar xesh ko'rinishida saqlanadi, SMS kod urinishlariga cheklov qo'yilgan. Hech bir tizim mutlaq xavfsiz emas, shuning uchun parolingizni begonalarga bermang."
+          ]
+        },
+        {
+          "title": "8. Bolalar",
+          "body": [
+            "Xizmat 16 yoshga to'lmaganlar uchun mo'ljallanmagan va ularning ma'lumotini bila turib to'plamaymiz."
+          ]
+        },
+        {
+          "title": "9. O'zgarishlar",
+          "body": [
+            "Siyosatni yangilasak, shu sahifada yangi sana bilan e'lon qilamiz."
+          ]
+        },
+        {
+          "title": "10. Ilova statistikasi va xatolar",
+          "body": [
+            "Mobil ilova Google Firebase (Crashlytics va Analytics) orqali ilova xatolari va foydalanish statistikasini yig'adi: qaysi ekranlar ochilgani, qurilma turi va ilova versiyasi. Bu ma'lumotlar ichki hisob raqami (ID) va qurilma identifikatori bilan bog'lanadi; ism, telefon raqami yoki elektron pochta bu xizmatlarga yuborilmaydi."
+          ]
+        }
+      ],
+      "contactLabel": "Aloqa",
+      "back": "Bosh sahifaga"
+    },
+    "deleteAccount": {
+      "title": "Hisobni o'chirish",
+      "intro": "andoza.ai hisobingizni va unga bog'liq ma'lumotlarni o'zingiz o'chirishingiz mumkin. Buning uchun alohida so'rov yozish shart emas.",
+      "sections": [
+        {
+          "title": "Ilovada",
+          "body": [
+            "• andoza.ai ilovasiga kiring.",
+            "• Profil bo'limini oching.",
+            "• \"Hisobni o'chirish\" tugmasini bosing, parolingizni kiriting (telefon kodi bilan kirgan bo'lsangiz parol so'ralmaydi) va tasdiqlang."
+          ]
+        },
+        {
+          "title": "Saytda",
+          "body": [
+            "• Pastdagi \"Kirish\" tugmasi orqali hisobingizga kiring.",
+            "• Profil → Hisobni o'chirish bo'limiga o'ting.",
+            "• Ma'lumotlarni o'qib chiqib, o'chirishni tasdiqlang."
+          ]
+        },
+        {
+          "title": "Nima o'chiriladi",
+          "body": [
+            "Tasdiqlagan zahoti quyidagilar butunlay o'chiriladi va tiklab bo'lmaydi:",
+            "• hisobingiz va profilingiz;",
+            "• barcha loyihalar, xonalar va dizaynlar;",
+            "• yuklangan rasmlar va 3D modellar;",
+            "• buyurtmalar;",
+            "• do'kon yoki usta profili (agar bo'lsa)."
+          ]
+        },
+        {
+          "title": "Nima saqlanishi mumkin",
+          "body": [
+            "Xavfsizlik uchun server jurnallari (masalan, kirish urinishlari) cheklangan muddat saqlanishi mumkin, so'ng o'chiriladi. Ular sizning loyihalaringiz yoki rasmlaringizni o'z ichiga olmaydi."
+          ]
+        }
+      ],
+      "login": "Kirish",
+      "back": "Bosh sahifaga qaytish"
+    }
+  },
+  "share": {
+    "notFoundTitle": "Havola topilmadi yoki endi mavjud emas",
+    "notFoundSubtitle": "Bu ulashish havolasi bekor qilingan bo'lishi mumkin.",
+    "loading": "Yuklanmoqda…",
+    "credit": "andoza.ai orqali yaratilgan dizayn"
+  },
+  "scan": {
+    "draw": {
+      "title": "Xonani chizish",
+      "hint": "Xona burchaklarini ketma-ket bosib chiqing",
+      "clear": "Tozalash",
+      "next": "Davom etish →"
+    },
+    "lidar": {
+      "errors": {
+        "LIDAR_UNAVAILABLE": "Bu qurilmada LiDAR sensori mavjud emas",
+        "USER_CANCELLED": "Skanerlash bekor qilindi",
+        "CAPTURE_FAILED": "Skanerlashda xatolik yuz berdi",
+        "BUILD_FAILED": "Xona modelini qayta ishlashda xatolik",
+        "JSON_FAILED": "Natijani o'qishda xatolik",
+        "UNSUPPORTED": "LiDAR skaneri mavjud emas"
+      },
+      "unsupportedLine1": "LiDAR skaneri faqat",
+      "unsupportedLine2": "iPhone/iPad Pro qurilmalarida mavjud",
+      "unsupportedHint": "Xona o'lchamlarini qo'lda kiritish uchun qadam-ustasidan foydalaning",
+      "manualArrow": "Qo'lda kiritish →",
+      "manual": "Qo'lda kiritish",
+      "scanning": "Skanerlanyapti…",
+      "slowly": "Telefonni sekin harakatlantiring",
+      "retry": "Qayta urinish",
+      "title": "LiDAR Skanerlash",
+      "intro": "Apple RoomPlan devorlar, eshiklar va derazalarni avtomatik aniqlaydi. Xonani sekin aylanib chiqing.",
+      "start": "Skanerlashni boshlash"
+    },
+    "photo360": {
+      "points": "{{captured}}/8 nuqta",
+      "map": "360° nuqtalar xaritasi",
+      "hint": "Telefonni keyingi nuqtaga burang",
+      "capture": "Suratga olish"
+    }
   }
 }

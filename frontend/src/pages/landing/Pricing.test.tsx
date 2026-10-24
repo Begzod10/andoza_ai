@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Pricing from './Pricing'
-import { LanguageProvider, type Lang } from './i18n'
+import { applyLanguage, type Language } from '@/i18n'
 
-beforeEach(() => window.localStorage.clear())
+afterEach(() => applyLanguage('uz'))
 
-function renderIn(lang: Lang) {
-  window.localStorage.setItem('andoza.landing.lang', lang)
-  render(<MemoryRouter><LanguageProvider><Pricing /></LanguageProvider></MemoryRouter>)
+function renderIn(lang: Language) {
+  applyLanguage(lang)
+  render(<MemoryRouter><Pricing /></MemoryRouter>)
 }
 
 describe('landing pricing', () => {

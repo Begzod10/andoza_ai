@@ -10,7 +10,10 @@ function browserLanguage(value: string) {
   vi.spyOn(window.navigator, "language", "get").mockReturnValue(value);
 }
 
-beforeEach(() => window.localStorage.removeItem("andoza.lang"));
+beforeEach(() => {
+  window.localStorage.removeItem("andoza.lang");
+  window.localStorage.removeItem("andoza.landing.lang");
+});
 afterEach(() => {
   vi.restoreAllMocks();
   applyLanguage("uz");
@@ -50,6 +53,28 @@ describe("initialLanguage", () => {
   it("then uz", () => {
     browserLanguage("de-DE");
     expect(initialLanguage()).toBe("uz");
+  });
+
+  it("moves a language saved by the old landing switcher to the shared key, once", () => {
+    window.localStorage.setItem("andoza.landing.lang", "ru");
+    expect(initialLanguage()).toBe("ru");
+    expect(window.localStorage.getItem("andoza.lang")).toBe("ru");
+    window.localStorage.setItem("andoza.landing.lang", "en");
+    expect(initialLanguage()).toBe("ru"); // the shared key now wins
+  });
+
+  it("does not let the old landing key override the shared one", () => {
+    window.localStorage.setItem("andoza.lang", "en");
+    window.localStorage.setItem("andoza.landing.lang", "ru");
+    expect(initialLanguage()).toBe("en");
+    expect(window.localStorage.getItem("andoza.lang")).toBe("en");
+  });
+
+  it("ignores an old landing value that is not a language", () => {
+    window.localStorage.setItem("andoza.landing.lang", "de");
+    browserLanguage("fr");
+    expect(initialLanguage()).toBe("uz");
+    expect(window.localStorage.getItem("andoza.lang")).toBeNull();
   });
 
   it("ignores values that are not a supported language", () => {

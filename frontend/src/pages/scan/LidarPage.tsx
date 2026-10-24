@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { startNativeScan, isNativeScanAvailable, type RoomScanErrorCode } from '@/lib/native/roomScan'
 import { scanToApiGeometry } from '@/lib/roomScanImport'
 import { useRoomStore } from '@/store/roomStore'
@@ -7,18 +8,10 @@ import { Button } from '@/components/ui/Button'
 
 type Phase = 'idle' | 'scanning' | 'error'
 
-const ERROR_LABELS: Record<RoomScanErrorCode, string> = {
-  LIDAR_UNAVAILABLE: "Bu qurilmada LiDAR sensori mavjud emas",
-  USER_CANCELLED:    "Skanerlash bekor qilindi",
-  CAPTURE_FAILED:    "Skanerlashda xatolik yuz berdi",
-  BUILD_FAILED:      "Xona modelini qayta ishlashda xatolik",
-  JSON_FAILED:       "Natijani o'qishda xatolik",
-  UNSUPPORTED:       "LiDAR skaneri mavjud emas",
-}
-
 // ─── Non-LiDAR fallback ───────────────────────────────────────────────────────
 
 function UnsupportedView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
     <div
@@ -28,17 +21,17 @@ function UnsupportedView() {
       <LidarIcon />
       <div className="flex flex-col items-center gap-2 text-center">
         <p className="text-white text-[18px] font-extrabold leading-snug">
-          LiDAR skaneri faqat<br />iPhone/iPad Pro qurilmalarida mavjud
+          {t('scan.lidar.unsupportedLine1')}<br />{t('scan.lidar.unsupportedLine2')}
         </p>
         <p className="text-white/60 text-[14px]">
-          Xona o'lchamlarini qo'lda kiritish uchun qadam-ustasidan foydalaning
+          {t('scan.lidar.unsupportedHint')}
         </p>
       </div>
       <Button size="lg" onClick={() => navigate('/wizard')}>
-        Qo'lda kiritish →
+        {t('scan.lidar.manualArrow')}
       </Button>
       <button onClick={() => navigate(-1)} className="text-white/50 hover:text-white/80 text-[13px] font-medium transition-colors">
-        Orqaga
+        {t('common.orqaga')}
       </button>
     </div>
   )
@@ -47,6 +40,7 @@ function UnsupportedView() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LidarPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const loadRoom = useRoomStore(s => s.loadRoom)
   const [phase, setPhase] = useState<Phase>('idle')
@@ -96,9 +90,9 @@ export default function LidarPage() {
       >
         <LidarIcon />
         <p className="text-white text-[18px] font-extrabold" style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>
-          Skanerlanyapti…
+          {t('scan.lidar.scanning')}
         </p>
-        <p className="text-white/60 text-[13px]">Telefonni sekin harakatlantiring</p>
+        <p className="text-white/60 text-[13px]">{t('scan.lidar.slowly')}</p>
       </div>
     )
   }
@@ -111,13 +105,13 @@ export default function LidarPage() {
         style={{ background: 'radial-gradient(ellipse at center, #2A2545 0%, #1D1A2E 100%)' }}
       >
         <p role="alert" className="max-w-xs rounded-2xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-red-300 text-[15px] font-semibold text-center">
-          {ERROR_LABELS[errorCode]}
+          {t(`scan.lidar.errors.${errorCode}`)}
         </p>
         <Button size="lg" onClick={() => setPhase('idle')}>
-          Qayta urinish
+          {t('scan.lidar.retry')}
         </Button>
         <button onClick={() => navigate('/wizard')} className="text-white/50 hover:text-white/80 text-[13px] font-medium transition-colors">
-          Qo'lda kiritish
+          {t('scan.lidar.manual')}
         </button>
       </div>
     )
@@ -143,7 +137,7 @@ export default function LidarPage() {
         onClick={() => navigate(-1)}
         className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
         style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
-        aria-label="Yopish"
+        aria-label={t('common.yopish')}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
           <path d="M2 2l12 12M14 2L2 14"/>
@@ -153,19 +147,18 @@ export default function LidarPage() {
       <LidarIcon />
 
       <div className="flex flex-col items-center gap-2 z-10 text-center px-8">
-        <p className="text-white text-[22px] font-extrabold">LiDAR Skanerlash</p>
+        <p className="text-white text-[22px] font-extrabold">{t('scan.lidar.title')}</p>
         <p className="text-white/60 text-[14px] max-w-sm">
-          Apple RoomPlan devorlar, eshiklar va derazalarni avtomatik aniqlaydi.
-          Xonani sekin aylanib chiqing.
+          {t('scan.lidar.intro')}
         </p>
       </div>
 
       <Button size="lg" variant="accent" className="z-10 px-10" onClick={startScan}>
-        Skanerlashni boshlash
+        {t('scan.lidar.start')}
       </Button>
 
       <button onClick={() => navigate('/wizard')} className="text-white/50 hover:text-white/80 text-[13px] font-medium z-10 transition-colors">
-        Qo'lda kiritish
+        {t('scan.lidar.manual')}
       </button>
     </div>
   )

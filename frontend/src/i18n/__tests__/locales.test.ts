@@ -10,7 +10,10 @@ function flatten(obj: Record<string, unknown>, prefix = ""): Record<string, Leaf
   const out: Record<string, Leaf> = {};
   for (const [key, value] of Object.entries(obj)) {
     const path = prefix + key;
-    if (typeof value === "string" || Array.isArray(value)) out[path] = value as Leaf;
+    if (Array.isArray(value) && value.some((item) => typeof item === "object" && item !== null)) {
+      // A list of objects (cards, tiers): each item's fields are compared by index.
+      value.forEach((item, i) => Object.assign(out, flatten({ [i]: item }, `${path}.`)));
+    } else if (typeof value === "string" || Array.isArray(value)) out[path] = value as Leaf;
     else Object.assign(out, flatten(value as Record<string, unknown>, `${path}.`));
   }
   return out;

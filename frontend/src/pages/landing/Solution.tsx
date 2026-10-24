@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 import Reveal from "./Reveal";
 
 // Seconds before the papers start coming out — leaves time to watch the drawer
@@ -99,7 +99,8 @@ function BinderClip({ className = "" }: { className?: string }) {
 }
 
 export default function Solution() {
-  const { t } = useLang();
+  const { t } = useTranslation();
+  const items = t("landing.solution.items", { returnObjects: true }) as { title: string; desc: string }[];
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-15% 0px -15% 0px" });
   const reduced = useReducedMotion();
@@ -133,7 +134,7 @@ export default function Solution() {
     <section ref={ref} className="relative z-10 mx-auto max-w-6xl px-6 py-20 sm:py-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
-          {t.solution.heading}
+          {t("landing.solution.heading")}
         </h2>
       </Reveal>
 
@@ -156,7 +157,7 @@ export default function Solution() {
           initial="hidden"
           animate={open ? "open" : "hidden"}
         >
-          {t.solution.items.map((item, i) => (
+          {items.map((item, i) => (
             <motion.div key={item.title} custom={i} variants={paper} className="relative flex justify-center">
               {/* clip (alternating paper clip / binder clip) */}
               {i % 2 === 0 ? (

@@ -17,13 +17,19 @@ export const MIGRATED_DIRS: string[] = [
   "src/pages/profile",
   "src/components/layout",
   "src/components/ui",
+  "src/pages/landing",
+  "src/pages/LandingPage.tsx",
+  "src/pages/PrivacyPage.tsx",
+  "src/pages/DeleteAccountPage.tsx",
+  "src/pages/share",
+  "src/pages/scan",
 ];
 
 // Strings that may stay as literals: the brand, the language names, and
 // symbols/abbreviations that are the same in every language.
 export const ALLOW: string[] = [
   "andoza.ai", "andoza.ai v1.0.0", "O'zbekcha", "Русский", "English",
-  "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
+  "Andoza", "AI", "progress 0%" /* debug-only readout */, "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
 ];
 
 const TEXT_ATTRIBUTES = new Set(["label", "placeholder", "title", "aria-label", "alt", "description"]);

@@ -26,6 +26,21 @@ export function intlLocale(language: Language = currentLanguage()): string {
   return INTL_LOCALES[language];
 }
 
+/** Where the landing's own switcher used to keep its choice. */
+const LEGACY_LANDING_KEY = "andoza.landing.lang";
+
+/** Carries a language picked with the old landing switcher over to the shared key, once. */
+function migrateLegacyLanguage(): void {
+  try {
+    const storage = window.localStorage;
+    if (storage.getItem(LANGUAGE_STORAGE_KEY) !== null) return;
+    const legacy = storage.getItem(LEGACY_LANDING_KEY);
+    if (isLanguage(legacy)) storage.setItem(LANGUAGE_STORAGE_KEY, legacy);
+  } catch {
+    // Storage can be blocked: nothing to carry over.
+  }
+}
+
 function storedLanguage(): string | null {
   try {
     return window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -39,6 +54,7 @@ function storedLanguage(): string | null {
  * this browser, else the browser's (ru* / en*), else Uzbek.
  */
 export function initialLanguage(userLanguage?: string | null): Language {
+  migrateLegacyLanguage();
   if (isLanguage(userLanguage)) return userLanguage;
   const saved = storedLanguage();
   if (isLanguage(saved)) return saved;

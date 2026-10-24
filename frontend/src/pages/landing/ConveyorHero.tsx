@@ -7,7 +7,8 @@
 */
 import { useRef } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
+import type { ConveyorPair } from "./types";
 
 const BELT_DUR = 15; // seconds for one chip to cross the belt
 
@@ -47,8 +48,8 @@ function Chip({ label }: { label: string }) {
 }
 
 export default function ConveyorHero() {
-  const { t } = useLang();
-  const pairs = t.conveyor.pairs;
+  const { t } = useTranslation();
+  const pairs = t("landing.conveyor.pairs", { returnObjects: true }) as ConveyorPair[];
   const belowRef = useRef<HTMLDivElement>(null);
   const inView = useInView(belowRef, { once: true, margin: "-10% 0px -10% 0px" });
   const reduced = useReducedMotion();

@@ -1,6 +1,7 @@
 import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { MultiTouchPan } from "@/pages/studio/three-d/MultiTouchPan";
@@ -67,6 +68,7 @@ function CenteredMessage({ title, subtitle, loading = false }: { title: string; 
 }
 
 export default function SharedRoomPage() {
+  const { t } = useTranslation();
   const { token } = useParams<{ token: string }>();
   const [hydrated, setHydrated] = useState(false);
 
@@ -139,14 +141,14 @@ export default function SharedRoomPage() {
   if (!token || isError) {
     return (
       <CenteredMessage
-        title="Havola topilmadi yoki endi mavjud emas"
-        subtitle="Bu ulashish havolasi bekor qilingan bo'lishi mumkin."
+        title={t("share.notFoundTitle")}
+        subtitle={t("share.notFoundSubtitle")}
       />
     );
   }
 
   if (isLoading || !hydrated) {
-    return <CenteredMessage title="Yuklanmoqda…" loading />;
+    return <CenteredMessage title={t("share.loading")} loading />;
   }
 
   const W = room.length;
@@ -215,7 +217,7 @@ export default function SharedRoomPage() {
 
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3 sm:bottom-4">
           <span className="rounded-full border border-line bg-card/90 px-4 py-1.5 text-[11px] font-semibold text-ink-muted shadow-panel backdrop-blur-xl">
-            andoza.ai orqali yaratilgan dizayn
+            {t("share.credit")}
           </span>
         </div>
       </main>
