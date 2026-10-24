@@ -511,6 +511,7 @@
         "n_label": "{{n}}-kamera — burchakdan"
       },
       "unnamed_room": "Xona",
+      "default_apartment": "Xonadon",
       "category": {
         "divan": "Divan",
         "stol": "Stol",

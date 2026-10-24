@@ -1,4 +1,5 @@
 import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
+import { defaultRoomName } from "@/lib/defaultNames";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -123,7 +124,7 @@ export default function SharedRoomPage() {
     return {
       id: "shared",
       apartment_id: "shared",
-      name: roomName,
+      name: roomName || defaultRoomName(),
       room_type: "mehmonxona",
       area: 0,
       ceiling_height: ceilingHeight / 1000,

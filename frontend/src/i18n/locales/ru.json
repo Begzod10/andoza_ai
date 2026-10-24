@@ -527,6 +527,7 @@
         "n_label": "Камера {{n}} — из угла"
       },
       "unnamed_room": "Комната",
+      "default_apartment": "Квартира",
       "category": {
         "divan": "Диван",
         "stol": "Стол",

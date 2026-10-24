@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { defaultRoomName } from "@/lib/defaultNames";
 import { useRef, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
@@ -258,7 +259,7 @@ export function useAddRoomNavigation(params: {
       // moving the original left the copy behind, and the partition showed
       // one door's leaf beside the other door's hole. It also billed twice.
       const created = await createRoom(aptId, {
-        name: "Xona",
+        name: defaultRoomName(),
         ceiling_h: dims.heightMm / 1000,
         geometry: newRoomGeometry(widthMm, depthMm),
       });

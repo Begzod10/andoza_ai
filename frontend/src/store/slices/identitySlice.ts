@@ -25,7 +25,9 @@ export const createIdentitySlice: StateCreator<
   draftId: null,
   roomId: null,
   apartmentId: null,
-  name: 'Xona',
+  // Empty until a room is loaded or created: the default name is chosen then,
+  // in the language of that moment (lib/defaultNames), never frozen at import.
+  name: '',
   isDirty: false,
   wizardStep: 0,
 

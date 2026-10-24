@@ -511,6 +511,7 @@
         "n_label": "Camera {{n}} — from a corner"
       },
       "unnamed_room": "Room",
+      "default_apartment": "Apartment",
       "category": {
         "divan": "Sofa",
         "stol": "Table",
