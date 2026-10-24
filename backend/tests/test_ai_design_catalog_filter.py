@@ -77,3 +77,31 @@ def test_the_studio_list_has_only_models_with_a_file():
 def test_the_shop_list_still_has_photo_only_items():
     sent = _list_sql("?per_page=100")
     assert sent and not any("glb_key IS NOT NULL" in sql for sql in sent)
+
+
+# ---------------------------------------------------------------------------
+# GET /furniture pages are stable and searchable, so every product can be reached
+# ---------------------------------------------------------------------------
+
+def test_the_furniture_list_has_a_stable_order():
+    page_sql = _list_sql("?per_page=60&page=2")[-1]
+    assert "ORDER BY furniture.created_at DESC, furniture.id" in page_sql
+    assert "OFFSET" in page_sql
+
+
+def test_the_furniture_list_searches_by_name_on_the_server():
+    sent = _list_sql("?q=divan")
+    assert len(sent) == 2
+    assert all("furniture.name_uz ILIKE" in sql for sql in sent)
+
+
+def test_the_materials_list_has_a_stable_order():
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=_ListResult())
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        assert TestClient(app).get("/api/v1/materials?per_page=100").status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+    page_sql = str(db.execute.call_args_list[-1].args[0].compile(dialect=postgresql.dialect()))
+    assert "ORDER BY materials.created_at DESC, materials.id" in page_sql
