@@ -898,7 +898,10 @@
       "model": "Model",
       "change_color": "Change the color",
       "reset_color": "Return to the original color",
-      "color": "Color"
+      "color": "Color",
+      "slot_wood": "Wood",
+      "slot_fabric": "Fabric",
+      "slot_metal": "Metal"
     },
     "cplan": {
       "no_outline": "No room outline was found for the 2D light plan — draw the room again or scan it",

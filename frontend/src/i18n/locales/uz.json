@@ -898,7 +898,10 @@
       "model": "Model",
       "change_color": "Rang o'zgartirish",
       "reset_color": "Asl rangga qaytarish",
-      "color": "Rang"
+      "color": "Rang",
+      "slot_wood": "Yog'och",
+      "slot_fabric": "Mato",
+      "slot_metal": "Metal"
     },
     "cplan": {
       "no_outline": "2D chiroq rejasi uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang",
