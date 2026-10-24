@@ -2,27 +2,34 @@
 
 Run inside the backend container (deploy/remote-deploy.sh calls the first one)::
 
-    python -m app.seed_demo_stores            # insert what is missing
-    python -m app.seed_demo_stores --remove   # delete every DEMO store and its rows
+    python -m app.seed_demo_stores            # seed once, if DEMO_STORES is on
+    python -m app.seed_demo_stores --remove   # delete every demo store; never seed again
+    python -m app.seed_demo_stores --force    # seed even after --remove or with the flag off
 
 What this seeds
 ---------------
-Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Keng Makon, Lumen LUX,
-Aura Lighting, Bestart, Sanat Hali, MAFF) with products and photos taken from their
-public websites by ``scripts/demo_catalog/fetch.py`` into
-``app/seed_data/demo_stores/``. There is no contract with these stores yet, so every
-store row carries ``moderation_note = DEMO_NOTE``; that note is what ``--remove``
-looks for, so the whole demo goes away with one command.
+Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Lumen LUX, Aura Lighting,
+Bestart, MAFF) with products and photos taken from their public websites by
+``scripts/demo_catalog/fetch.py`` into ``app/seed_data/demo_stores/``. There is no
+contract with these stores yet, so every store row has ``is_demo = true`` (and a
+``moderation_note`` saying so, for humans); ``--remove`` deletes exactly those.
 
 Furniture is seeded without a 3-D model (``glb_key`` null): it shows in the shop with
 its photo, but the studio and the AI designer only place pieces that have a model.
 
-Idempotency
------------
-Insert-only, like ``app.seed_partners``: a store is looked up by ``name``, an item by
-``(name_uz, store_id)``, and an existing row is left alone (admin edits survive). A
-photo is uploaded only for a row being inserted. A store with a demo name that is
-*not* marked DEMO (a real partner added later under the same name) is never touched.
+When it runs
+------------
+Only with ``settings.DEMO_STORES`` on (docker-compose.prod.yml sets it) or ``--force``,
+and then only once:
+
+* if any ``is_demo`` store exists, it does nothing, so a later deploy never re-adds a
+  piece an admin deleted or renamed;
+* after ``--remove`` it leaves a ``seed_markers`` row (``demo_stores_removed``) and
+  does nothing on later deploys; ``--force`` clears the marker and seeds again.
+
+A store with a demo name that is *not* ``is_demo`` (a real partner added later under
+the same name) is never touched. Photos are uploaded inside the seed; if the seed
+fails, the photos it already uploaded are deleted again.
 """
 from __future__ import annotations
 
@@ -42,13 +49,14 @@ from app.core.storage import delete_file, storage_key_from, upload_file
 from app.database import AsyncSessionLocal
 from app.models.furniture import Furniture
 from app.models.material import Material
+from app.models.seed_marker import SeedMarker
 from app.models.store import Store
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
-DEMO_PREFIX = "DEMO:"
 DEMO_NOTE = "DEMO: shartnomasiz namuna ma'lumot"
+REMOVED_MARKER = "demo_stores_removed"
 DATA_DIR = Path(__file__).resolve().parent / "seed_data" / "demo_stores"
 
 # Storage keys of demo photos all sit under a demo/ folder, so --remove can delete
@@ -67,17 +75,27 @@ CACHE_PREFIXES = ("materials:", "furniture:", "stores:")
 Uploader = Callable[..., Awaitable[str]]
 
 
-def is_demo(store: Store) -> bool:
-    return (store.moderation_note or "").startswith(DEMO_PREFIX)
-
-
 def load_catalog(data_dir: Path = DATA_DIR) -> dict:
     return json.loads((data_dir / "catalog.json").read_text(encoding="utf-8"))
 
 
+async def _state(session) -> str:
+    """'removed' after --remove, 'already_seeded' with a demo store present, else 'empty'."""
+    if await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER)) is not None:
+        return "removed"
+    if await session.scalar(select(Store).where(Store.is_demo.is_(True)).limit(1)) is not None:
+        return "already_seeded"
+    return "empty"
+
+
 async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
-                 upload: Uploader = upload_file) -> dict[str, int]:
-    """Insert the missing demo rows through *session*; return what happened."""
+                 upload: Uploader | None = None, uploaded: list[str] | None = None) -> dict[str, int]:
+    """Insert the missing demo rows through *session*; return what happened.
+
+    Every storage key uploaded is appended to *uploaded*, so the caller can delete
+    them if the transaction does not commit."""
+    upload = upload or upload_file
+    uploaded = uploaded if uploaded is not None else []
     counts = {"stores": 0, "furniture": 0, "materials": 0, "existing": 0, "skipped_real_store": 0}
     for idx, data in enumerate(catalog["stores"]):
         store = await session.scalar(select(Store).where(Store.name == data["name"]))
@@ -91,13 +109,14 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
                 partner_tier="standard",
                 is_active=True,
                 status="approved",
+                is_demo=True,
                 moderation_note=DEMO_NOTE,
             )
             session.add(store)
             await session.flush()
             counts["stores"] += 1
             log.info("Demo store created: %s", store.name)
-        elif not is_demo(store):
+        elif not store.is_demo:
             counts["skipped_real_store"] += 1
             log.warning("Store %r exists and is not a DEMO store; its demo items are skipped", store.name)
             continue
@@ -114,6 +133,7 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
             if model is Furniture:
                 key = FURNITURE_KEY.format(id=uuid.uuid4())
                 stored = await upload(image, key, content_type="image/webp")
+                uploaded.append(key)
                 session.add(Furniture(
                     store_id=store.id,
                     category=item["category"],
@@ -134,6 +154,7 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
             else:
                 key = MATERIAL_KEY.format(id=uuid.uuid4())
                 stored = await upload(image, key, content_type="image/webp")
+                uploaded.append(key)
                 session.add(Material(
                     store_id=store.id,
                     category=item["category"],
@@ -159,11 +180,12 @@ def _material_image_key(url: str | None) -> str | None:
 
 
 async def _remove(session) -> tuple[dict[str, int], list[str]]:
-    """Delete every DEMO store with its furniture and materials; return counts and file keys."""
+    """Delete every is_demo store with its furniture and materials, and leave the marker
+    that stops the next deploy from seeding them again; return counts and file keys."""
     counts = {"stores": 0, "furniture": 0, "materials": 0}
     keys: list[str] = []
-    stores = (await session.execute(select(Store))).scalars().all()
-    for store in [s for s in stores if is_demo(s)]:
+    stores = (await session.execute(select(Store).where(Store.is_demo.is_(True)))).scalars().all()
+    for store in stores:
         # Furniture.store_id is ON DELETE SET NULL (a null store means "admin catalog"),
         # so the rows are deleted here rather than left to orphan into the public list.
         for f in (await session.execute(select(Furniture).where(Furniture.store_id == store.id))).scalars().all():
@@ -181,6 +203,8 @@ async def _remove(session) -> tuple[dict[str, int], list[str]]:
         await session.delete(store)
         counts["stores"] += 1
         log.info("Demo store removed: %s", store.name)
+    if await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER)) is None:
+        session.add(SeedMarker(key=REMOVED_MARKER))
     await session.flush()
     return counts, keys
 
@@ -197,34 +221,57 @@ async def _drop_caches() -> None:
         pass
 
 
-async def seed_demo_stores() -> dict[str, int]:
+async def _delete_files(keys: list[str]) -> int:
+    failed = 0
+    for key in keys:
+        try:
+            await delete_file(key)
+        except Exception as exc:
+            failed += 1
+            log.warning("Could not delete %s: %s", key, exc)
+    return len(keys) - failed
+
+
+async def seed_demo_stores(force: bool = False) -> dict:
+    """Seed once (see the module docstring); the result's "status" says what happened."""
+    if not (settings.DEMO_STORES or force):
+        return {"status": "disabled"}
     catalog = load_catalog()
-    async with AsyncSessionLocal() as session:
-        async with session.begin():
-            counts = await _apply(session, catalog)
+    uploaded: list[str] = []
+    try:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                state = await _state(session)
+                if state != "empty" and not force:
+                    return {"status": state}
+                marker = await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER))
+                if marker is not None:
+                    await session.delete(marker)
+                counts = await _apply(session, catalog, upload=upload_file, uploaded=uploaded)
+    except BaseException:
+        # Nothing was committed, so no row points at these files: take them back out.
+        await _delete_files(uploaded)
+        raise
     await _drop_caches()
-    return counts
+    return {"status": "seeded", **counts}
 
 
 async def remove_demo_stores() -> dict[str, int]:
     async with AsyncSessionLocal() as session:
         async with session.begin():
             counts, keys = await _remove(session)
-    failed = 0
-    for key in keys:  # after the commit, so no live row ever points at a missing file
-        try:
-            await delete_file(key)
-        except Exception as exc:
-            failed += 1
-            log.warning("Could not delete %s: %s", key, exc)
-    counts["files_deleted"] = len(keys) - failed
+    # After the commit, so no live row ever points at a missing file.
+    counts["files_deleted"] = await _delete_files(keys)
     await _drop_caches()
     return counts
 
 
 async def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Seed or remove the demo-store catalog.")
-    ap.add_argument("--remove", action="store_true", help="delete every DEMO store and its rows")
+    ap.add_argument("--remove", action="store_true",
+                    help="delete every demo store and its rows; later deploys do not seed them again")
+    ap.add_argument("--force", action="store_true",
+                    help="seed even with DEMO_STORES off or after --remove (clears the marker)")
     args = ap.parse_args(argv)
     if args.remove:
         c = await remove_demo_stores()
@@ -233,12 +280,19 @@ async def main(argv: list[str] | None = None) -> None:
             f" {c['materials']} materials, {c['files_deleted']} images deleted."
         )
         return
-    c = await seed_demo_stores()
-    print(
-        f"Demo stores seed complete: {c['stores']} stores, {c['furniture']} furniture,"
-        f" {c['materials']} materials inserted; {c['existing']} already there;"
-        f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
-    )
+    c = await seed_demo_stores(force=args.force)
+    if c["status"] == "disabled":
+        print("Demo stores: DEMO_STORES is off, nothing seeded.")
+    elif c["status"] == "already_seeded":
+        print("Demo stores: already seeded once, nothing changed (admin edits are kept).")
+    elif c["status"] == "removed":
+        print("Demo stores: removed earlier with --remove, not seeded again (use --force to reseed).")
+    else:
+        print(
+            f"Demo stores seed complete: {c['stores']} stores, {c['furniture']} furniture,"
+            f" {c['materials']} materials inserted; {c['existing']} already there;"
+            f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
+        )
 
 
 if __name__ == "__main__":

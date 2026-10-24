@@ -93,8 +93,9 @@ run_seed app.seed_norms "smeta norms"
 # the catalog seeders so their stores exist; a bad row here cannot take the others down.
 run_seed app.seed_estimate_catalog "estimate shop products"
 # Real Tashkent stores with products and photos from their public sites, for the
-# presentation, before any contract: every store is marked DEMO in moderation_note.
-# Insert-only; remove them all with `python -m app.seed_demo_stores --remove`.
+# presentation, before any contract (stores.is_demo). Runs only with DEMO_STORES on
+# (docker-compose.prod.yml) and only once: an existing demo store, or an earlier
+# `python -m app.seed_demo_stores --remove`, makes it a no-op.
 run_seed app.seed_demo_stores "demo stores (presentation)"
 # The /materials response is cached 10 min; drop those keys so freshly seeded
 # rows appear immediately.

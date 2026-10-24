@@ -52,6 +52,9 @@ services:
     environment:
       PYTHONPATH: /app
       FIREBASE_CREDENTIALS_FILE: /run/secrets/firebase.json
+      # Seed the presentation demo stores once (app/seed_demo_stores.py). Set
+      # DEMO_STORES=0 in the deploy env to never seed them.
+      DEMO_STORES: ${DEMO_STORES:-1}
     depends_on:
       postgres:
         condition: service_healthy
