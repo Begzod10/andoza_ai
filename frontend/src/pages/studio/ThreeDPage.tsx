@@ -13,6 +13,7 @@ import { NewRoomSheet } from "@/components/studio/NewRoomSheet";
 import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
+import { useEmbeddedApp } from "@/lib/embedded";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
@@ -111,6 +112,9 @@ export interface StudioContext {
   /** Closes the ⋮ dropdown — for a row that opens a sheet, which would
    *  otherwise sit under the still-open menu. */
   closeMenu?: () => void;
+  /** Lets the header float over the viewport without a background (inside the
+   *  native app only; StudioPage decides). On while the live 3D view shows. */
+  setOverlayHeader?: (on: boolean) => void;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -119,7 +123,8 @@ export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
   const { t } = useTranslation()
-  const { room, onSave, tabSlot, menuSlot, closeMenu } = useOutletContext<StudioContext>();
+  const { room, onSave, tabSlot, menuSlot, closeMenu, setOverlayHeader } = useOutletContext<StudioContext>();
+  const embedded = useEmbeddedApp();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -278,6 +283,13 @@ export default function ThreeDPage() {
   // is the live scene, '2d' swaps it for the full-width reflected ceiling
   // plan. Same mount-and-hide trick as mebelView above.
   const [chiroqView, setChiroqView] = useState<'2d' | '3d'>('3d');
+  // The header may float over the scene only while the scene fills the slot:
+  // a 2D plan has its own content up there.
+  const planShown = (isMebelTab && mebelView === '2d') || (isChiroqTab && chiroqView === '2d');
+  useEffect(() => {
+    setOverlayHeader?.(!planShown);
+    return () => setOverlayHeader?.(false);
+  }, [planShown, setOverlayHeader]);
   // Optional starting phase from the URL (?phase=…). The mobile wall-condition
   // step sets it so the studio opens on the first renovation stage that still
   // needs doing (an already-plastered wall skips Suvoq, a puttied wall skips
@@ -758,6 +770,7 @@ export default function ThreeDPage() {
             try { await onSave(); } catch { /* offline — switch anyway */ }
             navigate(`/studio/${id}/ichkarida`);
           }}
+          onOpenSmeta={embedded ? () => navigate(`/smeta/${room.id}${location.search}`) : undefined}
         />
 
         {/* Canvas area. relative: anchors the Mebelirovka top-right control
@@ -774,8 +787,11 @@ export default function ThreeDPage() {
             viewport otherwise. Inline there: the overlay variant positions
             itself absolutely, which inside a flex header would sit it over
             the title. */}
+        {/* Inside the native app the strip is left out and the smeta is a ⋮
+            menu row instead, so the floating header is just its buttons and
+            the 3D view gets the screen. */}
         {tabSlot
-          ? createPortal(<StudioTabStrip roomId={room.id} variant="inline" />, tabSlot)
+          ? embedded ? null : createPortal(<StudioTabStrip roomId={room.id} variant="inline" />, tabSlot)
           : <StudioTabStrip roomId={room.id} />}
         {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
             the full-width top-view plan editor ('2d') for the live 3D

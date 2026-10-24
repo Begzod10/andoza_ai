@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-import { WebOnly } from "@/lib/embedded";
+import { WebOnly, useEmbeddedApp } from "@/lib/embedded";
 import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -62,6 +62,13 @@ export default function StudioPage() {
   // height is nobody's business any more.
   const headerRef = useRef<HTMLElement | null>(null);
   const [tabSlotEl, setTabSlotEl] = useState<HTMLDivElement | null>(null);
+  // Inside the native app, the header floats over the 3D viewport with no
+  // background (its buttons have their own), so the scene gets that row of the
+  // small screen too. Only while a page asks for it — the live 3D view — since
+  // a page with its own content at the top would sit under the buttons.
+  const embedded = useEmbeddedApp();
+  const [overlayHeader, setOverlayHeader] = useState(false);
+  const floatingHeader = embedded && overlayHeader;
   // A slot inside the ⋮ dropdown for the current tab's own menu rows (the 3D
   // view's scan toggle, sun clock, AI builder and design-panel button). Null
   // while the dropdown is closed, which is exactly when they should not
@@ -425,13 +432,21 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-paper">
+    <div className="relative flex flex-col h-[100dvh] overflow-hidden bg-paper">
       {/* Header — was two rows (title bar, then a separate tab-nav row);
           merged into one grid row so the canvas gets a full row of vertical
           space back. Three columns: [back+title] auto-width and left-aligned,
           [tabs] takes the remaining space and centers within it, [save+menu]
           auto-width on the right. */}
-      <header ref={headerRef} className="bg-card text-ink border-b border-line">
+      <header
+        ref={headerRef}
+        className={
+          floatingHeader
+            ? // Clicks through the empty parts reach the scene; the buttons keep theirs.
+              "absolute inset-x-0 top-0 z-30 text-ink pointer-events-none [&>div>*]:pointer-events-auto"
+            : "bg-card text-ink border-b border-line"
+        }
+      >
         <div className="px-4 py-2 lg:py-3 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Back button + title, left-aligned */}
           <div className="flex items-center gap-2 min-w-0">
@@ -632,7 +647,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl, closeMenu: () => setMenuOpen(false) }} />
+          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl, closeMenu: () => setMenuOpen(false), setOverlayHeader }} />
         </Suspense>
       </main>
     </div>

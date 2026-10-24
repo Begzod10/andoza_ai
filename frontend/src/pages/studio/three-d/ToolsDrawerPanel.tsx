@@ -106,6 +106,7 @@ export function ToolsDrawerPanel({
   rooms,
   activeRoomId,
   onOpenRoom,
+  onOpenSmeta,
 }: {
   /** A node inside the header's ⋮ dropdown; null while it is closed. */
   menuSlot?: HTMLDivElement | null;
@@ -125,12 +126,27 @@ export function ToolsDrawerPanel({
   /** Opens another room of the flat — the only way to, now that tapping a
    *  neighbour in the 3D view does not. */
   onOpenRoom: (roomId: string) => void;
+  /** Opens the smeta — given inside the native app, where the 3D/Smeta strip
+   *  is left out of the header so the 3D view keeps the screen. */
+  onOpenSmeta?: () => void;
 }) {
   const { t } = useTranslation()
   if (!menuSlot) return null;
   const roomEntries = roomListEntries(rooms, activeRoomId);
   return createPortal(
     <div className="flex flex-col divide-y divide-line border-b border-line">
+          {onOpenSmeta && (
+            <button
+              onClick={() => { closeMenu?.(); onOpenSmeta(); }}
+              className="flex items-center gap-2 w-full text-left px-4 py-3 min-h-[44px] text-sm font-semibold text-ink hover:bg-card-soft transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="5" y="3" width="14" height="18" rx="2" />
+                <path d="M9 7h6M9 11h6M9 15h3" />
+              </svg>
+              <span>{t("studio.tabs.smeta")}</span>
+            </button>
+          )}
           {/* The flat's rooms. Nothing for a one-room project. */}
           {roomEntries.length > 0 && (
             <div className="px-4 py-3">
