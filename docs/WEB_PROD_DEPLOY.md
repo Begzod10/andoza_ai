@@ -6,7 +6,7 @@ mobile guide in `docs/mobile/IOS_BUILD.md`.
 
 ## TL;DR
 
-- Prod is one HTTPS origin — **`https://andoza.jumaniyozov.uz`** — fronted by the
+- Prod is one HTTPS origin — **`https://andozaai.uz`** — fronted by the
   VPS's system **nginx**, which reverse-proxies to the Docker containers.
 - Push to **`master`** → GitHub Actions **auto-deploys** (`.github/workflows/deploy.yml`)
   → SSH → `docker compose -f docker-compose.prod.yml up -d --build`.
@@ -21,7 +21,7 @@ mobile guide in `docs/mobile/IOS_BUILD.md`.
 ```
                           ┌──────────────────── VPS 189.74.96.11 ────────────────────┐
 Browser / mobile WebView  │  nginx (:443, Let's Encrypt)                              │
-  https://andoza.jumaniyozov.uz  ─────────────►  server_name andoza.jumaniyozov.uz    │
+  https://andozaai.uz           ─────────────►  server_name andozaai.uz            │
                           │     location /        → 127.0.0.1:5173  (frontend, Docker) │
                           │     location /api/    → 127.0.0.1:8000  (backend,  Docker) │
                           │     location /media/  → 127.0.0.1:8000  (media)            │
@@ -29,7 +29,7 @@ Browser / mobile WebView  │  nginx (:443, Let's Encrypt)                      
 ```
 
 - **DNS:** an `A` record `andoza` on `jumaniyozov.uz` (Vercel DNS) → `189.74.96.11`,
-  i.e. `andoza.jumaniyozov.uz` resolves to the VPS.
+  i.e. `andozaai.uz` resolves to the VPS.
 - **Containers** (`docker-compose.prod.yml`): `frontend` publishes host `:5173`
   (nginx-in-container serving the built static app), `api` publishes `:8000`.
 - Because everything is under one origin, the studio's `credentials:'include'`
@@ -48,7 +48,7 @@ Vite inlines `import.meta.env.VITE_API_URL` **at build time** (see
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://andoza.jumaniyozov.uz/api/v1}
+        VITE_API_URL: ${VITE_API_URL:-https://andozaai.uz/api/v1}
 ```
 
 - It **must** be the HTTPS API base. If it's ever set to a plain-`http://` URL (or
@@ -59,7 +59,7 @@ Vite inlines `import.meta.env.VITE_API_URL` **at build time** (see
 
 To override for a one-off build without editing the file:
 ```bash
-VITE_API_URL=https://andoza.jumaniyozov.uz/api/v1 \
+VITE_API_URL=https://andozaai.uz/api/v1 \
   docker compose -f docker-compose.prod.yml up -d --build frontend
 ```
 
@@ -93,7 +93,7 @@ site and the browser blocked all of them — no 3-D furniture model would load.
 Check it after a deploy:
 
 ```bash
-curl -s https://andoza.jumaniyozov.uz/api/v1/furniture | grep -o 'http://[^"]*' | head
+curl -s https://andozaai.uz/api/v1/furniture | grep -o 'http://[^"]*' | head
 # must print nothing
 ```
 
@@ -125,16 +125,16 @@ docker compose -f docker-compose.prod.yml up -d --build frontend
 
 ## 4. nginx + HTTPS (one-time VPS setup)
 
-Already done for `andoza.jumaniyozov.uz`; documented here to reproduce for a new
-host/domain. nginx + certbot are installed on the VPS.
+The site is served at `andozaai.uz` (DNS on Cloudflare, proxied, SSL/TLS mode "Full").
+The old `andoza.jumaniyozov.uz` keeps working from the same block. nginx + certbot are installed on the VPS.
 
-`/etc/nginx/sites-available/andoza.jumaniyozov.uz` (symlinked into `sites-enabled/`):
+`/etc/nginx/sites-available/andozaai.uz` (symlinked into `sites-enabled/`):
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name andoza.jumaniyozov.uz;
+    server_name andozaai.uz www.andozaai.uz andoza.jumaniyozov.uz;
 
     # USDZ/GLB/model uploads (API caps at 50 MB) — headroom over nginx default 1M.
     client_max_body_size 60M;
@@ -168,9 +168,9 @@ Enable + provision the cert (certbot rewrites the block to add `:443` + the cert
 paths + an HTTP→HTTPS redirect, and installs an auto-renew timer):
 
 ```bash
-ln -s /etc/nginx/sites-available/andoza.jumaniyozov.uz /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/andozaai.uz /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
-certbot --nginx -d andoza.jumaniyozov.uz --agree-tos -m you@example.com --redirect
+certbot --nginx -d andozaai.uz -d www.andozaai.uz -d andoza.jumaniyozov.uz --agree-tos -m you@example.com --redirect
 ```
 
 ---
@@ -192,12 +192,12 @@ certbot --nginx -d andoza.jumaniyozov.uz --agree-tos -m you@example.com --redire
 
 ```bash
 # API over HTTPS (add --resolve if DNS hasn't propagated to your machine yet)
-curl -s -o /dev/null -w "%{http_code}\n" https://andoza.jumaniyozov.uz/api/v1/furniture   # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://andozaai.uz/api/v1/furniture   # 200
 # HTTP redirects to HTTPS
-curl -s -o /dev/null -w "%{redirect_url}\n" http://andoza.jumaniyozov.uz/                  # https://…
+curl -s -o /dev/null -w "%{redirect_url}\n" http://andozaai.uz/                  # https://…
 # The built bundle points at the HTTPS API (not a raw http IP)
-JS=$(curl -s https://andoza.jumaniyozov.uz/ | grep -oE '/assets/index-[^"]+\.js' | head -1)
-curl -s "https://andoza.jumaniyozov.uz$JS" | grep -oE 'https://andoza\.jumaniyozov\.uz/api/v1'
+JS=$(curl -s https://andozaai.uz/ | grep -oE '/assets/index-[^"]+\.js' | head -1)
+curl -s "https://andozaai.uz$JS" | grep -oE 'https://andozaai\.uz/api/v1'
 ```
 
 ---

@@ -126,7 +126,7 @@ export default defineConfig({
     },
     proxy: {
       // Overridable so local dev can point at the production backend
-      // (VITE_API_PROXY_TARGET=https://andoza.jumaniyozov.uz) instead of the
+      // (VITE_API_PROXY_TARGET=https://andozaai.uz) instead of the
       // local docker backend. Proxying server-side keeps every request
       // same-origin from the browser's point of view (still localhost:5173)
       // — required because the backend's auth cookies are SameSite=Lax and

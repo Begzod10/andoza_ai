@@ -40,8 +40,11 @@ Names follow what each store shows (Uzbek on Dafna, Russian elsewhere) and are c
 | Keng Makon (kengmakon.uz) | 0 | | | **Skipped.** Its image CDN's robots.txt is `Disallow: /`. |
 | Sanat Hali (prom.uz, carpets) | 0 | | | **Dropped.** The photos are prom.uz `/upload/` files, and www.prom.uz's robots.txt disallows `/upload/`. No other carpet source was found, so there are no carpets. |
 | Imzo (imzo.uz) | 0 | | | **Skipped.** No product page shows a price. |
+| Deraza bozori — o'rtacha narx (not a store) | 6 materials: 5 windows (deraza), 1 balcony door (eshik) | UZS, median market price | 6 drawn illustrations, 20 KB | Added in catalog version 2. See "Windows: average market prices" below. |
 
-**Total:** 9 stores, 134 furniture pieces, 25 materials, 28 wallpapers, 187 photos (5.5 MB).
+**Total:**
+- Catalog version 1, already seeded in production: 9 stores, 134 furniture pieces, 25 materials, 28 wallpapers, 187 photos (5.5 MB).
+- Catalog version 2 adds the window store: 1 store and 6 materials.
 
 Store contacts (phone and Telegram where published) come from `2026-10-24-uz-stores-catalogs.md` or the store's own site.
 
@@ -82,11 +85,162 @@ I found no public sites with catalogs for Alta Classe, Fran Style, Nebo, Vostok 
 
 **In the estimate:** before this change, a library wallpaper was always priced as an AI-estimated m² photo print. Now a library wallpaper that has a roll width, roll length and price is matched by its URL (local media URL or S3 URL) and counted in rolls of its own size, strip by strip, like a catalog oboy. For example, for a 4 m wall with a 2.7 m ceiling: 4 × 1.10 ÷ 1.06 = 5 strips, and a 10 m roll gives 3 strips, so 2 rolls at 315 000 UZS. A user's own photo keeps the AI placeholder.
 
+## Windows: average market prices (catalog version 2)
+
+No window maker publishes a price list. Imzo shows no prices and Akfa has no catalog. The owner therefore decided to add windows at the **average Tashkent market price**, clearly labelled as such.
+
+**How they appear:**
+- They sit in a separate demo store, **"Deraza bozori — o'rtacha narx"**. It has no website, phone or Telegram.
+- Its `moderation_note` reads "DEMO: Toshkent bozoridagi o'rtacha narx (2026-yil oktabr), do'kon taklifi emas" ("average Tashkent market price, October 2026, not a store's offer").
+- No brand is named as the seller. Akfa, Ekopen, Engelberg and Termo appear only as the profile inside a product name.
+- In catalog.json each item carries `price_basis` (`market_median`, or `market_median_x_area` for the per-piece window), `sample_size` and `sources`, which lists every listing URL used.
+- The pictures are plain window drawings made by `backend/scripts/demo_catalog/draw_windows.py` (Pillow). No photo was copied.
+
+| Item | Category | Unit | Price (UZS) | n | How it was derived |
+|---|---|---|---|---|---|
+| Plastik deraza (Akfa/Ekopen profili), 2 kamerali oyna paketi | deraza | m2 | **700 000** | 24 | Median of all points |
+| Energiya tejamkor plastik deraza (Engelberg/Termo profili) | deraza | m2 | **775 000** | 14 | Median of all points |
+| Alyumin deraza, sovuq profil | deraza | m2 | **632 500** | 10 | Median of all points |
+| Issiq alyumin deraza (termo profil) | deraza | m2 | **1 300 000** | 5 | Median of all points. Few data points. |
+| Plastik balkon eshigi | eshik | m2 | **850 000** | 8 | Median of all per-m² points |
+| Tayyor plastik deraza 1,2×1,4 m (Akfa profili) | deraza | dona | **1 176 000** | 24 | Standard median 700 000 × 1.68 m² |
+
+### Method
+
+**When and how the prices were read:**
+- Collected on 24.10.2026 from public pages only: olx.uz, prom.uz `/ads/` pages, glotr.uz, stroyka.uz, flagma.uz, tovar.uz, goldplast.uz and asabiyya.uz. No log-ins, no forms, no prom.uz `/upload/` files.
+- Prices quoted in USD or "у.е." are converted at 1 USD = 12 100 UZS. The prom.uz sellers' own сум figures imply the same rate.
+- Window prices in Tashkent are quoted per m² of the finished, made-to-order window. Measuring, delivery and installation are usually included.
+
+**Which data points count:**
+- A point counts when the page states the price per m² ("за м²", "кв.м", "kv.m").
+- A made-to-order window listing with no unit also counts, by that market convention. These points are marked *unit not stated* below. They sit at the cheaper end, since they are often "from" teaser prices.
+- Explicit-only medians are given next to each table for comparison.
+
+**What was left out:**
+- Repairs, sills, mosquito nets, shutters, storefront glazing (vitraj), used (б/у) items and placeholder prices such as "от 1 / кв. метр".
+- Listings last updated before 2024.
+- Some sellers appear more than once, on different sites or in different listings, and are noted. "от" prices are floor prices.
+
+**The per-piece window:**
+- Only one seller (Window Line) sells ready-made windows with a stated size: 700 000 and about 508 000 UZS/m².
+- The 1.2 × 1.4 m piece is therefore the standard median × area, not an observed price.
+
+### Standard PVC (Akfa / Ekopen / Imzo / economy), per m²
+
+| # | Source | Seller | Quoted | Unit on page | UZS/m² | Updated |
+|---|---|---|---|---|---|---|
+| 1 | https://flagma.uz/ru/plastikovye-okna-v-tashkente-akfa-ekopen-o1826623.html | ARMAMETALL | 700 000 сум | м² | 700 000 | 24.10.2026 |
+| 2 | https://tovar.uz/uz/service/583 | ARMAMETALL (same seller as #1) | 550 000 UZS | kv.m | 550 000 | 22.02.2026 |
+| 3 | https://prom.uz/ads/plastikovye-i-alyuminievye-okna-1/ | Vector Oyna Group | 855 000 сум | "за 1 квадратный метр" | 855 000 | 19.06.2026 |
+| 4 | https://prom.uz/ads/akfa-rom-akciya-toskent-kv-m/ | Deraza House | 75 $ | kv m | 907 500 | 06.07.2026 |
+| 5 | https://prom.uz/ads/akfa-rom-chilonzor-65-kvm-akciya/ | Oyna House | 65 $ | кв.м | 786 500 | 04.06.2026 |
+| 6 | https://prom.uz/ads/oq-akfa-plast-toshkent-shaxri-va-viloyatlariga/ | Oyna House (same seller as #5) | 70 $ | kv metri | 847 000 | 19.06.2026 |
+| 7 | https://prom.uz/ads/akfa-plast-oq-70-kvm-toshkent-shaxri-va-viloyatlariga-xizmat/ | Mega Deraza Ta'minot | 70 $ | kv. m | 847 000 | 04.06.2026 |
+| 8 | https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-masterplast-ekopen-ID2k4eo.html | private | 440 000 сум | "за 1кв.м" | 440 000 | 14.10.2026 |
+| 9 | https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-ekopen-ID1UUIO.html | private | 750 000 сум | "Цена за 1м2" | 750 000 | 23.10.2026 |
+| 10 | https://glotr.uz/pvx-okna-i-dveri-p-914785/ | Eurogar | 947 114 сум | кв.м | 947 114 | none shown |
+| 11 | https://glotr.uz/plastikovie-okna-p-1077621/ | Imzo Rohat | от 1 400 000 сум | кв.м | 1 400 000 | none shown |
+| 12 | https://www.olx.uz/d/obyavlenie/akfa-akfa-okna-plastikovye-ekopen-ID3vOoH.html | private | 550 000 сум | unit not stated | 550 000 | 23.10.2026 |
+| 13 | https://www.olx.uz/d/obyavlenie/akfa-ramy-plastikovye-okna-i-dveri-ID42DJQ.html | private | 700 000 сум | unit not stated | 700 000 | 21.10.2026 |
+| 14 | https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-romlar-plastikovye-okna-i-razdvizhnye-sistemy-ID4tTIA.html | private | 730 000 сум | unit not stated | 730 000 | 14.10.2026 |
+| 15 | https://www.olx.uz/d/obyavlenie/akfa-okna-i-dveri-plastikovye-okna-termo-engelberg-montazh-ID4u22d.html | Omad Metal | 750 000 сум | unit not stated | 750 000 | 24.10.2026 |
+| 16 | https://www.olx.uz/d/obyavlenie/tsehdan-akfa-plast-eshik-akfa-rom-romlar-deraza-plastikovye-okna-dveri-ID3scEv.html | private | 650 000 сум | unit not stated | 650 000 | 11.10.2026 |
+| 17 | https://www.olx.uz/d/obyavlenie/akfa-okno-dvery-na-zakaz-ID4ibCr.html | private | 550 000 сум | unit not stated | 550 000 | 16.10.2026 |
+| 18 | https://www.olx.uz/d/obyavlenie/ekopen-okna-i-dveri-ID3t2Ym.html | private | 40 у.е. | unit not stated | 484 000 | 12.10.2026 |
+| 19 | https://prom.uz/ads/ekopen-akfa-enjelberg/ | Metalplast | 500 000 сум | unit not stated | 500 000 | 05.10.2026 |
+| 20 | https://prom.uz/ads/okna-akfa-ekopen-termo/ | Eshik Plast Door | 544 607 сум | unit not stated | 544 607 | 19.06.2026 |
+| 21 | https://prom.uz/ads/akfa-plastik-derazalar/ | Door Style | 650 000 сум | unit not stated | 650 000 | 06.07.2026 |
+| 22 | https://prom.uz/ads/akfa-lider-plast-nemat/ | Jaluzi Design Craft | 450 000 сум | unit not stated | 450 000 | 19.06.2026 |
+| 23 | https://prom.uz/ads/akfa-okna-plastikovye-novye-i-gotovye-v-taskente-1000x1200/ | Window Line | 840 000 сум, 1000×1200 mm | per piece | 700 000 | 06.07.2026 |
+| 24 | https://prom.uz/ads/akfadan-tayyor-yangi-rom-1500x1700/ | Window Line | 1 210 000 сум, 1400×1700 mm | per piece | 508 403 | 06.07.2026 |
+
+**Median 700 000** (n = 24). Explicit per-m² points only (#1–11): 847 000.
+
+### Energy-saving / warm PVC (Engelberg, Termo), per m²
+
+| # | Source | Seller | Quoted | Unit on page | UZS/m² | Updated |
+|---|---|---|---|---|---|---|
+| 1 | https://glotr.uz/engelberg-7000-engelberg-8000-5-kamernie-goryachie-profili-rami-povishennoy-vidimosti-p-1078855/ | Imzo Rohat | от 1 700 000 сум | кв.м | 1 700 000 | none shown |
+| 2 | https://glotr.uz/engelberg-7000visokaya-teploizolyatsiyaprochnost-i-dolgovechnost-p-1085524/ | Imzo Rohat (same seller as #1) | от 1 500 000 сум | кв.м | 1 500 000 | none shown |
+| 3 | https://stroyka.uz/offer/plastikovye-okna-engelberg-7000 | BRAND WORLD DREAM | 800 000 сум | кв. метр | 800 000 | 04.10.2024 |
+| 4 | https://stroyka.uz/offer/plastikovye-okna-engelberg-80 | BRAND WORLD DREAM (same seller as #3) | 1 000 000 сум | кв. метр | 1 000 000 | 04.10.2024 |
+| 5 | https://tovar.uz/service/583 | ARMA METALL (Termo, energy-saving glass units) | 550 000 UZS | кв.м | 550 000 | 22.02.2026 |
+| 6 | https://flagma.uz/ru/engelberg-akfa-thermo-okna-dveri-i-vitrazhi-o2004994.html | City trust buildings | 750 000 сум | м² | 750 000 | 02.03.2025 |
+| 7 | https://goldplast.uz/products/plastikovie-okna-i-dveri/ | Gold Business Plast (AKFA 7000) | от 60 $ | м² | 726 000 | 2026 |
+| 8 | https://glotr.uz/plastikovie-okna-akfa-ekopen-enjelberg-p-89029/ | Metalplast | 550 000 сум | кв.м | 550 000 | none shown |
+| 9 | https://prom.uz/ads/okna-premium-klassa-engelberg-7000-akfa-imzo/ | Deraza Plast Atlas | 1 936 382 сум ($160) | unit not stated | 1 936 382 | 19.06.2026 |
+| 10 | https://prom.uz/ads/plastikovye-okna-i-dveri-termo-akfa-engelberg/ | Window Style | 847 167 сум ($70) | unit not stated | 847 167 | 07.07.2026 |
+| 11 | https://prom.uz/ads/okna-i-dveri-akfa-termo-engelberg/ | Vitraj Line UZ | 665 631 сум ($55) | unit not stated | 665 631 | 19.06.2026 |
+| 12 | https://www.olx.uz/d/obyavlenie/akfa-engelberg-thermo-okna-zakaz-v-tashkente-akfa-kachestvo-garantiya-ID3D0v0.html | private | 840 000 сум | unit not stated | 840 000 | 18.10.2026 |
+| 13 | https://www.olx.uz/d/obyavlenie/okna-i-dveri-akfa-engelberg-termo-ekopen-ID4faXJ.html | private | 60 у.е. | unit not stated | 726 000 | 23.10.2026 |
+| 14 | https://www.olx.uz/d/obyavlenie/akfa-okna-i-dveri-plastikovye-okna-termo-engelberg-montazh-ID4u22d.html | Omad Metal | 750 000 сум | unit not stated | 750 000 | 24.10.2026 |
+
+**Median 775 000** (n = 14). Explicit per-m² points only (#1–8): 775 000.
+
+### Aluminium windows, per m²
+
+| # | Source | Seller | Quoted | Unit on page | UZS/m² | Updated |
+|---|---|---|---|---|---|---|
+| 1 | https://prom.uz/ads/akfa-rom-akciya-toskent-kv-m/ | Deraza House (Akfa alumin) | 50 $ | kv m | 605 000 | 06.07.2026 |
+| 2 | https://glotr.uz/allyumininvie-okna-p-89170/ | Metalplast | 550 000 сум | кв.м | 550 000 | none shown |
+| 3 | https://glotr.uz/alyuminievie-okna-po-nizkim-tsenam-p-191639/ | Eurookna.uz | 400 000 сум | кв.м | 400 000 | none shown |
+| 4 | https://glotr.uz/okna-akfa-alyuminiy-pvx-p-552787/ | Ulug'bek Fazliddin Nilufar | от 400 000 сум | кв.м | 400 000 | none shown |
+| 5 | https://stroyka.uz/offer/alyuminievye-okna-shampion | BRAND WORLD DREAM (cold glazing) | 750 000 сум | кв. метр | 750 000 | 04.10.2024 |
+| 6 | https://stroyka.uz/offer/alyuminievye-okna-6-88182 | Winplast System | от 900 000 | кв. метр | 900 000 | 06.02.2024 |
+| 7 | https://flagma.uz/ru/alyuminievye-okna-o1884739.html | TEXNOINVEST-ST | 700 000 сум | м² | 700 000 | 21.02.2024 |
+| 8 | https://flagma.uz/ru/alyuminievye-okna-ot-akfa-o1787313.html | Eurookna | 500 000 сум | м² | 500 000 | 11.09.2020 (old) |
+| 9 | https://flagma.uz/ru/okna-dveri-i-vitrazhi-iz-alyuminievogo-profilyapvh-profiltermo-profil-o2036945.html | Infinity Systems | 70 $ | м² | 847 000 | 28.09.2026 |
+| 10 | https://prom.uz/ads/alyuminievye-okna-procnost/ | Stroy Expo | от 660 000 сум | unit not stated | 660 000 | 01.04.2024 |
+
+**Cold aluminium, median 632 500** (n = 10). Explicit per-m² points only (#1–9): 605 000. Point #8 is from 2020. I kept it because cold aluminium is a flat-priced commodity, and dropping it moves the median to 660 000.
+
+| # | Source | Seller | Quoted | Unit on page | UZS/m² | Updated |
+|---|---|---|---|---|---|---|
+| 11 | https://stroyka.uz/offer/thermo-78-engelberg | BRAND WORLD DREAM (Engelberg Thermo 78) | 1 300 000 сум | кв. метр | 1 300 000 | 04.10.2024 |
+| 12 | https://asabiyya.uz/alyuminievye-okna-tashkent/ | Asabiyya.uz (AKFA Termo 57) | от 1 200 000 – 2 500 000 сум | м² | 1 200 000 | 2026 |
+| 13 | https://glotr.uz/alyuminievie-okna-termo-65-art-01-p-914767/ | Eurogar (Termo 65) | 828 724 сум | кв.м | 828 724 | none shown |
+| 14 | https://glotr.uz/alyuminievie-okna-p-1071408/ | Imzo Rohat | от 1 400 000 сум | кв.м | 1 400 000 | none shown |
+| 15 | https://glotr.uz/visokokachestvennie-energosberegayushie-dveri-i-okna-termo-p-1084938/ | Imzo Rohat (same seller as #14) | 2 604 562 сум | кв.м | 2 604 562 | none shown |
+
+**Warm (thermal-break) aluminium, median 1 300 000** (n = 5, all explicit per m²). This is a thin sample.
+
+### Plastic balcony door, per m²
+
+No listing is titled as a balcony door with a per-m² price. The rows below are PVC doors; Eurookna's listings say balcony doors are among them.
+
+| # | Source | Seller | Quoted | Unit on page | UZS/m² | Updated |
+|---|---|---|---|---|---|---|
+| 1 | https://flagma.uz/ru/plastikovaya-dver-akfa-o1784828.html | Eurookna (balcony mentioned) | 1 362 500 сум | м² | 1 362 500 | 10.03.2022 |
+| 2 | https://flagma.uz/ru/plastikovye-dveri-o1788718.html | Eurookna | 800 000 сум | м² | 800 000 | 11.09.2020 |
+| 3 | https://flagma.uz/ru/kupit-plastikovye-dveri-o1791739.html | WinPlast System | 900 000 сум | м² | 900 000 | 03.06.2022 |
+| 4 | https://flagma.uz/ru/plastikovye-i-alyuminievye-dveri-v-eurookna-o1787873.html | Eurookna | 1 299 000 сум | м² | 1 299 000 | 10.03.2022 |
+| 5 | https://prom.uz/ads/plastikovye-dveri-1/ | Winplast System | от 900 000 сум | unit not stated | 900 000 | 22.11.2022 |
+| 6 | https://prom.uz/ads/plastikovye-dveri-akfa/ | Akfa Romlari (its windows: "от 40 доллар / кв. метр") | от 484 095 сум | unit not stated | 484 095 | 16.01.2026 |
+| 7 | https://prom.uz/ads/oknadveri-vitraji/ | Olmaliq Zafar Plast | от 700 000 сум | unit not stated | 700 000 | 31.03.2025 |
+| 8 | https://prom.uz/ads/metalloplastikovye-ramy-i-plastikovye-dveri/ | Door Design | 423 583 сум ($35) | unit not stated | 423 583 | 04.06.2026 |
+
+**Median 850 000** (n = 8). Explicit points only (#1–4): 1 099 500. Those four date from 2020–2022.
+
+These are the weakest data. Two private OLX sales of ready balcony units were left out as one-off sales: 135 × 247 cm for 100 у.е. (https://www.olx.uz/d/obyavlenie/prodaetsya-kachestvennyy-balkonnyy-blok-iz-pvh-profilya-ID4t9Yn.html) and an Engelberg Termo unit, 129.5 × 225.5 cm, for 300 у.е. (https://www.olx.uz/d/obyavlenie/srochno-tayyor-7000engelberg-termo-129-5x225-5-razmerda-ID40Saz.html).
+
+### In the shop, studio and estimate
+
+- **Shop:** the windows show in the shop's materials tab under "Deraza" ("Window", "Окно"), and the balcony door under "Eshik". The admin materials list shows all six.
+- **Estimate (smeta):** it does not price windows or doors. Openings are only subtracted from wall areas, and door widths from the skirting. So these materials are not used there, and no change was needed.
+- **Studio:** a "deraza" opening in the studio is geometry only and is not linked to a material.
+
 ## When the seed runs
 
 - **The flag:** it runs only when `DEMO_STORES` is on. The backend setting defaults to off. `docker-compose.prod.yml` sets `DEMO_STORES: ${DEMO_STORES:-1}` for the api service, so production seeds the demo for the presentation. `--force` runs it even with the flag off.
-- **Only once:** if any `is_demo` store already exists, the seed does nothing. A later deploy therefore never re-adds a piece an admin deleted or renamed.
-- **The removal marker:** after `--remove`, a `seed_markers` row with key `demo_stores_removed` stops later deploys from seeding again. `--force` clears that marker and reseeds.
+- **Each row only once, by catalog version:**
+  - catalog.json has a top-level `version` (now 2). Each store and item has a `since` version. It defaults to 1, and an item inherits its store's.
+  - A `seed_markers` row `demo_stores_v<N>` records the highest version applied. A deploy inserts only the rows whose `since` is greater, then replaces the marker.
+  - A database seeded before versions existed has demo stores but no version marker, and counts as version 1 applied. On the next production deploy, exactly the window store and its 6 items are added, and the marker `demo_stores_v2` is written. Later deploys do nothing.
+  - A row or store an admin deleted or renamed is never put back. A store with no new item is not even looked at.
+  - **To add products later:** give them (or their new store) `"since": N+1` and bump `version` to N+1.
+  - `scripts/demo_catalog/fetch.py` keeps `version`, store `since` values and the hand-made window store when it refetches.
+- **The removal marker:** after `--remove`, a `seed_markers` row with key `demo_stores_removed` stops later deploys from seeding again. This includes new catalog versions. `--force` clears that marker, seeds every version again (rows still present by name are kept) and sets the version marker.
   - The marker is a database row rather than a file because it lives next to the rows it guards. It survives redeploys, and it travels with the data in a backup or restore. A file in the media volume could disagree with a restored database.
 - **Migration `1786000041`** (after `1786000040`, the head on origin/master) adds `stores.is_demo BOOLEAN NOT NULL DEFAULT false` and the `seed_markers` table. Approving or rejecting a store in moderation clears `moderation_note` but never touches `is_demo`, and a test covers this.
 - **Failed seeds:** if a seed fails, the photos it had already uploaded are deleted again, so nothing leaks into storage.
@@ -105,6 +259,21 @@ I found no public sites with catalogs for Alta Classe, Fran Style, Nebo, Vostok 
 
 ## Verification
 
+**Windows and catalog versions (version 2):**
+- `test_seed_demo_stores.py` now has 33 tests. The new ones check:
+  - versions are consistent, and version 1 is exactly production's 9 stores and 187 rows;
+  - the window store is labelled as average prices (name, note, no brand as the seller, `sample_size` = number of `sources`);
+  - a fresh database seeds everything and writes `demo_stores_v2`;
+  - a database seeded like production (version 1, no marker) gets exactly the window store and its 6 items;
+  - a second run adds nothing;
+  - `--remove` also blocks new versions;
+  - an admin-deleted version-1 material, furniture piece or whole store is not restored;
+  - a later version-3 item reaches a database at `demo_stores_v2`.
+- Full backend suite: 1424 passed, 1 skipped (`tests/test_push.py` excluded as before).
+- No frontend code changed.
+- The upgrade path was tested with the in-memory session, not on a throwaway Postgres database.
+
+**Original seed (version 1):**
 - `backend/tests/test_seed_demo_stores.py` (26 tests) checks the catalog:
   - categories, units and placements are valid;
   - every photo exists, and no photo on disk is left unreferenced;
@@ -157,3 +326,10 @@ This deletes every `is_demo` store, its furniture, materials and wallpapers, and
 - **Shop owners:** the demo stores have no owner. Inquiries and orders to them reach an admin-managed shop, not the store itself.
 - **Flutter app:** see the `has_model` note above.
 - **Studio wallpaper library:** the frontend pages through the whole oboy bucket, newest first. The 28 demo wallpapers are the newest, so they appear first.
+- **Window prices:** they are medians of public listings, not anyone's offer. Several things make them loose:
+  - many listings give no unit, and "от" prices are floor prices;
+  - the balcony-door figure rests on 8 PVC-door points, 5 of them from 2020–2022;
+  - warm aluminium has only 5 points;
+  - the 1.2 × 1.4 m piece is computed from the median, not observed.
+  
+  The window store accepts inquiries and orders like every demo store, but no one fulfils them. Consider hiding its order button, or relabelling the prices, before real users see it.

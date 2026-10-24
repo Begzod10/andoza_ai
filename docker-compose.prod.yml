@@ -168,7 +168,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://andoza.jumaniyozov.uz/api/v1}
+        VITE_API_URL: ${VITE_API_URL:-https://andozaai.uz/api/v1}
     ports:
       - "5173:80"
     restart: unless-stopped
