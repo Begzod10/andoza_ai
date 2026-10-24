@@ -77,6 +77,24 @@ describe('AdminMaterials list', () => {
     } finally { applyLanguage('uz') }
   })
 
+  it("keeps the add button's icon beside its label, not inside the label (where it broke onto its own line)", async () => {
+    mount()
+    const add = await screen.findByRole('button', { name: "Material qo'shish" })
+    const label = [...add.querySelectorAll('span')].find((s) => s.textContent === "Material qo'shish")!
+    expect(label.querySelector('svg')).toBeNull()
+    expect(add.querySelector('svg')).not.toBeNull()
+  })
+
+  it('shows a long name in full (clamped, with a title) instead of letting it widen the card', async () => {
+    const long = 'Laminat pol qoplamasi 32-sinf, namlikka chidamli, eman rangi, 8 mm'
+    api.listAdminMaterials.mockResolvedValue(page([material({ name_uz: long })]))
+    mount()
+    const name = await screen.findByText(long)
+    expect(name).toHaveAttribute('title', long)
+    expect(name.className).toContain('line-clamp-2')
+    expect(name.className).not.toContain('truncate')
+  })
+
   it('marks hidden materials', async () => {
     api.listAdminMaterials.mockResolvedValue(page([material({ is_active: false })]))
     mount()
@@ -85,11 +103,29 @@ describe('AdminMaterials list', () => {
 })
 
 describe('AdminMaterials filters', () => {
-  it('smeta checkbox refetches with smeta: true', async () => {
+  it('smeta chip is a pressed/unpressed toggle that refetches with smeta: true, then without it', async () => {
     mount()
     await screen.findByText('Gips suvoq')
-    fireEvent.click(screen.getByLabelText('Faqat smeta mahsulotlari'))
+    const chip = screen.getByRole('button', { name: 'Faqat smeta mahsulotlari' })
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(lastCall().smeta).toBe(true))
+    fireEvent.click(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    await waitFor(() => expect(lastCall().smeta).toBeUndefined())
+  })
+
+  it('dims the list while a new filter loads over the old page', async () => {
+    mount()
+    await screen.findByText('Gips suvoq')
+    let resolve!: (v: unknown) => void
+    api.listAdminMaterials.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+    fireEvent.click(screen.getByRole('button', { name: 'Faqat smeta mahsulotlari' }))
+    const list = screen.getByText('Gips suvoq').closest('[aria-busy]')!
+    await waitFor(() => expect(list).toHaveAttribute('aria-busy', 'true'))
+    resolve(page([material()]))
+    await waitFor(() => expect(screen.getByText('Gips suvoq').closest('[aria-busy]')).toHaveAttribute('aria-busy', 'false'))
   })
 
   it('category select refetches with category', async () => {

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
 import { errorMessage } from "./errorMessage";
+import { FilterChip } from "./FilterChip";
 import { type FormError, requestError } from "@/lib/formError";
 
 const KEY = ["admin", "orders"] as const;
@@ -36,7 +37,7 @@ function Row({ order, busy, onAdvance, onCancel }: {
   const [reason, setReason] = useState("");
 
   return (
-    <Panel className="space-y-3 p-4">
+    <Panel className="flex min-w-0 flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold text-ink">
@@ -47,7 +48,7 @@ function Row({ order, busy, onAdvance, onCancel }: {
             {!order.store_id && ` · ${t("dokon.order.no_store_note")}`}
           </p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${ORDER_STATUS_STYLES[status] ?? ORDER_STATUS_STYLES.accepted}`}>
+        <span className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${ORDER_STATUS_STYLES[status] ?? ORDER_STATUS_STYLES.accepted}`}>
           {orderStatusLabel(order.status, t)}
         </span>
       </div>
@@ -74,12 +75,12 @@ function Row({ order, busy, onAdvance, onCancel }: {
       </div>
 
       {status === "cancelled" ? (
-        <p className="rounded-2xl bg-red-500/10 px-4 py-2.5 text-xs text-ink-muted">
+        <p className="mt-auto rounded-2xl bg-red-500/10 px-4 py-2.5 text-xs text-ink-muted">
           {t("dokon.order.cancelled_line", { who: order.cancelled_by ? cancelledByLabel(order.cancelled_by, t) : t("dokon.order.unknown"), reason: order.cancel_reason ?? "—" })}
         </p>
       ) : cancelling ? (
         <form
-          className="space-y-2"
+          className="mt-auto space-y-2"
           onSubmit={(e) => {
             e.preventDefault();
             if (reason.trim().length >= MIN_REASON) onCancel(order, reason.trim());
@@ -100,7 +101,7 @@ function Row({ order, busy, onAdvance, onCancel }: {
           </div>
         </form>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2">
           {next && <Button size="sm" loading={busy} onClick={() => onAdvance(order)}>{t(next.labelKey)}</Button>}
           {canCancel && <Button size="sm" variant="soft" onClick={() => setCancelling(true)}>{t("dokon.order.cancel_btn")}</Button>}
         </div>
@@ -154,17 +155,9 @@ export function AdminOrders({ onError }: { onError: (message: FormError) => void
         <h2 className="text-base font-extrabold text-ink">{orders.data ? t("dokon.order.title_count", { n: `${list.length}${orders.hasNextPage ? "+" : ""}` }) : t("dokon.order.title")}</h2>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("dokon.order.by_status")}>
           {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={filter === f.value}
-              onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                filter === f.value ? "bg-ink text-card" : "bg-card-soft text-ink-muted hover:text-ink"
-              }`}
-            >
+            <FilterChip key={f.value} pressed={filter === f.value} onClick={() => setFilter(f.value)}>
               {t(f.labelKey)}
-            </button>
+            </FilterChip>
           ))}
         </div>
       </Panel>
@@ -176,7 +169,7 @@ export function AdminOrders({ onError }: { onError: (message: FormError) => void
       ) : list.length === 0 ? (
         <Panel className="px-4 py-6 text-center text-sm text-ink-muted">{t("dokon.order.not_found")}</Panel>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {list.map((o) => (
             <Row key={o.id} order={o} busy={busyId === o.id} onAdvance={(x) => advance.mutate(x)} onCancel={(x, reason) => cancel.mutate({ order: x, reason })} />
           ))}
