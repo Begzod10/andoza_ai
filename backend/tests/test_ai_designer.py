@@ -30,7 +30,7 @@ GOOD = {
     "walls": {"main": {"type": "paint", "color": "#2c2c2c"}, "accent": {"wall": "C", "color": "#1a1a1a"}},
     "floor": {"type": "parquet", "pattern": "herringbone", "tint": "#3d2b1f"},
     "lights": [{"type": "chandelier", "zone": "center"}],
-    "furniture": [{"id": "F1", "zone": "wall_A"}],
+    "furniture": [{"id": "F1", "role": "sofa"}],
 }
 
 
@@ -73,7 +73,7 @@ class TestValidate:
         assert p.walls["accent"] == {"wall": "C", "color": "#1a1a1a"}
         assert p.floor == {"type": "parquet", "pattern": "herringbone", "tint": "#3d2b1f"}
         assert p.lights == [{"type": "chandelier", "zone": "center"}]
-        assert p.furniture == [{"id": "uuid-sofa", "name": "Divan", "zone": "wall_A"}]
+        assert p.furniture == [{"id": "uuid-sofa", "name": "Divan", "role": "sofa"}]
         assert p.warnings == []
 
     def test_short_hex_and_missing_hash_are_normalised_and_junk_colours_dropped(self):
@@ -83,7 +83,7 @@ class TestValidate:
 
     def test_an_invented_furniture_id_light_or_floor_is_dropped_not_applied(self):
         p = plan(
-            furniture=[{"id": "F1", "zone": "center"}, {"id": "F99", "zone": "center"}, {"id": "uuid-sofa", "zone": "center"}],
+            furniture=[{"id": "F1", "role": "sofa"}, {"id": "F99", "role": "sofa"}, {"id": "uuid-sofa", "role": "sofa"}],
             lights=[{"type": "laser", "zone": "center"}, {"type": "pendant", "zone": "center"}],
             floor={"type": "marble"},
         )
@@ -103,11 +103,11 @@ class TestValidate:
             **GOOD,
             "walls": {"main": {"type": "paint", "color": "#222222"}, "accent": {"wall": "W3", "color": "#111111"}},
             "lights": [{"type": "pendant", "zone": "corner_W2_W3"}, {"type": "bra", "zone": "wall_W4"}, {"type": "downlight", "zone": "wall_A"}],
-            "furniture": [{"id": "F1", "zone": "wall_W5"}, {"id": "F2", "zone": "wall_A"}],
+            "furniture": [{"id": "F1", "role": "sofa"}, {"id": "F2", "role": "bed"}],
         }, BY_LABEL, walls)
         assert p.walls["accent"]["wall"] == "W3"
         assert [(lt["type"], lt["zone"]) for lt in p.lights] == [("pendant", "corner_W2_W3"), ("bra", "wall_W4"), ("downlight", "center")]
-        assert [f["zone"] for f in p.furniture] == ["wall_W5", "center"]  # wall_A does not exist in this room
+        assert [f["role"] for f in p.furniture] == ["sofa", "bed"]
 
     def test_an_accent_on_a_wall_the_room_does_not_have_is_dropped(self):
         assert "accent" not in ad.validate_plan({**GOOD, "walls": {"main": GOOD["walls"]["main"], "accent": {"wall": "C", "color": "#111"}}}, BY_LABEL, ["W1", "W2", "W3"]).walls
@@ -264,7 +264,7 @@ class TestEndpoint:
         monkeypatch.setattr(settings, "AI_FEATURES_ENABLED", True)
         room = self._setup(client)
         plan = ad.DesignPlan(title="T", walls={"main": {"type": "paint", "color": "#111111"}},
-                             furniture=[{"id": "x", "name": "Divan", "zone": "wall_A"}])
+                             furniture=[{"id": "x", "name": "Divan", "role": "sofa"}])
         design = AsyncMock(return_value=plan)
         with patch("app.routers.ai.design_room", new=design):
             r = client.post(f"/api/v1/rooms/{room.id}/ai-design", json={"prompt": "qorong'i xona", "room_type": "mehmonxona"})
@@ -434,3 +434,38 @@ def test_the_endpoint_hands_the_designer_each_piece_s_styles(client):
          patch("app.routers.ai.design_room", new=AsyncMock(return_value=ad.DesignPlan(title="t", summary="s", walls={"main": {"type": "paint", "color": "#ffffff"}}))) as design:
         client.post(f"/api/v1/rooms/{uuid.uuid4()}/ai-design", json={"prompt": "loft uslubi"})
     assert design.await_args.args[2][0]["styles"] == ["loft"]
+
+
+@pytest.mark.parametrize("category,name,role", [
+    ("boshqa", "Jun gilam", "rug"), ("stol", "Jurnal stoli", "coffee_table"),
+    ("boshqa", "TV tumba", "tv_unit"), ("stol", "Tumbochka", "nightstand"),
+    ("stol", "Yozuv stoli", "desk"), ("divan", "Kreslo Milano", "armchair"),
+    ("shkaf", "Garderob", "wardrobe"), ("shkaf", "Kitob javoni", "shelf"),
+    ("divan", "Divan Roma", "sofa"), ("karavot", "Karavot", "bed"),
+    ("stol", "Ovqat stoli", "dining_table"), ("stul", "Stul", "dining_chair"),
+    ("boshqa", "Puf", "decor"),
+])
+def test_infer_role(category, name, role):
+    assert ad.infer_role(category, name) == role
+
+
+def test_validate_plan_keeps_a_known_role():
+    p = plan(furniture=[{"id": "F3", "role": "sofa"}])  # F3 is a bed by name, the model's role wins
+    assert p.furniture[0]["role"] == "sofa"
+
+
+@pytest.mark.parametrize("raw", [{"id": "F1", "role": "throne"}, {"id": "F1"}])
+def test_validate_plan_infers_a_bad_or_missing_role(raw):
+    p = plan(furniture=[raw])
+    assert p.furniture[0]["role"] == ad.infer_role("divan", "Divan") == "sofa"
+
+
+def test_validate_plan_ignores_old_zone():
+    p = plan(furniture=[{"id": "F1", "zone": "wall_A"}])
+    assert p.furniture[0]["role"] == "sofa" and "zone" not in p.furniture[0]
+
+
+def test_prompt_lists_roles():
+    assert len(ad.FURNITURE_ROLES) == 14
+    for role in ad.FURNITURE_ROLES:
+        assert role in ad._SYSTEM
