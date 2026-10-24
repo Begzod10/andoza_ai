@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Boxes, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { currentLanguage } from "@/i18n";
 import {
   MATERIAL_CATEGORIES, MATERIAL_UNITS, PACK_UNITS, SMETA_KEYS, listAdminMaterials, listAdminStores, updateAdminMaterial,
   type AdminMaterial,
@@ -17,7 +18,9 @@ import { optionLabel, smetaLabel } from "./materialLabels";
 const KEY = ["admin", "materials"] as const;
 const SEARCH_DEBOUNCE_MS = 300;
 
-const price = (n: number) => Math.trunc(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+// Plain-space groups as uz always showed (and ru, like formatUZS); en reads "245,000".
+const price = (n: number) =>
+  Math.trunc(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, currentLanguage() === "en" ? "," : " ");
 
 function Row({ material: m, busy, onEdit, onToggle }: {
   material: AdminMaterial; busy: boolean; onEdit: (m: AdminMaterial) => void; onToggle: (m: AdminMaterial) => void;
