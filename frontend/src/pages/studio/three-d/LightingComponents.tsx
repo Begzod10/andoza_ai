@@ -442,7 +442,7 @@ export function DraggableLightModels({
     // armed BEFORE the select-only early return below, which is where a press
     // on an unselected light stops.
     holdBind({
-      label: lightType(light.type)?.name ?? i18n.t('studio.radial.chiroq'),
+      label: i18n.t(lightType(light.type).nameKey),
       onDelete: () => useRoomStore.getState().removeLight(light.id),
     }).onPointerDown(e)
     // An already-selected light is draggable right away, no tool-mode switch

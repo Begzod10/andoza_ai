@@ -18,6 +18,7 @@
  */
 
 import type { RoomGeometry } from "@/store/roomStore";
+import i18n, { type TKey } from "@/i18n";
 
 /** The resolved target key: "ALL", a real `Wall.id`, or one of the
  * non-wall sentinels ("FLOOR"/"CEILING") some surfaces also offer. */
@@ -25,29 +26,37 @@ export type WallTarget = string;
 
 export interface WallTargetOption {
   key: WallTarget;
-  label: string;
+  /** Locale key of the name, and the values it needs (a wall's id). Kept as a
+   *  key so a list built once (or memoised) still follows a language change. */
+  labelKey: TKey;
+  values?: { id: string };
+}
+
+/** The target's name in the current language; call it while rendering. */
+export function targetLabel(option: WallTargetOption): string {
+  return i18n.t(option.labelKey, option.values);
 }
 
 /** Not a real wall in `geometry.walls` — surfaces that offer a floor target
  * append this themselves alongside `getWallTargets`. */
-export const FLOOR_TARGET: WallTargetOption = { key: "FLOOR", label: "Pol" };
+export const FLOOR_TARGET: WallTargetOption = { key: "FLOOR", labelKey: "studio.shared.pol" };
 
 /** Not a real wall in `geometry.walls` — surfaces that offer a ceiling
  * target append this themselves alongside `getWallTargets`. */
-export const CEILING_TARGET: WallTargetOption = { key: "CEILING", label: "Shift" };
+export const CEILING_TARGET: WallTargetOption = { key: "CEILING", labelKey: "studio.shared.shift" };
 
 /** The two trim runs. Not walls either, but they are things in the room a
  * user points at and expects to be able to change, so they get their own
  * targets rather than being buried in the floor and ceiling panels. */
-export const SKIRTING_TARGET: WallTargetOption = { key: "SKIRTING", label: "Plintus" };
-export const CORNICE_TARGET: WallTargetOption = { key: "CORNICE", label: "Karniz" };
+export const SKIRTING_TARGET: WallTargetOption = { key: "SKIRTING", labelKey: "studio.shared.plintus" };
+export const CORNICE_TARGET: WallTargetOption = { key: "CORNICE", labelKey: "studio.shared.karniz" };
 
 export const FLOOR_TYPES = [
-  { key: "parquet",  label: "Parket"  },
-  { key: "tile",     label: "Kafel"   },
-  { key: "laminate", label: "Laminat" },
-  { key: "concrete", label: "Beton"   },
-];
+  { key: "parquet",  labelKey: "studio.shared.parket"  },
+  { key: "tile",     labelKey: "studio.shared.kafel"   },
+  { key: "laminate", labelKey: "studio.shared.laminat" },
+  { key: "concrete", labelKey: "studio.shared.beton"   },
+] as const;
 
 /** The chip label for one wall.
  *
@@ -69,8 +78,8 @@ export const FLOOR_TYPES = [
  * one shape and only on that one. Branching on `hasAbcdWalls` here would be
  * dead code, so the test stays in `roomDims` for the callers (the header, the
  * settings sheet's steppers) that genuinely have to pick a different layout. */
-function wallLabel(id: string): string {
-  return `Devor ${id}`;
+function wallTarget(id: string): WallTargetOption {
+  return { key: id, labelKey: "studio.shared.wall_n", values: { id } };
 }
 
 /** Build the "ALL" + one-entry-per-actual-wall target list from the room's
@@ -81,8 +90,8 @@ function wallLabel(id: string): string {
  * `CEILING_TARGET` themselves — those aren't real walls in `geometry.walls`. */
 export function getWallTargets(geometry: Pick<RoomGeometry, "walls">): WallTargetOption[] {
   return [
-    { key: "ALL", label: "Hamma devorlar" },
-    ...geometry.walls.map((w) => ({ key: w.id, label: wallLabel(w.id) })),
+    { key: "ALL", labelKey: "studio.shared.hamma_devorlar" },
+    ...geometry.walls.map((w) => wallTarget(w.id)),
   ];
 }
 

@@ -148,3 +148,20 @@ Added with the studio pages (3D, placement, walkthrough):
 | yurish rejimi | режим прогулки | walk mode |
 | quvur qutisi | короб для труб | pipe duct |
 | tahrirlashni qulflash | заблокировать редактирование | lock editing |
+
+Added with the studio components (panels, sheets, plans):
+
+| Uzbek | Russian | English |
+| --- | --- | --- |
+| tavaqa | створка | sash |
+| rom | рама | frame |
+| hoshiya | кайма | border |
+| nish | ниша | recess |
+| ustun / qator | столбец / ряд | column / row |
+| shift turi | тип потолка | ceiling type |
+| sozlamalar | настройки | settings |
+| tekstura | текстура | texture |
+| masshtab | масштаб | scale |
+| siljish | сдвиг | offset |
+| burilish | поворот | rotation |
+| faska | фаска | bevel |

@@ -307,7 +307,7 @@ export function FloorPlan({
           <g key={light.id} style={{ cursor: 'pointer' }}
             tabIndex={0}
             role="button"
-            aria-label={`${t.name} ${tr('studio.placement.chiroq_aria')}`}
+            aria-label={`${tr(t.nameKey)} ${tr('studio.placement.chiroq_aria')}`}
             className="kbd-focusable"
             onClick={activateLight}
             onKeyDown={(e) => {

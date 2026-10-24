@@ -51,8 +51,8 @@ export function PhaseStageNav({
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
-              title={stage.label}
-              aria-label={stage.label}
+              title={t(stage.labelKey)}
+              aria-label={t(stage.labelKey)}
               aria-current={status === 'current' ? 'step' : undefined}
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
                 status === 'current'
@@ -73,7 +73,7 @@ export function PhaseStageNav({
               {status === 'pending' && (
                 <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />
               )}
-              <span className="leading-tight">{stage.label}</span>
+              <span className="leading-tight">{t(stage.labelKey)}</span>
             </button>
           );
         })}

@@ -8,6 +8,7 @@
  * ceiling tap already says where the light goes, and the panel threw that away.
  */
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import { buildRadialItems } from './radialMenuItems'
 import type { RadialItem } from '@/components/studio/SurfaceRadialMenu'
 import { trimProfilesOf } from '@/lib/trimProfiles'
@@ -76,7 +77,7 @@ describe('tapping a wall', () => {
     // not a choice.
     expect(kafel.children!.map((c) => c.label)).toEqual(TILE_SIZES.map((t) => t.label))
     for (const size of kafel.children!) {
-      expect(size.children!.map((c) => c.label)).toEqual(TILE_FACES.map((f) => f.label))
+      expect(size.children!.map((c) => c.label)).toEqual(TILE_FACES.map((f) => i18n.t(f.labelKey)))
     }
     kafel.children![1].children![2].onSelect()
     expect(calls).toContainEqual(['wallTile', TILE_SIZES[1].label, TILE_FACES[2].slug])

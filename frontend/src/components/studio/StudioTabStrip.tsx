@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import { useLocation, useNavigate } from "react-router-dom";
 
 /**
@@ -43,7 +45,7 @@ function tabsFor(roomId: string): TabDef[] {
     // followed at the user's request (2026-09-28). Every route still
     // resolves, so an old link or a bookmark still works.
     // Top-level route, not nested under /studio/:roomId — see StudioNav.
-    { seg: "smeta", label: "Smeta", to: `/smeta/${roomId}` },
+    { seg: "smeta", label: i18n.t("studio.tabs.smeta"), to: `/smeta/${roomId}` },
   ];
 }
 
@@ -64,6 +66,7 @@ interface TabNav {
 }
 
 export function useStudioTabNav(roomId: string): TabNav | null {
+  useTranslation(); // the tab names follow a language change
   const location = useLocation();
   const navigate = useNavigate();
   const tabs = tabsFor(roomId);
@@ -144,6 +147,7 @@ export function StudioTabStrip({
    *  is exactly how it went missing from Elektr. */
   titleClassName?: string;
 }) {
+  const { t: tr } = useTranslation();
   const nav = useStudioTabNav(roomId);
   // Which side a drag is currently pointing at, and how far it has travelled
   // (the bar leans that way, so the gesture feels connected to the names).
@@ -246,7 +250,7 @@ export function StudioTabStrip({
                 disabled={isCurrent}
                 onClick={() => nav.goTo(t)}
                 aria-current={isCurrent ? 'page' : undefined}
-                title={isCurrent ? t.label : `${t.label} bo'limiga o'tish`}
+                title={isCurrent ? t.label : tr('studio.tabs.goto', { label: t.label })}
                 className={`${isCurrent ? CURRENT_CLS : SIDE_CLS} ${isCurrent ? '' : 'hover:opacity-100 hover:bg-gray-100'}`}
                 style={{ width: SLOT_MAX }}
               >
@@ -302,7 +306,7 @@ export function StudioTabStrip({
               // there to fill the edges mid-drag.
               disabled={!onSide}
               onClick={(e) => { swallowClickAfterDrag(e); if (!e.defaultPrevented) onSide?.(); }}
-              title={onSide ? `${i === 1 ? "Oldingi" : "Keyingi"} bo'lim — ${t.label}` : undefined}
+              title={onSide ? tr(i === 1 ? 'studio.tabs.prev_title' : 'studio.tabs.next_title', { label: t.label }) : undefined}
               aria-hidden={i === 0 || i === 4}
               aria-current={i === 2 ? "page" : undefined}
               className={`${isActive ? CURRENT_CLS : SIDE_CLS} ${onSide ? "hover:opacity-100 hover:bg-gray-100" : ""}`}

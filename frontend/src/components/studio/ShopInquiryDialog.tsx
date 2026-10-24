@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { createShopInquiry } from "@/lib/api";
@@ -26,6 +27,7 @@ export function ShopInquiryDialog({
   furnitureId: string;
   roomId?: string | null;
 }) {
+  const { t } = useTranslation();
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -52,19 +54,19 @@ export function ShopInquiryDialog({
       });
       setSent(true);
     } catch (err) {
-      setError(errorMessage(err, "Murojaatni yuborib bo'lmadi"));
+      setError(errorMessage(err, t("studio.inquiry.send_failed")));
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={close} title="Do'konga murojaat" description={storeName ?? undefined}>
+    <Dialog open={open} onOpenChange={close} title={t("studio.inquiry.title")} description={storeName ?? undefined}>
       {sent ? (
         <div className="space-y-4">
-          <p role="status" className="text-sm text-ink">Murojaatingiz yuborildi. Do'kon siz bilan bog'lanadi.</p>
+          <p role="status" className="text-sm text-ink">{t("studio.inquiry.sent")}</p>
           <div className="flex justify-end">
-            <Button type="button" onClick={() => close(false)}>Yopish</Button>
+            <Button type="button" onClick={() => close(false)}>{t("common.yopish")}</Button>
           </div>
         </div>
       ) : (
@@ -77,7 +79,7 @@ export function ShopInquiryDialog({
         >
           <div>
             <label htmlFor="shop-inquiry-message" className="block text-sm font-medium text-ink mb-1.5">
-              Xabar (ixtiyoriy)
+              {t("studio.inquiry.message")}
             </label>
             <textarea
               id="shop-inquiry-message"
@@ -85,15 +87,15 @@ export function ShopInquiryDialog({
               maxLength={MAX_MESSAGE}
               rows={4}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Masalan: Bu model omborda bormi?"
+              placeholder={t("studio.inquiry.placeholder")}
               className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:border-brand focus:outline-none"
             />
             <p className="mt-1 text-right text-xs text-ink-muted">{message.length}/{MAX_MESSAGE}</p>
           </div>
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="tertiary" onClick={() => close(false)}>Bekor qilish</Button>
-            <Button type="submit" loading={sending}>Yuborish</Button>
+            <Button type="button" variant="tertiary" onClick={() => close(false)}>{t("common.bekor")}</Button>
+            <Button type="submit" loading={sending}>{t("studio.inquiry.send")}</Button>
           </div>
         </form>
       )}

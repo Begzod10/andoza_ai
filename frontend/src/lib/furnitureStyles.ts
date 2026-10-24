@@ -1,3 +1,5 @@
+import type { TKey } from '@/i18n'
+
 /** The design styles a piece of furniture can suit. Mirrors the backend list;
  *  an empty selection means the piece suits every style. */
 export type FurnitureStyle =
@@ -10,15 +12,15 @@ export type FurnitureStyle =
   | 'loft'
   | 'milliy'
 
-export const FURNITURE_STYLES: { id: FurnitureStyle; label: string }[] = [
-  { id: 'neoklassika', label: 'Neoklassika' },
-  { id: 'klassik', label: 'Klassik' },
-  { id: 'zamonaviy', label: 'Zamonaviy' },
-  { id: 'hitech', label: 'Hi-Tech' },
-  { id: 'minimalist', label: 'Minimalist' },
-  { id: 'skandinav', label: 'Skandinav' },
-  { id: 'loft', label: 'Loft' },
-  { id: 'milliy', label: 'Milliy' },
+export const FURNITURE_STYLES: { id: FurnitureStyle; labelKey: TKey }[] = [
+  { id: 'neoklassika', labelKey: 'studio.lib.style.neoklassika' },
+  { id: 'klassik', labelKey: 'studio.lib.style.klassik' },
+  { id: 'zamonaviy', labelKey: 'studio.lib.style.zamonaviy' },
+  { id: 'hitech', labelKey: 'studio.lib.style.hitech' },
+  { id: 'minimalist', labelKey: 'studio.lib.style.minimalist' },
+  { id: 'skandinav', labelKey: 'studio.lib.style.skandinav' },
+  { id: 'loft', labelKey: 'studio.lib.style.loft' },
+  { id: 'milliy', labelKey: 'studio.lib.style.milliy' },
 ]
 
 /** The styles in `raw` the app knows, in the order given: a model saved with a style this

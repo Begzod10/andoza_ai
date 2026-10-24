@@ -56,7 +56,7 @@ function QiblaLocation() {
         }}
         className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
-        {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{c.label}</option>)}
+        {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{t(c.labelKey)}</option>)}
         <option value="__custom">{t("studio.qibla.boshqa")}</option>
       </select>
       {customMode && (
@@ -87,7 +87,7 @@ function QiblaLocation() {
         onChange={(e) => setDesignState({ facing: Number(e.target.value) })}
         className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
-        {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{o.label}</option>)}
+        {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{t(o.labelKey)}</option>)}
       </select>
       <p className="text-xs text-ink-muted">
         {Math.round(qiblaBearing(location?.latitude, location?.longitude))}°

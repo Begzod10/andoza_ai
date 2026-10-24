@@ -70,7 +70,7 @@ export function FloorSection({ onSetFloorType }: {
     e.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Faqat rasm fayllari (JPG, PNG, WEBP...)");
+      setError(t("studio.shared.faqat_rasm"));
       return;
     }
     setBusy(true);
@@ -86,10 +86,7 @@ export function FloorSection({ onSetFloorType }: {
         if (url) applyTexture(url);
       };
       reader.readAsDataURL(file);
-      setError(
-        `Serverga saqlanmadi${err instanceof Error && err.message ? `: ${err.message}` : ""} — ` +
-          "rasm hozir ko'rinadi, lekin sahifa yangilansa yo'qoladi.",
-      );
+      setError(t("studio.dp.not_saved", { reason: err instanceof Error && err.message ? `: ${err.message}` : "" }));
     } finally {
       setBusy(false);
     }
@@ -115,7 +112,7 @@ export function FloorSection({ onSetFloorType }: {
                 : "border-gray-200 hover:border-brand/40 text-gray-700"
             }`}
           >
-            {ft.label}
+            {t(ft.labelKey)}
           </button>
         ))}
       </div>
@@ -130,12 +127,12 @@ export function FloorSection({ onSetFloorType }: {
           whole-floor image. Same 'pol' library either way. */}
       <div className="mt-5 space-y-2">
         <h3 className="text-sm font-semibold text-gray-900">
-          {floorPattern ? "Taxta teksturasi" : "Pol rasmi"}
+          {floorPattern ? t("studio.dp.board_texture") : t("studio.dp.floor_image")}
         </h3>
         <p className="text-[11px] text-gray-500 leading-snug">
           {floorPattern
-            ? "Rasm har bir taxtaga alohida yopishtiriladi — o'lcham taxta o'lchamiga teng."
-            : "Rasm butun polga yoyiladi."}
+            ? t("studio.dp.board_hint")
+            : t("studio.dp.floor_hint")}
         </p>
         {polLibrary.data && polLibrary.data.length > 0 && (
           <div className="grid grid-cols-4 gap-1.5">
@@ -158,7 +155,7 @@ export function FloorSection({ onSetFloorType }: {
         )}
         {activeTextureUrl && floorPattern && (
           <div>
-            <span className="text-xs text-gray-500 block mb-1">Tekstura burilishi</span>
+            <span className="text-xs text-gray-500 block mb-1">{t("studio.dp.texture_rotation")}</span>
             <div className="flex gap-1.5">
               {([0, 90] as const).map((deg) => {
                 const on = (floorPattern.settings?.textureRotation ?? 0) === deg;
@@ -183,7 +180,7 @@ export function FloorSection({ onSetFloorType }: {
             onClick={() => applyTexture(null)}
             className="w-full py-1.5 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
           >
-            Teksturani olib tashlash
+            {t("studio.dp.remove_texture")}
           </button>
         )}
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">{t("studio.oz_rasmingiz")}</h3>
@@ -198,15 +195,15 @@ export function FloorSection({ onSetFloorType }: {
             <circle cx="8.5" cy="8.5" r="1.5" />
             <path d="M21 15l-5-5L5 21" />
           </svg>
-          <span className="text-sm font-medium">{busy ? "Yuklanmoqda…" : "Rasm yuklash"}</span>
-          <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
+          <span className="text-sm font-medium">{busy ? t("studio.shared.yuklanmoqda") : t("studio.shared.rasm_yuklash")}</span>
+          <span className="text-xs text-gray-500">{t("studio.shared.rasm_format")}</span>
         </button>
         {error && <p className="text-xs text-amber-600 leading-snug">{error}</p>}
         {activeTextureUrl && (
           <div className="flex items-center gap-2">
-            <img src={activeTextureUrl} alt="Pol rasmi" className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+            <img src={activeTextureUrl} alt={t("studio.dp.floor_image")} className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
             <span className="flex-1 text-xs text-gray-600">
-              {floorPattern ? "Taxtalarga qo'llandi" : "Rasm qo'llandi"}
+              {floorPattern ? t("studio.dp.applied_boards") : t("studio.dp.applied_image")}
             </span>
             <button
               onClick={() => applyTexture(null)}

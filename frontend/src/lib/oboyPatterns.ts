@@ -3,12 +3,12 @@ import * as THREE from 'three'
 // ─── Pattern registry ─────────────────────────────────────────────────────────
 
 export const OBOY_PATTERNS = [
-  { id: 'yolli',     label: "Yo'lli" },
-  { id: 'damask',    label: 'Damask' },
-  { id: 'geometrik', label: 'Geometrik' },
-  { id: 'gul',       label: 'Gul' },
-  { id: 'tekstura',  label: 'Tekstura' },
-  { id: 'bolalar',   label: 'Bolalar' },
+  { id: 'yolli',     labelKey: 'studio.lib.oboy.yolli' },
+  { id: 'damask',    labelKey: 'studio.lib.oboy.damask' },
+  { id: 'geometrik', labelKey: 'studio.lib.oboy.geometrik' },
+  { id: 'gul',       labelKey: 'studio.lib.oboy.gul' },
+  { id: 'tekstura',  labelKey: 'studio.lib.oboy.tekstura' },
+  { id: 'bolalar',   labelKey: 'studio.lib.oboy.bolalar' },
 ] as const
 
 export type OboyPatternId = typeof OBOY_PATTERNS[number]['id']

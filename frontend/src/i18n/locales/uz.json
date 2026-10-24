@@ -267,6 +267,682 @@
       "chiqish": "chiqish",
       "bosing": "Bosing yoki bu yerga bosing",
       "toxtatish": "— to'xtatish"
+    },
+    "lib": {
+      "preset": {
+        "neoklassika": {
+          "label": "Neoklassika",
+          "title": "Neoklassika: och va nafis",
+          "summary": "Och bej devorlar, och eman parket va nafis qandil klassikani yengil, zamonaviy ko'rinishda beradi."
+        },
+        "zamonaviy": {
+          "label": "Zamonaviy",
+          "title": "Zamonaviy: neytral va qulay",
+          "summary": "Kulrang-bej devorlar, grafit aksent, yog'ochsimon laminat va LED yoritish xonani sodda va qulay qiladi."
+        },
+        "hitech": {
+          "label": "Hi-Tech",
+          "title": "Hi-Tech: kontrast va texnologik",
+          "summary": "Oq devorlar, to'q antratsit aksent, yaltiroq plitka va LED yoritish texnologik, aniq chiziqli ko'rinish beradi."
+        },
+        "milliy": {
+          "label": "Milliy",
+          "title": "Milliy: iliq sharqona ruh",
+          "summary": "Krem va to'q qizil gulli oboy, to'q yong'oq parket, qandil va gilam iliq, sharqona uy ruhini beradi."
+        },
+        "dark": {
+          "label": "Qorong'i",
+          "title": "Qorong'i, iliq atmosfera",
+          "summary": "To'q kulrang devorlar va to'q parket chuqur, xotirjam muhit beradi. Kam va iliq yorug'lik shu kayfiyatni saqlaydi."
+        },
+        "skandinav": {
+          "label": "Skandinav",
+          "title": "Yorug skandinav uslubi",
+          "summary": "Och devorlar, tabiiy yog'och pol va yumshoq yorug'lik xonani keng va qulay qiladi."
+        },
+        "klassik": {
+          "label": "Klassik",
+          "title": "Klassik, oltin detallar",
+          "summary": "Damask oboy, issiq jigarrang parket va qandil an'anaviy, boy ko'rinish beradi."
+        },
+        "loft": {
+          "label": "Loft",
+          "title": "Loft: beton va g'isht",
+          "summary": "Kulrang devorlar, g'ishtsimon devor va beton pol sanoat uslubini beradi, trek chiroqlar buni to'ldiradi."
+        },
+        "minimalist": {
+          "label": "Minimalist",
+          "title": "Minimalist, oq va kulrang",
+          "summary": "Oq devorlar, och plitka pol va oz sonli mebel xonani toza va sodda qoldiradi."
+        }
+      },
+      "style": {
+        "neoklassika": "Neoklassika",
+        "klassik": "Klassik",
+        "zamonaviy": "Zamonaviy",
+        "hitech": "Hi-Tech",
+        "minimalist": "Minimalist",
+        "skandinav": "Skandinav",
+        "loft": "Loft",
+        "milliy": "Milliy"
+      },
+      "oboy": {
+        "yolli": "Yo'lli",
+        "damask": "Damask",
+        "geometrik": "Geometrik",
+        "gul": "Gul",
+        "tekstura": "Tekstura",
+        "bolalar": "Bolalar"
+      },
+      "window": {
+        "single": "Bitta tavaqa",
+        "double": "Ikki tavaqa",
+        "triple": "Uch tavaqa",
+        "panorama": "Panorama",
+        "transom2": "Yuqori oynali",
+        "transom3": "Yuqori oynali (3)",
+        "transom_wide": "Yuqori bo'ylama",
+        "apron2": "Pastki oynali",
+        "transom_apron": "Yuqori va pastki",
+        "grid6": "Panjarali",
+        "grid_double": "Panjarali ikki tavaqa",
+        "colonial": "Kolonial",
+        "french": "Frantsuz",
+        "sidelights": "Yon oynali",
+        "studio": "Ateliye",
+        "arch_fan": "Arkasimon",
+        "arch_single": "Arka (bitta)",
+        "arch_triple": "Arka (uch)"
+      },
+      "ceiling": {
+        "flat": {
+          "label": "Tekis shift",
+          "hint": "Butun shiftni bir tekis pasaytiradi — sodda va toza yuza."
+        },
+        "double_layer": {
+          "label": "Ikki qavatli shift",
+          "hint": "Chuqurlik va hajm qo'shadi — ikki bosqichli yuza."
+        },
+        "floating": {
+          "label": "Suzuvchi shift",
+          "hint": "Suzib turgandek yengil ko'rinish — chekkasi bo'ylab yoritiladi."
+        },
+        "border": {
+          "label": "Hoshiyali shift",
+          "hint": "Xona chegarasini aniq belgilaydigan toza hoshiya."
+        },
+        "non_drop": {
+          "label": "Tushirilmagan shift",
+          "hint": "Oddiy, minimal va zamonaviy — balandlik butunlay saqlanadi."
+        },
+        "recessed": {
+          "label": "Nishli shift",
+          "hint": "Yashirin nish — yumshoq va hashamatli yorug'lik beradi."
+        }
+      },
+      "ceiling_range": {
+        "drop": "Pasaytirish",
+        "border": "Hoshiya kengligi",
+        "innerDrop": "Ikkinchi qavat",
+        "gap": "Nish kengligi",
+        "stripK": "Lenta harorati"
+      },
+      "light": {
+        "pendant": {
+          "name": "Osma chiroq",
+          "hint": "Stol ustiga osiladi"
+        },
+        "chandelier": {
+          "name": "Qandil",
+          "hint": "Mehmonxona uchun markaziy chiroq"
+        },
+        "ceiling": {
+          "name": "Shift chirog'i",
+          "hint": "Shiftga yopishgan"
+        },
+        "downlight": {
+          "name": "Downlight",
+          "hint": "Shiftga o'rnatiladi"
+        },
+        "spotlight": {
+          "name": "Spot chiroq",
+          "hint": "Yo'naltirsa bo'ladi"
+        },
+        "ies": {
+          "name": "IES spot",
+          "hint": "O'lchangan nur profili (tor, aniq dog')"
+        },
+        "led_panel": {
+          "name": "LED panel",
+          "hint": "Ofis/oshxona uchun keng yorug‘lik"
+        },
+        "led_linear": {
+          "name": "LED chiziqli",
+          "hint": "Uzun chiziq — burchagini burang"
+        },
+        "track": {
+          "name": "Trek (shina)",
+          "hint": "Shina + bir nechta boshcha"
+        },
+        "led_track": {
+          "name": "LED trek chirog'i",
+          "hint": "Trekka o'rnatilgan LED boshchalar"
+        },
+        "bra": {
+          "name": "Bra",
+          "hint": "Devorga — karavot yoni, koridor"
+        },
+        "bath": {
+          "name": "Vanna chirog'i",
+          "hint": "Ko'zgu ustiga, nam-himoyalangan"
+        },
+        "floor_lamp": {
+          "name": "Torsher",
+          "hint": "Polda turadi — divan yoni"
+        }
+      },
+      "plaster": {
+        "beton": {
+          "name": "Beton",
+          "hint": "Tabiiy beton — dog'li, o'rtacha donador"
+        },
+        "beton_silliq": {
+          "name": "Silliq beton",
+          "hint": "Sayqallangan beton — yumshoq dog‘lar"
+        },
+        "beton_qopol": {
+          "name": "Qo'pol beton",
+          "hint": "Qoliplangan, dag'al yuza"
+        },
+        "suvoq": {
+          "name": "Gips suvoq",
+          "hint": "Oq gips suvoq — mayin don"
+        }
+      },
+      "stage": {
+        "suvoq": "Suvoq",
+        "shpaklovka": "Shpaklovka",
+        "boyoq": "Bo'yoq/Oboi",
+        "pol": "Pol",
+        "montaj": "Montaj",
+        "chiroq": "Chiroq",
+        "mebel": "Mebel"
+      },
+      "tile_face": {
+        "plain": "Oddiy",
+        "marble-white": "Marmar oq",
+        "marble-black": "Marmar qora",
+        "marble-grey": "Marmar kulrang"
+      },
+      "floor_pattern": {
+        "herringbone": "Herringbone",
+        "double_herringbone": "Double Herringbone",
+        "chevron": "Chevron",
+        "wood_strip": "Wood Strip",
+        "brick_bond": "Brick Bond",
+        "stake_bond": "Stake Bond"
+      },
+      "wall_color": {
+        "6d6a41": "Zaytun yashil",
+        "d5c1a6": "Iliq bej",
+        "e7dac9": "Krem",
+        "c3a279": "Sarg'ish jigarrang",
+        "677882": "Kulrang ko'k",
+        "b9b6af": "Yumshoq kulrang",
+        "e8e0d5": "Oqish",
+        "beaf9c": "Och taupe",
+        "1a4228": "Zumrad yashil",
+        "d6c2a9": "Och bej",
+        "eae1d2": "Fil suyagi",
+        "a6a47d": "Shuvoq yashil",
+        "a85f32": "Terrakota",
+        "d7c5ad": "Qumli bej",
+        "8f7755": "Mokko",
+        "1a2835": "To'q ko'k",
+        "e7ddd1": "Nozik krem",
+        "c9c0b7": "Och kulrang",
+        "c39243": "Oltin"
+      },
+      "trim": {
+        "tekis": "Tekis"
+      },
+      "camera": {
+        "c360_title": "360",
+        "c360_label": "360 kamera — xona o'rtasidan",
+        "n_title": "{{n}}-kamera",
+        "n_label": "{{n}}-kamera — burchakdan"
+      },
+      "unnamed_room": "Xona",
+      "category": {
+        "divan": "Divan",
+        "stol": "Stol",
+        "stul": "Stul",
+        "karavot": "Karavot",
+        "shkaf": "Shkaf",
+        "lampa": "Lampa",
+        "boshqa": "Boshqa"
+      },
+      "placement": {
+        "pol": "Polda",
+        "devor": "Devorda",
+        "shift": "Shiftda"
+      },
+      "part": "Qism",
+      "compass": {
+        "n": "Shimol",
+        "ne": "Shimoli-sharq",
+        "e": "Sharq",
+        "se": "Janubi-sharq",
+        "s": "Janub",
+        "sw": "Janubi-g'arb",
+        "w": "G'arb",
+        "nw": "Shimoli-g'arb"
+      },
+      "city": {
+        "toshkent": "Toshkent",
+        "samarqand": "Samarqand",
+        "buxoro": "Buxoro",
+        "andijon": "Andijon",
+        "namangan": "Namangan",
+        "fargona": "Farg'ona",
+        "nukus": "Nukus",
+        "urganch": "Urganch",
+        "qarshi": "Qarshi",
+        "termiz": "Termiz",
+        "jizzax": "Jizzax",
+        "guliston": "Guliston",
+        "navoiy": "Navoiy"
+      }
+    },
+    "contact": {
+      "call_aria": "Qo'ng'iroq qilish: {{label}}",
+      "telegram_aria": "Telegramda yozish: {{label}}",
+      "call": "Qo'ng'iroq"
+    },
+    "unsaved": {
+      "title": "Saqlanmagan o'zgarishlar",
+      "text": "Xonadagi o'zgarishlar hali saqlanmagan. Chiqsangiz, ular yo'qolishi mumkin.",
+      "stay": "Qolish",
+      "leave": "Saqlamasdan chiqish"
+    },
+    "plan_toggle": {
+      "to_2d": "2D reja ko'rinishiga o'tish",
+      "to_3d": "3D ko'rinishga qaytish",
+      "aria": "2D reja / 3D ko'rinish"
+    },
+    "menu": {
+      "more": "Ko'proq"
+    },
+    "tools": {
+      "aria": "Tahrirlash asboblari"
+    },
+    "gl": {
+      "title": "3D ko'rinishni ochib bo'lmadi",
+      "text": "Brauzer grafik xotirasi band (WebGL). Sahifani yangilab ko'ring.",
+      "reload": "Sahifani yangilash"
+    },
+    "shared": {
+      "eshik": "Eshik",
+      "deraza": "Deraza",
+      "balkon": "Balkon",
+      "balkon_eshigi": "Balkon eshigi",
+      "yuklanmoqda": "Yuklanmoqda…",
+      "rasm_yuklash": "Rasm yuklash",
+      "rasm_format": "JPG, PNG, WEBP · 15 MB gacha",
+      "dona_soni_one": "{{count}} ta",
+      "dona_soni_other": "{{count}} ta",
+      "faqat_rasm": "Faqat rasm fayllari (JPG, PNG, WEBP...)",
+      "yuklab_bolmadi_msg": "Rasmni yuklab bo'lmadi: {{message}}",
+      "yuklab_bolmadi": "Rasmni yuklab bo'lmadi. Qaytadan urinib ko'ring.",
+      "hamma_ochirilsinmi": "\"{{name}}\" hamma foydalanuvchilar uchun o'chirilsinmi?",
+      "ochirib_bolmadi": "O'chirib bo'lmadi.",
+      "mm_aria": "{{label}}, mm",
+      "decrease": "{{label}} kamaytirish",
+      "increase": "{{label}} oshirish",
+      "devor": "Devor",
+      "wall_n": "Devor {{id}}",
+      "pol": "Pol",
+      "shift": "Shift",
+      "plintus": "Plintus",
+      "karniz": "Karniz",
+      "parket": "Parket",
+      "kafel": "Kafel",
+      "laminat": "Laminat",
+      "beton": "Beton",
+      "mebel": "Mebel",
+      "chiroq": "Chiroq",
+      "hamma_devorlar": "Hamma devorlar",
+      "qidirish": "Qidirish...",
+      "topilmadi": "Hech narsa topilmadi",
+      "qollash": "Qo'llash",
+      "price_som": "{{price}} so'm"
+    },
+    "opening": {
+      "aria": "{{name}} — {{wall}} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete"
+    },
+    "tabs": {
+      "smeta": "Smeta",
+      "goto": "{{label}} bo'limiga o'tish",
+      "prev_title": "Oldingi bo'lim — {{label}}",
+      "next_title": "Keyingi bo'lim — {{label}}"
+    },
+    "inquiry": {
+      "send_failed": "Murojaatni yuborib bo'lmadi",
+      "title": "Do'konga murojaat",
+      "sent": "Murojaatingiz yuborildi. Do'kon siz bilan bog'lanadi.",
+      "message": "Xabar (ixtiyoriy)",
+      "placeholder": "Masalan: Bu model omborda bormi?",
+      "send": "Yuborish"
+    },
+    "photo": {
+      "view_front": "Old tomondan (majburiy)",
+      "view_left": "Chap tomondan",
+      "view_back": "Orqa tomondan",
+      "view_right": "O'ng tomondan",
+      "title": "Faylingiz yo'qmi? Rasmdan yarating",
+      "failed": "Modelni yaratib bo'lmadi",
+      "count_label": "Rasmlar soni",
+      "one_hint": "Mebelning aniq rasmini yuklang (toza fon yaxshi) — yon va orqa tomonlari taxminan chiziladi. Taxminan 1–2 daqiqa.",
+      "aria_create": "Rasmdan 3D model yaratish",
+      "many_hint": "Bitta mebelning turli tomondan rasmlari (bir xil yorug'lik, toza fon). Old tomon majburiy, yana kamida bittasi kerak — rasm qancha ko'p bo'lsa, detallar shuncha aniq chiqadi.",
+      "build_many_one": "{{count}} ta rasmdan 3D model yaratish",
+      "build_many_other": "{{count}} ta rasmdan 3D model yaratish",
+      "mode_single": "1 ta rasm",
+      "mode_multi": "Bir nechta rasm"
+    },
+    "new_room": {
+      "north": "shimol",
+      "south": "janub",
+      "east": "sharq",
+      "west": "g‘arb",
+      "width": "Eni",
+      "depth": "Bo‘yi",
+      "height": "Balandligi",
+      "wall_thickness": "Devor qalinligi",
+      "title": "Yangi xona",
+      "behind": "Shu devor orqasida ({{side}} tomon)",
+      "create": "Yaratish",
+      "creating": "Yaratilmoqda…"
+    },
+    "new_window": {
+      "title": "Deraza turi",
+      "type": "Turi",
+      "sizes": "O'lchamlar",
+      "width": "Kenglik",
+      "height": "Balandlik",
+      "sill": "Poldan balandlik",
+      "frame_color": "Rom rangi",
+      "add": "+ Deraza qo'shish"
+    },
+    "room_settings": {
+      "wall_a": "Devor A (uzunlik)",
+      "wall_b": "Devor B (kenglik)",
+      "wall_c": "Devor C (uzunlik)",
+      "wall_d": "Devor D (kenglik)",
+      "area": "Maydon",
+      "perimeter": "Perimetr",
+      "openings": "Ochiqliklar",
+      "room_measures": "Xona o'lchovlari",
+      "width": "Kenglik",
+      "height": "Balandlik",
+      "sill_short": "Poldan",
+      "sill": "Poldan balandlik",
+      "type": "Turi",
+      "title": "Xona sozlamalari",
+      "sizes": "O'lchamlar",
+      "length": "Uzunlik",
+      "ac": "A – C devorlar",
+      "bd": "B – D devorlar",
+      "ceiling_height": "Shift balandligi",
+      "openings_title": "Derazalar va Eshiklar",
+      "no_element": "Element yo'q",
+      "add_window": "+ Deraza",
+      "add_door": "+ Eshik"
+    },
+    "door": {
+      "width_mm": "Eni (mm)",
+      "height_mm": "Bo'yi (mm)",
+      "sill_mm": "Pol'dan balandligi (mm)",
+      "window_type": "Deraza turi",
+      "open_angle": "Ochiq burchak",
+      "frame_color": "Rom rangi"
+    },
+    "light": {
+      "warm": "Issiq",
+      "soft": "Yumshoq",
+      "neutral": "Neytral",
+      "daylight": "Kunduzgi",
+      "cool": "Sovuq",
+      "add": "Chiroq qo'shish",
+      "armed_hint": "Endi 2D rejada aniq joyni bosing.",
+      "pick_hint": "Turini tanlang, so'ng 2D rejada joyni bosing.",
+      "lm_k": "{{lm}} lm · {{k}}K",
+      "in_room": "Xonadagi chiroqlar ({{n}})",
+      "clear_all": "Hammasini o'chirish",
+      "empty_plan": "Hali chiroq yo'q. Yuqoridan turini tanlang, so'ng 2D rejada aniq joyni bosing.",
+      "empty_3d": "Hali chiroq yo'q. Yuqoridan turini tanlang — chiroq xona markaziga qo'yiladi, keyin 3D'da sudrab joyiga suring.",
+      "off": "O'chiq",
+      "on": "Yoqilgan",
+      "brightness": "Yorqinlik",
+      "color_temp": "Rang harorati",
+      "beam": "Nur burchagi",
+      "drop": "Osilish balandligi",
+      "wall_h": "Devordagi balandlik",
+      "rotation": "Burilish",
+      "tilt": "Egilish",
+      "delete": "Chiroqni o'chirish",
+      "reset_title": "Standart qiymatga qaytarish",
+      "reset": "Tiklash"
+    },
+    "add": {
+      "title": "Buyum qo'shish",
+      "room_mehmonxona": "Mehmonxona",
+      "room_oshxona": "Oshxona",
+      "room_yotoqxona": "Yotoqxona",
+      "room_vanna": "Vanna",
+      "all_walls_color": "Barcha devorlar uchun rang",
+      "wall_color": "{{wall}} uchun rang",
+      "no_paint": "Hozircha do'konda bo'yoq mahsuloti yo'q",
+      "no_floor_material": "Hozircha do'konda bu turdagi pol materiali yo'q",
+      "concrete_none": "Beton pol uchun do'konda material yo'q — smeta bu pol uchun narx hisoblamaydi.",
+      "add": "Qo'shish",
+      "back": "← Orqaga",
+      "size": "Razmeri",
+      "width": "Kenglik",
+      "standard": "Standart: {{size}} m",
+      "width_decrease": "Kenglikni kamaytirish",
+      "width_increase": "Kenglikni oshirish",
+      "proportional": "Bo'yi va chuqurligi shu nisbatda birga o'zgaradi.",
+      "add_plus": "+ Qo'shish",
+      "no_match": "Katalogda mos mebel topilmadi",
+      "no_room_furniture": "Bu xona turi uchun do'konda mebel yo'q",
+      "heading_exact": "Mos keladiganlar",
+      "heading_related": "Boshqa mos kelishi mumkin",
+      "add_item": "{{name}} qo'shish"
+    },
+    "dp": {
+      "suvoq_title": "Suvoq",
+      "suvoq_text": "Xom devor suvog'i: rasm yuklang yoki kutubxonadan tanlang. U barcha devorlarga qo'llanadi.",
+      "library": "Rasm kutubxonasi",
+      "remove_texture": "Teksturani olib tashlash",
+      "putty_title": "Shpaklovka / Beton",
+      "putty_text": "Shpaklovkadan keyingi yuza: beton teksturasini tanlang yoki o'z rasmingizni yuklang. Tanlov saqlanadi.",
+      "which_wall": "Qaysi devorga",
+      "concrete_texture": "Beton teksturasi",
+      "putty_image": "Shpaklovka rasmi",
+      "el_socket1": "Rozetka",
+      "el_socket2": "Qo'sh rozetka",
+      "el_socket_media": "Media rozetka (TV, internet)",
+      "el_switch1": "Kalit (1 tugmali)",
+      "el_switch2": "Kalit (2 tugmali)",
+      "el_ac": "Konditsioner",
+      "el_panel": "Elektr shchiti",
+      "el_where": "Devor {{wall}} · {{cm}} sm balandlikda",
+      "el_none": "Elektr nuqtalari yo'q",
+      "el_none_text": "3D da devorni bosing va rozetka, kalit yoki konditsioner tanlang. U shu yerda ko'rinadi.",
+      "el_title": "Elektr nuqtalari ({{n}})",
+      "el_hint": "Har bir nuqta smetadagi kabel hisobiga kiradi. Yangisini 3D da devorni bosib qo'shing.",
+      "el_remove_aria": "{{name}}ni olib tashlash ({{where}})",
+      "el_remove": "Olib tashlash",
+      "not_saved": "Serverga saqlanmadi{{reason}} — rasm hozir ko'rinadi, lekin sahifa yangilansa yo'qoladi.",
+      "board_texture": "Taxta teksturasi",
+      "floor_image": "Pol rasmi",
+      "board_hint": "Rasm har bir taxtaga alohida yopishtiriladi — o'lcham taxta o'lchamiga teng.",
+      "floor_hint": "Rasm butun polga yoyiladi.",
+      "texture_rotation": "Tekstura burilishi",
+      "applied_boards": "Taxtalarga qo'llandi",
+      "applied_image": "Rasm qo'llandi",
+      "tab_type": "Turi",
+      "tab_image": "Rasm",
+      "floor_shop_none": "Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi.",
+      "floor_material": "Pol materiali",
+      "floor_texture": "Pol teksturasi",
+      "uploaded_image": "Yuklangan rasm",
+      "tex_settings": "Tekstura sozlamalari",
+      "scale_x": "Masshtab X",
+      "scale_y": "Masshtab Y",
+      "rotate": "Burish",
+      "offset_x": "Siljish X",
+      "offset_y": "Siljish Y",
+      "reset_defaults": "Standartga qaytarish",
+      "pattern": "Naqsh",
+      "pattern_remove": "Naqshni olib tashlash",
+      "skirting_add": "Plintusni qo'shish",
+      "skirting_remove": "Plintusni olib tashlash",
+      "settings": "Sozlamalar",
+      "height": "Balandligi",
+      "width": "Eni",
+      "unit_mm": "mm",
+      "unit_cm": "sm",
+      "plank_length": "Taxta uzunligi",
+      "plank_width": "Taxta eni",
+      "gap": "Oraliq",
+      "bevel": "Faska (qirra)",
+      "color_variation": "Rang o'zgarishi",
+      "color_over_texture": "Rang (tekstura ustidan)",
+      "wood_color": "Yog'och rangi",
+      "reset_texture_color": "Teksturaning o'z rangiga qaytarish",
+      "reset_floor_color": "Pol turi rangiga qaytarish",
+      "reset_color": "Bekor",
+      "rotation": "Burilish",
+      "cc_white": "Oq",
+      "cc_ivory": "Fil suyagi",
+      "cc_sand": "Qum",
+      "cc_silver": "Kumush",
+      "cc_ash": "Kul-bej",
+      "ceiling_hint": "Shift shakli xonaning balandligi va yorug'ligini belgilaydi.",
+      "hidden_led": "Yashirin LED lenta",
+      "ceiling_color": "Shift rangi",
+      "cornice": "Galtel",
+      "cornice_hint": "Shift va devor burchagidagi bezak carvog'i.",
+      "cornice_remove": "Galtelni olib tashlash",
+      "cornice_add": "Galtel qo'shish",
+      "min_mm": "Min: {{n}} mm",
+      "panels": "Devor panellari",
+      "panels_switch": "Devor panellari yoqilgan/o'chirilgan",
+      "panel_width_mm": "Kenglik (mm)",
+      "panel_height_mm": "Balandlik (mm)",
+      "panel_depth_mm": "Qalinlik (mm)",
+      "panel_gap_mm": "Oraliq (mm)",
+      "orientation": "Joylashuv",
+      "vertical": "Vertikal",
+      "horizontal": "Gorizontal",
+      "chamfer_mm": "Chamfer (mm)",
+      "panel_color": "Panel rangi",
+      "panels_per_wall": "Bir devordagi panel soni",
+      "pcs": "dona",
+      "panel_cols_one": "{{count}} ustun",
+      "panel_cols_other": "{{count}} ustun",
+      "panel_rows_one": "{{count}} qator",
+      "panel_rows_other": "{{count}} qator",
+      "walls_floor": "Devor / Pol",
+      "paint": "Bo'yoq",
+      "wall_image": "Devor rasmi",
+      "wallpaper_library": "Oboy kutubxonasi",
+      "texture": "Tekstura",
+      "wallpaper_needed": "Kerakli oboy",
+      "calculating": "Hisoblanmoqda...",
+      "rolls_one": "{{count}} rulon",
+      "rolls_other": "{{count}} rulon"
+    },
+    "mebel": {
+      "drop_here": "Rasmni qo'yib yuboring",
+      "no_uv_title": "UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi",
+      "no_uv": "UV yo'q",
+      "invisible_title": "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)",
+      "textured": "tekstura ✓",
+      "invisible": "ko'rinmaydi",
+      "none": "yo'q",
+      "image_btn": "Rasm",
+      "uploading": "yuklanmoqda",
+      "no_model": "3D model yo'q",
+      "no_texture": "Tekstura yo'q",
+      "apply_texture": "Tekstura qo'yish",
+      "no_shop": "Do'konsiz",
+      "change_category": "Kategoriyani o'zgartirish",
+      "placement": "Xonada joylashuvi",
+      "price_title": "Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi",
+      "currency": "so'm",
+      "tex_manage_title": "Teksturalarni boshqarish (kanallar bo'yicha) — yoki rasmni shu kartaga sudrab tashlang",
+      "tex_manage": "Teksturalarni boshqarish",
+      "delete_model": "Modelni o'chirish",
+      "file_missing": "Model fayli topilmadi",
+      "read_failed": "Modelni o'qib bo'lmadi",
+      "texture_failed": "Teksturani qo'yib bo'lmadi",
+      "all": "Barchasi",
+      "mine": "Mening",
+      "models": "3D Modellar",
+      "parts_count_one": "{{count}} ta qism.",
+      "parts_count_other": "{{count}} ta qism.",
+      "parts_hint": "Rasmni to'g'ridan-to'g'ri qism ustiga sudrab tashlang — bir nechta rasm birga tashlansa, nomiga qarab kanallarga taqsimlanadi (rang · normal · rough · AO).",
+      "one_image_all": "Barcha bo'sh kanallarga bitta rasm",
+      "placed": "Joylashtirilgan:",
+      "model": "Model",
+      "change_color": "Rang o'zgartirish",
+      "reset_color": "Asl rangga qaytarish",
+      "color": "Rang"
+    },
+    "cplan": {
+      "no_outline": "2D chiroq rejasi uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang",
+      "armed": "{{name}} — rejada joyni bosing",
+      "hint": "O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing. Qo'yilgan chiroqni sudrab suring.",
+      "light_aria": "{{name}} chirog'i — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete",
+      "to_center": "Markazga"
+    },
+    "arc": {
+      "uploaded": "Yuklangan",
+      "add": "Qo‘shish"
+    },
+    "furn": {
+      "detach_failed": "Qismni ajratib bo'lmadi",
+      "detach_title": "Qismni alohida obyekt sifatida ajratish",
+      "detach": "Ajratish",
+      "delete_part": "Qismni o'chirish",
+      "move": "Siljitish",
+      "resize": "O'lcham o'zgartirish"
+    },
+    "mplan": {
+      "no_outline": "2D plan uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang",
+      "openings": "Eshik va deraza",
+      "place_hint": "Devorga bosib joylashtiring. Elementni sudrab siljiting.",
+      "pick_element": "Element tanlang",
+      "pan_hint": "O'ng tugmani bosib turib planni suring.",
+      "window_type": "Deraza turi",
+      "window_type_selected": "Tanlangan deraza shu ko'rinishga o'zgaradi.",
+      "window_type_new": "Yangi deraza shu turda qo'yiladi.",
+      "add_in_3d": "3D oynada model qo'shing — plan ustida shakli chiziladi.",
+      "furniture_aria": "{{name}} — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete",
+      "width": "Eni",
+      "height": "Bo'yi",
+      "from_floor": "Pol-dan",
+      "from_left": "Chapdan",
+      "from_right": "O'ngdan",
+      "nudge_left": "Chapga surish (50mm)",
+      "nudge_right": "O'ngga surish (50mm)",
+      "rotate": "Burish°",
+      "rotate_left": "15° chapga burish",
+      "rotate_right": "15° o'ngga burish",
+      "size_pct": "O'lcham %"
     }
   },
   "smeta": {

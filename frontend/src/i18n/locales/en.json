@@ -267,6 +267,682 @@
       "chiqish": "exit",
       "bosing": "Press or click here",
       "toxtatish": "— stop"
+    },
+    "lib": {
+      "preset": {
+        "neoklassika": {
+          "label": "Neoclassical",
+          "title": "Neoclassical: light and elegant",
+          "summary": "Light beige walls, light oak parquet and an elegant chandelier give the classics a light, modern look."
+        },
+        "zamonaviy": {
+          "label": "Modern",
+          "title": "Modern: neutral and cozy",
+          "summary": "Grey-beige walls, a graphite accent, wood-look laminate and LED lighting make the room simple and comfortable."
+        },
+        "hitech": {
+          "label": "Hi-Tech",
+          "title": "Hi-Tech: contrast and technology",
+          "summary": "White walls, a dark anthracite accent, glossy tile and LED lighting give a high-tech, crisp linear look."
+        },
+        "milliy": {
+          "label": "National",
+          "title": "National style: a warm Eastern spirit",
+          "summary": "Cream wallpaper with dark red flowers, dark walnut parquet, a chandelier and a rug bring a warm, Eastern feel to the home."
+        },
+        "dark": {
+          "label": "Dark",
+          "title": "Dark, warm atmosphere",
+          "summary": "Dark grey walls and dark parquet give a deep, calm setting. Low, warm light keeps that mood."
+        },
+        "skandinav": {
+          "label": "Scandinavian",
+          "title": "Light Scandinavian style",
+          "summary": "Light walls, a natural wood floor and soft light make the room spacious and comfortable."
+        },
+        "klassik": {
+          "label": "Classic",
+          "title": "Classic, golden details",
+          "summary": "Damask wallpaper, warm brown parquet and a chandelier give a traditional, rich look."
+        },
+        "loft": {
+          "label": "Loft",
+          "title": "Loft: concrete and brick",
+          "summary": "Grey walls, a brick-look wall and a concrete floor set an industrial style, completed by track lights."
+        },
+        "minimalist": {
+          "label": "Minimalist",
+          "title": "Minimalist: white and grey",
+          "summary": "White walls, a light tiled floor and little furniture keep the room clean and simple."
+        }
+      },
+      "style": {
+        "neoklassika": "Neoclassical",
+        "klassik": "Classic",
+        "zamonaviy": "Modern",
+        "hitech": "Hi-Tech",
+        "minimalist": "Minimalist",
+        "skandinav": "Scandinavian",
+        "loft": "Loft",
+        "milliy": "National"
+      },
+      "oboy": {
+        "yolli": "Striped",
+        "damask": "Damask",
+        "geometrik": "Geometric",
+        "gul": "Floral",
+        "tekstura": "Texture",
+        "bolalar": "Kids"
+      },
+      "window": {
+        "single": "Single sash",
+        "double": "Double sash",
+        "triple": "Triple sash",
+        "panorama": "Panorama",
+        "transom2": "With a top transom",
+        "transom3": "With a top transom (3)",
+        "transom_wide": "With a wide top transom",
+        "apron2": "With a bottom window",
+        "transom_apron": "Top and bottom",
+        "grid6": "With a grid",
+        "grid_double": "Double sash with a grid",
+        "colonial": "Colonial",
+        "french": "French",
+        "sidelights": "With side lights",
+        "studio": "Atelier",
+        "arch_fan": "Arched",
+        "arch_single": "Arch (single)",
+        "arch_triple": "Arch (triple)"
+      },
+      "ceiling": {
+        "flat": {
+          "label": "Flat ceiling",
+          "hint": "Lowers the whole ceiling evenly — a simple, clean surface."
+        },
+        "double_layer": {
+          "label": "Two-level ceiling",
+          "hint": "Adds depth and volume — a two-step surface."
+        },
+        "floating": {
+          "label": "Floating ceiling",
+          "hint": "A light look, as if floating — lit along the edge."
+        },
+        "border": {
+          "label": "Ceiling with a border",
+          "hint": "A clean border that clearly marks the edge of the room."
+        },
+        "non_drop": {
+          "label": "Non-lowered ceiling",
+          "hint": "Simple, minimal and modern — the full height is kept."
+        },
+        "recessed": {
+          "label": "Recessed ceiling",
+          "hint": "A hidden recess — soft, luxurious light."
+        }
+      },
+      "ceiling_range": {
+        "drop": "Drop",
+        "border": "Border width",
+        "innerDrop": "Second level",
+        "gap": "Recess width",
+        "stripK": "Strip temperature"
+      },
+      "light": {
+        "pendant": {
+          "name": "Pendant light",
+          "hint": "Hangs above a table"
+        },
+        "chandelier": {
+          "name": "Chandelier",
+          "hint": "Central light for a living room"
+        },
+        "ceiling": {
+          "name": "Ceiling light",
+          "hint": "Flush with the ceiling"
+        },
+        "downlight": {
+          "name": "Downlight",
+          "hint": "Fitted into the ceiling"
+        },
+        "spotlight": {
+          "name": "Spotlight",
+          "hint": "Can be aimed"
+        },
+        "ies": {
+          "name": "IES spot",
+          "hint": "Measured beam profile (a narrow, sharp spot)"
+        },
+        "led_panel": {
+          "name": "LED panel",
+          "hint": "Wide light for an office or kitchen"
+        },
+        "led_linear": {
+          "name": "Linear LED",
+          "hint": "A long strip — rotate its angle"
+        },
+        "track": {
+          "name": "Track (rail)",
+          "hint": "A rail with several heads"
+        },
+        "led_track": {
+          "name": "LED track light",
+          "hint": "LED heads mounted on a track"
+        },
+        "bra": {
+          "name": "Wall sconce",
+          "hint": "On the wall — by a bed, in a corridor"
+        },
+        "bath": {
+          "name": "Bathroom light",
+          "hint": "Above a mirror, moisture-proof"
+        },
+        "floor_lamp": {
+          "name": "Floor lamp",
+          "hint": "Stands on the floor — next to a sofa"
+        }
+      },
+      "plaster": {
+        "beton": {
+          "name": "Concrete",
+          "hint": "Natural concrete — mottled, medium grain"
+        },
+        "beton_silliq": {
+          "name": "Smooth concrete",
+          "hint": "Polished concrete — soft mottling"
+        },
+        "beton_qopol": {
+          "name": "Rough concrete",
+          "hint": "Formwork-cast, a rough surface"
+        },
+        "suvoq": {
+          "name": "Gypsum plaster",
+          "hint": "White gypsum plaster — fine grain"
+        }
+      },
+      "stage": {
+        "suvoq": "Plaster",
+        "shpaklovka": "Putty",
+        "boyoq": "Paint/Wallpaper",
+        "pol": "Floor",
+        "montaj": "Installation",
+        "chiroq": "Light fixtures",
+        "mebel": "Furniture"
+      },
+      "tile_face": {
+        "plain": "Plain",
+        "marble-white": "White marble",
+        "marble-black": "Black marble",
+        "marble-grey": "Grey marble"
+      },
+      "floor_pattern": {
+        "herringbone": "Herringbone",
+        "double_herringbone": "Double Herringbone",
+        "chevron": "Chevron",
+        "wood_strip": "Wood Strip",
+        "brick_bond": "Brick Bond",
+        "stake_bond": "Stake Bond"
+      },
+      "wall_color": {
+        "6d6a41": "Olive green",
+        "d5c1a6": "Warm beige",
+        "e7dac9": "Cream",
+        "c3a279": "Yellowish brown",
+        "677882": "Grey-blue",
+        "b9b6af": "Soft grey",
+        "e8e0d5": "Off-white",
+        "beaf9c": "Light taupe",
+        "1a4228": "Emerald green",
+        "d6c2a9": "Light beige",
+        "eae1d2": "Ivory",
+        "a6a47d": "Sage green",
+        "a85f32": "Terracotta",
+        "d7c5ad": "Sandy beige",
+        "8f7755": "Mocha",
+        "1a2835": "Navy blue",
+        "e7ddd1": "Delicate cream",
+        "c9c0b7": "Light grey",
+        "c39243": "Gold"
+      },
+      "trim": {
+        "tekis": "Plain"
+      },
+      "camera": {
+        "c360_title": "360",
+        "c360_label": "360 camera — from the middle of the room",
+        "n_title": "Camera {{n}}",
+        "n_label": "Camera {{n}} — from a corner"
+      },
+      "unnamed_room": "Room",
+      "category": {
+        "divan": "Sofa",
+        "stol": "Table",
+        "stul": "Chair",
+        "karavot": "Bed",
+        "shkaf": "Wardrobe",
+        "lampa": "Lamp",
+        "boshqa": "Other"
+      },
+      "placement": {
+        "pol": "On the floor",
+        "devor": "On the wall",
+        "shift": "On the ceiling"
+      },
+      "part": "Part",
+      "compass": {
+        "n": "North",
+        "ne": "Northeast",
+        "e": "East",
+        "se": "Southeast",
+        "s": "South",
+        "sw": "Southwest",
+        "w": "West",
+        "nw": "Northwest"
+      },
+      "city": {
+        "toshkent": "Tashkent",
+        "samarqand": "Samarkand",
+        "buxoro": "Bukhara",
+        "andijon": "Andijan",
+        "namangan": "Namangan",
+        "fargona": "Fergana",
+        "nukus": "Nukus",
+        "urganch": "Urgench",
+        "qarshi": "Karshi",
+        "termiz": "Termez",
+        "jizzax": "Jizzakh",
+        "guliston": "Gulistan",
+        "navoiy": "Navoi"
+      }
+    },
+    "contact": {
+      "call_aria": "Call: {{label}}",
+      "telegram_aria": "Message on Telegram: {{label}}",
+      "call": "Call"
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "text": "Changes in the room are not saved yet. If you leave, they may be lost.",
+      "stay": "Stay",
+      "leave": "Leave without saving"
+    },
+    "plan_toggle": {
+      "to_2d": "Switch to the 2D plan view",
+      "to_3d": "Back to the 3D view",
+      "aria": "2D plan / 3D view"
+    },
+    "menu": {
+      "more": "More"
+    },
+    "tools": {
+      "aria": "Editing tools"
+    },
+    "gl": {
+      "title": "The 3D view could not be opened",
+      "text": "The browser's graphics memory is in use (WebGL). Try refreshing the page.",
+      "reload": "Refresh the page"
+    },
+    "shared": {
+      "eshik": "Door",
+      "deraza": "Window",
+      "balkon": "Balcony",
+      "balkon_eshigi": "Balcony door",
+      "yuklanmoqda": "Loading…",
+      "rasm_yuklash": "Upload an image",
+      "rasm_format": "JPG, PNG, WEBP · up to 15 MB",
+      "dona_soni_one": "{{count}} pc",
+      "dona_soni_other": "{{count}} pcs",
+      "faqat_rasm": "Image files only (JPG, PNG, WEBP...)",
+      "yuklab_bolmadi_msg": "The image could not be uploaded: {{message}}",
+      "yuklab_bolmadi": "The image could not be uploaded. Please try again.",
+      "hamma_ochirilsinmi": "Delete \"{{name}}\" for all users?",
+      "ochirib_bolmadi": "Could not delete.",
+      "mm_aria": "{{label}}, mm",
+      "decrease": "Decrease {{label}}",
+      "increase": "Increase {{label}}",
+      "devor": "Wall",
+      "wall_n": "Wall {{id}}",
+      "pol": "Floor",
+      "shift": "Ceiling",
+      "plintus": "Skirting board",
+      "karniz": "Cornice",
+      "parket": "Parquet",
+      "kafel": "Tile",
+      "laminat": "Laminate",
+      "beton": "Concrete",
+      "mebel": "Furniture",
+      "chiroq": "Light fixture",
+      "hamma_devorlar": "All walls",
+      "qidirish": "Search...",
+      "topilmadi": "Nothing found",
+      "qollash": "Apply",
+      "price_som": "{{price}} UZS"
+    },
+    "opening": {
+      "aria": "{{name}} — wall {{wall}}. Select: Enter, move: arrow keys, delete: Delete"
+    },
+    "tabs": {
+      "smeta": "Estimate",
+      "goto": "Go to {{label}}",
+      "prev_title": "Previous section — {{label}}",
+      "next_title": "Next section — {{label}}"
+    },
+    "inquiry": {
+      "send_failed": "The inquiry could not be sent",
+      "title": "Inquire with the shop",
+      "sent": "Your inquiry was sent. The shop will contact you.",
+      "message": "Message (optional)",
+      "placeholder": "For example: is this model in stock?",
+      "send": "Send"
+    },
+    "photo": {
+      "view_front": "Front (required)",
+      "view_left": "Left",
+      "view_back": "Back",
+      "view_right": "Right",
+      "title": "No file? Create one from an image",
+      "failed": "The model could not be created",
+      "count_label": "Number of images",
+      "one_hint": "Upload a clear image of the piece of furniture (a clean background works best) — the sides and back are drawn approximately. About 1–2 minutes.",
+      "aria_create": "Create a 3D model from an image",
+      "many_hint": "Images of one piece of furniture from different sides (the same lighting, a clean background). The front is required and at least one more is needed — the more images, the more accurate the details.",
+      "build_many_one": "Create a 3D model from {{count}} image",
+      "build_many_other": "Create a 3D model from {{count}} images",
+      "mode_single": "1 image",
+      "mode_multi": "Several images"
+    },
+    "new_room": {
+      "north": "north",
+      "south": "south",
+      "east": "east",
+      "west": "west",
+      "width": "Width",
+      "depth": "Length",
+      "height": "Height",
+      "wall_thickness": "Wall thickness",
+      "title": "New room",
+      "behind": "Behind this wall ({{side}} side)",
+      "create": "Create",
+      "creating": "Creating…"
+    },
+    "new_window": {
+      "title": "Window type",
+      "type": "Type",
+      "sizes": "Measurements",
+      "width": "Width",
+      "height": "Height",
+      "sill": "Height from the floor",
+      "frame_color": "Frame color",
+      "add": "+ Add a window"
+    },
+    "room_settings": {
+      "wall_a": "Wall A (length)",
+      "wall_b": "Wall B (width)",
+      "wall_c": "Wall C (length)",
+      "wall_d": "Wall D (width)",
+      "area": "Area",
+      "perimeter": "Perimeter",
+      "openings": "Openings",
+      "room_measures": "Room measurements",
+      "width": "Width",
+      "height": "Height",
+      "sill_short": "From floor",
+      "sill": "Height from the floor",
+      "type": "Type",
+      "title": "Room settings",
+      "sizes": "Measurements",
+      "length": "Length",
+      "ac": "Walls A – C",
+      "bd": "Walls B – D",
+      "ceiling_height": "Ceiling height",
+      "openings_title": "Windows and doors",
+      "no_element": "No items",
+      "add_window": "+ Window",
+      "add_door": "+ Door"
+    },
+    "door": {
+      "width_mm": "Width (mm)",
+      "height_mm": "Height (mm)",
+      "sill_mm": "Height from the floor (mm)",
+      "window_type": "Window type",
+      "open_angle": "Opening angle",
+      "frame_color": "Frame color"
+    },
+    "light": {
+      "warm": "Warm",
+      "soft": "Soft",
+      "neutral": "Neutral",
+      "daylight": "Daylight",
+      "cool": "Cool",
+      "add": "Add a light fixture",
+      "armed_hint": "Now click the exact spot on the 2D plan.",
+      "pick_hint": "Pick a type, then click a spot on the 2D plan.",
+      "lm_k": "{{lm}} lm · {{k}}K",
+      "in_room": "Light fixtures in the room ({{n}})",
+      "clear_all": "Delete all",
+      "empty_plan": "No light fixtures yet. Pick a type above, then click the exact spot on the 2D plan.",
+      "empty_3d": "No light fixtures yet. Pick a type above — the fixture goes to the middle of the room, then drag it into place in 3D.",
+      "off": "Off",
+      "on": "On",
+      "brightness": "Brightness",
+      "color_temp": "Color temperature",
+      "beam": "Beam angle",
+      "drop": "Hanging drop",
+      "wall_h": "Height on the wall",
+      "rotation": "Rotation",
+      "tilt": "Tilt",
+      "delete": "Delete the light fixture",
+      "reset_title": "Reset to the default value",
+      "reset": "Reset"
+    },
+    "add": {
+      "title": "Add an item",
+      "room_mehmonxona": "Living room",
+      "room_oshxona": "Kitchen",
+      "room_yotoqxona": "Bedroom",
+      "room_vanna": "Bathroom",
+      "all_walls_color": "Color for all walls",
+      "wall_color": "Color for {{wall}}",
+      "no_paint": "There is no paint in the shop yet",
+      "no_floor_material": "There is no floor material of this type in the shop yet",
+      "concrete_none": "There is no material for a concrete floor in the shop — the estimate does not price this floor.",
+      "add": "Add",
+      "back": "← Back",
+      "size": "Size",
+      "width": "Width",
+      "standard": "Standard: {{size}} m",
+      "width_decrease": "Decrease the width",
+      "width_increase": "Increase the width",
+      "proportional": "The height and depth change along with it in the same proportion.",
+      "add_plus": "+ Add",
+      "no_match": "No matching furniture in the catalog",
+      "no_room_furniture": "There is no furniture in the shop for this type of room",
+      "heading_exact": "Matches",
+      "heading_related": "Others that may fit",
+      "add_item": "Add {{name}}"
+    },
+    "dp": {
+      "suvoq_title": "Plaster",
+      "suvoq_text": "Plaster for a raw wall: upload an image or pick one from the library. It applies to all walls.",
+      "library": "Image library",
+      "remove_texture": "Remove the texture",
+      "putty_title": "Putty / Concrete",
+      "putty_text": "The surface after putty: pick a concrete texture or upload your own image. Your choice is saved.",
+      "which_wall": "Which wall",
+      "concrete_texture": "Concrete texture",
+      "putty_image": "Putty image",
+      "el_socket1": "Socket",
+      "el_socket2": "Double socket",
+      "el_socket_media": "Media socket (TV, internet)",
+      "el_switch1": "Switch (1 key)",
+      "el_switch2": "Switch (2 keys)",
+      "el_ac": "Air conditioner",
+      "el_panel": "Electrical panel",
+      "el_where": "Wall {{wall}} · at a height of {{cm}} cm",
+      "el_none": "No electrical points",
+      "el_none_text": "Tap a wall in 3D and pick a socket, a switch or an air conditioner. It will show up here.",
+      "el_title": "Electrical points ({{n}})",
+      "el_hint": "Every point counts toward the cable in the estimate. Add a new one by tapping a wall in 3D.",
+      "el_remove_aria": "Remove {{name}} ({{where}})",
+      "el_remove": "Remove",
+      "not_saved": "Not saved to the server{{reason}} — the image shows now, but it will be lost if the page is refreshed.",
+      "board_texture": "Board texture",
+      "floor_image": "Floor image",
+      "board_hint": "The image is applied to each board separately — its size equals the board's size.",
+      "floor_hint": "The image is spread over the whole floor.",
+      "texture_rotation": "Texture rotation",
+      "applied_boards": "Applied to the boards",
+      "applied_image": "Image applied",
+      "tab_type": "Type",
+      "tab_image": "Image",
+      "floor_shop_none": "There is no floor material of this type in the shop yet — the estimate does not price this floor.",
+      "floor_material": "Floor material",
+      "floor_texture": "Floor texture",
+      "uploaded_image": "Uploaded image",
+      "tex_settings": "Texture settings",
+      "scale_x": "Scale X",
+      "scale_y": "Scale Y",
+      "rotate": "Rotation",
+      "offset_x": "Offset X",
+      "offset_y": "Offset Y",
+      "reset_defaults": "Reset to default",
+      "pattern": "Pattern",
+      "pattern_remove": "Remove the pattern",
+      "skirting_add": "Add skirting board",
+      "skirting_remove": "Remove the skirting board",
+      "settings": "Settings",
+      "height": "Height",
+      "width": "Width",
+      "unit_mm": "mm",
+      "unit_cm": "cm",
+      "plank_length": "Board length",
+      "plank_width": "Board width",
+      "gap": "Gap",
+      "bevel": "Bevel (edge)",
+      "color_variation": "Color variation",
+      "color_over_texture": "Color (over the texture)",
+      "wood_color": "Wood color",
+      "reset_texture_color": "Return to the texture's own color",
+      "reset_floor_color": "Return to the floor type's color",
+      "reset_color": "Reset",
+      "rotation": "Rotation",
+      "cc_white": "White",
+      "cc_ivory": "Ivory",
+      "cc_sand": "Sand",
+      "cc_silver": "Silver",
+      "cc_ash": "Ash beige",
+      "ceiling_hint": "The shape of the ceiling sets the room's height and light.",
+      "hidden_led": "Hidden LED strip",
+      "ceiling_color": "Ceiling color",
+      "cornice": "Cornice",
+      "cornice_hint": "A decorative moulding in the corner between ceiling and wall.",
+      "cornice_remove": "Remove the cornice",
+      "cornice_add": "Add a cornice",
+      "min_mm": "Min: {{n}} mm",
+      "panels": "Wall panels",
+      "panels_switch": "Wall panels on/off",
+      "panel_width_mm": "Width (mm)",
+      "panel_height_mm": "Height (mm)",
+      "panel_depth_mm": "Thickness (mm)",
+      "panel_gap_mm": "Gap (mm)",
+      "orientation": "Orientation",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "chamfer_mm": "Chamfer (mm)",
+      "panel_color": "Panel color",
+      "panels_per_wall": "Number of panels on one wall",
+      "pcs": "pcs",
+      "panel_cols_one": "{{count}} column",
+      "panel_cols_other": "{{count}} columns",
+      "panel_rows_one": "{{count}} row",
+      "panel_rows_other": "{{count}} rows",
+      "walls_floor": "Wall / Floor",
+      "paint": "Paint",
+      "wall_image": "Wall image",
+      "wallpaper_library": "Wallpaper library",
+      "texture": "Texture",
+      "wallpaper_needed": "Wallpaper needed",
+      "calculating": "Calculating...",
+      "rolls_one": "{{count}} roll",
+      "rolls_other": "{{count}} rolls"
+    },
+    "mebel": {
+      "drop_here": "Drop the image",
+      "no_uv_title": "No UV coordinates — they are created automatically when an image is added",
+      "no_uv": "No UV",
+      "invisible_title": "An image is attached but not visible (a UV or image problem)",
+      "textured": "texture ✓",
+      "invisible": "not visible",
+      "none": "none",
+      "image_btn": "Image",
+      "uploading": "uploading",
+      "no_model": "No 3D model",
+      "no_texture": "No texture",
+      "apply_texture": "Apply a texture",
+      "no_shop": "No shop",
+      "change_category": "Change the category",
+      "placement": "Placement in the room",
+      "price_title": "Approximate price (UZS) — this price is used in the calculation",
+      "currency": "UZS",
+      "tex_manage_title": "Manage textures (by channel) — or drag an image onto this card",
+      "tex_manage": "Manage textures",
+      "delete_model": "Delete the model",
+      "file_missing": "The model file was not found",
+      "read_failed": "The model could not be read",
+      "texture_failed": "The texture could not be applied",
+      "all": "All",
+      "mine": "Mine",
+      "models": "3D models",
+      "parts_count_one": "{{count}} part.",
+      "parts_count_other": "{{count}} parts.",
+      "parts_hint": "Drag an image straight onto a part — if several images are dropped together, they are assigned to channels by file name (color · normal · rough · AO).",
+      "one_image_all": "One image for all empty channels",
+      "placed": "Placed:",
+      "model": "Model",
+      "change_color": "Change the color",
+      "reset_color": "Return to the original color",
+      "color": "Color"
+    },
+    "cplan": {
+      "no_outline": "No room outline was found for the 2D light plan — draw the room again or scan it",
+      "armed": "{{name}} — click a spot on the plan",
+      "hint": "Pick a light type from the list on the right, then click the exact spot on the plan. Drag a placed fixture to move it.",
+      "light_aria": "{{name}} — select: Enter, move: arrow keys, delete: Delete",
+      "to_center": "To center"
+    },
+    "arc": {
+      "uploaded": "Uploaded",
+      "add": "Add"
+    },
+    "furn": {
+      "detach_failed": "The part could not be detached",
+      "detach_title": "Detach the part as a separate object",
+      "detach": "Detach",
+      "delete_part": "Delete the part",
+      "move": "Move",
+      "resize": "Resize"
+    },
+    "mplan": {
+      "no_outline": "No room outline was found for the 2D plan — draw the room again or scan it",
+      "openings": "Doors and windows",
+      "place_hint": "Click a wall to place it. Drag an element to move it.",
+      "pick_element": "Pick an element",
+      "pan_hint": "Hold the right mouse button to pan the plan.",
+      "window_type": "Window type",
+      "window_type_selected": "The selected window will change to this look.",
+      "window_type_new": "A new window will be placed with this type.",
+      "add_in_3d": "Add a model in the 3D window — its shape is drawn on the plan.",
+      "furniture_aria": "{{name}} — select: Enter, move: arrow keys, delete: Delete",
+      "width": "Width",
+      "height": "Height",
+      "from_floor": "From floor",
+      "from_left": "From left",
+      "from_right": "From right",
+      "nudge_left": "Nudge left (50 mm)",
+      "nudge_right": "Nudge right (50 mm)",
+      "rotate": "Rotate°",
+      "rotate_left": "Rotate 15° left",
+      "rotate_right": "Rotate 15° right",
+      "size_pct": "Size %"
     }
   },
   "smeta": {

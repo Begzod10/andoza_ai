@@ -232,9 +232,9 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
             <path d="M21 15l-5-5L5 21"/>
           </svg>
           <span className="text-sm font-medium">
-            {wallpaperBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}
+            {wallpaperBusy ? t('studio.shared.yuklanmoqda') : t('studio.shared.rasm_yuklash')}
           </span>
-          <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
+          <span className="text-xs text-gray-500">{t('studio.shared.rasm_format')}</span>
         </button>
         {wallpaperError && <p className="text-xs text-red-500">{wallpaperError}</p>}
 
@@ -243,7 +243,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{libraryLabel}</p>
-              <span className="text-[10px] text-gray-500">{wallpapers.length} ta</span>
+              <span className="text-[10px] text-gray-500">{t('studio.shared.dona_soni', { count: wallpapers.length })}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {wallpapers.map((w) => (
@@ -290,7 +290,7 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setWallpaperError('Faqat rasm fayllari (JPG, PNG, WEBP...)');
+      setWallpaperError(t('studio.shared.faqat_rasm'));
       return;
     }
     const intent = pickerIntent.current;
@@ -307,8 +307,8 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
     } catch (err) {
       setWallpaperError(
         err instanceof Error && err.message
-          ? `Rasmni yuklab bo'lmadi: ${err.message}`
-          : "Rasmni yuklab bo'lmadi. Qaytadan urinib ko'ring.",
+          ? t('studio.shared.yuklab_bolmadi_msg', { message: err.message })
+          : t('studio.shared.yuklab_bolmadi'),
       );
     } finally {
       setWallpaperBusy(false);
@@ -318,13 +318,13 @@ export function DesignPanel({ room, phase, selectedWall, onWallChange, selectedL
   async function handleWallpaperDelete(wallpaper: Wallpaper) {
     // Shared and permanent: removing one takes it away from every user, and
     // any room already painted with it loses the image.
-    if (!(await confirm({ title: `"${wallpaper.name}" hamma foydalanuvchilar uchun o'chirilsinmi?`, destructive: true }))) return;
+    if (!(await confirm({ title: t('studio.shared.hamma_ochirilsinmi', { name: wallpaper.name }), destructive: true }))) return;
     setWallpaperError(null);
     try {
       await deleteWallpaper(wallpaper.id);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     } catch {
-      setWallpaperError("O'chirib bo'lmadi.");
+      setWallpaperError(t('studio.shared.ochirib_bolmadi'));
     }
   }
 

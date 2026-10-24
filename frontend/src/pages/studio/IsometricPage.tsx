@@ -9,7 +9,7 @@ import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import type { Room } from "@/lib/api";
-import { getWallTargets, type WallTarget } from "@/components/studio/design-panel/shared";
+import { getWallTargets, targetLabel, type WallTarget } from "@/components/studio/design-panel/shared";
 
 interface StudioContext {
   room: Room;
@@ -262,17 +262,17 @@ export default function IsometricPage() {
         <section className="mb-4">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('studio.iso.devor')}</h3>
           <div className="flex flex-wrap gap-1.5">
-            {wallTargets.map(({ key, label }) => (
+            {wallTargets.map((option) => (
               <button
-                key={key}
-                onClick={() => setTargetWall(key)}
+                key={option.key}
+                onClick={() => setTargetWall(option.key)}
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  targetWall === key
+                  targetWall === option.key
                     ? 'bg-brand text-white border-brand font-semibold'
                     : 'border-gray-300 text-gray-600 hover:border-brand/50'
                 }`}
               >
-                {label}
+                {targetLabel(option)}
               </button>
             ))}
           </div>
@@ -331,7 +331,7 @@ export default function IsometricPage() {
                   key={p.id}
                   onClick={() => handleSetOboy({ patternId: p.id })}
                   className="flex flex-col items-center gap-1"
-                  title={p.label}
+                  title={t(p.labelKey)}
                 >
                   <svg
                     width="60"
@@ -344,7 +344,7 @@ export default function IsometricPage() {
                     <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />
                     <rect width="60" height="60" fill={`url(#thumb-${p.id})`} />
                   </svg>
-                  <span className="text-xs text-gray-600">{p.label}</span>
+                  <span className="text-xs text-gray-600">{t(p.labelKey)}</span>
                 </button>
               ))}
             </div>

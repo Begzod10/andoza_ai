@@ -1,3 +1,5 @@
+import type { TKey } from '@/i18n'
+
 /**
  * Suvoq finishes — concrete and plaster wall surfaces.
  *
@@ -15,8 +17,8 @@
 
 export interface PlasterFinish {
   id: string
-  /** Uzbek label shown on the button. */
-  name: string
+  /** Locale key of the label shown on the button. */
+  nameKey: TKey
   /** Base surface colour. */
   color: string
   /** Noise grain — higher is finer. */
@@ -26,49 +28,49 @@ export interface PlasterFinish {
   seed: number
   /** Physical size of one tile in metres — sets the default repeat. */
   tileM: number
-  hint: string
+  hintKey: TKey
 }
 
 export const PLASTER_FINISHES: PlasterFinish[] = [
   {
     id: 'beton',
-    name: 'Beton',
+    nameKey: 'studio.lib.plaster.beton.name',
     color: '#B8B5AE',
     frequency: 0.9,
     strength: 0.55,
     seed: 7,
     tileM: 2.4,
-    hint: "Tabiiy beton — dog'li, o'rtacha donador",
+    hintKey: 'studio.lib.plaster.beton.hint',
   },
   {
     id: 'beton_silliq',
-    name: 'Silliq beton',
+    nameKey: 'studio.lib.plaster.beton_silliq.name',
     color: '#C6C4BE',
     frequency: 0.45,
     strength: 0.32,
     seed: 12,
     tileM: 3.2,
-    hint: 'Sayqallangan beton — yumshoq dog‘lar',
+    hintKey: 'studio.lib.plaster.beton_silliq.hint',
   },
   {
     id: 'beton_qopol',
-    name: "Qo'pol beton",
+    nameKey: 'studio.lib.plaster.beton_qopol.name',
     color: '#A8A49C',
     frequency: 1.6,
     strength: 0.8,
     seed: 21,
     tileM: 1.8,
-    hint: "Qoliplangan, dag'al yuza",
+    hintKey: 'studio.lib.plaster.beton_qopol.hint',
   },
   {
     id: 'suvoq',
-    name: 'Gips suvoq',
+    nameKey: 'studio.lib.plaster.suvoq.name',
     color: '#DDD8CE',
     frequency: 2.2,
     strength: 0.28,
     seed: 33,
     tileM: 2.0,
-    hint: 'Oq gips suvoq — mayin don',
+    hintKey: 'studio.lib.plaster.suvoq.hint',
   },
 ]
 

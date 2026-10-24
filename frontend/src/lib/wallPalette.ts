@@ -1,3 +1,5 @@
+import i18n, { type TKey } from '@/i18n'
+
 /**
  * The wall paint palette.
  *
@@ -22,30 +24,32 @@ export const WALL_COLORS = [
   "#1A2835", "#E7DDD1", "#C9C0B7", "#C39243",
 ];
 
-// Uzbek names for the swatches below — without these, screen readers and
-// colorblind users have no way to tell the buttons apart. Never rendered.
-export const WALL_COLOR_NAMES: Record<string, string> = {
-  "#6D6A41": "Zaytun yashil",
-  "#D5C1A6": "Iliq bej",
-  "#E7DAC9": "Krem",
-  "#C3A279": "Sarg'ish jigarrang",
-  "#677882": "Kulrang ko'k",
-  "#B9B6AF": "Yumshoq kulrang",
-  "#E8E0D5": "Oqish",
-  "#BEAF9C": "Och taupe",
-  "#1A4228": "Zumrad yashil",
-  "#D6C2A9": "Och bej",
-  "#EAE1D2": "Fil suyagi",
-  "#A6A47D": "Shuvoq yashil",
-  "#A85F32": "Terrakota",
-  "#D7C5AD": "Qumli bej",
-  "#8F7755": "Mokko",
-  "#1A2835": "To'q ko'k",
-  "#E7DDD1": "Nozik krem",
-  "#C9C0B7": "Och kulrang",
-  "#C39243": "Oltin",
+// Locale keys of the names of the swatches above — without these, screen readers and
+// colorblind users have no way to tell the buttons apart.
+export const WALL_COLOR_NAMES: Record<string, TKey> = {
+  "#6D6A41": "studio.lib.wall_color.6d6a41",
+  "#D5C1A6": "studio.lib.wall_color.d5c1a6",
+  "#E7DAC9": "studio.lib.wall_color.e7dac9",
+  "#C3A279": "studio.lib.wall_color.c3a279",
+  "#677882": "studio.lib.wall_color.677882",
+  "#B9B6AF": "studio.lib.wall_color.b9b6af",
+  "#E8E0D5": "studio.lib.wall_color.e8e0d5",
+  "#BEAF9C": "studio.lib.wall_color.beaf9c",
+  "#1A4228": "studio.lib.wall_color.1a4228",
+  "#D6C2A9": "studio.lib.wall_color.d6c2a9",
+  "#EAE1D2": "studio.lib.wall_color.eae1d2",
+  "#A6A47D": "studio.lib.wall_color.a6a47d",
+  "#A85F32": "studio.lib.wall_color.a85f32",
+  "#D7C5AD": "studio.lib.wall_color.d7c5ad",
+  "#8F7755": "studio.lib.wall_color.8f7755",
+  "#1A2835": "studio.lib.wall_color.1a2835",
+  "#E7DDD1": "studio.lib.wall_color.e7ddd1",
+  "#C9C0B7": "studio.lib.wall_color.c9c0b7",
+  "#C39243": "studio.lib.wall_color.c39243",
 };
 
+/** The swatch's name in the current language (read at call time, not module load). */
 export function wallColorName(hex: string): string {
-  return WALL_COLOR_NAMES[hex] ?? hex
+  const key = WALL_COLOR_NAMES[hex]
+  return key ? i18n.t(key) : hex
 }

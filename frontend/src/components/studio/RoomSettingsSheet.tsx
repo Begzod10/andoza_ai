@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { DoorOpen, Grid2x2 } from "lucide-react";
 import { useRoomStore, computeFloorArea, computePerimeter } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
@@ -26,12 +28,17 @@ function trapTabKey(e: KeyboardEvent, container: HTMLElement) {
   }
 }
 
-const WALL_LABELS: Record<string, string> = {
-  A: "Devor A (uzunlik)",
-  B: "Devor B (kenglik)",
-  C: "Devor C (uzunlik)",
-  D: "Devor D (kenglik)",
-};
+const WALL_LABEL_KEYS = {
+  A: "studio.room_settings.wall_a",
+  B: "studio.room_settings.wall_b",
+  C: "studio.room_settings.wall_c",
+  D: "studio.room_settings.wall_d",
+} as const;
+
+/** "Devor A (uzunlik)" for the wizard's four walls, "Devor 3" for a drawn room's. */
+function wallLabel(t: TFunction, id: string): string {
+  return id in WALL_LABEL_KEYS ? t(WALL_LABEL_KEYS[id as keyof typeof WALL_LABEL_KEYS]) : t("studio.shared.wall_n", { id });
+}
 
 // position: 0 is a placeholder here, not a real placement — positionAuto:
 // true tells resolveElementPositions (wallPositions.ts) to auto-center/
@@ -55,11 +62,12 @@ function MiniStepper({
   max: number;
   step: number;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => onChange(Math.max(min, value - step))}
-        aria-label={`${label} kamaytirish`}
+        aria-label={t('studio.shared.decrease', { label })}
         className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
       >
         −
@@ -69,7 +77,7 @@ function MiniStepper({
       </span>
       <button
         onClick={() => onChange(Math.min(max, value + step))}
-        aria-label={`${label} oshirish`}
+        aria-label={t('studio.shared.increase', { label })}
         className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-600 text-base font-bold flex items-center justify-center leading-none"
       >
         +
@@ -99,6 +107,7 @@ function DimStepper({
    *  precision it was measured at. Wizard rectangles keep one decimal. */
   decimals?: number;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#EDEEF1] last:border-0">
       <div>
@@ -108,7 +117,7 @@ function DimStepper({
       <div className="flex items-center gap-2.5">
         <button
           onClick={() => onChange(Math.max(min, value - step))}
-          aria-label={`${label} kamaytirish`}
+          aria-label={t('studio.shared.decrease', { label })}
           className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           −
@@ -118,7 +127,7 @@ function DimStepper({
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}
-          aria-label={`${label} oshirish`}
+          aria-label={t('studio.shared.increase', { label })}
           className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           +
@@ -157,25 +166,28 @@ function DimStepper({
  * length / Shift balandligi). Strictly a summary — no controls live in here.
  */
 function RoomSummary({ geometry }: { geometry: RoomGeometry }) {
-  const stats = useMemo(() => {
+  const { t } = useTranslation();
+  const figures = useMemo(() => {
     const areaM2 = computeFloorArea(geometry) / 1e6;
     const perimeterM = computePerimeter(geometry) / 1000;
     // Every entry in `wall.elements` IS an opening (deraza / eshik / balkon) —
     // the same rows the DERAZALAR VA ESHIKLAR section below lists per wall,
     // which is the total that section never shows.
     const openings = geometry.walls.reduce((n, w) => n + w.elements.length, 0);
-    return [
-      { label: "Maydon",     value: `${areaM2.toFixed(1)} m²` },
-      { label: "Perimetr",   value: `${perimeterM.toFixed(1)} m` },
-      { label: "Ochiqliklar", value: `${openings} ta` },
-    ];
+    return { areaM2, perimeterM, openings };
   }, [geometry]);
+  // The labels are built here, outside the memo, so they follow a language change.
+  const stats = [
+    { label: t("studio.room_settings.area"), value: `${figures.areaM2.toFixed(1)} m²` },
+    { label: t("studio.room_settings.perimeter"), value: `${figures.perimeterM.toFixed(1)} m` },
+    { label: t("studio.room_settings.openings"), value: t("studio.shared.dona_soni", { count: figures.openings }) },
+  ];
 
   return (
     <div
       className="grid grid-cols-3 gap-2 mb-4"
       role="group"
-      aria-label="Xona o'lchovlari"
+      aria-label={t('studio.room_settings.room_measures')}
     >
       {stats.map((s) => (
         <div key={s.label} className="bg-[#F9FAFB] rounded-2xl px-3 py-2.5 text-center">
@@ -200,6 +212,7 @@ function ElementRow({
 }) {
   const updateElement = useRoomStore((s) => s.updateElement);
   const removeElement = useRoomStore((s) => s.removeElement);
+  const { t } = useTranslation();
   const isWindow = el.type === "deraza";
 
   return (
@@ -209,32 +222,32 @@ function ElementRow({
         <div className="flex items-center gap-2">
           <span className="text-gray-600">{isWindow ? <Grid2x2 size={20} aria-hidden="true" /> : <DoorOpen size={20} aria-hidden="true" />}</span>
           <p className="text-[13px] font-semibold text-gray-800">
-            {isWindow ? "Deraza" : "Eshik"}
+            {isWindow ? t('studio.shared.deraza') : t('studio.shared.eshik')}
           </p>
         </div>
         <button
           onClick={() => removeElement(wallId, el.id)}
           className="text-[12px] font-semibold text-red-500 px-3 py-1 rounded-xl bg-red-50"
         >
-          O'chirish
+          {t('common.ochirish')}
         </button>
       </div>
 
       {/* Dimension steppers */}
       <div className="flex gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Kenglik</span>
+          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">{t('studio.room_settings.width')}</span>
           <MiniStepper
-            label="Kenglik"
+            label={t('studio.room_settings.width')}
             value={el.width}
             onChange={(v) => updateElement(wallId, el.id, { width: v })}
             min={400} max={3000} step={100}
           />
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Balandlik</span>
+          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">{t('studio.room_settings.height')}</span>
           <MiniStepper
-            label="Balandlik"
+            label={t('studio.room_settings.height')}
             value={el.height}
             onChange={(v) => updateElement(wallId, el.id, { height: v })}
             min={400} max={3000} step={100}
@@ -242,9 +255,9 @@ function ElementRow({
         </div>
         {isWindow && (
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Poldan</span>
+            <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">{t('studio.room_settings.sill_short')}</span>
             <MiniStepper
-              label="Poldan balandlik"
+              label={t('studio.room_settings.sill')}
               value={el.sill_height}
               onChange={(v) => updateElement(wallId, el.id, { sill_height: v })}
               min={0} max={2000} step={100}
@@ -256,13 +269,13 @@ function ElementRow({
       {/* Window type — the shapes this opening can take, scroll and tap */}
       {isWindow && (
         <div className="mt-2.5">
-          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">Turi</span>
+          <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">{t('studio.room_settings.type')}</span>
           <div className="mt-1 flex gap-1.5 overflow-x-auto pb-1">
             {WINDOW_STYLES.map((s) => (
               <button
                 key={s.id}
                 onClick={() => updateElement(wallId, el.id, { styleId: s.id })}
-                title={s.label}
+                title={t(s.labelKey)}
                 className={`shrink-0 w-11 h-12 p-1 rounded-lg border-2 transition-colors ${
                   resolveWindowStyle(el).id === s.id
                     ? 'border-blue-700 bg-blue-50'
@@ -286,6 +299,7 @@ export default function RoomSettingsSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const geometry     = useRoomStore((s) => s.geometry);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const setWallLength = useRoomStore((s) => s.setWallLength);
@@ -367,11 +381,11 @@ export default function RoomSettingsSheet({
         <div className="px-5 pb-10">
           {/* header */}
           <div className="flex items-center justify-between py-3 mb-1">
-            <h2 id="room-settings-title" className="text-[18px] font-extrabold text-gray-900">Xona sozlamalari</h2>
+            <h2 id="room-settings-title" className="text-[18px] font-extrabold text-gray-900">{t('studio.room_settings.title')}</h2>
             <button
               ref={closeButtonRef}
               onClick={onClose}
-              aria-label="Yopish"
+              aria-label={t('common.yopish')}
               className="w-11 h-11 rounded-full bg-[#F3F4F6] flex items-center justify-center text-gray-500 text-[13px] font-bold"
             >
               ✕
@@ -383,18 +397,18 @@ export default function RoomSettingsSheet({
 
           {/* ── Room dimensions ──────────────────────────────── */}
           <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">
-            O'lchamlar
+            {t('studio.room_settings.sizes')}
           </p>
           <div className="bg-[#F9FAFB] rounded-2xl px-4 mb-5">
             {isRect ? (
               <>
                 <DimStepper
-                  label="Uzunlik" sub="A – C devorlar"
+                  label={t('studio.room_settings.length')} sub={t('studio.room_settings.ac')}
                   value={wallA} onChange={(v) => setLength("AC", v)}
                   min={1000} max={15000} step={100}
                 />
                 <DimStepper
-                  label="Kenglik" sub="B – D devorlar"
+                  label={t('studio.room_settings.width')} sub={t('studio.room_settings.bd')}
                   value={wallB} onChange={(v) => setLength("BD", v)}
                   min={1000} max={15000} step={100}
                 />
@@ -403,7 +417,7 @@ export default function RoomSettingsSheet({
               geometry.walls.map((wall) => (
                 <DimStepper
                   key={wall.id}
-                  label={WALL_LABELS[wall.id] ?? `Devor ${wall.id}`}
+                  label={wallLabel(t, wall.id)}
                   value={wall.length}
                   onChange={(v) => setWallLength(wall.id, v)}
                   min={1000} max={15000} step={100}
@@ -412,7 +426,7 @@ export default function RoomSettingsSheet({
               ))
             )}
             <DimStepper
-              label="Shift balandligi"
+              label={t('studio.room_settings.ceiling_height')}
               value={ceilingHeight} onChange={setCeilingH}
               min={2000} max={4500} step={100}
             />
@@ -420,17 +434,17 @@ export default function RoomSettingsSheet({
 
           {/* ── Windows & Doors ──────────────────────────────── */}
           <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">
-            Derazalar va Eshiklar
+            {t('studio.room_settings.openings_title')}
           </p>
           <div className="space-y-3">
             {geometry.walls.map((wall) => (
               <div key={wall.id} className="bg-[#F9FAFB] rounded-2xl px-4 py-3">
                 <p className="text-[13px] font-bold text-gray-600 mb-1">
-                  {WALL_LABELS[wall.id] ?? `Devor ${wall.id}`}
+                  {wallLabel(t, wall.id)}
                 </p>
 
                 {wall.elements.length === 0 && (
-                  <p className="text-[12px] text-muted mb-2">Element yo'q</p>
+                  <p className="text-[12px] text-muted mb-2">{t('studio.room_settings.no_element')}</p>
                 )}
 
                 {wall.elements.map((el) => (
@@ -442,13 +456,13 @@ export default function RoomSettingsSheet({
                     onClick={() => setPendingWindowWallId(wall.id)}
                     className="flex-1 py-2 rounded-xl text-[13px] font-bold text-brand bg-brand-tint"
                   >
-                    + Deraza
+                    {t('studio.room_settings.add_window')}
                   </button>
                   <button
                     onClick={() => addElement(wall.id, DEFAULT_DOOR)}
                     className="flex-1 py-2 rounded-xl text-[13px] font-bold text-gray-700 bg-[#EDEEF1]"
                   >
-                    + Eshik
+                    {t('studio.room_settings.add_door')}
                   </button>
                 </div>
               </div>

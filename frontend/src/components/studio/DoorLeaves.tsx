@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
@@ -285,6 +286,7 @@ export function OpeningLeaves({
   /** Scenery only: a tap on a leaf opens its room in place (lib/roomSwitch). */
   openRoom?: (e: ThreeEvent<MouseEvent>) => void;
 }) {
+  const { t } = useTranslation();
   const lim = LIMITS[kind];
   const updateElement = useRoomStore((s) => s.updateElement);
   const removeElement = useRoomStore((s) => s.removeElement);
@@ -351,7 +353,7 @@ export function OpeningLeaves({
     // side of the wall — or on a leaf swung open — the leaf won the raycast
     // and holding it did nothing.
     holdBind({
-      label: el.type === 'deraza' ? 'Deraza' : el.type === 'balkon' ? 'Balkon eshigi' : 'Eshik',
+      label: el.type === 'deraza' ? t('studio.shared.deraza') : el.type === 'balkon' ? t('studio.shared.balkon_eshigi') : t('studio.shared.eshik'),
       onDelete: () => { onSelect?.(null); removeElement(wf.id, el.id); },
     }).onPointerDown(e);
     if (toolMode === "select") {
@@ -958,32 +960,33 @@ function WindowEditor({
   onPatch: (patch: Partial<WallElement>) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const lim = LIMITS.window;
   const angle = el.openAngle ?? 0;
 
   return (
     <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        <NumField label="Eni (mm)" value={el.width} min={lim.minW} max={lim.maxW}
+        <NumField label={t("studio.door.width_mm")} value={el.width} min={lim.minW} max={lim.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
-        <NumField label="Bo'yi (mm)" value={el.height} min={lim.minH} max={lim.maxH}
+        <NumField label={t("studio.door.height_mm")} value={el.height} min={lim.minH} max={lim.maxH}
           onCommit={(v) => onPatch({ height: snap(v) })} />
       </div>
 
       <div style={{ marginBottom: 8 }}>
-        <NumField label="Pol'dan balandligi (mm)" value={el.sill_height} min={lim.minSill} max={lim.maxSill}
+        <NumField label={t("studio.door.sill_mm")} value={el.sill_height} min={lim.minSill} max={lim.maxSill}
           onCommit={(v) => onPatch({ sill_height: snap(v) })} />
       </div>
 
       {/* Window type — scroll the strip and tap the one to build */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ color: "#6B7280", marginBottom: 3 }}>Deraza turi</div>
+        <div style={{ color: "#6B7280", marginBottom: 3 }}>{t("studio.door.window_type")}</div>
         <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 4 }}>
           {WINDOW_STYLES.map((s) => (
             <button
               key={s.id}
               onClick={() => onPatch({ styleId: s.id })}
-              title={s.label}
+              title={t(s.labelKey)}
               style={{
                 flex: "0 0 auto", width: 44, height: 48, padding: 3, borderRadius: 8, cursor: "pointer",
                 border: styleId === s.id ? "1.5px solid #2563EB" : "1px solid #E5E7EB",
@@ -998,7 +1001,7 @@ function WindowEditor({
 
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280", marginBottom: 2 }}>
-          <span>Ochiq burchak</span><span style={{ fontWeight: 700, color: "#374151" }}>{angle}°</span>
+          <span>{t("studio.door.open_angle")}</span><span style={{ fontWeight: 700, color: "#374151" }}>{angle}°</span>
         </div>
         <input
           type="range" min={0} max={MAX_SWING} step={1} value={angle}
@@ -1008,7 +1011,7 @@ function WindowEditor({
       </div>
 
       <div style={{ marginBottom: 9 }}>
-        <div style={{ color: "#6B7280", marginBottom: 4 }}>Rom rangi</div>
+        <div style={{ color: "#6B7280", marginBottom: 4 }}>{t("studio.door.frame_color")}</div>
         <div style={{ display: "flex", gap: 5 }}>
           {SASH_COLORS.map((hex) => (
             <button
@@ -1024,7 +1027,7 @@ function WindowEditor({
         </div>
       </div>
 
-      <button onClick={onDelete} style={DELETE_STYLE}>O'chirish</button>
+      <button onClick={onDelete} style={DELETE_STYLE}>{t("common.ochirish")}</button>
     </div>
   );
 }
@@ -1036,14 +1039,15 @@ function DoorEditor({
   el: WallElement;
   onPatch: (patch: Partial<WallElement>) => void;
 }) {
+  const { t } = useTranslation();
   // Width and height only — the user's call. Hinge side, swing and colour
   // went, and so did delete: holding the door already offers O'chirish.
   return (
     <div data-opening-editor-panel="true" onPointerDown={(e) => e.stopPropagation()} style={PANEL_STYLE}>
       <div style={{ display: "flex", gap: 6 }}>
-        <NumField label="Eni (mm)" value={el.width} min={LIMITS.door.minW} max={LIMITS.door.maxW}
+        <NumField label={t("studio.door.width_mm")} value={el.width} min={LIMITS.door.minW} max={LIMITS.door.maxW}
           onCommit={(v) => onPatch({ width: snap(v) })} />
-        <NumField label="Bo'yi (mm)" value={el.height} min={LIMITS.door.minH} max={LIMITS.door.maxH}
+        <NumField label={t("studio.door.height_mm")} value={el.height} min={LIMITS.door.minH} max={LIMITS.door.maxH}
           onCommit={(v) => onPatch({ height: snap(v) })} />
       </div>
     </div>

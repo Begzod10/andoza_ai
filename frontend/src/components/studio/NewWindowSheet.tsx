@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { WindowStylePicker } from "@/features/studio/WindowStylePicker";
 import { DEFAULT_WINDOW_STYLE } from "@/lib/windowStyles";
 
@@ -55,6 +56,7 @@ function DimStepper({
   max: number;
   step: number;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#EDEEF1] last:border-0">
       <div>
@@ -64,7 +66,7 @@ function DimStepper({
       <div className="flex items-center gap-2.5">
         <button
           onClick={() => onChange(Math.max(min, value - step))}
-          aria-label={`${label} kamaytirish`}
+          aria-label={t('studio.shared.decrease', { label })}
           className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           −
@@ -74,7 +76,7 @@ function DimStepper({
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + step))}
-          aria-label={`${label} oshirish`}
+          aria-label={t('studio.shared.increase', { label })}
           className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
         >
           +
@@ -111,6 +113,7 @@ interface NewWindowSheetProps {
  * (RoomSettingsSheet) owns the actual `addElement` store call.
  */
 export default function NewWindowSheet({ isOpen, onClose, onConfirm, initialSillHeight }: NewWindowSheetProps) {
+  const { t } = useTranslation();
   const [styleId, setStyleId] = useState(DEFAULT_WINDOW_STYLE);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -179,12 +182,12 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm, initialSill
         {/* header */}
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
           <h2 id="new-window-sheet-title" className="text-[18px] font-extrabold text-gray-900">
-            Deraza turi
+            {t('studio.new_window.title')}
           </h2>
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            aria-label="Yopish"
+            aria-label={t('common.yopish')}
             className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[13px] font-bold"
           >
             ✕
@@ -192,31 +195,31 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm, initialSill
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-6">
-          <WindowStylePicker value={styleId} onPick={setStyleId} title="Turi" />
+          <WindowStylePicker value={styleId} onPick={setStyleId} title={t('studio.new_window.type')} />
 
           <p className="text-[11px] font-bold text-muted uppercase tracking-wider mt-5 mb-1">
-            O'lchamlar
+            {t('studio.new_window.sizes')}
           </p>
           <div className="bg-[#F9FAFB] rounded-2xl px-4">
             <DimStepper
-              label="Kenglik"
+              label={t('studio.new_window.width')}
               value={width} onChange={setWidth}
               min={400} max={3000} step={100}
             />
             <DimStepper
-              label="Balandlik"
+              label={t('studio.new_window.height')}
               value={height} onChange={setHeight}
               min={400} max={3000} step={100}
             />
             <DimStepper
-              label="Poldan balandlik"
+              label={t('studio.new_window.sill')}
               value={sillHeight} onChange={setSillHeight}
               min={0} max={2000} step={100}
             />
           </div>
 
           <p className="text-[11px] font-bold text-muted uppercase tracking-wider mt-5 mb-2">
-            Rom rangi
+            {t('studio.new_window.frame_color')}
           </p>
           <div className="flex gap-2.5">
             {FRAME_COLORS.map((hex) => (
@@ -239,7 +242,7 @@ export default function NewWindowSheet({ isOpen, onClose, onConfirm, initialSill
             onClick={handleConfirm}
             className="mt-6 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
           >
-            + Deraza qo'shish
+            {t('studio.new_window.add')}
           </button>
         </div>
       </div>

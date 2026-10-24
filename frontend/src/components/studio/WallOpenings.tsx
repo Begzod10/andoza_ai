@@ -27,6 +27,7 @@
  * on every frame of the gesture.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -101,6 +102,7 @@ export function WallOpenings({
   /** Arms an opening for dragging, from the hold menu's "Ko'chirish". */
   onArm?: (wallId: string, elId: string) => void
 }) {
+  const { t } = useTranslation()
   // Real polygon data (≥3 hand-drawn vertices) uses the generalized per-edge
   // math; a legacy 4-wall rectangle room (no `vertices`) keeps using the
   // existing hardcoded ABCD path completely unchanged, so today's rectangle
@@ -297,7 +299,7 @@ export function WallOpenings({
             0.02 - LEAF_FACE_DEPTH[isDoor ? 'door' : 'window'],
           )
           const hold = bindHold({
-            label: el.type === 'eshik' ? 'Eshik' : 'Deraza',
+            label: el.type === 'eshik' ? t('studio.shared.eshik') : t('studio.shared.deraza'),
             onDelete: () => { removeElement(w.id, el.id); if (isSel) onSelect(null) },
             // Hold → "Ko'chirish": select and arm it, so the next drag walks
             // it along the wall (a door stays on the floor; a window also
@@ -345,7 +347,7 @@ export function WallOpenings({
               <Html position={[px, py, pz]} center zIndexRange={[200, 0]} style={{ pointerEvents: 'none' }}>
                 <button
                   type="button"
-                  aria-label={`${isDoor ? 'Eshik' : el.type === 'balkon' ? 'Balkon eshigi' : 'Deraza'} — ${w.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                  aria-label={t('studio.opening.aria', { name: isDoor ? t('studio.shared.eshik') : el.type === 'balkon' ? t('studio.shared.balkon_eshigi') : t('studio.shared.deraza'), wall: w.id })}
                   // Both stops matter, and for a reason that is easy to miss:
                   // R3F listens on a DIV that is this button's ANCESTOR, and
                   // its default hit test reads `offsetX/offsetY` — which are

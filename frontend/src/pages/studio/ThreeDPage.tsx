@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { wallTileCovering, type TileSize, type TileFace } from "@/lib/tileCatalog";
-import { CAMERA_CHOICES, RENDER_ASPECTS, type RenderAspect } from "@/lib/roomCameras";
+import { CAMERA_CHOICES, cameraLabel, cameraTitle, RENDER_ASPECTS, type RenderAspect } from "@/lib/roomCameras";
 import { wallAnchorOf, type WallAnchor } from "@/lib/newRoomFromWall";
 import { NewRoomSheet } from "@/components/studio/NewRoomSheet";
 import { requestViewCapture } from "./three-d/RoomCameras";
@@ -916,9 +916,9 @@ export default function ThreeDPage() {
                     const active = c.station == null ? panorama : cameraStation === c.station
                     return (
                       <button
-                        key={c.label}
+                        key={c.labelKey + (c.n ?? '')}
                         onClick={() => enterCamera(c.station)}
-                        title={c.label}
+                        title={cameraLabel(c)}
                         aria-pressed={active}
                         className={`h-10 pl-3 pr-4 rounded-full flex items-center gap-2 text-[13px] font-bold shadow-lg ring-1 transition-colors ${
                           active ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'
@@ -929,7 +929,7 @@ export default function ThreeDPage() {
                         }`}>
                           {c.badge}
                         </span>
-                        {c.title}
+                        {cameraTitle(c)}
                       </button>
                     )
                   })}

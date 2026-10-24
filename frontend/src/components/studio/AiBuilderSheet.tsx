@@ -11,7 +11,7 @@ import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
-import { trimProfileDef } from "@/lib/trimProfiles"
+import { trimLabel, trimProfileDef } from "@/lib/trimProfiles"
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -259,7 +259,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
     onOpenChange(false)
   }
 
-  const lightNames = plan?.lights.map((l) => `${lightType(l.type).name} (${zoneLabel(l.zone)})`) ?? []
+  const lightNames = plan?.lights.map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`) ?? []
   const main = plan?.walls.main
 
   return (
@@ -276,7 +276,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
                 onClick={() => void usePreset(preset.id)}
                 className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20"
               >
-                {preset.label}
+                {t(preset.labelKey)}
               </button>
             ))}
           </div>
@@ -400,7 +400,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               {main?.type === "paint" && <Swatch color={main.color} label={main.color} />}
               {main?.type === "oboy" && (
                 <span className="inline-flex flex-wrap items-center gap-2">
-                  <span>Oboy: {main.pattern}</span>
+                  <span>{t("studio.radial.oboy")}: {main.pattern}</span>
                   <Swatch color={main.base_color} />
                   <Swatch color={main.accent_color} />
                 </span>
@@ -412,9 +412,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               )}
               {plan.trim && (
                 <span className="mt-1 block text-xs text-gray-600">
-                  {t("ai.shift_label")}: {ceilingDesign(plan.trim.ceiling.design).label}
+                  {t("ai.shift_label")}: {t(ceilingDesign(plan.trim.ceiling.design).labelKey)}
                   {", "}
-                  {plan.trim.cornice ? `${t("ai.galtel_label")} ${trimProfileDef(plan.trim.cornice.id, "cornice").label}` : t("ai.galtel_yoq")}
+                  {plan.trim.cornice ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(plan.trim.cornice.id, "cornice"))}` : t("ai.galtel_yoq")}
                 </span>
               )}
             </PartRow>

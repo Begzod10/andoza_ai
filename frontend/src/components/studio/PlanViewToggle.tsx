@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /** Two-state 2D/3D pill switch for a studio viewport: an on/off-style toggle
  *  whose labels sit inside the pill, with the brand-blue knob sliding under
  *  the active side. Styled after the view-mode segment pill (white/95 blur,
@@ -10,14 +11,15 @@ export function PlanViewToggle({ view, onToggle }: {
   view: '2d' | '3d';
   onToggle: () => void;
 }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
       role="switch"
       aria-checked={view === '2d'}
       onClick={onToggle}
-      title={view === '3d' ? "2D reja ko'rinishiga o'tish" : "3D ko'rinishga qaytish"}
-      aria-label="2D reja / 3D ko'rinish"
+      title={view === '3d' ? t('studio.plan_toggle.to_2d') : t('studio.plan_toggle.to_3d')}
+      aria-label={t('studio.plan_toggle.aria')}
       className="relative flex items-center p-1 rounded-full bg-white/95 backdrop-blur border border-gray-200 shadow-md"
     >
       {/* Sliding knob: the pill has p-1 (4px) padding and two equal-width

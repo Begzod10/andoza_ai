@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import i18n from '@/i18n'
 
 /*
  * Part-level editing of placed GLB models.
@@ -60,7 +61,7 @@ export function partLabel(node: THREE.Object3D): string {
   if (node.name) return node.name.replace(/[_.]/g, ' ')
   let found = ''
   node.traverse((c) => { if (!found && c.name) found = c.name.replace(/[_.]/g, ' ') })
-  return found || 'Qism'
+  return found || i18n.t('studio.lib.part')
 }
 
 /**

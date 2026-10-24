@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import i18n from "@/i18n";
 import { LIGHT_TYPES } from "../lightCatalog";
 
 // ---------- Admin: materials (shop products used by the room estimate) ----------
@@ -140,7 +141,8 @@ export const SMETA_KEYS: SmetaKeyOption[] = [
   { id: "galtel", label: "Galtel", packUnit: "m" },
   ...LIGHT_TYPES.map((t) => ({
     id: `light:${t.id}`,
-    label: `Chiroq: ${t.name}`,
+    // Admin screens stay Uzbek until they are translated.
+    label: `Chiroq: ${i18n.t(t.nameKey, { lng: "uz" })}`,
     packUnit: null,
     unit: "dona",
   })),

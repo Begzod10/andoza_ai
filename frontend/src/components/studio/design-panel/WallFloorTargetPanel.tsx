@@ -116,7 +116,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setFloorError('Faqat rasm fayllari (JPG, PNG, WEBP...)');
+      setFloorError(t('studio.shared.faqat_rasm'));
       return;
     }
     setFloorBusy(true);
@@ -133,10 +133,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
         if (url) applyFloorImage(url);
       };
       reader.readAsDataURL(file);
-      setFloorError(
-        `Serverga saqlanmadi${err instanceof Error && err.message ? `: ${err.message}` : ''} — ` +
-        'rasm hozir ko\'rinadi, lekin sahifa yangilansa yo\'qoladi.',
-      );
+      setFloorError(t('studio.dp.not_saved', { reason: err instanceof Error && err.message ? `: ${err.message}` : '' }));
     } finally {
       setFloorBusy(false);
     }
@@ -155,7 +152,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                 floorMode === mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {mode === 'turi' ? 'Turi' : 'Rasm'}
+              {mode === 'turi' ? t('studio.dp.tab_type') : t('studio.dp.tab_image')}
             </button>
           ))}
         </div>
@@ -175,7 +172,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                     : "border-gray-200 hover:border-brand/40 text-gray-700"
                 }`}
               >
-                {ft.label}
+                {t(ft.labelKey)}
               </button>
             ))}
           </div>
@@ -187,16 +184,16 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                 type="text"
                 value={floorQuery}
                 onChange={(e) => setFloorQuery(e.target.value)}
-                placeholder="Qidirish..."
+                placeholder={t("studio.shared.qidirish")}
                 className="w-full px-3 py-2 mb-2 text-sm border border-gray-200 rounded-card focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-colors"
               />
               {floorProducts.length === 0 ? (
                 <p className="text-xs text-gray-500">
-                  {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q — smeta bu pol uchun narx hisoblamaydi."}
+                  {floorQuery ? t("studio.shared.topilmadi") : t("studio.dp.floor_shop_none")}
                 </p>
               ) : (
                 <>
-                  <div className="flex flex-col gap-2" role="listbox" aria-label="Pol materiali">
+                  <div className="flex flex-col gap-2" role="listbox" aria-label={t("studio.dp.floor_material")}>
                     {floorProducts.map((product: Material) => {
                       const isActive = activeFloorProductId === product.id;
                       return (
@@ -237,7 +234,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
       {floorMode === 'rasm' && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-900">Pol rasmi</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{t("studio.dp.floor_image")}</h3>
           <input
             ref={floorFileRef}
             type="file"
@@ -255,8 +252,8 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <path d="M21 15l-5-5L5 21"/>
             </svg>
-            <span className="text-sm font-medium">{floorBusy ? 'Yuklanmoqda…' : 'Rasm yuklash'}</span>
-            <span className="text-xs text-gray-500">JPG, PNG, WEBP · 15 MB gacha</span>
+            <span className="text-sm font-medium">{floorBusy ? t('studio.shared.yuklanmoqda') : t('studio.shared.rasm_yuklash')}</span>
+            <span className="text-xs text-gray-500">{t("studio.shared.rasm_format")}</span>
           </button>
           {floorError && <p className="text-xs text-amber-600 leading-snug">{floorError}</p>}
           {activeFloorImage && (() => {
@@ -264,10 +261,10 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
             return (
               <>
                 <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <img src={activeFloorImage} alt="Pol teksturasi" className="w-14 h-14 object-cover rounded-md border border-gray-200 shrink-0" />
+                  <img src={activeFloorImage} alt={t("studio.dp.floor_texture")} className="w-14 h-14 object-cover rounded-md border border-gray-200 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-700 truncate">
-                      {floorPattern ? "Taxtalarga qo'llandi" : "Yuklangan rasm"}
+                      {floorPattern ? t("studio.dp.applied_boards") : t("studio.dp.uploaded_image")}
                     </p>
                     <button
                       onClick={() => applyFloorImage(null)}
@@ -288,11 +285,11 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                   </p>
                 ) : (
                 <div className="space-y-2.5 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Tekstura sozlamalari</p>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{t("studio.dp.tex_settings")}</p>
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${uvwIdBase}-scale-x`} className="text-xs text-gray-600 font-medium">Masshtab X</label>
+                      <label htmlFor={`${uvwIdBase}-scale-x`} className="text-xs text-gray-600 font-medium">{t("studio.dp.scale_x")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatX).toFixed(2)} m</span>
                     </div>
                     <input id={`${uvwIdBase}-scale-x`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatX}
@@ -302,7 +299,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${uvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">Masshtab Y</label>
+                      <label htmlFor={`${uvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">{t("studio.dp.scale_y")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{(1 / fs.repeatY).toFixed(2)} m</span>
                     </div>
                     <input id={`${uvwIdBase}-scale-y`} type="range" min="0.1" max="5" step="0.05" value={fs.repeatY}
@@ -312,7 +309,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${uvwIdBase}-rotation`} className="text-xs text-gray-600 font-medium">Burish</label>
+                      <label htmlFor={`${uvwIdBase}-rotation`} className="text-xs text-gray-600 font-medium">{t("studio.dp.rotate")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{Math.round(fs.rotation * 180 / Math.PI)}°</span>
                     </div>
                     <input id={`${uvwIdBase}-rotation`} type="range" min="0" max={Math.PI * 2} step={Math.PI / 36} value={fs.rotation}
@@ -322,7 +319,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${uvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">Siljish X</label>
+                      <label htmlFor={`${uvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_x")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{fs.offsetX.toFixed(2)}</span>
                     </div>
                     <input id={`${uvwIdBase}-offset-x`} type="range" min="0" max="1" step="0.01" value={fs.offsetX}
@@ -332,7 +329,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <label htmlFor={`${uvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">Siljish Y</label>
+                      <label htmlFor={`${uvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_y")}</label>
                       <span className="text-xs text-gray-500 tabular-nums">{fs.offsetY.toFixed(2)}</span>
                     </div>
                     <input id={`${uvwIdBase}-offset-y`} type="range" min="0" max="1" step="0.01" value={fs.offsetY}
@@ -344,7 +341,7 @@ export function WallFloorTargetPanel({ handleSetFloorType }: {
                     onClick={() => setDesignState({ floorTextureSettings: DEFAULT_FLOOR_TEX_SETTINGS })}
                     className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    Standartga qaytarish
+                    {t("studio.dp.reset_defaults")}
                   </button>
                 </div>
                 )}

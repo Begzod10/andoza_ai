@@ -16,6 +16,7 @@
  * room's own Saqlash persists them.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
 import { Sofa, Lightbulb, Wallpaper, Grid3x3, Ruler, Frame, BedDouble, ChefHat, Bath, Upload, Ban, Plus, Store } from 'lucide-react'
@@ -27,7 +28,7 @@ import { FLOOR_PATTERN_DEFS, type FloorPatternId, type FloorPatternSettings } fr
 import { FLOOR_COLORS } from '@/pages/studio/three-d/constants'
 import { TILE_SIZES, TILE_FACES, TILE_PATTERN_ID, tileSettings } from '@/lib/tileCatalog'
 import { TileThumb } from '@/components/studio/TileThumb'
-import { trimProfilesOf, type TrimProfileDef } from '@/lib/trimProfiles'
+import { trimLabel, trimProfilesOf, type TrimProfileDef } from '@/lib/trimProfiles'
 import { PatternThumb, TrimThumb } from '@/components/studio/design-panel/FloorControls'
 import { furniturePlacementMm, nextLightPositionMm } from '@/lib/placement'
 import { resolveTargetWall } from '@/components/studio/design-panel/shared'
@@ -42,6 +43,8 @@ export interface ArcCategoriesDeps {
 }
 
 export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDeps): ArcCategory[] {
+  // `t` changes with the language, so the memo below rebuilds the labels.
+  const { t } = useTranslation()
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
   const furniture = useRoomStore((s) => s.furniture)
@@ -112,15 +115,15 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       }),
     }))
 
-    const fixtures: ArcItem[] = LIGHT_TYPES.map((t) => ({
-      key: `light:${t.id}`,
-      label: t.name,
-      icon: <LightSymbol type={t.id} size={19} strokeWidth={1.8} />,
+    const fixtures: ArcItem[] = LIGHT_TYPES.map((lt) => ({
+      key: `light:${lt.id}`,
+      label: t(lt.nameKey),
+      icon: <LightSymbol type={lt.id} size={19} strokeWidth={1.8} />,
       onSelect: () => addLight({
         id: nanoid(),
-        type: t.id,
+        type: lt.id,
         ...nextLightPositionMm(geometry, lights.length),
-        ...(t.mount === 'wall' ? { wallId: 'A' as const } : {}),
+        ...(lt.mount === 'wall' ? { wallId: 'A' as const } : {}),
       }),
     }))
 
@@ -132,7 +135,7 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
     const carriedTexture = floorPattern?.settings?.textureUrl ?? floorTexture ?? null
     const patterns: ArcItem[] = FLOOR_PATTERN_DEFS.map((def) => ({
       key: `pol:${def.id}`,
-      label: def.label,
+      label: t(def.labelKey),
       fill: <PatternThumb def={def} color={baseColor} textureUrl={carriedTexture} />,
       onSelect: () => {
         // The panel's own rule: take the pattern's own numbers — its plank
@@ -150,13 +153,13 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       // and a user who added one needs a way back.
       {
         key: `${kind}:none`,
-        label: "Yo'q",
+        label: t('studio.radial.yoq'),
         icon: <Ban size={19} strokeWidth={1.8} />,
         onSelect: () => setDesignState(kind === 'skirting' ? { skirting: null } : { cornice: null }),
       },
       ...trimProfilesOf(kind).map((def: TrimProfileDef) => ({
         key: `${kind}:${def.id}`,
-        label: def.label,
+        label: trimLabel(def),
         // The catalogue's own section drawing where there is one — the same
         // preview the surface ring shows. `detail={false}` asked for the flat
         // silhouette, which threw away the milled detail that tells one
@@ -179,36 +182,36 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         // a bed. Uploads keep a room of their own, since they have no room
         // type in the catalog and would otherwise have nowhere to appear.
         key: 'mebel',
-        label: 'Mebel',
+        label: t('studio.shared.mebel'),
         icon: <Sofa size={19} strokeWidth={1.8} />,
         items: [
           {
-            key: 'room:mehmonxona', label: 'Mehmonxona',
+            key: 'room:mehmonxona', label: t('studio.add.room_mehmonxona'),
             icon: <Sofa size={19} strokeWidth={1.8} />,
             items: modelsForRoom('mehmonxona'),
             onSelect: () => {},
           },
           {
-            key: 'room:oshxona', label: 'Oshxona',
+            key: 'room:oshxona', label: t('studio.add.room_oshxona'),
             icon: <ChefHat size={19} strokeWidth={1.8} />,
             items: modelsForRoom('oshxona'),
             onSelect: () => {},
           },
           {
-            key: 'room:yotoqxona', label: 'Yotoqxona',
+            key: 'room:yotoqxona', label: t('studio.add.room_yotoqxona'),
             icon: <BedDouble size={19} strokeWidth={1.8} />,
             items: modelsForRoom('yotoqxona'),
             onSelect: () => {},
           },
           {
-            key: 'room:vanna', label: 'Vanna',
+            key: 'room:vanna', label: t('studio.add.room_vanna'),
             icon: <Bath size={19} strokeWidth={1.8} />,
             items: modelsForRoom('hammom'),
             onSelect: () => {},
           },
           ...(uploads.length
             ? [{
-                key: 'room:yuklangan', label: 'Yuklangan',
+                key: 'room:yuklangan', label: t('studio.arc.uploaded'),
                 icon: <Upload size={19} strokeWidth={1.8} />,
                 items: uploads,
                 onSelect: () => {},
@@ -217,54 +220,54 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
         ],
         // Nothing uploaded yet: the panel is where you add one, so send them
         // there rather than showing an arc with nothing on it.
-        emptyItem: { key: 'mebel:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('mebel') },
+        emptyItem: { key: 'mebel:none', label: t('studio.radial.panel'), icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('mebel') },
       },
       {
         key: 'rang',
-        label: 'Rang',
+        label: t('studio.radial.rang'),
         icon: <Wallpaper size={19} strokeWidth={1.8} />,
         items: papers,
-        emptyItem: { key: 'rang:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('boyoq') },
+        emptyItem: { key: 'rang:none', label: t('studio.radial.panel'), icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('boyoq') },
       },
       {
         key: 'chiroq',
-        label: 'Chiroq',
+        label: t('studio.shared.chiroq'),
         icon: <Lightbulb size={19} strokeWidth={1.8} />,
         items: fixtures,
-        emptyItem: { key: 'chiroq:none', label: 'Panel', icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('chiroq') },
+        emptyItem: { key: 'chiroq:none', label: t('studio.radial.panel'), icon: <Plus size={19} strokeWidth={1.8} />, onSelect: () => openPanelAt('chiroq') },
       },
       {
         key: 'pol',
-        label: 'Pol',
+        label: t('studio.shared.pol'),
         icon: <Grid3x3 size={19} strokeWidth={1.8} />,
         items: [
           {
             key: 'pol:parket',
-            label: 'Parket',
+            label: t('studio.shared.parket'),
             icon: <Grid3x3 size={19} strokeWidth={1.8} />,
             items: patterns,
             onSelect: () => {},
           },
           {
             key: 'pol:kafel',
-            label: 'Kafel',
+            label: t('studio.shared.kafel'),
             icon: <Grid3x3 size={19} strokeWidth={1.8} />,
             // Size first, then the face: with tile, those are the two things
             // being chosen, and neither is a choice without the other.
-            items: TILE_SIZES.map((t) => ({
-              key: `kafel:${t.label}`,
-              label: t.label,
-              fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} />,
+            items: TILE_SIZES.map((size) => ({
+              key: `kafel:${size.label}`,
+              label: size.label,
+              fill: <TileThumb lengthCm={size.lengthCm} widthCm={size.widthCm} color={FLOOR_COLORS.tile} />,
               onSelect: () => {},
               items: TILE_FACES.map((face) => ({
-                key: `kafel:${t.label}:${face.url ?? 'plain'}`,
-                label: face.label,
+                key: `kafel:${size.label}:${face.url ?? 'plain'}`,
+                label: t(face.labelKey),
                 ...(face.url
                   ? { imageUrl: face.url }
-                  : { fill: <TileThumb lengthCm={t.lengthCm} widthCm={t.widthCm} color={FLOOR_COLORS.tile} /> }),
+                  : { fill: <TileThumb lengthCm={size.lengthCm} widthCm={size.widthCm} color={FLOOR_COLORS.tile} /> }),
                 onSelect: () => setDesignState({
                   floorType: 'tile',
-                  floorPattern: { id: TILE_PATTERN_ID as FloorPatternId, settings: tileSettings(t, face) },
+                  floorPattern: { id: TILE_PATTERN_ID as FloorPatternId, settings: tileSettings(size, face) },
                   floorConfigured: true,
                 }),
               })),
@@ -275,13 +278,13 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
       },
       {
         key: 'plintus',
-        label: 'Plintus',
+        label: t('studio.shared.plintus'),
         icon: <Ruler size={19} strokeWidth={1.8} />,
         items: trimItems('skirting'),
       },
       {
         key: 'karniz',
-        label: 'Karniz',
+        label: t('studio.shared.karniz'),
         icon: <Frame size={19} strokeWidth={1.8} />,
         items: trimItems('cornice'),
       },
@@ -289,6 +292,6 @@ export function useArcCategories({ selectedWall, openPanelAt }: ArcCategoriesDep
   }, [
     userFurniture, catalogFurniture, furniture, wallpapers, lights, geometry,
     placeFurniture, addLight, setWallCovering, selectedWall, openPanelAt,
-    setDesignState, floorType, floorTexture, floorPattern,
+    setDesignState, floorType, floorTexture, floorPattern, t,
   ])
 }

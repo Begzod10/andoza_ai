@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
@@ -43,7 +44,7 @@ describe('design presets', () => {
   })
 
   it('offers the styles most asked for in Uzbekistan first', () => {
-    expect(DESIGN_PRESETS.slice(0, 4).map((p) => [p.id, p.label])).toEqual([
+    expect(DESIGN_PRESETS.slice(0, 4).map((p) => [p.id, i18n.t(p.labelKey)])).toEqual([
       ['neoklassika', 'Neoklassika'],
       ['zamonaviy', 'Zamonaviy'],
       ['hitech', 'Hi-Tech'],

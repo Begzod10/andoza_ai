@@ -1,10 +1,11 @@
 import type * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo } from "react";
 import { useRoomStore } from "@/store/roomStore";
 import type { WallCovering } from "@/store/roomStore";
 import { PLASTER_FINISHES, plasterTextureUrl, plasterRepeat } from "@/lib/plasterFinishes";
 import type { PlasterFinish } from "@/lib/plasterFinishes";
-import { getWallTargets, resolveTargetWall, type WallTarget } from "./shared";
+import { getWallTargets, resolveTargetWall, targetLabel, type WallTarget } from "./shared";
 
 interface SuvoqSectionProps {
   selectedWall?: string | null;
@@ -42,6 +43,7 @@ export function SuvoqSection({
   renderTexturePicker, plasterUploadCovering,
   simplified, applySuvoqTexture, removeSuvoqTexture,
 }: SuvoqSectionProps) {
+  const { t } = useTranslation();
   const wallCoverings = useRoomStore((s) => s.designState.wallCoverings);
   const geometry = useRoomStore((s) => s.geometry);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
@@ -84,9 +86,9 @@ export function SuvoqSection({
     return (
       <section className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Suvoq</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">{t("studio.dp.suvoq_title")}</h3>
           <p className="text-[11px] text-gray-500 leading-snug">
-            Xom devor suvog'i: rasm yuklang yoki kutubxonadan tanlang. U barcha devorlarga qo'llanadi.
+            {t("studio.dp.suvoq_text")}
           </p>
         </div>
 
@@ -94,7 +96,7 @@ export function SuvoqSection({
           {renderTexturePicker(
             'plaster',
             (url) => applySuvoqTexture?.(url),
-            'Rasm kutubxonasi',
+            t('studio.dp.library'),
           )}
         </div>
 
@@ -102,7 +104,7 @@ export function SuvoqSection({
           onClick={() => removeSuvoqTexture?.()}
           className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
         >
-          Teksturani olib tashlash
+          {t('studio.dp.remove_texture')}
         </button>
       </section>
     );
@@ -135,18 +137,18 @@ export function SuvoqSection({
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Shpaklovka / Beton</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">{t("studio.dp.putty_title")}</h3>
         <p className="text-[11px] text-gray-500 leading-snug">
-          Shpaklovkadan keyingi yuza: beton teksturasini tanlang yoki o'z rasmingizni yuklang. Tanlov saqlanadi.
+          {t("studio.dp.putty_text")}
         </p>
       </div>
 
       {/* Which wall the finish lands on */}
       <div>
         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">
-          Qaysi devorga
+          {t("studio.dp.which_wall")}
         </span>
-        <div className="flex flex-wrap gap-1" role="listbox" aria-label="Qaysi devorga">
+        <div className="flex flex-wrap gap-1" role="listbox" aria-label={t("studio.dp.which_wall")}>
           {wallTargets.map((w) => (
             <button
               key={w.key}
@@ -159,7 +161,7 @@ export function SuvoqSection({
                   : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
               }`}
             >
-              {w.label}
+              {targetLabel(w)}
             </button>
           ))}
         </div>
@@ -168,9 +170,9 @@ export function SuvoqSection({
       {/* The finishes */}
       <div>
         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">
-          Beton teksturasi
+          {t("studio.dp.concrete_texture")}
         </span>
-        <div className="grid grid-cols-2 gap-2" role="listbox" aria-label="Beton teksturasi">
+        <div className="grid grid-cols-2 gap-2" role="listbox" aria-label={t("studio.dp.concrete_texture")}>
           {PLASTER_FINISHES.map((f) => {
             const url = plasterTextureUrl(f);
             const active = currentCoveringUrl === url;
@@ -178,7 +180,7 @@ export function SuvoqSection({
               <button
                 key={f.id}
                 onClick={() => applyPlaster(f)}
-                title={f.hint}
+                title={t(f.hintKey)}
                 role="option"
                 aria-selected={active}
                 className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
@@ -190,7 +192,7 @@ export function SuvoqSection({
                   style={{ backgroundImage: `url("${url}")`, backgroundSize: '120px 120px' }}
                 />
                 <span className="block px-1.5 py-1 text-[11px] font-semibold text-gray-800 bg-white">
-                  {f.name}
+                  {t(f.nameKey)}
                 </span>
               </button>
             );
@@ -200,11 +202,11 @@ export function SuvoqSection({
 
       {/* Own image — goes to the shared library so the URL keeps resolving */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900">Shpaklovka rasmi</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{t("studio.dp.putty_image")}</h3>
         {renderTexturePicker(
           'plaster',
           (url) => applyWallCovering(plasterUploadCovering(url)),
-          'Rasm kutubxonasi',
+          t('studio.dp.library'),
         )}
       </div>
 
@@ -212,7 +214,7 @@ export function SuvoqSection({
         onClick={() => handleSetPaintColor('#D8D3C8')}
         className="w-full py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
       >
-        Teksturani olib tashlash
+        {t('studio.dp.remove_texture')}
       </button>
     </section>
   );

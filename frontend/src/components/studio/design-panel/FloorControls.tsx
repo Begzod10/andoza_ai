@@ -1,4 +1,5 @@
 import { useId, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FLOOR_PATTERN_DEFS, DEFAULT_GAP_MM, DEFAULT_BEVEL_MM, computeFloorPieces, insetConvexPoly,
   pieceShade, shadeColor, floorSlabColor,
@@ -6,7 +7,7 @@ import {
 } from "@/lib/floorGeometry";
 import {
   trimProfilesOf, trimProfileSvgPath, resolveTrim,
-  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, type TrimProfileDef,
+  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, trimLabel, type TrimProfileDef,
 } from "@/lib/trimProfiles";
 import { FLOOR_COLORS } from "@/pages/studio/three-d/constants";
 import { useRoomStore } from "@/store/roomStore";
@@ -29,6 +30,7 @@ import { useRoomStore } from "@/store/roomStore";
 
 /** "Naqsh" — the real-geometry laying-pattern picker plus its Sozlamalar. */
 export function FloorPatternGroup() {
+  const { t } = useTranslation();
   const floorType = useRoomStore((s) => s.designState.floorType);
   const floorTexture = useRoomStore((s) => s.designState.floorTexture);
   const floorPattern = useRoomStore((s) => s.designState.floorPattern);
@@ -69,7 +71,7 @@ export function FloorPatternGroup() {
 
   return (
     <div className="mt-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-2">Naqsh</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("studio.dp.pattern")}</h3>
       <div className="grid grid-cols-3 gap-2">
         {FLOOR_PATTERN_DEFS.map((def) => {
           const active = floorPattern?.id === def.id;
@@ -80,7 +82,7 @@ export function FloorPatternGroup() {
               className={`rounded-card border-2 p-1 pb-1.5 text-left transition-colors ${
                 active ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
               }`}
-              title={def.label}
+              title={t(def.labelKey)}
             >
               <PatternThumb
                 def={def}
@@ -88,7 +90,7 @@ export function FloorPatternGroup() {
                 textureUrl={activeTextureUrl}
               />
               <span className={`block mt-1 text-[10px] leading-tight ${active ? "text-brand font-semibold" : "text-gray-600"}`}>
-                {def.label}
+                {t(def.labelKey)}
               </span>
             </button>
           );
@@ -106,7 +108,7 @@ export function FloorPatternGroup() {
             onClick={() => setDesignState({ floorPattern: null })}
             className="mt-2 w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
           >
-            Naqshni olib tashlash
+            {t("studio.dp.pattern_remove")}
           </button>
         </>
       )}
@@ -125,6 +127,7 @@ export function FloorPatternGroup() {
  * back on, so the thumbnails double as the add control.
  */
 export function SkirtingGroup() {
+  const { t } = useTranslation();
   const skirting = useRoomStore((s) => s.designState.skirting);
   const setDesignState = useRoomStore((s) => s.setDesignState);
 
@@ -153,7 +156,7 @@ export function SkirtingGroup() {
 
   return (
     <div className="mt-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-2">Plintus</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("studio.shared.plintus")}</h3>
       <div className="grid grid-cols-3 gap-2">
         {profiles.map((def) => {
           const on = !off && active.def.id === def.id;
@@ -161,14 +164,14 @@ export function SkirtingGroup() {
             <button
               key={def.id}
               onClick={() => pick(def)}
-              title={def.label}
+              title={trimLabel(def)}
               className={`rounded-card border-2 p-1 pb-1.5 text-left transition-colors ${
                 on ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
               }`}
             >
               <TrimThumb def={def} />
               <span className={`block mt-1 text-[10px] leading-tight ${on ? "text-brand font-semibold" : "text-gray-600"}`}>
-                {def.label}
+                {trimLabel(def)}
               </span>
             </button>
           );
@@ -180,19 +183,19 @@ export function SkirtingGroup() {
           onClick={() => setDesignState({ skirting: { id: profiles[0].id } })}
           className="mt-2 w-full py-2 text-xs font-medium text-brand border border-gray-200 hover:border-brand/50 rounded-card transition-colors"
         >
-          Plintusni qo'shish
+          {t("studio.dp.skirting_add")}
         </button>
       ) : (
         <>
           <div className="mt-3 space-y-2.5">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sozlamalar</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("studio.dp.settings")}</h3>
             <SettingSlider
-              label="Balandligi" unit=" mm" min={hRange.min} max={hRange.max} step={5}
+              label={t("studio.dp.height")} unit={` ${t("studio.dp.unit_mm")}`} min={hRange.min} max={hRange.max} step={5}
               value={Math.round(active.heightM * 1000)}
               onChange={(v) => patch({ heightMm: v })}
             />
             <SettingSlider
-              label="Eni" unit=" mm" min={wRange.min} max={wRange.max} step={1}
+              label={t("studio.dp.width")} unit={` ${t("studio.dp.unit_mm")}`} min={wRange.min} max={wRange.max} step={1}
               value={Math.round(active.widthM * 1000)}
               onChange={(v) => patch({ widthMm: v })}
             />
@@ -201,7 +204,7 @@ export function SkirtingGroup() {
             onClick={() => setDesignState({ skirting: null })}
             className="mt-2 w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
           >
-            Plintusni olib tashlash
+            {t("studio.dp.skirting_remove")}
           </button>
         </>
       )}
@@ -386,14 +389,15 @@ function PatternSettings({ def, settings, typeColor, onPatch }: {
   typeColor: string;
   onPatch(patch: Partial<FloorPatternSettings>): void;
 }) {
+  const { t } = useTranslation();
   const s = settings ?? {};
   const rotation = s.rotationDeg ?? 0;
   return (
     <div className="mt-3 space-y-2.5">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sozlamalar</h3>
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("studio.dp.settings")}</h3>
       {def.usesLength && (
         <SettingSlider
-          label="Taxta uzunligi" unit=" sm" min={10} max={300} step={1}
+          label={t("studio.dp.plank_length")} unit={` ${t("studio.dp.unit_cm")}`} min={10} max={300} step={1}
           value={s.plankLengthCm ?? def.defaultLengthCm}
           onChange={(v) => onPatch({ plankLengthCm: v })}
         />
@@ -401,22 +405,22 @@ function PatternSettings({ def, settings, typeColor, onPatch }: {
       {/* Up to 120 cm, not 40: the same control sizes a tile, and a 60 cm
           tile pinned at the old ceiling dropped to 40 on the first nudge. */}
       <SettingSlider
-        label="Taxta eni" unit=" sm" min={3} max={120} step={1}
+        label={t("studio.dp.plank_width")} unit={` ${t("studio.dp.unit_cm")}`} min={3} max={120} step={1}
         value={s.plankWidthCm ?? def.defaultWidthCm}
         onChange={(v) => onPatch({ plankWidthCm: v })}
       />
       <SettingSlider
-        label="Oraliq" unit=" mm" min={0} max={8} step={0.5}
+        label={t("studio.dp.gap")} unit={` ${t("studio.dp.unit_mm")}`} min={0} max={8} step={0.5}
         value={s.gapMm ?? DEFAULT_GAP_MM}
         onChange={(v) => onPatch({ gapMm: v })}
       />
       <SettingSlider
-        label="Faska (qirra)" unit=" mm" min={0} max={3} step={0.5}
+        label={t("studio.dp.bevel")} unit={` ${t("studio.dp.unit_mm")}`} min={0} max={3} step={0.5}
         value={s.bevelMm ?? DEFAULT_BEVEL_MM}
         onChange={(v) => onPatch({ bevelMm: v })}
       />
       <SettingSlider
-        label="Rang o'zgarishi" unit="%" min={0} max={100} step={5}
+        label={t("studio.dp.color_variation")} unit="%" min={0} max={100} step={5}
         value={Math.round((s.colorVariation ?? 0.5) * 100)}
         onChange={(v) => onPatch({ colorVariation: v / 100 })}
       />
@@ -425,7 +429,7 @@ function PatternSettings({ def, settings, typeColor, onPatch }: {
             (white = the image's own colours), so it stays useful for warming
             or darkening a photo instead of being ignored. */}
         <span className="text-xs text-gray-500 flex-1">
-          {s.textureUrl ? "Rang (tekstura ustidan)" : "Yog'och rangi"}
+          {s.textureUrl ? t("studio.dp.color_over_texture") : t("studio.dp.wood_color")}
         </span>
         <input
           type="color"
@@ -437,14 +441,14 @@ function PatternSettings({ def, settings, typeColor, onPatch }: {
           <button
             onClick={() => onPatch({ baseColor: undefined })}
             className="text-[10px] text-gray-400 hover:text-gray-600"
-            title={s.textureUrl ? "Teksturaning o'z rangiga qaytarish" : "Pol turi rangiga qaytarish"}
+            title={s.textureUrl ? t("studio.dp.reset_texture_color") : t("studio.dp.reset_floor_color")}
           >
-            Bekor
+            {t("studio.dp.reset_color")}
           </button>
         )}
       </div>
       <div>
-        <span className="text-xs text-gray-500 block mb-1">Burilish</span>
+        <span className="text-xs text-gray-500 block mb-1">{t("studio.dp.rotation")}</span>
         <div className="flex gap-1.5">
           {([0, 45, 90] as const).map((deg) => (
             <button

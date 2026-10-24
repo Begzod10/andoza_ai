@@ -1,10 +1,13 @@
-import i18n from "i18next";
+import i18n, { type ParseKeys } from "i18next";
 import { initReactI18next } from "react-i18next";
 import uz from "./locales/uz.json";
 import ru from "./locales/ru.json";
 import en from "./locales/en.json";
 
 export type Language = "uz" | "ru" | "en";
+
+/** A key of the locale files, checked by `tsc`: label tables in `lib` hold these and the components translate them while rendering. */
+export type TKey = ParseKeys;
 
 /** Each language is named in itself, so a reader can always find theirs. */
 export const LANGUAGES: { id: Language; label: string }[] = [

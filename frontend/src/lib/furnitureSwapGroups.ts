@@ -19,15 +19,16 @@ import type { CatalogFurniture } from "@/lib/api";
 /** Catch-all admin-catalog category — armchairs, rugs, TVs, kitchen sets. */
 export const SWAP_FALLBACK_CATEGORY = "boshqa";
 
-export const SWAP_EXACT_HEADING = "Mos keladiganlar";
-export const SWAP_RELATED_HEADING = "Boshqa mos kelishi mumkin";
+/** Locale keys of the two headings (the sheet renders them with `t`). */
+export const SWAP_EXACT_HEADING = "studio.add.heading_exact" as const;
+export const SWAP_RELATED_HEADING = "studio.add.heading_related" as const;
 
 export type FurnitureGroupKey = "exact" | "related" | "all";
 
 export interface FurnitureGroup {
   key: FurnitureGroupKey;
   /** Null = render the list with no heading (single, self-evident group). */
-  heading: string | null;
+  heading: typeof SWAP_EXACT_HEADING | typeof SWAP_RELATED_HEADING | null;
   items: CatalogFurniture[];
 }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * The transform tools, collapsed to the one that is active.
@@ -43,6 +44,7 @@ export function ToolCluster<T extends string>({
   holdMs = 400,
   className = '',
 }: ToolClusterProps<T>) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const holdTimer = useRef<number | null>(null)
   const heldOpen = useRef(false)
@@ -109,7 +111,7 @@ export function ToolCluster<T extends string>({
       ref={rootRef}
       className={`flex items-center gap-1.5 ${className}`}
       role="group"
-      aria-label="Tahrirlash asboblari"
+      aria-label={t('studio.tools.aria')}
     >
       {items.map((item, i) => {
         const isActive = item.mode === value

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createPhotoModel, fetchPhotoModelGlb, waitForRender } from "@/lib/api";
 import type { PhotoViews } from "@/lib/api";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
@@ -7,12 +8,12 @@ const MAX_THUMB_BYTES = 5 * 1024 * 1024; // the server's cap on a model's previe
 const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // what Tripo accepts
 
 type ViewKey = "front" | "left" | "back" | "right";
-const VIEW_SLOTS: { key: ViewKey; label: string }[] = [
-  { key: "front", label: "Old tomondan (majburiy)" },
-  { key: "left", label: "Chap tomondan" },
-  { key: "back", label: "Orqa tomondan" },
-  { key: "right", label: "O'ng tomondan" },
-];
+const VIEW_SLOTS = [
+  { key: "front", labelKey: "studio.photo.view_front" },
+  { key: "left", labelKey: "studio.photo.view_left" },
+  { key: "back", labelKey: "studio.photo.view_back" },
+  { key: "right", labelKey: "studio.photo.view_right" },
+] as const satisfies readonly { key: ViewKey; labelKey: string }[];
 
 export interface BuiltFromPhoto {
   /** The generated 3D model, ready to upload like a hand-picked .glb. */
@@ -40,7 +41,7 @@ export function PhotoToModelField({
   onBusyChange,
   themed = false,
   onError,
-  title = "Faylingiz yo'qmi? Rasmdan yarating",
+  title,
 }: {
   onBuilt: (built: BuiltFromPhoto) => void;
   /** True while a model is being built — the form should not submit meanwhile. */
@@ -52,6 +53,7 @@ export function PhotoToModelField({
   /** Follow the app's day/night theme (inside a themed dialog). */
   themed?: boolean;
 }) {
+  const { t } = useTranslation();
   const [building, setBuilding] = useState(false);
   const [mode, setMode] = useState<"one" | "many">("one");
   const [slots, setSlots] = useState<Record<ViewKey, File | null>>({ front: null, left: null, back: null, right: null });
@@ -74,7 +76,7 @@ export function PhotoToModelField({
   async function build(photo: File, views: PhotoViews = {}) {
     onError(null);
     if ([photo, ...Object.values(views)].some((f) => f && f.size > MAX_PHOTO_BYTES)) {
-      onError("Rasm 20 MB dan kichik bo'lishi kerak");
+      onError(t("photoModel.katta"));
       return;
     }
     abortRef.current?.abort();
@@ -93,7 +95,7 @@ export function PhotoToModelField({
       });
     } catch (err) {
       if (controller.signal.aborted) return;
-      onError(errorMessage(err, "Modelni yaratib bo'lmadi"));
+      onError(errorMessage(err, t("studio.photo.failed")));
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
@@ -104,9 +106,9 @@ export function PhotoToModelField({
 
   return (
     <div className={`rounded-xl border border-dashed p-3 space-y-2 ${themed ? "border-line" : "border-neutral-300"}`}>
-      <label className={`block text-sm font-medium ${themed ? "text-ink" : "text-neutral-900"}`}>{title}</label>
-      <div role="radiogroup" aria-label="Rasmlar soni" className={`grid grid-cols-2 gap-1 rounded-xl p-1 ${themed ? "bg-card-soft" : "bg-neutral-100"}`}>
-        {([["one", "1 ta rasm"], ["many", "Bir nechta rasm"]] as const).map(([key, label]) => (
+      <label className={`block text-sm font-medium ${themed ? "text-ink" : "text-neutral-900"}`}>{title ?? t("studio.photo.title")}</label>
+      <div role="radiogroup" aria-label={t("studio.photo.count_label")} className={`grid grid-cols-2 gap-1 rounded-xl p-1 ${themed ? "bg-card-soft" : "bg-neutral-100"}`}>
+        {([["one", "studio.photo.mode_single"], ["many", "studio.photo.mode_multi"]] as const).map(([key, labelKey]) => (
           <button
             key={key}
             type="button"
@@ -118,7 +120,7 @@ export function PhotoToModelField({
               mode === key ? (themed ? "bg-card text-ink shadow-sm" : "bg-white text-brand shadow-sm") : themed ? "text-ink-muted" : "text-neutral-500"
             }`}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -126,12 +128,12 @@ export function PhotoToModelField({
       {mode === "one" ? (
         <>
           <p className={`text-xs ${themed ? "text-ink-muted" : "text-neutral-500"}`}>
-            Mebelning aniq rasmini yuklang (toza fon yaxshi) — yon va orqa tomonlari taxminan chiziladi. Taxminan 1–2 daqiqa.
+            {t("studio.photo.one_hint")}
           </p>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            aria-label="Rasmdan 3D model yaratish"
+            aria-label={t("studio.photo.aria_create")}
             disabled={building}
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -144,17 +146,16 @@ export function PhotoToModelField({
       ) : (
         <>
           <p className={`text-xs ${themed ? "text-ink-muted" : "text-neutral-500"}`}>
-            Bitta mebelning turli tomondan rasmlari (bir xil yorug'lik, toza fon). Old tomon majburiy, yana kamida bittasi kerak —
-            rasm qancha ko'p bo'lsa, detallar shuncha aniq chiqadi.
+            {t("studio.photo.many_hint")}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {VIEW_SLOTS.map(({ key, label }) => (
+            {VIEW_SLOTS.map(({ key, labelKey }) => (
               <label key={key} className={`block text-xs ${themed ? "text-ink" : "text-neutral-700"}`}>
-                <span className="block mb-0.5 font-medium">{label}</span>
+                <span className="block mb-0.5 font-medium">{t(labelKey)}</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  aria-label={label}
+                  aria-label={t(labelKey)}
                   disabled={building}
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
@@ -178,14 +179,14 @@ export function PhotoToModelField({
             }}
             className="min-h-[40px] w-full rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50"
           >
-            {chosen} ta rasmdan 3D model yaratish
+            {t("studio.photo.build_many", { count: chosen })}
           </button>
         </>
       )}
       {building && (
         <p role="status" className="flex items-center gap-2 text-xs font-medium text-brand">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand/20 border-t-brand" aria-hidden />
-          Model yaratilmoqda (1–2 daqiqa)...
+          {t("photoModel.yaratilmoqda")}
         </p>
       )}
     </div>

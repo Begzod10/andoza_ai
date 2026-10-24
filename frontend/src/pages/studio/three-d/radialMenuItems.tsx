@@ -4,7 +4,7 @@ import type { PhaseKey } from "@/lib/phases";
 import type { RadialState } from "./useSurfaceRadialMenu";
 import { CATALOG as ELECTRICAL_CATALOG, electricalLabel } from "@/pages/studio/placement/constants";
 import { LIGHT_TYPES } from "@/lib/lightCatalog";
-import { trimProfilesOf } from "@/lib/trimProfiles";
+import { trimLabel, trimProfilesOf } from "@/lib/trimProfiles";
 import { WINDOW_STYLES } from "@/lib/windowStyles";
 import { WindowPreview } from "@/lib/windowPreview";
 import { DOOR_STYLES } from "@/lib/doorStyles";
@@ -155,7 +155,7 @@ export function buildRadialItems(
           childLabel: t.label,
           children: TILE_FACES.map((face) => ({
             key: `wall-kafel:${t.label}:${face.slug}`,
-            label: face.label,
+            label: i18n.t(face.labelKey),
             icon: RadialIcons.floor,
             // The baked tile itself, joint and all — the preview IS what goes
             // on the wall.
@@ -176,7 +176,7 @@ export function buildRadialItems(
         children: [
           ...WINDOW_STYLES.map((st) => ({
             key: `win:${st.id}`,
-            label: st.label,
+            label: i18n.t(st.labelKey),
             icon: RadialIcons.window,
             // The layout IS the style, so the preview draws it: frame,
             // mullions, glass, and a handle on the sashes that open. One grid
@@ -252,7 +252,7 @@ export function buildRadialItems(
   if (r.surface === 'window') {
     return WINDOW_STYLES.map((st) => ({
       key: `win:${st.id}`,
-      label: st.label,
+      label: i18n.t(st.labelKey),
       icon: RadialIcons.window,
       fill: <WindowPreview style={st} />,
       onSelect: () => { if (r.wallId && r.elId) restyleOpening(r.wallId, r.elId, st.id); },
@@ -275,7 +275,7 @@ export function buildRadialItems(
       },
       ...trimProfilesOf(kind).map((def) => ({
         key: `${kind}:${def.id}`,
-        label: def.label,
+        label: trimLabel(def),
         icon: kind === 'cornice' ? RadialIcons.cornice : RadialIcons.floor,
         fill: <TrimThumb def={def} />,
         onSelect: () => (kind === 'cornice' ? setCornice : setSkirting)({
@@ -298,7 +298,7 @@ export function buildRadialItems(
         onSelect: () => {},
         children: LIGHT_TYPES.map((t) => ({
           key: `light:${t.id}`,
-          label: t.name,
+          label: i18n.t(t.nameKey),
           icon: RadialIcons.light,
           // Drawn in elevation: the catalogue's emoji were labels, not
           // pictures, and three of them read as the same blob at this size.
@@ -322,7 +322,7 @@ export function buildRadialItems(
           onSelect: () => setCornice(null),
         }, ...trimProfilesOf('cornice').map((def) => ({
           key: `cornice:${def.id}`,
-          label: def.label,
+          label: trimLabel(def),
           icon: RadialIcons.cornice,
           fill: <TrimThumb def={def} />,
           // Picking a profile adopts its own catalogue sizes, the same thing
@@ -347,7 +347,7 @@ export function buildRadialItems(
         children: [
           ...CEILING_DESIGNS.map((cd) => ({
             key: `ceil:${cd.id}`,
-            label: cd.label,
+            label: i18n.t(cd.labelKey),
             icon: RadialIcons.ceiling,
             fill: <CeilingPreview designId={cd.id} className="w-full h-full" />,
             hideLabel: true,
@@ -371,7 +371,7 @@ export function buildRadialItems(
       onSelect: () => {},
       children: FLOOR_PATTERN_DEFS.map((def) => ({
         key: `parket:${def.id}`,
-        label: def.label,
+        label: i18n.t(def.labelKey),
         icon: RadialIcons.floor,
         fill: <PatternThumb def={def} color={FLOOR_COLORS.parquet} />,
         // No overrides: the pattern's own sizes, arris and tone variation are
@@ -402,7 +402,7 @@ export function buildRadialItems(
           // stale the moment that image moves, and the user's choice would be
           // quietly forgotten.
           key: `kafel:${t.label}:${face.slug}`,
-          label: face.label,
+          label: i18n.t(face.labelKey),
           icon: RadialIcons.floor,
           fill: face.url
             ? <img src={face.url} alt="" loading="lazy" draggable={false}

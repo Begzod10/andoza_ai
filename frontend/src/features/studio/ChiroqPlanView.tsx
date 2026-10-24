@@ -12,6 +12,7 @@
  * in mid-air.
  */
 import { useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedLight, PlacedFurniture } from '@/store/roomStore'
@@ -61,6 +62,7 @@ export function ChiroqPlanView({
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
+  const { t } = useTranslation()
   const geometry = useRoomStore((s) => s.geometry)
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
@@ -89,7 +91,7 @@ export function ChiroqPlanView({
   if (!rect && !poly) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-gray-500 p-6 text-center">
-        2D chiroq rejasi uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang
+        {t('studio.cplan.no_outline')}
       </div>
     )
   }
@@ -392,12 +394,11 @@ export function ChiroqPlanView({
         {armedType ? (
           <p className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
             <LightSymbol type={armedType} size={14} />
-            {lightType(armedType).name} — rejada joyni bosing
+            {t('studio.cplan.armed', { name: t(lightType(armedType).nameKey) })}
           </p>
         ) : (
           <p className="text-[11px] text-gray-400">
-            O'ngdagi ro'yxatdan chiroq turini tanlang, so'ng rejada aniq joyni bosing.
-            Qo'yilgan chiroqni sudrab suring.
+            {t('studio.cplan.hint')}
           </p>
         )}
       </div>
@@ -425,6 +426,7 @@ function LightGlyph({ light, selected, onPointerDown, onKeyDown }: {
   onPointerDown: (e: React.PointerEvent) => void
   onKeyDown: (e: React.KeyboardEvent) => void
 }) {
+  const { t: tr } = useTranslation()
   const t: LightType = lightType(light.type)
   const hex = kelvinToHex(light.colorK ?? t.colorK)
   const r = Math.max(160, (Math.max(t.sizeM.w, t.sizeM.d) * 1000) / 2)
@@ -435,7 +437,7 @@ function LightGlyph({ light, selected, onPointerDown, onKeyDown }: {
       style={{ cursor: 'grab' }}
       tabIndex={0}
       role="button"
-      aria-label={`${t.name} chirog'i — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+      aria-label={tr('studio.cplan.light_aria', { name: tr(t.nameKey) })}
       className="kbd-focusable"
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
@@ -548,11 +550,12 @@ function CoordinateBar({ light, x0, z0, W, D, onMove, onPatch }: {
   onMove: (x: number, z: number) => void
   onPatch: (patch: Partial<Omit<PlacedLight, 'id'>>) => void
 }) {
+  const { t: tr } = useTranslation()
   const t = lightType(light.type)
   return (
     <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex flex-wrap items-center gap-2">
       <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
-        <LightSymbol type={t.id} size={14} />{t.name}
+        <LightSymbol type={t.id} size={14} />{tr(t.nameKey)}
       </span>
       <NumField label="X" value={light.xMm} min={x0} max={x0 + W} onCommit={(v) => onMove(v, light.zMm)} />
       <NumField label="Y" value={light.zMm} min={z0} max={z0 + D} onCommit={(v) => onMove(light.xMm, v)} />
@@ -560,7 +563,7 @@ function CoordinateBar({ light, x0, z0, W, D, onMove, onPatch }: {
         onClick={() => onMove(Math.round(W / 2), Math.round(D / 2))}
         className="text-[10px] font-semibold text-gray-500 hover:text-brand px-2 py-1 rounded-md border border-gray-200"
       >
-        Markazga
+        {tr('studio.cplan.to_center')}
       </button>
       <button
         onClick={() => onPatch({ off: !light.off })}
@@ -568,7 +571,7 @@ function CoordinateBar({ light, x0, z0, W, D, onMove, onPatch }: {
           light.off ? 'bg-gray-200 text-gray-500' : 'bg-amber-100 text-amber-700'
         }`}
       >
-        {light.off ? "O'chiq" : 'Yoqilgan'}
+        {light.off ? tr('studio.light.off') : tr('studio.light.on')}
       </button>
     </div>
   )
@@ -582,6 +585,7 @@ function NumField({ label, value, min, max, onCommit }: {
   max: number
   onCommit: (mm: number) => void
 }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState<string | null>(null)
   const shown = draft ?? String(Math.round(value))
 
@@ -605,7 +609,7 @@ function NumField({ label, value, min, max, onCommit }: {
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
         className="w-16 px-1.5 py-1 text-[11px] border border-gray-200 rounded-md focus:border-brand focus:outline-none"
       />
-      <span className="text-[9px] text-gray-400">mm</span>
+      <span className="text-[9px] text-gray-400">{t('studio.dp.unit_mm')}</span>
     </label>
   )
 }

@@ -10,8 +10,8 @@ export const MIGRATED_DIRS: string[] = [
   "src/components/smeta/CategorySection.tsx",
   "src/components/smeta/CostBreakdown.tsx",
   "src/components/smeta/SmetaAskDrawer.tsx",
-  "src/components/studio/PanoramaViewer.tsx",
-  "src/components/studio/RenderSheet.tsx",
+  "src/components/studio",
+  "src/features/studio",
   "src/pages/auth",
   "src/pages/profile",
   "src/components/layout",
@@ -39,6 +39,13 @@ export const ALLOW: string[] = [
   "Shift", "ESC", "TV", "ETH", "ANT",
   // CSS in a <style> tag of the floor plan, not text.
   ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1B3784); outline-offset: 2px; }",
+  // The messenger's own name, the same in every language.
+  "Telegram",
+  // CSS in <style> tags of the studio (focus rings, menu animations), not text.
+  ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #2563EB); outline-offset: 2px; }",
+  ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1E40AF); outline-offset: 2px; }",
+  "@keyframes arcpop { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } } @keyframes arcfade { from { opacity: 0; } to { opacity: 1; } }",
+  "@keyframes radialpop { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }",
 ];
 
 const TEXT_ATTRIBUTES = new Set(["label", "placeholder", "title", "aria-label", "alt", "description"]);

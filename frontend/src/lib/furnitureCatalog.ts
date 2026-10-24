@@ -16,25 +16,26 @@ export type FurnitureCategory =
   | 'lampa'
   | 'boshqa'
 
-export const CATEGORY_LABELS: Record<FurnitureCategory, string> = {
-  divan:  'Divan',
-  stol:   'Stol',
-  stul:   "Stul",
-  karavot:'Karavot',
-  shkaf:  'Shkaf',
-  lampa:  'Lampa',
-  boshqa: 'Boshqa',
-}
+/** Locale keys of the category names (the studio renders them with `t`). */
+export const CATEGORY_LABELS = {
+  divan:  'studio.lib.category.divan',
+  stol:   'studio.lib.category.stol',
+  stul:   'studio.lib.category.stul',
+  karavot:'studio.lib.category.karavot',
+  shkaf:  'studio.lib.category.shkaf',
+  lampa:  'studio.lib.category.lampa',
+  boshqa: 'studio.lib.category.boshqa',
+} as const satisfies Record<FurnitureCategory, string>
 
 /** Where a model sits once placed in the room. Matches the admin catalog's
  * pol/devor/shift vocabulary (backend Furniture.placement). */
 export type FurniturePlacement = 'pol' | 'devor' | 'shift'
 
-export const PLACEMENT_LABELS: Record<FurniturePlacement, string> = {
-  pol:   'Polda',
-  devor: 'Devorda',
-  shift: 'Shiftda',
-}
+export const PLACEMENT_LABELS = {
+  pol:   'studio.lib.placement.pol',
+  devor: 'studio.lib.placement.devor',
+  shift: 'studio.lib.placement.shift',
+} as const satisfies Record<FurniturePlacement, string>
 
 /**
  * Rough starting price (so'm) by category for a freshly-imported user model —

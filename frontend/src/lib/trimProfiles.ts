@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { toCreasedNormals } from 'three-stdlib'
+import i18n, { type TKey } from '@/i18n'
 
 /**
  * Milled trim profiles — the cross-sections behind the floor skirting
@@ -72,6 +73,8 @@ export interface TrimProfileDef {
   /** Shown under the thumbnail — the millwork catalogue's own code, so the
    *  user can match what they picked against the printed sheet. */
   label: string
+  /** Set where the label is a word (the plain board), not a catalogue code. */
+  labelKey?: TKey
   kind: TrimKind
   path: ProfilePath
   /** Metric sizes rounded from the sheet's imperial dimensions. */
@@ -104,6 +107,7 @@ const SKIRTING_PROFILES: TrimProfileDef[] = [
   {
     id: 'tekis',
     label: 'Tekis',
+    labelKey: 'studio.lib.trim.tekis',
     kind: 'skirting',
     defaultHeightMm: 144,
     defaultWidthMm: 18,
@@ -583,6 +587,11 @@ const CORNICE_PROFILES: TrimProfileDef[] = [
 ]
 
 export const TRIM_PROFILES: TrimProfileDef[] = [...SKIRTING_PROFILES, ...CORNICE_PROFILES]
+
+/** The label under a profile's thumbnail: its catalogue code, or its name where it has one. */
+export function trimLabel(def: TrimProfileDef): string {
+  return def.labelKey ? i18n.t(def.labelKey) : def.label
+}
 
 export function trimProfilesOf(kind: TrimKind): TrimProfileDef[] {
   return TRIM_PROFILES.filter((p) => p.kind === kind)
