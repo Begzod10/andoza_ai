@@ -349,8 +349,8 @@ describe('WizardPage in Russian', () => {
     renderWizard()
     expect(screen.getByText(ru.wizard.shift_balandligi)).toBeTruthy()
     expect(screen.queryByText('Shiftning balandligi?')).toBeNull()
-    expect(screen.getByText('2.7 м')).toBeTruthy()
-    fireEvent.click(screen.getByText('2.7 м'))
+    expect(screen.getByText('2,7 м')).toBeTruthy()
+    fireEvent.click(screen.getByText('2,7 м'))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Стена A' })).toBeTruthy()
     })

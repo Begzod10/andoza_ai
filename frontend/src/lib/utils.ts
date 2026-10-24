@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { currentLanguage, type Language } from "@/i18n";
+import { currentLanguage, intlLocale, type Language } from "@/i18n";
 
 /**
  * Merge Tailwind CSS class names with clsx support.
@@ -78,6 +78,21 @@ export function formatUZSCompact(soum: number): string {
     return `${thousands} ming so'm`;
   }
   return formatUZS(soum);
+}
+
+/**
+ * A number shown to the reader with a fixed count of decimals: ru writes the
+ * decimal comma ("2,50"), en the dot. uz keeps the dot it always showed (Intl's
+ * uz-UZ would write a comma). Never grouped. Text only: a value an <input>
+ * parses back stays `toFixed`.
+ */
+export function formatDecimal(value: number, digits: number): string {
+  if (currentLanguage() === "uz") return value.toFixed(digits);
+  return value.toLocaleString(intlLocale(), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  });
 }
 
 /**
