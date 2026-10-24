@@ -339,19 +339,70 @@ class Item:
     placement: str | None = None
     room_type: str | None = None
     dims: dict = field(default_factory=dict)
+    # Attributes that tell two same-named products apart (colour, brand, size), in order.
+    variants: list = field(default_factory=list)
 
 
-def furniture(name, category, url, image, price=None, dims=None, placement=None, room_type=None) -> Item:
+def size_label(dims: dict) -> str | None:
+    w, d = dims.get("footprint_w"), dims.get("footprint_d")
+    return f"{w:g}×{d:g} см" if w and d else None
+
+
+def furniture(name, category, url, image, price=None, dims=None, placement=None, room_type=None,
+              variants=None) -> Item:
     if category == "lampa" and placement is None:
         placement = lamp_placement(name)
     if room_type is None:
         room_type = ROOM_BY_CATEGORY.get(category)
+    dims = dims or {}
+    variants = [v for v in [*(variants or []), size_label(dims)] if v]
     return Item("furniture", clean_name(name), category, url, image, price, None,
-                placement or "pol", room_type, dims or {})
+                placement or "pol", room_type, dims, variants)
+
+
+# Latin letters that look Cyrillic, as a store sometimes types them inside a Russian
+# word ("Cтильный" with a Latin C).
+_LOOKALIKE = str.maketrans("ABCEHKMOPTXaceopxy", "АВСЕНКМОРТХасеорху")
+# "Люстры [9781-18 GYB]": a category page's plural label plus a model code.
+_PLURAL_PREFIX = {
+    "Люстры": "Люстра", "Торшеры": "Торшер", "Торшер": "Торшер", "Бра": "Бра",
+    "Одинарные светильники": "Светильник", "Потолочные светильники": "Светильник",
+}
+_PREFIX_RE = re.compile(r"^(%s)\s*\[(.+)\]$" % "|".join(sorted(map(re.escape, _PLURAL_PREFIX), key=len, reverse=True)))
+
+
+_LOOKALIKE_BACK = str.maketrans("АВСЕНКМОРТХасеорху", "ABCEHKMOPTXaceopxy")
+
+
+def _fix_word(word: str) -> str:
+    """A word mixing scripts takes the script most of its letters are in."""
+    cyr = len(re.findall(r"[а-яё]", word, re.I))
+    lat = len(re.findall(r"[A-Za-z]", word))
+    if cyr and lat:
+        return word.translate(_LOOKALIKE if cyr >= lat else _LOOKALIKE_BACK)
+    return word
 
 
 def clean_name(name: str) -> str:
-    return re.sub(r"\s+", " ", name or "").strip()[:200]
+    name = re.sub(r"\s+", " ", name or "").strip()
+    m = _PREFIX_RE.match(name)
+    if m:
+        name = f"{_PLURAL_PREFIX[m.group(1)]} {m.group(2).strip()}"
+    name = " ".join(_fix_word(w) for w in name.split(" "))
+    if name[:1].islower():
+        name = name[0].upper() + name[1:]
+    return name.rstrip(".")[:200]
+
+
+# A multi-piece bundle (a bedroom set, a table with six chairs, a living-room set) is not
+# one piece of furniture: it is left out of the demo.
+_BUNDLE_RE = re.compile(
+    r"комплект|гарнитур|^спальня|^гостиная|^с/с|^г/н|\d\s*стуль|\bнабор|to'plam"
+    r"|\sи\s+(\w+\s+)?(тумб|стул|кресл|шкаф|диван|пуф|стол|зеркал|комод)", re.I)
+
+
+def is_bundle(name: str) -> bool:
+    return bool(_BUNDLE_RE.search(name))
 
 
 # ---------------------------------------------------------------------------
@@ -428,7 +479,7 @@ def fetch_arca(http: Http) -> list[Item]:
         for p in ld_products(soup):
             offers = p.get("offers") or {}
             url = urljoin(cat_url, offers.get("url") or p.get("url") or "")
-            if "/product/" not in url and "/composite/" not in url:
+            if "/product/" not in url:  # /composite/ pages are multi-piece sets
                 continue
             items.append(Item("furniture", clean_name(p.get("name") or ""), "", url,
                               ld_image(p, cat_url) or "", ld_price(p)))
@@ -445,6 +496,8 @@ def fetch_arca(http: Http) -> list[Item]:
         p = prods[0] if prods else {}
         desc = (p.get("description") or meta(soup, "og:description") or "")[:160]
         cat = classify(it.name) or classify(desc)
+        if is_bundle(it.name) or is_bundle(desc[:40]):
+            continue
         if not cat or not it.price_uzs or not it.image_url or counts.get(cat, 0) >= quota.get(cat, 0):
             continue
         counts[cat] = counts.get(cat, 0) + 1
@@ -452,8 +505,16 @@ def fetch_arca(http: Http) -> list[Item]:
             ("footprint_w", cm(p.get("width"))), ("footprint_d", cm(p.get("depth"))),
             ("height_cm", cm(p.get("height"))),
         ) if v}
-        out.append(furniture(it.name, cat, it.source_url, it.image_url, it.price_uzs, dims))
+        brand = (p.get("brand") or {}).get("name") if isinstance(p.get("brand"), dict) else None
+        name = it.name
+        if classify(name) is None:  # a bare collection name ("Casa") gets its kind in front
+            name = f"{_KIND_RU[cat]} {name}"
+        out.append(furniture(name, cat, it.source_url, it.image_url, it.price_uzs, dims,
+                             variants=[p.get("color"), brand]))
     return out
+
+
+_KIND_RU = {"shkaf": "Шкаф", "karavot": "Кровать", "divan": "Диван", "stol": "Стол", "stul": "Стул"}
 
 
 def fetch_ergo(http: Http) -> list[Item]:
@@ -532,13 +593,18 @@ def fetch_comfort(http: Http) -> list[Item]:
                 image = image.replace("://new.comfort-mebel.uz/", "://comfort-mebel.uz/")
             desc = meta(psoup, "og:description") or ""
             cat = classify(name or "") or classify(unquote(cat_url))
-            if not (name and image and cat):
+            if not (name and image and cat) or is_bundle(name):
                 continue
             dims = {}
             m = re.search(r"Размер[^:]{0,20}:\s*(\d{2,3})\s*[×xх*]\s*(\d{2,3})", desc)
             if m and cat in ("divan", "stol", "karavot"):  # for a wardrobe it is width × height
                 dims = {"footprint_w": cm(m.group(1)), "footprint_d": cm(m.group(2))}
-            out.append(furniture(name, cat, url, image, None, {k: v for k, v in dims.items() if v}))
+            size = None
+            m2 = re.search(r"(?:Размер|Спальное место)[^:]{0,20}:\s*(\d{2,3}\s*[×xх*]\s*\d{2,3})", desc)
+            if m2:
+                size = re.sub(r"\s*[×xх*]\s*", "×", m2.group(1)) + " см"
+            out.append(furniture(name, cat, url, image, None, {k: v for k, v in dims.items() if v},
+                                 variants=[size]))
             got += 1
     return out[:PER_STORE]
 
@@ -774,7 +840,9 @@ STORES = [
     Store("aura-lighting", "Aura Lighting", "https://auralighting.uz", fetch_aura,
           "+998959014040", "@auralighting"),
     Store("bestart", "Bestart", "https://bestart.uz", fetch_bestart, "+998882498080"),
-    Store("sanat-hali", "Sanat Hali", "https://www.prom.uz/company/sanat-hali/", fetch_sanat_hali),
+    # Sanat Hali (carpets, prom.uz) is left out: its photos are prom.uz /upload/ files,
+    # which www.prom.uz's robots.txt disallows (fetch_sanat_hali is kept for reference).
+    # Keng Makon yields nothing: its image CDN's robots.txt is "Disallow: /".
     Store("maff", "MAFF", "https://maff.uz", fetch_maff, "+998712055454", "@maffuzbekistan"),
 ]
 
@@ -803,14 +871,18 @@ def to_webp(data: bytes) -> bytes | None:
         return None
 
 
-def unique_name(name: str, rows: list[dict]) -> str:
-    """(name_uz, store) is the seed's natural key, so a repeated name gets a suffix."""
+def unique_name(it: Item, rows: list[dict]) -> str | None:
+    """(name_uz, store) is the seed's natural key. A repeated name takes the first
+    attribute from the source page that tells it apart (colour, brand, size); a true
+    duplicate (nothing tells it apart) gets None and is left out."""
     taken = {r["name_uz"] for r in rows}
-    candidate, n = name, 1
-    while candidate in taken:
-        n += 1
-        candidate = clean_name(f"{name[:190]} ({n})")
-    return candidate
+    if it.name not in taken:
+        return it.name
+    for variant in it.variants:
+        candidate = clean_name(f"{it.name[:150]}, {variant}")
+        if candidate not in taken:
+            return candidate
+    return None
 
 
 def run(out_dir: Path, only: set[str] | None) -> None:
@@ -837,13 +909,20 @@ def run(out_dir: Path, only: set[str] | None) -> None:
         img_dir.mkdir(parents=True)
         rows = []
         for it in items:
+            if it.kind == "furniture" and is_bundle(it.name):
+                log(f"  bundle left out: {it.name}")
+                continue
+            name = unique_name(it, rows)
+            if name is None:
+                log(f"  duplicate left out: {it.name} ({it.source_url})")
+                continue
             data = http.image(quote(it.image_url, safe=":/?=&%~+,;@!$'()*#"))
             webp = to_webp(data) if data else None
             if not webp:
                 continue
             n = len(rows) + 1
             (img_dir / f"{n}.webp").write_bytes(webp)
-            it.name = unique_name(it.name, rows)
+            it.name = name
             row = {"kind": it.kind, "name_uz": it.name, "category": it.category, "price_uzs": it.price_uzs}
             if it.kind == "material":
                 row["unit"] = it.unit

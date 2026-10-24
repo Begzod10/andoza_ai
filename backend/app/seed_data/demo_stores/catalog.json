@@ -174,23 +174,13 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Jurnal stol RONDO to'plam qora",
-     "category": "stol",
-     "price_uzs": 4135000,
-     "placement": "pol",
-     "footprint_w": 80.0,
-     "image": "images/dafna/17.webp",
-     "source_url": "https://dafna.uz/uz/product/zhurnalyniy-stolik-rondo-c9026-set-cherniy"
-    },
-    {
-     "kind": "furniture",
      "name_uz": "Jurnal stol PAPUA 1",
      "category": "stol",
      "price_uzs": 2730000,
      "placement": "pol",
      "footprint_w": 80.0,
      "height_cm": 39.0,
-     "image": "images/dafna/18.webp",
+     "image": "images/dafna/17.webp",
      "source_url": "https://dafna.uz/uz/product/zhurnalyniy-stolik-papua-1-c9029-cherniy-800390"
     },
     {
@@ -201,7 +191,7 @@
      "placement": "pol",
      "footprint_w": 80.0,
      "height_cm": 71.0,
-     "image": "images/dafna/19.webp",
+     "image": "images/dafna/18.webp",
      "source_url": "https://dafna.uz/uz/product/zhurnalyniy-stolik-1132s-beliy"
     },
     {
@@ -210,7 +200,7 @@
      "category": "shkaf",
      "price_uzs": 3175000,
      "placement": "pol",
-     "image": "images/dafna/20.webp",
+     "image": "images/dafna/19.webp",
      "source_url": "https://dafna.uz/uz/product/komod-rumba-sh80-v120-gl40-db"
     },
     {
@@ -219,7 +209,7 @@
      "category": "lampa",
      "price_uzs": 911400,
      "placement": "shift",
-     "image": "images/dafna/21.webp",
+     "image": "images/dafna/20.webp",
      "source_url": "https://dafna.uz/uz/product/lyustra-10443115"
     },
     {
@@ -228,7 +218,7 @@
      "category": "lampa",
      "price_uzs": 4834200,
      "placement": "shift",
-     "image": "images/dafna/22.webp",
+     "image": "images/dafna/21.webp",
      "source_url": "https://dafna.uz/uz/product/lyustra-kg1126p18"
     },
     {
@@ -237,7 +227,7 @@
      "category": "lampa",
      "price_uzs": 954800,
      "placement": "shift",
-     "image": "images/dafna/23.webp",
+     "image": "images/dafna/22.webp",
      "source_url": "https://dafna.uz/uz/product/lyustra-pl043400"
     }
    ]
@@ -250,133 +240,39 @@
    "items": [
     {
      "kind": "furniture",
-     "name_uz": "гостиная SIENA",
-     "category": "shkaf",
-     "price_uzs": 12810000,
-     "placement": "pol",
-     "footprint_w": 350.0,
-     "footprint_d": 41.0,
-     "height_cm": 201.0,
-     "image": "images/arca-mebel/1.webp",
-     "source_url": "https://arcamebel.uz/uz/product/8147"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Гостиная СТИЛИУС",
-     "category": "shkaf",
-     "price_uzs": 11275000,
-     "placement": "pol",
-     "image": "images/arca-mebel/2.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1679"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Пенал-комод Safia",
-     "category": "shkaf",
-     "price_uzs": 14300000,
-     "placement": "pol",
-     "image": "images/arca-mebel/3.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1668"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "шкаф ОРЛАНДО",
+     "name_uz": "Шкаф ОРЛАНДО",
      "category": "shkaf",
      "price_uzs": 6005000,
      "placement": "pol",
      "footprint_w": 102.7,
      "footprint_d": 42.5,
      "height_cm": 218.4,
-     "image": "images/arca-mebel/4.webp",
+     "image": "images/arca-mebel/1.webp",
      "source_url": "https://arcamebel.uz/uz/product/8081"
     },
     {
      "kind": "furniture",
-     "name_uz": "Casa",
+     "name_uz": "Шкаф Casa",
      "category": "shkaf",
      "price_uzs": 48000000,
      "placement": "pol",
      "footprint_w": 380.0,
      "footprint_d": 50.0,
      "height_cm": 220.0,
-     "image": "images/arca-mebel/5.webp",
+     "image": "images/arca-mebel/2.webp",
      "source_url": "https://arcamebel.uz/uz/product/7915"
     },
     {
      "kind": "furniture",
-     "name_uz": "Casa (2)",
+     "name_uz": "Шкаф Casa, Коричневый",
      "category": "shkaf",
      "price_uzs": 27600000,
      "placement": "pol",
      "footprint_w": 146.0,
      "footprint_d": 50.0,
      "height_cm": 220.0,
-     "image": "images/arca-mebel/6.webp",
+     "image": "images/arca-mebel/3.webp",
      "source_url": "https://arcamebel.uz/uz/product/7914"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "гостиная \"ФЛОРЕНЦИЯ\"",
-     "category": "shkaf",
-     "price_uzs": 14440000,
-     "placement": "pol",
-     "image": "images/arca-mebel/7.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1640"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Гостиная \"КАЛИПСО\"",
-     "category": "shkaf",
-     "price_uzs": 19875000,
-     "placement": "pol",
-     "image": "images/arca-mebel/8.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1638"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "С/с Прадо 10+1 (8+1)",
-     "category": "stol",
-     "price_uzs": 53290000,
-     "placement": "pol",
-     "image": "images/arca-mebel/9.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1531"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "С/с Мария 8+1",
-     "category": "stol",
-     "price_uzs": 43927000,
-     "placement": "pol",
-     "image": "images/arca-mebel/10.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1530"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "С/с Мадрид 6+1",
-     "category": "stol",
-     "price_uzs": 38570000,
-     "placement": "pol",
-     "image": "images/arca-mebel/11.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1529"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "С/с Верона 6+1",
-     "category": "stol",
-     "price_uzs": 28730000,
-     "placement": "pol",
-     "image": "images/arca-mebel/12.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1528"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Спальня Belize",
-     "category": "karavot",
-     "price_uzs": 61000000,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/arca-mebel/13.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1677"
     },
     {
      "kind": "furniture",
@@ -388,12 +284,12 @@
      "footprint_w": 200.0,
      "footprint_d": 180.0,
      "height_cm": 30.0,
-     "image": "images/arca-mebel/14.webp",
+     "image": "images/arca-mebel/4.webp",
      "source_url": "https://arcamebel.uz/uz/product/8122"
     },
     {
      "kind": "furniture",
-     "name_uz": "Кровать (2)",
+     "name_uz": "Кровать, Серый",
      "category": "karavot",
      "price_uzs": 12000000,
      "placement": "pol",
@@ -401,12 +297,12 @@
      "footprint_w": 200.0,
      "footprint_d": 180.0,
      "height_cm": 30.0,
-     "image": "images/arca-mebel/15.webp",
+     "image": "images/arca-mebel/5.webp",
      "source_url": "https://arcamebel.uz/uz/product/8121"
     },
     {
      "kind": "furniture",
-     "name_uz": "Кровать (3)",
+     "name_uz": "Кровать, Оранжевый",
      "category": "karavot",
      "price_uzs": 12000000,
      "placement": "pol",
@@ -414,32 +310,12 @@
      "footprint_w": 200.0,
      "footprint_d": 180.0,
      "height_cm": 30.0,
-     "image": "images/arca-mebel/16.webp",
+     "image": "images/arca-mebel/6.webp",
      "source_url": "https://arcamebel.uz/uz/product/8119"
     },
     {
      "kind": "furniture",
-     "name_uz": "Marin",
-     "category": "karavot",
-     "price_uzs": 13000000,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/arca-mebel/17.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1667"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Maya",
-     "category": "karavot",
-     "price_uzs": 15000000,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/arca-mebel/18.webp",
-     "source_url": "https://arcamebel.uz/uz/composite/1665"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Кровать (4)",
+     "name_uz": "Кровать, Молочный",
      "category": "karavot",
      "price_uzs": 17000000,
      "placement": "pol",
@@ -447,8 +323,47 @@
      "footprint_w": 220.0,
      "footprint_d": 200.0,
      "height_cm": 30.0,
-     "image": "images/arca-mebel/19.webp",
+     "image": "images/arca-mebel/7.webp",
      "source_url": "https://arcamebel.uz/uz/product/8074"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кровать, Коричневый",
+     "category": "karavot",
+     "price_uzs": 11000000,
+     "placement": "pol",
+     "room_type": "yotoqxona",
+     "footprint_w": 160.0,
+     "footprint_d": 200.0,
+     "height_cm": 30.0,
+     "image": "images/arca-mebel/8.webp",
+     "source_url": "https://arcamebel.uz/uz/product/8073"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кровать полторашка",
+     "category": "karavot",
+     "price_uzs": 10000000,
+     "placement": "pol",
+     "room_type": "yotoqxona",
+     "footprint_w": 120.0,
+     "footprint_d": 200.0,
+     "height_cm": 30.0,
+     "image": "images/arca-mebel/9.webp",
+     "source_url": "https://arcamebel.uz/uz/product/8072"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кровать, Хаки",
+     "category": "karavot",
+     "price_uzs": 14000000,
+     "placement": "pol",
+     "room_type": "yotoqxona",
+     "footprint_w": 180.0,
+     "footprint_d": 200.0,
+     "height_cm": 30.0,
+     "image": "images/arca-mebel/10.webp",
+     "source_url": "https://arcamebel.uz/uz/product/8071"
     }
    ]
   },
@@ -682,7 +597,7 @@
    "items": [
     {
      "kind": "furniture",
-     "name_uz": "Cтильный угловой диван",
+     "name_uz": "Стильный угловой диван",
      "category": "divan",
      "price_uzs": null,
      "placement": "pol",
@@ -712,32 +627,22 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Большой п образный диван (2)",
-     "category": "divan",
-     "price_uzs": null,
-     "placement": "pol",
-     "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/4.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b1%d0%be%d0%bb%d1%8c%d1%88%d0%be%d0%b9-%d0%bf-%d0%be%d0%b1%d1%80%d0%b0%d0%b7%d0%bd%d1%8b%d0%b9-%d0%b4%d0%b8%d0%b2%d0%b0%d0%bd-3/"
-    },
-    {
-     "kind": "furniture",
      "name_uz": "Большой угловой диван",
      "category": "divan",
      "price_uzs": null,
      "placement": "pol",
      "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/5.webp",
+     "image": "images/comfort-mebel/4.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b1%d0%be%d0%bb%d1%8c%d1%88%d0%be%d0%b9-%d1%83%d0%b3%d0%bb%d0%be%d0%b2%d0%be%d0%b9-%d0%b4%d0%b8%d0%b2%d0%b0%d0%bd-%d1%81-%d0%b2%d1%8b%d0%b4%d0%b2%d0%b8%d0%b6%d0%bd%d1%8b%d0%bc-%d0%bc%d0%b5%d1%85/"
     },
     {
      "kind": "furniture",
-     "name_uz": "Большой угловой диван с выдвижным механизмом дельфин и аллигатор.",
+     "name_uz": "Большой угловой диван с выдвижным механизмом дельфин и аллигатор",
      "category": "divan",
      "price_uzs": null,
      "placement": "pol",
      "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/6.webp",
+     "image": "images/comfort-mebel/5.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b1%d0%be%d0%bb%d1%8c%d1%88%d0%be%d0%b9-%d1%83%d0%b3%d0%bb%d0%be%d0%b2%d0%be%d0%b9-%d0%b4%d0%b8%d0%b2%d0%b0%d0%bd-%d1%81-%d0%b2%d1%8b%d0%b4%d0%b2%d0%b8%d0%b6%d0%bd%d1%8b%d0%bc-%d0%bc%d0%b5%d1%85-2/"
     },
     {
@@ -747,7 +652,7 @@
      "price_uzs": null,
      "placement": "pol",
      "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/7.webp",
+     "image": "images/comfort-mebel/6.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b2%d0%bc%d0%b5%d1%81%d1%82%d0%b8%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d0%bc%d0%be%d0%b4%d1%83%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d0%b4%d0%b8%d0%b2%d0%b0%d0%bd/"
     },
     {
@@ -757,7 +662,7 @@
      "price_uzs": null,
      "placement": "pol",
      "room_type": "yotoqxona",
-     "image": "images/comfort-mebel/8.webp",
+     "image": "images/comfort-mebel/7.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b4%d0%b2%d1%83%d1%81%d0%bf%d0%b0%d0%bb%d1%8c%d0%bd%d0%b0%d1%8f-%d0%ba%d1%80%d0%be%d0%b2%d0%b0%d1%82%d1%8c-%d1%81%d0%be%d0%bb%d0%bd%d1%86%d0%b5/"
     },
     {
@@ -767,38 +672,8 @@
      "price_uzs": null,
      "placement": "pol",
      "room_type": "yotoqxona",
-     "image": "images/comfort-mebel/9.webp",
+     "image": "images/comfort-mebel/8.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b4%d0%b2%d1%83%d1%85%d1%81%d0%bf%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d0%ba%d1%80%d0%be%d0%b2%d0%b0%d1%82%d0%b8/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Двухспальные кровати (2)",
-     "category": "karavot",
-     "price_uzs": null,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/comfort-mebel/10.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b4%d0%b2%d1%83%d1%85%d1%81%d0%bf%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d0%ba%d1%80%d0%be%d0%b2%d0%b0%d1%82%d0%b8-2/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Двухспальные кровати (3)",
-     "category": "karavot",
-     "price_uzs": null,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/comfort-mebel/11.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b4%d0%b2%d1%83%d1%85%d1%81%d0%bf%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d0%ba%d1%80%d0%be%d0%b2%d0%b0%d1%82%d0%b8-3/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Двухспальные кровати (4)",
-     "category": "karavot",
-     "price_uzs": null,
-     "placement": "pol",
-     "room_type": "yotoqxona",
-     "image": "images/comfort-mebel/12.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b4%d0%b2%d1%83%d1%85%d1%81%d0%bf%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d0%ba%d1%80%d0%be%d0%b2%d0%b0%d1%82%d0%b8-4/"
     },
     {
      "kind": "furniture",
@@ -806,7 +681,7 @@
      "category": "shkaf",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/13.webp",
+     "image": "images/comfort-mebel/9.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b1%d0%be%d0%bb%d1%8c%d1%88%d0%be%d0%b9-%d1%80%d0%b0%d1%81%d0%bf%d0%b0%d1%88%d0%bd%d0%be%d0%b9-%d1%88%d0%ba%d0%b0%d1%84-xxl/"
     },
     {
@@ -815,7 +690,7 @@
      "category": "shkaf",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/14.webp",
+     "image": "images/comfort-mebel/10.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b1%d0%be%d0%bb%d1%8c%d1%88%d0%be%d0%b9-%d1%88%d0%ba%d0%b0%d1%84/"
     },
     {
@@ -824,7 +699,7 @@
      "category": "shkaf",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/15.webp",
+     "image": "images/comfort-mebel/11.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%ba%d0%bd%d0%b8%d0%b6%d0%bd%d1%8b%d0%b9-%d1%88%d0%ba%d0%b0%d1%84/"
     },
     {
@@ -833,7 +708,7 @@
      "category": "shkaf",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/16.webp",
+     "image": "images/comfort-mebel/12.webp",
      "source_url": "https://comfort-mebel.uz/product/%d1%88%d0%ba%d0%b0%d1%84-9/"
     },
     {
@@ -842,48 +717,8 @@
      "category": "shkaf",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/17.webp",
+     "image": "images/comfort-mebel/13.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%bb%d0%b0%d0%ba%d0%be%d0%bd%d0%b8%d1%87%d0%bd%d1%8b%d0%b9-%d1%80%d0%b0%d1%81%d0%bf%d0%b0%d1%88%d0%bd%d0%be%d0%b9-%d1%88%d0%ba%d0%b0%d1%84/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "1 стол и 6 стульев",
-     "category": "stol",
-     "price_uzs": null,
-     "placement": "pol",
-     "footprint_w": 137.0,
-     "footprint_d": 80.0,
-     "image": "images/comfort-mebel/18.webp",
-     "source_url": "https://comfort-mebel.uz/product/1-%d1%81%d1%82%d0%be%d0%bb-%d0%b8-6-%d1%81%d1%82%d1%83%d0%bb%d1%8c%d0%b5%d0%b2/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "1 стол и 6 стульев (2)",
-     "category": "stol",
-     "price_uzs": null,
-     "placement": "pol",
-     "footprint_w": 150.0,
-     "footprint_d": 80.0,
-     "image": "images/comfort-mebel/19.webp",
-     "source_url": "https://comfort-mebel.uz/product/1-%d1%81%d1%82%d0%be%d0%bb-%d0%b8-6-%d1%81%d1%82%d1%83%d0%bb%d1%8c%d0%b5%d0%b2-2/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Гостинный комплект",
-     "category": "shkaf",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/comfort-mebel/20.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b3%d0%be%d1%81%d1%82%d0%b8%d0%bd%d0%bd%d1%8b%d0%b9-%d0%ba%d0%be%d0%bc%d0%bf%d0%bb%d0%b5%d0%ba%d1%82/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Гостинный комплект (2)",
-     "category": "shkaf",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/comfort-mebel/21.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%b3%d0%be%d1%81%d1%82%d0%b8%d0%bd%d0%bd%d1%8b%d0%b9-%d0%ba%d0%be%d0%bc%d0%bf%d0%bb%d0%b5%d0%ba%d1%82-2/"
     },
     {
      "kind": "furniture",
@@ -891,7 +726,7 @@
      "category": "stol",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/22.webp",
+     "image": "images/comfort-mebel/14.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b6%d1%83%d1%80%d0%bd%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d1%81%d1%82%d0%be%d0%bb%d0%b8%d0%ba/"
     },
     {
@@ -900,18 +735,8 @@
      "category": "stol",
      "price_uzs": null,
      "placement": "pol",
-     "image": "images/comfort-mebel/23.webp",
+     "image": "images/comfort-mebel/15.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%b6%d1%83%d1%80%d0%bd%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d1%81%d1%82%d0%be%d0%bb/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Комплект диван и два кресла",
-     "category": "divan",
-     "price_uzs": null,
-     "placement": "pol",
-     "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/24.webp",
-     "source_url": "https://comfort-mebel.uz/product/%d0%ba%d0%be%d0%bc%d0%bf%d0%bb%d0%b5%d0%ba%d1%82-%d0%b4%d0%b8%d0%b2%d0%b0%d0%bd-%d0%b8-%d0%b4%d0%b2%d0%b0-%d0%ba%d1%80%d0%b5%d1%81%d0%bb%d0%b0-7/"
     },
     {
      "kind": "furniture",
@@ -920,8 +745,20 @@
      "price_uzs": null,
      "placement": "pol",
      "room_type": "mehmonxona",
-     "image": "images/comfort-mebel/25.webp",
+     "image": "images/comfort-mebel/16.webp",
      "source_url": "https://comfort-mebel.uz/product/%d0%ba%d1%80%d0%b5%d1%81%d0%bb%d0%be-%d0%ba%d0%b0%d1%87%d0%b0%d0%bb%d0%ba%d0%b0-relax-%d1%81-%d0%bf%d1%83%d1%84%d0%be%d0%bc/"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Премиальное раскладное кресло",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "footprint_w": 92.0,
+     "footprint_d": 80.0,
+     "image": "images/comfort-mebel/17.webp",
+     "source_url": "https://comfort-mebel.uz/product/%d0%bf%d1%80%d0%b5%d0%bc%d0%b8%d0%b0%d0%bb%d1%8c%d0%bd%d0%be%d0%b5-%d1%80%d0%b0%d1%81%d0%ba%d0%bb%d0%b0%d0%b4%d0%bd%d0%be%d0%b5-%d0%ba%d1%80%d0%b5%d1%81%d0%bb%d0%be/"
     }
    ]
   },
@@ -933,7 +770,7 @@
    "items": [
     {
      "kind": "furniture",
-     "name_uz": "Люстры [9781-18 GYB]",
+     "name_uz": "Люстра 9781-18 GYB",
      "category": "lampa",
      "price_uzs": 11500000,
      "placement": "shift",
@@ -942,7 +779,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Одинарные светильники [10271P/12A]",
+     "name_uz": "Светильник 10271P/12A",
      "category": "lampa",
      "price_uzs": 13900000,
      "placement": "shift",
@@ -951,7 +788,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [T8110D-M]",
+     "name_uz": "Люстра T8110D-M",
      "category": "lampa",
      "price_uzs": 5900000,
      "placement": "shift",
@@ -960,7 +797,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [5055P D1060]",
+     "name_uz": "Люстра 5055P D1060",
      "category": "lampa",
      "price_uzs": 7900000,
      "placement": "shift",
@@ -969,7 +806,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [5055P D910]",
+     "name_uz": "Люстра 5055P D910",
      "category": "lampa",
      "price_uzs": 6900000,
      "placement": "shift",
@@ -978,7 +815,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [7311P 1000]",
+     "name_uz": "Люстра 7311P 1000",
      "category": "lampa",
      "price_uzs": 9500000,
      "placement": "shift",
@@ -987,7 +824,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [7311P 600]",
+     "name_uz": "Люстра 7311P 600",
      "category": "lampa",
      "price_uzs": 5500000,
      "placement": "shift",
@@ -996,7 +833,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [7311P 800]",
+     "name_uz": "Люстра 7311P 800",
      "category": "lampa",
      "price_uzs": 7500000,
      "placement": "shift",
@@ -1005,7 +842,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [8135P/D1000R]",
+     "name_uz": "Люстра 8135P/D1000R",
      "category": "lampa",
      "price_uzs": 7900000,
      "placement": "shift",
@@ -1014,7 +851,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [8135P/D600R]",
+     "name_uz": "Люстра 8135P/D600R",
      "category": "lampa",
      "price_uzs": 5900000,
      "placement": "shift",
@@ -1023,7 +860,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [8135P/D800R]",
+     "name_uz": "Люстра 8135P/D800R",
      "category": "lampa",
      "price_uzs": 6900000,
      "placement": "shift",
@@ -1032,7 +869,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстры [9065P/12 BK]",
+     "name_uz": "Люстра 9065P/12 BK",
      "category": "lampa",
      "price_uzs": 7500000,
      "placement": "shift",
@@ -1041,7 +878,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [KT26072 D50X800]",
+     "name_uz": "Бра KT26072 D50X800",
      "category": "lampa",
      "price_uzs": 2150000,
      "placement": "devor",
@@ -1050,7 +887,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [MB84959]",
+     "name_uz": "Бра MB84959",
      "category": "lampa",
      "price_uzs": 3300000,
      "placement": "devor",
@@ -1059,7 +896,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [MJ6007W/S SV]",
+     "name_uz": "Бра MJ6007W/S SV",
      "category": "lampa",
      "price_uzs": 1900000,
      "placement": "devor",
@@ -1068,7 +905,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [MJ6007W/S WH]",
+     "name_uz": "Бра MJ6007W/S WH",
      "category": "lampa",
      "price_uzs": 1900000,
      "placement": "devor",
@@ -1077,7 +914,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [5055W/3]",
+     "name_uz": "Бра 5055W/3",
      "category": "lampa",
      "price_uzs": 2500000,
      "placement": "devor",
@@ -1086,7 +923,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Бра [8611W/Red]",
+     "name_uz": "Бра 8611W/Red",
      "category": "lampa",
      "price_uzs": 1800000,
      "placement": "devor",
@@ -1095,7 +932,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Торшеры [Floor L1210]",
+     "name_uz": "Торшер Floor L1210",
      "category": "lampa",
      "price_uzs": 5700000,
      "placement": "pol",
@@ -1104,7 +941,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Торшеры [8896F]",
+     "name_uz": "Торшер 8896F",
      "category": "lampa",
      "price_uzs": 3900000,
      "placement": "pol",
@@ -1113,7 +950,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Торшер [TD2321-T]",
+     "name_uz": "Торшер TD2321-T",
      "category": "lampa",
      "price_uzs": 800000,
      "placement": "pol",
@@ -1122,7 +959,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Торшеры [ML11137]",
+     "name_uz": "Торшер ML11137",
      "category": "lampa",
      "price_uzs": 3350000,
      "placement": "pol",
@@ -1131,7 +968,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Торшеры [81640/S/1XE27 BLACK]",
+     "name_uz": "Торшер 81640/S/1XE27 BLACK",
      "category": "lampa",
      "price_uzs": 4900000,
      "placement": "pol",
@@ -1525,7 +1362,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстра BC-KB-6040-12С",
+     "name_uz": "Люстра BC-KB-6040-12C",
      "category": "lampa",
      "price_uzs": null,
      "placement": "shift",
@@ -1561,7 +1398,7 @@
     },
     {
      "kind": "furniture",
-     "name_uz": "Люстра BC-KB-6082-9С",
+     "name_uz": "Люстра BC-KB-6082-9C",
      "category": "lampa",
      "price_uzs": null,
      "placement": "shift",
@@ -1618,139 +1455,6 @@
      "height_cm": 55.0,
      "image": "images/bestart/15.webp",
      "source_url": "https://bestart.uz/product/bc-kb-99029/"
-    }
-   ]
-  },
-  {
-   "slug": "sanat-hali",
-   "name": "Sanat Hali",
-   "website": "https://www.prom.uz/company/sanat-hali/",
-   "items": [
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Delüks — 6827 Oval",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/1.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-deluks-6827-oval/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8007 Daire",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/2.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8007-daire/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8012",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/3.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8012/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8011",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/4.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8011/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8010",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/5.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8010/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8009 Oval",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/6.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8009-oval/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8009 Daire",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/7.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8009-daire/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8009",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/8.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8009/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Иранский ковер erika 2",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/9.webp",
-     "source_url": "https://www.prom.uz/ads/iranskii-kover-erika-2/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8008 Daire",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/10.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8008-daire/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8008",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/11.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8008/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8007 Oval",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/12.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8007-oval/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8007",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/13.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8007/"
-    },
-    {
-     "kind": "furniture",
-     "name_uz": "Турецкий ковер Milat — 8014",
-     "category": "boshqa",
-     "price_uzs": null,
-     "placement": "pol",
-     "image": "images/sanat-hali/14.webp",
-     "source_url": "https://www.prom.uz/ads/tureckii-kover-milat-8014/"
     }
    ]
   },
@@ -1961,7 +1665,7 @@
     },
     {
      "kind": "material",
-     "name_uz": "Порта Invisible Reverse 4AB Праймер White (R) (Черный: М/B2B)",
+     "name_uz": "Порта Invisible Reverse 4AB Праймер White (R) (Черный: M/B2B)",
      "category": "eshik",
      "price_uzs": 2083000,
      "unit": "dona",
