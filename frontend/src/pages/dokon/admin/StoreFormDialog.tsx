@@ -12,7 +12,7 @@ import {
   type AdminPartnerTier,
   type Region,
 } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
+import { requestError, type FormError } from "@/lib/formError";
 
 /** Dialog form for creating a shop — Viloyat/Tuman cascade from the ported
  * Uzbekistan regions dataset instead of a free-text district field. */
@@ -23,7 +23,7 @@ export function StoreFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -54,7 +54,7 @@ export function StoreFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "stores"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.store.create_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.store.create_failed")),
   });
 
   return (

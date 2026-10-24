@@ -18,8 +18,8 @@ import {
 } from "@/lib/api";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
-import { errorMessage } from "./errorMessage";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
+import { requestError, type FormError } from "@/lib/formError";
 
 /**
  * Edit an existing 3D model's metadata. The GLB/thumbnail file itself isn't
@@ -37,7 +37,7 @@ export function ModelEditDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stores: AdminStore[];
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -82,7 +82,7 @@ export function ModelEditDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.model.update_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.model.update_failed")),
   });
 
   if (!model) return null;

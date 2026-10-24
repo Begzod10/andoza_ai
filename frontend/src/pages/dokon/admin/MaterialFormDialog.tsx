@@ -9,8 +9,8 @@ import {
   MATERIAL_CATEGORIES, MATERIAL_UNITS, PACK_UNITS, SMETA_KEYS, createAdminMaterial, updateAdminMaterial,
   type AdminMaterial, type AdminStore, type MaterialInput,
 } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
 import { smetaKeyLabel } from "./materialLabels";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 const str = (n: number | null | undefined) => (n == null ? "" : String(n));
 /** "" -> null, otherwise a number (NaN is kept so the caller can reject it). */
@@ -37,7 +37,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
   const [smetaKey, setSmetaKey] = useState("");
   const [rollWidth, setRollWidth] = useState("");
   const [rollLength, setRollLength] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -104,7 +104,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
       onOpenChange(false);
       onSaved?.();
     },
-    onError: (err) => setError(errorMessage(err, t("dokon.admin.mat.save_failed"))),
+    onError: (err) => setError(requestError(err, "dokon.admin.mat.save_failed")),
   });
 
   return (
@@ -161,7 +161,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
           </div>
         )}
 
-        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>

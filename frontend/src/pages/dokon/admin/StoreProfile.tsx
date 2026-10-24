@@ -12,13 +12,13 @@ import {
   type AdminFurniture,
   type AdminStore,
 } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
 import { ModelCard } from "./ModelCard";
 import { ModelEditDialog } from "./ModelEditDialog";
 import { ModelFilterBar } from "./ModelFilterBar";
 import { ModelFormDialog } from "./ModelFormDialog";
 import { EMPTY_MODEL_FILTERS, filterModels } from "./modelFilters";
 import { WallpaperSection } from "./WallpaperSection";
+import { requestError, type FormError } from "@/lib/formError";
 
 const TIER_STYLES: Record<string, string> = {
   standard: "bg-card-soft text-ink-muted",
@@ -36,7 +36,7 @@ export function StoreProfile({
 }: {
   store: AdminStore;
   onBack: () => void;
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
@@ -59,7 +59,7 @@ export function StoreProfile({
       queryClient.invalidateQueries({ queryKey: ["admin", "stores"] });
       onDeleted();
     },
-    onError: (err) => onError(errorMessage(err, t("seller.remove_failed"))),
+    onError: (err) => onError(requestError(err, "seller.remove_failed")),
   });
 
   async function handleDeleteModel(model: AdminFurniture) {
@@ -71,7 +71,7 @@ export function StoreProfile({
       // general "admin","furniture" list used on the overview page.
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     } catch (err) {
-      onError(errorMessage(err, t("seller.remove_failed")));
+      onError(requestError(err, "seller.remove_failed"));
     }
   }
 

@@ -6,6 +6,7 @@ import { StoreProfile } from "./admin/StoreProfile";
 import { ModerationQueue } from "./admin/ModerationQueue";
 import { AdminOrders } from "./admin/AdminOrders";
 import { AdminMaterials } from "./admin/AdminMaterials";
+import { type FormError, formErrorText } from "@/lib/formError";
 
 /**
  * Admin-only surface on the Do'kon page: create shops, and upload the 3D
@@ -17,7 +18,7 @@ import { AdminMaterials } from "./admin/AdminMaterials";
  */
 export default function AdminCatalogPanel() {
   const { t } = useTranslation();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
   const [selectedStore, setSelectedStore] = useState<AdminStore | null>(null);
 
   return (
@@ -26,7 +27,7 @@ export default function AdminCatalogPanel() {
 
       {error && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm px-3 py-2">
-          {error}
+          {formErrorText(t, error)}
         </div>
       )}
 

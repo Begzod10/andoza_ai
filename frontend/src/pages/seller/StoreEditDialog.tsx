@@ -5,8 +5,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { updateMyStore, type SellerStore } from "@/lib/api";
-import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { isUzPhone } from "@/lib/phone";
+import { type FormError, formErrorText, localError, requestError } from "@/lib/formError";
 
 export function StoreEditDialog({
   store,
@@ -24,7 +24,7 @@ export function StoreEditDialog({
   const [district, setDistrict] = useState(store.district ?? "");
   const [phone, setPhone] = useState(store.phone ?? "");
   const [telegram, setTelegram] = useState(store.telegram ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -38,7 +38,7 @@ export function StoreEditDialog({
       onSaved(saved);
       onOpenChange(false);
     },
-    onError: (err) => setError(errorMessage(err, t("seller.save_failed"))),
+    onError: (err) => setError(requestError(err, "seller.save_failed")),
   });
 
   return (
@@ -47,7 +47,7 @@ export function StoreEditDialog({
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
-          if (phone.trim() && !isUzPhone(phone)) { setError(t("common.telefon_xato")); return; }
+          if (phone.trim() && !isUzPhone(phone)) { setError(localError("common.telefon_xato")); return; }
           if (name.trim()) save.mutate();
         }}
         className="space-y-4"
@@ -58,7 +58,7 @@ export function StoreEditDialog({
           <Input themed label={t("common.telefon")} value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <Input themed label="Telegram" value={telegram} onChange={(e) => setTelegram(e.target.value)} />
-        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>
           <Button type="submit" disabled={!name.trim()} loading={save.isPending}>{t("common.saqlash")}</Button>

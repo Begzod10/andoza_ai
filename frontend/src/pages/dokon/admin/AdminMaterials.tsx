@@ -11,9 +11,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { IconBubble, Panel } from "@/components/ui/Panel";
-import { errorMessage } from "./errorMessage";
 import { MaterialFormDialog } from "./MaterialFormDialog";
 import { optionLabel, smetaLabel } from "./materialLabels";
+import { requestError, type FormError } from "@/lib/formError";
 
 const KEY = ["admin", "materials"] as const;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -53,7 +53,7 @@ function Row({ material: m, busy, onEdit, onToggle }: {
 }
 
 /** Shop materials the room estimate prices from: filter, hide/show, and (Task 5) add or edit. */
-export function AdminMaterials({ onError }: { onError: (message: string | null) => void }) {
+export function AdminMaterials({ onError }: { onError: (message: FormError) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [category, setCategory] = useState("");
@@ -92,13 +92,13 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   const reportedLoadError = useRef(false);
   useEffect(() => {
     if (materials.error) {
-      onError(errorMessage(materials.error, t("dokon.admin.mat.load_failed")));
+      onError(requestError(materials.error, "dokon.admin.mat.load_failed"));
       reportedLoadError.current = true;
     } else if (materials.isSuccess && reportedLoadError.current) {
       onError(null);
       reportedLoadError.current = false;
     }
-  }, [materials.error, materials.isSuccess, onError, t]);
+  }, [materials.error, materials.isSuccess, onError]);
 
   // The studio's paint, wallpaper and floor pickers list materials too (["materials", ...]).
   const refresh = () => {
@@ -108,7 +108,7 @@ export function AdminMaterials({ onError }: { onError: (message: string | null) 
   const toggle = useMutation({
     mutationFn: (m: AdminMaterial) => updateAdminMaterial(m.id, { is_active: !m.is_active }),
     onSuccess: () => onError(null),
-    onError: (err) => onError(errorMessage(err, t("dokon.admin.mat.toggle_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.admin.mat.toggle_failed")),
     onSettled: () => refresh(),
   });
 

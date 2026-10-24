@@ -21,7 +21,7 @@ describe('landing header', () => {
     expect(screen.getByRole('link', { name: ru.landing.nav.login })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'English' }))
     expect(document.documentElement.lang).toBe('en')
-    expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument()
   })
 
   it('leaves <html lang> to applyLanguage: unmounting does not touch it', () => {

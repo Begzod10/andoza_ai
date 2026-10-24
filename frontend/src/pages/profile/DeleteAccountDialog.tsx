@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { deleteAccount } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 /** Confirm and permanently delete the signed-in account. The password is
  *  re-checked by the server before anything is removed. */
@@ -16,7 +16,7 @@ export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onO
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   const remove = useMutation({
     mutationFn: () => deleteAccount(password || undefined),
@@ -27,7 +27,7 @@ export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onO
       onOpenChange(false);
       navigate("/");
     },
-    onError: (err) => setError(errorMessage(err, t("profile.ochirib_bolmadi"))),
+    onError: (err) => setError(requestError(err, "profile.ochirib_bolmadi")),
   });
 
   return (
@@ -64,7 +64,7 @@ export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onO
           onChange={(e) => setPassword(e.target.value)}
           placeholder={t("profile.parol_placeholder")}
         />
-        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>
           <Button type="submit" variant="danger" loading={remove.isPending}>{t("profile.hisobni_ochirish")}</Button>

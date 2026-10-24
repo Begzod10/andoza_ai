@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Phone, ReceiptText, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TKey } from "@/i18n";
 import { advanceMyOrder, cancelMyOrder, listMyOrders, type SellerOrder } from "@/lib/api";
 import { formatUZS } from "@/lib/utils";
 import {
@@ -11,6 +12,7 @@ import type { OrderStatus } from "@/lib/api/orders";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 const ORDERS_KEY = ["seller", "orders"] as const;
 const MIN_REASON = 3;
@@ -135,7 +137,7 @@ function OrderCard({
 export function SellerOrders() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   // A new order should show up without the seller having to reload the page.
   const orders = useInfiniteQuery({
@@ -150,8 +152,8 @@ export function SellerOrders() {
     setError(null);
     queryClient.setQueryData<{ pages: SellerOrder[][]; pageParams: unknown[] }>(ORDERS_KEY, (prev) => replaceOrderInPages(prev, updated));
   };
-  const failed = (fallback: string) => (err: unknown) => {
-    setError(errorMessage(err, fallback));
+  const failed = (fallbackKey: TKey) => (err: unknown) => {
+    setError(requestError(err, fallbackKey));
     // Someone (another device, the buyer) may have changed it already: show where it stands now.
     void queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
   };
@@ -163,13 +165,13 @@ export function SellerOrders() {
       return advanceMyOrder(o.id, next.to);
     },
     onSuccess: replace,
-    onError: failed(t("dokon.order.status_failed")),
+    onError: failed("dokon.order.status_failed"),
   });
 
   const cancel = useMutation({
     mutationFn: ({ order, reason }: { order: SellerOrder; reason: string }) => cancelMyOrder(order.id, reason),
     onSuccess: replace,
-    onError: failed(t("dokon.order.cancel_failed")),
+    onError: failed("dokon.order.cancel_failed"),
   });
 
   const list = orders.data?.pages.flat() ?? [];
@@ -196,7 +198,7 @@ export function SellerOrders() {
         {open > 0 && <span className="ml-auto rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent">{t("dokon.order.open_count", { n: open })}</span>}
       </Panel>
 
-      {error && <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{formErrorText(t, error)}</div>}
 
       {orders.isLoading ? (
         <div className="h-32 animate-pulse rounded-3xl bg-card" />

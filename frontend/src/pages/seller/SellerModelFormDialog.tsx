@@ -14,13 +14,13 @@ import {
   type AdminPlacement,
   type AdminRoomType,
 } from "@/lib/api";
-import { errorMessage } from "@/pages/dokon/admin/errorMessage";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
+import { type FormError, formErrorText, localError, requestError } from "@/lib/formError";
 
 const MAX_GLB_MB = 50;
 
@@ -43,7 +43,7 @@ export function SellerModelFormDialog({
   const [priceUzs, setPriceUzs] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
   // The real size of the chosen model, measured from the file, stored with it.
   const [measured, setMeasured] = useState<MeasuredSize | null>(null);
   // True while a model is being built from a photo (a minute or two).
@@ -57,11 +57,11 @@ export function SellerModelFormDialog({
   function pickModel(f: File | null) {
     setError(null);
     if (f && !f.name.toLowerCase().endsWith(".glb")) {
-      setError(t("dokon.model.glb_wrong"));
+      setError(localError("dokon.model.glb_wrong"));
       return;
     }
     if (f && f.size > MAX_GLB_MB * 1024 * 1024) {
-      setError(t("dokon.model.glb_big", { mb: MAX_GLB_MB }));
+      setError(localError("dokon.model.glb_big", { mb: MAX_GLB_MB }));
       return;
     }
     setFile(f);
@@ -87,7 +87,7 @@ export function SellerModelFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["seller", "models"] });
     },
-    onError: (err) => setError(errorMessage(err, t("dokon.model.upload_failed"))),
+    onError: (err) => setError(requestError(err, "dokon.model.upload_failed")),
   });
 
   return (
@@ -160,7 +160,7 @@ export function SellerModelFormDialog({
 
         <ModelPreview3D file={file} onMeasured={setMeasured} themed />
 
-        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>
