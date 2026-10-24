@@ -6,6 +6,7 @@ import { useRoomStore } from "@/store/roomStore";
 import { CITY_PRESETS, FACING_OPTIONS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
 import { SHOW_SUN_CLOCK } from "@/lib/skyPinnedSun";
 import { roomListEntries } from "@/lib/roomList";
+import { MENU_ICON, MENU_ROW } from "@/components/studio/menuRow";
 
 /**
  * What used to be the studio's "Asboblar" drawer, reduced to the three things
@@ -138,9 +139,9 @@ export function ToolsDrawerPanel({
           {onOpenSmeta && (
             <button
               onClick={() => { closeMenu?.(); onOpenSmeta(); }}
-              className="flex items-center gap-2 w-full text-left px-4 py-3 min-h-[44px] text-sm font-semibold text-ink hover:bg-card-soft transition-colors"
+              className={MENU_ROW}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg className={MENU_ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <rect x="5" y="3" width="14" height="18" rx="2" />
                 <path d="M9 7h6M9 11h6M9 15h3" />
               </svg>
@@ -149,51 +150,54 @@ export function ToolsDrawerPanel({
           )}
           {/* The flat's rooms. Nothing for a one-room project. */}
           {roomEntries.length > 0 && (
-            <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{t('studio.three_d.xonalar')}</p>
-              <div className="flex flex-col gap-1.5">
-                {roomEntries.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => { if (!r.current) onOpenRoom(r.id); }}
-                    disabled={r.current}
-                    aria-current={r.current ? "page" : undefined}
-                    className={`flex items-center justify-between px-3 py-2 min-h-[44px] rounded-xl text-sm font-medium border transition-colors ${
-                      r.current
-                        ? "bg-brand/10 text-brand border-brand/30 cursor-default"
-                        : "bg-card-soft text-ink border-line hover:bg-line"
-                    }`}
-                  >
-                    <span className="truncate">{r.label}</span>
-                    {r.current && <span className="text-xs shrink-0 ml-2">{t('studio.three_d.hozir')}</span>}
-                  </button>
-                ))}
-              </div>
+            <div className="py-1">
+              <p className="px-4 pt-2 pb-1 text-[11px] font-semibold text-ink-muted uppercase tracking-wide">{t('studio.three_d.xonalar')}</p>
+              {roomEntries.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { if (!r.current) onOpenRoom(r.id); }}
+                  disabled={r.current}
+                  aria-current={r.current ? "page" : undefined}
+                  className={`${MENU_ROW} ${r.current ? "!text-brand cursor-default hover:!bg-transparent" : ""}`}
+                >
+                  <svg className={`${MENU_ICON} ${r.current ? "!text-brand" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 10.5L12 4l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+                  </svg>
+                  <span className="flex-1 truncate">{r.label}</span>
+                  {r.current && <span className="text-xs shrink-0">{t('studio.three_d.hozir')}</span>}
+                </button>
+              ))}
             </div>
           )}
           {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
-              checking which wall the room's Qibla falls on. */}
-          <div className="px-4 py-3">
-            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{t("studio.qibla.nomi")}</p>
+              checking which wall the room's Qibla falls on. A row with a switch;
+              while on, where the room is and which way it faces open under it. */}
+          <div>
             <button
               onClick={() => setShowQibla(v => !v)}
               title={showQibla ? t("studio.qibla.korinishi_yoq") : t("studio.qibla.korinishi_bor")}
               aria-label={showQibla ? t("studio.qibla.korinishi_yoq") : t("studio.qibla.korinishi_bor")}
               aria-pressed={showQibla}
-              className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
-                showQibla
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
-                  : 'bg-card-soft text-ink-muted border-line hover:bg-line'
-              }`}
+              className={MENU_ROW}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg className={`${MENU_ICON} ${showQibla ? "!text-emerald-600" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 6l3 6h-6z" fill="currentColor" />
               </svg>
-              <span>{t("studio.qibla.nomi")}</span>
+              <span className="flex-1">{t("studio.qibla.nomi")}</span>
+              <span
+                aria-hidden
+                className={`relative w-9 h-5 rounded-full transition-colors ${showQibla ? "bg-emerald-500" : "bg-line"}`}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${showQibla ? "left-[18px]" : "left-0.5"}`} />
+              </span>
             </button>
-            {showQibla && <p className="mt-2 text-xs text-emerald-700">{t("studio.qibla.izoh")}</p>}
-            {showQibla && <QiblaLocation />}
+            {showQibla && (
+              <div className="px-4 pb-3">
+                <p className="text-xs text-emerald-700">{t("studio.qibla.izoh")}</p>
+                <QiblaLocation />
+              </div>
+            )}
           </div>
 
           {/* What is left of the lighting cluster: the sun clock. The
@@ -246,26 +250,22 @@ export function ToolsDrawerPanel({
           </div>
           )}
 
-          {/* AI builder button — stays visually distinct from the Kunduz/
-              Yoqilgan brand-blue toggles (it's a one-shot special action,
-              not a peer toggle), but now via the app's own warning/orange
-              accent token (same family as the "Buyum qo'shish" CTA) rather
-              than an unrelated purple with no other usage on the page. */}
-          <div className="px-4 py-3">
-            <button
-              onClick={() => { closeMenu?.(); setShowAiSheet(true); }}
-              title={t("ai.builder_title")}
-              aria-label={t("ai.builder_title")}
-              className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+          {/* AI builder: a one-shot action rather than a toggle, told apart by
+              its orange (the app's warning accent) icon instead of a big
+              button of its own. */}
+          <button
+            onClick={() => { closeMenu?.(); setShowAiSheet(true); }}
+            title={t("ai.builder_title")}
+            aria-label={t("ai.builder_title")}
+            className={MENU_ROW}
+          >
+            <span className="w-[18px] h-[18px] shrink-0 rounded-full bg-warning text-white flex items-center justify-center" aria-hidden>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
               </svg>
-              <span>{t("ai.builder_title")}</span>
-            </button>
-          </div>
-
-
+            </span>
+            <span>{t("ai.builder_title")}</span>
+          </button>
     </div>,
     menuSlot,
   );

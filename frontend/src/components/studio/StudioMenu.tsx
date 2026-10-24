@@ -64,7 +64,7 @@ export const StudioMenu = forwardRef<HTMLButtonElement | null, StudioMenuProps>(
         <div
           ref={panelRef}
           id={panelId}
-          className="absolute right-0 top-12 bg-card text-ink rounded-lg shadow-panel border border-line z-50 min-w-[160px] max-w-[85vw]"
+          className="absolute right-0 top-12 bg-card text-ink rounded-2xl shadow-panel border border-line z-50 w-64 max-w-[85vw] overflow-hidden"
         >
           {children}
         </div>
