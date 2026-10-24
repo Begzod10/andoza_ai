@@ -1,4 +1,5 @@
 {
+ "version": 2,
  "stores": [
   {
    "slug": "dafna",
@@ -1977,6 +1978,171 @@
      "roll_length_m": 10.0,
      "image": "images/modnie-steni/28.webp",
      "source_url": "https://www.modnie-steni.uz/product/as-106-m-79081-1-eterna"
+    }
+   ]
+  },
+  {
+   "slug": "deraza-bozori",
+   "name": "Deraza bozori — o'rtacha narx",
+   "since": 2,
+   "moderation_note": "DEMO: Toshkent bozoridagi o'rtacha narx (2026-yil oktabr), do'kon taklifi emas",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "Plastik deraza (Akfa/Ekopen profili), 2 kamerali oyna paketi",
+     "category": "deraza",
+     "unit": "m2",
+     "price_uzs": 700000,
+     "image": "images/deraza-bozori/1.webp",
+     "price_basis": "market_median",
+     "sample_size": 24,
+     "sources": [
+      "https://flagma.uz/ru/plastikovye-okna-v-tashkente-akfa-ekopen-o1826623.html",
+      "https://tovar.uz/uz/service/583",
+      "https://prom.uz/ads/plastikovye-i-alyuminievye-okna-1/",
+      "https://prom.uz/ads/akfa-rom-akciya-toskent-kv-m/",
+      "https://prom.uz/ads/akfa-rom-chilonzor-65-kvm-akciya/",
+      "https://prom.uz/ads/oq-akfa-plast-toshkent-shaxri-va-viloyatlariga/",
+      "https://prom.uz/ads/akfa-plast-oq-70-kvm-toshkent-shaxri-va-viloyatlariga-xizmat/",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-masterplast-ekopen-ID2k4eo.html",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-ekopen-ID1UUIO.html",
+      "https://glotr.uz/pvx-okna-i-dveri-p-914785/",
+      "https://glotr.uz/plastikovie-okna-p-1077621/",
+      "https://www.olx.uz/d/obyavlenie/akfa-akfa-okna-plastikovye-ekopen-ID3vOoH.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-ramy-plastikovye-okna-i-dveri-ID42DJQ.html",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-romlar-plastikovye-okna-i-razdvizhnye-sistemy-ID4tTIA.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-okna-i-dveri-plastikovye-okna-termo-engelberg-montazh-ID4u22d.html",
+      "https://www.olx.uz/d/obyavlenie/tsehdan-akfa-plast-eshik-akfa-rom-romlar-deraza-plastikovye-okna-dveri-ID3scEv.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-okno-dvery-na-zakaz-ID4ibCr.html",
+      "https://www.olx.uz/d/obyavlenie/ekopen-okna-i-dveri-ID3t2Ym.html",
+      "https://prom.uz/ads/ekopen-akfa-enjelberg/",
+      "https://prom.uz/ads/okna-akfa-ekopen-termo/",
+      "https://prom.uz/ads/akfa-plastik-derazalar/",
+      "https://prom.uz/ads/akfa-lider-plast-nemat/",
+      "https://prom.uz/ads/akfa-okna-plastikovye-novye-i-gotovye-v-taskente-1000x1200/",
+      "https://prom.uz/ads/akfadan-tayyor-yangi-rom-1500x1700/"
+     ]
+    },
+    {
+     "kind": "material",
+     "name_uz": "Energiya tejamkor plastik deraza (Engelberg/Termo profili)",
+     "category": "deraza",
+     "unit": "m2",
+     "price_uzs": 775000,
+     "image": "images/deraza-bozori/2.webp",
+     "price_basis": "market_median",
+     "sample_size": 14,
+     "sources": [
+      "https://glotr.uz/engelberg-7000-engelberg-8000-5-kamernie-goryachie-profili-rami-povishennoy-vidimosti-p-1078855/",
+      "https://glotr.uz/engelberg-7000visokaya-teploizolyatsiyaprochnost-i-dolgovechnost-p-1085524/",
+      "https://stroyka.uz/offer/plastikovye-okna-engelberg-7000",
+      "https://stroyka.uz/offer/plastikovye-okna-engelberg-80",
+      "https://tovar.uz/service/583",
+      "https://flagma.uz/ru/engelberg-akfa-thermo-okna-dveri-i-vitrazhi-o2004994.html",
+      "https://goldplast.uz/products/plastikovie-okna-i-dveri/",
+      "https://glotr.uz/plastikovie-okna-akfa-ekopen-enjelberg-p-89029/",
+      "https://prom.uz/ads/okna-premium-klassa-engelberg-7000-akfa-imzo/",
+      "https://prom.uz/ads/plastikovye-okna-i-dveri-termo-akfa-engelberg/",
+      "https://prom.uz/ads/okna-i-dveri-akfa-termo-engelberg/",
+      "https://www.olx.uz/d/obyavlenie/akfa-engelberg-thermo-okna-zakaz-v-tashkente-akfa-kachestvo-garantiya-ID3D0v0.html",
+      "https://www.olx.uz/d/obyavlenie/okna-i-dveri-akfa-engelberg-termo-ekopen-ID4faXJ.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-okna-i-dveri-plastikovye-okna-termo-engelberg-montazh-ID4u22d.html"
+     ]
+    },
+    {
+     "kind": "material",
+     "name_uz": "Alyumin deraza, sovuq profil",
+     "category": "deraza",
+     "unit": "m2",
+     "price_uzs": 632500,
+     "image": "images/deraza-bozori/3.webp",
+     "price_basis": "market_median",
+     "sample_size": 10,
+     "sources": [
+      "https://prom.uz/ads/akfa-rom-akciya-toskent-kv-m/",
+      "https://glotr.uz/allyumininvie-okna-p-89170/",
+      "https://glotr.uz/alyuminievie-okna-po-nizkim-tsenam-p-191639/",
+      "https://glotr.uz/okna-akfa-alyuminiy-pvx-p-552787/",
+      "https://stroyka.uz/offer/alyuminievye-okna-shampion",
+      "https://stroyka.uz/offer/alyuminievye-okna-6-88182",
+      "https://flagma.uz/ru/alyuminievye-okna-o1884739.html",
+      "https://flagma.uz/ru/alyuminievye-okna-ot-akfa-o1787313.html",
+      "https://flagma.uz/ru/okna-dveri-i-vitrazhi-iz-alyuminievogo-profilyapvh-profiltermo-profil-o2036945.html",
+      "https://prom.uz/ads/alyuminievye-okna-procnost/"
+     ]
+    },
+    {
+     "kind": "material",
+     "name_uz": "Issiq alyumin deraza (termo profil)",
+     "category": "deraza",
+     "unit": "m2",
+     "price_uzs": 1300000,
+     "image": "images/deraza-bozori/4.webp",
+     "price_basis": "market_median",
+     "sample_size": 5,
+     "sources": [
+      "https://stroyka.uz/offer/thermo-78-engelberg",
+      "https://asabiyya.uz/alyuminievye-okna-tashkent/",
+      "https://glotr.uz/alyuminievie-okna-termo-65-art-01-p-914767/",
+      "https://glotr.uz/alyuminievie-okna-p-1071408/",
+      "https://glotr.uz/visokokachestvennie-energosberegayushie-dveri-i-okna-termo-p-1084938/"
+     ]
+    },
+    {
+     "kind": "material",
+     "name_uz": "Plastik balkon eshigi",
+     "category": "eshik",
+     "unit": "m2",
+     "price_uzs": 850000,
+     "image": "images/deraza-bozori/5.webp",
+     "price_basis": "market_median",
+     "sample_size": 8,
+     "sources": [
+      "https://flagma.uz/ru/plastikovaya-dver-akfa-o1784828.html",
+      "https://flagma.uz/ru/plastikovye-dveri-o1788718.html",
+      "https://flagma.uz/ru/kupit-plastikovye-dveri-o1791739.html",
+      "https://flagma.uz/ru/plastikovye-i-alyuminievye-dveri-v-eurookna-o1787873.html",
+      "https://prom.uz/ads/plastikovye-dveri-1/",
+      "https://prom.uz/ads/plastikovye-dveri-akfa/",
+      "https://prom.uz/ads/oknadveri-vitraji/",
+      "https://prom.uz/ads/metalloplastikovye-ramy-i-plastikovye-dveri/"
+     ]
+    },
+    {
+     "kind": "material",
+     "name_uz": "Tayyor plastik deraza 1,2×1,4 m (Akfa profili)",
+     "category": "deraza",
+     "unit": "dona",
+     "price_uzs": 1176000,
+     "image": "images/deraza-bozori/6.webp",
+     "price_basis": "market_median_x_area",
+     "sample_size": 24,
+     "sources": [
+      "https://flagma.uz/ru/plastikovye-okna-v-tashkente-akfa-ekopen-o1826623.html",
+      "https://tovar.uz/uz/service/583",
+      "https://prom.uz/ads/plastikovye-i-alyuminievye-okna-1/",
+      "https://prom.uz/ads/akfa-rom-akciya-toskent-kv-m/",
+      "https://prom.uz/ads/akfa-rom-chilonzor-65-kvm-akciya/",
+      "https://prom.uz/ads/oq-akfa-plast-toshkent-shaxri-va-viloyatlariga/",
+      "https://prom.uz/ads/akfa-plast-oq-70-kvm-toshkent-shaxri-va-viloyatlariga-xizmat/",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-masterplast-ekopen-ID2k4eo.html",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-ekopen-ID1UUIO.html",
+      "https://glotr.uz/pvx-okna-i-dveri-p-914785/",
+      "https://glotr.uz/plastikovie-okna-p-1077621/",
+      "https://www.olx.uz/d/obyavlenie/akfa-akfa-okna-plastikovye-ekopen-ID3vOoH.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-ramy-plastikovye-okna-i-dveri-ID42DJQ.html",
+      "https://www.olx.uz/d/obyavlenie/plastikovye-okna-akfa-romlar-plastikovye-okna-i-razdvizhnye-sistemy-ID4tTIA.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-okna-i-dveri-plastikovye-okna-termo-engelberg-montazh-ID4u22d.html",
+      "https://www.olx.uz/d/obyavlenie/tsehdan-akfa-plast-eshik-akfa-rom-romlar-deraza-plastikovye-okna-dveri-ID3scEv.html",
+      "https://www.olx.uz/d/obyavlenie/akfa-okno-dvery-na-zakaz-ID4ibCr.html",
+      "https://www.olx.uz/d/obyavlenie/ekopen-okna-i-dveri-ID3t2Ym.html",
+      "https://prom.uz/ads/ekopen-akfa-enjelberg/",
+      "https://prom.uz/ads/okna-akfa-ekopen-termo/",
+      "https://prom.uz/ads/akfa-plastik-derazalar/",
+      "https://prom.uz/ads/akfa-lider-plast-nemat/",
+      "https://prom.uz/ads/akfa-okna-plastikovye-novye-i-gotovye-v-taskente-1000x1200/",
+      "https://prom.uz/ads/akfadan-tayyor-yangi-rom-1500x1700/"
+     ]
     }
    ]
   }

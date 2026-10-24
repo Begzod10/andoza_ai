@@ -57,7 +57,8 @@ def test_the_catalog_has_stores_with_furniture_and_materials():
     for store in CATALOG["stores"]:
         assert store["items"], store["name"]
         assert len(store["items"]) <= 30, store["name"]
-        assert store["website"].startswith("https://")
+        # A real store links its site; the market-average store has none (it is no shop).
+        assert store.get("website", "").startswith("https://") or _is_market_average(store)
         assert len(store["name"]) <= 200
         if store.get("phone"):
             assert len(store["phone"]) <= 20
@@ -66,7 +67,8 @@ def test_the_catalog_has_stores_with_furniture_and_materials():
 def test_no_carpets_from_prom_uz():
     # Sanat Hali's photos are prom.uz /upload/ files, which www.prom.uz's robots.txt disallows.
     assert "sanat-hali" not in {s["slug"] for s in CATALOG["stores"]}
-    assert not any("prom.uz" in item["source_url"] for _, item in _items())
+    # (Market-average items cite prom.uz ads in "sources" for their prices; no photo comes from there.)
+    assert not any("prom.uz" in item.get("source_url", "") for _, item in _items())
     assert not (demo.DATA_DIR / "images" / "sanat-hali").exists()
 
 
@@ -76,7 +78,46 @@ def test_every_item_has_a_photo_on_disk_and_a_source():
         assert item["image"].startswith(f"images/{store['slug']}/"), item
         assert path.is_file(), item["image"]
         assert path.read_bytes()[8:12] == b"WEBP", item["image"]
-        assert item["source_url"].startswith("http"), item
+        sources = [item["source_url"]] if "source_url" in item else item["sources"]
+        assert sources and all(s.startswith("http") for s in sources), item
+
+
+def _is_market_average(store: dict) -> bool:
+    return all(i.get("price_basis", "").startswith("market_median") for i in store["items"])
+
+
+def test_catalog_versions_are_consistent():
+    version = demo.catalog_version(CATALOG)
+    assert version >= 2
+    for store in CATALOG["stores"]:
+        for item in store["items"]:
+            assert 1 <= demo.item_since(store, item) <= version, (store["name"], item["name_uz"])
+    # The first version is what production already has: the 9 stores seeded before
+    # catalog versions existed. New rows must come with a higher "since".
+    v1 = [s for s in CATALOG["stores"] if any(demo.item_since(s, i) == 1 for i in s["items"])]
+    assert len(v1) == 9
+    assert sum(1 for s in v1 for i in s["items"] if demo.item_since(s, i) == 1) == 134 + 25 + 28
+
+
+def test_the_window_store_is_labelled_as_average_market_prices():
+    market = [s for s in CATALOG["stores"] if _is_market_average(s)]
+    assert [s["slug"] for s in market] == ["deraza-bozori"]
+    store = market[0]
+    assert "o'rtacha narx" in store["name"]
+    # No brand is presented as the seller; brands may only name a profile inside a product.
+    assert not re.search(r"akfa|imzo|engelberg|ekopen", store["name"], re.I)
+    note = store["moderation_note"]
+    assert note.startswith("DEMO:") and "o'rtacha narx" in note and "do'kon taklifi emas" in note
+    assert len(note) <= 300  # Store.moderation_note is String(300)
+    assert store["since"] == 2 and "website" not in store
+    cats = {i["category"] for i in store["items"]}
+    assert "deraza" in cats and cats <= {"deraza", "eshik"}
+    for item in store["items"]:
+        assert item["kind"] == "material"
+        assert item["unit"] in ("m2", "dona"), item
+        # A median of real listings: the number of data points matches the cited sources.
+        assert item["sample_size"] == len(item["sources"]) >= 5, item
+        assert 100_000 <= item["price_uzs"] <= 5_000_000, item
 
 
 def test_no_photo_on_disk_is_unreferenced():
@@ -296,10 +337,13 @@ async def test_a_first_seed_inserts_everything_marked_demo(env):
         len(CATALOG["stores"]), N_FURNITURE, N_MATERIALS)
     assert result["wallpapers"] == N_WALLPAPERS
     assert len(uploads.keys) == N_ITEMS
+    notes = {s["name"]: s.get("moderation_note", demo.DEMO_NOTE) for s in CATALOG["stores"]}
     for store in session.of(Store):
         assert store.is_demo is True
-        assert store.moderation_note == demo.DEMO_NOTE  # for humans reading the admin
+        assert store.moderation_note == notes[store.name]  # for humans reading the admin
         assert store.status == "approved" and store.is_active
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{demo.catalog_version(CATALOG)}"]
+    assert (result["from_version"], result["version"]) == (0, demo.catalog_version(CATALOG))
     for f in session.of(Furniture):
         assert f.glb_key is None and f.status == "approved" and f.is_active
         assert f.thumbnail_key.startswith("furniture/demo/") and f.thumbnail_key.endswith(".webp")
@@ -342,7 +386,7 @@ async def test_after_remove_the_next_deploy_does_not_seed_again(env):
     session, uploads, _ = env
     await demo.seed_demo_stores()
     await demo.remove_demo_stores()
-    assert [m.key for m in session.of(SeedMarker)] == [demo.REMOVED_MARKER]
+    assert demo.REMOVED_MARKER in [m.key for m in session.of(SeedMarker)]
 
     result = await demo.seed_demo_stores()
 
@@ -361,7 +405,116 @@ async def test_force_reseeds_after_a_remove_and_clears_the_marker(env, monkeypat
 
     assert result["status"] == "seeded"
     assert len(session.of(Store)) == len(CATALOG["stores"])
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{demo.catalog_version(CATALOG)}"]
+
+
+# ---------------------------------------------------------------------------
+# Catalog versions: rows added after the first seed
+# ---------------------------------------------------------------------------
+
+def _v1_catalog() -> dict:
+    """The catalog as production seeded it, before versions existed."""
+    stores = []
+    for s in CATALOG["stores"]:
+        items = [i for i in s["items"] if demo.item_since(s, i) == 1]
+        if items:
+            stores.append({**s, "items": items})
+    return {"stores": stores}
+
+
+async def _seed_like_production_did(session, uploads):
+    """Demo stores from catalog v1 and no version marker: what production has today."""
+    await demo._apply(session, _v1_catalog(), upload=uploads, uploaded=[])
     assert not session.of(SeedMarker)
+
+
+def _newer_items():
+    return [(s, i) for s in CATALOG["stores"] for i in s["items"] if demo.item_since(s, i) > 1]
+
+
+async def test_a_database_seeded_before_versions_gets_exactly_the_new_rows(env):
+    session, uploads, _ = env
+    await _seed_like_production_did(session, uploads)
+    stores_before = set(session.of(Store))
+    uploads_before = len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    newer = _newer_items()
+    assert newer, "the catalog has rows added after version 1"
+    assert result["status"] == "seeded" and result["from_version"] == 1
+    assert result["materials"] == len(newer)
+    assert (result["furniture"], result["wallpapers"], result["existing"]) == (0, 0, 0)
+    assert result["stores"] == len({s["name"] for s, _ in newer})
+    added = set(session.of(Store)) - stores_before
+    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx"}
+    window_store = added.pop()
+    assert window_store.is_demo is True and "o'rtacha narx" in window_store.moderation_note
+    windows = [m for m in session.of(Material) if m.store_id == window_store.id]
+    assert sorted(m.name_uz for m in windows) == sorted(i["name_uz"] for _, i in newer)
+    assert len(uploads.keys) - uploads_before == len(newer)
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{demo.catalog_version(CATALOG)}"]
+
+
+async def test_the_second_deploy_adds_nothing(env):
+    session, uploads, _ = env
+    await _seed_like_production_did(session, uploads)
+    await demo.seed_demo_stores()
+    rows, n_uploads = len(session.rows), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    assert result == {"status": "already_seeded", "version": demo.catalog_version(CATALOG)}
+    assert len(session.rows) == rows and len(uploads.keys) == n_uploads
+
+
+async def test_an_admin_deleted_v1_row_or_store_is_not_restored_by_a_new_version(env):
+    session, uploads, _ = env
+    await _seed_like_production_did(session, uploads)
+    # An admin deletes one v1 material, one v1 piece of furniture and a whole v1 store.
+    gone_material = session.of(Material)[0]
+    gone_piece = session.of(Furniture)[0]
+    await session.delete(gone_material)
+    await session.delete(gone_piece)
+    gone_store = next(st for st in session.of(Store) if st.id not in (gone_piece.store_id, gone_material.store_id))
+    for row in [r for r in session.rows if getattr(r, "store_id", None) == gone_store.id]:
+        await session.delete(row)
+    await session.delete(gone_store)
+
+    await demo.seed_demo_stores()
+
+    assert gone_material.name_uz not in {m.name_uz for m in session.of(Material) if m.store_id == gone_material.store_id}
+    assert gone_piece.name_uz not in {f.name_uz for f in session.of(Furniture) if f.store_id == gone_piece.store_id}
+    assert gone_store.name not in {st.name for st in session.of(Store)}
+
+
+async def test_a_removed_demo_blocks_new_versions_too(env):
+    session, uploads, _ = env
+    await _seed_like_production_did(session, uploads)
+    await demo.remove_demo_stores()
+
+    result = await demo.seed_demo_stores()
+
+    assert result["status"] == "removed"
+    assert not session.of(Store) and not session.of(Material)
+
+
+async def test_a_new_version_reaches_a_database_already_at_an_older_marker(env, monkeypatch):
+    session, uploads, _ = env
+    await demo.seed_demo_stores()
+    # A later catalog adds a version-3 item to an existing store.
+    v3 = {"version": 3, "stores": [dict(s) for s in CATALOG["stores"]]}
+    first = v3["stores"][-1]
+    extra = {**first["items"][0], "name_uz": "Yangi mahsulot", "since": 3}
+    v3["stores"][-1] = {**first, "items": first["items"] + [extra]}
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: v3)
+
+    result = await demo.seed_demo_stores()
+
+    assert result["status"] == "seeded" and result["from_version"] == demo.catalog_version(CATALOG)
+    assert (result["stores"], result["materials"], result["existing"]) == (0, 1, 0)
+    assert "Yangi mahsulot" in {m.name_uz for m in session.of(Material)}
+    assert [m.key for m in session.of(SeedMarker)] == ["demo_stores_v3"]
 
 
 async def test_a_real_store_with_a_demo_name_is_left_alone(env):
@@ -421,7 +574,7 @@ async def test_remove_deletes_only_is_demo_stores_and_their_rows(env):
 
     again = await demo.remove_demo_stores()
     assert (again["stores"], again["furniture"], again["materials"], again["wallpapers"]) == (0, 0, 0, 0)
-    assert len(session.of(SeedMarker)) == 1
+    assert [m.key for m in session.of(SeedMarker)].count(demo.REMOVED_MARKER) == 1
 
 
 @pytest.mark.parametrize("url,key", [
