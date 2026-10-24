@@ -240,7 +240,9 @@
       "olchamlar_toortburchak": "{{length}} × {{width}} × {{height}} m",
       "olchamlar_koppburchak_one": "{{area}} m² · {{count}} devor · shift {{height}} m",
       "olchamlar_koppburchak_other": "{{area}} m² · {{count}} devor · shift {{height}} m",
-      "havola_bekor": "Bekor qilish"
+      "havola_bekor": "Bekor qilish",
+      "saqlanmadi": "Saqlanmadi",
+      "qayta_urinish": "Qayta urinish"
     },
     "iso": {
       "preview_aria": "Isometric room preview",

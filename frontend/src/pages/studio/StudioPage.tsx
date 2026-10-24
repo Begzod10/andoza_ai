@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { createAutosave, roomContentChanged } from "@/lib/autosave";
 import { formatDecimal } from '@/lib/utils'
 import { defaultApartmentName, defaultRoomName } from '@/lib/defaultNames';
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
@@ -205,8 +206,25 @@ export default function StudioPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  async function handleSave() {
-    if (saveStatus === 'saving') return;
+  /** A save already running — a second caller waits for it rather than
+   *  starting another, and the autosave never overlaps one. */
+  const inFlight = useRef<Promise<boolean> | null>(null);
+  /** `updated_at` of the server copy the store last took or wrote, so the
+   *  same copy fetched again is not loaded over the store (which would clear
+   *  the undo history for nothing). */
+  const loadedAtRef = useRef<string | null>(null);
+  /** The save the whole studio uses — the autosave, the room list, the AI
+   *  builder. Resolves once the running save is done. */
+  async function handleSave(): Promise<void> {
+    await saveNow();
+  }
+  function saveNow(): Promise<boolean> {
+    if (inFlight.current) return inFlight.current;
+    const p = saveOnce().finally(() => { inFlight.current = null; });
+    inFlight.current = p;
+    return p;
+  }
+  async function saveOnce(): Promise<boolean> {
     setSaveStatus('saving');
     try {
       const s = useRoomStore.getState();
@@ -230,7 +248,7 @@ export default function StudioPage() {
       // Try to update existing DB room first
       if (roomId) {
         try {
-          await updateRoom(roomId, {
+          const saved = await updateRoom(roomId, {
             name: s.name || defaultRoomName(),
             ceiling_h: s.ceilingHeight / 1000,
             geometry: geometryPayload,
@@ -242,12 +260,13 @@ export default function StudioPage() {
           });
           useRoomStore.getState().markSaved();
           setSaveStatus('saved');
+          loadedAtRef.current = saved.updated_at ?? loadedAtRef.current;
           // The nav-tab price badge previews room.state as of the last save
           // — without this it'd keep showing the pre-save number for up to
           // its 30s staleTime after a save the user just watched succeed.
           queryClient.invalidateQueries({ queryKey: ["studio-nav-total", roomId] });
-          setTimeout(() => setSaveStatus('idle'), 2500);
-          return;
+          setTimeout(() => setSaveStatus((st) => (st === 'saved' ? 'idle' : st)), 2500);
+          return true;
         } catch {
           // Room doesn't exist in DB yet — fall through to create
         }
@@ -276,15 +295,52 @@ export default function StudioPage() {
       // Replace stale URL with the real room ID
       const currentTab = location.pathname.split('/').pop() ?? 'ichkarida';
       navigate(`/studio/${newRoom.id}/${currentTab}`, { replace: true });
-      setTimeout(() => setSaveStatus('idle'), 2500);
+      setTimeout(() => setSaveStatus((st) => (st === 'saved' ? 'idle' : st)), 2500);
+      return true;
     } catch {
-      // A failed save must never be silent — surface it visibly (button
-      // text/color swap, same pattern as 'saved'/'saving' below) instead of
-      // quietly reverting to 'idle' as if nothing happened.
+      // A failed save must never be silent: it stays on screen, with a retry,
+      // until a save succeeds — the autosave keeps trying by itself.
       setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 4000);
+      return false;
     }
   }
+
+  // ── Autosave ─────────────────────────────────────────────────────────────
+  // "Make autosave option and remove save button": every edit marks the
+  // store dirty; the autosave saves once the edits have paused (lib/autosave),
+  // again for anything edited meanwhile, and tries again by itself after a
+  // failure. Leaving the page, or hiding the tab, saves at once.
+  const saveNowRef = useRef(saveNow);
+  saveNowRef.current = saveNow;
+  // Made and torn down inside ONE effect: React runs every effect twice on
+  // mount in development (StrictMode), and an autosave made outside and
+  // disposed by the first cleanup was dead for the second mount — nothing
+  // saved at all.
+  useEffect(() => {
+    const autosave = createAutosave(() => saveNowRef.current());
+    // An EDIT: something a save writes changed. Not a view setting, and not
+    // the store's own bookkeeping — on either of those the room saved as
+    // soon as it opened, and once more after every save.
+    const unsubscribe = useRoomStore.subscribe((st, prev) => {
+      if (st.isDirty && roomContentChanged(prev, st)) autosave.changed();
+    });
+    const flush = () => autosave.flush();
+    const onHidden = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHidden);
+      // Leaving the studio: whatever is waiting goes now.
+      autosave.flush();
+      autosave.dispose();
+    };
+  }, []);
+  // The leave-page warning is for changes a save FAILED to keep; a change the
+  // autosave simply has not got to yet is saved on the way out.
+  const saveFailedRef = useRef(false);
+  saveFailedRef.current = saveStatus === 'error';
 
   // Fallback: restore from draft-room when draftId is set but apiRoom has no state
   useEffect(() => {
@@ -408,15 +464,25 @@ export default function StudioPage() {
       // loadRoom last: authoritative ids + geometry (with door/window elements)
       // from the API override whatever the state blob carried.
       useRoomStore.getState().loadRoom(apiRoom);
+      loadedAtRef.current = apiRoom.updated_at ?? null;
       if (useRoomStore.getState().userFurniture.length === 0 && keepUserFurniture.length > 0) {
         useRoomStore.setState({ userFurniture: keepUserFurniture });
       }
       return;
     }
     if (!state) return;
-    const hasElements = geometry.walls.some(w => w.elements.length > 0);
-    if (hasElements) return;
+    // The same room, fetched again (opened again, or on the tab regaining
+    // focus): the server's copy is what the room is, and the store takes it
+    // — unless the store holds edits not saved yet, or a save is on its way,
+    // which must not be overwritten by an older copy. It used to keep the
+    // local copy whenever it had any walls with openings, which with the
+    // autosave meant a stale copy from this device could be saved straight
+    // over what another device had done since.
+    if (s.isDirty || inFlight.current) return;
+    if (apiRoom.updated_at && apiRoom.updated_at === loadedAtRef.current) return;
     loadDraftState(state);
+    useRoomStore.getState().loadRoom(apiRoom);
+    loadedAtRef.current = apiRoom.updated_at ?? null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiRoom]);
 
@@ -483,47 +549,29 @@ export default function StudioPage() {
               strip to portal in simply leaves this empty. */}
           <div ref={setTabSlotEl} className="flex justify-center items-center min-w-0" />
 
-          {/* Save + kebab */}
+          {/* Save status + kebab. There is no save button: the studio saves on
+              its own (see the autosave above), and this only says how that is
+              going — nothing at all when it is simply saved. */}
           <div className="flex items-center gap-2 flex-shrink-0 relative">
-            <button
-              onClick={handleSave}
-              disabled={saveStatus === 'saving' || (fetchStatus !== 'notfound' && !isDirty)}
-              title={saveStatus === 'error' ? t("errors.server_xato") : t("common.saqlash")}
-              className={[
-                "flex items-center justify-center rounded-lg text-xs font-semibold transition-colors",
-                "w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5", // icon-only on mobile, labeled from sm up
-                saveStatus === 'saved'
-                  ? "bg-emerald-700 text-white"
-                  : saveStatus === 'error'
-                    ? "bg-red-600 text-white"
-                    : (isDirty || fetchStatus === 'notfound')
-                      ? "bg-brand text-white"
-                      : "bg-primary-tint text-brand",
-              ].join(' ')}
-            >
-              <span className="hidden sm:inline" aria-hidden="true">
-                {saveStatus === 'saving' ? '…' : saveStatus === 'saved' ? '✓' : saveStatus === 'error' ? t('studio.page.xato') : t('common.saqlash')}
-              </span>
-              <svg className="sm:hidden" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h7.17a1.5 1.5 0 0 1 1.06.44l1.83 1.83c.28.28.44.66.44 1.06V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-9Z"/>
-                <path d="M4.5 2v3h5.5V2M4.5 14v-4h7v4"/>
-              </svg>
-              {/* Always-present live region — the visible text above is
-                  hidden entirely (display:none) below the sm breakpoint, so
-                  a screen-reader-only region is the only reliable way to
-                  announce save status on mobile, and it doubles as the
-                  desktop announcement too (visible spans are aria-hidden
-                  to avoid a double announcement). */}
-              <span className="sr-only" aria-live="polite">
-                {saveStatus === 'saving'
-                  ? t('studio.page.saqlanmoqda')
-                  : saveStatus === 'saved'
-                    ? t('studio.page.saqlandi')
-                    : saveStatus === 'error'
-                      ? t("errors.server_xato")
-                      : t('common.saqlash')}
-              </span>
-            </button>
+            <div className="flex items-center gap-1.5 text-xs font-semibold" aria-live="polite">
+              {saveStatus === 'saving' && (
+                <span className="text-ink-muted">{t('studio.page.saqlanmoqda')}</span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="text-emerald-600">✓ {t('studio.page.saqlandi')}</span>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <span className="text-red-600">{t('studio.page.saqlanmadi')}</span>
+                  <button
+                    onClick={() => void saveNow()}
+                    className="px-2.5 py-1 rounded-lg bg-red-600 text-white"
+                  >
+                    {t('studio.page.qayta_urinish')}
+                  </button>
+                </>
+              )}
+            </div>
             <div className="relative">
               <StudioMenu ref={menuButtonRef} open={menuOpen} onOpenChange={setMenuOpen}>
                 <div ref={setMenuSlotEl} />
@@ -644,7 +692,7 @@ export default function StudioPage() {
 
       <RoomSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {roomId && <UnsavedChangesGuard roomId={roomId} isDirty={getIsDirty} />}
+      {roomId && <UnsavedChangesGuard roomId={roomId} isDirty={() => getIsDirty() && saveFailedRef.current} />}
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">
