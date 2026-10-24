@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -15,7 +16,7 @@ import {
   type AdminStore,
 } from "@/lib/api";
 import { errorMessage } from "./errorMessage";
-import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
+import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { StyleChips } from "@/components/dokon/StyleChips";
@@ -41,6 +42,7 @@ export function ModelFormDialog({
   fixedStoreId?: string;
   onError: (msg: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [nameUz, setNameUz] = useState("");
   const [category, setCategory] = useState<AdminFurnitureCategory>("divan");
@@ -73,7 +75,7 @@ export function ModelFormDialog({
 
   const uploadMutation = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error("GLB fayl tanlanmagan");
+      if (!file) throw new Error(t("dokon.model.no_glb"));
       return uploadAdminFurniture({
         file,
         thumbnail,
@@ -93,7 +95,7 @@ export function ModelFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, "Modelni yuklab bo'lmadi")),
+    onError: (err) => onError(errorMessage(err, t("dokon.model.upload_failed"))),
   });
 
   return (
@@ -103,8 +105,8 @@ export function ModelFormDialog({
         if (!next) reset();
         onOpenChange(next);
       }}
-      title="Yangi 3D model"
-      description="Model faylini va uning ma'lumotlarini kiriting"
+      title={t("dokon.model.new_title")}
+      description={t("dokon.model.admin_desc")}
     >
       <form
         onSubmit={(e) => {
@@ -115,23 +117,23 @@ export function ModelFormDialog({
         className="space-y-4"
       >
         <Input themed
-          label="Nomi"
+          label={t("dokon.admin.nomi")}
           value={nameUz}
           onChange={(e) => setNameUz(e.target.value)}
-          placeholder="Masalan: Uch o'rinli divan"
+          placeholder={t("dokon.model.name_ph")}
           autoFocus
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+          <Select themed label={t("dokon.admin.turi")} value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
             {ADMIN_FURNITURE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+              <option key={c} value={c}>{t(CATEGORY_KEYS[c])}</option>
             ))}
           </Select>
-          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
-            <option value="">Barcha xonalar</option>
+          <Select themed label={t("dokon.admin.xona")} value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+            <option value="">{t("dokon.admin.all_rooms")}</option>
             {ADMIN_ROOM_TYPES.map((r) => (
-              <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>
+              <option key={r} value={r}>{t(ROOM_TYPE_KEYS[r])}</option>
             ))}
           </Select>
         </div>
@@ -139,27 +141,27 @@ export function ModelFormDialog({
         <StyleChips value={styles} onChange={setStyles} />
 
         <Select themed
-          label="Xonada joylashuvi"
-          helperText="Model xona ichida qayerga o'rnatilishi"
+          label={t("dokon.admin.placement")}
+          helperText={t("dokon.model.placement_help")}
           value={placement}
           onChange={(e) => setPlacement(e.target.value as AdminPlacement)}
         >
           {ADMIN_PLACEMENTS.map((p) => (
-            <option key={p} value={p}>{PLACEMENT_LABELS[p]}</option>
+            <option key={p} value={p}>{t(PLACEMENT_KEYS[p])}</option>
           ))}
         </Select>
 
         <div className="grid grid-cols-2 gap-3">
           {fixedStoreId === undefined && (
-            <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
-              <option value="">— tanlanmagan —</option>
+            <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+              <option value="">{t("dokon.admin.not_selected")}</option>
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
           )}
           <Input themed
-            label="Narxi (so'm)"
+            label={t("dokon.admin.narxi_som")}
             type="number"
             min={0}
             value={priceUzs}
@@ -170,7 +172,7 @@ export function ModelFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">3D model (.glb)</label>
+            <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.model.glb_label")}</label>
             <input
               type="file"
               accept=".glb"
@@ -179,7 +181,7 @@ export function ModelFormDialog({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">Rasm (ixtiyoriy)</label>
+            <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.model.thumb_optional")}</label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -206,10 +208,10 @@ export function ModelFormDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
-            Bekor qilish
+            {t("common.bekor")}
           </Button>
           <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={uploadMutation.isPending}>
-            Yuklash
+            {t("dokon.model.upload")}
           </Button>
         </div>
       </form>

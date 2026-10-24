@@ -139,7 +139,7 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
               </label>
             </div>
             {phoneError ? (
-              <p role="alert" className="mt-3 text-sm text-red-600">{t("ustalar.telefon_xato")}</p>
+              <p role="alert" className="mt-3 text-sm text-red-600">{t("common.telefon_xato")}</p>
             ) : mutation.isError && (
               <p role="alert" className="mt-3 text-sm text-red-600">{t("errors.nomalum_xato")}</p>
             )}

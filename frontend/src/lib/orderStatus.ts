@@ -1,21 +1,23 @@
 import type { OrderStatus } from "@/lib/api/orders";
+import type { TFunction } from "i18next";
+import type { TKey } from "@/i18n";
 
 /** The stages an order goes through, in order. Cancelled is not a stage: it ends the order. */
 export const ORDER_STATUSES: OrderStatus[] = ["accepted", "gathering", "on_the_way", "delivered"];
 
-export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  accepted: "Qabul qilindi",
-  gathering: "Yig'ilmoqda",
-  on_the_way: "Yo'lda",
-  delivered: "Yetkazildi",
-  cancelled: "Bekor qilindi",
+export const ORDER_STATUS_KEYS: Record<OrderStatus, TKey> = {
+  accepted: "dokon.order.status.accepted",
+  gathering: "dokon.order.status.gathering",
+  on_the_way: "dokon.order.status.on_the_way",
+  delivered: "dokon.order.status.delivered",
+  cancelled: "dokon.order.status.cancelled",
 };
 
 /** What a shop does to move an order on, named by the action. The last stage has none. */
-export const NEXT_ORDER_ACTION: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
-  accepted: { to: "gathering", label: "Yig'ishni boshlash" },
-  gathering: { to: "on_the_way", label: "Yo'lga chiqarish" },
-  on_the_way: { to: "delivered", label: "Yetkazildi deb belgilash" },
+export const NEXT_ORDER_ACTION: Partial<Record<OrderStatus, { to: OrderStatus; labelKey: TKey }>> = {
+  accepted: { to: "gathering", labelKey: "dokon.order.next.gathering" },
+  gathering: { to: "on_the_way", labelKey: "dokon.order.next.on_the_way" },
+  on_the_way: { to: "delivered", labelKey: "dokon.order.next.delivered" },
 };
 
 /** Until which stage each party may cancel (the server enforces the same). */
@@ -23,9 +25,24 @@ export const BUYER_CAN_CANCEL: OrderStatus[] = ["accepted"];
 export const SELLER_CAN_CANCEL: OrderStatus[] = ["accepted", "gathering"];
 export const ADMIN_CAN_CANCEL: OrderStatus[] = ["accepted", "gathering", "on_the_way"];
 
-export const CANCELLED_BY_LABELS: Record<string, string> = { buyer: "xaridor", seller: "do'kon", admin: "administrator" };
+export const CANCELLED_BY_KEYS: Record<string, TKey> = {
+  buyer: "dokon.order.cancelled_by.buyer",
+  seller: "dokon.order.cancelled_by.seller",
+  admin: "dokon.order.cancelled_by.admin",
+};
 
-export const PAYMENT_LABELS: Record<string, string> = { cash: "Naqd pul", card: "Karta" };
+export const PAYMENT_KEYS: Record<string, TKey> = { cash: "dokon.order.payment.cash", card: "dokon.order.payment.card" };
+
+/** The words for a status, a payment method or whoever cancelled; an unknown value (a newer server) is shown as it came. */
+export function orderStatusLabel(status: string, t: TFunction): string {
+  return status in ORDER_STATUS_KEYS ? t(ORDER_STATUS_KEYS[status as OrderStatus]) : status;
+}
+export function paymentLabel(method: string, t: TFunction): string {
+  return method in PAYMENT_KEYS ? t(PAYMENT_KEYS[method]) : method;
+}
+export function cancelledByLabel(who: string, t: TFunction): string {
+  return who in CANCELLED_BY_KEYS ? t(CANCELLED_BY_KEYS[who]) : who;
+}
 
 /** The little status pill, readable on both the day and the night card. */
 export const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Phone, ReceiptText, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { advanceMyOrder, cancelMyOrder, listMyOrders, type SellerOrder } from "@/lib/api";
 import { formatUZS } from "@/lib/utils";
 import {
-  CANCELLED_BY_LABELS, NEXT_ORDER_ACTION, ORDER_STATUS_LABELS, ORDER_STATUS_STYLES, PAYMENT_LABELS, SELLER_CAN_CANCEL, formatWhen, nextOrdersPage, replaceOrderInPages,
+  NEXT_ORDER_ACTION, ORDER_STATUS_STYLES, SELLER_CAN_CANCEL, cancelledByLabel, formatWhen, orderStatusLabel, paymentLabel, nextOrdersPage, replaceOrderInPages,
 } from "@/lib/orderStatus";
 import type { OrderStatus } from "@/lib/api/orders";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ const MIN_REASON = 3;
 function OrderCard({
   order, busy, onAdvance, onCancel,
 }: { order: SellerOrder; busy: boolean; onAdvance: (o: SellerOrder) => void; onCancel: (o: SellerOrder, reason: string) => void }) {
+  const { t } = useTranslation();
   const status = order.status as OrderStatus;
   const next = NEXT_ORDER_ACTION[status];
   const cancelled = status === "cancelled";
@@ -33,10 +35,10 @@ function OrderCard({
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {status === "accepted" && (
-            <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Yangi</span>
+            <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">{t("dokon.order.new")}</span>
           )}
           <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${ORDER_STATUS_STYLES[status] ?? ORDER_STATUS_STYLES.accepted}`}>
-            {ORDER_STATUS_LABELS[status] ?? order.status}
+            {orderStatusLabel(order.status, t)}
           </span>
         </div>
       </div>
@@ -44,17 +46,17 @@ function OrderCard({
       <div className="grid grid-cols-2 gap-2.5">
         {order.delivery_address && (
           <Tile className="col-span-2 px-3.5 py-3">
-            <p className="text-[11px] text-ink-muted">Yetkazish manzili</p>
+            <p className="text-[11px] text-ink-muted">{t("dokon.order.delivery_address")}</p>
             <p className="text-sm font-bold text-ink">{order.delivery_address}</p>
           </Tile>
         )}
         {order.phone && (
           <Tile className="col-span-2 flex items-center justify-between gap-2 px-3.5 py-3">
             <div className="min-w-0">
-              <p className="text-[11px] text-ink-muted">Telefon</p>
+              <p className="text-[11px] text-ink-muted">{t("common.telefon")}</p>
               <p className="text-sm font-bold text-ink">{order.phone}</p>
             </div>
-            <a href={`tel:${order.phone.replace(/\s/g, "")}`} aria-label="Xaridorga qo'ng'iroq" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink-muted transition-colors hover:text-accent">
+            <a href={`tel:${order.phone.replace(/\s/g, "")}`} aria-label={t("dokon.order.call_buyer")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink-muted transition-colors hover:text-accent">
               <Phone size={15} aria-hidden="true" />
             </a>
           </Tile>
@@ -70,9 +72,9 @@ function OrderCard({
         ))}
         <div className="flex items-baseline justify-between border-t border-line pt-2">
           <span className="text-sm font-bold text-ink">
-            Jami
+            {t("common.jami")}
             {order.payment_method && (
-              <span className="ml-2 text-xs font-medium text-ink-muted">· {PAYMENT_LABELS[order.payment_method] ?? order.payment_method}</span>
+              <span className="ml-2 text-xs font-medium text-ink-muted">· {paymentLabel(order.payment_method, t)}</span>
             )}
           </span>
           <span className="text-lg font-extrabold text-ink">{formatUZS(order.total_uzs)}</span>
@@ -81,9 +83,9 @@ function OrderCard({
 
       {cancelled ? (
         <div role="status" className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
-          <p className="flex items-center gap-2 text-sm font-extrabold text-red-500"><XCircle size={16} aria-hidden="true" /> Bekor qilingan</p>
+          <p className="flex items-center gap-2 text-sm font-extrabold text-red-500"><XCircle size={16} aria-hidden="true" /> {t("dokon.order.cancelled_badge")}</p>
           <p className="mt-1 text-xs text-ink-muted">
-            {order.cancelled_by ? `${CANCELLED_BY_LABELS[order.cancelled_by] ?? order.cancelled_by}: ` : ""}{order.cancel_reason}
+            {order.cancelled_by ? `${cancelledByLabel(order.cancelled_by, t)}: ` : ""}{order.cancel_reason}
           </p>
         </div>
       ) : cancelling ? (
@@ -95,7 +97,7 @@ function OrderCard({
           }}
         >
           <label className="block text-xs font-semibold text-ink-muted" htmlFor={`cancel-${order.id}`}>
-            Bekor qilish sababi (xaridorga ko'rsatiladi)
+            {t("dokon.order.cancel_reason_seller")}
           </label>
           <textarea
             id={`cancel-${order.id}`}
@@ -103,27 +105,27 @@ function OrderCard({
             onChange={(e) => setReason(e.target.value)}
             maxLength={300}
             rows={2}
-            placeholder="Masalan: mahsulot omborda tugab qolgan"
+            placeholder={t("dokon.order.cancel_reason_ph")}
             className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
           <div className="flex gap-2">
-            <Button type="button" variant="soft" size="sm" onClick={() => { setCancelling(false); setReason(""); }}>Ortga</Button>
+            <Button type="button" variant="soft" size="sm" onClick={() => { setCancelling(false); setReason(""); }}>{t("common.ortga")}</Button>
             <Button type="submit" variant="danger" size="sm" className="flex-1" loading={busy} disabled={reason.trim().length < MIN_REASON}>
-              Bekor qilishni tasdiqlash
+              {t("dokon.order.confirm_cancel")}
             </Button>
           </div>
         </form>
       ) : next ? (
         <div className="space-y-2">
-          <Button className="w-full" loading={busy} onClick={() => onAdvance(order)}>{next.label}</Button>
+          <Button className="w-full" loading={busy} onClick={() => onAdvance(order)}>{t(next.labelKey)}</Button>
           {canCancel && (
             <button type="button" onClick={() => setCancelling(true)} className="w-full py-1 text-xs font-semibold text-ink-muted transition-colors hover:text-red-500">
-              Buyurtmani bekor qilish
+              {t("dokon.order.cancel_order")}
             </button>
           )}
         </div>
       ) : (
-        <p className="text-center text-xs font-semibold text-emerald-500">Buyurtma yetkazildi</p>
+        <p className="text-center text-xs font-semibold text-emerald-500">{t("dokon.order.delivered_msg")}</p>
       )}
     </Panel>
   );
@@ -131,6 +133,7 @@ function OrderCard({
 
 /** The orders placed with this shop, newest first, each movable to its next stage or cancellable with a reason. */
 export function SellerOrders() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
@@ -156,17 +159,17 @@ export function SellerOrders() {
   const advance = useMutation({
     mutationFn: (o: SellerOrder) => {
       const next = NEXT_ORDER_ACTION[o.status as OrderStatus];
-      if (!next) return Promise.reject(new Error("Bu buyurtma yakunlangan"));
+      if (!next) return Promise.reject(new Error(t("dokon.order.finished")));
       return advanceMyOrder(o.id, next.to);
     },
     onSuccess: replace,
-    onError: failed("Holatni o'zgartirib bo'lmadi"),
+    onError: failed(t("dokon.order.status_failed")),
   });
 
   const cancel = useMutation({
     mutationFn: ({ order, reason }: { order: SellerOrder; reason: string }) => cancelMyOrder(order.id, reason),
     onSuccess: replace,
-    onError: failed("Buyurtmani bekor qilib bo'lmadi"),
+    onError: failed(t("dokon.order.cancel_failed")),
   });
 
   const list = orders.data?.pages.flat() ?? [];
@@ -184,13 +187,13 @@ export function SellerOrders() {
   const busyId = advance.isPending ? advance.variables?.id : cancel.isPending ? cancel.variables?.order.id : undefined;
 
   return (
-    <section className="space-y-3" aria-label="Buyurtmalar">
+    <section className="space-y-3" aria-label={t("dokon.order.title")}>
       <Panel className="flex items-center gap-3 px-4 py-3">
         <IconBubble tone="orange" className="h-10 w-10 rounded-2xl"><ReceiptText size={18} aria-hidden="true" /></IconBubble>
         <h2 className="text-base font-extrabold text-ink">
-          Buyurtmalar{orders.data ? ` (${list.length}${orders.hasNextPage ? "+" : ""})` : ""}
+          {orders.data ? t("dokon.order.title_count", { n: `${list.length}${orders.hasNextPage ? "+" : ""}` }) : t("dokon.order.title")}
         </h2>
-        {open > 0 && <span className="ml-auto rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent">{open} ta ochiq</span>}
+        {open > 0 && <span className="ml-auto rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent">{t("dokon.order.open_count", { n: open })}</span>}
       </Panel>
 
       {error && <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500">{error}</div>}
@@ -198,11 +201,11 @@ export function SellerOrders() {
       {orders.isLoading ? (
         <div className="h-32 animate-pulse rounded-3xl bg-card" />
       ) : orders.isError ? (
-        <p className="text-sm text-red-500">{errorMessage(orders.error, "Buyurtmalarni yuklab bo'lmadi")}</p>
+        <p className="text-sm text-red-500">{errorMessage(orders.error, t("dokon.order.load_failed"))}</p>
       ) : list.length === 0 ? (
         <Panel className="px-4 py-8 text-center">
-          <p className="text-sm font-bold text-ink">Hali buyurtma yo'q.</p>
-          <p className="mt-1 text-xs text-ink-muted">Xaridor sizning mahsulotingizni buyurtma qilsa, shu yerda chiqadi.</p>
+          <p className="text-sm font-bold text-ink">{t("dokon.order.none")}</p>
+          <p className="mt-1 text-xs text-ink-muted">{t("dokon.order.none_hint")}</p>
         </Panel>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
@@ -218,7 +221,7 @@ export function SellerOrders() {
           {orders.hasNextPage && (
             <div className="lg:col-span-2">
               <Button variant="soft" className="w-full" loading={orders.isFetchingNextPage} onClick={() => void orders.fetchNextPage()}>
-                Yana yuklash
+                {t("common.yana_yuklash")}
               </Button>
             </div>
           )}

@@ -162,7 +162,7 @@ export default function SmetaPage() {
   const saveMutation = useMutation({
     mutationFn: () => createEstimate(roomId!),
     onMutate: () => setSaveError(null),
-    onError: (err) => setSaveError(errorDetail(err) ?? "Smeta saqlanmadi. Internetni tekshirib, qayta urinib ko'ring."),
+    onError: (err) => setSaveError(errorDetail(err) ?? t("smeta.saqlanmadi")),
     onSuccess: (data) => {
       setEstimate(data);
       setSaveStatus("saved");
@@ -274,14 +274,14 @@ export default function SmetaPage() {
         {floorNoteKind && (
           <div
             role="status"
-            aria-label={floorNoteKind === "stand_in" ? "Pol narxi taxminiy" : "Pol smetaga kirmadi"}
+            aria-label={floorNoteKind === "stand_in" ? t("smeta.floor_stand_in_aria") : t("smeta.floor_left_out_aria")}
             className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-ink"
           >
             {floorNoteKind === "stand_in"
-              ? "Pol uchun mahsulot tanlanmagan, narx do'kondagi o'rtacha poldan olindi (taxminiy)."
-              : "Pol uchun mahsulot tanlanmagan, shuning uchun pol smetaga kirmadi."}{" "}
+              ? t("smeta.floor_stand_in")
+              : t("smeta.floor_left_out")}{" "}
             <Link to={`/studio/${roomId}/ichkarida?phase=pol`} className="font-semibold text-accent hover:underline">
-              Pol tanlash
+              {t("smeta.floor_pick")}
             </Link>
           </div>
         )}
@@ -392,9 +392,9 @@ export default function SmetaPage() {
                   <p className="mt-0.5 font-bold text-ink">
                     {estimate.has_electrical
                       ? estimate.electrical_confirmed
-                        ? "Ha"
-                        : "Ha (taxminiy)"
-                      : "Yo'q"}
+                        ? t("smeta.ha")
+                        : t("smeta.ha_taxminiy")
+                      : t("smeta.yoq")}
                   </p>
                 </div>
               </div>
@@ -498,8 +498,7 @@ export default function SmetaPage() {
             </div>
 
             <p className="text-xs text-on-app-muted">
-              Hisoblab chiqildi:{" "}
-              {new Date(estimate.created_at).toLocaleString(intlLocale())}
+              {t("smeta.hisoblangan", { when: new Date(estimate.created_at).toLocaleString(intlLocale()) })}
             </p>
           </div>
         )}

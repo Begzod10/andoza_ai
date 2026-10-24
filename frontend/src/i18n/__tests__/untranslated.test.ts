@@ -5,30 +5,7 @@ import ts from "typescript";
 
 // Files and folders (relative to the frontend root) whose texts all live in
 // the locale files. Each migration task adds the ones it finishes.
-export const MIGRATED_DIRS: string[] = [
-  "src/i18n",
-  "src/components/smeta/CategorySection.tsx",
-  "src/components/smeta/CostBreakdown.tsx",
-  "src/components/smeta/SmetaAskDrawer.tsx",
-  "src/components/studio",
-  "src/features/studio",
-  "src/pages/auth",
-  "src/pages/profile",
-  "src/components/layout",
-  "src/components/ui",
-  "src/pages/landing",
-  "src/pages/LandingPage.tsx",
-  "src/pages/PrivacyPage.tsx",
-  "src/pages/DeleteAccountPage.tsx",
-  "src/pages/share",
-  "src/pages/scan",
-  "src/pages/projects",
-  "src/pages/wizard",
-  "src/components/wizard",
-  "src/pages/ustalar",
-  "src/hooks",
-  "src/pages/studio",
-];
+export const MIGRATED_DIRS: string[] = ["src"];
 
 // Strings that may stay as literals: the brand, the language names, and
 // symbols/abbreviations that are the same in every language.
@@ -41,6 +18,8 @@ export const ALLOW: string[] = [
   ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1B3784); outline-offset: 2px; }",
   // The messenger's own name, the same in every language.
   "Telegram",
+  // An example Telegram handle in a placeholder: the same in every language.
+  "@mebelplus",
   // CSS in <style> tags of the studio (focus rings, menu animations), not text.
   ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #2563EB); outline-offset: 2px; }",
   ".kbd-focusable:focus-visible { outline: 2px solid var(--color-primary, #1E40AF); outline-offset: 2px; }",

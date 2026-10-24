@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,7 +15,7 @@ import {
   type AdminRoomType,
 } from "@/lib/api";
 import { errorMessage } from "@/pages/dokon/admin/errorMessage";
-import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "@/pages/dokon/admin/labels";
+import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { StyleChips } from "@/components/dokon/StyleChips";
@@ -32,6 +33,7 @@ export function SellerModelFormDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [nameUz, setNameUz] = useState("");
   const [category, setCategory] = useState<AdminFurnitureCategory>("divan");
@@ -55,11 +57,11 @@ export function SellerModelFormDialog({
   function pickModel(f: File | null) {
     setError(null);
     if (f && !f.name.toLowerCase().endsWith(".glb")) {
-      setError("Fayl .glb formatida bo'lishi kerak");
+      setError(t("dokon.model.glb_wrong"));
       return;
     }
     if (f && f.size > MAX_GLB_MB * 1024 * 1024) {
-      setError(`Fayl hajmi ${MAX_GLB_MB} MB dan oshmasligi kerak`);
+      setError(t("dokon.model.glb_big", { mb: MAX_GLB_MB }));
       return;
     }
     setFile(f);
@@ -67,7 +69,7 @@ export function SellerModelFormDialog({
 
   const upload = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error("GLB fayl tanlanmagan");
+      if (!file) throw new Error(t("dokon.model.no_glb"));
       return uploadMyModel({
         file,
         thumbnail,
@@ -85,7 +87,7 @@ export function SellerModelFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["seller", "models"] });
     },
-    onError: (err) => setError(errorMessage(err, "Modelni yuklab bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("dokon.model.upload_failed"))),
   });
 
   return (
@@ -95,8 +97,8 @@ export function SellerModelFormDialog({
         if (!next) reset();
         onOpenChange(next);
       }}
-      title="Yangi 3D model"
-      description="Yuklangan model administrator tasdiqlagach, hammaga ko'rinadi"
+      title={t("dokon.model.new_title")}
+      description={t("dokon.model.seller_desc")}
       themed
     >
       <form
@@ -107,32 +109,32 @@ export function SellerModelFormDialog({
         }}
         className="space-y-4"
       >
-        <Input themed label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} placeholder="Masalan: Uch o'rinli divan" autoFocus />
+        <Input themed label={t("dokon.admin.nomi")} value={nameUz} onChange={(e) => setNameUz(e.target.value)} placeholder={t("dokon.model.name_ph")} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
-            {ADMIN_FURNITURE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+          <Select themed label={t("dokon.admin.turi")} value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+            {ADMIN_FURNITURE_CATEGORIES.map((c) => <option key={c} value={c}>{t(CATEGORY_KEYS[c])}</option>)}
           </Select>
-          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
-            <option value="">Barcha xonalar</option>
-            {ADMIN_ROOM_TYPES.map((r) => <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>)}
+          <Select themed label={t("dokon.admin.xona")} value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+            <option value="">{t("dokon.admin.all_rooms")}</option>
+            {ADMIN_ROOM_TYPES.map((r) => <option key={r} value={r}>{t(ROOM_TYPE_KEYS[r])}</option>)}
           </Select>
         </div>
 
         <StyleChips value={styles} onChange={setStyles} />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Xonada joylashuvi" value={placement} onChange={(e) => setPlacement(e.target.value as AdminPlacement)}>
-            {ADMIN_PLACEMENTS.map((p) => <option key={p} value={p}>{PLACEMENT_LABELS[p]}</option>)}
+          <Select themed label={t("dokon.admin.placement")} value={placement} onChange={(e) => setPlacement(e.target.value as AdminPlacement)}>
+            {ADMIN_PLACEMENTS.map((p) => <option key={p} value={p}>{t(PLACEMENT_KEYS[p])}</option>)}
           </Select>
-          <Input themed label="Narxi (so'm)" type="number" min={0} value={priceUzs} onChange={(e) => setPriceUzs(e.target.value)} placeholder="4500000" />
+          <Input themed label={t("dokon.admin.narxi_som")} type="number" min={0} value={priceUzs} onChange={(e) => setPriceUzs(e.target.value)} placeholder="4500000" />
         </div>
 
         {/* Most sellers have photos, not a 3D file: the photo is the main way in
             and the server builds the model (Tripo). */}
         <PhotoToModelField
           themed
-          title="Mebel rasmini yuklang — 3D modelni o'zimiz yaratamiz"
+          title={t("dokon.model.photo_title")}
           onBusyChange={setBuilding}
           onError={setError}
           onBuilt={({ file: built, thumbnail: pic, baseName }) => {
@@ -142,17 +144,17 @@ export function SellerModelFormDialog({
           }}
         />
 
-        {file && <p className="text-xs text-ink-muted truncate">3D model tayyor: <span>{file.name}</span></p>}
+        {file && <p className="text-xs text-ink-muted truncate">{t("dokon.model.ready")} <span>{file.name}</span></p>}
 
         <details className="rounded-xl border border-line p-3">
-          <summary className="cursor-pointer text-sm font-medium text-ink">Menda tayyor 3D fayl (.glb) bor</summary>
+          <summary className="cursor-pointer text-sm font-medium text-ink">{t("dokon.model.have_glb")}</summary>
           <div className="mt-2">
             <input type="file" accept=".glb" onChange={(e) => pickModel(e.target.files?.[0] ?? null)} disabled={building} className="text-xs w-full" />
           </div>
         </details>
 
         <div>
-          <label className="block text-sm font-medium text-ink mb-1.5">Katalog uchun rasm (ixtiyoriy)</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.model.thumb_catalog")}</label>
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
         </div>
 
@@ -161,8 +163,8 @@ export function SellerModelFormDialog({
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
-          <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={upload.isPending}>Yuklash</Button>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>
+          <Button type="submit" disabled={!nameUz.trim() || !file || building} loading={upload.isPending}>{t("dokon.model.upload")}</Button>
         </div>
       </form>
     </Dialog>

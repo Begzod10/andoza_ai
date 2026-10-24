@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -27,6 +28,7 @@ export function WallpaperFormDialog({
   fixedStoreId?: string;
   onError: (msg: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -50,7 +52,7 @@ export function WallpaperFormDialog({
 
   const uploadMutation = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error("Rasm tanlanmagan");
+      if (!file) throw new Error(t("dokon.wp.no_image"));
       return uploadWallpaper(file, {
         name: name.trim() || undefined,
         // Admin-catalogued oboy products belong in the studio's Bo'yoq/Oboy
@@ -70,7 +72,7 @@ export function WallpaperFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     },
-    onError: (err) => onError(errorMessage(err, "Rasmni yuklab bo'lmadi")),
+    onError: (err) => onError(errorMessage(err, t("dokon.wp.upload_failed"))),
   });
 
   return (
@@ -80,8 +82,8 @@ export function WallpaperFormDialog({
         if (!next) reset();
         onOpenChange(next);
       }}
-      title="Yangi oboy"
-      description="Rasm, nomi, narxi va tafsilotlarini kiriting"
+      title={t("dokon.wp.new_title")}
+      description={t("dokon.wp.new_desc")}
     >
       <form
         onSubmit={(e) => {
@@ -92,7 +94,7 @@ export function WallpaperFormDialog({
         className="space-y-4"
       >
         <div>
-          <label className="block text-sm font-medium text-ink mb-1.5">Rasm (.jpg, .png, .webp)</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.wp.image_label")}</label>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif,image/heic,image/heif"
@@ -102,23 +104,23 @@ export function WallpaperFormDialog({
         </div>
 
         <Input themed
-          label="Nomi"
+          label={t("dokon.admin.nomi")}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={file?.name || "Masalan: Gulli oboy"}
+          placeholder={file?.name || t("dokon.wp.name_ph")}
         />
 
         <div className="grid grid-cols-2 gap-3">
           {fixedStoreId === undefined && (
-            <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
-              <option value="">— tanlanmagan —</option>
+            <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+              <option value="">{t("dokon.admin.not_selected")}</option>
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
           )}
           <Input themed
-            label="Narxi (so'm)"
+            label={t("dokon.admin.narxi_som")}
             type="number"
             min={0}
             value={priceUzs}
@@ -129,7 +131,7 @@ export function WallpaperFormDialog({
 
         <div className="grid grid-cols-3 gap-3">
           <Input themed
-            label="Kengligi (sm)"
+            label={t("dokon.wp.width")}
             type="number"
             min={0}
             value={widthCm}
@@ -137,7 +139,7 @@ export function WallpaperFormDialog({
             placeholder="53"
           />
           <Input themed
-            label="Balandligi (sm)"
+            label={t("dokon.wp.height")}
             type="number"
             min={0}
             value={heightCm}
@@ -145,7 +147,7 @@ export function WallpaperFormDialog({
             placeholder="270"
           />
           <Input themed
-            label="Uzunligi (m)"
+            label={t("dokon.wp.length")}
             type="number"
             min={0}
             step="0.01"
@@ -155,26 +157,26 @@ export function WallpaperFormDialog({
           />
         </div>
         <p className="text-xs text-ink-muted -mt-2">
-          Rulon oboy uchun kengligi + uzunligi; bitta panelli (fototapeta) oboy uchun kengligi + balandligi
+          {t("dokon.wp.hint")}
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-ink mb-1.5">Tafsilotlar</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.wp.details")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Material, o'lchami va boshqa izohlar"
+            placeholder={t("dokon.wp.details_ph")}
             className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
-            Bekor qilish
+            {t("common.bekor")}
           </Button>
           <Button type="submit" disabled={!file} loading={uploadMutation.isPending}>
-            Qo'shish
+            {t("common.qoshish")}
           </Button>
         </div>
       </form>

@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 /** A model's real size in centimetres, as the studio will draw it. */
 export interface MeasuredSize {
   width_cm: number;
@@ -18,5 +20,5 @@ export function sizeFields(size: MeasuredSize | null): { footprint_w?: number; f
 /** "210 × 90 × 85 sm": width, depth and height, as a person reads them. */
 export function describeSize(size: MeasuredSize): string {
   const n = (v: number) => String(Math.round(v));
-  return `${n(size.width_cm)} × ${n(size.depth_cm)} × ${n(size.height_cm)} sm`;
+  return `${n(size.width_cm)} × ${n(size.depth_cm)} × ${n(size.height_cm)} ${i18n.t("dokon.model.cm")}`;
 }

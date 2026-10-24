@@ -1,4 +1,5 @@
 import { MapPin, Package, Store as StoreIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/Card";
 import type { AdminStore } from "@/lib/api";
 
@@ -18,6 +19,7 @@ export function StoreCard({
   modelCount: number;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Card interactive onClick={onClick} className="space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -37,11 +39,11 @@ export function StoreCard({
       )}
       <div className="flex items-center gap-1.5 text-xs text-ink-muted">
         <Package size={13} />
-        {modelCount} ta model
+        {t("dokon.store.models", { count: modelCount })}
       </div>
       {!store.is_active && (
         <span className="inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
-          nofaol
+          {t("dokon.store.inactive")}
         </span>
       )}
     </Card>

@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 
-import { GATEWAY_DOWN, isGatewayError } from "../gatewayError";
+import i18n from "@/i18n";
+import { gatewayDownMessage, isGatewayError } from "../gatewayError";
 export { isGatewayError };
 
 /** What the render task leaves in `result` once it is finished. */
@@ -37,7 +38,7 @@ interface JobStatus {
 /** The backend answers errors as `{"detail": "..."}`; apiClient throws the raw body. */
 export function errorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
-  if (isGatewayError(err)) return GATEWAY_DOWN; // never show the proxy's HTML page
+  if (isGatewayError(err)) return gatewayDownMessage(); // never show the proxy's HTML page
   try {
     const detail = JSON.parse(raw)?.detail;
     if (typeof detail === "string") return detail;
@@ -135,8 +136,8 @@ export async function waitForRender(jobId: string, signal?: AbortSignal): Promis
       }
       throw new Error(job.result.error);
     }
-    if (job.status === "FAILURE" || job.status === "REVOKED") throw new Error("Render bajarilmadi");
+    if (job.status === "FAILURE" || job.status === "REVOKED") throw new Error(i18n.t("errors.render_failed"));
     await sleep(POLL_MS, signal);
   }
-  throw new Error("Render juda uzoq davom etdi. Keyinroq qayta urinib ko'ring.");
+  throw new Error(i18n.t("errors.render_timeout"));
 }

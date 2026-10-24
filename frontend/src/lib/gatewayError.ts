@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 /** A reply from the proxy in front of the API (nginx's 502 page) or no reply at all —
  *  what a deploy restart or a dropped connection looks like. Says nothing about the job. */
 export function isGatewayError(err: unknown): boolean {
@@ -6,4 +8,7 @@ export function isGatewayError(err: unknown): boolean {
   return /^\s*</.test(raw) || /\b50[234]\b/.test(raw);
 }
 
-export const GATEWAY_DOWN = "Server vaqtincha javob bermayapti. Birozdan so'ng qayta urinib ko'ring.";
+/** The plain sentence shown instead of the proxy's page, in the interface language. */
+export function gatewayDownMessage(): string {
+  return i18n.t("errors.gateway_down");
+}

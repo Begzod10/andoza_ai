@@ -165,3 +165,19 @@ Added with the studio components (panels, sheets, plans):
 | siljish | сдвиг | offset |
 | burilish | поворот | rotation |
 | faska | фаска | bevel |
+
+Added with the estimate, shop, seller and admin screens:
+
+| Uzbek | Russian | English |
+| --- | --- | --- |
+| xaridor | покупатель | buyer |
+| diler | дилер | dealer |
+| savat | корзина | cart |
+| yetkazish | доставка | delivery |
+| yig'ilmoqda (buyurtma) | собирается | being prepared |
+| viloyat | область | region |
+| tuman | район | district |
+| daraja (hamkor) | уровень | tier |
+| do'konsiz | без магазина | without a shop |
+| fototapeta | фотообои | photo wallpaper |
+| smeta kaliti | ключ сметы | estimate key |

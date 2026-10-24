@@ -17,7 +17,7 @@ export function StyleChips({
 
   return (
     <div>
-      <span className="block text-sm font-medium text-ink mb-1.5">Uslublar</span>
+      <span className="block text-sm font-medium text-ink mb-1.5">{t("dokon.model.styles")}</span>
       <div className="flex flex-wrap gap-2">
         {FURNITURE_STYLES.map(({ id, labelKey }) => {
           const on = value.includes(id);
@@ -36,7 +36,7 @@ export function StyleChips({
           );
         })}
       </div>
-      {value.length === 0 && <p className="mt-1.5 text-xs text-ink-muted">Hamma uslubga mos</p>}
+      {value.length === 0 && <p className="mt-1.5 text-xs text-ink-muted">{t("dokon.model.all_styles")}</p>}
     </div>
   );
 }

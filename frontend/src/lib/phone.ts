@@ -5,5 +5,3 @@
 export function isUzPhone(value: string): boolean {
   return /^\+?998\d{9}$/.test(value.replace(/[\s\-()]/g, ""));
 }
-
-export const PHONE_ERROR = "Telefon raqami noto'g'ri. Masalan: +998 90 123 45 67";

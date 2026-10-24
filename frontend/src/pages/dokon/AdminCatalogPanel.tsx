@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AdminStore } from "@/lib/api";
 import { CatalogOverview } from "./admin/CatalogOverview";
 import { StoreProfile } from "./admin/StoreProfile";
@@ -15,12 +16,13 @@ import { AdminMaterials } from "./admin/AdminMaterials";
  * grid + unassigned models), and a shop's own profile once clicked into.
  */
 export default function AdminCatalogPanel() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [selectedStore, setSelectedStore] = useState<AdminStore | null>(null);
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-      <h1 className="text-lg font-semibold text-on-app">Do'kon boshqaruvi</h1>
+      <h1 className="text-lg font-semibold text-on-app">{t("dokon.admin.title")}</h1>
 
       {error && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm px-3 py-2">

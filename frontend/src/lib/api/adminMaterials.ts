@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import i18n from "@/i18n";
+import type { TKey } from "@/i18n";
 import { LIGHT_TYPES } from "../lightCatalog";
 
 // ---------- Admin: materials (shop products used by the room estimate) ----------
@@ -85,43 +85,49 @@ export async function updateAdminMaterial(
   });
 }
 
-export const MATERIAL_CATEGORIES: { id: string; label: string }[] = [
-  { id: "boyoq", label: "Bo'yoq" },
-  { id: "oboy", label: "Oboy" },
-  { id: "dekorativ", label: "Dekorativ" },
-  { id: "laminat", label: "Laminat" },
-  { id: "parket", label: "Parket" },
-  { id: "plitka", label: "Plitka" },
-  { id: "eshik", label: "Eshik" },
-  { id: "deraza", label: "Deraza" },
-  { id: "gips", label: "Gips" },
-  { id: "sement", label: "Sement" },
-  { id: "santexnika", label: "Santexnika" },
-  { id: "elektr_mat", label: "Elektr" },
+/** An option of an admin select: `labelKey` is translated while rendering (never at module load). */
+export interface LabelledOption {
+  id: string;
+  labelKey: TKey;
+}
+
+export const MATERIAL_CATEGORIES: LabelledOption[] = [
+  { id: "boyoq", labelKey: "dokon.admin.category.boyoq" },
+  { id: "oboy", labelKey: "dokon.admin.category.oboy" },
+  { id: "dekorativ", labelKey: "dokon.admin.category.dekorativ" },
+  { id: "laminat", labelKey: "dokon.admin.category.laminat" },
+  { id: "parket", labelKey: "dokon.admin.category.parket" },
+  { id: "plitka", labelKey: "dokon.admin.category.plitka" },
+  { id: "eshik", labelKey: "dokon.admin.category.eshik" },
+  { id: "deraza", labelKey: "dokon.admin.category.deraza" },
+  { id: "gips", labelKey: "dokon.admin.category.gips" },
+  { id: "sement", labelKey: "dokon.admin.category.sement" },
+  { id: "santexnika", labelKey: "dokon.admin.category.santexnika" },
+  { id: "elektr_mat", labelKey: "dokon.admin.category.elektr_mat" },
 ];
 
-export const MATERIAL_UNITS: { id: string; label: string }[] = [
-  { id: "litr", label: "litr" },
-  { id: "rulon", label: "rulon" },
-  { id: "m2", label: "m²" },
-  { id: "qop", label: "qop" },
-  { id: "dona", label: "dona" },
-  { id: "m", label: "m" },
-  { id: "komplekt", label: "komplekt" },
+export const MATERIAL_UNITS: LabelledOption[] = [
+  { id: "litr", labelKey: "dokon.admin.unit.litr" },
+  { id: "rulon", labelKey: "dokon.admin.unit.rulon" },
+  { id: "m2", labelKey: "dokon.admin.unit.m2" },
+  { id: "qop", labelKey: "dokon.admin.unit.qop" },
+  { id: "dona", labelKey: "dokon.admin.unit.dona" },
+  { id: "m", labelKey: "dokon.admin.unit.m" },
+  { id: "komplekt", labelKey: "dokon.admin.unit.komplekt" },
 ];
 
 /** Pack units the backend accepts (a pydantic pattern; anything else is a 422). */
-export const PACK_UNITS: { id: string; label: string }[] = [
-  { id: "kg", label: "kg" },
-  { id: "litr", label: "litr" },
-  { id: "m", label: "m" },
-  { id: "m2", label: "m²" },
-  { id: "dona", label: "dona" },
+export const PACK_UNITS: LabelledOption[] = [
+  { id: "kg", labelKey: "dokon.admin.unit.kg" },
+  { id: "litr", labelKey: "dokon.admin.unit.litr" },
+  { id: "m", labelKey: "dokon.admin.unit.m" },
+  { id: "m2", labelKey: "dokon.admin.unit.m2" },
+  { id: "dona", labelKey: "dokon.admin.unit.dona" },
 ];
 
-export interface SmetaKeyOption {
-  id: string;
-  label: string;
+export interface SmetaKeyOption extends LabelledOption {
+  /** Light fixtures read "Chiroq: <name>": `labelKey` is then the fixture's own name. */
+  light?: boolean;
   /** Pack unit the key needs; null when it has none. */
   packUnit: string | null;
   /** Sale unit the key is restricted to, when it has one. */
@@ -130,19 +136,19 @@ export interface SmetaKeyOption {
 
 // Mirrors backend/app/services/smeta_keys.py.
 export const SMETA_KEYS: SmetaKeyOption[] = [
-  { id: "suvoq", label: "Suvoq", packUnit: "kg" },
-  { id: "grunt", label: "Grunt", packUnit: "kg" },
-  { id: "shpatlyovka", label: "Shpatlyovka", packUnit: "kg" },
-  { id: "plintus", label: "Plintus", packUnit: "m" },
-  { id: "gipsokarton", label: "Gipsokarton", packUnit: "m2" },
-  { id: "profil", label: "Profil", packUnit: "m" },
-  { id: "led_lenta", label: "LED lenta", packUnit: "m" },
-  { id: "kabel", label: "Kabel", packUnit: null, unit: "m" },
-  { id: "galtel", label: "Galtel", packUnit: "m" },
+  { id: "suvoq", labelKey: "dokon.admin.smeta_key.suvoq", packUnit: "kg" },
+  { id: "grunt", labelKey: "dokon.admin.smeta_key.grunt", packUnit: "kg" },
+  { id: "shpatlyovka", labelKey: "dokon.admin.smeta_key.shpatlyovka", packUnit: "kg" },
+  { id: "plintus", labelKey: "dokon.admin.smeta_key.plintus", packUnit: "m" },
+  { id: "gipsokarton", labelKey: "dokon.admin.smeta_key.gipsokarton", packUnit: "m2" },
+  { id: "profil", labelKey: "dokon.admin.smeta_key.profil", packUnit: "m" },
+  { id: "led_lenta", labelKey: "dokon.admin.smeta_key.led_lenta", packUnit: "m" },
+  { id: "kabel", labelKey: "dokon.admin.smeta_key.kabel", packUnit: null, unit: "m" },
+  { id: "galtel", labelKey: "dokon.admin.smeta_key.galtel", packUnit: "m" },
   ...LIGHT_TYPES.map((t) => ({
     id: `light:${t.id}`,
-    // Admin screens stay Uzbek until they are translated.
-    label: `Chiroq: ${i18n.t(t.nameKey, { lng: "uz" })}`,
+    labelKey: t.nameKey,
+    light: true,
     packUnit: null,
     unit: "dona",
   })),

@@ -68,6 +68,6 @@ describe("UstalarPage in Russian", () => {
     expect(screen.getByPlaceholderText(ru.ustalar.izoh_placeholder)).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText("+998 90 123 45 67"), { target: { value: "123" } });
     fireEvent.click(screen.getByText(ru.ustalar.yuborish));
-    expect((await screen.findByRole("alert")).textContent).toBe(ru.ustalar.telefon_xato);
+    expect((await screen.findByRole("alert")).textContent).toBe(ru.common.telefon_xato);
   });
 });

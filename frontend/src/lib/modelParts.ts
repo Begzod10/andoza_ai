@@ -133,7 +133,7 @@ export async function exportPartToGlb(part: THREE.Object3D): Promise<{
   holder.add(clone)
 
   const gltf = await new GLTFExporter().parseAsync(holder, { binary: true })
-  if (!(gltf instanceof ArrayBuffer)) throw new Error('GLB eksport qilinmadi')
+  if (!(gltf instanceof ArrayBuffer)) throw new Error(i18n.t('errors.glb_export_failed'))
 
   return {
     buffer: gltf,

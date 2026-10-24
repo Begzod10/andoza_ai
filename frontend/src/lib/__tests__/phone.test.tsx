@@ -3,7 +3,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
-import { isUzPhone, PHONE_ERROR } from "../phone";
+import { isUzPhone } from "../phone";
+import i18n from "@/i18n";
+
+const PHONE_ERROR = i18n.t("common.telefon_xato");
 
 const api = vi.hoisted(() => ({
   applyForStore: vi.fn(),

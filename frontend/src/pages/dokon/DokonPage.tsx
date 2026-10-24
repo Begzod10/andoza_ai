@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cancelOrder, createOrder, getOrder, listOrders } from "@/lib/api";
@@ -75,6 +76,7 @@ interface MockDealer {
  * Manages all 7 screens with proper state and navigation
  */
 export default function DokonPage() {
+  const { t } = useTranslation();
   // Admin-only catalog management (create shops, upload 3D models) — a
   // separate surface from the customer-facing marketplace screens below.
   const isAdmin = useAuthStore((s) => s.user)?.is_admin === true;
@@ -283,8 +285,8 @@ export default function DokonPage() {
     } catch (err) {
       if (created.length > 0) setPlacedOrders(created);
       setCheckoutError(
-        `${errorMessage(err, "Buyurtmani yuborib bo'lmadi")}${
-          created.length > 0 ? ` (${created.length} ta buyurtma yuborildi, qolganlari savatda turibdi)` : ""
+        `${errorMessage(err, t("dokon.screens.submit_failed"))}${
+          created.length > 0 ? ` ${t("dokon.screens.partial", { count: created.length })}` : ""
         }`,
       );
     } finally {
@@ -317,12 +319,12 @@ export default function DokonPage() {
     const p = selectedProduct;
     // Only what the catalog actually knows — no invented volume, composition or certificate.
     const specs: Array<{ label: string; value: string }> = [
-      { label: "Kategoriya", value: categoryLabel(p.category) },
-      ...(p.store_name ? [{ label: "Do'kon", value: p.store_name }] : []),
-      ...(p.unit ? [{ label: "Birlik", value: p.unit }] : []),
+      { label: t("dokon.screens.spec_category"), value: categoryLabel(p.category, t) },
+      ...(p.store_name ? [{ label: t("dokon.admin.dokon"), value: p.store_name }] : []),
+      ...(p.unit ? [{ label: t("dokon.screens.spec_unit"), value: p.unit }] : []),
       // Furniture sizes are stored in centimetres (models/furniture.py).
       ...(p.footprint_w && p.footprint_d
-        ? [{ label: "O'lcham", value: `${[p.footprint_w, p.footprint_d, p.height_cm].filter(Boolean).join(" × ")} sm` }]
+        ? [{ label: t("dokon.screens.spec_size"), value: t("dokon.screens.size_value", { dims: [p.footprint_w, p.footprint_d, p.height_cm].filter(Boolean).join(" × ") }) }]
         : []),
     ];
 
@@ -344,7 +346,7 @@ export default function DokonPage() {
   if (screen === "dealer-comparison") {
     return (
       <S4_DealerComparison
-        productName={selectedProduct?.name_uz ?? "Mahsulot"}
+        productName={selectedProduct?.name_uz ?? t("dokon.screens.product")}
         dealers={mockDealers}
         onSelectDealer={handleSelectDealer}
         onBack={() => setScreen("shop")}
@@ -420,6 +422,7 @@ export default function DokonPage() {
 
 /** One placed order, its status kept fresh while the screen is open, and cancellable while the shop has not started on it. */
 function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["order", order.id],
@@ -453,10 +456,10 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
       cancelledBy={data.cancelled_by}
       cancelReason={data.cancel_reason}
       onCancel={async () => {
-        if (await confirm({ title: "Buyurtmani bekor qilasizmi?", confirmLabel: "Bekor qilish", cancelLabel: "Qoldirish", destructive: true })) cancel.mutate();
+        if (await confirm({ title: t("dokon.screens.cancel_q"), confirmLabel: t("dokon.screens.cancel_confirm"), cancelLabel: t("dokon.screens.keep"), destructive: true })) cancel.mutate();
       }}
       cancelling={cancel.isPending}
-      cancelError={cancel.isError ? errorMessage(cancel.error, "Buyurtmani bekor qilib bo'lmadi") : null}
+      cancelError={cancel.isError ? errorMessage(cancel.error, t("dokon.screens.cancel_failed")) : null}
       onBack={onBack}
     />
   );
@@ -464,6 +467,7 @@ function TrackedOrder({ order, onBack }: { order: Order; onBack: () => void }) {
 
 /** The user's orders, newest first. */
 function MyOrders({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
+  const { t } = useTranslation();
   const orders = useInfiniteQuery({
     queryKey: ["my-orders"],
     queryFn: ({ pageParam }) => listOrders(pageParam),
@@ -477,7 +481,7 @@ function MyOrders({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string)
       loadingMore={orders.isFetchingNextPage}
       onLoadMore={() => void orders.fetchNextPage()}
       loading={orders.isLoading}
-      error={orders.isError ? errorMessage(orders.error, "Buyurtmalarni yuklab bo'lmadi") : null}
+      error={orders.isError ? errorMessage(orders.error, t("dokon.screens.orders_load_failed")) : null}
       onOpen={onOpen}
       onBack={onBack}
     />
@@ -486,9 +490,10 @@ function MyOrders({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string)
 
 /** One of the user's earlier orders, fetched by id. */
 function OrderDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const { t } = useTranslation();
   const order = useQuery({ queryKey: ["order", id], queryFn: () => getOrder(id) });
   if (order.isError) {
-    return <S8_MyOrders orders={[]} loading={false} error={errorMessage(order.error, "Buyurtmani yuklab bo'lmadi")} onOpen={() => {}} onBack={onBack} />;
+    return <S8_MyOrders orders={[]} loading={false} error={errorMessage(order.error, t("dokon.screens.order_load_failed"))} onOpen={() => {}} onBack={onBack} />;
   }
   if (!order.data) return <S8_MyOrders orders={undefined} loading onOpen={() => {}} error={null} onBack={onBack} />;
   return <TrackedOrder order={order.data} onBack={onBack} />;
