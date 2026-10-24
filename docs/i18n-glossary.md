@@ -116,3 +116,16 @@ Added with auth, profile and layout:
 | kunduzgi / tungi rejim | дневной / ночной режим | day / night mode |
 | username | имя пользователя | username |
 | razmer / plan | размеры / план | dimensions / plan |
+
+Added with projects, wizard and craftsmen:
+
+| Uzbek | Russian | English |
+| --- | --- | --- |
+| bosqich | этап | stage |
+| shift balandligi | высота потолка | ceiling height |
+| eshik / deraza / balkon | дверь / окно / балкон | door / window / balcony |
+| devor (A, B, ...) | стена (A, B, ...) | wall (A, B, ...) |
+| xonadon (loyiha nomi) | квартира | apartment |
+| perimetr | периметр | perimeter |
+| o'lchamlar | размеры | measurements |
+| bezash | оформление | decorating |

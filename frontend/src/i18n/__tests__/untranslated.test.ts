@@ -23,6 +23,11 @@ export const MIGRATED_DIRS: string[] = [
   "src/pages/DeleteAccountPage.tsx",
   "src/pages/share",
   "src/pages/scan",
+  "src/pages/projects",
+  "src/pages/wizard",
+  "src/components/wizard",
+  "src/pages/ustalar",
+  "src/hooks",
 ];
 
 // Strings that may stay as literals: the brand, the language names, and

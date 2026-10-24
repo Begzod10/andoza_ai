@@ -5,12 +5,14 @@
  * telling a user whose projects are sitting safely in the database that they
  * have none.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProjectsPage from './ProjectsPage'
 import * as api from '@/lib/api'
+import { applyLanguage } from '@/i18n'
+import ru from '@/i18n/locales/ru.json'
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof api>('@/lib/api')
@@ -157,5 +159,31 @@ describe('ProjectsPage branding', () => {
     await screen.findByText(/Hali loyiha yo'q/)
     expect(screen.getAllByText('andoza.ai').length).toBeGreaterThan(0)
     expect(screen.queryByText('UyRemont')).toBeNull()
+  })
+})
+
+describe('ProjectsPage in Russian', () => {
+  beforeEach(() => { vi.clearAllMocks(); applyLanguage('ru') })
+  afterEach(() => applyLanguage('uz'))
+
+  it('takes headings, stages and plural forms from ru.json', async () => {
+    vi.mocked(api.getApartments).mockResolvedValue([
+      { id: 'a1', name: 'Uy 1', created_at: new Date().toISOString(), rooms: [{ id: 'r1', name: 'A' }, { id: 'r2', name: 'B' }] } as never,
+      { id: 'a2', name: 'Uy 2', created_at: new Date().toISOString(), rooms: [{ id: 'r3', name: 'C' }] } as never,
+    ])
+    mount()
+    expect(await screen.findByText(ru.projects.umumiy_korinish)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: ru.projects.mening_loyihalarim })).toBeInTheDocument()
+    // 2 projects -> "проекта", 3 rooms -> "комнаты"; the card of a1 says "2 комнаты".
+    expect(screen.getByText(ru.projects.loyiha_soni_few)).toBeInTheDocument()
+    expect(screen.getByText(ru.projects.xona_soni_few)).toBeInTheDocument()
+    expect(screen.getAllByText('Этап 1: Коробка').length).toBeGreaterThan(0)
+    expect(screen.queryByText("Umumiy ko'rinish")).toBeNull()
+  })
+
+  it('says the empty state in Russian', async () => {
+    vi.mocked(api.getApartments).mockResolvedValue([])
+    mount()
+    expect(await screen.findByText(ru.projects.hali_loyiha_yoq)).toBeInTheDocument()
   })
 })

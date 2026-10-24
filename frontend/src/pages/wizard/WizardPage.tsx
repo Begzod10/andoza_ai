@@ -1,5 +1,6 @@
 import { useAppThemeAttribute } from '@/hooks/useAppThemeAttribute'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -19,6 +20,7 @@ import { wallElementsToApiPositions } from '@/lib/wallPositions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
+import type { TFunction } from 'i18next'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -28,16 +30,16 @@ const CEILING_PRESETS = [2.5, 2.7, 3.0, 3.2]
 
 interface ElementPreset {
   type: 'eshik' | 'deraza' | 'balkon'
-  label: string
+  labelKey: 'wizard.eshik' | 'wizard.deraza' | 'wizard.balkon'
   defaultWidth: number   // mm
   defaultHeight: number  // mm
   defaultSill: number    // mm
 }
 
 const ELEMENT_PRESETS: ElementPreset[] = [
-  { type: 'eshik',  label: 'Eshik',   defaultWidth: 900,  defaultHeight: 2050, defaultSill: 0 },
-  { type: 'deraza', label: 'Deraza',  defaultWidth: 1400, defaultHeight: 1400, defaultSill: 900 },
-  { type: 'balkon', label: 'Balkon',  defaultWidth: 750,  defaultHeight: 2050, defaultSill: 0 },
+  { type: 'eshik',  labelKey: 'wizard.eshik',   defaultWidth: 900,  defaultHeight: 2050, defaultSill: 0 },
+  { type: 'deraza', labelKey: 'wizard.deraza',  defaultWidth: 1400, defaultHeight: 1400, defaultSill: 900 },
+  { type: 'balkon', labelKey: 'wizard.balkon',  defaultWidth: 750,  defaultHeight: 2050, defaultSill: 0 },
 ]
 
 // ─── Step transition variants ─────────────────────────────────────────────────
@@ -61,9 +63,9 @@ const stepTransition = { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }
 
 // ─── Wall step label ──────────────────────────────────────────────────────────
 
-function wallStepLabel(wall: { id: string }, idx: number): string {
-  const defaultLabels = ['A devor', 'B devor', 'C devor', 'D devor']
-  return defaultLabels[idx] ?? `${wall.id} devor`
+function wallStepLabel(t: TFunction, wall: { id: string }, idx: number): string {
+  const defaultIds = ['A', 'B', 'C', 'D']
+  return t('wizard.devor_nomi', { id: defaultIds[idx] ?? wall.id })
 }
 
 // ─── Element chip ─────────────────────────────────────────────────────────────
@@ -76,9 +78,10 @@ interface ElementChipProps {
 }
 
 function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: ElementChipProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = React.useState(false)
 
-  const labelMap: Record<string, string> = { eshik: 'Eshik', deraza: 'Deraza', balkon: 'Balkon' }
+  const labelMap = { eshik: t('wizard.eshik'), deraza: t('wizard.deraza'), balkon: t('wizard.balkon') } as const
 
   // Resolve display position (centered when 0)
   const resolvedPos = element.position > 0
@@ -106,15 +109,15 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           className="flex-1 text-left text-xs font-medium text-ink flex items-center gap-1.5"
         >
           <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
-          {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}m
+          {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}{t('wizard.metr')}
         </button>
-        <button onClick={onRemove} aria-label="O'chirish" className="text-ink-muted hover:text-red-400 transition-colors text-xs leading-none">✕</button>
+        <button onClick={onRemove} aria-label={t('common.ochirish')} className="text-ink-muted hover:text-red-400 transition-colors text-xs leading-none">✕</button>
       </div>
 
       {/* Position controls */}
       {expanded && (
         <div className="px-3 pb-3 space-y-2 border-t border-line">
-          <p className="text-[10px] text-ink-muted pt-2">Joylashuv</p>
+          <p className="text-[10px] text-ink-muted pt-2">{t('wizard.joylashuv')}</p>
 
           {/* Slider */}
           <input
@@ -130,7 +133,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           {/* Left / right dimension inputs */}
           <div className="flex items-center gap-2 text-xs">
             <label className="flex-1">
-              <span className="text-ink-muted block mb-0.5">← Sol (m)</span>
+              <span className="text-ink-muted block mb-0.5">{t('wizard.sol_m')}</span>
               <input
                 type="number"
                 value={leftM.toFixed(2)}
@@ -141,9 +144,9 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
                 className="w-full rounded-lg border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </label>
-            <div className="text-center text-ink-muted pt-4">{(element.width / 1000).toFixed(2)}m</div>
+            <div className="text-center text-ink-muted pt-4">{(element.width / 1000).toFixed(2)}{t('wizard.metr')}</div>
             <label className="flex-1">
-              <span className="text-ink-muted block mb-0.5">O'ng → (m)</span>
+              <span className="text-ink-muted block mb-0.5">{t('wizard.ong_m')}</span>
               <input
                 type="number"
                 readOnly
@@ -166,6 +169,7 @@ interface AddElementSheetProps {
 }
 
 function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
+  const { t } = useTranslation()
   const [selected, setSelected] = React.useState<ElementPreset>(ELEMENT_PRESETS[0])
   const [w, setW] = React.useState(selected.defaultWidth / 1000)
   const [h, setH] = React.useState(selected.defaultHeight / 1000)
@@ -191,7 +195,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
 
   return (
     <div className="pb-6 space-y-4">
-      <h3 className="text-base font-bold text-neutral-900 pt-2">Element qo'shish</h3>
+      <h3 className="text-base font-bold text-neutral-900 pt-2">{t('wizard.element_qoshish')}</h3>
 
       {/* Type selector */}
       <div className="flex gap-2">
@@ -206,7 +210,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
                 : 'border-neutral-200 text-neutral-600 hover:border-brand/40',
             )}
           >
-            {p.label}
+            {t(p.labelKey)}
           </button>
         ))}
       </div>
@@ -214,9 +218,9 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
       {/* Dimension inputs */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Kenglik (m)', val: w, set: setW, min: 0.3, max: 4 },
-          { label: 'Balandlik (m)', val: h, set: setH, min: 0.5, max: 3 },
-          { label: 'Osti (m)', val: sill, set: setSill, min: 0, max: 1.5 },
+          { label: t('wizard.kenglik_m'), val: w, set: setW, min: 0.3, max: 4 },
+          { label: t('wizard.balandlik_m'), val: h, set: setH, min: 0.5, max: 3 },
+          { label: t('wizard.osti_m'), val: sill, set: setSill, min: 0, max: 1.5 },
         ].map(({ label, val, set, min, max }) => (
           <label key={label} className="block">
             <span className="text-xs text-neutral-500">{label}</span>
@@ -237,7 +241,7 @@ function AddElementSheet({ onAdd, onClose }: AddElementSheetProps) {
         onClick={handleAdd}
         className="w-full bg-brand text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
       >
-        Qo'shish
+        {t('wizard.qoshish')}
       </button>
     </div>
   )
@@ -255,6 +259,7 @@ interface Step0Props {
 }
 
 function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
+  const { t } = useTranslation()
   const mVal = ceilingHeight / 1000
   const [inputVal, setInputVal] = React.useState(mVal.toFixed(2))
 
@@ -276,8 +281,8 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-ink">Shiftning balandligi?</h1>
-        <p className="text-sm text-muted mt-1">Odatda 2.5–3.2 metr oralig'ida</p>
+        <h1 className="text-2xl font-extrabold text-ink">{t('wizard.shift_balandligi')}</h1>
+        <p className="text-sm text-muted mt-1">{t('wizard.shift_izoh')}</p>
       </div>
 
       {/* Preset chips */}
@@ -293,14 +298,14 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
                 : 'border-line bg-card-soft text-ink hover:border-[#5B84F5]/60',
             )}
           >
-            {v.toFixed(1)} m
+            {v.toFixed(1)} {t('wizard.metr')}
           </button>
         ))}
       </div>
 
       {/* Numeric input */}
       <label className="block">
-        <span className="text-sm font-medium text-ink">Aniq qiymat (m)</span>
+        <span className="text-sm font-medium text-ink">{t('wizard.aniq_qiymat')}</span>
         <input
           type="number"
           value={inputVal}
@@ -311,7 +316,7 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
           className="mt-1 block w-full rounded-xl border border-line bg-card-soft px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
         />
         {(parseFloat(inputVal) < 2.0 || parseFloat(inputVal) > 4.0) && !isNaN(parseFloat(inputVal)) && (
-          <p className="mt-1 text-xs text-red-400">2.0 dan 4.0 m oralig'ida bo'lishi kerak</p>
+          <p className="mt-1 text-xs text-red-400">{t('wizard.shift_xato')}</p>
         )}
       </label>
     </div>
@@ -343,12 +348,13 @@ function WallStep({
   onMoveElement,
   onSwapElements,
 }: WallStepProps) {
+  const { t } = useTranslation()
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [copyA, setCopyA] = React.useState(false)
 
   const isC = wall.id === 'C'
   const lenM = wall.length / 1000
-  const label = wallStepLabel(wall, wallIndex)
+  const label = wallStepLabel(t, wall, wallIndex)
 
   function handleSlider(v: number) {
     onLengthChange(wall.id, Math.round(v * 1000))
@@ -372,7 +378,7 @@ function WallStep({
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-extrabold text-ink">{label}</h2>
-        <p className="text-sm text-muted mt-0.5">Uzunligini kiriting</p>
+        <p className="text-sm text-muted mt-0.5">{t('wizard.uzunligini_kiriting')}</p>
       </div>
 
       <div className="rounded-2xl bg-[#F4F6FB] p-2">
@@ -386,7 +392,7 @@ function WallStep({
       {/* Length slider + input */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-ink">Uzunlik</span>
+          <span className="text-sm font-medium text-ink">{t('wizard.uzunlik')}</span>
           <div className="flex items-center gap-1">
             <input
               type="number"
@@ -398,7 +404,7 @@ function WallStep({
               onChange={(e) => handleInput(e.target.value)}
               className="w-16 rounded-lg border border-line bg-card-soft px-2 py-1 text-sm text-right text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
             />
-            <span className="text-sm text-muted">m</span>
+            <span className="text-sm text-muted">{t('wizard.metr')}</span>
           </div>
         </div>
         <input
@@ -422,7 +428,7 @@ function WallStep({
             onChange={(e) => handleCopyA(e.target.checked)}
             className="w-4 h-4 accent-brand rounded"
           />
-          <span className="text-sm text-ink">A devor bilan bir xil ({(wallA.length / 1000).toFixed(1)} m)</span>
+          <span className="text-sm text-ink">{t('wizard.a_bilan_bir_xil', { length: (wallA.length / 1000).toFixed(1) })}</span>
         </label>
       )}
 
@@ -444,7 +450,7 @@ function WallStep({
               onClick={() => onSwapElements(wall.id)}
               className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line py-2 text-xs text-ink-muted hover:border-brand hover:text-brand transition-colors"
             >
-              ⇄ Eshik va derazani almashtirish
+              {t('wizard.almashtirish')}
             </button>
           )}
         </div>
@@ -456,13 +462,13 @@ function WallStep({
         className="flex items-center gap-2 rounded-full bg-card-soft px-4 py-2.5 text-sm font-bold text-accent transition-colors hover:bg-card-soft/70"
       >
         <span className="text-lg leading-none">+</span>
-        Eshik / Deraza qo'shish
+        {t('wizard.eshik_deraza_qoshish')}
       </button>
 
       <BottomSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        title="Element qo'shish"
+        title={t('wizard.element_qoshish')}
         defaultSnap="half"
       >
         <AddElementSheet
@@ -487,6 +493,7 @@ interface Step5Props {
 }
 
 function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySave, onNewRoom }: Step5Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const floorMm2 = computeFloorArea(geometry)
@@ -511,9 +518,9 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
       </motion.div>
 
       <div className="text-center">
-        <h2 className="text-xl font-extrabold text-ink">{saveFailed ? "O'lchamlar tayyor" : "O'lchamlar saqlandi"}</h2>
+        <h2 className="text-xl font-extrabold text-ink">{saveFailed ? t('wizard.olchamlar_tayyor') : t('wizard.olchamlar_saqlandi')}</h2>
         <p className="text-sm text-muted mt-1">
-          {saveFailed ? 'Xona hali serverga yozilmadi' : 'Xona parametrlari muvaffaqiyatli qayd etildi'}
+          {saveFailed ? t('wizard.xona_yozilmadi') : t('wizard.xona_qayd')}
         </p>
       </div>
 
@@ -528,10 +535,10 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
         }}
       >
         {[
-          { label: 'Pol maydoni', value: floorMm2 / 1e6, unit: 'm²', decimals: 1 },
-          { label: 'Devor maydoni (netto)', value: wallMm2 / 1e6, unit: 'm²', decimals: 1 },
-          { label: 'Perimetr', value: perimMm / 1000, unit: 'm', decimals: 1 },
-          { label: 'Eshik/derazalar', value: openings, unit: 'ta', decimals: 0 },
+          { label: t('wizard.pol_maydoni'), value: floorMm2 / 1e6, unit: t('common.m2'), decimals: 1 },
+          { label: t('wizard.devor_maydoni'), value: wallMm2 / 1e6, unit: t('common.m2'), decimals: 1 },
+          { label: t('wizard.perimetr'), value: perimMm / 1000, unit: t('wizard.metr'), decimals: 1 },
+          { label: t('wizard.teshiklar'), value: openings, unit: t('wizard.birlik_ta'), decimals: 0 },
         ].map((card) => (
           <motion.div
             key={card.label}
@@ -553,10 +560,10 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
 
       {saveFailed && (
         <div role="alert" className="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-ink">
-          <p className="font-semibold">Xona serverga saqlanmadi</p>
-          <p className="mt-1 text-ink-muted">Internetni tekshirib, qayta urinib ko'ring. Saqlanmaguncha bezash va smeta ochilmaydi.</p>
+          <p className="font-semibold">{t('wizard.saqlanmadi')}</p>
+          <p className="mt-1 text-ink-muted">{t('wizard.saqlanmadi_izoh')}</p>
           <Button size="sm" className="mt-3" onClick={onRetrySave} disabled={saving}>
-            {saving ? 'Saqlanmoqda…' : 'Qayta urinish'}
+            {saving ? t('wizard.saqlanmoqda') : t('common.qayta_urinish')}
           </Button>
         </div>
       )}
@@ -569,7 +576,7 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
           onClick={() => roomId && navigate(`/studio/${roomId}/ichkarida?phase=suvoq`)}
           disabled={!roomId}
         >
-          Bezashni boshlash
+          {t('wizard.bezashni_boshlash')}
         </Button>
         <Button
           size="lg"
@@ -578,13 +585,13 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
           onClick={() => roomId && navigate(`/smeta/${roomId}`)}
           disabled={!roomId}
         >
-          Smeta ko'rish
+          {t('wizard.smeta_korish')}
         </Button>
         <button
           onClick={onNewRoom}
           className="w-full py-2 text-sm text-ink-muted transition-colors hover:text-ink"
         >
-          + Yangi xona qo'shish
+          {t('wizard.yangi_xona')}
         </button>
       </div>
     </div>
@@ -594,6 +601,7 @@ function Step5({ roomId, geometry, ceilingHeight, saving, saveFailed, onRetrySav
 // ─── WizardPage ───────────────────────────────────────────────────────────────
 
 export default function WizardPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const {
     draftId,
@@ -791,8 +799,8 @@ export default function WizardPage() {
       const aptId =
         existingApartmentId ??
         createdApartmentIdRef.current ??
-        (createdApartmentIdRef.current = (await createApartment({ name: 'Mening xonadonim' })).id)
-      const room = await createRoom(aptId, { name: 'Xona', ...roomDimensions() })
+        (createdApartmentIdRef.current = (await createApartment({ name: t('wizard.mening_xonadonim') })).id)
+      const room = await createRoom(aptId, { name: t('wizard.xona'), ...roomDimensions() })
       setRoomId(room.id)
       // Draft fulfilled — clean up
       if (draftId) {
@@ -910,17 +918,17 @@ export default function WizardPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-3xl border border-line bg-card shadow-panel p-5 animate-fade-slide">
             <h2 className="text-base font-extrabold text-ink mb-1">
-              Saqlangan loyiha bor
+              {t('wizard.saqlangan_loyiha')}
             </h2>
             <p className="text-sm text-ink-muted mb-5">
-              Siz ilgari xona o'lchamlarini kiritayotgan edingiz. Davom etasizmi?
+              {t('wizard.davom_etasizmi')}
             </p>
             <div className="flex gap-3">
               <Button variant="soft" className="flex-1" onClick={handleRestart}>
-                Yangi boshlash
+                {t('wizard.yangi_boshlash')}
               </Button>
               <Button className="flex-1" onClick={handleResume}>
-                Davom etish
+                {t('wizard.davom_etish')}
               </Button>
             </div>
           </div>
@@ -1009,11 +1017,11 @@ export default function WizardPage() {
           <div className="flex items-center gap-3 border-t border-line px-5 pb-5 pt-4">
             {step > 0 && (
               <Button variant="soft" size="lg" onClick={goBack}>
-                Ortga
+                {t('wizard.ortga')}
               </Button>
             )}
             <Button size="lg" className="flex-1" onClick={goNext} disabled={saving || (step === 0 && !ceilingValid)}>
-              {saving ? 'Saqlanmoqda...' : 'Keyingi'}
+              {saving ? t('wizard.saqlanmoqda_nuqta') : t('wizard.keyingi')}
             </Button>
           </div>
         )}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { getUstalar, createLead } from "@/lib/api";
-import { isUzPhone, PHONE_ERROR } from "@/lib/phone";
+import { isUzPhone } from "@/lib/phone";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Usta, UstalarParams } from "@/lib/api";
@@ -134,12 +134,12 @@ function ContactModal({ usta, roomId, onClose }: ContactModalProps) {
                   onChange={(e) => setMessage(e.target.value)}
                   rows={3}
                   className="mt-1 block w-full resize-none rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                  placeholder="Xona haqida ma'lumot..."
+                  placeholder={t("ustalar.izoh_placeholder")}
                 />
               </label>
             </div>
             {phoneError ? (
-              <p role="alert" className="mt-3 text-sm text-red-600">{PHONE_ERROR}</p>
+              <p role="alert" className="mt-3 text-sm text-red-600">{t("ustalar.telefon_xato")}</p>
             ) : mutation.isError && (
               <p role="alert" className="mt-3 text-sm text-red-600">{t("errors.nomalum_xato")}</p>
             )}
@@ -187,7 +187,7 @@ export default function UstalarPage() {
             <h1 className="text-[28px] font-extrabold leading-tight text-ink">{t("ustalar.sarlavha")}</h1>
             <p className="mt-1 text-sm text-ink-muted">{t("ustalar.tavsif")}</p>
           </div>
-          <div role="group" aria-label="Saralash" className="flex flex-wrap gap-2 self-start">
+          <div role="group" aria-label={t("ustalar.saralash")} className="flex flex-wrap gap-2 self-start">
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={String(opt.key)}
