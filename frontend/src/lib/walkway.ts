@@ -1,8 +1,8 @@
 /**
  * Can a person walk from the door to every part of the room?
  *
- * The room is cut into 10 cm cells. A cell is blocked when it lies outside the room or closer
- * than half the path width to a piece of furniture; a breadth-first walk from the door shows what
+ * The room is cut into 10 cm cells. A cell is blocked when a path-wide square round it does not
+ * fit in the room, or it lies closer than half the path width to a piece of furniture; a breadth-first walk from the door shows what
  * can be reached. Used to decide whether a furniture group may stand where it was put.
  */
 import { rectCorners, type Rect, type RoomModel } from './aiDesignLayout'
@@ -56,7 +56,8 @@ export function walkable(model: RoomModel, taken: Rect[], from: Pt[], to: Pt[], 
   for (let i = 0; i < nx; i++) {
     for (let j = 0; j < nz; j++) {
       const cx = minX + (i + 0.5) * CELL, cz = minZ + (j + 0.5) * CELL
-      let b = !model.inside({ x: cx, z: cz, w: CELL, d: CELL, rotation: 0 })
+      // The strip next to a wall is no path: the whole width must fit inside the room.
+      let b = !model.inside({ x: cx, z: cz, w: width, d: width, rotation: 0 })
       for (let k = 0; !b && k < near.length; k++) {
         const n = near[k]
         if (cx < n.minX || cx > n.maxX || cz < n.minZ || cz > n.maxZ) continue

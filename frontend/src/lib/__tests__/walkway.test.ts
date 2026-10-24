@@ -55,4 +55,38 @@ describe('walkway', () => {
     expect(pts[0][0]).toBeCloseTo(w.midX + w.dirX * c + w.nx * 0.4, 2)
     expect(pts[0][1]).toBeCloseTo(w.midZ + w.dirZ * c + w.nz * 0.4, 2)
   })
+
+  it('does not count a strip between furniture and a wall narrower than the path', () => {
+    const m = roomModel(room())
+    // Rect from x -2 to 1, z 0.5 to 1.1: 0.40 m from wall C (z = 1.5), open to the right of x = 1.
+    const sofa = rect(-0.5, 0.8, 3, 0.6)
+    expect(walkable(m, [sofa], [[1.5, 0]], [[-1, 1.3]], 0.7)).toBe(false)
+    expect(walkable(m, [sofa], [[1.5, 0]], [[-1, 1.3]], 0.3)).toBe(true)
+  })
+
+  it('blocks along a rotated rect, not its bounding box', () => {
+    const m = roomModel(room())
+    const diagonal: Rect = { x: 0, z: 0, w: 6, d: 0.2, rotation: Math.PI / 4 }
+    expect(walkable(m, [diagonal], [[1.8, 0]], [[-1.8, 0]])).toBe(false)
+    const short: Rect = { ...diagonal, w: 1 }
+    expect(walkable(m, [short], [[1.8, 0]], [[-1.8, 0]])).toBe(true)
+    // Inside the short bar's bounding box but clear of the bar itself.
+    expect(walkable(m, [short], [[1.8, 0]], [[0.4, 0.4]])).toBe(true)
+  })
+
+  it('snaps a target inside furniture to free floor within 0.4 m', () => {
+    const m = roomModel(room())
+    expect(walkable(m, [rect(1, 0.5, 0.2, 0.2)], [[-1, 0]], [[1, 0.5]], 0.5)).toBe(true)
+  })
+
+  it('counts a target deep inside large furniture as unreachable', () => {
+    const m = roomModel(room())
+    expect(walkable(m, [rect(0.5, 0, 2, 1)], [[-1.5, 0]], [[0.5, 0]])).toBe(false)
+  })
+
+  it('puts the door entry inside the room', () => {
+    const m = roomModel(room())
+    const [e] = doorEntries(m)
+    expect(m.inside({ x: e[0], z: e[1], w: 0.1, d: 0.1, rotation: 0 })).toBe(true)
+  })
 })
