@@ -511,6 +511,7 @@
         "n_label": "{{n}}-kamera — burchakdan"
       },
       "unnamed_room": "Xona",
+      "default_apartment": "Xonadon",
       "category": {
         "divan": "Divan",
         "stol": "Stol",
@@ -898,7 +899,10 @@
       "model": "Model",
       "change_color": "Rang o'zgartirish",
       "reset_color": "Asl rangga qaytarish",
-      "color": "Rang"
+      "color": "Rang",
+      "slot_wood": "Yog'och",
+      "slot_fabric": "Mato",
+      "slot_metal": "Metal"
     },
     "cplan": {
       "no_outline": "2D chiroq rejasi uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang",
@@ -1441,11 +1445,11 @@
       "copyright": "© 2026 andoza.ai"
     },
     "paint": {
-      "label": "Ilova qanday ishlaydi — bo‘yoq hikoyasi",
+      "label": "Ilova qanday ishlaydi — bo'yoq hikoyasi",
       "cards": [
         {
           "title": "Ijodiy dizayn",
-          "desc": "G‘oyalaringiz uchun chiroyli va zamonaviy dizaynlar."
+          "desc": "G'oyalaringiz uchun chiroyli va zamonaviy dizaynlar."
         },
         {
           "title": "Tezkor ishlash",
@@ -1453,11 +1457,11 @@
         },
         {
           "title": "Aqlli tahlil",
-          "desc": "Ma’lumotlaringizni tushuning va tezroq o‘sing."
+          "desc": "Ma'lumotlaringizni tushuning va tezroq o'sing."
         },
         {
           "title": "Xavfsiz va ishonchli",
-          "desc": "Ma’lumotlaringiz biz bilan doim xavfsiz."
+          "desc": "Ma'lumotlaringiz biz bilan doim xavfsiz."
         }
       ]
     },
@@ -2184,7 +2188,8 @@
       "spec_size": "O'lcham",
       "size_value": "{{dims}} sm",
       "submit_failed": "Buyurtmani yuborib bo'lmadi",
-      "partial": "({{count}} ta buyurtma yuborildi, qolganlari savatda turibdi)",
+      "partial_one": "({{count}} ta buyurtma yuborildi, qolganlari savatda turibdi)",
+      "partial_other": "({{count}} ta buyurtma yuborildi, qolganlari savatda turibdi)",
       "cancel_q": "Buyurtmani bekor qilasizmi?",
       "cancel_confirm": "Bekor qilish",
       "keep": "Qoldirish",

@@ -10,6 +10,7 @@ import RegisterBackground from "./RegisterBackground";
 import GoogleSignInButton from "./GoogleSignInButton";
 import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { type FormError, formErrorText, localError } from "@/lib/formError";
 
 // Field on the themed card: soft inset surface, brand ring on focus.
 const FIELD_BASE =
@@ -101,7 +102,7 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   function resetError() { setError(null); }
   function switchMode(m: AuthMode) { setMode(m); resetError(); }
@@ -109,14 +110,14 @@ export default function LoginPage() {
   // ── Username/password login ──────────────────────────────────
   async function handleLogin() {
     resetError();
-    if (!username.trim() || !password) { setError(t("auth.xato_username_parol")); return; }
+    if (!username.trim() || !password) { setError(localError("auth.xato_username_parol")); return; }
     setLoading(true);
     try {
       const res = await loginWithPassword({ username: username.trim(), password });
       setAuthenticated(res.user);
       navigate(from, { replace: true });
     } catch {
-      setError(t("auth.xato_login"));
+      setError(localError("auth.xato_login"));
     } finally {
       setLoading(false);
     }
@@ -131,7 +132,7 @@ export default function LoginPage() {
       setAuthenticated(res.user);
       navigate(from, { replace: true });
     } catch {
-      setError(t("auth.xato_google"));
+      setError(localError("auth.xato_google"));
     } finally {
       setLoading(false);
     }
@@ -140,11 +141,11 @@ export default function LoginPage() {
   // ── Register ──────────────────────────────────────────────────
   async function handleRegister() {
     resetError();
-    if (!username.trim()) { setError(t("auth.xato_username")); return; }
-    if (username.trim().length < 3) { setError(t("auth.xato_username_qisqa")); return; }
-    if (!password) { setError(t("auth.xato_parol")); return; }
-    if (password.length < 6) { setError(t("auth.xato_parol_qisqa")); return; }
-    if (password !== confirmPassword) { setError(t("auth.xato_parollar_mos_emas")); return; }
+    if (!username.trim()) { setError(localError("auth.xato_username")); return; }
+    if (username.trim().length < 3) { setError(localError("auth.xato_username_qisqa")); return; }
+    if (!password) { setError(localError("auth.xato_parol")); return; }
+    if (password.length < 6) { setError(localError("auth.xato_parol_qisqa")); return; }
+    if (password !== confirmPassword) { setError(localError("auth.xato_parollar_mos_emas")); return; }
     setLoading(true);
     try {
       const res = await registerUser({ username: username.trim(), password, name: name.trim() || undefined });
@@ -153,9 +154,9 @@ export default function LoginPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("409") || msg.toLowerCase().includes("band")) {
-        setError(t("auth.xato_username_band"));
+        setError(localError("auth.xato_username_band"));
       } else {
-        setError(t("auth.xato_royxatdan_otish"));
+        setError(localError("auth.xato_royxatdan_otish"));
       }
     } finally {
       setLoading(false);
@@ -212,7 +213,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{error}</p>}
+            {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{formErrorText(t, error)}</p>}
 
             <Button size="lg" className="mt-6 w-full" onClick={handleLogin} disabled={loading}>
               {loading ? t("common.yuklanmoqda") : t("auth.kirish")}
@@ -280,7 +281,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{error}</p>}
+            {error && <p role="alert" className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-medium text-red-500">{formErrorText(t, error)}</p>}
 
             <Button size="lg" className="mt-6 w-full" onClick={handleRegister} disabled={loading}>
               {loading ? t("common.yuklanmoqda") : t("auth.royxatdan_otish")}

@@ -19,6 +19,15 @@ beforeEach(() => {
 afterEach(() => applyLanguage('uz'))
 
 describe('LanguageSwitcher', () => {
+  it('names its group in the interface language', () => {
+    const { unmount } = render(<LanguageSwitcher />)
+    expect(screen.getByRole('group', { name: 'Til' })).toBeInTheDocument()
+    unmount()
+    applyLanguage('ru')
+    render(<LanguageSwitcher />)
+    expect(screen.getByRole('group', { name: 'Язык' })).toBeInTheDocument()
+  })
+
   it('marks the active language with a fixed colour, not the --accent token the landing redefines', () => {
     render(<LanguageSwitcher />)
     const active = screen.getByRole('button', { name: "O'zbekcha" })

@@ -1,10 +1,11 @@
 import type { CatalogFurniture } from '@/lib/api'
+import type { TKey } from '@/i18n'
 
 export interface MaterialSlot {
   /** Internal GLB material name */
   name: string
-  /** Human-readable label shown in UI */
-  label: string
+  /** Locale key of the label shown in the UI (translated at render) */
+  labelKey: TKey
 }
 
 export type FurnitureCategory =
@@ -81,9 +82,9 @@ export const FURNITURE_CATALOG: FurnitureCatalogEntry[] = [
     sizeM: { w: 1.84, d: 1.83, h: 0.82 },
     category: 'stol',
     materialSlots: [
-      { name: 'wire_115115115', label: "Yog'och" },
-      { name: 'wire_088144225', label: 'Mato' },
-      { name: 'wire_086086086', label: 'Metal' },
+      { name: 'wire_115115115', labelKey: 'studio.mebel.slot_wood' },
+      { name: 'wire_088144225', labelKey: 'studio.mebel.slot_fabric' },
+      { name: 'wire_086086086', labelKey: 'studio.mebel.slot_metal' },
     ],
   },
   {
@@ -96,8 +97,8 @@ export const FURNITURE_CATALOG: FurnitureCatalogEntry[] = [
     sizeM: { w: 2.10, d: 0.90, h: 0.80 },
     category: 'divan',
     materialSlots: [
-      { name: 'Fabric', label: 'Mato' },
-      { name: 'Wood', label: "Yog'och" },
+      { name: 'Fabric', labelKey: 'studio.mebel.slot_fabric' },
+      { name: 'Wood', labelKey: 'studio.mebel.slot_wood' },
     ],
   },
 ]

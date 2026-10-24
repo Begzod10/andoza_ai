@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { Wall, WallElement } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
+import { formatDecimal } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,7 +163,7 @@ function ElementShape({
         fontSize={7}
         fill="#64748B"
       >
-        {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}m
+        {formatDecimal(element.width / 1000, 2)}×{formatDecimal(element.height / 1000, 2)}m
       </text>
     </g>
   )
@@ -262,7 +263,7 @@ export function WallElevationPreview({ wall, ceilingHeight, wallLabel }: WallEle
         fill="#64748B"
         transform={`rotate(-90, ${PAD_L - 9}, ${(PAD_T + floorY) / 2})`}
       >
-        {(ceilMm / 1000).toFixed(1)}m
+        {formatDecimal(ceilMm / 1000, 1)}m
       </text>
 
       {/* Width measurement */}
@@ -281,7 +282,7 @@ export function WallElevationPreview({ wall, ceilingHeight, wallLabel }: WallEle
         fontSize={7}
         fill="#64748B"
       >
-        {(wallLenMm / 1000).toFixed(1)}m
+        {formatDecimal(wallLenMm / 1000, 1)}m
       </text>
 
       {/* Scale ruler ticks */}

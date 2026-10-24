@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
 import { errorMessage } from "./errorMessage";
+import { type FormError, requestError } from "@/lib/formError";
 
 const KEY = ["admin", "orders"] as const;
 const MIN_REASON = 3;
@@ -109,7 +110,7 @@ function Row({ order, busy, onAdvance, onCancel }: {
 }
 
 /** Every order in the system, for the administrators: filter by stage, move one on or cancel it. */
-export function AdminOrders({ onError }: { onError: (message: string | null) => void }) {
+export function AdminOrders({ onError }: { onError: (message: FormError) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
@@ -125,8 +126,8 @@ export function AdminOrders({ onError }: { onError: (message: string | null) => 
     onError(null);
     void queryClient.invalidateQueries({ queryKey: KEY });
   };
-  const failed = (fallback: string) => (err: unknown) => {
-    onError(errorMessage(err, fallback));
+  const failed = (fallbackKey: TKey) => (err: unknown) => {
+    onError(requestError(err, fallbackKey));
     void queryClient.invalidateQueries({ queryKey: KEY });
   };
 
@@ -136,12 +137,12 @@ export function AdminOrders({ onError }: { onError: (message: string | null) => 
       return next ? setAdminOrderStatus(o.id, next.to) : Promise.reject(new Error(t("dokon.order.finished")));
     },
     onSuccess: done,
-    onError: failed(t("dokon.order.status_failed")),
+    onError: failed("dokon.order.status_failed"),
   });
   const cancel = useMutation({
     mutationFn: ({ order, reason }: { order: AdminOrder; reason: string }) => setAdminOrderStatus(order.id, "cancelled", reason),
     onSuccess: done,
-    onError: failed(t("dokon.order.cancel_failed")),
+    onError: failed("dokon.order.cancel_failed"),
   });
   const busyId = advance.isPending ? advance.variables?.id : cancel.isPending ? cancel.variables?.order.id : undefined;
   const list = orders.data?.pages.flat() ?? [];

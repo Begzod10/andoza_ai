@@ -71,3 +71,23 @@ describe("UstalarPage in Russian", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(ru.common.telefon_xato);
   });
 });
+
+describe("usta price range", () => {
+  afterEach(() => applyLanguage("uz"));
+
+  it("groups digits in the interface language, not the browser's", async () => {
+    api.getUstalar.mockResolvedValue([{ ...usta, price_min: 80000, price_max: 1200000 }]);
+    applyLanguage("en");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={["/ustalar"]}><UstalarPage /></MemoryRouter></QueryClientProvider>);
+    expect(await screen.findByText("80,000 – 1,200,000")).toBeInTheDocument();
+  });
+
+  it("uses the Russian grouping in ru", async () => {
+    api.getUstalar.mockResolvedValue([{ ...usta, price_min: 80000, price_max: 1200000 }]);
+    applyLanguage("ru");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={["/ustalar"]}><UstalarPage /></MemoryRouter></QueryClientProvider>);
+    expect(await screen.findByText("80 000 – 1 200 000" /* the matcher collapses the NBSP Intl writes */)).toBeInTheDocument();
+  });
+});

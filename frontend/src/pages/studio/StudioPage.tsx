@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { defaultApartmentName, defaultRoomName } from '@/lib/defaultNames';
 import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { useNoPageZoom } from "@/hooks/useNoPageZoom";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
@@ -205,7 +206,7 @@ export default function StudioPage() {
       const stateBlob = {
         geometry: s.geometry,
         ceilingHeight: s.ceilingHeight,
-        name: s.name,
+        name: s.name || defaultRoomName(),
         designState: s.designState,
         furniture: s.furniture,
         electricals: s.electricals,
@@ -221,7 +222,7 @@ export default function StudioPage() {
       if (roomId) {
         try {
           await updateRoom(roomId, {
-            name: s.name,
+            name: s.name || defaultRoomName(),
             ceiling_h: s.ceilingHeight / 1000,
             geometry: geometryPayload,
             state: stateBlob as unknown as Record<string, unknown>,
@@ -246,11 +247,11 @@ export default function StudioPage() {
       // Room not in DB — create apartment + room
       let aptId = s.apartmentId;
       if (!aptId) {
-        const apt = await createApartment({ name: s.name || 'Xonadon' });
+        const apt = await createApartment({ name: s.name || defaultApartmentName() });
         aptId = apt.id;
       }
       const newRoom = await createRoom(aptId, {
-        name: s.name || 'Xona',
+        name: s.name || defaultRoomName(),
         ceiling_h: s.ceilingHeight / 1000,
         geometry: geometryPayload,
       });
@@ -296,7 +297,7 @@ export default function StudioPage() {
     return {
       id: roomId ?? "local",
       apartment_id: apartmentId ?? "local",
-      name: name,
+      name: name || defaultRoomName(),
       room_type: "mehmonxona",
       area: computeFloorArea(geometry) / 1e6,
       ceiling_height: ceilingHeight / 1000,

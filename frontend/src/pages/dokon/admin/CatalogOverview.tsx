@@ -16,7 +16,6 @@ import {
   type AdminStore,
   type Wallpaper,
 } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
 import { ModelCard } from "./ModelCard";
 import { ModelEditDialog } from "./ModelEditDialog";
 import { ModelFilterBar } from "./ModelFilterBar";
@@ -25,6 +24,7 @@ import { EMPTY_MODEL_FILTERS, filterModels } from "./modelFilters";
 import { StoreCard } from "./StoreCard";
 import { StoreFormDialog } from "./StoreFormDialog";
 import { WallpaperSection } from "./WallpaperSection";
+import { requestError, type FormError } from "@/lib/formError";
 
 /** Default landing view of the admin catalog: stats, the shop grid (click
  * a shop to drill into its own profile), and a general model list for
@@ -33,7 +33,7 @@ export function CatalogOverview({
   onError,
   onSelectStore,
 }: {
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
   onSelectStore: (store: AdminStore) => void;
 }) {
   const { t } = useTranslation();
@@ -71,7 +71,7 @@ export function CatalogOverview({
       onError(null);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.overview.classify_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.overview.classify_failed")),
   });
   const classifyNotice = classifyMutation.isSuccess
     ? classifyMutation.data.queued > 0
@@ -86,7 +86,7 @@ export function CatalogOverview({
       onError(null);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     } catch (err) {
-      onError(errorMessage(err, t("seller.remove_failed")));
+      onError(requestError(err, "seller.remove_failed"));
     }
   }
 

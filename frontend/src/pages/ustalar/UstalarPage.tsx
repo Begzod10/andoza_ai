@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { getUstalar, createLead } from "@/lib/api";
 import { isUzPhone } from "@/lib/phone";
 import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Usta, UstalarParams } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -60,7 +61,7 @@ function UstaCard({
         <Tile className="p-3">
           <p className="text-xs font-medium text-ink-muted">{t("ustalar.narx")}</p>
           <p className="mt-0.5 text-sm font-extrabold tabular-nums text-ink">
-            {usta.price_min.toLocaleString()} – {usta.price_max.toLocaleString()}
+            {usta.price_min.toLocaleString(intlLocale())} – {usta.price_max.toLocaleString(intlLocale())}
           </p>
           <p className="text-[11px] text-ink-muted">{t("ustalar.soum_m2")}</p>
         </Tile>

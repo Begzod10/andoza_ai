@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/Button";
 import { deleteWallpaper, listWallpapers, type AdminStore, type Wallpaper } from "@/lib/api";
 import { intlLocale } from "@/i18n";
 import type { TFunction } from "i18next";
-import { errorMessage } from "./errorMessage";
 import { WallpaperEditDialog } from "./WallpaperEditDialog";
 import { WallpaperFormDialog } from "./WallpaperFormDialog";
+import { requestError, type FormError } from "@/lib/formError";
 
 /** "53 sm × 10 m" for a roll, "300 × 270 sm" for a fixed panel, or just the
  * width alone when that's all that's set. Empty when nothing is set. */
@@ -43,7 +43,7 @@ export function WallpaperSection({
 }: {
   stores: AdminStore[];
   storeId?: string;
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -65,7 +65,7 @@ export function WallpaperSection({
       onError(null);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     },
-    onError: (err) => onError(errorMessage(err, t("seller.remove_failed"))),
+    onError: (err) => onError(requestError(err, "seller.remove_failed")),
   });
 
   async function handleDelete(wallpaper: Wallpaper) {

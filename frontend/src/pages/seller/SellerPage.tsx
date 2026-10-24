@@ -23,6 +23,7 @@ import { SellerModelFormDialog } from "./SellerModelFormDialog";
 import { StatusBadge } from "./StatusBadge";
 import { StoreApplyForm } from "./StoreApplyForm";
 import { StoreEditDialog } from "./StoreEditDialog";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 const STORE_KEY = ["seller", "store"] as const;
 const MODELS_KEY = ["seller", "models"] as const;
@@ -38,7 +39,7 @@ export default function SellerPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
   const [editingStore, setEditingStore] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editingModel, setEditingModel] = useState<SellerModel | null>(null);
@@ -59,20 +60,20 @@ export default function SellerPage() {
   const resubmit = useMutation({
     mutationFn: resubmitMyStore,
     onSuccess: setStore,
-    onError: (err) => setError(errorMessage(err, t("seller.resubmit_failed"))),
+    onError: (err) => setError(requestError(err, "seller.resubmit_failed")),
   });
 
   const toggle = useMutation({
     mutationFn: (m: SellerModel) => updateMyModel(m.id, { is_active: !m.is_active }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
-    onError: (err) => setError(errorMessage(err, t("seller.toggle_failed"))),
+    onError: (err) => setError(requestError(err, "seller.toggle_failed")),
   });
 
   const confirm = useConfirm();
   const remove = useMutation({
     mutationFn: (m: SellerModel) => deleteMyModel(m.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
-    onError: (err) => setError(errorMessage(err, t("seller.remove_failed"))),
+    onError: (err) => setError(requestError(err, "seller.remove_failed")),
   });
 
   const busy = toggle.isPending || remove.isPending;
@@ -88,7 +89,7 @@ export default function SellerPage() {
           <h1 className="text-lg font-extrabold text-ink">{t("seller.title")}</h1>
         </Panel>
 
-        {error && <div role="alert" className="rounded-2xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm font-medium px-4 py-2.5">{error}</div>}
+        {error && <div role="alert" className="rounded-2xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm font-medium px-4 py-2.5">{formErrorText(t, error)}</div>}
 
         {storeQuery.isLoading ? (
           <div className="h-32 rounded-3xl bg-card animate-pulse" />

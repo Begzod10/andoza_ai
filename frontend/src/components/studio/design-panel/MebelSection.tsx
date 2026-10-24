@@ -593,7 +593,7 @@ export function MebelSection() {
                       const slotInputId = `furniture-color-${f.id}-${slot.name}`;
                       return (
                         <div key={slot.name} className="flex items-center gap-2">
-                          <label htmlFor={slotInputId} className="text-xs text-gray-500 w-16 shrink-0">{slot.label}</label>
+                          <label htmlFor={slotInputId} className="text-xs text-gray-500 w-16 shrink-0">{t(slot.labelKey)}</label>
                           <input
                             id={slotInputId}
                             type="color"

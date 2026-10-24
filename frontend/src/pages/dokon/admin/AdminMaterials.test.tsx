@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminMaterials } from './AdminMaterials'
+import { applyLanguage } from '@/i18n'
 import AdminCatalogPanel from '../AdminCatalogPanel'
 
 const api = vi.hoisted(() => ({
@@ -58,6 +59,22 @@ describe('AdminMaterials list', () => {
     expect(screen.getByText('30 kg')).toBeInTheDocument()
     expect(screen.getByText('Smeta: Suvoq')).toBeInTheDocument()
     expect(screen.queryByText('Yashirin')).not.toBeInTheDocument()
+  })
+
+  it('groups the price digits the way formatUZS does in en and ru', async () => {
+    applyLanguage('en')
+    try {
+      mount()
+      expect(await screen.findByText(/^1,250,000 UZS \//)).toBeInTheDocument()
+    } finally { applyLanguage('uz') }
+  })
+
+  it('keeps plain-space grouping in ru', async () => {
+    applyLanguage('ru')
+    try {
+      mount()
+      expect(await screen.findByText(/^1 250 000 сум \//)).toBeInTheDocument()
+    } finally { applyLanguage('uz') }
   })
 
   it('marks hidden materials', async () => {

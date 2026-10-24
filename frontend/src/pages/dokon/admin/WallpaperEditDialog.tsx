@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { updateWallpaper, type AdminStore, type Wallpaper } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
+import { requestError, type FormError } from "@/lib/formError";
 
 /** Edit an existing oboy's metadata — name/shop/price/dimensions/details.
  * The image itself isn't editable here — delete and re-upload instead. */
@@ -21,7 +21,7 @@ export function WallpaperEditDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stores: AdminStore[];
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -63,7 +63,7 @@ export function WallpaperEditDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.wp.update_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.wp.update_failed")),
   });
 
   if (!wallpaper) return null;

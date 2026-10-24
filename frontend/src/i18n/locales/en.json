@@ -86,8 +86,8 @@
       "tab_elektr": "Electrical devices",
       "tab_chiroq": "Light fixtures",
       "tab_olchamlar": "Measurements",
-      "simlarni_aralash_izoh": "Randomize wire colors and routing",
-      "simlarni_aralash": "Shuffle wires",
+      "simlarni_aralash_izoh": "Randomize cable colors and routing",
+      "simlarni_aralash": "Shuffle cables",
       "tiklash_izoh": "Restore the default color",
       "tiklash": "Reset",
       "qurilma_soni_one": "{{count}} device",
@@ -234,9 +234,9 @@
       "havola_yaratilmoqda": "Creating the link…",
       "nusxalandi": "Copied",
       "nusxalash": "Copy",
-      "oflayn_kirish": "Offline mode — log in and your project will be saved to the cloud.",
+      "oflayn_kirish": "Offline mode — sign in and your project will be saved to the cloud.",
       "tarmoq_xatosi_mahalliy": "Network error — showing local data.",
-      "kirish": "Log in",
+      "kirish": "Sign in",
       "olchamlar_toortburchak": "{{length}} × {{width}} × {{height}} m",
       "olchamlar_koppburchak_one": "{{area}} m² · {{count}} wall · ceiling {{height}} m",
       "olchamlar_koppburchak_other": "{{area}} m² · {{count}} walls · ceiling {{height}} m",
@@ -511,6 +511,7 @@
         "n_label": "Camera {{n}} — from a corner"
       },
       "unnamed_room": "Room",
+      "default_apartment": "Apartment",
       "category": {
         "divan": "Sofa",
         "stol": "Table",
@@ -608,7 +609,7 @@
       "laminat": "Laminate",
       "beton": "Concrete",
       "mebel": "Furniture",
-      "chiroq": "Light fixture",
+      "chiroq": "Light fixtures",
       "hamma_devorlar": "All walls",
       "qidirish": "Search...",
       "topilmadi": "Nothing found",
@@ -898,7 +899,10 @@
       "model": "Model",
       "change_color": "Change the color",
       "reset_color": "Return to the original color",
-      "color": "Color"
+      "color": "Color",
+      "slot_wood": "Wood",
+      "slot_fabric": "Fabric",
+      "slot_metal": "Metal"
     },
     "cplan": {
       "no_outline": "No room outline was found for the 2D light plan — draw the room again or scan it",
@@ -1047,8 +1051,8 @@
     "qayta_yuborish": "Resend",
     "orqaga": "Back",
     "telefon_placeholder": "+998 90 123 45 67",
-    "chiqish": "Log out",
-    "kirish": "Log in",
+    "chiqish": "Sign out",
+    "kirish": "Sign in",
     "royxatdan_otish": "Sign up",
     "otp_tasdiqlash": "Confirm the code",
     "parolni_korsatish": "Show password",
@@ -1273,7 +1277,7 @@
   },
   "landing": {
     "nav": {
-      "login": "Log in",
+      "login": "Sign in",
       "start": "Get started"
     },
     "hero": {
@@ -1434,7 +1438,7 @@
       "links": {
         "dokon": "Shop",
         "ustalar": "Craftsmen",
-        "kirish": "Log in"
+        "kirish": "Sign in"
       },
       "privacy": "Privacy Policy",
       "deleteAccount": "Delete account",
@@ -2184,7 +2188,8 @@
       "spec_size": "Size",
       "size_value": "{{dims}} cm",
       "submit_failed": "Could not send the order",
-      "partial": "({{count}} orders were sent, the rest are still in the cart)",
+      "partial_one": "({{count}} order was sent, the rest are still in the cart)",
+      "partial_other": "({{count}} orders were sent, the rest are still in the cart)",
       "cancel_q": "Cancel the order?",
       "cancel_confirm": "Cancel the order",
       "keep": "Keep it",

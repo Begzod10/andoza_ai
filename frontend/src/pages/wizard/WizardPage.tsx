@@ -17,7 +17,7 @@ import { MetricCard } from '@/components/ui/MetricCard'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { createApartment, createRoom, createDraftRoom, getDraftRoom, updateDraftRoom, deleteDraftRoom, updateRoom } from '@/lib/api'
 import { wallElementsToApiPositions } from '@/lib/wallPositions'
-import { cn } from '@/lib/utils'
+import { cn, formatDecimal } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
 import type { TFunction } from 'i18next'
@@ -109,7 +109,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
           className="flex-1 text-left text-xs font-medium text-ink flex items-center gap-1.5"
         >
           <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
-          {labelMap[element.type]} {(element.width / 1000).toFixed(2)}×{(element.height / 1000).toFixed(2)}{t('wizard.metr')}
+          {labelMap[element.type]} {formatDecimal(element.width / 1000, 2)}×{formatDecimal(element.height / 1000, 2)}{t('wizard.metr')}
         </button>
         <button onClick={onRemove} aria-label={t('common.ochirish')} className="text-ink-muted hover:text-red-400 transition-colors text-xs leading-none">✕</button>
       </div>
@@ -144,7 +144,7 @@ function ElementChip({ element, wallLengthMm, onRemove, onPositionChange }: Elem
                 className="w-full rounded-lg border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </label>
-            <div className="text-center text-ink-muted pt-4">{(element.width / 1000).toFixed(2)}{t('wizard.metr')}</div>
+            <div className="text-center text-ink-muted pt-4">{formatDecimal(element.width / 1000, 2)}{t('wizard.metr')}</div>
             <label className="flex-1">
               <span className="text-ink-muted block mb-0.5">{t('wizard.ong_m')}</span>
               <input
@@ -298,7 +298,7 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
                 : 'border-line bg-card-soft text-ink hover:border-[#5B84F5]/60',
             )}
           >
-            {v.toFixed(1)} {t('wizard.metr')}
+            {formatDecimal(v, 1)} {t('wizard.metr')}
           </button>
         ))}
       </div>
@@ -428,7 +428,7 @@ function WallStep({
             onChange={(e) => handleCopyA(e.target.checked)}
             className="w-4 h-4 accent-brand rounded"
           />
-          <span className="text-sm text-ink">{t('wizard.a_bilan_bir_xil', { length: (wallA.length / 1000).toFixed(1) })}</span>
+          <span className="text-sm text-ink">{t('wizard.a_bilan_bir_xil', { length: formatDecimal(wallA.length / 1000, 1) })}</span>
         </label>
       )}
 

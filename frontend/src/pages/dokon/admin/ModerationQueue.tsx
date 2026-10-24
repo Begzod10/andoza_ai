@@ -13,7 +13,7 @@ import {
 import type { TKey } from "@/i18n";
 import { intlLocale } from "@/i18n";
 import { categoryLabel } from "./labels";
-import { errorMessage } from "./errorMessage";
+import { requestError, type FormError } from "@/lib/formError";
 
 const KEY = ["admin", "moderation"] as const;
 
@@ -30,7 +30,7 @@ const USTA_TRADES: Record<string, TKey> = {
 /** What sellers have submitted and is waiting for a decision: shop applications,
  *  craftsman (usta) applications and uploaded 3D models. Approving makes it live; rejecting needs a reason the
  *  seller will see. */
-export function ModerationQueue({ onError }: { onError: (msg: string | null) => void }) {
+export function ModerationQueue({ onError }: { onError: (msg: FormError) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const queue = useQuery({ queryKey: KEY, queryFn: getPendingQueue });
@@ -48,7 +48,7 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
   const approve = useMutation({
     mutationFn: (v: { target: ModerationTarget; id: string }) => approvePending(v.target, v.id),
     onSuccess: done,
-    onError: (err) => onError(errorMessage(err, t("dokon.mod.approve_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.mod.approve_failed")),
   });
   const reject = useMutation({
     mutationFn: () => rejectPending(rejecting!.target, rejecting!.id, note.trim()),
@@ -57,7 +57,7 @@ export function ModerationQueue({ onError }: { onError: (msg: string | null) => 
       setNote("");
       done();
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.mod.reject_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.mod.reject_failed")),
   });
 
   const stores = queue.data?.stores ?? [];

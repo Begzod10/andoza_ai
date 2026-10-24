@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { applyForStore, type SellerStore } from "@/lib/api";
-import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { formErrorText, localError, requestError, type FormError } from "@/lib/formError";
 import { isUzPhone } from "@/lib/phone";
 
 /** First step of becoming a seller: the shop's details. It goes to the admins
@@ -15,7 +15,7 @@ export function StoreApplyForm({ onApplied }: { onApplied: (store: SellerStore) 
   const [district, setDistrict] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   const apply = useMutation({
     mutationFn: () =>
@@ -26,7 +26,7 @@ export function StoreApplyForm({ onApplied }: { onApplied: (store: SellerStore) 
         telegram: telegram.trim() || null,
       }),
     onSuccess: onApplied,
-    onError: (err) => setError(errorMessage(err, t("seller.apply_failed"))),
+    onError: (err) => setError(requestError(err, "seller.apply_failed")),
   });
 
   return (
@@ -34,7 +34,7 @@ export function StoreApplyForm({ onApplied }: { onApplied: (store: SellerStore) 
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
-        if (phone.trim() && !isUzPhone(phone)) { setError(t("common.telefon_xato")); return; }
+        if (phone.trim() && !isUzPhone(phone)) { setError(localError("common.telefon_xato")); return; }
         if (name.trim()) apply.mutate();
       }}
       className="space-y-4"
@@ -53,7 +53,7 @@ export function StoreApplyForm({ onApplied }: { onApplied: (store: SellerStore) 
       </div>
       <Input label="Telegram" value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="@mebelplus" themed />
 
-      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
 
       <Button type="submit" disabled={!name.trim()} loading={apply.isPending} size="lg" className="w-full">
         {t("seller.apply_submit")}

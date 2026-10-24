@@ -90,7 +90,7 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     # --- auth and access -------------------------------------------------
     ("Not authenticated", "Вы не авторизованы", "Not authenticated", "Kirish talab qilinadi"),
     ("Could not validate credentials", "Не удалось проверить учётные данные", "Could not validate credentials", "Kirish ma'lumotlarini tekshirib bo'lmadi"),
-    ("Inactive user account", "Учётная запись отключена", "Inactive user account", "Hisob faol emas"),
+    ("Inactive user account", "Аккаунт отключён", "Inactive user account", "Hisob faol emas"),
     ("Faqat administrator uchun", "Только для администратора", "Administrators only"),
     ("OTP service temporarily unavailable. Try again later.", "Сервис кодов подтверждения временно недоступен. Повторите попытку позже.", "OTP service temporarily unavailable. Try again later.", "Tasdiqlash kodi xizmati vaqtincha ishlamayapti. Keyinroq qayta urinib ko'ring."),
     ("Too many OTP requests from this IP. Please wait before trying again.", "Слишком много запросов кода с этого IP-адреса. Подождите перед повторной попыткой.", "Too many OTP requests from this IP. Please wait before trying again.", "Bu IP manzildan tasdiqlash kodi juda ko'p so'raldi. Qayta urinishdan oldin biroz kuting."),
@@ -210,7 +210,7 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     ("Faqat administrator o'chira oladi", "Удалять может только администратор", "Only an administrator can delete"),
     ("Holat noto'g'ri", "Неверный статус", "Invalid status"),
     # --- orders ---------------------------------------------------------
-    ("Har bir qator katalogdagi material yoki mebelga bog'langan bo'lishi kerak.", "Каждая строка должна быть связана с материалом или мебелью из каталога.", "Every line must be linked to a catalogue material or furniture item."),
+    ("Har bir qator katalogdagi material yoki mebelga bog'langan bo'lishi kerak.", "Каждая строка должна быть связана с материалом или мебелью из каталога.", "Every line must be linked to a catalog material or furniture item."),
     ("Bitta buyurtmada faqat bitta do'kon mahsulotlari bo'lishi mumkin.", "В одном заказе могут быть товары только одного магазина.", "One order can only contain products from a single shop."),
     ("Noto'g'ri material ID.", "Неверный ID материала.", "Invalid material ID."),
     ("Noto'g'ri mebel ID.", "Неверный ID мебели.", "Invalid furniture ID."),

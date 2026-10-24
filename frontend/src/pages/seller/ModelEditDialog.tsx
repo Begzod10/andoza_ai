@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { updateMyModel, type SellerModel } from "@/lib/api";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
-import { errorMessage } from "@/pages/dokon/admin/errorMessage";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 /** Name, price and styles. The 3D file itself is not replaceable — upload a new model
  *  instead, which goes back through review. */
@@ -24,7 +24,7 @@ export function ModelEditDialog({
   const [name, setName] = useState(model.name_uz);
   const [price, setPrice] = useState(model.price_uzs != null ? String(model.price_uzs) : "");
   const [styles, setStyles] = useState<FurnitureStyle[]>(() => knownStyles(model.styles));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -37,7 +37,7 @@ export function ModelEditDialog({
       onSaved(saved);
       onClose();
     },
-    onError: (err) => setError(errorMessage(err, t("seller.save_failed"))),
+    onError: (err) => setError(requestError(err, "seller.save_failed")),
   });
 
   return (
@@ -53,7 +53,7 @@ export function ModelEditDialog({
         <Input themed label={t("dokon.admin.nomi")} value={name} onChange={(e) => setName(e.target.value)} />
         <Input themed label={t("dokon.admin.narxi_som")} type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
         <StyleChips value={styles} onChange={setStyles} />
-        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={onClose}>{t("common.bekor")}</Button>
           <Button type="submit" disabled={!name.trim()} loading={save.isPending}>{t("common.saqlash")}</Button>

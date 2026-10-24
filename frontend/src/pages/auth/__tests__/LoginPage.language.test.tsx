@@ -47,7 +47,7 @@ describe("LoginPage language", () => {
   it("shows validation errors in the chosen language", () => {
     applyLanguage("en");
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: "Log in" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
     expect(screen.getByRole("alert")).toHaveTextContent("Username and password are required.");
   });
 

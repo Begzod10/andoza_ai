@@ -55,7 +55,7 @@ class UserOut(BaseModel):
     name: str | None
     # Admins may remove shared library content (uploaded wallpapers)
     is_admin: bool = False
-    language: str = "uz"
+    language: Literal["uz", "ru", "en"] = "uz"
     created_at: datetime
 
     model_config = {"from_attributes": True}

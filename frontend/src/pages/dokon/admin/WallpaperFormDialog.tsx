@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { uploadWallpaper, type AdminStore } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
+import { requestError, type FormError } from "@/lib/formError";
 
 /**
  * Dialog form for adding an oboy: the image plus name/price/details — before
@@ -26,7 +26,7 @@ export function WallpaperFormDialog({
   onOpenChange: (open: boolean) => void;
   stores: AdminStore[];
   fixedStoreId?: string;
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -72,7 +72,7 @@ export function WallpaperFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.wp.upload_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.wp.upload_failed")),
   });
 
   return (

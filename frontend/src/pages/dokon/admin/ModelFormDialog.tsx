@@ -15,13 +15,13 @@ import {
   type AdminRoomType,
   type AdminStore,
 } from "@/lib/api";
-import { errorMessage } from "./errorMessage";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
 import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
+import { type FormError, formErrorText, requestError } from "@/lib/formError";
 
 /**
  * Dialog form for uploading a 3D model. When opened from a shop's profile,
@@ -40,7 +40,7 @@ export function ModelFormDialog({
   onOpenChange: (open: boolean) => void;
   stores: AdminStore[];
   fixedStoreId?: string;
-  onError: (msg: string | null) => void;
+  onError: (msg: FormError) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -55,7 +55,7 @@ export function ModelFormDialog({
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   // True while a model is being built from a photo (a minute or two).
   const [building, setBuilding] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<FormError>(null);
 
   function reset() {
     setNameUz("");
@@ -95,7 +95,7 @@ export function ModelFormDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, t("dokon.model.upload_failed"))),
+    onError: (err) => onError(requestError(err, "dokon.model.upload_failed")),
   });
 
   return (
@@ -202,7 +202,7 @@ export function ModelFormDialog({
             if (!nameUz.trim()) setNameUz(baseName);
           }}
         />
-        {photoError && <p role="alert" className="text-sm text-red-500">{photoError}</p>}
+        {photoError && <p role="alert" className="text-sm text-red-500">{formErrorText(t, photoError)}</p>}
 
         <ModelPreview3D themed file={file} onMeasured={setMeasured} />
 

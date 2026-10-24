@@ -100,3 +100,18 @@ def test_login_payload_has_language(client):
     )
     assert res.status_code == 200
     assert res.json()["user"]["language"] == "en"
+
+
+def test_user_out_only_accepts_known_languages():
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from pydantic import ValidationError
+
+    from app.schemas.auth import UserOut
+
+    base = dict(id=uuid4(), phone=None, username="ali", name=None, created_at=datetime.now(timezone.utc))
+    assert UserOut(**base).language == "uz"
+    assert UserOut(**base, language="en").language == "en"
+    with pytest.raises(ValidationError):
+        UserOut(**base, language="de")
