@@ -26,7 +26,11 @@ const baseSelect =
   'disabled:bg-neutral-100 ' +
   'disabled:text-neutral-500 disabled:cursor-not-allowed'
 
-const themedSelect = 'border-line bg-card-soft text-ink focus:ring-[#5B84F5]/70 disabled:bg-card-soft disabled:text-ink-muted disabled:opacity-60'
+// At night the native parts (the arrow, the open option list) follow `color-scheme`, which
+// otherwise stays light: a white list under a dark field.
+const themedSelect =
+  'border-line bg-card-soft text-ink focus:ring-[#5B84F5]/70 focus:ring-offset-card disabled:bg-card-soft disabled:text-ink-muted disabled:opacity-60 ' +
+  "[:root[data-app-theme='night']_&]:[color-scheme:dark]"
 
 const selectSizes: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-8 px-2.5 py-1.5 text-sm rounded',

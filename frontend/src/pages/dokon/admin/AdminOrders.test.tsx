@@ -51,6 +51,21 @@ describe('AdminOrders', () => {
     await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith('on_the_way', 1))
   })
 
+  it('marks exactly one stage chip as chosen, and Hammasi goes back to every order', async () => {
+    api.listAdminOrders.mockResolvedValue([])
+    mount()
+    await screen.findByText('Buyurtma topilmadi.')
+    const chip = (name: string) => screen.getByRole('button', { name })
+    expect(chip('Hammasi')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(chip('Yetkazildi'))
+    expect(chip('Yetkazildi')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Hammasi')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(1)
+    await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith('delivered', 1))
+    fireEvent.click(chip('Hammasi'))
+    await waitFor(() => expect(api.listAdminOrders).toHaveBeenLastCalledWith(undefined, 1))
+  })
+
   it('moves an order to its next stage', async () => {
     api.listAdminOrders.mockResolvedValue([order()])
     api.setAdminOrderStatus.mockResolvedValue(order({ status: 'gathering' }))
