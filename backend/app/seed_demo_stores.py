@@ -1,0 +1,245 @@
+"""Demo-store catalog seed for the presentation, safe to run on a live database.
+
+Run inside the backend container (deploy/remote-deploy.sh calls the first one)::
+
+    python -m app.seed_demo_stores            # insert what is missing
+    python -m app.seed_demo_stores --remove   # delete every DEMO store and its rows
+
+What this seeds
+---------------
+Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Keng Makon, Lumen LUX,
+Aura Lighting, Bestart, Sanat Hali, MAFF) with products and photos taken from their
+public websites by ``scripts/demo_catalog/fetch.py`` into
+``app/seed_data/demo_stores/``. There is no contract with these stores yet, so every
+store row carries ``moderation_note = DEMO_NOTE``; that note is what ``--remove``
+looks for, so the whole demo goes away with one command.
+
+Furniture is seeded without a 3-D model (``glb_key`` null): it shows in the shop with
+its photo, but the studio and the AI designer only place pieces that have a model.
+
+Idempotency
+-----------
+Insert-only, like ``app.seed_partners``: a store is looked up by ``name``, an item by
+``(name_uz, store_id)``, and an existing row is left alone (admin edits survive). A
+photo is uploaded only for a row being inserted. A store with a demo name that is
+*not* marked DEMO (a real partner added later under the same name) is never touched.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import uuid
+from pathlib import Path
+from typing import Awaitable, Callable
+
+from sqlalchemy import select
+
+from app.config import settings
+from app.core.cache import cache_delete_prefix, get_redis
+from app.core.storage import delete_file, storage_key_from, upload_file
+from app.database import AsyncSessionLocal
+from app.models.furniture import Furniture
+from app.models.material import Material
+from app.models.store import Store
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
+log = logging.getLogger(__name__)
+
+DEMO_PREFIX = "DEMO:"
+DEMO_NOTE = "DEMO: shartnomasiz namuna ma'lumot"
+DATA_DIR = Path(__file__).resolve().parent / "seed_data" / "demo_stores"
+
+# Storage keys of demo photos all sit under a demo/ folder, so --remove can delete
+# exactly the files this seed uploaded and nothing else.
+FURNITURE_KEY = "furniture/demo/{id}_thumb.webp"
+MATERIAL_KEY = "materials/demo/{id}.webp"
+
+LOGO_COLORS = ["#B45309", "#0F766E", "#1D4ED8", "#9D174D", "#4D7C0F",
+               "#7C3AED", "#C2410C", "#0E7490", "#A16207", "#334155"]
+
+# Defaults when the catalog row does not say: floor-standing, ceiling-hung for lamps.
+DEFAULT_PLACEMENT = {"lampa": "shift"}
+
+CACHE_PREFIXES = ("materials:", "furniture:", "stores:")
+
+Uploader = Callable[..., Awaitable[str]]
+
+
+def is_demo(store: Store) -> bool:
+    return (store.moderation_note or "").startswith(DEMO_PREFIX)
+
+
+def load_catalog(data_dir: Path = DATA_DIR) -> dict:
+    return json.loads((data_dir / "catalog.json").read_text(encoding="utf-8"))
+
+
+async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
+                 upload: Uploader = upload_file) -> dict[str, int]:
+    """Insert the missing demo rows through *session*; return what happened."""
+    counts = {"stores": 0, "furniture": 0, "materials": 0, "existing": 0, "skipped_real_store": 0}
+    for idx, data in enumerate(catalog["stores"]):
+        store = await session.scalar(select(Store).where(Store.name == data["name"]))
+        if store is None:
+            store = Store(
+                name=data["name"],
+                district=data.get("district"),
+                phone=data.get("phone"),
+                telegram=data.get("telegram"),
+                logo_color=LOGO_COLORS[idx % len(LOGO_COLORS)],
+                partner_tier="standard",
+                is_active=True,
+                status="approved",
+                moderation_note=DEMO_NOTE,
+            )
+            session.add(store)
+            await session.flush()
+            counts["stores"] += 1
+            log.info("Demo store created: %s", store.name)
+        elif not is_demo(store):
+            counts["skipped_real_store"] += 1
+            log.warning("Store %r exists and is not a DEMO store; its demo items are skipped", store.name)
+            continue
+
+        for item in data["items"]:
+            model = Furniture if item["kind"] == "furniture" else Material
+            existing = await session.scalar(
+                select(model).where(model.store_id == store.id, model.name_uz == item["name_uz"])
+            )
+            if existing is not None:
+                counts["existing"] += 1
+                continue
+            image = (data_dir / item["image"]).read_bytes()
+            if model is Furniture:
+                key = FURNITURE_KEY.format(id=uuid.uuid4())
+                stored = await upload(image, key, content_type="image/webp")
+                session.add(Furniture(
+                    store_id=store.id,
+                    category=item["category"],
+                    name_uz=item["name_uz"],
+                    price_uzs=item.get("price_uzs"),
+                    glb_key=None,
+                    thumbnail_key=stored if stored.startswith("http") else key,
+                    room_type=item.get("room_type"),
+                    styles=[],
+                    placement=item.get("placement") or DEFAULT_PLACEMENT.get(item["category"], "pol"),
+                    footprint_w=item.get("footprint_w"),
+                    footprint_d=item.get("footprint_d"),
+                    height_cm=item.get("height_cm"),
+                    is_active=True,
+                    status="approved",
+                ))
+                counts["furniture"] += 1
+            else:
+                key = MATERIAL_KEY.format(id=uuid.uuid4())
+                stored = await upload(image, key, content_type="image/webp")
+                session.add(Material(
+                    store_id=store.id,
+                    category=item["category"],
+                    name_uz=item["name_uz"],
+                    unit=item["unit"],
+                    price_uzs=item["price_uzs"],
+                    image_url=stored,  # a URL, like every other material's image_url
+                    pbr_roughness=0.5,
+                    is_active=True,
+                ))
+                counts["materials"] += 1
+        await session.flush()
+    return counts
+
+
+def _material_image_key(url: str | None) -> str | None:
+    """The storage key behind a material image_url this seed stored, else None."""
+    if not url:
+        return None
+    local = settings.MEDIA_URL_PREFIX.rstrip("/") + "/"
+    key = url[len(local):] if url.startswith(local) else storage_key_from(url)
+    return key if key.startswith("materials/demo/") else None
+
+
+async def _remove(session) -> tuple[dict[str, int], list[str]]:
+    """Delete every DEMO store with its furniture and materials; return counts and file keys."""
+    counts = {"stores": 0, "furniture": 0, "materials": 0}
+    keys: list[str] = []
+    stores = (await session.execute(select(Store))).scalars().all()
+    for store in [s for s in stores if is_demo(s)]:
+        # Furniture.store_id is ON DELETE SET NULL (a null store means "admin catalog"),
+        # so the rows are deleted here rather than left to orphan into the public list.
+        for f in (await session.execute(select(Furniture).where(Furniture.store_id == store.id))).scalars().all():
+            if f.thumbnail_key and "furniture/demo/" in f.thumbnail_key:
+                keys.append(storage_key_from(f.thumbnail_key))
+            await session.delete(f)
+            counts["furniture"] += 1
+        for m in (await session.execute(select(Material).where(Material.store_id == store.id))).scalars().all():
+            key = _material_image_key(m.image_url)
+            if key:
+                keys.append(key)
+            await session.delete(m)
+            counts["materials"] += 1
+        await session.flush()
+        await session.delete(store)
+        counts["stores"] += 1
+        log.info("Demo store removed: %s", store.name)
+    await session.flush()
+    return counts, keys
+
+
+async def _drop_caches() -> None:
+    for prefix in CACHE_PREFIXES:
+        try:
+            await cache_delete_prefix(prefix)
+        except Exception as exc:  # the rows are committed; a stale cache expires in 10 min
+            log.warning("Could not clear cache %r: %s", prefix, exc)
+    try:  # a one-shot script: close the pool before asyncio.run() closes the loop under it
+        await get_redis().aclose()
+    except Exception:
+        pass
+
+
+async def seed_demo_stores() -> dict[str, int]:
+    catalog = load_catalog()
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            counts = await _apply(session, catalog)
+    await _drop_caches()
+    return counts
+
+
+async def remove_demo_stores() -> dict[str, int]:
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            counts, keys = await _remove(session)
+    failed = 0
+    for key in keys:  # after the commit, so no live row ever points at a missing file
+        try:
+            await delete_file(key)
+        except Exception as exc:
+            failed += 1
+            log.warning("Could not delete %s: %s", key, exc)
+    counts["files_deleted"] = len(keys) - failed
+    await _drop_caches()
+    return counts
+
+
+async def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description="Seed or remove the demo-store catalog.")
+    ap.add_argument("--remove", action="store_true", help="delete every DEMO store and its rows")
+    args = ap.parse_args(argv)
+    if args.remove:
+        c = await remove_demo_stores()
+        print(
+            f"Demo stores removed: {c['stores']} stores, {c['furniture']} furniture,"
+            f" {c['materials']} materials, {c['files_deleted']} images deleted."
+        )
+        return
+    c = await seed_demo_stores()
+    print(
+        f"Demo stores seed complete: {c['stores']} stores, {c['furniture']} furniture,"
+        f" {c['materials']} materials inserted; {c['existing']} already there;"
+        f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
