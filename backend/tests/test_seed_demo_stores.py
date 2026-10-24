@@ -120,6 +120,40 @@ def test_the_window_store_is_labelled_as_average_market_prices():
         assert 100_000 <= item["price_uzs"] <= 5_000_000, item
 
 
+CARPET_VERSION = 3
+
+
+def _carpet_store() -> dict:
+    return next(s for s in CATALOG["stores"] if s["slug"] == "divan-uz")
+
+
+def test_carpets_come_from_divan_uz_as_version_3_rugs():
+    from PIL import Image
+
+    from app.services.ai_designer import infer_role
+
+    store = _carpet_store()
+    assert store["since"] == CARPET_VERSION and store["website"] == "https://divan.uz"
+    # Only the carpet store is new in version 3.
+    assert [s["slug"] for s in CATALOG["stores"]
+            if any(demo.item_since(s, i) == CARPET_VERSION for i in s["items"])] == ["divan-uz"]
+    assert 10 <= len(store["items"]) <= 20
+    for item in store["items"]:
+        assert item["kind"] == "furniture" and item["category"] == "boshqa", item
+        assert item["placement"] == "pol" and "room_type" not in item, item
+        # "gilam" in the name is what the studio and the AI designer read as a rug.
+        assert "gilam" in item["name_uz"].lower(), item
+        assert infer_role(item["category"], item["name_uz"]) == "rug", item
+        assert isinstance(item["price_uzs"], int) and 300_000 <= item["price_uzs"] <= 20_000_000, item
+        # The footprint is the rug's size in cm, the long side as the width.
+        w, d = item["footprint_w"], item["footprint_d"]
+        assert 50 <= d <= w <= 400, item
+        assert f"{d:g}×{w:g} sm" in item["name_uz"], item
+        assert item["source_url"].startswith("https://divan.uz/product/kover-"), item
+        with Image.open(demo.DATA_DIR / item["image"]) as im:
+            assert max(im.size) <= 800
+
+
 def test_no_photo_on_disk_is_unreferenced():
     referenced = {item["image"] for _, item in _items()}
     on_disk = {p.relative_to(demo.DATA_DIR).as_posix() for p in (demo.DATA_DIR / "images").rglob("*.webp")}
@@ -412,14 +446,19 @@ async def test_force_reseeds_after_a_remove_and_clears_the_marker(env, monkeypat
 # Catalog versions: rows added after the first seed
 # ---------------------------------------------------------------------------
 
-def _v1_catalog() -> dict:
-    """The catalog as production seeded it, before versions existed."""
+def _catalog_upto(version: int) -> dict:
+    """The catalog as it was at *version*: only the rows that version had."""
     stores = []
     for s in CATALOG["stores"]:
-        items = [i for i in s["items"] if demo.item_since(s, i) == 1]
+        items = [i for i in s["items"] if demo.item_since(s, i) <= version]
         if items:
             stores.append({**s, "items": items})
-    return {"stores": stores}
+    return {"version": version, "stores": stores}
+
+
+def _v1_catalog() -> dict:
+    """The catalog as production seeded it, before versions existed."""
+    return {"stores": _catalog_upto(1)["stores"]}
 
 
 async def _seed_like_production_did(session, uploads):
@@ -442,16 +481,18 @@ async def test_a_database_seeded_before_versions_gets_exactly_the_new_rows(env):
 
     newer = _newer_items()
     assert newer, "the catalog has rows added after version 1"
+    new_materials = [i for _, i in newer if i["kind"] == "material"]
+    new_furniture = [i for _, i in newer if i["kind"] == "furniture"]
     assert result["status"] == "seeded" and result["from_version"] == 1
-    assert result["materials"] == len(newer)
-    assert (result["furniture"], result["wallpapers"], result["existing"]) == (0, 0, 0)
+    assert (result["materials"], result["furniture"]) == (len(new_materials), len(new_furniture))
+    assert (result["wallpapers"], result["existing"]) == (0, 0)
     assert result["stores"] == len({s["name"] for s, _ in newer})
     added = set(session.of(Store)) - stores_before
-    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx"}
-    window_store = added.pop()
+    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx", "Divan.uz"}
+    window_store = next(st for st in added if st.name.startswith("Deraza"))
     assert window_store.is_demo is True and "o'rtacha narx" in window_store.moderation_note
     windows = [m for m in session.of(Material) if m.store_id == window_store.id]
-    assert sorted(m.name_uz for m in windows) == sorted(i["name_uz"] for _, i in newer)
+    assert sorted(m.name_uz for m in windows) == sorted(i["name_uz"] for i in new_materials)
     assert len(uploads.keys) - uploads_before == len(newer)
     assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{demo.catalog_version(CATALOG)}"]
 
@@ -499,13 +540,74 @@ async def test_a_removed_demo_blocks_new_versions_too(env):
     assert not session.of(Store) and not session.of(Material)
 
 
+async def _seed_at_version_2(session, monkeypatch):
+    """What production has after the window deploy: catalog v2 seeded, marker demo_stores_v2."""
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(2))
+    result = await demo.seed_demo_stores()
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    assert result["version"] == 2
+    assert [m.key for m in session.of(SeedMarker)] == ["demo_stores_v2"]
+    assert "Divan.uz" not in {st.name for st in session.of(Store)}
+
+
+async def test_the_v2_to_v3_upgrade_adds_only_the_carpets(env, monkeypatch):
+    session, uploads, _ = env
+    await _seed_at_version_2(session, monkeypatch)
+    stores_before, rows_before, uploads_before = set(session.of(Store)), len(session.rows), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    carpets = _carpet_store()["items"]
+    assert result["status"] == "seeded" and (result["from_version"], result["version"]) == (2, CARPET_VERSION)
+    assert (result["stores"], result["furniture"], result["materials"], result["wallpapers"], result["existing"]) == (
+        1, len(carpets), 0, 0, 0)
+    added = set(session.of(Store)) - stores_before
+    assert [st.name for st in added] == ["Divan.uz"]
+    store = added.pop()
+    assert store.is_demo is True and store.moderation_note == demo.DEMO_NOTE
+    rugs = [f for f in session.of(Furniture) if f.store_id == store.id]
+    assert sorted(f.name_uz for f in rugs) == sorted(i["name_uz"] for i in carpets)
+    for f in rugs:
+        assert f.category == "boshqa" and f.placement == "pol" and f.glb_key is None
+        assert f.footprint_w and f.footprint_d and f.price_uzs > 0
+    # The new rows are the store and its rugs (the version marker is swapped, not added).
+    assert len(session.rows) - rows_before == 1 + len(carpets)
+    assert len(uploads.keys) - uploads_before == len(carpets)
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{CARPET_VERSION}"]
+
+
+async def test_after_the_v3_upgrade_the_next_deploy_adds_nothing(env, monkeypatch):
+    session, uploads, _ = env
+    await _seed_at_version_2(session, monkeypatch)
+    await demo.seed_demo_stores()
+    rows, n_uploads = len(session.rows), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    assert result == {"status": "already_seeded", "version": CARPET_VERSION}
+    assert len(session.rows) == rows and len(uploads.keys) == n_uploads
+
+
+async def test_a_remove_at_version_2_keeps_the_carpets_out(env, monkeypatch):
+    session, _, _ = env
+    await _seed_at_version_2(session, monkeypatch)
+    await demo.remove_demo_stores()
+
+    result = await demo.seed_demo_stores()
+
+    assert result["status"] == "removed"
+    assert not session.of(Store) and not session.of(Furniture)
+
+
 async def test_a_new_version_reaches_a_database_already_at_an_older_marker(env, monkeypatch):
     session, uploads, _ = env
     await demo.seed_demo_stores()
-    # A later catalog adds a version-3 item to an existing store.
-    v3 = {"version": 3, "stores": [dict(s) for s in CATALOG["stores"]]}
+    # A later catalog adds an item to an existing store (the last one, the window store).
+    later = demo.catalog_version(CATALOG) + 1
+    v3 = {"version": later, "stores": [dict(s) for s in CATALOG["stores"]]}
     first = v3["stores"][-1]
-    extra = {**first["items"][0], "name_uz": "Yangi mahsulot", "since": 3}
+    assert first["items"][0]["kind"] == "material"
+    extra = {**first["items"][0], "name_uz": "Yangi mahsulot", "since": later}
     v3["stores"][-1] = {**first, "items": first["items"] + [extra]}
     monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: v3)
 
@@ -514,7 +616,7 @@ async def test_a_new_version_reaches_a_database_already_at_an_older_marker(env, 
     assert result["status"] == "seeded" and result["from_version"] == demo.catalog_version(CATALOG)
     assert (result["stores"], result["materials"], result["existing"]) == (0, 1, 0)
     assert "Yangi mahsulot" in {m.name_uz for m in session.of(Material)}
-    assert [m.key for m in session.of(SeedMarker)] == ["demo_stores_v3"]
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{later}"]
 
 
 async def test_a_real_store_with_a_demo_name_is_left_alone(env):

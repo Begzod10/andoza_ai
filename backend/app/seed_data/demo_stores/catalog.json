@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "stores": [
   {
    "slug": "dafna",
@@ -1978,6 +1978,256 @@
      "roll_length_m": 10.0,
      "image": "images/modnie-steni/28.webp",
      "source_url": "https://www.modnie-steni.uz/product/as-106-m-79081-1-eterna"
+    }
+   ]
+  },
+  {
+   "slug": "divan-uz",
+   "name": "Divan.uz",
+   "website": "https://divan.uz",
+   "phone": "+998712050975",
+   "telegram": "@official_divan_uz",
+   "since": 3,
+   "items": [
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Alina-Delphi 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 1676530,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/1.webp",
+     "source_url": "https://divan.uz/product/kover-alina-delphi-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Olvi-Adagio 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 1676530,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/2.webp",
+     "source_url": "https://divan.uz/product/kover-olvi-adagio-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Nero-Tach 200×290 sm",
+     "category": "boshqa",
+     "price_uzs": 3812230,
+     "placement": "pol",
+     "footprint_w": 290.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/3.webp",
+     "source_url": "https://divan.uz/product/kover-nero-tach-200x290"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Ungaro-Ameli 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 2286730,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/4.webp",
+     "source_url": "https://divan.uz/product/kover-ungaro-ameli-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Time-Matrix 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 1829080,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/5.webp",
+     "source_url": "https://divan.uz/product/kover-time-matrix-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Nuel 200×300 sm",
+     "category": "boshqa",
+     "price_uzs": 3049480,
+     "placement": "pol",
+     "footprint_w": 300.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/6.webp",
+     "source_url": "https://divan.uz/product/kover-nuel-200300"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Stuf-Vintage 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 1264640,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/7.webp",
+     "source_url": "https://divan.uz/product/kover-stuf-vintage-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Line-Pink 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 2134180,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/8.webp",
+     "source_url": "https://divan.uz/product/kover-line-pink-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Yukken 200×300 sm",
+     "category": "boshqa",
+     "price_uzs": 2896930,
+     "placement": "pol",
+     "footprint_w": 300.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/9.webp",
+     "source_url": "https://divan.uz/product/kover-yukken-200300"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Memory-Blue 120×180 sm",
+     "category": "boshqa",
+     "price_uzs": 1676530,
+     "placement": "pol",
+     "footprint_w": 180.0,
+     "footprint_d": 120.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/10.webp",
+     "source_url": "https://divan.uz/product/kover-memory-blue-120x180"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Mineral-Blue 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 2225710,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/11.webp",
+     "source_url": "https://divan.uz/product/kover-mineral-blue-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Mirna 200×300 sm",
+     "category": "boshqa",
+     "price_uzs": 2896930,
+     "placement": "pol",
+     "footprint_w": 300.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/12.webp",
+     "source_url": "https://divan.uz/product/kover-mirna-200300"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Rabbit-Grey 120×170 sm",
+     "category": "boshqa",
+     "price_uzs": 2744380,
+     "placement": "pol",
+     "footprint_w": 170.0,
+     "footprint_d": 120.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/13.webp",
+     "source_url": "https://divan.uz/product/kover-rabbit-grey-120x170"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Relax-Grand 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 2439280,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/14.webp",
+     "source_url": "https://divan.uz/product/kover-relax-grand-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Findli 200×300 sm",
+     "category": "boshqa",
+     "price_uzs": 3430850,
+     "placement": "pol",
+     "footprint_w": 300.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/15.webp",
+     "source_url": "https://divan.uz/product/kover-findli-200x300"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Vivica-Grey-Blue 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 4880080,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/16.webp",
+     "source_url": "https://divan.uz/product/kover-vivica-grey-blue-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Byords-Etnik 120×180 sm",
+     "category": "boshqa",
+     "price_uzs": 2896930,
+     "placement": "pol",
+     "footprint_w": 180.0,
+     "footprint_d": 120.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/17.webp",
+     "source_url": "https://divan.uz/product/kover-brds-etnik-120x180"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Tut Ryadom Neojidanno Bejeviy 200×300 sm",
+     "category": "boshqa",
+     "price_uzs": 3125750,
+     "placement": "pol",
+     "footprint_w": 300.0,
+     "footprint_d": 200.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/18.webp",
+     "source_url": "https://divan.uz/product/kover-tut-ryadom-neojidanno-bejevyj-200x300"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Lata-Etnik 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 3507130,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/19.webp",
+     "source_url": "https://divan.uz/product/kover-lata-etnik-160x230"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Gilam Ardjil-Etnik-Blue 160×230 sm",
+     "category": "boshqa",
+     "price_uzs": 3659680,
+     "placement": "pol",
+     "footprint_w": 230.0,
+     "footprint_d": 160.0,
+     "height_cm": 1.0,
+     "image": "images/divan-uz/20.webp",
+     "source_url": "https://divan.uz/product/kover-ardjil-etnik-blue-160x230"
     }
    ]
   },
