@@ -103,7 +103,7 @@ const WINDOW_SIDE = 0.05
 const LIGHT_CLEARANCE = 0.25
 
 /** Gap between a piece and the wall, and between neighbours, metres. */
-const WALL_GAP = 0.04
+export const WALL_GAP = 0.04
 const MARGIN = 0.08
 /** How far in from the wall the room's own outline is taken to start, for a polygon room, metres. */
 const OUTLINE_INSET = 0.02
@@ -202,7 +202,7 @@ export function parseZone(zone: string, model: RoomModel): ParsedZone | null {
 }
 
 /** Do two footprints, each grown by the margin, overlap? (Separating axes: exact for turned rectangles.) */
-function overlaps(a: Rect, b: Rect, margin = MARGIN): boolean {
+export function overlaps(a: Rect, b: Rect, margin = MARGIN): boolean {
   const ca = rectCorners({ ...a, w: a.w + margin, d: a.d + margin })
   const cb = rectCorners({ ...b, w: b.w + margin, d: b.d + margin })
   for (const poly of [ca, cb]) {
@@ -244,7 +244,7 @@ function nearestFree(
 export interface PieceSize { w: number; d: number; /** Tall or wall-hung: must not stand in front of a window. */ tall?: boolean }
 
 /** Does the footprint stand where an opening must stay clear? Windows only matter to tall pieces. */
-function blocksOpening(r: Rect, tall: boolean, model: RoomModel, rules: { doors: boolean; windows: boolean }): boolean {
+export function blocksOpening(r: Rect, tall: boolean, model: RoomModel, rules: { doors: boolean; windows: boolean }): boolean {
   return model.clear.some((z) => (z.kind === 'door' ? rules.doors : rules.windows && tall) && overlaps(r, z.rect, 0))
 }
 
