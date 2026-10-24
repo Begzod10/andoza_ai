@@ -1,14 +1,16 @@
 /**
  * The cases a tidy 4 x 3 room hides: a tiny room, an L-shaped one, a request for more pieces than fit.
  * Whatever the room, a placed piece is inside it, clear of the door and of the others; a piece with no
- * clean place is left out and counted, never piled on top of another.
+ * clean place is left out and counted, never piled on top of another. Pieces go in groups now, so a
+ * whole group may be left out, and a chair line counts as the chairs its table seats.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useRoomStore } from '@/store/roomStore'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import type { AiDesignPlan, CatalogFurniture } from '@/lib/api'
 import { ALL_PARTS, applyDesignPlan } from '../aiDesign'
-import { rectBounds, roomModel, type Rect } from '../aiDesignLayout'
+import { overlaps, rectBounds, roomModel, type Rect } from '../aiDesignLayout'
+import { chairCount } from '../furnitureGroups'
 
 const el = (type: WallElement['type'], width: number, position: number): WallElement =>
   ({ id: `${type}-${position}`, type, width, height: 2000, sill_height: type === 'deraza' ? 900 : 0, position, positionAuto: false }) as WallElement
@@ -53,7 +55,10 @@ describe('a tiny room: 2.4 x 2.0 m, door on one wall, window on another', () => 
   it('accounts for every piece it is asked for, and keeps the placed ones inside the room', () => {
     const { applied, placed, model, rects } = run(tiny(), [['karavot', 'wall_C'], ['shkaf', 'wall_D'], ['tumba', 'corner_C_D'], ['stul', 'center']])
     expect(placed.length + applied.skipped).toBe(4)
-    expect(placed.length).toBeGreaterThanOrEqual(2)
+    // Left out: the bed (no 0.6 m to get in at both sides and the foot), the wardrobe (its doors would open
+    // onto the TV stand or into the door swing) and the lone chair (no table to stand at). The TV stand stays.
+    expect(placed.map((f) => f.furniture_id)).toEqual(['tumba'])
+    expect(applied.dropped.map((d) => d.name)).toEqual(['karavot', 'shkaf', 'stul'])
     for (const r of rects) expect(model.inside(r)).toBe(true)
   })
 
@@ -79,9 +84,11 @@ describe('an L-shaped drawn room, door on its first wall', () => {
   }) as unknown as RoomGeometry
 
   it('places pieces inside the L, not in the notch', () => {
-    const { placed, model, rects } = run(lshape(), [['divan', 'wall_W6'], ['stol', 'center'], ['kreslo', 'corner_W5_W6'], ['tv', 'wall_W4']])
-    expect(placed).toHaveLength(4)
+    const { applied, placed, model, rects } = run(lshape(), [['divan', 'wall_W6'], ['stol', 'center'], ['kreslo', 'corner_W5_W6'], ['tv', 'wall_W4']])
+    expect(placed.length + applied.skipped).toBe(4)
+    expect(placed.length).toBeGreaterThanOrEqual(3) // an armchair is the one piece that may drop on its own
     for (const r of rects) expect(model.inside(r)).toBe(true)
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(overlaps(rects[i], rects[j], 0)).toBe(false)
   })
 
   it('knows where the door and window are on a polygon room too', () => {
@@ -109,10 +116,33 @@ describe('more pieces than fit', () => {
       ['karavot', 'wall_A'], ['tumba', 'corner_C_D'], ['stul', 'wall_B'],
     ]
     const { applied, placed, rects, model } = run(room(), asked)
-    expect(placed.length + applied.skipped).toBe(8)
+    // The chair line stands for the chairs round the 1.1 m table: four of them.
+    expect(placed.length + applied.skipped).toBe(8 - 1 + chairCount(1.1))
+    // With no room type the bed leads. A 2.0 x 1.6 m bed with 0.6 m at both sides and its foot fits only on
+    // a 4 m wall (3.2 m of it) and takes 2.2 of the 3 m depth, wherever it slides: the 0.76 m strip left is
+    // too shallow for the sofa (0.9 m), the wardrobe and its doors (1.3 m) or a dining table with chairs.
+    // So the bed stands alone and everything else is named as left out.
+    expect(placed.map((f) => f.furniture_id)).toEqual(['karavot'])
+    for (const r of rects) expect(model.inside(r)).toBe(true)
+    for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
+  })
+
+  it('without the bed, most of the room fits', () => {
+    const asked: Array<[string, string]> = [
+      ['divan', 'wall_C'], ['tv', 'wall_B'], ['shkaf', 'wall_D'], ['kreslo', 'corner_A_B'], ['stol', 'center'],
+      ['tumba', 'corner_C_D'], ['stul', 'wall_B'],
+    ]
+    const { applied, placed, rects, model } = run(room(), asked)
+    expect(placed.length + applied.skipped).toBe(7 - 1 + chairCount(1.1))
     expect(placed.length).toBeGreaterThanOrEqual(4)
     for (const r of rects) expect(model.inside(r)).toBe(true)
     for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        if ([placed[i].furniture_id, placed[j].furniture_id].sort().join('+') === 'stol+stul') continue // a chair tucks under its table
+        expect(overlaps(rects[i], rects[j], 0)).toBe(false)
+      }
+    }
   })
 
   it('never puts two pieces on top of one another while there is room', () => {

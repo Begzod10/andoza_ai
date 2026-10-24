@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import type { TFunction } from 'i18next'
 import type { AiDesignPlan } from '@/lib/api'
 import type { CatalogFurniture } from '@/lib/api'
 import { useRoomStore } from '@/store/roomStore'
@@ -7,7 +8,10 @@ import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import type { FloorPatternId } from '@/lib/floorGeometry'
 import { lightType } from '@/lib/lightCatalog'
 import type { LightTypeId } from '@/lib/lightCatalog'
-import { furnitureSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
+import { lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
+import type { Piece } from '@/lib/furnitureGroups'
+import { layoutFurniture } from '@/lib/furnitureLayout'
+import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
 export interface DesignParts { walls: boolean; floor: boolean; lights: boolean; furniture: boolean }
@@ -35,11 +39,21 @@ export function restoreDesign(snapshot: DesignSnapshot): void {
 }
 
 export interface AppliedCounts { walls: boolean; floor: boolean; lights: number; furniture: number
-  /** Pieces left out because there was no clean place for them (they would block a door or window, or overlap). */
-  skipped: number }
+  /** Pieces left out because there was no clean place for them (the total of `dropped`). */
+  skipped: number
+  /** What was left out, by name, with how many. */
+  dropped: Array<{ name: string; count: number }> }
 
-const FLOOR_COVERINGS = /gilam|rug|carpet|kovrolin/i
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
+
+/** A catalog category that is a floor covering: such a piece is a rug whatever its name or the plan says. */
+const RUG_CATEGORY = /gilam|rug|carpet|kovrolin/i
+
+/** A plan piece's role: a rug by its catalog category, else the plan's own role when it is a known one, else from its category and name. */
+function roleOf(p: AiDesignPlan['furniture'][number], item: CatalogFurniture | undefined): FurnitureRole {
+  if (item && RUG_CATEGORY.test(item.category)) return 'rug'
+  return isRole(p.role) ? p.role : inferRole(item?.category, p.name)
+}
 
 /** Pieces that stand tall: they would shut out a window. (Wall-hung pieces count too, see tallOf.) */
 const TALL_PIECES = /shkaf|garderob|vitrina|stellaj|kitob|javon|pianino|bufet|komod|wardrobe|bookcase|cabinet/i
@@ -68,11 +82,12 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
 /**
  * Puts the chosen parts of a plan into the room, on top of what is there: the wall finish and the
  * floor are replaced, and an earlier design's lights and furniture are replaced: the user's own
- * stay, and new pieces avoid them. Returns what was applied; `restoreDesign(snapshot)` undoes it.
+ * stay, and new pieces avoid them. Furniture is laid out in groups (`layoutFurniture`), the room's
+ * main group, from `roomType`, first. Returns what was applied; `restoreDesign(snapshot)` undoes it.
  */
-export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[]): AppliedCounts {
+export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string): AppliedCounts {
   const store = useRoomStore.getState()
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0 }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [] }
 
   if (parts.walls && plan.walls.main) {
     const main = plan.walls.main
@@ -131,25 +146,30 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const size = sizeOf(byId.get(f.furniture_id))
       return { x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }
     })
-    // Rugs lie under everything and block nothing; the rest go largest first, so the sofa gets its wall.
-    const items = plan.furniture.map((p) => ({ p, item: byId.get(p.id) }))
-    const isRug = (i: (typeof items)[number]) => FLOOR_COVERINGS.test(`${i.item?.category ?? ''} ${i.p.name}`)
-    const area = (i: (typeof items)[number]) => sizeOf(i.item).w * sizeOf(i.item).d
-    items.sort((a, b) => Number(isRug(b)) - Number(isRug(a)) || area(b) - area(a))
-
-    for (const entry of items) {
-      const size = sizeOf(entry.item)
-      const rug = isRug(entry)
-      const spot = furnitureSpot(rug ? 'center' : entry.p.zone, size, model, rug ? [] : taken)
-      // A piece that only fits across a door or window, or on top of another, is left out: a bare
-      // corner is better than a blocked door. Rugs lie flat and always go in.
-      if (!rug && spot.fit !== 'ok') { applied.skipped++; continue }
-      if (!rug) taken.push(spot.rect)
+    const pieces: Piece[] = plan.furniture.map((p) => {
+      const item = byId.get(p.id)
+      return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
+    })
+    const { placed, dropped } = layoutFurniture(pieces, model, roomType, taken)
+    // Each placed piece is its own entry, chairs round a table too (they share one plan line).
+    for (const { piece, rect } of placed) {
       store.placeFurniture({
-        id: nanoid(), furniture_id: entry.p.id, x: spot.x * 1000, y: spot.z * 1000, rotation: spot.rotation, fromDesign: true,
+        id: nanoid(), furniture_id: piece.id, x: rect.x * 1000, y: rect.z * 1000, rotation: rect.rotation, fromDesign: true,
       })
-      applied.furniture++
     }
+    applied.furniture = placed.length
+    applied.dropped = dropped
+    applied.skipped = dropped.reduce((s, d) => s + d.count, 0)
   }
   return applied
+}
+
+/**
+ * The notice line naming what did not fit ("Joy yetmadi: Ovqat stoli, 4 ta stul qo'yilmadi."), or
+ * empty when everything did. Built with `t` when the design is applied.
+ */
+export function droppedNotice(dropped: AppliedCounts['dropped'], t: TFunction): string {
+  if (dropped.length === 0) return ''
+  const list = dropped.map(({ name, count }) => t('ai.dropped_item', { name, count })).join(', ')
+  return t('ai.joy_yetmadi', { list })
 }
