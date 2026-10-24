@@ -48,7 +48,7 @@ Vite inlines `import.meta.env.VITE_API_URL` **at build time** (see
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://andozaai.uz/api/v1}
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
 ```
 
 - It **must** be the HTTPS API base. If it's ever set to a plain-`http://` URL (or
@@ -195,9 +195,9 @@ certbot --nginx -d andozaai.uz -d www.andozaai.uz -d andoza.jumaniyozov.uz --agr
 curl -s -o /dev/null -w "%{http_code}\n" https://andozaai.uz/api/v1/furniture   # 200
 # HTTP redirects to HTTPS
 curl -s -o /dev/null -w "%{redirect_url}\n" http://andozaai.uz/                  # https://…
-# The built bundle points at the HTTPS API (not a raw http IP)
+# The built bundle calls the API on its own origin (relative /api/v1)
 JS=$(curl -s https://andozaai.uz/ | grep -oE '/assets/index-[^"]+\.js' | head -1)
-curl -s "https://andozaai.uz$JS" | grep -oE 'https://andozaai\.uz/api/v1'
+curl -s "https://andozaai.uz$JS" | grep -oE '"/api/v1"'
 ```
 
 ---

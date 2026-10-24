@@ -168,7 +168,10 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://andozaai.uz/api/v1}
+        # Relative, so the API is always the page's own origin: andozaai.uz and
+        # the old andoza.jumaniyozov.uz both work (nginx proxies /api on each),
+        # and the SameSite=Lax auth cookies stay first-party.
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
     ports:
       - "5173:80"
     restart: unless-stopped
