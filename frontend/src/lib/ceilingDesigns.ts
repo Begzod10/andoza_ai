@@ -18,6 +18,7 @@
  */
 
 import type { LightTypeId } from './lightCatalog'
+import type { TKey } from '@/i18n'
 
 export type CeilingDesignId =
   | 'flat'
@@ -48,10 +49,9 @@ export type CeilingSettingKey = keyof CeilingSettings
 
 export interface CeilingDesign {
   id: CeilingDesignId
-  /** Uzbek label for the picker. */
-  label: string
-  /** What it does to a room, in one line. */
-  hint: string
+  /** Locale keys: the picker label, and what it does to a room in one line. */
+  labelKey: TKey
+  hintKey: TKey
   /** Fixtures that belong with it — the pairing is half the design. */
   lighting: LightTypeId[]
   /** Which settings this design responds to; the rest are inert for it. */
@@ -72,8 +72,8 @@ export const CEILING_SETTING_DEFAULTS: CeilingSettings = {
 export const CEILING_DESIGNS: CeilingDesign[] = [
   {
     id: 'flat',
-    label: 'Tekis shift',
-    hint: "Butun shiftni bir tekis pasaytiradi — sodda va toza yuza.",
+    labelKey: 'studio.lib.ceiling.flat.label',
+    hintKey: 'studio.lib.ceiling.flat.hint',
     lighting: ['spotlight', 'track', 'led_linear'],
     uses: ['drop', 'gap', 'strip', 'stripK', 'color'],
     // 10 cm — the drop the trade actually specifies for a flat plasterboard
@@ -82,40 +82,40 @@ export const CEILING_DESIGNS: CeilingDesign[] = [
   },
   {
     id: 'double_layer',
-    label: 'Ikki qavatli shift',
-    hint: "Chuqurlik va hajm qo'shadi — ikki bosqichli yuza.",
+    labelKey: 'studio.lib.ceiling.double_layer.label',
+    hintKey: 'studio.lib.ceiling.double_layer.hint',
     lighting: ['downlight', 'spotlight', 'led_linear'],
     uses: ['drop', 'innerDrop', 'border', 'strip', 'stripK', 'color'],
     defaults: { drop: 80, innerDrop: 90, border: 450 },
   },
   {
     id: 'floating',
-    label: 'Suzuvchi shift',
-    hint: "Suzib turgandek yengil ko'rinish — chekkasi bo'ylab yoritiladi.",
+    labelKey: 'studio.lib.ceiling.floating.label',
+    hintKey: 'studio.lib.ceiling.floating.hint',
     lighting: ['track', 'spotlight', 'led_linear'],
     uses: ['drop', 'border', 'gap', 'strip', 'stripK', 'color'],
     defaults: { drop: 120, border: 500, gap: 90 },
   },
   {
     id: 'border',
-    label: 'Hoshiyali shift',
-    hint: 'Xona chegarasini aniq belgilaydigan toza hoshiya.',
+    labelKey: 'studio.lib.ceiling.border.label',
+    hintKey: 'studio.lib.ceiling.border.hint',
     lighting: ['downlight', 'spotlight', 'led_linear'],
     uses: ['drop', 'border', 'strip', 'stripK', 'color'],
     defaults: { drop: 110, border: 420 },
   },
   {
     id: 'non_drop',
-    label: 'Tushirilmagan shift',
-    hint: "Oddiy, minimal va zamonaviy — balandlik butunlay saqlanadi.",
+    labelKey: 'studio.lib.ceiling.non_drop.label',
+    hintKey: 'studio.lib.ceiling.non_drop.hint',
     lighting: ['downlight', 'spotlight', 'track', 'led_track'],
     uses: ['color'],
     defaults: { drop: 0, strip: false },
   },
   {
     id: 'recessed',
-    label: 'Nishli shift',
-    hint: "Yashirin nish — yumshoq va hashamatli yorug'lik beradi.",
+    labelKey: 'studio.lib.ceiling.recessed.label',
+    hintKey: 'studio.lib.ceiling.recessed.hint',
     lighting: ['downlight', 'spotlight', 'led_linear'],
     uses: ['drop', 'border', 'gap', 'strip', 'stripK', 'color'],
     defaults: { drop: 130, border: 380, gap: 70 },
@@ -139,13 +139,13 @@ export function resolveCeilingSettings(
 /** Slider bounds for the panel, in mm. `strip` and `color` are not sliders. */
 export const CEILING_SETTING_RANGE: Record<
   Exclude<CeilingSettingKey, 'strip' | 'color'>,
-  { label: string; min: number; max: number; step: number; unit: string }
+  { labelKey: TKey; min: number; max: number; step: number; unit: string }
 > = {
-  drop: { label: 'Pasaytirish', min: 40, max: 400, step: 10, unit: 'mm' },
-  border: { label: 'Hoshiya kengligi', min: 150, max: 1200, step: 10, unit: 'mm' },
-  innerDrop: { label: "Ikkinchi qavat", min: 30, max: 300, step: 10, unit: 'mm' },
-  gap: { label: 'Nish kengligi', min: 30, max: 200, step: 5, unit: 'mm' },
-  stripK: { label: 'Lenta harorati', min: 2200, max: 6500, step: 100, unit: 'K' },
+  drop: { labelKey: 'studio.lib.ceiling_range.drop', min: 40, max: 400, step: 10, unit: 'mm' },
+  border: { labelKey: 'studio.lib.ceiling_range.border', min: 150, max: 1200, step: 10, unit: 'mm' },
+  innerDrop: { labelKey: 'studio.lib.ceiling_range.innerDrop', min: 30, max: 300, step: 10, unit: 'mm' },
+  gap: { labelKey: 'studio.lib.ceiling_range.gap', min: 30, max: 200, step: 5, unit: 'mm' },
+  stripK: { labelKey: 'studio.lib.ceiling_range.stripK', min: 2200, max: 6500, step: 100, unit: 'K' },
 }
 
 // ─── Geometry ─────────────────────────────────────────────────────────────────

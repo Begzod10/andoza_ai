@@ -1,10 +1,19 @@
 import { Link } from "react-router-dom";
-import { LANGS, LanguageProvider, useLang } from "./landing/i18n";
-import { DELETE_ACCOUNT } from "./landing/deleteAccountContent";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+
+interface DeleteAccountDoc {
+  title: string;
+  intro: string;
+  /** Paragraphs and, where a string starts with "• ", bullet points. */
+  sections: { title: string; body: string[] }[];
+  login: string;
+  back: string;
+}
 
 function Guide() {
-  const { lang, setLang } = useLang();
-  const doc = DELETE_ACCOUNT[lang];
+  const { t } = useTranslation();
+  const doc = t("landing.deleteAccount", { returnObjects: true }) as DeleteAccountDoc;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#eef0f4] text-neutral-900">
@@ -13,21 +22,7 @@ function Guide() {
           <img src="/icon.svg" alt="andoza.ai" className="h-8 w-8" />
           <span className="text-base font-bold tracking-tight">andoza.ai</span>
         </Link>
-        <div role="group" aria-label="Language" className="flex gap-1 rounded-full bg-black/5 p-1">
-          {LANGS.map((l) => (
-            <button
-              key={l.code}
-              type="button"
-              aria-pressed={lang === l.code}
-              onClick={() => setLang(l.code)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                lang === l.code ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"
-              }`}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
+        <LanguageSwitcher />
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pb-16">
@@ -66,10 +61,6 @@ function Guide() {
   );
 }
 
-export default function PrivacyPage() {
-  return (
-    <LanguageProvider>
-      <Guide />
-    </LanguageProvider>
-  );
+export default function DeleteAccountPage() {
+  return <Guide />;
 }

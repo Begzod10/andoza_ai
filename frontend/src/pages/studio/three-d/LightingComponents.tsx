@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+import { useTranslation } from "react-i18next";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
@@ -440,7 +442,7 @@ export function DraggableLightModels({
     // armed BEFORE the select-only early return below, which is where a press
     // on an unselected light stops.
     holdBind({
-      label: lightType(light.type)?.name ?? 'Chiroq',
+      label: i18n.t(lightType(light.type).nameKey),
       onDelete: () => useRoomStore.getState().removeLight(light.id),
     }).onPointerDown(e)
     // An already-selected light is draggable right away, no tool-mode switch
@@ -671,6 +673,7 @@ function LightWallDistanceLabels({
   isDragging: boolean
   dragPosRef: MutableRefObject<THREE.Vector2>
 }) {
+  const { t: tr } = useTranslation();
   // Mirrors dragPosRef's own (xMm, zMm) convention — see startDrag/handleMove.
   const [live, setLive] = useState({ x: light.xMm, z: light.zMm })
 
@@ -714,16 +717,16 @@ function LightWallDistanceLabels({
     // it, and the light stuck whenever the finger crossed one.
     <>
       <Html position={[leftMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distLeft / 1000).toFixed(2)} m</div>
+        <div style={wallDimLabelStyle}>{(distLeft / 1000).toFixed(2)} {tr('common.m')}</div>
       </Html>
       <Html position={[rightMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distRight / 1000).toFixed(2)} m</div>
+        <div style={wallDimLabelStyle}>{(distRight / 1000).toFixed(2)} {tr('common.m')}</div>
       </Html>
       <Html position={[worldX, y, backMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distBack / 1000).toFixed(2)} m</div>
+        <div style={wallDimLabelStyle}>{(distBack / 1000).toFixed(2)} {tr('common.m')}</div>
       </Html>
       <Html position={[worldX, y, frontMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distFront / 1000).toFixed(2)} m</div>
+        <div style={wallDimLabelStyle}>{(distFront / 1000).toFixed(2)} {tr('common.m')}</div>
       </Html>
     </>
   )

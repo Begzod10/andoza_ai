@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel } from "@/components/ui/Panel";
 import { ChevronLeft, Store, Boxes } from "lucide-react";
@@ -34,6 +35,7 @@ const MODELS_KEY = ["seller", "models"] as const;
  *   approved  -> their 3D models, with upload / hide / edit / delete
  */
 export default function SellerPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -57,20 +59,20 @@ export default function SellerPage() {
   const resubmit = useMutation({
     mutationFn: resubmitMyStore,
     onSuccess: setStore,
-    onError: (err) => setError(errorMessage(err, "Qayta yuborib bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("seller.resubmit_failed"))),
   });
 
   const toggle = useMutation({
     mutationFn: (m: SellerModel) => updateMyModel(m.id, { is_active: !m.is_active }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
-    onError: (err) => setError(errorMessage(err, "O'zgartirib bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("seller.toggle_failed"))),
   });
 
   const confirm = useConfirm();
   const remove = useMutation({
     mutationFn: (m: SellerModel) => deleteMyModel(m.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
-    onError: (err) => setError(errorMessage(err, "O'chirib bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("seller.remove_failed"))),
   });
 
   const busy = toggle.isPending || remove.isPending;
@@ -79,11 +81,11 @@ export default function SellerPage() {
     <div className="min-h-screen bg-paper pb-24">
       <div className="max-w-4xl mx-auto p-4 space-y-5">
         <Panel className="flex items-center gap-3 px-3 py-2.5">
-          <button onClick={() => navigate(-1)} aria-label="Orqaga" className="h-10 w-10 rounded-full bg-card-soft flex items-center justify-center text-ink-muted hover:text-ink transition-colors">
+          <button onClick={() => navigate(-1)} aria-label={t("common.orqaga")} className="h-10 w-10 rounded-full bg-card-soft flex items-center justify-center text-ink-muted hover:text-ink transition-colors">
             <ChevronLeft size={20} aria-hidden="true" />
           </button>
           <IconBubble tone="green" className="h-10 w-10 rounded-2xl"><Store size={18} aria-hidden="true" /></IconBubble>
-          <h1 className="text-lg font-extrabold text-ink">Sotuvchi paneli</h1>
+          <h1 className="text-lg font-extrabold text-ink">{t("seller.title")}</h1>
         </Panel>
 
         {error && <div role="alert" className="rounded-2xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm font-medium px-4 py-2.5">{error}</div>}
@@ -91,7 +93,7 @@ export default function SellerPage() {
         {storeQuery.isLoading ? (
           <div className="h-32 rounded-3xl bg-card animate-pulse" />
         ) : storeQuery.isError ? (
-          <p className="text-sm text-red-500">{errorMessage(storeQuery.error, "Yuklab bo'lmadi")}</p>
+          <p className="text-sm text-red-500">{errorMessage(storeQuery.error, t("dokon.admin.yuklab_bolmadi"))}</p>
         ) : !store ? (
           <Panel className="p-6"><StoreApplyForm onApplied={setStore} /></Panel>
         ) : (
@@ -101,7 +103,7 @@ export default function SellerPage() {
                 <div className="min-w-0">
                   <h2 className="text-lg font-extrabold text-ink truncate">{store.name}</h2>
                   <p className="text-xs text-ink-muted truncate">
-                    {[store.district, store.phone, store.telegram].filter(Boolean).join(" · ") || "Aloqa ma'lumotlari kiritilmagan"}
+                    {[store.district, store.phone, store.telegram].filter(Boolean).join(" · ") || t("seller.no_contact")}
                   </p>
                 </div>
                 <StatusBadge status={store.status} />
@@ -109,22 +111,22 @@ export default function SellerPage() {
 
               {store.status === "pending" && (
                 <p className="text-sm text-ink-muted">
-                  Arizangiz ko'rib chiqilmoqda. Tasdiqlangach, 3D modellaringizni yuklashingiz mumkin.
+                  {t("seller.pending")}
                 </p>
               )}
               {store.status === "rejected" && (
                 <div className="space-y-2">
                   <p className="text-sm text-red-500">
-                    Ariza rad etildi{store.moderation_note ? `: ${store.moderation_note}` : "."}
+                    {store.moderation_note ? t("seller.rejected_note", { note: store.moderation_note }) : t("seller.rejected")}
                   </p>
                   <Button size="sm" onClick={() => resubmit.mutate()} loading={resubmit.isPending}>
-                    Tuzatib, qayta yuborish
+                    {t("seller.resubmit")}
                   </Button>
                 </div>
               )}
 
               <div>
-                <Button variant="soft" size="sm" onClick={() => setEditingStore(true)}>Ma'lumotlarni tahrirlash</Button>
+                <Button variant="soft" size="sm" onClick={() => setEditingStore(true)}>{t("seller.edit_info")}</Button>
               </div>
             </Panel>
 
@@ -136,10 +138,10 @@ export default function SellerPage() {
                   <div className="flex items-center gap-3">
                     <IconBubble tone="violet" className="h-10 w-10 rounded-2xl"><Boxes size={18} aria-hidden="true" /></IconBubble>
                     <h2 className="text-base font-extrabold text-ink">
-                      3D modellar{modelsQuery.data ? ` (${modelsQuery.data.total})` : ""}
+                      {modelsQuery.data ? t("seller.models_count", { count: modelsQuery.data.total }) : t("seller.models")}
                     </h2>
                   </div>
-                  <Button size="sm" variant="accent" onClick={() => setUploading(true)}>+ Yangi model</Button>
+                  <Button size="sm" variant="accent" onClick={() => setUploading(true)}>{t("seller.new_model")}</Button>
                 </Panel>
 
                 {modelsQuery.isLoading ? (
@@ -154,15 +156,15 @@ export default function SellerPage() {
                         onEdit={setEditingModel}
                         onToggleVisible={(x) => toggle.mutate(x)}
                         onDelete={async (x) => {
-                          if (await confirm({ title: `"${x.name_uz}" o'chirilsinmi?`, description: "Bu amalni qaytarib bo'lmaydi.", destructive: true })) remove.mutate(x);
+                          if (await confirm({ title: t("seller.delete_title", { name: x.name_uz }), description: t("studio.page.qaytarib_bolmaydi"), destructive: true })) remove.mutate(x);
                         }}
                       />
                     ))}
                   </div>
                 ) : (
                   <Panel className="text-center py-8 px-4 space-y-2">
-                    <p className="text-sm font-bold text-ink">Hali model yuklanmagan.</p>
-                    <p className="text-xs text-ink-muted">.glb formatidagi 3D modelni yuklang — administrator tasdiqlagach hammaga ko'rinadi.</p>
+                    <p className="text-sm font-bold text-ink">{t("seller.no_models")}</p>
+                    <p className="text-xs text-ink-muted">{t("seller.no_models_hint")}</p>
                   </Panel>
                 )}
               </section>

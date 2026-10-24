@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   isometricRoom, clampRoomDimension,
   NEW_ROOM_DEFAULT_MM, NEW_ROOM_LIMITS_MM,
@@ -19,19 +20,19 @@ import {
  * wizard is still there for anyone who wants to go the long way round.
  */
 
-/** Which wall the room is going through, in the user's language. */
-const SIDE_LABEL: Record<RoomSide, string> = {
-  north: 'shimol', south: 'janub', east: 'sharq', west: 'g‘arb',
-};
+/** Which wall the room is going through, as a key of the locale files. */
+const SIDE_LABEL = {
+  north: 'studio.new_room.north', south: 'studio.new_room.south', east: 'studio.new_room.east', west: 'studio.new_room.west',
+} as const satisfies Record<RoomSide, string>;
 
-const FIELDS: { key: RoomDimensionKey; label: string }[] = [
-  { key: 'width', label: 'Eni' },
-  { key: 'depth', label: "Bo‘yi" },
-  { key: 'height', label: 'Balandligi' },
+const FIELDS = [
+  { key: 'width', labelKey: 'studio.new_room.width' },
+  { key: 'depth', labelKey: 'studio.new_room.depth' },
+  { key: 'height', labelKey: 'studio.new_room.height' },
   // Last, and set apart below: the first three describe the room, this one
   // describes the wall between it and the room it is being added to.
-  { key: 'wallThickness', label: 'Devor qalinligi' },
-];
+  { key: 'wallThickness', labelKey: 'studio.new_room.wall_thickness' },
+] as const satisfies readonly { key: RoomDimensionKey; labelKey: string }[];
 
 /** Keeps Tab cycling inside the sheet instead of leaking to the page behind
  *  it. Duplicated locally, the same convention NewWindowSheet and
@@ -73,6 +74,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
   onClose: () => void;
   onConfirm: (values: NewRoomValues) => void;
 }) {
+  const { t } = useTranslation();
   const [dims, setDims] = useState<NewRoomValues>({
     widthMm: NEW_ROOM_DEFAULT_MM.width,
     depthMm: NEW_ROOM_DEFAULT_MM.depth,
@@ -128,14 +130,14 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Yangi xona"
+        aria-label={t('studio.new_room.title')}
         className="w-full max-w-[340px] rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="px-4 pt-4 pb-2">
-          <p className="text-[15px] font-bold text-gray-900">Yangi xona</p>
+          <p className="text-[15px] font-bold text-gray-900">{t('studio.new_room.title')}</p>
           <p className="text-[11px] text-muted">
-            Shu devor orqasida ({SIDE_LABEL[side]} tomon)
+            {t('studio.new_room.behind', { side: t(SIDE_LABEL[side]) })}
           </p>
         </div>
 
@@ -160,7 +162,8 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
         </div>
 
         <div className="px-4 pb-1">
-          {FIELDS.map(({ key, label }) => {
+          {FIELDS.map(({ key, labelKey }) => {
+            const label = t(labelKey);
             const { min, max } = NEW_ROOM_LIMITS_MM[key];
             // A wall moves in centimetres; a room in tenths of a metre.
             const step = key === 'wallThickness' ? 10 : 100;
@@ -170,7 +173,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setValue(key, value(key) - step)}
-                    aria-label={`${label} kamaytirish`}
+                    aria-label={t('studio.shared.decrease', { label })}
                     disabled={value(key) <= min}
                     className="w-9 h-9 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center disabled:opacity-40"
                   >
@@ -182,7 +185,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
                   <input
                     type="number"
                     inputMode="numeric"
-                    aria-label={`${label}, mm`}
+                    aria-label={t('studio.shared.mm_aria', { label })}
                     value={value(key)}
                     min={min}
                     max={max}
@@ -192,7 +195,7 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
                   />
                   <button
                     onClick={() => setValue(key, value(key) + step)}
-                    aria-label={`${label} oshirish`}
+                    aria-label={t('studio.shared.increase', { label })}
                     disabled={value(key) >= max}
                     className="w-9 h-9 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center disabled:opacity-40"
                   >
@@ -209,14 +212,14 @@ export function NewRoomSheet({ isOpen, side, defaultHeightMm, busy, onClose, onC
             onClick={onClose}
             className="flex-1 h-11 rounded-xl bg-[#EDEEF1] text-[14px] font-bold text-gray-700"
           >
-            Bekor qilish
+            {t('common.bekor')}
           </button>
           <button
             onClick={() => onConfirm(dims)}
             disabled={busy}
             className="flex-1 h-11 rounded-xl bg-brand text-[14px] font-bold text-white disabled:opacity-60"
           >
-            {busy ? 'Yaratilmoqda…' : 'Yaratish'}
+            {busy ? t('studio.new_room.creating') : t('studio.new_room.create')}
           </button>
         </div>
       </div>

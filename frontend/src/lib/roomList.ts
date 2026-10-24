@@ -9,9 +9,9 @@
  * numbered in list order — otherwise a three-room flat would offer three
  * identical rows.
  */
-export interface RoomListEntry { id: string; label: string; current: boolean }
+import i18n from '@/i18n'
 
-const UNNAMED = 'Xona'
+export interface RoomListEntry { id: string; label: string; current: boolean }
 
 export function roomListEntries(
   rooms: readonly { id: string; name?: string | null }[] | undefined,
@@ -19,7 +19,7 @@ export function roomListEntries(
 ): RoomListEntry[] {
   // One room is the whole project; there is nowhere else to go.
   if (!rooms || rooms.length < 2) return []
-  const names = rooms.map((r) => r.name?.trim() || UNNAMED)
+  const names = rooms.map((r) => r.name?.trim() || i18n.t('studio.lib.unnamed_room'))
   const total = new Map<string, number>()
   for (const n of names) total.set(n, (total.get(n) ?? 0) + 1)
   const seen = new Map<string, number>()

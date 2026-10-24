@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ const disabledStyle =
  * ```
  */
 export function Chip(props: ChipProps) {
+  const { t } = useTranslation()
   const { label, icon, disabled = false, className } = props
 
   const isSelected =
@@ -135,7 +137,7 @@ export function Chip(props: ChipProps) {
       {props.mode === 'closable' && (
         <button
           type="button"
-          aria-label={`${label}ni o'chirish`}
+          aria-label={t('common.elementni_ochirish', { name: label })}
           className={cn(
             'flex-shrink-0 ml-0.5 -mr-0.5 rounded-full p-0.5',
             isSelected

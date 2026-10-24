@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useRoomStore } from "@/store/roomStore";
 import type { DesignState } from "@/store/roomStore";
 import {
@@ -8,7 +9,7 @@ import {
 } from "@/lib/ceilingDesigns";
 import {
   trimProfilesOf, trimProfileSvgPath, resolveTrim,
-  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, type TrimProfileDef,
+  TRIM_HEIGHT_RANGE_MM, TRIM_WIDTH_RANGE_MM, trimLabel, type TrimProfileDef,
 } from "@/lib/trimProfiles";
 import { LightSymbol } from "@/lib/catalogIcons";
 import { lightType } from "@/lib/lightCatalog";
@@ -23,17 +24,18 @@ import { CeilingPreview } from "@/lib/ceilingPreview";
 // Human names for the swatches below, in the same convention as WallSection's
 // WALL_COLOR_NAMES — without these, screen readers and colorblind users have
 // no way to tell the buttons apart (a raw hex string reads out as noise).
-const CEILING_COLOR_NAMES: Record<string, string> = {
-  "#FFFFFF": "Oq",
-  "#F4F1EA": "Fil suyagi",
-  "#EDE9E0": "Qum",
-  "#E3E6E8": "Kumush",
-  "#D8D3C8": "Kul-bej",
-};
+const CEILING_COLOR_NAMES = {
+  "#FFFFFF": "studio.dp.cc_white",
+  "#F4F1EA": "studio.dp.cc_ivory",
+  "#EDE9E0": "studio.dp.cc_sand",
+  "#E3E6E8": "studio.dp.cc_silver",
+  "#D8D3C8": "studio.dp.cc_ash",
+} as const;
 
 export function CeilingTargetPanel({ syncToApi }: {
   syncToApi: (ds: DesignState) => void;
 }) {
+  const { t } = useTranslation();
   const settingsIdBase = React.useId();
   const designState = useRoomStore((s) => s.designState);
   const setDesignState = useRoomStore((s) => s.setDesignState);
@@ -59,9 +61,9 @@ export function CeilingTargetPanel({ syncToApi }: {
   return (
     <>
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Shift turi</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">{t("studio.radial.shift_turi")}</h3>
         <p className="text-xs text-gray-500 mb-3">
-          Shift shakli xonaning balandligi va yorug'ligini belgilaydi.
+          {t("studio.dp.ceiling_hint")}
         </p>
         <div className="space-y-2">
           {CEILING_DESIGNS.map((cd) => {
@@ -81,9 +83,9 @@ export function CeilingTargetPanel({ syncToApi }: {
                   />
                   <span className="min-w-0">
                     <span className={`block text-sm ${active ? "text-brand font-semibold" : "text-gray-700"}`}>
-                      {cd.label}
+                      {t(cd.labelKey)}
                     </span>
-                    <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{cd.hint}</span>
+                    <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{t(cd.hintKey)}</span>
                     {/* The fixtures that belong with this profile — the pairing
                         is half of what makes each one look like itself. */}
                     <span className="flex flex-wrap gap-1 mt-1.5">
@@ -92,7 +94,7 @@ export function CeilingTargetPanel({ syncToApi }: {
                           key={id}
                           className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200"
                         >
-                          <LightSymbol type={id} size={11} className="mr-1 inline -mt-0.5" />{lightType(id).name}
+                          <LightSymbol type={id} size={11} className="mr-1 inline -mt-0.5" />{t(lightType(id).nameKey)}
                         </span>
                       ))}
                     </span>
@@ -108,11 +110,11 @@ export function CeilingTargetPanel({ syncToApi }: {
           for it, and a slider that does nothing is worse than no slider. */}
       {activeCeiling.uses.some((k) => k !== 'color') && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-900">Sozlamalar</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{t("studio.dp.settings")}</h3>
 
           {activeCeiling.uses.includes('strip') && (
             <label className="flex items-center justify-between gap-3 cursor-pointer">
-              <span className="text-xs text-gray-600 font-medium">Yashirin LED lenta</span>
+              <span className="text-xs text-gray-600 font-medium">{t("studio.dp.hidden_led")}</span>
               <input
                 type="checkbox"
                 checked={ceilingSettings.strip}
@@ -131,9 +133,9 @@ export function CeilingTargetPanel({ syncToApi }: {
               return (
                 <div key={key}>
                   <div className="flex justify-between items-center mb-1">
-                    <label htmlFor={inputId} className="text-xs text-gray-600 font-medium">{range.label}</label>
+                    <label htmlFor={inputId} className="text-xs text-gray-600 font-medium">{t(range.labelKey)}</label>
                     <span className="text-xs text-gray-500 tabular-nums">
-                      {ceilingSettings[key]} {range.unit}
+                      {ceilingSettings[key]} {range.unit === 'mm' ? t('studio.dp.unit_mm') : range.unit}
                     </span>
                   </div>
                   <input
@@ -151,11 +153,12 @@ export function CeilingTargetPanel({ syncToApi }: {
             })}
 
           <div>
-            <span className="text-xs text-gray-600 font-medium block mb-1.5">Shift rangi</span>
-            <div className="flex flex-wrap gap-1.5" role="listbox" aria-label="Shift rangi">
+            <span className="text-xs text-gray-600 font-medium block mb-1.5">{t("studio.dp.ceiling_color")}</span>
+            <div className="flex flex-wrap gap-1.5" role="listbox" aria-label={t("studio.dp.ceiling_color")}>
               {["#FFFFFF", "#F4F1EA", "#EDE9E0", "#E3E6E8", "#D8D3C8"].map((c) => {
                 const active = ceilingSettings.color === c;
-                const name = CEILING_COLOR_NAMES[c] ?? c;
+                const colorKey = CEILING_COLOR_NAMES[c as keyof typeof CEILING_COLOR_NAMES];
+                const name = colorKey ? t(colorKey) : c;
                 return (
                   <button
                     key={c}
@@ -189,6 +192,7 @@ export function CeilingTargetPanel({ syncToApi }: {
  * control.
  */
 export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => void }) {
+  const { t } = useTranslation();
   const designState = useRoomStore((s) => s.designState);
   const setDesignState = useRoomStore((s) => s.setDesignState);
 
@@ -219,9 +223,9 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
 
   return (
     <section>
-      <h3 className="text-sm font-semibold text-gray-900 mb-1">Galtel</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">{t("studio.dp.cornice")}</h3>
       <p className="text-xs text-gray-500 mb-3">
-        Shift va devor burchagidagi bezak carvog'i.
+        {t("studio.dp.cornice_hint")}
       </p>
       <div className="grid grid-cols-3 gap-2">
         {profiles.map((def) => {
@@ -230,14 +234,14 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
             <button
               key={def.id}
               onClick={() => pick(def)}
-              title={def.label}
+              title={trimLabel(def)}
               className={`rounded-card border-2 p-1 pb-1.5 text-left transition-colors ${
                 sel ? "border-brand bg-brand/10" : "border-gray-200 hover:border-brand/40"
               }`}
             >
               <CorniceThumb def={def} />
               <span className={`block mt-1 text-[10px] leading-tight ${sel ? "text-brand font-semibold" : "text-gray-600"}`}>
-                {def.label}
+                {trimLabel(def)}
               </span>
             </button>
           );
@@ -247,14 +251,14 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
       {on ? (
         <>
           <div className="mt-3 space-y-2.5">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sozlamalar</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("studio.dp.settings")}</h3>
             <TrimSlider
-              label="Balandligi" min={hRange.min} max={hRange.max} step={5}
+              label={t("studio.dp.height")} min={hRange.min} max={hRange.max} step={5}
               value={Math.round(active.heightM * 1000)}
               onChange={(v) => patch({ heightMm: v })}
             />
             <TrimSlider
-              label="Eni" min={wRange.min} max={wRange.max} step={5}
+              label={t("studio.dp.width")} min={wRange.min} max={wRange.max} step={5}
               value={Math.round(active.widthM * 1000)}
               onChange={(v) => patch({ widthMm: v })}
             />
@@ -263,7 +267,7 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
             onClick={() => apply(null)}
             className="mt-2 w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-card transition-colors"
           >
-            Galtelni olib tashlash
+            {t("studio.dp.cornice_remove")}
           </button>
         </>
       ) : (
@@ -271,7 +275,7 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
           onClick={() => pick(profiles[0])}
           className="mt-2 w-full py-2 text-xs font-medium text-brand border border-gray-200 hover:border-brand/50 rounded-card transition-colors"
         >
-          Galtel qo'shish
+          {t("studio.dp.cornice_add")}
         </button>
       )}
     </section>
@@ -307,11 +311,12 @@ function TrimSlider({ label, value, min, max, step, onChange }: {
   label: string; value: number; min: number; max: number; step: number;
   onChange(v: number): void;
 }) {
+  const { t } = useTranslation();
   return (
     <label className="block">
       <span className="flex justify-between text-xs text-gray-500 mb-0.5">
         <span>{label}</span>
-        <span className="tabular-nums text-gray-700">{value} mm</span>
+        <span className="tabular-nums text-gray-700">{value} {t("studio.dp.unit_mm")}</span>
       </span>
       <input
         type="range"

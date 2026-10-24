@@ -11,6 +11,7 @@
  * override rather than writing the current value back.
  */
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedLight } from '@/store/roomStore'
@@ -26,13 +27,13 @@ import {
 } from '@/lib/lightCatalog'
 
 /** Kelvin presets, named the way lamp boxes name them. */
-const WHITE_PRESETS: Array<{ k: number; label: string }> = [
-  { k: 2700, label: 'Issiq' },
-  { k: 3000, label: 'Yumshoq' },
-  { k: 4000, label: 'Neytral' },
-  { k: 5000, label: 'Kunduzgi' },
-  { k: 6500, label: 'Sovuq' },
-]
+const WHITE_PRESETS = [
+  { k: 2700, labelKey: 'studio.light.warm' },
+  { k: 3000, labelKey: 'studio.light.soft' },
+  { k: 4000, labelKey: 'studio.light.neutral' },
+  { k: 5000, labelKey: 'studio.light.daylight' },
+  { k: 6500, labelKey: 'studio.light.cool' },
+] as const
 
 export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }: {
   /** Light currently selected in the 3D viewport, if any. */
@@ -45,6 +46,7 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
    *  nowhere to aim, so the palette drops the fixture at room centre instead. */
   planMode?: boolean
 }) {
+  const { t } = useTranslation()
   const lights = useRoomStore((s) => s.lights)
   const geometry = useRoomStore((s) => s.geometry)
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight)
@@ -94,31 +96,31 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
       {/* ── Fixture palette ─────────────────────────────────────────── */}
       <div>
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-          Chiroq qo'shish
+          {t('studio.light.add')}
         </p>
         {planMode && (
           <p className="text-[10px] text-gray-500 leading-snug mb-2">
             {armedType
-              ? "Endi 2D rejada aniq joyni bosing."
-              : "Turini tanlang, so'ng 2D rejada joyni bosing."}
+              ? t('studio.light.armed_hint')
+              : t('studio.light.pick_hint')}
           </p>
         )}
         <div className="grid grid-cols-2 gap-1.5">
-          {LIGHT_TYPES.map((t) => (
+          {LIGHT_TYPES.map((ft) => (
             <button
-              key={t.id}
-              onClick={() => pick(t)}
-              title={t.hint}
+              key={ft.id}
+              onClick={() => pick(ft)}
+              title={ft.hintKey ? t(ft.hintKey) : undefined}
               className={`flex flex-col items-start text-left p-2 rounded-xl border-2 transition-colors ${
-                armedType === t.id
+                armedType === ft.id
                   ? 'border-brand bg-brand/10 ring-2 ring-brand/25'
                   : 'border-gray-200 bg-white hover:border-brand/50 hover:bg-brand/[0.03]'
               }`}
             >
-              <LightSymbol type={t.id} size={22} className="text-gray-700" />
-              <span className="mt-1 text-[11px] font-semibold text-gray-800 leading-tight">{t.name}</span>
+              <LightSymbol type={ft.id} size={22} className="text-gray-700" />
+              <span className="mt-1 text-[11px] font-semibold text-gray-800 leading-tight">{t(ft.nameKey)}</span>
               <span className="text-[9px] text-gray-500 leading-tight">
-                {t.lumens} lm · {t.colorK}K
+                {t('studio.light.lm_k', { lm: ft.lumens, k: ft.colorK })}
               </span>
             </button>
           ))}
@@ -129,14 +131,14 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            Xonadagi chiroqlar ({lights.length})
+            {t('studio.light.in_room', { n: lights.length })}
           </p>
           {lights.length > 0 && (
             <button
               onClick={() => { clearLights(); select(null) }}
               className="text-[10px] font-semibold text-red-500 hover:text-red-600"
             >
-              Hammasini o'chirish
+              {t('studio.light.clear_all')}
             </button>
           )}
         </div>
@@ -144,13 +146,13 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
         {lights.length === 0 ? (
           <p className="text-[11px] text-gray-500 leading-snug">
             {planMode
-              ? "Hali chiroq yo'q. Yuqoridan turini tanlang, so'ng 2D rejada aniq joyni bosing."
-              : "Hali chiroq yo'q. Yuqoridan turini tanlang — chiroq xona markaziga qo'yiladi, keyin 3D'da sudrab joyiga suring."}
+              ? t('studio.light.empty_plan')
+              : t('studio.light.empty_3d')}
           </p>
         ) : (
           <div className="space-y-1">
             {lights.map((l, i) => {
-              const t = lightType(l.type)
+              const ft = lightType(l.type)
               const isActive = l.id === activeId
               return (
                 <button
@@ -163,14 +165,14 @@ export function LightPanel({ selectedId, onSelect, armedType, onArm, planMode }:
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <LightSymbol type={t.id} size={15} className="shrink-0 text-gray-600" />
+                  <LightSymbol type={ft.id} size={15} className="shrink-0 text-gray-600" />
                   <span className="flex-1 text-left text-[11px] font-medium text-gray-800 truncate">
-                    {t.name} {i + 1}
+                    {t(ft.nameKey)} {i + 1}
                   </span>
                   <span
                     className="w-3 h-3 rounded-full border border-black/10 shrink-0"
                     style={{
-                      background: kelvinToHex(l.colorK ?? t.colorK),
+                      background: kelvinToHex(l.colorK ?? ft.colorK),
                       opacity: l.off ? 0.25 : 1,
                     }}
                   />
@@ -200,6 +202,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
   onPatch: (patch: Partial<Omit<PlacedLight, 'id'>>) => void
   onDelete: () => void
 }) {
+  const { t: tr } = useTranslation()
   const t = lightType(light.type)
   const brightness = light.brightnessPct ?? 100
   const colorK = light.colorK ?? t.colorK
@@ -209,7 +212,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
     <div className="rounded-xl border-2 border-brand/30 bg-brand/[0.03] p-2.5 space-y-3">
       <div className="flex items-center gap-2">
         <LightSymbol type={t.id} size={18} className="shrink-0 text-gray-700" />
-        <span className="flex-1 text-[12px] font-bold text-gray-900">{t.name}</span>
+        <span className="flex-1 text-[12px] font-bold text-gray-900">{tr(t.nameKey)}</span>
         <button
           onClick={() => onPatch({ off: !light.off })}
           className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${
@@ -218,14 +221,14 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
               : 'bg-amber-100 text-amber-700'
           }`}
         >
-          {light.off ? "O'chiq" : 'Yoqilgan'}
+          {light.off ? tr('studio.light.off') : tr('studio.light.on')}
         </button>
       </div>
 
-      {t.hint && <p className="text-[10px] text-gray-500 leading-snug">{t.hint}</p>}
+      {t.hintKey && <p className="text-[10px] text-gray-500 leading-snug">{tr(t.hintKey)}</p>}
 
       <Slider
-        label="Yorqinlik"
+        label={tr('studio.light.brightness')}
         value={brightness}
         display={`${brightness}%`}
         {...LIGHT_LIMITS.brightnessPct}
@@ -236,7 +239,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
       {/* Colour temperature — presets first, slider for anything between */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-semibold text-gray-500">Rang harorati</span>
+          <span className="text-[10px] font-semibold text-gray-500">{tr('studio.light.color_temp')}</span>
           <span className="text-[10px] font-mono text-gray-500">{colorK}K</span>
         </div>
         <div className="flex gap-1 mb-1.5">
@@ -244,7 +247,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
             <button
               key={p.k}
               onClick={() => onPatch({ colorK: p.k })}
-              title={`${p.label} · ${p.k}K`}
+              title={`${tr(p.labelKey)} · ${p.k}K`}
               aria-pressed={colorK === p.k}
               className={`flex-1 h-6 rounded-md border-2 transition-all ${
                 colorK === p.k ? 'border-brand scale-105' : 'border-black/10 hover:border-black/25'
@@ -255,7 +258,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         </div>
         <input
           type="range"
-          aria-label="Rang harorati"
+          aria-label={tr('studio.light.color_temp')}
           className="w-full accent-brand"
           value={colorK}
           min={LIGHT_LIMITS.colorK.min}
@@ -267,7 +270,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       {beamDeg !== undefined && (
         <Slider
-          label="Nur burchagi"
+          label={tr('studio.light.beam')}
           value={beamDeg}
           display={`${beamDeg}°`}
           {...LIGHT_LIMITS.beamDeg}
@@ -279,7 +282,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
       {/* Where it hangs / how high it sits — only for fixtures it applies to */}
       {(t.mount === 'ceiling' || t.mount === 'track') && (
         <Slider
-          label="Osilish balandligi"
+          label={tr('studio.light.drop')}
           value={light.dropM ?? t.dropM ?? 0}
           display={`${(light.dropM ?? t.dropM ?? 0).toFixed(2)} m`}
           min={LIGHT_LIMITS.dropM.min}
@@ -292,7 +295,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       {t.mount === 'wall' && (
         <Slider
-          label="Devordagi balandlik"
+          label={tr('studio.light.wall_h')}
           value={light.wallHM ?? t.wallHM ?? 1.8}
           display={`${(light.wallHM ?? t.wallHM ?? 1.8).toFixed(2)} m`}
           min={LIGHT_LIMITS.wallHM.min}
@@ -305,7 +308,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       {t.mount === 'wall' && (
         <div>
-          <span className="text-[10px] font-semibold text-gray-500 block mb-1">Devor</span>
+          <span className="text-[10px] font-semibold text-gray-500 block mb-1">{tr('studio.shared.devor')}</span>
           <div className="flex gap-1">
             {(['A', 'B', 'C', 'D'] as const).map((w) => (
               <button
@@ -327,7 +330,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       {t.aimable && (
         <Slider
-          label="Burilish"
+          label={tr('studio.light.rotation')}
           value={Math.round(((light.rotation ?? 0) * 180) / Math.PI)}
           display={`${Math.round(((light.rotation ?? 0) * 180) / Math.PI)}°`}
           min={-180}
@@ -340,7 +343,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
 
       {t.aimable && t.beamDeg !== undefined && (
         <Slider
-          label="Egilish"
+          label={tr('studio.light.tilt')}
           value={Math.round(((light.tiltRad ?? 0) * 180) / Math.PI)}
           display={`${Math.round(((light.tiltRad ?? 0) * 180) / Math.PI)}°`}
           min={0}
@@ -355,7 +358,7 @@ function LightSettings({ light, ceilingHeight, onPatch, onDelete }: {
         onClick={onDelete}
         className="w-full py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-semibold hover:bg-red-100 transition-colors"
       >
-        Chiroqni o'chirish
+        {tr('studio.light.delete')}
       </button>
     </div>
   )
@@ -372,6 +375,7 @@ function Slider({ label, value, display, min, max, step, onChange, onReset }: {
   /** Present only when the value is an override that can be dropped. */
   onReset?: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
@@ -380,10 +384,10 @@ function Slider({ label, value, display, min, max, step, onChange, onReset }: {
           {onReset && (
             <button
               onClick={onReset}
-              title="Standart qiymatga qaytarish"
+              title={t('studio.light.reset_title')}
               className="text-[9px] font-semibold text-gray-400 hover:text-brand"
             >
-              Tiklash
+              {t('studio.light.reset')}
             </button>
           )}
           <span className="text-[10px] font-mono text-gray-500">{display}</span>

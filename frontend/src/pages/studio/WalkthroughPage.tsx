@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { PointerLockControls } from "@react-three/drei";
 import { useRef, useState, useEffect, useMemo, Suspense } from "react";
@@ -95,21 +96,22 @@ function Crosshair() {
 // ─── Enter overlay ────────────────────────────────────────────────────────────
 
 function EnterOverlay({ onEnter }: { onEnter: () => void }) {
+  const { t } = useTranslation();
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 backdrop-blur-sm cursor-pointer select-none z-10"
       onClick={onEnter}
     >
       <div className="bg-white/10 border border-white/20 rounded-2xl px-10 py-8 text-center text-white max-w-xs">
-        <h2 className="text-xl font-semibold mb-1">Yurish rejimi</h2>
-        <p className="text-sm opacity-70 mb-6">Xonani birinchi shaxs ko'rinishida aylanib chiqing</p>
+        <h2 className="text-xl font-semibold mb-1">{t('studio.walk.sarlavha')}</h2>
+        <p className="text-sm opacity-70 mb-6">{t('studio.walk.izoh')}</p>
         <div className="bg-white/15 rounded-xl px-5 py-3 text-sm space-y-1 mb-6 text-left">
-          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">W A S D</kbd><span className="opacity-80">yurish</span></div>
-          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Shift</kbd><span className="opacity-80">yugurish</span></div>
-          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Esc</kbd><span className="opacity-80">chiqish</span></div>
+          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">W A S D</kbd><span className="opacity-80">{t('studio.walk.yurish')}</span></div>
+          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Shift</kbd><span className="opacity-80">{t('studio.walk.yugurish')}</span></div>
+          <div className="flex gap-3 items-center"><kbd className="bg-white/20 rounded px-2 py-0.5 font-mono text-xs">Esc</kbd><span className="opacity-80">{t('studio.walk.chiqish')}</span></div>
         </div>
         <button className="w-full text-gray-900 font-semibold py-2.5 text-sm rounded-full bg-soft shadow-soft-raised hover:shadow-soft-raised-lg active:shadow-soft-pressed disabled:opacity-60 transition-[box-shadow,transform,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:shadow-soft-focus">
-          Bosing yoki bu yerga bosing
+          {t('studio.walk.bosing')}
         </button>
       </div>
     </div>
@@ -119,6 +121,7 @@ function EnterOverlay({ onEnter }: { onEnter: () => void }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WalkthroughPage() {
+  const { t } = useTranslation();
   const { room } = useOutletContext<StudioContext>();
   const { geometry, designState, sunHour } = useRoomStore();
 
@@ -215,7 +218,7 @@ export default function WalkthroughPage() {
       {/* ESC hint — shown when locked */}
       {locked && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/60 text-xs pointer-events-none select-none">
-          ESC — to'xtatish
+          ESC {t('studio.walk.toxtatish')}
         </div>
       )}
     </div>

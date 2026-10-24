@@ -1,4 +1,4 @@
-import { apiClient, BASE_URL, handleUnauthorized } from "./client";
+import { apiClient, BASE_URL, handleUnauthorized, languageHeaders } from "./client";
 import type { CeilingDesignId, CeilingSettings } from "@/lib/ceilingDesigns";
 import type { TrimState } from "@/lib/trimProfiles";
 
@@ -76,7 +76,7 @@ export async function* aiBuildStream(
   const response = await fetch(`${BASE_URL}/rooms/${roomId}/ai-build`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...languageHeaders() },
     body: JSON.stringify({ prompt }),
   });
 

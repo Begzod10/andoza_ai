@@ -7,8 +7,10 @@
 */
 import { useRef } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
+import type { ConveyorPair } from "./types";
 
+const BRAND = "AndozaAI";
 const BELT_DUR = 15; // seconds for one chip to cross the belt
 
 function MachineCard() {
@@ -23,7 +25,7 @@ function MachineCard() {
             <img src="/icon.svg" alt="" className="h-5 w-5" />
           </span>
           <span className="text-[15px] font-extrabold tracking-tight text-neutral-900">
-            Andoza<span className="text-[#2563eb]">AI</span>
+            {BRAND.slice(0, 6)}<span className="text-[#2563eb]">{BRAND.slice(6)}</span>
           </span>
         </div>
 
@@ -47,8 +49,8 @@ function Chip({ label }: { label: string }) {
 }
 
 export default function ConveyorHero() {
-  const { t } = useLang();
-  const pairs = t.conveyor.pairs;
+  const { t } = useTranslation();
+  const pairs = t("landing.conveyor.pairs", { returnObjects: true }) as ConveyorPair[];
   const belowRef = useRef<HTMLDivElement>(null);
   const inView = useInView(belowRef, { once: true, margin: "-10% 0px -10% 0px" });
   const reduced = useReducedMotion();

@@ -18,7 +18,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, OTPRequest, OTPVerify, RegisterRequest, UserOut
+from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, MeUpdate, OTPRequest, OTPVerify, RegisterRequest, UserOut
 
 def _hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
@@ -287,6 +287,22 @@ async def get_me(current_user: CurrentUser) -> UserOut:
     return UserOut.model_validate(current_user)
 
 
+@router.patch(
+    "/me",
+    response_model=UserOut,
+    summary="Update the current user's settings (interface language)",
+)
+async def update_me(
+    body: MeUpdate,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> UserOut:
+    current_user.language = body.language
+    db.add(current_user)
+    await db.flush()
+    return UserOut.model_validate(current_user)
+
+
 @router.post(
     "/refresh",
     response_model=LoginResponse,
@@ -387,6 +403,7 @@ async def register(
         username=body.username,
         password_hash=_hash_password(body.password),
         name=body.name,
+        language=body.language or "uz",
     )
     db.add(user)
     await db.flush()
@@ -577,7 +594,7 @@ async def login_with_google(
     if user is None:
         name = (claims.get("name") or "").strip()[:100] or None
         email = (claims.get("email") or "").strip()[:255] or None
-        user = User(google_sub=sub, email=email, name=name)
+        user = User(google_sub=sub, email=email, name=name, language=body.language or "uz")
         db.add(user)
         await db.flush()
         # Load server defaults (created_at) so UserOut serialises fully,

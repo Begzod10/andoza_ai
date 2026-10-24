@@ -16,6 +16,7 @@ from fastapi import APIRouter, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.i18n import translate_detail
 from app.api.v1.deps import CurrentUser, DbSession
 from app.config import settings
 from app.core.storage import delete_file, upload_file
@@ -57,7 +58,7 @@ async def create_render(
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type {file.content_type!r}. Accepted: {', '.join(sorted(_ALLOWED_CONTENT_TYPES))}",
+            detail=translate_detail("Unsupported file type {content_type}. Accepted: {allowed}", content_type=repr(file.content_type), allowed=', '.join(sorted(_ALLOWED_CONTENT_TYPES))),
         )
     data = await file.read()
     if not data:
@@ -65,7 +66,7 @@ async def create_render(
     if len(data) > _MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds maximum allowed size of {_MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB",
+            detail=translate_detail("File exceeds maximum allowed size of {mb} MB", mb=_MAX_FILE_SIZE_BYTES // (1024 * 1024)),
         )
 
     # Spend the day's allowance only once the request is known to be valid.

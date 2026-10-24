@@ -1,9 +1,10 @@
+import type { TKey } from "@/i18n";
 import type { ModerationStatus } from "@/lib/api";
 
-export const STATUS_LABELS: Record<ModerationStatus, string> = {
-  pending: "Ko'rib chiqilmoqda",
-  approved: "Tasdiqlangan",
-  rejected: "Rad etilgan",
+export const STATUS_KEYS: Record<ModerationStatus, TKey> = {
+  pending: "dokon.status.pending",
+  approved: "dokon.status.approved",
+  rejected: "dokon.status.rejected",
 };
 
 /** Tailwind classes for the little status pill. */

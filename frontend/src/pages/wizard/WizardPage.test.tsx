@@ -1,9 +1,11 @@
 import * as React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WizardPage from './WizardPage'
 import { useRoomStore } from '@/store/roomStore'
+import { applyLanguage } from '@/i18n'
+import ru from '@/i18n/locales/ru.json'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -336,5 +338,28 @@ describe('WizardPage – Step 5 (Results)', () => {
     // The project made by the first attempt is reused, not created twice.
     expect(createApartment).toHaveBeenCalledTimes(1)
     expect(createRoom).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('WizardPage in Russian', () => {
+  beforeEach(() => applyLanguage('ru'))
+  afterEach(() => applyLanguage('uz'))
+
+  it('asks the ceiling height, then names the wall and the results from ru.json', async () => {
+    renderWizard()
+    expect(screen.getByText(ru.wizard.shift_balandligi)).toBeTruthy()
+    expect(screen.queryByText('Shiftning balandligi?')).toBeNull()
+    expect(screen.getByText('2.7 м')).toBeTruthy()
+    fireEvent.click(screen.getByText('2.7 м'))
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Стена A' })).toBeTruthy()
+    })
+    expect(screen.getByText(ru.wizard.eshik_deraza_qoshish)).toBeTruthy()
+    fireEvent.click(screen.getByText(ru.wizard.keyingi))
+    fireEvent.click(screen.getByText(ru.wizard.keyingi))
+    fireEvent.click(screen.getByText(ru.wizard.keyingi))
+    fireEvent.click(screen.getByText(ru.wizard.keyingi))
+    await waitFor(() => expect(screen.getByText(ru.wizard.pol_maydoni)).toBeTruthy())
+    expect(screen.getByText(ru.wizard.devor_maydoni)).toBeTruthy()
   })
 })

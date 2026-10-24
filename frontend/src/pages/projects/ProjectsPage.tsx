@@ -1,19 +1,22 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApartments, createApartment } from "@/lib/api";
 import type { Apartment, CreateApartmentData } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { IconBubble, Panel, Tile } from "@/components/ui/Panel";
+import { intlLocale } from "@/i18n";
 
 // ─── Stage Hero Card ──────────────────────────────────────────────────────────
 
 const STAGES = [
-  "Korobka", "Suvoq", "Shpaklovka", "Bo'yoq / Oboi",
-  "Pol yotqizish", "Elektr / Santexnika", "Mebel", "Tayyor",
-];
+  "projects.bosqichlar.korobka", "projects.bosqichlar.suvoq", "projects.bosqichlar.shpaklovka", "projects.bosqichlar.boyoq_oboy",
+  "projects.bosqichlar.pol", "projects.bosqichlar.elektr_santexnika", "projects.bosqichlar.mebel", "projects.bosqichlar.tayyor",
+] as const;
 
 function HeroCard({ apartment }: { apartment?: Apartment }) {
+  const { t } = useTranslation();
   const [activeStage, setActiveStage] = useState(0);
   const navigate = useNavigate();
 
@@ -51,14 +54,14 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
               {apartment.name}{firstRoom ? ` · ${firstRoom.name}` : ""}
             </p>
           )}
-          <p className="text-xs font-semibold text-white/70">Bosqich {activeStage + 1} / {STAGES.length}</p>
-          <p className="text-2xl font-bold">{activeStage + 1}-bosqich: {STAGES[activeStage]}</p>
+          <p className="text-xs font-semibold text-white/70">{t("projects.bosqich_n", { n: activeStage + 1, total: STAGES.length })}</p>
+          <p className="text-2xl font-bold">{t("projects.bosqich_nomi", { n: activeStage + 1, name: t(STAGES[activeStage]) })}</p>
           <div className="mt-3 flex items-center gap-2">
             {STAGES.map((name, i) => (
               <button
                 key={name}
                 type="button"
-                aria-label={`${i + 1}-bosqich: ${name}`}
+                aria-label={t("projects.bosqich_nomi", { n: i + 1, name: t(name) })}
                 onClick={() => setActiveStage(i)}
                 className={`h-2 rounded-full transition-all ${i === activeStage ? "w-7 bg-white" : "w-2 bg-white/40 hover:bg-white/70"}`}
               />
@@ -68,11 +71,11 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
         <button
           type="button"
           onClick={open}
-          aria-label={firstRoom ? "Loyihani ochish" : "Yangi loyiha boshlash"}
+          aria-label={firstRoom ? t("projects.loyihani_ochish") : t("projects.yangi_loyiha_boshlash")}
           className="flex h-14 flex-shrink-0 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[#2F55D4] shadow-[0_14px_30px_-10px_rgba(0,0,0,0.5)] transition-transform hover:scale-105 active:scale-95"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M6 4l8 5-8 5V4z" fill="currentColor"/></svg>
-          {firstRoom ? "Ochish" : "Boshlash"}
+          {firstRoom ? t("projects.ochish") : t("projects.boshlash")}
         </button>
       </div>
     </div>
@@ -107,13 +110,13 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
                 <p className="text-[12px] mt-0.5 text-neutral-400">
                   {apartment.rooms?.[0]
                     ? `${apartment.rooms[0].name}`
-                    : "Xona yo'q"}
+                    : t("projects.xona_yoq")}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-white/60 text-[11px]">Yaratilgan</p>
+                <p className="text-white/60 text-[11px]">{t("projects.yaratilgan")}</p>
                 <p className="text-white text-[11px] font-semibold">
-                  {new Date(apartment.created_at).toLocaleDateString("uz-UZ")}
+                  {new Date(apartment.created_at).toLocaleDateString(intlLocale())}
                 </p>
               </div>
             </div>
@@ -146,10 +149,10 @@ function HeroCard({ apartment }: { apartment?: Apartment }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[12px] text-ink-muted font-semibold">
-            Bosqich {activeStage + 1} / {STAGES.length}
+            {t("projects.bosqich_n", { n: activeStage + 1, total: STAGES.length })}
           </p>
           <p className="text-base font-bold text-ink mt-0.5">
-            {activeStage + 1}-bosqich: {STAGES[activeStage]}
+            {t("projects.bosqich_nomi", { n: activeStage + 1, name: t(STAGES[activeStage]) })}
           </p>
         </div>
         <button
@@ -178,22 +181,23 @@ function BentoCard({ className = "", children }: { className?: string; children:
 
 /** How much there is: projects, rooms, and where the latest one stands. */
 function OverviewCard({ apartments }: { apartments: Apartment[] }) {
+  const { t } = useTranslation();
   const rooms = apartments.reduce((n, a) => n + (a.rooms?.length ?? 0), 0);
   return (
     <BentoCard>
-      <p className="text-sm font-semibold text-ink-muted">Umumiy ko'rinish</p>
+      <p className="text-sm font-semibold text-ink-muted">{t("projects.umumiy_korinish")}</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Tile className="p-4">
           <p className="text-4xl font-extrabold tabular-nums text-ink">{apartments.length}</p>
-          <p className="text-xs font-medium text-ink-muted">loyiha</p>
+          <p className="text-xs font-medium text-ink-muted">{t("projects.loyiha_soni", { count: apartments.length })}</p>
         </Tile>
         <Tile className="p-4">
           <p className="text-4xl font-extrabold tabular-nums text-ink">{rooms}</p>
-          <p className="text-xs font-medium text-ink-muted">xona</p>
+          <p className="text-xs font-medium text-ink-muted">{t("projects.xona_soni", { count: rooms })}</p>
         </Tile>
       </div>
       <p className="mt-auto pt-4 text-xs text-ink-muted">
-        {apartments[0] ? `Oxirgisi: ${new Date(apartments[0].created_at).toLocaleDateString("uz-UZ")}` : ""}
+        {apartments[0] ? t("projects.oxirgisi", { date: new Date(apartments[0].created_at).toLocaleDateString(intlLocale()) }) : ""}
       </p>
     </BentoCard>
   );
@@ -226,6 +230,7 @@ function LinkCard({
 // ─── Project Card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ apt }: { apt: Apartment }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const firstRoom = apt.rooms?.[0];
   const open = () => (firstRoom ? navigate(`/studio/${firstRoom.id}/ichkarida`) : navigate("/wizard"));
@@ -247,12 +252,12 @@ function ProjectCard({ apt }: { apt: Apartment }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-bold text-ink">{apt.name}</p>
         <p className="mt-0.5 text-[12px] text-ink-muted">
-          {new Date(apt.created_at).toLocaleDateString("uz-UZ")}
-          {apt.rooms && apt.rooms.length > 0 && ` · ${apt.rooms.length} xona`}
+          {new Date(apt.created_at).toLocaleDateString(intlLocale())}
+          {apt.rooms && apt.rooms.length > 0 && ` · ${t("projects.xona_n", { count: apt.rooms.length })}`}
         </p>
       </div>
       <Button variant="primary" size="sm" onClick={open} className="flex-shrink-0">
-        Ochish
+        {t("projects.ochish")}
       </Button>
     </Tile>
   );
@@ -272,6 +277,7 @@ function ProjectsUnavailable({ onRetry, retrying }: {
   onRetry: () => void;
   retrying: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-5 text-center">
       <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
@@ -281,18 +287,19 @@ function ProjectsUnavailable({ onRetry, retrying }: {
           <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
         </svg>
       </div>
-      <p className="text-[15px] font-bold text-amber-900">Loyihalar yuklanmadi</p>
+      <p className="text-[15px] font-bold text-amber-900">{t("projects.yuklanmadi")}</p>
       <p className="text-[13px] text-amber-800 mt-1">
-        Serverga ulanib bo'lmadi, loyihalar ro'yxatini yuklab bo'lmadi. Ma'lumotlaringiz saqlangan.
+        {t("projects.yuklanmadi_izoh")}
       </p>
       <Button variant="accent" className="mt-4" onClick={onRetry} disabled={retrying}>
-        {retrying ? "Urinilmoqda..." : "Qayta urinish"}
+        {retrying ? t("projects.urinilmoqda") : t("common.qayta_urinish")}
       </Button>
     </div>
   );
 }
 
 function EmptyProjects({ onCreateClick }: { onCreateClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-line bg-card-soft p-8 text-center">
       <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-card">
@@ -301,9 +308,9 @@ function EmptyProjects({ onCreateClick }: { onCreateClick: () => void }) {
         </svg>
       </div>
       <p className="mb-4 text-[14px] text-ink-muted">
-        Hali loyiha yo'q
+        {t("projects.hali_loyiha_yoq")}
       </p>
-      <Button variant="accent" onClick={onCreateClick}>+ Yangi loyiha</Button>
+      <Button variant="accent" onClick={onCreateClick}>{t("projects.yangi_loyiha_plus")}</Button>
     </div>
   );
 }
@@ -311,6 +318,7 @@ function EmptyProjects({ onCreateClick }: { onCreateClick: () => void }) {
 // ─── Create Project Dialog ────────────────────────────────────────────────
 
 function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const queryClient = useQueryClient();
@@ -342,18 +350,18 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end z-50">
       <div className="w-full bg-card text-ink border-t border-line shadow-panel rounded-t-[24px] p-6 animate-in slide-in-from-bottom-5">
-        <h2 className="text-[20px] font-bold text-ink mb-6">Yangi loyiha</h2>
+        <h2 className="text-[20px] font-bold text-ink mb-6">{t("projects.yangi_loyiha")}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-[14px] font-semibold text-ink mb-2">
-              Loyiha nomi
+              {t("projects.loyiha_nomi")}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Masalan: Tashkent, Shayxontohur"
+              placeholder={t("projects.nom_placeholder")}
               className="w-full px-4 py-3 rounded-lg border border-line bg-card-soft text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand/50"
               autoFocus
             />
@@ -361,13 +369,13 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
           <div>
             <label className="block text-[14px] font-semibold text-ink mb-2">
-              Manzil (ixtiyoriy)
+              {t("projects.manzil")}
             </label>
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Masalan: Abdulla Qodiriy ko'chasi, 123"
+              placeholder={t("projects.manzil_placeholder")}
               className="w-full px-4 py-3 rounded-lg border border-line bg-card-soft text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand/50"
             />
           </div>
@@ -378,14 +386,14 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               onClick={() => onOpenChange(false)}
               className="flex-1 px-4 py-3 rounded-lg border border-line text-ink font-semibold hover:bg-card-soft transition-colors"
             >
-              Bekor qilish
+              {t("common.bekor")}
             </button>
             <button
               type="submit"
               disabled={!name.trim() || createMutation.isPending}
               className="flex-1 px-4 py-3 rounded-lg bg-brand text-white font-semibold hover:bg-brand/90 disabled:opacity-50 transition-colors"
             >
-              {createMutation.isPending ? "Yaratilmoqda..." : "Yaratish"}
+              {createMutation.isPending ? t("projects.yaratilmoqda") : t("projects.yaratish")}
             </button>
           </div>
         </form>
@@ -397,6 +405,7 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectsPage() {
+  const { t } = useTranslation();
   const [showDeleted, setShowDeleted] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -439,7 +448,7 @@ export default function ProjectsPage() {
 
         <div className="lg:col-span-4 lg:row-start-1 lg:flex lg:min-h-0 lg:flex-col lg:rounded-3xl lg:border lg:border-line lg:bg-card lg:p-5 lg:shadow-panel">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-extrabold text-on-app lg:text-ink">Mening loyihalarim</h2>
+            <h2 className="text-[17px] font-extrabold text-on-app lg:text-ink">{t("projects.mening_loyihalarim")}</h2>
             <button
               onClick={() => setShowDeleted(!showDeleted)}
               className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
@@ -448,7 +457,7 @@ export default function ProjectsPage() {
                   : "bg-card text-brand-light hover:bg-card-soft lg:bg-card-soft"
               }`}
             >
-              {showDeleted ? "O'chirilganlar" : "Barchasi"}
+              {showDeleted ? t("projects.ochirilganlar") : t("projects.barchasi")}
             </button>
           </div>
 
@@ -483,13 +492,13 @@ export default function ProjectsPage() {
         </div>
         <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
           <LinkCard
-            title="Do'kon" text="Material va mebel narxlarini do'konlar bo'yicha solishtiring." action="Do'konni ochish" to="/dokon" tone="orange"
+            title={t("projects.dokon")} text={t("projects.dokon_matn")} action={t("projects.dokon_ochish")} to="/dokon" tone="orange"
             icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
           />
         </div>
         <div className="hidden lg:col-span-4 lg:row-start-2 lg:grid lg:min-h-0 lg:grid-rows-1">
           <LinkCard
-            title="Ustalar" text="Tasdiqlangan ustalarni toping va ular bilan bog'laning." action="Ustalarni ko'rish" to="/ustalar" tone="violet"
+            title={t("ustalar.sarlavha")} text={t("ustalar.tavsif")} action={t("projects.ustalar_korish")} to="/ustalar" tone="violet"
             icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
           />
         </div>

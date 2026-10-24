@@ -15,6 +15,7 @@
  * the same reason.
  */
 import type { RoomGeometry } from '@/store/roomStore'
+import i18n, { type TKey } from '@/i18n'
 import { planToWorld, roomBoundsFromGeometry, type RoomBounds } from '@/lib/furnitureBounds'
 import { pointInPolygon } from '@/lib/planPolygon'
 import { roomCentrePlan } from '@/lib/roomCentre'
@@ -273,10 +274,11 @@ export interface CameraChoice {
   station: number | null
   /** A short mark for the button's own badge. */
   badge: string
-  /** What it is called, in Uzbek. */
-  title: string
-  /** For a tooltip and a screen reader. */
-  label: string
+  /** Locale key of what it is called, and of its tooltip / screen-reader text.
+   *  `n` fills `{{n}}` in the station cameras'. */
+  titleKey: TKey
+  labelKey: TKey
+  n?: number
 }
 
 /**
@@ -288,11 +290,20 @@ export interface CameraChoice {
  * apart — adding a fifth station is then one constant, not two.
  */
 export const CAMERA_CHOICES: CameraChoice[] = [
-  { station: null, badge: '360', title: '360', label: "360 kamera — xona o'rtasidan" },
+  { station: null, badge: '360', titleKey: 'studio.lib.camera.c360_title', labelKey: 'studio.lib.camera.c360_label' },
   ...Array.from({ length: ROOM_CAMERA_COUNT }, (_, i) => ({
     station: i + 1,
     badge: String(i + 1),
-    title: `${i + 1}-kamera`,
-    label: `${i + 1}-kamera — burchakdan`,
+    titleKey: 'studio.lib.camera.n_title' as const,
+    labelKey: 'studio.lib.camera.n_label' as const,
+    n: i + 1,
   })),
 ]
+
+/** The camera's title and tooltip in the current language. */
+export function cameraTitle(c: CameraChoice): string {
+  return i18n.t(c.titleKey, { n: c.n })
+}
+export function cameraLabel(c: CameraChoice): string {
+  return i18n.t(c.labelKey, { n: c.n })
+}

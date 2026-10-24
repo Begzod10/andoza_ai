@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FURNITURE_STYLES, type FurnitureStyle } from "@/lib/furnitureStyles";
 
 /** Pick the design styles a model suits. None picked = it suits every style. */
@@ -8,15 +9,17 @@ export function StyleChips({
   value: FurnitureStyle[];
   onChange: (next: FurnitureStyle[]) => void;
 }) {
+  const { t } = useTranslation();
+
   function toggle(id: FurnitureStyle) {
     onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
   }
 
   return (
     <div>
-      <span className="block text-sm font-medium text-ink mb-1.5">Uslublar</span>
+      <span className="block text-sm font-medium text-ink mb-1.5">{t("dokon.model.styles")}</span>
       <div className="flex flex-wrap gap-2">
-        {FURNITURE_STYLES.map(({ id, label }) => {
+        {FURNITURE_STYLES.map(({ id, labelKey }) => {
           const on = value.includes(id);
           return (
             <button
@@ -28,12 +31,12 @@ export function StyleChips({
                 on ? "bg-brand text-white border-brand" : "border-line text-ink-muted hover:text-ink hover:border-ink-muted"
               }`}
             >
-              {label}
+              {t(labelKey)}
             </button>
           );
         })}
       </div>
-      {value.length === 0 && <p className="mt-1.5 text-xs text-ink-muted">Hamma uslubga mos</p>}
+      {value.length === 0 && <p className="mt-1.5 text-xs text-ink-muted">{t("dokon.model.all_styles")}</p>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -9,6 +10,7 @@ import {
   type AdminMaterial, type AdminStore, type MaterialInput,
 } from "@/lib/api";
 import { errorMessage } from "./errorMessage";
+import { smetaKeyLabel } from "./materialLabels";
 
 const str = (n: number | null | undefined) => (n == null ? "" : String(n));
 /** "" -> null, otherwise a number (NaN is kept so the caller can reject it). */
@@ -22,6 +24,7 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
   stores: AdminStore[];
   onSaved?: () => void;
 }) {
+  const { t } = useTranslation();
   const [storeId, setStoreId] = useState("");
   const [category, setCategory] = useState("");
   const [name, setName] = useState("");
@@ -101,11 +104,11 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
       onOpenChange(false);
       onSaved?.();
     },
-    onError: (err) => setError(errorMessage(err, "Materialni saqlab bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("dokon.admin.mat.save_failed"))),
   });
 
   return (
-    <Dialog themed open={open} onOpenChange={onOpenChange} title={material ? "Materialni tahrirlash" : "Material qo'shish"} description={material?.name_uz}>
+    <Dialog themed open={open} onOpenChange={onOpenChange} title={material ? t("dokon.admin.mat.edit_title") : t("dokon.admin.mat.add")} description={material?.name_uz}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -115,54 +118,54 @@ export function MaterialFormDialog({ open, onOpenChange, material, stores, onSav
         className="space-y-4"
       >
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
-            <option value="">— tanlang —</option>
+          <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+            <option value="">{t("dokon.admin.tanlang")}</option>
             {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
-          <Select themed label="Kategoriya" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">— tanlang —</option>
-            {MATERIAL_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          <Select themed label={t("dokon.admin.kategoriya")} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">{t("dokon.admin.tanlang")}</option>
+            {MATERIAL_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{t(c.labelKey)}</option>)}
           </Select>
         </div>
 
-        <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Input themed label={t("dokon.admin.nomi")} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Birlik" value={unit} onChange={(e) => pickUnit(e.target.value)}>
-            <option value="">— tanlang —</option>
-            {MATERIAL_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+          <Select themed label={t("dokon.admin.mat.birlik")} value={unit} onChange={(e) => pickUnit(e.target.value)}>
+            <option value="">{t("dokon.admin.tanlang")}</option>
+            {MATERIAL_UNITS.map((u) => <option key={u.id} value={u.id}>{t(u.labelKey)}</option>)}
           </Select>
-          <Input themed label="Narxi (so'm)" type="number" min={0} value={priceStr} onChange={(e) => setPriceStr(e.target.value)} />
+          <Input themed label={t("dokon.admin.narxi_som")} type="number" min={0} value={priceStr} onChange={(e) => setPriceStr(e.target.value)} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Input themed label="Qadoq hajmi" type="number" min={0} step="any" value={packQty} onChange={(e) => setPackQty(e.target.value)} />
-          <Select themed label="Qadoq birligi" value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setAutofilled(false); }}>
-            <option value="">— yo'q —</option>
-            {PACK_UNITS.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+          <Input themed label={t("dokon.admin.mat.pack_qty")} type="number" min={0} step="any" value={packQty} onChange={(e) => setPackQty(e.target.value)} />
+          <Select themed label={t("dokon.admin.mat.pack_unit")} value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setAutofilled(false); }}>
+            <option value="">{t("dokon.admin.yoq")}</option>
+            {PACK_UNITS.map((u) => <option key={u.id} value={u.id}>{t(u.labelKey)}</option>)}
           </Select>
         </div>
         {packMismatch && (
-          <p className="-mt-2 text-xs text-ink-muted">Qadoq hajmi va birligini birga kiriting</p>
+          <p className="-mt-2 text-xs text-ink-muted">{t("dokon.admin.mat.pack_together")}</p>
         )}
 
-        <Select themed label="Smeta kaliti" value={smetaKey} onChange={(e) => pickSmetaKey(e.target.value)}>
-          <option value="">— yo'q —</option>
-          {SMETA_KEYS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+        <Select themed label={t("dokon.admin.mat.smeta_key")} value={smetaKey} onChange={(e) => pickSmetaKey(e.target.value)}>
+          <option value="">{t("dokon.admin.yoq")}</option>
+          {SMETA_KEYS.map((k) => <option key={k.id} value={k.id}>{smetaKeyLabel(k, t)}</option>)}
         </Select>
 
         {isOboy && (
           <div className="grid grid-cols-2 gap-3">
-            <Input themed label="Rulon eni (sm)" type="number" min={0} step="any" value={rollWidth} onChange={(e) => setRollWidth(e.target.value)} />
-            <Input themed label="Rulon uzunligi (m)" type="number" min={0} step="any" value={rollLength} onChange={(e) => setRollLength(e.target.value)} />
+            <Input themed label={t("dokon.admin.mat.roll_width")} type="number" min={0} step="any" value={rollWidth} onChange={(e) => setRollWidth(e.target.value)} />
+            <Input themed label={t("dokon.admin.mat.roll_length")} type="number" min={0} step="any" value={rollLength} onChange={(e) => setRollLength(e.target.value)} />
           </div>
         )}
 
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
-          <Button type="submit" disabled={!valid} loading={save.isPending}>Saqlash</Button>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>{t("common.bekor")}</Button>
+          <Button type="submit" disabled={!valid} loading={save.isPending}>{t("common.saqlash")}</Button>
         </div>
       </form>
     </Dialog>

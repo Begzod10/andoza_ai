@@ -1,4 +1,5 @@
 import { useAppThemeAttribute } from '@/hooks/useAppThemeAttribute'
+import { useTranslation } from 'react-i18next'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
@@ -42,6 +43,7 @@ function IconShop({ filled }: { filled?: boolean }) {
 // ─── Bottom Sheet (screen 03) ─────────────────────────────────────────────────
 
 function NewProjectSheet({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // LiDAR only works inside the native app on a LiDAR device (same check as
@@ -56,8 +58,8 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
         </svg>
       ),
       bg: "rgb(238, 242, 255)",
-      title: "LiDAR skaner",
-      desc: "Xonani LiDAR yordamida skanerlang va avtomatik 3D model oling",
+      titleKey: "layout.lidar" as const,
+      descKey: "layout.lidar_izoh" as const,
       action: () => { onClose(); navigate("/scan/lidar") },
     },
   ] : []
@@ -72,8 +74,8 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
         </svg>
       ),
       bg: "rgb(234, 247, 240)",
-      title: "Razmer / Plan yuklash",
-      desc: "O'lchamlarni kiriting yoki floorplan rasmini yuklang",
+      titleKey: "layout.razmer_plan" as const,
+      descKey: "layout.razmer_plan_izoh" as const,
       action: () => { onClose(); navigate("/wizard") },
     },
     {
@@ -84,8 +86,8 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
         </svg>
       ),
       bg: "rgb(245, 240, 255)",
-      title: "Qo'lda chizish",
-      desc: "Xona konturini o'zingiz chizib chiqing",
+      titleKey: "layout.qolda_chizish" as const,
+      descKey: "layout.qolda_chizish_izoh" as const,
       action: () => { onClose(); navigate("/scan/draw") },
     },
   ]
@@ -101,13 +103,13 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
           <div className="w-11 h-1.5 rounded-full bg-line" />
         </div>
         <div className="px-5 pb-2">
-          <h2 className="text-xl font-bold text-ink">Yangi loyiha</h2>
-          <p className="text-sm text-ink-muted mt-0.5">Xonani qanday qo'shmoqchisiz?</p>
+          <h2 className="text-xl font-bold text-ink">{t("layout.yangi_loyiha")}</h2>
+          <p className="text-sm text-ink-muted mt-0.5">{t("layout.xonani_qoshish")}</p>
         </div>
         <div className="px-5 pt-3 flex flex-col gap-3">
           {options.map((opt) => (
             <button
-              key={opt.title}
+              key={opt.titleKey}
               onClick={opt.action}
               className="flex items-center gap-4 p-4 bg-card-soft border border-line rounded-2xl text-left hover:border-[#5B84F5]/60 transition-colors active:scale-[0.98]"
             >
@@ -118,8 +120,8 @@ function NewProjectSheet({ onClose }: { onClose: () => void }) {
                 {opt.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-ink">{opt.title}</p>
-                <p className="text-sm text-ink-muted mt-0.5 leading-snug">{opt.desc}</p>
+                <p className="text-base font-bold text-ink">{t(opt.titleKey)}</p>
+                <p className="text-sm text-ink-muted mt-0.5 leading-snug">{t(opt.descKey)}</p>
               </div>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgb(156, 163, 175)" strokeWidth="1.5" className="flex-shrink-0">
                 <path d="M7.5 5l5 5-5 5"/>
@@ -163,16 +165,21 @@ function IconLogout() {
   )
 }
 
-const SIDEBAR_NAV: Array<{ to: string; label: string; icon: (active: boolean) => React.ReactNode }> = [
-  { to: '/projects', label: 'Uy',      icon: (a) => <IconHome filled={a} /> },
-  { to: '/dokon',    label: "Do'kon",  icon: (a) => <IconShop filled={a} /> },
-  { to: '/ustalar',  label: 'Ustalar', icon: () => <IconWorkers /> },
-  { to: '/profile',  label: 'Profil',  icon: () => <IconProfile /> },
+const SIDEBAR_NAV: Array<{
+  to: string
+  label: 'layout.uy' | 'layout.dokon' | 'layout.ustalar' | 'nav.profil'
+  icon: (active: boolean) => React.ReactNode
+}> = [
+  { to: '/projects', label: 'layout.uy',      icon: (a) => <IconHome filled={a} /> },
+  { to: '/dokon',    label: 'layout.dokon',   icon: (a) => <IconShop filled={a} /> },
+  { to: '/ustalar',  label: 'layout.ustalar', icon: () => <IconWorkers /> },
+  { to: '/profile',  label: 'nav.profil',     icon: () => <IconProfile /> },
 ]
 
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
 
 function DesktopSidebar({ onNew }: { onNew: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -190,7 +197,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
   const railItem = 'flex h-11 w-11 items-center justify-center rounded-2xl transition-colors'
   return (
     <aside
-      aria-label="Asosiy navigatsiya"
+      aria-label={t('layout.asosiy_navigatsiya')}
       className="hidden lg:flex flex-col items-center fixed left-3 top-3 bottom-3 w-[68px] rounded-3xl bg-card border border-line shadow-panel z-30 py-4"
     >
       <img src="/icon.svg" alt="andoza.ai" className="w-10 h-10 flex-shrink-0" />
@@ -200,8 +207,8 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
           <NavLink
             key={to}
             to={to}
-            title={label}
-            aria-label={label}
+            title={t(label)}
+            aria-label={t(label)}
             className={({ isActive }) =>
               `${railItem} ${
                 isActive
@@ -219,8 +226,8 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
         <ThemeToggle />
         <button
           onClick={onNew}
-          title="Yangi loyiha"
-          aria-label="Yangi loyiha"
+          title={t('layout.yangi_loyiha')}
+          aria-label={t('layout.yangi_loyiha')}
           className={`${railItem} bg-gradient-to-br from-[#FB923C] to-[#EA580C] text-white shadow-glow-orange hover:brightness-105`}
         >
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -229,8 +236,8 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
         </button>
         <button
           onClick={handleLogout}
-          title="Chiqish"
-          aria-label="Chiqish"
+          title={t('auth.chiqish')}
+          aria-label={t('auth.chiqish')}
           className={`${railItem} text-ink-muted hover:bg-red-500/10 hover:text-red-500`}
         >
           <IconLogout />
@@ -243,6 +250,7 @@ function DesktopSidebar({ onNew }: { onNew: () => void }) {
 // ─── Mobile Bottom Nav ────────────────────────────────────────────────────────
 
 function BottomNavTab({ to, label, icon }: (typeof SIDEBAR_NAV)[number]) {
+  const { t } = useTranslation()
   return (
     <NavLink
       to={to}
@@ -257,7 +265,7 @@ function BottomNavTab({ to, label, icon }: (typeof SIDEBAR_NAV)[number]) {
           {/* Fixed box so icons of different heights keep the labels on one line. */}
           <span className="flex h-6 items-center justify-center" aria-hidden="true">{icon(isActive)}</span>
           <span className={`text-xs ${isActive ? 'font-bold text-brand-light' : 'font-semibold text-ink-muted'}`}>
-            {label}
+            {t(label)}
           </span>
         </>
       )}
@@ -269,10 +277,11 @@ function BottomNavTab({ to, label, icon }: (typeof SIDEBAR_NAV)[number]) {
  *  "new project" button in the middle (Uy · Do'kon · + · Ustalar · Profil).
  *  Profil has to be reachable here — it holds logout and account deletion. */
 function BottomNav({ onFab }: { onFab: () => void }) {
+  const { t } = useTranslation()
   const [home, shop, workers, profile] = SIDEBAR_NAV
   return (
     <nav
-      aria-label="Asosiy navigatsiya"
+      aria-label={t('layout.asosiy_navigatsiya')}
       className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-card h-[94px] border-t border-line shadow-nav"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -286,7 +295,7 @@ function BottomNav({ onFab }: { onFab: () => void }) {
         <div className="flex flex-col items-center" style={{ marginBottom: 44 }}>
           <button
             onClick={onFab}
-            aria-label="Yangi loyiha qo'shish"
+            aria-label={t('layout.yangi_loyiha_qoshish')}
             className="w-16 h-16 rounded-full flex items-center justify-center border-4 border-card bg-gradient-to-br from-[#FB923C] to-[#EA580C] shadow-glow-orange"
           >
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">

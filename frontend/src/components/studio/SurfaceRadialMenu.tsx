@@ -14,6 +14,7 @@
  * `lib/lastChoice.ts` for why that is a turn and not a reorder.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { angleAt, arcSlots, slotsFromAngleDelta, wrapArcOffset } from '@/lib/arcMenu'
 import { isDoubleTap, nextTapRecord, type TapRecord } from '@/lib/doubleTapSelect'
 import { ringOpeningOffset } from '@/lib/lastChoice'
@@ -70,15 +71,15 @@ interface Props {
   onDismiss?: () => void
 }
 
-const SURFACE_LABEL: Record<RadialSurface, string> = {
-  wall: 'Devor',
-  ceiling: 'Shift',
-  floor: 'Pol',
-  skirting: 'Plintus',
-  cornice: 'Karniz',
-  door: 'Eshik',
-  window: 'Oyna',
-}
+const SURFACE_LABEL = {
+  wall: 'studio.shared.devor',
+  ceiling: 'studio.shared.shift',
+  floor: 'studio.shared.pol',
+  skirting: 'studio.shared.plintus',
+  cornice: 'studio.shared.karniz',
+  door: 'studio.shared.eshik',
+  window: 'studio.radial.oyna',
+} as const satisfies Record<RadialSurface, string>
 
 // Ring geometry: buttons sit on an arc opening upward from the press point.
 const RADIUS = 82
@@ -125,6 +126,7 @@ function shownFor(trail: RadialItem[], items: RadialItem[]): RadialItem[] {
 }
 
 export default function SurfaceRadialMenu({ x, y, surface, items, onClose, onDismiss }: Props) {
+  const { t } = useTranslation()
   const dismiss = onDismiss ?? onClose
   /** The path drilled into, deepest last — a stack rather than a single item
    *  because a choice can lead to another (a tile size, then its texture). */
@@ -267,7 +269,7 @@ export default function SurfaceRadialMenu({ x, y, surface, items, onClose, onDis
           pointerEvents: 'none',
         }}
       >
-        {drill?.childLabel ?? drill?.label ?? SURFACE_LABEL[surface]}
+        {drill?.childLabel ?? drill?.label ?? t(SURFACE_LABEL[surface])}
       </div>
 
       {placed.map(({ item, key, deg, edge, opacity, scale }) => {

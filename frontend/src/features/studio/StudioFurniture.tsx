@@ -19,6 +19,8 @@ import {
 import { holdCameraStill, swallowPickClick } from '@/lib/pickEvents'
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { showToast } from "@/components/ui/Toast";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { SelectionOutline } from "./SelectionOutline";
 import type { PlacedFurniture, UserFurnitureEntry } from "@/store/roomStore";
 import { FURNITURE_CATALOG } from "@/lib/furnitureCatalog";
@@ -258,6 +260,7 @@ function DraggableFurnitureItem({
   selectedPartKey: string | null
   onSelectPart: (part: SelectedPart | null) => void
 }) {
+  const { t } = useTranslation()
   const entry = useFurnitureEntry(item.furniture_id)
   const modelPath = entry?.modelPath ?? ''
   const { scene } = useGLTF(modelPath || '/models/table_boconcept_hauge.glb')
@@ -355,7 +358,7 @@ function DraggableFurnitureItem({
       }
     } catch (err) {
       console.error('[PartDetach] failed:', err)
-      showToast({ variant: 'error', title: "Qismni ajratib bo'lmadi", description: err instanceof Error ? err.message : undefined })
+      showToast({ variant: 'error', title: t('studio.furn.detach_failed'), description: err instanceof Error ? err.message : undefined })
     } finally {
       setDetaching(false)
     }
@@ -488,30 +491,30 @@ function DraggableFurnitureItem({
             <button
               onClick={detachSelectedPart}
               disabled={detaching}
-              title="Qismni alohida obyekt sifatida ajratish"
+              title={t('studio.furn.detach_title')}
               style={{
                 fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 7,
                 border: '1px solid #2563EB', background: '#EFF6FF', color: '#2563EB',
                 cursor: detaching ? 'wait' : 'pointer',
               }}
             >
-              {detaching ? '⏳' : 'Ajratish'}
+              {detaching ? '⏳' : t('studio.furn.detach')}
             </button>
             <button
               onClick={deleteSelectedPart}
               disabled={detaching}
-              title="Qismni o'chirish"
+              title={t('studio.furn.delete_part')}
               style={{
                 fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 7,
                 border: '1px solid #DC2626', background: '#FEF2F2', color: '#DC2626',
                 cursor: 'pointer',
               }}
             >
-              O'chirish
+              {t('common.ochirish')}
             </button>
             <button
               onClick={() => onSelectPart(null)}
-              title="Bekor qilish"
+              title={t('common.bekor')}
               style={{
                 fontSize: 11, fontWeight: 700, padding: '3px 6px', borderRadius: 7,
                 border: 'none', background: 'transparent', color: '#9CA3AF', cursor: 'pointer',
@@ -533,7 +536,7 @@ function DraggableFurnitureItem({
         <Html position={[0, buttonH, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: 'none' }}>
           <button
             onPointerDown={(e) => { e.stopPropagation(); onButtonPointerDown(e) }}
-            title="Siljitish"
+            title={t('studio.furn.move')}
             style={{
               pointerEvents: 'all', width: 30, height: 30, borderRadius: '50%',
               border: btnActive ? '2px solid #1E40AF' : '1.5px solid rgba(0,0,0,0.18)',
@@ -554,7 +557,7 @@ function DraggableFurnitureItem({
         <Html position={[0, buttonH, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: 'none' }}>
           <button
             onPointerDown={(e) => { e.stopPropagation(); onButtonPointerDown(e) }}
-            title="Aylantirish"
+            title={t('studio.three_d.tool_rotate')}
             style={{
               pointerEvents: 'all', width: 30, height: 30, borderRadius: '50%',
               border: btnActive ? '2px solid #1E40AF' : '1.5px solid rgba(0,0,0,0.18)',
@@ -576,7 +579,7 @@ function DraggableFurnitureItem({
         <Html position={[0, buttonH, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: 'none' }}>
           <button
             onPointerDown={(e) => { e.stopPropagation(); onButtonPointerDown(e) }}
-            title="O'lcham o'zgartirish"
+            title={t('studio.furn.resize')}
             style={{
               pointerEvents: 'all', width: 30, height: 30, borderRadius: '50%',
               border: btnActive ? '2px solid #059669' : '1.5px solid rgba(0,0,0,0.18)',
@@ -610,7 +613,7 @@ function DraggableFurnitureItem({
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>{displayInfo.name}</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
               {fw.toFixed(2)} × {fd.toFixed(2)} m
-              {displayInfo.priceUzs != null && ` · ${displayInfo.priceUzs.toLocaleString('uz-UZ')} so'm`}
+              {displayInfo.priceUzs != null && ` · ${t('studio.shared.price_som', { price: displayInfo.priceUzs.toLocaleString(intlLocale()) })}`}
             </p>
           </div>
         </Html>
@@ -640,6 +643,7 @@ export function DraggableFurnitureModels({
   selectedPart: SelectedPart | null
   onSelectPart: (part: SelectedPart | null) => void
 }) {
+  const { t } = useTranslation()
   const furniture = useRoomStore((s) => s.furniture)
   const userFurniture = useRoomStore((s) => s.userFurniture)
   const catalogFurniture = useRoomStore((s) => s.catalogFurniture)
@@ -725,7 +729,7 @@ export function DraggableFurnitureModels({
     if (catalogItem) return { name: catalogItem.name_uz, priceUzs: catalogItem.price_uzs }
     const userItem = (userFurniture as UserFurnitureEntry[]).find((f) => f.id === item.furniture_id)
     if (userItem) return { name: userItem.name, priceUzs: null }
-    return { name: 'Mebel', priceUzs: null }
+    return { name: t('studio.shared.mebel'), priceUzs: null }
   }
 
   /**

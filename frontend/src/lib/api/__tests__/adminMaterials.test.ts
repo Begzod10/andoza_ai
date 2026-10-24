@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18n from '@/i18n'
 
 const client = vi.hoisted(() => ({ apiClient: vi.fn() }))
 vi.mock('../client', () => client)
@@ -59,11 +60,12 @@ describe('constants', () => {
       expect(k.unit).toBe('dona')
       expect(k.packUnit).toBeNull()
     }
-    expect(key('light:pendant').label).toBe('Chiroq: Osma chiroq')
+    expect(i18n.t('dokon.admin.smeta_key.light', { name: i18n.t(key('light:pendant').labelKey) })).toBe('Chiroq: Osma chiroq')
   })
   it('lists the backend categories and units', () => {
     expect(MATERIAL_CATEGORIES).toHaveLength(12)
-    expect(MATERIAL_CATEGORIES[0]).toEqual({ id: 'boyoq', label: "Bo'yoq" })
+    expect(MATERIAL_CATEGORIES[0].id).toBe('boyoq')
+    expect(i18n.t(MATERIAL_CATEGORIES[0].labelKey)).toBe("Bo'yoq")
     expect(MATERIAL_UNITS.map((u) => u.id)).toEqual(['litr', 'rulon', 'm2', 'qop', 'dona', 'm', 'komplekt'])
   })
 })

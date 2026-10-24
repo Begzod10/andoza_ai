@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useBlocker, type BlockerFunction } from "react-router-dom";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +33,7 @@ export function UnsavedChangesGuard({
   roomId: string;
   isDirty: () => boolean;
 }) {
+  const { t } = useTranslation();
   // (a) Tab close / reload / leaving the SPA.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -62,16 +64,16 @@ export function UnsavedChangesGuard({
     <Dialog
       open={open}
       onOpenChange={(next) => { if (!next) stay(); }}
-      title="Saqlanmagan o'zgarishlar"
-      description="Xonadagi o'zgarishlar hali saqlanmagan. Chiqsangiz, ular yo'qolishi mumkin."
+      title={t("studio.unsaved.title")}
+      description={t("studio.unsaved.text")}
       themed
     >
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="soft" size="sm" onClick={stay}>
-          Qolish
+          {t("studio.unsaved.stay")}
         </Button>
         <Button variant="danger" size="sm" onClick={leave}>
-          Saqlamasdan chiqish
+          {t("studio.unsaved.leave")}
         </Button>
       </div>
     </Dialog>

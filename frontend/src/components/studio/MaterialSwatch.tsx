@@ -1,4 +1,6 @@
 import type { Material } from "@/lib/api";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 
 interface MaterialSwatchProps {
   material: Material;
@@ -16,10 +18,11 @@ interface MaterialSwatchProps {
  * oversight).
  */
 export function MaterialSwatch({ material, isActive, onClick }: MaterialSwatchProps) {
+  const { t } = useTranslation();
   const color = material.color_hex ?? "#E5E7EB";
   return (
     <button
-      title={`${material.name_uz} — ${material.price_uzs.toLocaleString("uz-UZ")} so'm/${material.unit}`}
+      title={`${material.name_uz} — ${t("common.price_per_unit", { price: material.price_uzs.toLocaleString(intlLocale()), unit: material.unit })}`}
       onClick={onClick}
       aria-pressed={isActive}
       className="flex-shrink-0 flex flex-col items-center gap-1 w-14"

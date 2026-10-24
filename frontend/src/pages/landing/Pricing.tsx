@@ -1,21 +1,30 @@
 import { Link } from "react-router-dom";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 import { Icon } from "./icons";
 import Reveal from "./Reveal";
 
+interface PricingTier {
+  name: string;
+  price: string;
+  features: string[];
+  cta: string;
+}
+
 export default function Pricing() {
-  const { t } = useLang();
+  const { t } = useTranslation();
+  const free = t("landing.pricing.free", { returnObjects: true }) as PricingTier;
+  const pro = t("landing.pricing.pro", { returnObjects: true }) as PricingTier;
   const tiers = [
-    { tier: t.pricing.free, highlighted: false, soon: false },
+    { tier: free, highlighted: false, soon: false },
     // Pro is not out yet: its button says so and goes nowhere, rather than sending people to log in for it.
-    { tier: t.pricing.pro, highlighted: true, soon: true },
+    { tier: pro, highlighted: true, soon: true },
   ];
 
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-6 py-20 sm:py-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
-          {t.pricing.heading}
+          {t("landing.pricing.heading")}
         </h2>
       </Reveal>
 
@@ -38,7 +47,7 @@ export default function Pricing() {
                   style={{ background: "radial-gradient(circle, rgba(59,127,255,0.5), transparent 70%)" }}
                 />
                 <span className="absolute right-5 top-6 rounded-full bg-[#3b7fff] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                  {t.pricing.popular}
+                  {t("landing.pricing.popular")}
                 </span>
               </>
             )}

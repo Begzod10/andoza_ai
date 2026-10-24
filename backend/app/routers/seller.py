@@ -16,6 +16,8 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request, UploadFile, 
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from app.i18n import translate_detail
+from app.schemas.admin_catalog import FURNITURE_STYLES
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.database import run_after_commit
@@ -76,11 +78,14 @@ async def _require_store(db: DbSession, user) -> Store:
 async def _require_approved_store(db: DbSession, user) -> Store:
     store = await _require_store(db, user)
     if store.status != "approved":
+        if store.status == "pending":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Do'koningiz hali tasdiqlanmagan",
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Do'koningiz hali tasdiqlanmagan"
-            if store.status == "pending"
-            else "Do'koningiz rad etilgan",
+            detail="Do'koningiz rad etilgan",
         )
     return store
 
@@ -227,15 +232,15 @@ async def upload_furniture(
     store = await _require_approved_store(db, current_user)
 
     if category not in FURNITURE_CATEGORIES:
-        raise HTTPException(status_code=422, detail=f"category {', '.join(sorted(FURNITURE_CATEGORIES))} dan biri bo'lishi kerak")
+        raise HTTPException(status_code=422, detail=translate_detail("category {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(FURNITURE_CATEGORIES))))
     if room_type is not None and room_type not in ROOM_TYPES:
-        raise HTTPException(status_code=422, detail=f"room_type {', '.join(sorted(ROOM_TYPES))} dan biri (yoki bo'sh) bo'lishi kerak")
+        raise HTTPException(status_code=422, detail=translate_detail("room_type {allowed} dan biri (yoki bo'sh) bo'lishi kerak", allowed=', '.join(sorted(ROOM_TYPES))))
     if placement not in PLACEMENTS:
-        raise HTTPException(status_code=422, detail=f"placement {', '.join(sorted(PLACEMENTS))} dan biri bo'lishi kerak")
+        raise HTTPException(status_code=422, detail=translate_detail("placement {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PLACEMENTS))))
     try:
         style_list = parse_styles_form(styles)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=translate_detail("styles {allowed} dan bo'lishi kerak", allowed=", ".join(FURNITURE_STYLES))) from exc
 
     pending = (await db.execute(
         select(func.count()).select_from(Furniture)
@@ -251,7 +256,7 @@ async def upload_furniture(
     if not glb:
         raise HTTPException(status_code=400, detail="Bo'sh fayl yuborildi")
     if len(glb) > _MAX_GLB_BYTES:
-        raise HTTPException(status_code=413, detail=f"Fayl hajmi {_MAX_GLB_BYTES // (1024 * 1024)} MB dan oshmasligi kerak")
+        raise HTTPException(status_code=413, detail=translate_detail("Fayl hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_GLB_BYTES // (1024 * 1024)))
     if not is_glb_with_meshes(glb):
         raise HTTPException(status_code=415, detail="Fayl haqiqiy .glb emas")
 
@@ -263,7 +268,7 @@ async def upload_furniture(
             raise HTTPException(status_code=415, detail="Rasm faqat jpeg/png/webp formatida bo'lishi mumkin")
         thumb_bytes = await thumbnail.read()
         if len(thumb_bytes) > _MAX_THUMB_BYTES:
-            raise HTTPException(status_code=413, detail=f"Rasm hajmi {_MAX_THUMB_BYTES // (1024 * 1024)} MB dan oshmasligi kerak")
+            raise HTTPException(status_code=413, detail=translate_detail("Rasm hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_THUMB_BYTES // (1024 * 1024)))
         if thumb_bytes and not thumb_bytes.startswith(_THUMB_MAGIC[thumb_type]):
             raise HTTPException(status_code=415, detail="Rasm fayli buzilgan yoki noto'g'ri formatda")
 
@@ -347,7 +352,7 @@ async def update_furniture(
                 changes["styles"] = normalize_styles(changes["styles"])
                 changes["styles_source"] = "manual"
             except ValueError as exc:
-                raise HTTPException(status_code=422, detail=str(exc)) from exc
+                raise HTTPException(status_code=422, detail=translate_detail("styles {allowed} dan bo'lishi kerak", allowed=", ".join(FURNITURE_STYLES))) from exc
     # Only an approved model may be shown: this switch hides and re-shows it, it
     # does not bypass moderation.
     if changes.get("is_active") is True and f.status != "approved":

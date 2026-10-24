@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { create } from 'zustand'
+import { useTranslation } from 'react-i18next'
 import { createHoldTracker, HOLD_DELETE_MS } from '@/lib/holdToDelete'
 
 /**
@@ -79,6 +80,7 @@ export function useHoldToDelete() {
  * canvas — it is ordinary DOM, not part of the scene.
  */
 export function HoldDeleteButton() {
+  const { t } = useTranslation()
   const pending = useHoldDeleteStore((s) => s.pending)
   const close = useHoldDeleteStore((s) => s.close)
 
@@ -135,7 +137,7 @@ export function HoldDeleteButton() {
             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
           </svg>
-          O&apos;chirish
+          {t('common.ochirish')}
         </button>
         {pending.item.onMove && (
           <button
@@ -146,7 +148,7 @@ export function HoldDeleteButton() {
               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14M5 12l4-4M5 12l4 4M19 12l-4-4M19 12l-4 4" />
             </svg>
-            Ko&apos;chirish
+            {t('common.kochirish')}
           </button>
         )}
       </div>

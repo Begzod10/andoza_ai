@@ -1,4 +1,6 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { nanoid } from "nanoid";
 import { AlertTriangle, ImagePlus, Loader2, Palette, Store } from "lucide-react";
 import { FurnitureSymbol } from "@/lib/catalogIcons";
@@ -28,6 +30,7 @@ function PartRow({ mat, busy, onFiles, onPick }: {
   onFiles(files: File[]): void;
   onPick(): void;
 }) {
+  const { t } = useTranslation();
   const { isOver, dropProps } = useFileDrop({
     onDrop: onFiles,
     accept: isImageFile,
@@ -46,23 +49,23 @@ function PartRow({ mat, busy, onFiles, onPick }: {
         mat.textured ? 'bg-green-500' : mat.hasMap ? 'bg-amber-400' : 'bg-gray-300'
       }`} />
       <span className="flex-1 text-[12px] font-medium text-gray-800 truncate" title={mat.name}>
-        {isOver ? 'Rasmni qo\'yib yuboring' : mat.name}
+        {isOver ? t('studio.mebel.drop_here') : mat.name}
       </span>
       {!mat.hasUVs && (
-        <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title="UV koordinatalari yo'q — rasm qo'yilganda avtomatik yaratiladi">UV yo'q</span>
+        <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded shrink-0" title={t('studio.mebel.no_uv_title')}>{t('studio.mebel.no_uv')}</span>
       )}
       <span
         className={`text-[10px] shrink-0 ${mat.hasMap && !mat.textured ? 'text-amber-600' : 'text-gray-500'}`}
-        title={mat.hasMap && !mat.textured ? "Rasm biriktirilgan, lekin ko'rinmaydi (UV yoki rasm muammosi)" : undefined}
+        title={mat.hasMap && !mat.textured ? t('studio.mebel.invisible_title') : undefined}
       >
-        {mat.textured ? 'tekstura ✓' : mat.hasMap ? "ko'rinmaydi" : "yo'q"}
+        {mat.textured ? t('studio.mebel.textured') : mat.hasMap ? t('studio.mebel.invisible') : t('studio.mebel.none')}
       </span>
       <button
         onClick={onPick}
         disabled={busy}
         className="shrink-0 text-[11px] font-semibold text-brand border border-brand/30 rounded-lg px-2 py-1 hover:bg-brand/5 disabled:opacity-40"
       >
-        {busy ? '⏳' : 'Rasm'}
+        {busy ? '⏳' : t('studio.mebel.image_btn')}
       </button>
     </div>
   );
@@ -113,6 +116,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
   onSetPlacement?(placement: FurniturePlacement): void;
   onSetPrice?(priceUzs: number): void;
 }) {
+  const { t } = useTranslation();
   const ready = (!entry.isUser && !entry.isShop) || !!entry.modelPath;
   const roomId = useRoomStore((s) => s.roomId);
   const [inquiryOpen, setInquiryOpen] = React.useState(false);
@@ -139,26 +143,26 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
           isOver ? <ImagePlus size={34} strokeWidth={1.5} className="text-gray-500" aria-hidden="true" /> : <FurnitureSymbol emoji={entry.emoji} size={36} strokeWidth={1.5} className="text-gray-500" />
         )}
         {entry.isUser && !entry.modelPath && (
-          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">yuklanmoqda</span>
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">{t('studio.mebel.uploading')}</span>
         )}
         {entry.isShop && !entry.modelPath && (
-          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">3D model yo'q</span>
+          <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-600 px-1 rounded">{t('studio.mebel.no_model')}</span>
         )}
         {entry.isUser && !entry.hasTextures && entry.modelPath && (
-          <span className="absolute top-1 right-1" title="Tekstura yo'q"><AlertTriangle size={13} className="text-amber-500" aria-label="Tekstura yo'q" /></span>
+          <span className="absolute top-1 right-1" title={t('studio.mebel.no_texture')}><AlertTriangle size={13} className="text-amber-500" aria-label={t('studio.mebel.no_texture')} /></span>
         )}
       </div>
 
       {/* Info */}
       <div className="px-2 py-1.5 flex-1">
         <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2">
-          {isOver ? "Tekstura qo'yish" : entry.name}
+          {isOver ? t('studio.mebel.apply_texture') : entry.name}
         </p>
         <p className="text-[10px] text-gray-500 mt-0.5">{entry.sizeM.w}×{entry.sizeM.d} m</p>
         {entry.isShop && (
           <p className="text-[10px] text-gray-500 mt-0.5 truncate" title={entry.storeName ?? undefined}>
-            <Store size={11} className="mr-1 inline -mt-0.5" aria-hidden="true" />{entry.storeName ?? "Do'konsiz"}
-            {entry.priceUzs != null && ` · ${entry.priceUzs.toLocaleString('uz-UZ')} so'm`}
+            <Store size={11} className="mr-1 inline -mt-0.5" aria-hidden="true" />{entry.storeName ?? t('studio.mebel.no_shop')}
+            {entry.priceUzs != null && ` · ${t('studio.shared.price_som', { price: entry.priceUzs.toLocaleString(intlLocale()) })}`}
           </p>
         )}
         {entry.isShop && <StoreContactLinks store={entry.storeContact} />}
@@ -169,7 +173,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
               onClick={(e) => { e.stopPropagation(); setInquiryOpen(true); }}
               className="mt-1 w-full rounded-md border border-brand/30 px-1.5 py-0.5 text-center text-[10px] font-semibold text-brand hover:bg-brand/5"
             >
-              Do'konga murojaat
+              {t('studio.inquiry.title')}
             </button>
             <ShopInquiryDialog
               open={inquiryOpen}
@@ -186,10 +190,10 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
             value={entry.category ?? 'boshqa'}
             onChange={(e) => onRecategorize(e.target.value as FurnitureCategory)}
             className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
-            title="Kategoriyani o'zgartirish"
+            title={t('studio.mebel.change_category')}
           >
             {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>{t(v)}</option>
             ))}
           </select>
         )}
@@ -198,10 +202,10 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
             value={entry.placement ?? 'pol'}
             onChange={(e) => onSetPlacement(e.target.value as FurniturePlacement)}
             className="mt-1 w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none"
-            title="Xonada joylashuvi"
+            title={t('studio.mebel.placement')}
           >
             {Object.entries(PLACEMENT_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>{t(v)}</option>
             ))}
           </select>
         )}
@@ -214,9 +218,9 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
               value={entry.priceUzs ?? 0}
               onChange={(e) => onSetPrice(Math.max(0, Number(e.target.value) || 0))}
               className="w-full text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 hover:border-brand/40 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
-              title="Taxminiy narx (so'm) — hisoblagichda shu narx ishlatiladi"
+              title={t('studio.mebel.price_title')}
             />
-            <span className="shrink-0">so'm</span>
+            <span className="shrink-0">{t('studio.mebel.currency')}</span>
           </label>
         )}
       </div>
@@ -234,24 +238,24 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
           onClick={() => ready && onPlace()}
           disabled={!ready}
           className="flex-1 py-1.5 text-brand text-sm font-bold hover:bg-brand/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          title="Qo'shish"
+          title={t('studio.add.add')}
         >
-          + Qo'shish
+          {t('studio.add.add_plus')}
         </button>
         {canTexture && (
           <button
             onClick={onOpenTexEditor}
             disabled={busy}
             className="px-2 border-l border-gray-100 text-gray-400 hover:text-brand transition-colors text-xs"
-            title="Teksturalarni boshqarish (kanallar bo'yicha) — yoki rasmni shu kartaga sudrab tashlang"
-           aria-label="Teksturalarni boshqarish">{busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={14} aria-hidden="true" />}</button>
+            title={t('studio.mebel.tex_manage_title')}
+           aria-label={t('studio.mebel.tex_manage')}>{busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={14} aria-hidden="true" />}</button>
         )}
         {entry.isUser && (
           <button
             onClick={onRemove}
             className="px-2 border-l border-gray-100 text-red-600 hover:text-red-700 transition-colors text-xs"
-            title="Modelni o'chirish"
-            aria-label="Modelni o'chirish"
+            title={t('studio.mebel.delete_model')}
+            aria-label={t('studio.mebel.delete_model')}
           >✕</button>
         )}
       </div>
@@ -268,6 +272,7 @@ function ModelCard({ entry, count, busy, onPlace, onOpenTexEditor, onRemove, onF
  * DesignPanel's other sections.
  */
 export function MebelSection() {
+  const { t } = useTranslation();
   const furniture = useRoomStore((s) => s.furniture);
   const placeFurniture = useRoomStore((s) => s.placeFurniture);
   const removeFurniture = useRoomStore((s) => s.removeFurniture);
@@ -324,11 +329,11 @@ export function MebelSection() {
     setTexBusy(entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
-      if (!buf) throw new Error('Model fayli topilmadi');
+      if (!buf) throw new Error(t('studio.mebel.file_missing'));
       const mats = await listGlbMaterials(buf);
       setTexEditor({ entryId, name: entry.name, mats });
     } catch (err) {
-      toast({ variant: 'error', title: "Modelni o'qib bo'lmadi", description: err instanceof Error ? err.message : undefined });
+      toast({ variant: 'error', title: t('studio.mebel.read_failed'), description: err instanceof Error ? err.message : undefined });
     } finally {
       setTexBusy(null);
     }
@@ -345,7 +350,7 @@ export function MebelSection() {
     setTexBusy(target.entryId);
     try {
       const buf = await getModelFromDb(entry.blobId);
-      if (!buf) throw new Error('Model fayli topilmadi');
+      if (!buf) throw new Error(t('studio.mebel.file_missing'));
       const newBuf = await applyMaterialToGlb(buf, files, target.index);
       await saveModelToDb(entry.blobId, newBuf);
       const newUrl = arrayBufferToBlobUrl(newBuf);
@@ -358,7 +363,7 @@ export function MebelSection() {
       const mats = await listGlbMaterials(newBuf);
       setTexEditor((prev) => (prev && prev.entryId === target.entryId ? { ...prev, mats } : prev));
     } catch (err) {
-      toast({ variant: 'error', title: "Teksturani qo'yib bo'lmadi", description: err instanceof Error ? err.message : undefined });
+      toast({ variant: 'error', title: t('studio.mebel.texture_failed'), description: err instanceof Error ? err.message : undefined });
     } finally {
       setTexBusy(null);
     }
@@ -390,9 +395,9 @@ export function MebelSection() {
   ]
 
   const catChips: Array<{ key: FurnitureCategory | 'barchasi' | 'mening'; label: string }> = [
-    { key: 'barchasi', label: 'Barchasi' },
-    ...Object.entries(CATEGORY_LABELS).map(([k, v]) => ({ key: k as FurnitureCategory, label: v })),
-    { key: 'mening', label: 'Mening' },
+    { key: 'barchasi', label: t('studio.mebel.all') },
+    ...Object.entries(CATEGORY_LABELS).map(([k, v]) => ({ key: k as FurnitureCategory, label: t(v) })),
+    { key: 'mening', label: t('studio.mebel.mine') },
   ]
 
   const filteredEntries = allCatalogEntries.filter((e) => {
@@ -405,7 +410,7 @@ export function MebelSection() {
 
   return (
     <section className="relative rounded-xl">
-      <h3 className="text-sm font-semibold text-gray-900 mb-2">3D Modellar</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">{t('studio.mebel.models')}</h3>
 
       {/* Category chips */}
       <div className="flex gap-1.5 flex-wrap mb-3">
@@ -516,14 +521,12 @@ export function MebelSection() {
               <button
                 ref={texEditorCloseRef}
                 onClick={() => setTexEditor(null)}
-                aria-label="Yopish"
+                aria-label={t('common.yopish')}
                 className="text-gray-400 hover:text-gray-600 font-bold px-1"
               >✕</button>
             </div>
             <p className="text-[11px] text-gray-500 mb-3">
-              {texEditor.mats.length} ta qism. Rasmni to'g'ridan-to'g'ri qism ustiga sudrab tashlang —
-              bir nechta rasm birga tashlansa, nomiga qarab kanallarga taqsimlanadi
-              (rang · normal · rough · AO).
+              {t('studio.mebel.parts_count', { count: texEditor.mats.length })} {t('studio.mebel.parts_hint')}
             </p>
             <div className="max-h-72 overflow-y-auto space-y-1.5">
               {texEditor.mats.map((m) => (
@@ -541,7 +544,7 @@ export function MebelSection() {
               disabled={texBusy === texEditor.entryId}
               className="mt-3 w-full text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-xl py-2 hover:border-brand/40 hover:text-brand disabled:opacity-40"
             >
-              Barcha bo'sh kanallarga bitta rasm
+              {t('studio.mebel.one_image_all')}
             </button>
           </div>
         </div>
@@ -551,7 +554,7 @@ export function MebelSection() {
 
       {furniture.length > 0 && (
         <div className="mt-3 space-y-1">
-          <p className="text-xs text-gray-500 font-medium mb-1">Joylashtirilgan:</p>
+          <p className="text-xs text-gray-500 font-medium mb-1">{t('studio.mebel.placed')}</p>
           {furniture.map((f) => {
             const staticEntry = FURNITURE_CATALOG.find((c) => c.id === f.furniture_id) as FurnitureCatalogEntry | undefined;
             const userEntry = userFurniture.find((c) => c.id === f.furniture_id);
@@ -573,14 +576,14 @@ export function MebelSection() {
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">
                   <span className="text-gray-600"><FurnitureSymbol emoji={entry?.emoji ?? (shopEntry ? '🏪' : '📦')} size={15} /></span>
-                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? 'Model'}</span>
+                  <span className="flex-1 text-gray-700 truncate font-medium">{entry?.name ?? f.name ?? shopEntry?.name_uz ?? t('studio.mebel.model')}</span>
                   <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{actualW}×{actualD} m</span>
                   <button
                     onClick={() => setColorEditorId(isEditing ? null : f.id)}
-                    title="Rang o'zgartirish"
+                    title={t('studio.mebel.change_color')}
                     className={`text-sm leading-none transition-colors ${isEditing ? 'text-brand' : hasOverrides ? 'text-amber-500' : 'text-gray-300 hover:text-gray-500'}`}
-                   aria-label="Rang o'zgartirish"><Palette size={15} aria-hidden="true" /></button>
-                  <button onClick={() => removeFurniture(f.id)} className="text-gray-400 hover:text-red-500 transition-colors text-sm leading-none" title="O'chirish">✕</button>
+                   aria-label={t('studio.mebel.change_color')}><Palette size={15} aria-hidden="true" /></button>
+                  <button onClick={() => removeFurniture(f.id)} className="text-gray-400 hover:text-red-500 transition-colors text-sm leading-none" title={t('common.ochirish')}>✕</button>
                 </div>
 
                 {isEditing && (
@@ -606,14 +609,14 @@ export function MebelSection() {
                                 setFurnitureColors(f.id, rest);
                               }}
                               className="text-xs text-gray-400 hover:text-red-400"
-                              title="Asl rangga qaytarish"
+                              title={t('studio.mebel.reset_color')}
                             >↺</button>
                           )}
                         </div>
                       );
                     }) : (
                       <div className="flex items-center gap-2">
-                        <label htmlFor={`furniture-color-${f.id}-single`} className="text-xs text-gray-500 w-16 shrink-0">Rang</label>
+                        <label htmlFor={`furniture-color-${f.id}-single`} className="text-xs text-gray-500 w-16 shrink-0">{t('studio.mebel.color')}</label>
                         <input
                           id={`furniture-color-${f.id}-single`}
                           type="color"

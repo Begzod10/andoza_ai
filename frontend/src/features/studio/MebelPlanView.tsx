@@ -11,6 +11,7 @@
  * live — and vice versa.
  */
 import { useCallback, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedFurniture, WallElement } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
@@ -75,11 +76,11 @@ const DEFAULTS: Record<ElType, Omit<WallElement, 'id' | 'position'>> = {
   balkon: { type: 'balkon', width: 1500, height: 2100, sill_height: 0 },
 }
 
-const TOOL_META: Array<{ type: ElType; label: string; hint: string }> = [
-  { type: 'eshik', label: 'Eshik', hint: '900 × 2100' },
-  { type: 'deraza', label: 'Deraza', hint: '900 × 1200' },
-  { type: 'balkon', label: 'Balkon eshigi', hint: '1500 × 2100' },
-]
+const TOOL_META = [
+  { type: 'eshik', labelKey: 'studio.shared.eshik', hint: '900 × 2100' },
+  { type: 'deraza', labelKey: 'studio.shared.deraza', hint: '900 × 1200' },
+  { type: 'balkon', labelKey: 'studio.shared.balkon_eshigi', hint: '1500 × 2100' },
+] as const satisfies ReadonlyArray<{ type: ElType; labelKey: string; hint: string }>
 
 const BLUE = '#1E3A8A'
 const WALL_DARK = '#2B2622'
@@ -209,6 +210,7 @@ function keepingOutline<A extends unknown[]>(action: (...args: A) => void): (...
 }
 
 export function MebelPlanView() {
+  const { t } = useTranslation()
   const geometry = useRoomStore((s) => s.geometry)
   const addElement = keepingOutline(useRoomStore((s) => s.addElement))
   const updateElement = keepingOutline(useRoomStore((s) => s.updateElement))
@@ -252,7 +254,7 @@ export function MebelPlanView() {
   if (!rect && !poly) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-gray-500 p-6 text-center">
-        2D plan uchun xona konturi topilmadi — xonani qaytadan chizing yoki skanerlang
+        {t('studio.mplan.no_outline')}
       </div>
     )
   }
@@ -523,30 +525,30 @@ export function MebelPlanView() {
     <div className="h-full flex min-h-0">
       {/* ── Palette ─────────────────────────────────────────────── */}
       <div className="w-40 shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-3 select-none">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Eshik va deraza</p>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('studio.mplan.openings')}</p>
         <div className="flex flex-col gap-2">
-          {TOOL_META.map((t) => (
+          {TOOL_META.map((meta) => (
             <button
-              key={t.type}
-              onClick={() => setTool(tool === t.type ? null : t.type)}
+              key={meta.type}
+              onClick={() => setTool(tool === meta.type ? null : meta.type)}
               className={`flex items-center gap-2.5 p-2 rounded-xl border-2 text-left transition-colors ${
-                tool === t.type ? 'border-blue-700 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                tool === meta.type ? 'border-blue-700 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
               <span className="w-9 h-9 shrink-0 rounded-lg border-2 flex items-center justify-center" style={{ borderColor: BLUE }}>
-                {t.type === 'eshik' && (
+                {meta.type === 'eshik' && (
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={BLUE} strokeWidth="1.8">
                     <rect x="5" y="3" width="10" height="14" rx="1" />
                     <circle cx="12.4" cy="10" r="0.9" fill={BLUE} />
                   </svg>
                 )}
-                {t.type === 'deraza' && (
+                {meta.type === 'deraza' && (
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={BLUE} strokeWidth="1.8">
                     <rect x="3" y="5" width="14" height="10" rx="1" />
                     <path d="M10 5v10M3 10h14" />
                   </svg>
                 )}
-                {t.type === 'balkon' && (
+                {meta.type === 'balkon' && (
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={BLUE} strokeWidth="1.8">
                     <rect x="3" y="3" width="8" height="14" rx="1" />
                     <rect x="12" y="3" width="5" height="14" rx="1" />
@@ -555,43 +557,43 @@ export function MebelPlanView() {
                 )}
               </span>
               <span>
-                <span className="block text-[12px] font-semibold text-gray-800">{t.label}</span>
-                <span className="block text-[10px] text-gray-400">{t.hint}</span>
+                <span className="block text-[12px] font-semibold text-gray-800">{t(meta.labelKey)}</span>
+                <span className="block text-[10px] text-gray-400">{meta.hint}</span>
               </span>
             </button>
           ))}
         </div>
         <p className="mt-3 text-[10px] leading-4 text-gray-400">
-          {tool ? "Devorga bosib joylashtiring. Elementni sudrab siljiting." : 'Element tanlang'}
-          <br />O'ng tugmani bosib turib planni suring.
+          {tool ? t('studio.mplan.place_hint') : t('studio.mplan.pick_element')}
+          <br />{t('studio.mplan.pan_hint')}
         </p>
 
         {/* ── Window types ───────────────────────────────────────── */}
         {selEl?.type === 'deraza' && selected ? (
           <div className="mt-4">
             <WindowStylePicker
-              title="Deraza turi"
+              title={t('studio.mplan.window_type')}
               value={resolveWindowStyle(selEl).id}
               onPick={(styleId) => updateElement(selected.wallId, selected.id, { styleId })}
-              hint="Tanlangan deraza shu ko'rinishga o'zgaradi."
+              hint={t('studio.mplan.window_type_selected')}
             />
           </div>
         ) : tool === 'deraza' ? (
           <div className="mt-4">
             <WindowStylePicker
-              title="Deraza turi"
+              title={t('studio.mplan.window_type')}
               value={newWindowStyle}
               onPick={setNewWindowStyle}
-              hint="Yangi deraza shu turda qo'yiladi."
+              hint={t('studio.mplan.window_type_new')}
             />
           </div>
         ) : null}
 
         {/* ── Furniture standing in the room ─────────────────────── */}
-        <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Mebel</p>
+        <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('studio.shared.mebel')}</p>
         {furniture.length === 0 ? (
           <p className="text-[10px] leading-4 text-gray-400">
-            3D oynada model qo'shing — plan ustida shakli chiziladi.
+            {t('studio.mplan.add_in_3d')}
           </p>
         ) : (
           <div className="flex flex-col gap-1">
@@ -608,7 +610,7 @@ export function MebelPlanView() {
                 >
                   <span className="shrink-0 text-gray-600"><FurnitureSymbol emoji={entry?.emoji} size={16} /></span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold text-gray-800 truncate">{entry?.name ?? 'Model'}</span>
+                    <span className="block text-[11px] font-semibold text-gray-800 truncate">{entry?.name ?? t('studio.mebel.model')}</span>
                     <span className="block text-[9px] text-gray-400 tabular-nums">
                       {((entry?.sizeM.w ?? 0) * so).toFixed(2)}×{((entry?.sizeM.d ?? 0) * so).toFixed(2)} m
                     </span>
@@ -745,7 +747,7 @@ export function MebelPlanView() {
                       style={{ cursor: 'grab' }}
                       tabIndex={0}
                       role="button"
-                      aria-label={`${el.type === 'eshik' ? 'Eshik' : el.type === 'deraza' ? 'Deraza' : 'Balkon'} — ${wall.id} devor. Tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                      aria-label={t('studio.opening.aria', { name: el.type === 'eshik' ? t('studio.shared.eshik') : el.type === 'deraza' ? t('studio.shared.deraza') : t('studio.shared.balkon'), wall: wall.id })}
                       className="kbd-focusable"
                       onPointerDown={(e) => startDrag(wall, el, e)}
                       onKeyDown={handleOpeningKeyDown}
@@ -870,7 +872,7 @@ export function MebelPlanView() {
                 style={{ pointerEvents: 'none' }}
                 tabIndex={0}
                 role="button"
-                aria-label={`${entry?.name ?? 'Mebel'} — tanlash: Enter, ko'chirish: strelkalar, o'chirish: Delete`}
+                aria-label={t('studio.mplan.furniture_aria', { name: entry?.name ?? t('studio.shared.mebel') })}
                 className="kbd-focusable"
                 onKeyDown={handleFurKeyDown}
               />
@@ -926,10 +928,10 @@ export function MebelPlanView() {
         {selEl && selected && (
           <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold text-gray-600">
-              {selEl.type === 'eshik' ? 'Eshik' : selEl.type === 'deraza' ? 'Deraza' : 'Balkon'} · {selected.wallId}
+              {selEl.type === 'eshik' ? t('studio.shared.eshik') : selEl.type === 'deraza' ? t('studio.shared.deraza') : t('studio.shared.balkon')} · {selected.wallId}
             </span>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
-              Eni
+              {t('studio.mplan.width')}
               <MmInput
                 value={selEl.width}
                 onCommit={setSelectedWidth}
@@ -938,7 +940,7 @@ export function MebelPlanView() {
               />
             </label>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
-              Bo'yi
+              {t('studio.mplan.height')}
               <MmInput
                 value={selEl.height}
                 onCommit={(v) => updateElement(selected.wallId, selected.id, { height: v })}
@@ -947,7 +949,7 @@ export function MebelPlanView() {
             </label>
             {selEl.type === 'deraza' && (
               <label className="flex items-center gap-1 text-[11px] text-gray-500">
-                Pol-dan
+                {t('studio.mplan.from_floor')}
                 <MmInput
                   value={selEl.sill_height}
                   onCommit={(v) => updateElement(selected.wallId, selected.id, { sill_height: v })}
@@ -959,7 +961,7 @@ export function MebelPlanView() {
               <>
                 {/* exact distances from the wall edges (mm) */}
                 <label className="flex items-center gap-1 text-[11px] text-gray-500">
-                  Chapdan
+                  {t('studio.mplan.from_left')}
                   <MmInput
                     step={10}
                     value={selResolved.position}
@@ -969,7 +971,7 @@ export function MebelPlanView() {
                   />
                 </label>
                 <label className="flex items-center gap-1 text-[11px] text-gray-500">
-                  O'ngdan
+                  {t('studio.mplan.from_right')}
                   <MmInput
                     step={10}
                     value={selWallLen - selResolved.position - selResolved.width}
@@ -982,14 +984,14 @@ export function MebelPlanView() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setSelectedPos(selResolved.position - 50)}
-                    title="Chapga surish (50mm)"
+                    title={t('studio.mplan.nudge_left')}
                     className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
                   >
                     ◀
                   </button>
                   <button
                     onClick={() => setSelectedPos(selResolved.position + 50)}
-                    title="O'ngga surish (50mm)"
+                    title={t('studio.mplan.nudge_right')}
                     className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
                   >
                     ▶
@@ -1001,7 +1003,7 @@ export function MebelPlanView() {
               onClick={() => { removeElement(selected.wallId, selected.id); setSelected(null) }}
               className="ml-auto text-[11px] font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50"
             >
-              O'chirish
+              {t('common.ochirish')}
             </button>
           </div>
         )}
@@ -1010,14 +1012,14 @@ export function MebelPlanView() {
         {selFur && (
           <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold text-gray-600 truncate max-w-[40%]">
-              <FurnitureSymbol emoji={selFurEntry?.emoji} size={13} className="mr-1 inline -mt-0.5" />{selFurEntry?.name ?? 'Model'}
+              <FurnitureSymbol emoji={selFurEntry?.emoji} size={13} className="mr-1 inline -mt-0.5" />{selFurEntry?.name ?? t('studio.mebel.model')}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
               {((selFurEntry?.sizeM.w ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)}×
               {((selFurEntry?.sizeM.d ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)} m
             </span>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
-              Burish°
+              {t('studio.mplan.rotate')}
               <MmInput
                 step={15}
                 min={0}
@@ -1029,21 +1031,21 @@ export function MebelPlanView() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setFurnitureRotation(((selFur.rotation * 180) / Math.PI) - 15)}
-                title="15° chapga burish"
+                title={t('studio.mplan.rotate_left')}
                 className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
               >
                 ↺
               </button>
               <button
                 onClick={() => setFurnitureRotation(((selFur.rotation * 180) / Math.PI) + 15)}
-                title="15° o'ngga burish"
+                title={t('studio.mplan.rotate_right')}
                 className="w-7 h-7 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-100 active:scale-95"
               >
                 ↻
               </button>
             </div>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
-              O'lcham %
+              {t('studio.mplan.size_pct')}
               <MmInput
                 step={5}
                 min={10}
@@ -1056,7 +1058,7 @@ export function MebelPlanView() {
               onClick={() => { removeFurniture(selFur.id); setSelectedFur(null) }}
               className="ml-auto text-[11px] font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50"
             >
-              O'chirish
+              {t('common.ochirish')}
             </button>
           </div>
         )}

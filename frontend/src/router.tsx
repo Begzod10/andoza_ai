@@ -5,6 +5,7 @@ import {
   useLocation,
   type RouteObject,
 } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
 import { AppShell } from "@/components/layout/AppShell";
 import { RootLayout } from "@/components/layout/RootLayout";
@@ -52,15 +53,16 @@ function withSuspense(node: ReactNode) {
 // ---------- 404 ----------
 
 function NotFoundPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-paper flex flex-col items-center justify-center gap-4 p-4">
       <h1 className="text-6xl font-extrabold text-brand">404</h1>
-      <p className="text-muted text-lg">Sahifa topilmadi</p>
+      <p className="text-muted text-lg">{t("common.sahifa_topilmadi")}</p>
       <a
         href="/projects"
         className="bg-brand text-white px-6 py-2.5 rounded-card font-semibold hover:bg-brand/90 transition-colors"
       >
-        Bosh sahifaga qaytish
+        {t("common.bosh_sahifa")}
       </a>
     </div>
   );

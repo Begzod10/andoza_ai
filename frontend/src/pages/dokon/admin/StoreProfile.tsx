@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, MapPin, Package, Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -38,6 +39,7 @@ export function StoreProfile({
   onError: (msg: string | null) => void;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const [showAddModel, setShowAddModel] = useState(false);
@@ -57,11 +59,11 @@ export function StoreProfile({
       queryClient.invalidateQueries({ queryKey: ["admin", "stores"] });
       onDeleted();
     },
-    onError: (err) => onError(errorMessage(err, "O'chirib bo'lmadi")),
+    onError: (err) => onError(errorMessage(err, t("seller.remove_failed"))),
   });
 
   async function handleDeleteModel(model: AdminFurniture) {
-    if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
+    if (!(await confirm({ title: t("seller.delete_title", { name: model.name_uz }), destructive: true }))) return;
     try {
       await deleteAdminFurniture(model.id);
       onError(null);
@@ -69,12 +71,12 @@ export function StoreProfile({
       // general "admin","furniture" list used on the overview page.
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     } catch (err) {
-      onError(errorMessage(err, "O'chirib bo'lmadi"));
+      onError(errorMessage(err, t("seller.remove_failed")));
     }
   }
 
   async function handleDeleteStore() {
-    if (!(await confirm({ title: `"${store.name}" do'koni va uning barcha modellari o'chirilsinmi?`, destructive: true }))) return;
+    if (!(await confirm({ title: t("dokon.store.delete_confirm", { name: store.name }), destructive: true }))) return;
     deleteStoreMutation.mutate();
   }
 
@@ -85,7 +87,7 @@ export function StoreProfile({
         className="flex items-center gap-1.5 text-sm text-on-app-muted hover:text-on-app transition-colors"
       >
         <ArrowLeft size={16} />
-        Do'konlarga qaytish
+        {t("dokon.store.back")}
       </button>
 
       <Card className="flex items-start justify-between">
@@ -97,7 +99,7 @@ export function StoreProfile({
             </span>
             {!store.is_active && (
               <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
-                nofaol
+                {t("dokon.store.inactive")}
               </span>
             )}
           </div>
@@ -109,12 +111,12 @@ export function StoreProfile({
           )}
           <div className="flex items-center gap-1.5 text-sm text-ink-muted">
             <Package size={14} />
-            {models.length} ta 3D model
+            {t("dokon.store.models3d", { count: models.length })}
           </div>
         </div>
         <button
           onClick={handleDeleteStore}
-          title="Do'konni o'chirish"
+          title={t("dokon.store.delete_title")}
           className="text-ink-muted hover:text-red-500 transition-colors p-1.5"
         >
           <Trash2 size={18} />
@@ -123,9 +125,9 @@ export function StoreProfile({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-on-app">3D modellar</h3>
+          <h3 className="text-sm font-semibold text-on-app">{t("seller.models")}</h3>
           <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
-            Model qo'shish
+            {t("dokon.store.add_model")}
           </Button>
         </div>
 
@@ -133,11 +135,11 @@ export function StoreProfile({
 
         {models.length === 0 ? (
           <Card size="sm" className="text-center text-sm text-ink-muted py-8">
-            Bu do'konda hali model yo'q
+            {t("dokon.store.no_models")}
           </Card>
         ) : filteredModels.length === 0 ? (
           <Card size="sm" className="text-center text-sm text-ink-muted py-8">
-            Filtrga mos model topilmadi
+            {t("dokon.store.no_match")}
           </Card>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { surfaceFinish, type SurfaceFinish } from './surfaceFinish'
 import { boardIndexAt } from './parquetBoards'
+import type { TKey } from '@/i18n'
 
 /**
  * Real-geometry floor laying patterns for the Pol phase — the FloorGenerator
@@ -75,8 +76,8 @@ export interface FloorPatternState {
 
 export interface FloorPatternDef {
   id: FloorPatternId
-  /** Label kept verbatim from the user's reference sheet. */
-  label: string
+  /** Locale key of the label (Uzbek keeps the user's reference sheet's own wording). */
+  labelKey: TKey
   /** False when plank length is forced by the pattern rather than chosen —
    *  the UI hides the length knob for those. */
   usesLength: boolean
@@ -98,12 +99,12 @@ export interface FloorPatternDef {
 }
 
 export const FLOOR_PATTERN_DEFS: FloorPatternDef[] = [
-  { id: 'herringbone',         label: 'Herringbone',         usesLength: true,  defaultLengthCm: 49,  defaultWidthCm: 7,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.35 },
-  { id: 'double_herringbone',  label: 'Double Herringbone',  usesLength: true,  defaultLengthCm: 48,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.6 },
-  { id: 'chevron',             label: 'Chevron',             usesLength: true,  defaultLengthCm: 55,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.4 },
-  { id: 'wood_strip',          label: 'Wood Strip',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.6 },
-  { id: 'brick_bond',          label: 'Brick Bond',          usesLength: true,  defaultLengthCm: 90,  defaultWidthCm: 15, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
-  { id: 'stake_bond',          label: 'Stake Bond',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
+  { id: 'herringbone',         labelKey: 'studio.lib.floor_pattern.herringbone',         usesLength: true,  defaultLengthCm: 49,  defaultWidthCm: 7,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.35 },
+  { id: 'double_herringbone',  labelKey: 'studio.lib.floor_pattern.double_herringbone',  usesLength: true,  defaultLengthCm: 48,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.65, thumbSpanM: 1.6 },
+  { id: 'chevron',             labelKey: 'studio.lib.floor_pattern.chevron',             usesLength: true,  defaultLengthCm: 55,  defaultWidthCm: 9,  defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.4 },
+  { id: 'wood_strip',          labelKey: 'studio.lib.floor_pattern.wood_strip',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 1,   defaultVariation: 0.60, thumbSpanM: 1.6 },
+  { id: 'brick_bond',          labelKey: 'studio.lib.floor_pattern.brick_bond',          usesLength: true,  defaultLengthCm: 90,  defaultWidthCm: 15, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
+  { id: 'stake_bond',          labelKey: 'studio.lib.floor_pattern.stake_bond',          usesLength: true,  defaultLengthCm: 120, defaultWidthCm: 20, defaultGapMm: 0, defaultBevelMm: 0.5, defaultVariation: 0.75, thumbSpanM: 1.7 },
 ]
 
 const BY_ID = new Map(FLOOR_PATTERN_DEFS.map((d) => [d.id, d]))

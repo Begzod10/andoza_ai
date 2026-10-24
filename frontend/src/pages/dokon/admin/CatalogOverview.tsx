@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Package, Plus, Store as StoreIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MetricCard } from "@/components/ui/MetricCard";
@@ -35,6 +36,7 @@ export function CatalogOverview({
   onError: (msg: string | null) => void;
   onSelectStore: (store: AdminStore) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const [showAddStore, setShowAddStore] = useState(false);
@@ -69,22 +71,22 @@ export function CatalogOverview({
       onError(null);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, "AI so'rovi bajarilmadi")),
+    onError: (err) => onError(errorMessage(err, t("dokon.overview.classify_failed"))),
   });
   const classifyNotice = classifyMutation.isSuccess
     ? classifyMutation.data.queued > 0
-      ? `${classifyMutation.data.queued} ta model navbatga qo'yildi. Bir necha daqiqada uslublar paydo bo'ladi.`
-      : "Uslubi qo'yilmagan model yo'q."
+      ? t("dokon.overview.classify_queued", { count: classifyMutation.data.queued })
+      : t("dokon.overview.classify_none")
     : null;
 
   async function handleDeleteModel(model: AdminFurniture) {
-    if (!(await confirm({ title: `"${model.name_uz}" o'chirilsinmi?`, destructive: true }))) return;
+    if (!(await confirm({ title: t("seller.delete_title", { name: model.name_uz }), destructive: true }))) return;
     try {
       await deleteAdminFurniture(model.id);
       onError(null);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     } catch (err) {
-      onError(errorMessage(err, "O'chirib bo'lmadi"));
+      onError(errorMessage(err, t("seller.remove_failed")));
     }
   }
 
@@ -98,7 +100,7 @@ export function CatalogOverview({
           disabled={classifyMutation.isPending}
           onClick={() => classifyMutation.mutate()}
         >
-          AI bilan uslub qo'yish
+          {t("dokon.overview.classify_btn")}
         </Button>
         {classifyNotice && (
           <p role="status" className="text-xs text-ink-muted">
@@ -109,28 +111,28 @@ export function CatalogOverview({
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard themed
-          label="Jami do'konlar"
+          label={t("dokon.overview.total_stores")}
           value={stores.length}
           decimals={0}
           icon={<StoreIcon size={18} />}
           iconBgClassName="bg-primary-tint text-primary"
         />
         <MetricCard themed
-          label="Faol do'konlar"
+          label={t("dokon.overview.active_stores")}
           value={activeStoreCount}
           decimals={0}
           icon={<StoreIcon size={18} />}
           iconBgClassName="bg-success-tint text-success-dark"
         />
         <MetricCard themed
-          label="Jami 3D modellar"
+          label={t("dokon.overview.total_models")}
           value={models.length}
           decimals={0}
           icon={<Package size={18} />}
           iconBgClassName="bg-warning-tint text-warning-dark"
         />
         <MetricCard themed
-          label="Jami oboylar"
+          label={t("dokon.overview.total_wallpapers")}
           value={wallpapers.length}
           decimals={0}
           icon={<ImageIcon size={18} />}
@@ -141,14 +143,14 @@ export function CatalogOverview({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-on-app">Do'konlar</h2>
+            <h2 className="text-sm font-semibold text-on-app">{t("dokon.overview.stores")}</h2>
             <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setShowAddStore(true)}>
-              Do'kon qo'shish
+              {t("dokon.overview.add_store")}
             </Button>
           </div>
 
           {stores.length === 0 ? (
-            <Card className="text-center text-sm text-ink-muted py-8">Hali do'kon yo'q</Card>
+            <Card className="text-center text-sm text-ink-muted py-8">{t("dokon.overview.no_stores")}</Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {stores.map((store) => (
@@ -165,9 +167,9 @@ export function CatalogOverview({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-on-app">Do'konsiz modellar</h2>
+            <h2 className="text-sm font-semibold text-on-app">{t("dokon.overview.unassigned_models")}</h2>
             <Button size="sm" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAddModel(true)}>
-              Qo'shish
+              {t("common.qoshish")}
             </Button>
           </div>
 
@@ -175,11 +177,11 @@ export function CatalogOverview({
 
           {unassignedModels.length === 0 ? (
             <Card size="sm" className="text-center text-sm text-ink-muted py-8">
-              Barcha modellar biror do'konga biriktirilgan
+              {t("dokon.overview.all_assigned")}
             </Card>
           ) : filteredUnassignedModels.length === 0 ? (
             <Card size="sm" className="text-center text-sm text-ink-muted py-8">
-              Filtrga mos model topilmadi
+              {t("dokon.store.no_match")}
             </Card>
           ) : (
             <div className="grid grid-cols-2 gap-3">

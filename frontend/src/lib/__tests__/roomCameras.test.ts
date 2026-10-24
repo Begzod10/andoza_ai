@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import {
   roomCameraPoses, roomCameraStations, renderSizeFor, verticalFovFor,
   RENDER_ASPECTS, RENDER_EYE_HEIGHT, ROOM_CAMERA_COUNT, CAMERA_WALL_OFFSET,
-  RENDER_HFOV_DEG, CAMERA_CHOICES,
+  RENDER_HFOV_DEG, CAMERA_CHOICES, cameraLabel, cameraTitle,
 } from '../roomCameras'
 import { pointInPolygon } from '../planPolygon'
 import type { RoomBounds } from '../furnitureBounds'
@@ -205,8 +205,8 @@ describe('CAMERA_CHOICES', () => {
   it('gives each one something to show and something to read', () => {
     for (const c of CAMERA_CHOICES) {
       expect(c.badge.length).toBeGreaterThan(0)
-      expect(c.title.length).toBeGreaterThan(0)
-      expect(c.label.length).toBeGreaterThan(c.title.length)
+      expect(cameraTitle(c).length).toBeGreaterThan(0)
+      expect(cameraLabel(c).length).toBeGreaterThan(cameraTitle(c).length)
     }
   })
 })

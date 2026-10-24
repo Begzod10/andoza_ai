@@ -6,6 +6,7 @@
  *   • where each feature card is anchored (card.at = fraction along the path)
  *
  * Everything you are likely to tweak lives here or in paint-story.css.
+ * The cards' texts live in the locale files (landing.paint.cards, in card order).
  */
 import { BarChart3, Box, ShieldCheck, Zap, type LucideIcon } from "lucide-react";
 
@@ -35,8 +36,6 @@ export const PATH_MOBILE =
 export interface PaintCardData {
   id: number;
   number: string;
-  title: string;
-  description: string;
   icon: LucideIcon;
   /** fraction along the path (0..1) where the card is anchored + revealed */
   at: number;
@@ -45,8 +44,8 @@ export interface PaintCardData {
 }
 
 export const CARDS: PaintCardData[] = [
-  { id: 1, number: "01", title: "Creative Design", description: "Beautiful and modern designs for your ideas.", icon: Box, at: 0.3, place: "below" },
-  { id: 2, number: "02", title: "Fast Performance", description: "Optimized for speed and a smooth experience.", icon: Zap, at: 0.5, place: "above" },
-  { id: 3, number: "03", title: "Smart Analytics", description: "Understand your data and grow faster.", icon: BarChart3, at: 0.68, place: "below" },
-  { id: 4, number: "04", title: "Secure & Reliable", description: "Your data is always safe with us.", icon: ShieldCheck, at: 0.85, place: "above" },
+  { id: 1, number: "01", icon: Box, at: 0.3, place: "below" },
+  { id: 2, number: "02", icon: Zap, at: 0.5, place: "above" },
+  { id: 3, number: "03", icon: BarChart3, at: 0.68, place: "below" },
+  { id: 4, number: "04", icon: ShieldCheck, at: 0.85, place: "above" },
 ];

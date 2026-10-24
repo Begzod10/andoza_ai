@@ -14,6 +14,7 @@ from starlette.staticfiles import StaticFiles
 from sqlalchemy.exc import DBAPIError
 
 from app.config import settings
+from app.i18n import localized, request_language, translate
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
@@ -152,9 +153,12 @@ def create_app() -> FastAPI:
     async def http_exception_handler(
         request: Request, exc: StarletteHTTPException
     ) -> JSONResponse:
+        detail = exc.detail
+        if isinstance(detail, str) and request.headers.get("accept-language"):
+            detail = translate(detail, request_language(request))
         return JSONResponse(
             status_code=exc.status_code,
-            content={"detail": exc.detail},
+            content={"detail": detail},
         )
 
     @app.exception_handler(RequestValidationError)
@@ -186,7 +190,7 @@ def create_app() -> FastAPI:
         logger.warning("db_rejected_input", path=request.url.path, pgcode=pgcode)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"detail": "Noto'g'ri qiymat yuborildi."},
+            content={"detail": localized(request, "Noto'g'ri qiymat yuborildi.")},
         )
 
     @app.exception_handler(404)

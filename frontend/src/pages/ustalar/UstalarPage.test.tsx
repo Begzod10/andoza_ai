@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import UstalarPage from "./UstalarPage";
+import { applyLanguage } from "@/i18n";
+import ru from "@/i18n/locales/ru.json";
 
 const api = vi.hoisted(() => ({ getUstalar: vi.fn(), createLead: vi.fn() }));
 vi.mock("@/lib/api", () => Object.fromEntries(Object.entries(api).map(([k, v]) => [k, (...a: unknown[]) => v(...a)])));
@@ -44,5 +46,28 @@ describe("usta request", () => {
   it("has no room when opened from the menu", async () => {
     const sent = await requestFrom("/ustalar");
     expect(sent.room_id).toBeUndefined();
+  });
+});
+
+describe("UstalarPage in Russian", () => {
+  beforeEach(() => applyLanguage("ru"));
+  afterEach(() => applyLanguage("uz"));
+
+  it("takes the sort group, its options and the contact form from ru.json", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={["/ustalar"]}>
+          <UstalarPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("group", { name: ru.ustalar.saralash })).toBeTruthy();
+    expect(screen.getByText(ru.ustalar.eng_yaxshi)).toBeTruthy();
+    fireEvent.click(await screen.findByText(ru.ustalar.usta_chaqirish));
+    expect(screen.getByPlaceholderText(ru.ustalar.izoh_placeholder)).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText("+998 90 123 45 67"), { target: { value: "123" } });
+    fireEvent.click(screen.getByText(ru.ustalar.yuborish));
+    expect((await screen.findByRole("alert")).textContent).toBe(ru.common.telefon_xato);
   });
 });

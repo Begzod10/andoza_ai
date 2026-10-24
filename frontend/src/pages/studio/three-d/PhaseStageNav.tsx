@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Dispatch, SetStateAction } from "react";
 import { RENO_STAGES, type PhaseKey } from "@/lib/phases";
 
@@ -21,6 +22,7 @@ export function PhaseStageNav({
   activeIdx: number;
   setActivePhase: (phase: PhaseKey) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       {/* ── Desktop: left phase stepper sidebar, collapsible ── */}
@@ -42,15 +44,15 @@ export function PhaseStageNav({
             : 'width 0.2s ease, visibility 0s linear 0.2s',
         }}
       >
-        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Bosqichlar</p>
+        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">{t('studio.three_d.bosqichlar')}</p>
         {RENO_STAGES.map((stage, i) => {
           const status = i < activeIdx ? 'done' : i === activeIdx ? 'current' : 'pending';
           return (
             <button
               key={stage.key}
               onClick={() => setActivePhase(stage.key)}
-              title={stage.label}
-              aria-label={stage.label}
+              title={t(stage.labelKey)}
+              aria-label={t(stage.labelKey)}
               aria-current={status === 'current' ? 'step' : undefined}
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold text-left transition-colors ${
                 status === 'current'
@@ -71,7 +73,7 @@ export function PhaseStageNav({
               {status === 'pending' && (
                 <span className="w-2 h-2 rounded-full bg-gray-300 inline-block shrink-0" />
               )}
-              <span className="leading-tight">{stage.label}</span>
+              <span className="leading-tight">{t(stage.labelKey)}</span>
             </button>
           );
         })}
@@ -81,8 +83,8 @@ export function PhaseStageNav({
           mid-transition included. */}
       <button
         onClick={() => setLeftOpen(v => !v)}
-        title={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
-        aria-label={leftOpen ? "Bosqichlar panelini yopish" : "Bosqichlar panelini ochish"}
+        title={leftOpen ? t('studio.three_d.bosqichlar_yopish') : t('studio.three_d.bosqichlar_ochish')}
+        aria-label={leftOpen ? t('studio.three_d.bosqichlar_yopish') : t('studio.three_d.bosqichlar_ochish')}
         className="hidden lg:flex items-center justify-center bg-white border border-gray-200 shadow-md rounded-full hover:bg-gray-50 transition-colors"
         style={{
           position: 'absolute',

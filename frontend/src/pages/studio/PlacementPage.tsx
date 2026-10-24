@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { StudioTabStrip } from '@/components/studio/StudioTabStrip'
 import { PlanViewToggle } from '@/components/studio/PlanViewToggle'
 import { useRoomStore } from '@/store/roomStore'
@@ -18,6 +19,7 @@ import type { StudioContext, TabId, WallId, WireConfig } from './placement/types
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PlacementPage() {
+  const { t } = useTranslation()
   const { room } = useOutletContext<StudioContext>()
   const { electricals, lights, geometry, designState, addElectrical, moveElectrical, removeElectrical, addLight, removeLight, clearLights } = useRoomStore()
 
@@ -126,15 +128,15 @@ export default function PlacementPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 bg-surface border-b border-gray-200 text-xs shrink-0">
         {([
-          ['elektr',    'Elektr qurilmalar'],
-          ['chiroq',    'Chiroqlar'],
-          ['olchamlar', 'O\'lchamlar'],
-        ] as [TabId, string][]).map(([t, label]) => (
+          ['elektr',    t('studio.placement.tab_elektr')],
+          ['chiroq',    t('studio.placement.tab_chiroq')],
+          ['olchamlar', t('studio.placement.tab_olchamlar')],
+        ] as [TabId, string][]).map(([id, label]) => (
           <button
-            key={t}
-            onClick={() => handleTabChange(t)}
+            key={id}
+            onClick={() => handleTabChange(id)}
             className={`px-3 py-1 rounded-full font-medium transition-colors ${
-              tab === t ? 'bg-brand text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              tab === id ? 'bg-brand text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
             }`}
           >
             {label}
@@ -145,27 +147,27 @@ export default function PlacementPage() {
             <button
               onClick={handleRandomize}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
-              title="Simlarni tasodifiy ranglash va yo'nalish o'zgartirish"
+              title={t('studio.placement.simlarni_aralash_izoh')}
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
                 <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
               </svg>
-              Simlarni aralash
+              {t('studio.placement.simlarni_aralash')}
             </button>
             {Object.keys(wireColors).length > 0 && (
               <button
                 onClick={resetWires}
                 className="px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-                title="Standart rangga qaytarish"
-              >Tiklash</button>
+                title={t('studio.placement.tiklash_izoh')}
+              >{t('studio.placement.tiklash')}</button>
             )}
           </div>
         )}
         <span className="ml-auto text-gray-400">
-          {tab === 'elektr' ? `${electricals.length} ta qurilma`
-            : tab === 'chiroq' ? `${lights.length} ta chiroq`
-            : `${electricals.length} ta o'lcham`}
+          {tab === 'elektr' ? t('studio.placement.qurilma_soni', { count: electricals.length })
+            : tab === 'chiroq' ? t('studio.placement.chiroq_soni', { count: lights.length })
+            : t('studio.placement.olcham_soni', { count: electricals.length })}
         </span>
       </div>
 

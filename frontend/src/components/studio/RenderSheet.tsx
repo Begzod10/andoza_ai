@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
-import { uz } from "@/locale/uz"
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { createRender, createRelight, createUpscale, listRenders, waitForRender, errorMessage, LIGHTING_MOODS } from "@/lib/api"
 import type { SavedRender } from "@/lib/api"
 import { panoramaJpeg } from "@/lib/panoramaSnap"
@@ -10,7 +11,7 @@ import type { LightingMood } from "@/lib/api"
 type Phase = "idle" | "capturing" | "rendering" | "relighting" | "upscaling" | "done" | "error"
 
 /** One picture the sheet can show: the render itself, or a relit copy of it. */
-interface Version { url: string; key: string; label: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
+interface Version { url: string; key: string; lighting?: LightingMood; /** A 2:1 panorama, to be looked around in rather than looked at. */ panorama?: boolean; /** The 4K copy (3840 px), not the first render. */ upscaled?: boolean }
 
 /** Same origin the API lives on — a stored render comes back relative to it in local dev. */
 function absolute(url: string): string {
@@ -48,6 +49,7 @@ export function RenderSheet({
   /** The room being rendered: its pictures are saved against it and listed back. */
   roomId?: string
 }) {
+  const { t } = useTranslation()
   const [prompt, setPrompt] = useState("")
   // True while the box holds the description the API wrote, not the user's own words.
   const [generated, setGenerated] = useState(false)
@@ -84,7 +86,6 @@ export function RenderSheet({
     setVersions([{
       url: absolute(row.url), key: row.key, panorama: row.panorama, upscaled: row.kind === "upscale",
       lighting: (row.lighting as LightingMood | null) ?? undefined,
-      label: row.kind === "upscale" ? "4K" : row.lighting ? uz.render.yorugliq[row.lighting as LightingMood] ?? row.lighting : uz.render.asl,
     }])
     setActive(0)
     setPhase("done")
@@ -107,7 +108,7 @@ export function RenderSheet({
     const panorama = true
     const blob = await panoramaJpeg()
     if (!blob) {
-      setError(uz.render.panorama_olinmadi)
+      setError(t("render.panorama_olinmadi"))
       setPhase("error")
       return
     }
@@ -118,7 +119,7 @@ export function RenderSheet({
       setPhase("rendering")
       const { job_id } = await createRender(blob, prompt, roomId)
       const outcome = await waitForRender(job_id, controller.signal)
-      const first: Version = { url: absolute(outcome.url), key: outcome.key, label: uz.render.asl, panorama }
+      const first: Version = { url: absolute(outcome.url), key: outcome.key, panorama }
       setVersions([first])
       setActive(0)
       // The prompt the picture was actually made from: when the user wrote none
@@ -152,7 +153,7 @@ export function RenderSheet({
       const { job_id } = await createRelight(base.key, mood)
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
-        url: absolute(outcome.url), key: outcome.key, label: uz.render.yorugliq[mood], lighting: mood,
+        url: absolute(outcome.url), key: outcome.key, lighting: mood,
         panorama: base.panorama, // a relit panorama is still a panorama
       }
       setVersions((v) => [...v, next])
@@ -180,7 +181,7 @@ export function RenderSheet({
       const { job_id } = await createUpscale(base.key)
       const outcome = await waitForRender(job_id, controller.signal)
       const next: Version = {
-        url: absolute(outcome.url), key: outcome.key, label: "4K", lighting: base.lighting,
+        url: absolute(outcome.url), key: outcome.key, lighting: base.lighting,
         panorama: base.panorama, upscaled: true,
       }
       setVersions((v) => [...v, next])
@@ -221,14 +222,14 @@ export function RenderSheet({
                 <Sparkle />
               </span>
               <div>
-                <Dialog.Title className="text-base font-semibold text-gray-900">{uz.render.sarlavha}</Dialog.Title>
+                <Dialog.Title className="text-base font-semibold text-gray-900">{t("render.sarlavha")}</Dialog.Title>
                 <Dialog.Description className="mt-0.5 text-sm leading-snug text-gray-500">
-                  {uz.render.izoh}
+                  {t("render.izoh")}
                 </Dialog.Description>
               </div>
             </div>
             <Dialog.Close
-              aria-label={uz.common.yopish}
+              aria-label={t("common.yopish")}
               className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
@@ -240,7 +241,7 @@ export function RenderSheet({
           <div className="flex flex-col gap-4 overflow-y-auto px-6 pb-6 pt-5">
             {/* Only while there is nothing to look at yet — once the picture is
                 there, the room it takes is better spent on the picture. */}
-            {!done && <p className="text-xs text-gray-400">{uz.render.panorama_izoh}</p>}
+            {!done && <p className="text-xs text-gray-400">{t("render.panorama_izoh")}</p>}
 
             {/* Where the picture goes — present from the start so the card does not jump.
                 On a phone it is the main thing on the card, so it is tall; a wide
@@ -249,14 +250,14 @@ export function RenderSheet({
               {done ? (
                 <>
                   {current.panorama ? (
-                    <PanoramaViewer key={current.url} src={current.url} alt={uz.render.viewer.nom} className="h-full w-full" />
+                    <PanoramaViewer key={current.url} src={current.url} alt={t("render.viewer.nom")} className="h-full w-full" />
                   ) : (
-                    <img src={current.url} alt={uz.render.sarlavha} className="h-full w-full object-cover" />
+                    <img src={current.url} alt={t("render.sarlavha")} className="h-full w-full object-cover" />
                   )}
                   {phase === "relighting" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
                       <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
-                      <p className="text-sm font-medium text-gray-700" role="status">{uz.render.yoritilmoqda}</p>
+                      <p className="text-sm font-medium text-gray-700" role="status">{t("render.yoritilmoqda")}</p>
                     </div>
                   )}
                   {/* The 4K copy is made while the first render is already on
@@ -268,7 +269,7 @@ export function RenderSheet({
                       className="pointer-events-none absolute left-2 top-10 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm"
                     >
                       <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
-                      {uz.render.oshirilmoqda}
+                      {t("render.oshirilmoqda")}
                     </div>
                   )}
                 </>
@@ -276,26 +277,26 @@ export function RenderSheet({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-gray-50 to-gray-100">
                   <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand/20 border-t-brand" aria-hidden />
                   <p className="text-sm font-medium text-gray-600" role="status">
-                    {phase === "capturing" ? uz.render.tayyorlanmoqda : uz.render.jarayonda}
+                    {phase === "capturing" ? t("render.tayyorlanmoqda") : t("render.jarayonda")}
                   </p>
-                  <p className="text-xs text-gray-400">{uz.render.vaqt}</p>
+                  <p className="text-xs text-gray-400">{t("render.vaqt")}</p>
                 </div>
               ) : phase === "error" ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-red-50 px-8 text-center">
                   <p role="alert" className="text-sm font-medium text-red-700">
-                    {uz.render.xato}: {error}
+                    {t("render.xato")}: {error}
                   </p>
                 </div>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400">
                   <Sparkle className="h-7 w-7" />
-                  <p className="text-sm">{uz.render.natija_joyi}</p>
+                  <p className="text-sm">{t("render.natija_joyi")}</p>
                 </div>
               )}
             </div>
 
             {done && versions.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label={uz.render.sarlavha}>
+              <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label={t("render.sarlavha")}>
                 {versions.map((v, i) => (
                   <button
                     key={v.key}
@@ -308,7 +309,7 @@ export function RenderSheet({
                     }`}
                   >
                     <img src={v.url} alt="" className="h-14 w-20 object-cover" />
-                    <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">{v.label}</span>
+                    <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">{v.upscaled ? "4K" : v.lighting ? t(`render.yorugliq.${v.lighting}`, { defaultValue: v.lighting }) : t("render.asl")}</span>
                   </button>
                 ))}
               </div>
@@ -319,7 +320,7 @@ export function RenderSheet({
                 for a relit picture, which is not. */}
             {done && (
               <div>
-                <div role="group" aria-label={uz.render.yoritish} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                <div role="group" aria-label={t("render.yoritish")} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                   {LIGHTING_MOODS.map((mood) => (
                     <button
                       key={mood}
@@ -332,7 +333,7 @@ export function RenderSheet({
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
-                      {uz.render.yorugliq[mood]}
+                      {t(`render.yorugliq.${mood}`)}
                     </button>
                   ))}
                   <button
@@ -340,7 +341,7 @@ export function RenderSheet({
                     disabled={busy || !!current?.upscaled}
                     className="min-h-[36px] shrink-0 whitespace-nowrap rounded-full border border-gray-200 px-3.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
                   >
-                    {current?.upscaled ? "4K ✓" : uz.render.to4k}
+                    {current?.upscaled ? "4K ✓" : t("render.to4k")}
                   </button>
                 </div>
                 {relightError && <p role="alert" className="mt-2 text-xs text-red-600">{relightError}</p>}
@@ -349,22 +350,22 @@ export function RenderSheet({
 
             {saved.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{uz.render.saqlangan}</p>
-                <div className="flex gap-2 overflow-x-auto" aria-label={uz.render.saqlangan}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{t("render.saqlangan")}</p>
+                <div className="flex gap-2 overflow-x-auto" aria-label={t("render.saqlangan")}>
                   {saved.map((row) => (
                     <button
                       key={row.id}
                       type="button"
                       onClick={() => showSaved(row)}
                       disabled={busy}
-                      aria-label={`${uz.render.saqlangan}: ${new Date(row.created_at).toLocaleString()}`}
+                      aria-label={`${t("render.saqlangan")}: ${new Date(row.created_at).toLocaleString(intlLocale())}`}
                       className={`shrink-0 overflow-hidden rounded-xl ring-2 transition disabled:opacity-60 ${
                         current?.key === row.key ? "ring-brand" : "ring-transparent opacity-80 hover:opacity-100"
                       }`}
                     >
                       <img src={absolute(row.url)} alt="" loading="lazy" className="h-14 w-20 object-cover" />
                       <span className="block bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-                        {row.kind === "upscale" ? "4K" : row.kind === "relight" ? uz.render.yoritish : uz.render.asl}
+                        {row.kind === "upscale" ? "4K" : row.kind === "relight" ? t("render.yoritish") : t("render.asl")}
                       </span>
                     </button>
                   ))}
@@ -386,22 +387,22 @@ export function RenderSheet({
                 >
                   <path d="M9 6l6 6-6 6" />
                 </svg>
-                {uz.render.tavsifni_tahrirlash}
+                {t("render.tavsifni_tahrirlash")}
               </button>
               {editPrompt && (
                 <div className="mt-2 flex flex-col gap-2">
                   <textarea
                     value={prompt}
                     onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }}
-                    placeholder={uz.render.placeholder}
-                    aria-label={uz.render.placeholder}
+                    placeholder={t("render.placeholder")}
+                    aria-label={t("render.placeholder")}
                     maxLength={2000}
                     rows={prompt.length > 120 ? 4 : 2}
                     disabled={busy}
                     className="w-full resize-none rounded-2xl border border-transparent bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
                   />
                   {done && generated && prompt && (
-                    <p className="text-xs text-gray-400">{uz.render.avtomatik_tavsif}</p>
+                    <p className="text-xs text-gray-400">{t("render.avtomatik_tavsif")}</p>
                   )}
                 </div>
               )}
@@ -416,7 +417,7 @@ export function RenderSheet({
                   rel="noreferrer"
                   className="flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
                 >
-                  {uz.render.yuklab_olish}
+                  {t("render.yuklab_olish")}
                 </a>
               )}
               <button
@@ -424,7 +425,7 @@ export function RenderSheet({
                 disabled={busy}
                 className="min-h-[48px] flex-1 rounded-full bg-brand text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
               >
-                {phase === "capturing" || phase === "rendering" ? uz.render.jarayonda : done ? uz.render.qayta : uz.render.boshlash}
+                {phase === "capturing" || phase === "rendering" ? t("render.jarayonda") : done ? t("render.qayta") : t("render.boshlash")}
               </button>
             </div>
           </div>

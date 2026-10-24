@@ -15,6 +15,7 @@
  * categories, their items and what picking one does.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ARC_FAB, ARC_ITEM, ARC_ITEM_OUTER, ARC_RADIUS, ARC_RADIUS_OUTER,
   angleAt, arcCapacity, arcOffsets, arcSlots, distanceFrom,
@@ -53,7 +54,7 @@ const DRAG_SLOP_SLOTS = 0.18
 
 export function QuarterArcMenu({
   categories,
-  label = 'Qo‘shish',
+  label,
   className = '',
   onOpenChange,
 }: {
@@ -66,6 +67,8 @@ export function QuarterArcMenu({
    *  fanned-out ring would otherwise land on top of. */
   onOpenChange?: (open: boolean) => void
 }) {
+  const { t } = useTranslation()
+  const buttonLabel = label ?? t('studio.arc.add')
   const [open, setOpen] = useState(false)
   const [activeKey, setActiveKey] = useState<string | null>(null)
   /** The path drilled into within the active category, deepest last: Pol
@@ -373,9 +376,9 @@ export function QuarterArcMenu({
           ref={fabRef}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); open ? closeAll() : setOpen(true) }}
-          aria-label={label}
+          aria-label={buttonLabel}
           aria-expanded={open}
-          title={label}
+          title={buttonLabel}
           className="relative flex items-center justify-center rounded-full bg-white text-brand shadow-lg ring-1 ring-black/5 active:scale-95 transition-transform"
           style={{ width: ARC_FAB, height: ARC_FAB }}
         >

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Dispatch, SetStateAction } from "react";
 import type { ToolMode } from "@/features/studio/StudioFurniture";
 
@@ -18,10 +19,10 @@ import type { ToolMode } from "@/features/studio/StudioFurniture";
  * harder to hit by accident than a button sitting under the user's thumb
  * throughout a drag.
  */
-const TOOLS: { mode: ToolMode; label: string; icon: React.ReactNode }[] = [
+const TOOLS: { mode: ToolMode; labelKey: 'studio.three_d.tool_select' | 'studio.three_d.tool_rotate' | 'studio.three_d.tool_scale'; icon: React.ReactNode }[] = [
   {
     mode: 'select',
-    label: 'Tanlash',
+    labelKey: 'studio.three_d.tool_select',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M4 0l16 10.5-7 1.5 4 8-2.5 1-4-8-6.5 4.5z" />
@@ -30,7 +31,7 @@ const TOOLS: { mode: ToolMode; label: string; icon: React.ReactNode }[] = [
   },
   {
     mode: 'rotate',
-    label: 'Aylantirish',
+    labelKey: 'studio.three_d.tool_rotate',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -41,7 +42,7 @@ const TOOLS: { mode: ToolMode; label: string; icon: React.ReactNode }[] = [
   },
   {
     mode: 'scale',
-    label: "O'lcham",
+    labelKey: 'studio.three_d.tool_scale',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -57,6 +58,7 @@ export function ModelToolbar({ selectedId, toolMode, setToolMode }: {
   toolMode: ToolMode;
   setToolMode: Dispatch<SetStateAction<ToolMode>>;
 }) {
+  const { t: tr } = useTranslation();
   if (!selectedId) return null;
 
   return (
@@ -68,19 +70,20 @@ export function ModelToolbar({ selectedId, toolMode, setToolMode }: {
     >
       {TOOLS.map((t) => {
         const active = toolMode === t.mode;
+        const label = tr(t.labelKey);
         return (
           <button
             key={t.mode}
             onClick={() => setToolMode(t.mode)}
-            title={t.label}
-            aria-label={t.label}
+            title={label}
+            aria-label={label}
             aria-pressed={active}
             className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-colors ${
               active ? 'bg-brand text-white shadow' : 'text-gray-500 hover:bg-gray-100'
             }`}
           >
             {t.icon}
-            <span className="text-[7px] font-semibold leading-none">{t.label}</span>
+            <span className="text-[7px] font-semibold leading-none">{label}</span>
           </button>
         );
       })}

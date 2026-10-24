@@ -1,4 +1,5 @@
-import { apiClient, BASE_URL, tryRefresh } from "./client";
+import { apiClient, BASE_URL, languageHeaders, tryRefresh } from "./client";
+import { currentLanguage, type Language } from "@/i18n";
 
 // ---------- Auth types ----------
 
@@ -9,6 +10,8 @@ export interface AuthUser {
   name: string | null;
   /** Admins may delete shared library content (uploaded wallpapers). */
   is_admin?: boolean;
+  /** The interface language this account chose; older cached users have none. */
+  language?: Language;
   created_at: string;
 }
 
@@ -43,6 +46,14 @@ export async function verifyOTP(phone: string, code: string): Promise<LoginRespo
   });
 }
 
+/** Save account settings (today: the interface language). Answers the updated user. */
+export async function updateMe(patch: { language: Language }): Promise<AuthUser> {
+  return apiClient<AuthUser>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function getMe(): Promise<AuthUser> {
   return apiClient<AuthUser>("/auth/me");
 }
@@ -53,7 +64,7 @@ export async function getMe(): Promise<AuthUser> {
  *  pages included. A network failure throws, so a caller can keep what it
  *  had rather than sign the user out for being offline. */
 export async function checkSession(): Promise<AuthUser | null> {
-  const me = () => fetch(`${BASE_URL}/auth/me`, { credentials: "include" });
+  const me = () => fetch(`${BASE_URL}/auth/me`, { credentials: "include", headers: languageHeaders() });
   let response = await me();
   if (response.status === 401) {
     if (!(await tryRefresh())) return null;
@@ -71,7 +82,8 @@ export async function logoutApi(): Promise<void> {
 export async function registerUser(data: RegisterData): Promise<LoginResponse> {
   return apiClient<LoginResponse>("/auth/register", {
     method: "POST",
-    body: JSON.stringify(data),
+    // The new account starts in the language the visitor is browsing in.
+    body: JSON.stringify({ ...data, language: currentLanguage() }),
   });
 }
 
@@ -88,7 +100,7 @@ export async function loginWithPassword(data: LoginData): Promise<LoginResponse>
 export async function loginWithGoogle(idToken: string): Promise<LoginResponse> {
   return apiClient<LoginResponse>("/auth/google", {
     method: "POST",
-    body: JSON.stringify({ id_token: idToken }),
+    body: JSON.stringify({ id_token: idToken, language: currentLanguage() }),
   });
 }
 

@@ -1,35 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LANGS, useLang } from "./i18n";
-
-function LanguageSwitcher() {
-  const { lang, setLang } = useLang();
-  return (
-    <div className="flex items-center rounded-full border border-neutral-200 bg-white/70 p-0.5 backdrop-blur">
-      {LANGS.map((l) => {
-        const active = l.code === lang;
-        return (
-          <button
-            key={l.code}
-            type="button"
-            onClick={() => setLang(l.code)}
-            aria-pressed={active}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
-              active
-                ? "bg-neutral-900 text-white shadow-sm"
-                : "text-neutral-500 hover:text-neutral-900"
-            }`}
-          >
-            {l.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 
 export default function Nav() {
-  const { t } = useLang();
+  const { t } = useTranslation();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -58,13 +33,13 @@ export default function Nav() {
             to="/login"
             className="hidden rounded-full px-4 py-2 text-sm font-semibold text-neutral-600 transition-colors hover:bg-white/70 hover:text-neutral-900 sm:inline-flex"
           >
-            {t.nav.login}
+            {t("landing.nav.login")}
           </Link>
           <Link
             to="/login"
             className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-neutral-800"
           >
-            {t.nav.start}
+            {t("landing.nav.start")}
           </Link>
         </div>
       </div>

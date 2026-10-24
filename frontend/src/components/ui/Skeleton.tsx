@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ const pulseBase =
  * ```
  */
 export function Skeleton(props: SkeletonProps) {
+  const { t } = useTranslation()
   const { className } = props
 
   if (props.variant === 'text') {
@@ -57,7 +59,7 @@ export function Skeleton(props: SkeletonProps) {
     return (
       <div
         role="status"
-        aria-label="Yuklanmoqda"
+        aria-label={t('common.yuklanmoqda_qisqa')}
         className={cn('flex flex-col gap-2.5', className)}
       >
         {Array.from({ length: lines }).map((_, i) => (
@@ -67,7 +69,7 @@ export function Skeleton(props: SkeletonProps) {
             style={{ width: i === lines - 1 ? '60%' : '100%' }}
           />
         ))}
-        <span className="sr-only">Yuklanmoqda...</span>
+        <span className="sr-only">{t('common.yuklanmoqda')}</span>
       </div>
     )
   }
@@ -77,13 +79,13 @@ export function Skeleton(props: SkeletonProps) {
     return (
       <div
         role="status"
-        aria-label="Yuklanmoqda"
+        aria-label={t('common.yuklanmoqda_qisqa')}
         className={cn(pulseBase, 'rounded-lg w-full', className)}
         style={{
           height: typeof height === 'number' ? `${height}px` : height,
         }}
       >
-        <span className="sr-only">Yuklanmoqda...</span>
+        <span className="sr-only">{t('common.yuklanmoqda')}</span>
       </div>
     )
   }
@@ -93,11 +95,11 @@ export function Skeleton(props: SkeletonProps) {
   return (
     <div
       role="status"
-      aria-label="Yuklanmoqda"
+      aria-label={t('common.yuklanmoqda_qisqa')}
       className={cn(pulseBase, 'rounded-full flex-shrink-0', className)}
       style={{ width: size, height: size }}
     >
-      <span className="sr-only">Yuklanmoqda...</span>
+      <span className="sr-only">{t('common.yuklanmoqda')}</span>
     </div>
   )
 }

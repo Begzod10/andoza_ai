@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 import Reveal from "./Reveal";
+import type { ProblemItem } from "./types";
 
 // Small per-note character: tilt + pin colour. A contained grid (not absolute
 // scatter) guarantees every note stays inside the board at any text length.
@@ -195,8 +196,8 @@ function Note({ index, title, desc, fixTitle, fixDesc, color, tilt, still }: Not
 }
 
 export default function Problem() {
-  const { t } = useLang();
-  const items = t.problem.items;
+  const { t } = useTranslation();
+  const items = t("landing.problem.items", { returnObjects: true }) as ProblemItem[];
   const reduce = useReducedMotion() ?? false;
   const boardRef = useRef<HTMLDivElement | null>(null);
   const inView = useInView(boardRef, { once: true, amount: 0.3 });
@@ -205,7 +206,7 @@ export default function Problem() {
     <section className="relative z-10 mx-auto max-w-6xl px-6 py-20 sm:py-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
-          {t.problem.heading}
+          {t("landing.problem.heading")}
         </h2>
       </Reveal>
 

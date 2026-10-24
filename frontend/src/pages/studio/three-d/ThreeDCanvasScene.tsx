@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { Suspense, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { updateRoom } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -109,13 +110,15 @@ function OrbitZoomLimit({ controlsRef, W, D, H }: {
 }
 
 /** Why a wall stopped growing into a neighbour, said at the wall. */
-const BLOCKED_SAYS: Record<string, string> = {
-  opening: "Eshik yoki deraza bor — kesib bo'lmaydi",
-  split: "Xona ikkiga bo'linib ketadi",
-  hole: "Xona ichida teshik qoladi",
-  gone: "Qo'shni xona butunlay yo'qoladi",
-  shape: "Bu xonaning shakli kesilmaydi",
-};
+const BLOCKED_SAYS = {
+  opening: 'studio.three_d.blocked_opening',
+  split: 'studio.three_d.blocked_split',
+  hole: 'studio.three_d.blocked_hole',
+  gone: 'studio.three_d.blocked_gone',
+  shape: 'studio.three_d.blocked_shape',
+} as const;
+const blockedSays = (reason: string): string =>
+  reason in BLOCKED_SAYS ? i18n.t(BLOCKED_SAYS[reason as keyof typeof BLOCKED_SAYS]) : reason;
 
 /** What a cut carries besides its geometry — store field names, the same
  *  in a saved state blob. */
@@ -479,7 +482,7 @@ export function ThreeDCanvasScene({
     }
     const b = at(good, false);
     const there = b ? cutsAt(b) : null;
-    return b ? { side, box: b, cuts: Array.isArray(there) ? there : [], blocked: BLOCKED_SAYS[first.refused] ?? first.refused } : null;
+    return b ? { side, box: b, cuts: Array.isArray(there) ? there : [], blocked: blockedSays(first.refused) } : null;
   };
   useEffect(() => { setResizeLive(null); resizeLiveRef.current = null; }, [slidingId, moveMode]);
   const edgeOf = (b: RoomBox, side: Side) =>
@@ -491,8 +494,8 @@ export function ThreeDCanvasScene({
     if (!selBox || !selGeometry || !box) return;
     if (cuts.length) {
       const ok = await confirm({
-        title: "Qo'shni xona shakli o'zgaradi",
-        description: "Bu xona qo'shni xonaga kiradi va u xonaning shakli o'zgaradi. Davom etasizmi?",
+        title: i18n.t('studio.three_d.qoshni_shakli_sarlavha'),
+        description: i18n.t('studio.three_d.qoshni_shakli_matn'),
       });
       if (!ok) return;
     }
@@ -974,7 +977,7 @@ export function ThreeDCanvasScene({
               const n = pts.length;
               const labels = [(edge - 1 + n) % n, (edge + 1) % n].map((k) => {
                 const [x1, z1] = pts[k], [x2, z2] = pts[(k + 1) % n];
-                return { x: (x1 + x2) / 2, z: (z1 + z2) / 2, text: `${(move.geometry.walls[k].length / 1000).toFixed(2)} m` };
+                return { x: (x1 + x2) / 2, z: (z1 + z2) / 2, text: `${(move.geometry.walls[k].length / 1000).toFixed(2)} ${i18n.t('common.m')}` };
               });
               return <PolygonGhost outline={pts} labels={labels} />;
             })()

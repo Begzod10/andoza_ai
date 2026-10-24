@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 
 type PointState = "captured" | "current" | "remaining";
@@ -23,6 +24,7 @@ function ellipsePoint(deg: number) {
 }
 
 export default function Photo360Page() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [points, setPoints] = useState<PointState[]>(INITIAL_POINTS);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,7 +58,7 @@ export default function Photo360Page() {
         onClick={() => navigate(-1)}
         className="absolute top-14 left-5 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
         style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)" }}
-        aria-label="Yopish"
+        aria-label={t("common.yopish")}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
           <path d="M2 2l12 12M14 2L2 14"/>
@@ -73,12 +75,12 @@ export default function Photo360Page() {
           <path d="M8 4v1M8 11v1M4 8H3M13 8h-1" strokeLinecap="round"/>
           <path d="M10 6L8 8l-2-2" stroke="#34D399" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
-        <span className="text-white text-[14px] font-bold">{capturedCount}/8 nuqta</span>
+        <span className="text-white text-[14px] font-bold">{t("scan.photo360.points", { captured: capturedCount })}</span>
       </div>
 
       {/* Guide ring */}
       <div className="flex-1 flex items-center justify-center w-full">
-        <svg width="340" height="240" viewBox="0 0 340 240" aria-label="360° nuqtalar xaritasi">
+        <svg width="340" height="240" viewBox="0 0 340 240" aria-label={t("scan.photo360.map")}>
           <ellipse
             cx="170" cy="120" rx="150" ry="58"
             fill="none"
@@ -124,7 +126,7 @@ export default function Photo360Page() {
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="white" strokeWidth="1.5">
           <path d="M7 1v5M7 12v2M3 5l4-4 4 4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span className="text-white text-[13px] font-medium">Telefonni keyingi nuqtaga burang</span>
+        <span className="text-white text-[13px] font-medium">{t("scan.photo360.hint")}</span>
       </div>
 
       {/* Shutter */}
@@ -133,10 +135,10 @@ export default function Photo360Page() {
         variant="accent"
         onClick={handleCapture}
         className="mb-14 px-8"
-        aria-label="Suratga olish"
+        aria-label={t("scan.photo360.capture")}
       >
         <span className="mr-3 inline-block h-4 w-4 rounded-full border-2 border-white" aria-hidden="true" />
-        Suratga olish
+        {t("scan.photo360.capture")}
       </Button>
     </div>
   );

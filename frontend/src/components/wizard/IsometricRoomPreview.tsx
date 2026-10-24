@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
 
@@ -150,6 +151,7 @@ export function IsometricRoomPreview({
   ceilingHeight,
   activeWall,
 }: IsometricRoomPreviewProps) {
+  const { t } = useTranslation()
   const wallA = geometry.walls.find((w) => w.id === 'A')
   const wallB = geometry.walls.find((w) => w.id === 'B')
 
@@ -222,7 +224,7 @@ export function IsometricRoomPreview({
       viewBox={`${minX} ${minY} ${width} ${height}`}
       width="100%"
       style={{ maxHeight: 300, display: 'block' }}
-      aria-label="Xona izometrik ko'rinishi"
+      aria-label={t('wizard.izometrik_korinish')}
     >
       {/* ── N-wall polygon mode ── */}
       {isPolygon ? (

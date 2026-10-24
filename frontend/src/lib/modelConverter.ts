@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import i18n from '@/i18n'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
@@ -155,9 +156,7 @@ export function extractSceneInfo(root: THREE.Object3D): ModelInfo {
   // An empty scene would sail through as a 0×0 m entry with no materials and
   // nothing to render. Fail loudly instead — the import is not usable.
   if (box.isEmpty()) {
-    throw new Error(
-      "Model bo'sh — hech qanday geometriya topilmadi. Faylni boshqa formatda (GLB) eksport qilib ko'ring.",
-    )
+    throw new Error(i18n.t('errors.model_empty'))
   }
   const size = box.getSize(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
@@ -500,7 +499,7 @@ export async function convertFilesToGlb(
 }> {
   const mainFile = files.find((f) => MODEL_EXTS.includes(extOf(f.name)))
   if (!mainFile) {
-    throw new Error("3D model fayli topilmadi (.glb, .gltf, .obj yoki .fbx tanlang)")
+    throw new Error(i18n.t('errors.model_file_missing'))
   }
 
   // filename (lowercased) → blob URL for every selected file
@@ -646,7 +645,7 @@ export async function convertFilesToGlb(
       return { buffer, info: extractSceneInfo(scene), mainFile, missingTextures: missingList(), parts: countTextured(scene), thumbnailUrl }
     }
 
-    throw new Error(`Qo'llab-quvvatlanmaydigan format: .${ext}`)
+    throw new Error(i18n.t('errors.format_unsupported', { ext }))
   } finally {
     for (const u of resources.values()) URL.revokeObjectURL(u)
   }
@@ -883,7 +882,7 @@ export async function applyMaterialToGlb(
   imageFiles: File[],
   targetIndex?: number,
 ): Promise<ArrayBuffer> {
-  if (imageFiles.length === 0) throw new Error('Rasm tanlanmadi')
+  if (imageFiles.length === 0) throw new Error(i18n.t('errors.no_image'))
   const gltf = await parseGlb(buffer)
   const parts = collectParts(gltf.scene)
 
@@ -891,7 +890,7 @@ export async function applyMaterialToGlb(
     targetIndex !== undefined
       ? (parts[targetIndex] ? [parts[targetIndex]] : [])
       : (parts.filter((p) => !p.mat.map).length > 0 ? parts.filter((p) => !p.mat.map) : parts)
-  if (targets.length === 0) throw new Error('Modelda mos qism topilmadi')
+  if (targets.length === 0) throw new Error(i18n.t('errors.no_part'))
 
   // Last file wins per channel — dropping two diffuse images is a user slip,
   // not a reason to fail.

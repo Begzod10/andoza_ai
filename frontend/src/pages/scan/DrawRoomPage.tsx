@@ -12,6 +12,7 @@
  */
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useRoomStore } from '@/store/roomStore'
 import type { Wall } from '@/store/roomStore'
 import { Button } from '@/components/ui/Button'
@@ -61,6 +62,7 @@ function polygonAreaMm2(points: Point[]): number {
 }
 
 export default function DrawRoomPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const loadRoom = useRoomStore((s) => s.loadRoom)
 
@@ -186,7 +188,7 @@ export default function DrawRoomPage() {
         onClick={() => navigate(-1)}
         className="absolute top-14 left-5 z-10 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 hover:bg-white/20 transition-colors"
         style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
-        aria-label="Orqaga"
+        aria-label={t('common.orqaga')}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
           <path d="M2 2l12 12M14 2L2 14" />
@@ -195,10 +197,10 @@ export default function DrawRoomPage() {
 
       {/* Header */}
       <div className="pt-14 pb-2 px-16 flex flex-col items-center gap-1 text-center shrink-0">
-        <p className="text-white text-[20px] font-extrabold mt-12">Xonani chizish</p>
+        <p className="text-white text-[20px] font-extrabold mt-12">{t('scan.draw.title')}</p>
         <p className="text-white/60 text-[13px]">
-          Xona burchaklarini ketma-ket bosib chiqing
-          {areaM2 !== null && <span className="text-white/80 font-semibold"> · {areaM2.toFixed(2)} m²</span>}
+          {t('scan.draw.hint')}
+          {areaM2 !== null && <span className="text-white/80 font-semibold"> · {areaM2.toFixed(2)} {t('common.m2')}</span>}
         </p>
       </div>
 
@@ -285,22 +287,22 @@ export default function DrawRoomPage() {
         <div className="flex items-center justify-center gap-3">
           {!closed && (
             <Button variant="soft" size="sm" onClick={undo} disabled={points.length === 0}>
-              Orqaga
+              {t('common.orqaga')}
             </Button>
           )}
           <Button variant="soft" size="sm" onClick={clearAll} disabled={points.length === 0}>
-            Tozalash
+            {t('scan.draw.clear')}
           </Button>
           {!closed && (
             <Button variant="accent" size="sm" onClick={tryClose} disabled={!canClose}>
-              Yopish
+              {t('common.yopish')}
             </Button>
           )}
         </div>
 
         {closed && (
           <Button size="lg" className="w-full" onClick={handleContinue}>
-            Davom etish →
+            {t('scan.draw.next')}
           </Button>
         )}
       </div>

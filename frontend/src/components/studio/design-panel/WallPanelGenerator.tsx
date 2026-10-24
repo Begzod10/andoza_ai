@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, resolveWallPanel } from "@/store/roomStore";
 import type { WallPanelSettings } from "@/store/roomStore";
 import type { WallTarget } from "./shared";
@@ -12,6 +13,7 @@ function PanelInput({
   maxMm: number;
   onCommit: (mm: number) => void;
 }) {
+  const { t } = useTranslation();
   const inputId = React.useId();
   const displayMm = String(valueMm);
   const [draft, setDraft] = React.useState<string | null>(null);
@@ -46,7 +48,7 @@ function PanelInput({
         }`}
       />
       {draft !== null && !isNaN(draftVal) && draftVal < minMm && (
-        <p className="text-[10px] text-red-500 mt-0.5">Min: {minMm} mm</p>
+        <p className="text-[10px] text-red-500 mt-0.5">{t("studio.dp.min_mm", { n: minMm })}</p>
       )}
     </div>
   );
@@ -67,6 +69,7 @@ function renderLengthMm(w: { id: string; length: number }): number {
  * settings and the panel count below apply to.
  */
 export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
+  const { t } = useTranslation();
   const panelColorId = React.useId();
   const wallPanels = useRoomStore((s) => s.designState.wallPanels);
   const setWallPanel = useRoomStore((s) => s.setWallPanel);
@@ -101,14 +104,14 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">Devor panellari</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{t("studio.dp.panels")}</h3>
         <button
           onClick={() => handlePanelChange({ enabled: !panelSettings.enabled })}
           className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand/40 ${
             panelSettings.enabled ? 'bg-brand' : 'bg-gray-200'
           }`}
           aria-checked={panelSettings.enabled}
-          aria-label="Devor panellari yoqilgan/o'chirilgan"
+          aria-label={t("studio.dp.panels_switch")}
           role="switch"
         >
           <span
@@ -124,14 +127,14 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
           {/* Width & Height */}
           <div className="grid grid-cols-2 gap-2">
             <PanelInput
-              label="Kenglik (mm)"
+              label={t("studio.dp.panel_width_mm")}
               valueMm={panelSettings.width}
               minMm={10}
               maxMm={2000}
               onCommit={(mm) => handlePanelChange({ width: mm })}
             />
             <PanelInput
-              label="Balandlik (mm)"
+              label={t("studio.dp.panel_height_mm")}
               valueMm={panelSettings.height}
               minMm={10}
               maxMm={4000}
@@ -142,14 +145,14 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
           {/* Depth & Gap */}
           <div className="grid grid-cols-2 gap-2">
             <PanelInput
-              label="Qalinlik (mm)"
+              label={t("studio.dp.panel_depth_mm")}
               valueMm={panelSettings.depth}
               minMm={4}
               maxMm={200}
               onCommit={(mm) => handlePanelChange({ depth: mm })}
             />
             <PanelInput
-              label="Oraliq (mm)"
+              label={t("studio.dp.panel_gap_mm")}
               valueMm={panelSettings.gap}
               minMm={1}
               maxMm={500}
@@ -159,7 +162,7 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
 
           {/* Orientation */}
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Joylashuv</label>
+            <label className="text-xs text-gray-500 block mb-1">{t("studio.dp.orientation")}</label>
             <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
               {([0, 90] as const).map((angle) => (
                 <button
@@ -171,7 +174,7 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  {angle === 0 ? 'Vertikal' : 'Gorizontal'}
+                  {angle === 0 ? t('studio.dp.vertical') : t('studio.dp.horizontal')}
                 </button>
               ))}
             </div>
@@ -179,7 +182,7 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
 
           {/* Chamfer */}
           <PanelInput
-            label="Chamfer (mm)"
+            label={t("studio.dp.chamfer_mm")}
             valueMm={panelSettings.chamfer ?? 0}
             minMm={0}
             maxMm={200}
@@ -188,7 +191,7 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
 
           {/* Color */}
           <div>
-            <label htmlFor={panelColorId} className="text-xs text-gray-500 block mb-1">Panel rangi</label>
+            <label htmlFor={panelColorId} className="text-xs text-gray-500 block mb-1">{t("studio.dp.panel_color")}</label>
             <input
               id={panelColorId}
               type="color"
@@ -200,10 +203,10 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
 
           {/* Panel count */}
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <p className="text-xs text-gray-500 mb-0.5">Bir devordagi panel soni</p>
+            <p className="text-xs text-gray-500 mb-0.5">{t("studio.dp.panels_per_wall")}</p>
             <p className="text-2xl font-bold text-gray-900 leading-tight">
               {getPanelCount()}
-              <span className="text-sm font-normal text-gray-500 ml-1">dona</span>
+              <span className="text-sm font-normal text-gray-500 ml-1">{t("studio.dp.pcs")}</span>
             </p>
             <p className="text-[10px] text-gray-500 mt-0.5">
               {(() => {
@@ -215,7 +218,7 @@ export function WallPanelGenerator({ targetWall }: { targetWall: WallTarget }) {
                 const cols = stride > 0 && avgMm > 0 ? Math.ceil(avgMm / stride) : 0;
                 const rowStride2 = ph + panelSettings.gap;
                 const rows = ph > 0 && ceilingHeight > 0 && rowStride2 > 0 ? Math.max(1, Math.floor((ceilingHeight - ph / 2) / rowStride2) + 1) : 0;
-                return `${cols} ustun × ${rows} qator`;
+                return `${t("studio.dp.panel_cols", { count: cols })} × ${t("studio.dp.panel_rows", { count: rows })}`;
               })()}
             </p>
           </div>

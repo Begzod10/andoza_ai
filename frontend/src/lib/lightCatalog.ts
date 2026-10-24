@@ -1,3 +1,5 @@
+import type { TKey } from '@/i18n'
+
 /**
  * Light fixture catalog — the types a room can be lit with.
  *
@@ -40,8 +42,8 @@ export type LightTypeId =
 
 export interface LightType {
   id: LightTypeId
-  /** Uzbek label shown in the palette. */
-  name: string
+  /** Locale key of the label shown in the palette. */
+  nameKey: TKey
   emoji: string
   mount: LightMount
   /** Fixture envelope in metres. */
@@ -58,58 +60,58 @@ export interface LightType {
   beamDeg?: number
   /** Whether the beam can be aimed by the user. */
   aimable?: boolean
-  /** One-line note shown under the fixture in the palette. */
-  hint?: string
+  /** Locale key of the one-line note shown under the fixture in the palette. */
+  hintKey?: TKey
 }
 
 export const LIGHT_TYPES: LightType[] = [
   {
     id: 'pendant',
-    name: 'Osma chiroq',
+    nameKey: 'studio.lib.light.pendant.name',
     emoji: '💡',
     mount: 'ceiling',
     sizeM: { w: 0.3, d: 0.3, h: 0.28 },
     dropM: 0.9,
     lumens: 800,
     colorK: 2700,
-    hint: 'Stol ustiga osiladi',
+    hintKey: 'studio.lib.light.pendant.hint',
   },
   {
     id: 'chandelier',
-    name: 'Qandil',
+    nameKey: 'studio.lib.light.chandelier.name',
     emoji: '🕯️',
     mount: 'ceiling',
     sizeM: { w: 0.7, d: 0.7, h: 0.55 },
     dropM: 0.6,
     lumens: 2400,
     colorK: 2700,
-    hint: 'Mehmonxona uchun markaziy chiroq',
+    hintKey: 'studio.lib.light.chandelier.hint',
   },
   {
     id: 'ceiling',
-    name: "Shift chirog'i",
+    nameKey: 'studio.lib.light.ceiling.name',
     emoji: '⚪',
     mount: 'ceiling',
     sizeM: { w: 0.42, d: 0.42, h: 0.1 },
     dropM: 0,
     lumens: 1800,
     colorK: 4000,
-    hint: 'Shiftga yopishgan',
+    hintKey: 'studio.lib.light.ceiling.hint',
   },
   {
     id: 'downlight',
-    name: 'Downlight',
+    nameKey: 'studio.lib.light.downlight.name',
     emoji: '🔆',
     mount: 'recessed',
     sizeM: { w: 0.09, d: 0.09, h: 0.05 },
     lumens: 700,
     colorK: 4000,
     beamDeg: 60,
-    hint: "Shiftga o'rnatiladi",
+    hintKey: 'studio.lib.light.downlight.hint',
   },
   {
     id: 'spotlight',
-    name: 'Spot chiroq',
+    nameKey: 'studio.lib.light.spotlight.name',
     emoji: '🔦',
     mount: 'ceiling',
     sizeM: { w: 0.1, d: 0.1, h: 0.14 },
@@ -118,11 +120,11 @@ export const LIGHT_TYPES: LightType[] = [
     colorK: 3000,
     beamDeg: 30,
     aimable: true,
-    hint: "Yo'naltirsa bo'ladi",
+    hintKey: 'studio.lib.light.spotlight.hint',
   },
   {
     id: 'ies',
-    name: 'IES spot',
+    nameKey: 'studio.lib.light.ies.name',
     emoji: '🎯',
     mount: 'ceiling',
     sizeM: { w: 0.11, d: 0.11, h: 0.15 },
@@ -131,22 +133,22 @@ export const LIGHT_TYPES: LightType[] = [
     colorK: 3000,
     beamDeg: 24,
     aimable: true,
-    hint: "O'lchangan nur profili (tor, aniq dog')",
+    hintKey: 'studio.lib.light.ies.hint',
   },
   {
     id: 'led_panel',
-    name: 'LED panel',
+    nameKey: 'studio.lib.light.led_panel.name',
     emoji: '🟦',
     mount: 'recessed',
     sizeM: { w: 0.6, d: 0.6, h: 0.03 },
     lumens: 3600,
     colorK: 4000,
     beamDeg: 110,
-    hint: 'Ofis/oshxona uchun keng yorug‘lik',
+    hintKey: 'studio.lib.light.led_panel.hint',
   },
   {
     id: 'led_linear',
-    name: 'LED chiziqli',
+    nameKey: 'studio.lib.light.led_linear.name',
     emoji: '➖',
     mount: 'ceiling',
     sizeM: { w: 1.2, d: 0.06, h: 0.06 },
@@ -155,11 +157,11 @@ export const LIGHT_TYPES: LightType[] = [
     colorK: 4000,
     beamDeg: 110,
     aimable: true,
-    hint: 'Uzun chiziq — burchagini burang',
+    hintKey: 'studio.lib.light.led_linear.hint',
   },
   {
     id: 'track',
-    name: 'Trek (shina)',
+    nameKey: 'studio.lib.light.track.name',
     emoji: '🛤️',
     mount: 'track',
     sizeM: { w: 1.5, d: 0.05, h: 0.05 },
@@ -168,11 +170,11 @@ export const LIGHT_TYPES: LightType[] = [
     colorK: 3000,
     beamDeg: 34,
     aimable: true,
-    hint: 'Shina + bir nechta boshcha',
+    hintKey: 'studio.lib.light.track.hint',
   },
   {
     id: 'led_track',
-    name: "LED trek chirog'i",
+    nameKey: 'studio.lib.light.led_track.name',
     emoji: '🔳',
     mount: 'track',
     sizeM: { w: 1.2, d: 0.05, h: 0.09 },
@@ -181,22 +183,22 @@ export const LIGHT_TYPES: LightType[] = [
     colorK: 3500,
     beamDeg: 26,
     aimable: true,
-    hint: "Trekka o'rnatilgan LED boshchalar",
+    hintKey: 'studio.lib.light.led_track.hint',
   },
   {
     id: 'bra',
-    name: 'Bra',
+    nameKey: 'studio.lib.light.bra.name',
     emoji: '🕯',
     mount: 'wall',
     sizeM: { w: 0.16, d: 0.14, h: 0.26 },
     wallHM: 1.8,
     lumens: 400,
     colorK: 2700,
-    hint: 'Devorga — karavot yoni, koridor',
+    hintKey: 'studio.lib.light.bra.hint',
   },
   {
     id: 'bath',
-    name: "Vanna chirog'i",
+    nameKey: 'studio.lib.light.bath.name',
     emoji: '🛁',
     mount: 'wall',
     sizeM: { w: 0.5, d: 0.08, h: 0.08 },
@@ -204,17 +206,17 @@ export const LIGHT_TYPES: LightType[] = [
     lumens: 900,
     colorK: 4000,
     beamDeg: 120,
-    hint: "Ko'zgu ustiga, nam-himoyalangan",
+    hintKey: 'studio.lib.light.bath.hint',
   },
   {
     id: 'floor_lamp',
-    name: 'Torsher',
+    nameKey: 'studio.lib.light.floor_lamp.name',
     emoji: '🛋',
     mount: 'floor',
     sizeM: { w: 0.4, d: 0.4, h: 1.65 },
     lumens: 1100,
     colorK: 2700,
-    hint: 'Polda turadi — divan yoni',
+    hintKey: 'studio.lib.light.floor_lamp.hint',
   },
 ]
 

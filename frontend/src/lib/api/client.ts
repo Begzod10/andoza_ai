@@ -3,11 +3,18 @@
 // Every domain module in this directory builds on top of `apiClient`. This
 // file is a faithful relocation of the original single-file implementation —
 // no behavioral changes (retry logic, 401 handling, and body parsing are
-// unchanged).
+// unchanged) apart from the Accept-Language header.
+
+import { currentLanguage } from "@/i18n";
 
 export const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
 
 const NO_SESSION_RETRY_PATHS = new Set(["/auth/login", "/auth/google"]);
+
+/** For the raw `fetch` calls that bypass `apiClient`: the app's language. */
+export function languageHeaders(): Record<string, string> {
+  return { "Accept-Language": currentLanguage() };
+}
 
 function handleUnauthorized(): never {
   window.location.href = "/login";
@@ -42,15 +49,19 @@ export async function apiClient<T>(
 ): Promise<T> {
   // A FormData body must set its own Content-Type: only the browser knows the
   // multipart boundary, and forcing JSON here makes the upload unparseable.
-  const headers: HeadersInit = {
+  // The server answers in the language the app is showing, whatever the
+  // browser itself would send. Built per request: the retry after a token
+  // refresh must carry the language as it is by then.
+  const buildHeaders = (): HeadersInit => ({
     ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
-  };
+    ...languageHeaders(),
+  });
 
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
     credentials: "include",   // send HttpOnly cookie on every request
-    headers,
+    headers: buildHeaders(),
   });
 
   // A 401 from a sign-in endpoint means "these credentials were rejected",
@@ -76,7 +87,7 @@ export async function apiClient<T>(
     const retryResponse = await fetch(`${BASE_URL}${path}`, {
       ...options,
       credentials: "include",
-      headers,
+      headers: buildHeaders(),
     });
 
     if (retryResponse.status === 401) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -22,6 +23,7 @@ export function WallpaperEditDialog({
   stores: AdminStore[];
   onError: (msg: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [storeId, setStoreId] = useState("");
@@ -45,7 +47,7 @@ export function WallpaperEditDialog({
 
   const updateMutation = useMutation({
     mutationFn: () => {
-      if (!wallpaper) throw new Error("Oboy tanlanmagan");
+      if (!wallpaper) throw new Error(t("dokon.wp.no_wallpaper"));
       return updateWallpaper(wallpaper.id, {
         name,
         store_id: storeId || null,
@@ -61,13 +63,13 @@ export function WallpaperEditDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["wallpapers"] });
     },
-    onError: (err) => onError(errorMessage(err, "Oboyni yangilab bo'lmadi")),
+    onError: (err) => onError(errorMessage(err, t("dokon.wp.update_failed"))),
   });
 
   if (!wallpaper) return null;
 
   return (
-    <Dialog themed open={open} onOpenChange={onOpenChange} title="Oboyni tahrirlash" description={wallpaper.name}>
+    <Dialog themed open={open} onOpenChange={onOpenChange} title={t("dokon.wp.edit_title")} description={wallpaper.name}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -82,17 +84,17 @@ export function WallpaperEditDialog({
           className="w-24 h-24 rounded-lg object-cover border border-line"
         />
 
-        <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Input themed label={t("dokon.admin.nomi")} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
-            <option value="">— tanlanmagan —</option>
+          <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+            <option value="">{t("dokon.admin.not_selected")}</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </Select>
           <Input themed
-            label="Narxi (so'm)"
+            label={t("dokon.admin.narxi_som")}
             type="number"
             min={0}
             value={priceUzs}
@@ -103,7 +105,7 @@ export function WallpaperEditDialog({
 
         <div className="grid grid-cols-3 gap-3">
           <Input themed
-            label="Kengligi (sm)"
+            label={t("dokon.wp.width")}
             type="number"
             min={0}
             value={widthCm}
@@ -111,7 +113,7 @@ export function WallpaperEditDialog({
             placeholder="53"
           />
           <Input themed
-            label="Balandligi (sm)"
+            label={t("dokon.wp.height")}
             type="number"
             min={0}
             value={heightCm}
@@ -119,7 +121,7 @@ export function WallpaperEditDialog({
             placeholder="270"
           />
           <Input themed
-            label="Uzunligi (m)"
+            label={t("dokon.wp.length")}
             type="number"
             min={0}
             step="0.01"
@@ -130,22 +132,22 @@ export function WallpaperEditDialog({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-ink mb-1.5">Tafsilotlar</label>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t("dokon.wp.details")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Material, o'lchami va boshqa izohlar"
+            placeholder={t("dokon.wp.details_ph")}
             className="w-full rounded-xl border border-line bg-card-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-[#5B84F5]/70"
           />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
-            Bekor qilish
+            {t("common.bekor")}
           </Button>
           <Button type="submit" disabled={!name.trim()} loading={updateMutation.isPending}>
-            Saqlash
+            {t("common.saqlash")}
           </Button>
         </div>
       </form>

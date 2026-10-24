@@ -1,11 +1,13 @@
 import * as React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SmetaPage from './SmetaPage'
 import { FeedbackProvider } from '@/components/ui/FeedbackProvider'
 import { formatUZS } from '@/lib/utils'
+import { applyLanguage } from '@/i18n'
+import en from '@/i18n/locales/en.json'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────
 //
@@ -73,6 +75,8 @@ function renderSmetaPage(url = '/smeta/room-1') {
     </QueryClientProvider>,
   )
 }
+
+afterEach(() => act(() => applyLanguage('uz')))
 
 beforeEach(() => {
   sessionStorage.clear()
@@ -459,5 +463,20 @@ describe('SmetaPage (furniture toggle, sticky total, actions)', () => {
     for (const label of ['Qayta hisoblash', 'Usta chaqirish']) {
       expect(screen.getByText(label).className).toContain('border-line')
     }
+  })
+})
+
+describe('SmetaPage in English', () => {
+  it('shows the English total label, currency and electrical answer instead of the Uzbek ones', async () => {
+    act(() => applyLanguage('en'))
+    renderSmetaPage()
+    await waitFor(() => expect(previewEstimate).toHaveBeenCalled())
+
+    expect((await screen.findAllByText(en.smeta.jami)).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Jami xarajat')).toBeNull()
+    expect(screen.getByText(en.smeta.qayta_hisoblash)).toBeTruthy()
+    expect(screen.getByText(en.smeta.ha)).toBeTruthy()
+    expect(screen.getAllByText(formatUZS(ESTIMATE_RESPONSE.total_uzs)).length).toBeGreaterThan(0)
+    expect(formatUZS(ESTIMATE_RESPONSE.total_uzs)).toContain('UZS')
   })
 })

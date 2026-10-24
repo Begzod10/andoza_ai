@@ -27,7 +27,7 @@ describe("loginWithGoogle", () => {
     expect(String(url)).toMatch(/\/auth\/google$/);
     expect(init.method).toBe("POST");
     expect(init.credentials).toBe("include");
-    expect(JSON.parse(init.body)).toEqual({ id_token: "the-id-token" });
+    expect(JSON.parse(init.body)).toEqual({ id_token: "the-id-token", language: "uz" });
   });
 
   it("throws on a rejected token without refreshing or leaving the page", async () => {

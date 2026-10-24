@@ -1,3 +1,5 @@
+import type { TKey } from '@/i18n'
+
 /**
  * Window types — the shapes a "deraza" opening can take.
  *
@@ -27,8 +29,8 @@ export interface WindowBand {
 
 export interface WindowStyle {
   id: string
-  /** Uzbek label shown under the thumbnail. */
-  label: string
+  /** Locale key of the label shown under the thumbnail. */
+  labelKey: TKey
   /** Top band first. */
   bands: WindowBand[]
 }
@@ -47,78 +49,78 @@ export interface Pane {
 }
 
 export const WINDOW_STYLES: WindowStyle[] = [
-  { id: 'single', label: 'Bitta tavaqa', bands: [{ h: 1, cols: [1], opens: [0] }] },
-  { id: 'double', label: 'Ikki tavaqa', bands: [{ h: 1, cols: [1, 1], opens: [0, 1] }] },
-  { id: 'triple', label: 'Uch tavaqa', bands: [{ h: 1, cols: [1, 1, 1], opens: [0, 2] }] },
-  { id: 'panorama', label: 'Panorama', bands: [{ h: 1, cols: [1, 2, 1], opens: [0, 2] }] },
+  { id: 'single', labelKey: 'studio.lib.window.single', bands: [{ h: 1, cols: [1], opens: [0] }] },
+  { id: 'double', labelKey: 'studio.lib.window.double', bands: [{ h: 1, cols: [1, 1], opens: [0, 1] }] },
+  { id: 'triple', labelKey: 'studio.lib.window.triple', bands: [{ h: 1, cols: [1, 1, 1], opens: [0, 2] }] },
+  { id: 'panorama', labelKey: 'studio.lib.window.panorama', bands: [{ h: 1, cols: [1, 2, 1], opens: [0, 2] }] },
   {
     id: 'transom2',
-    label: 'Yuqori oynali',
+    labelKey: 'studio.lib.window.transom2',
     bands: [{ h: 0.3, cols: [1, 1] }, { h: 1, cols: [1, 1], opens: [0, 1] }],
   },
   {
     id: 'transom3',
-    label: 'Yuqori oynali (3)',
+    labelKey: 'studio.lib.window.transom3',
     bands: [{ h: 0.26, cols: [1, 1, 1] }, { h: 1, cols: [1, 1, 1], opens: [0, 2] }],
   },
   {
     id: 'transom_wide',
-    label: "Yuqori bo'ylama",
+    labelKey: 'studio.lib.window.transom_wide',
     bands: [{ h: 0.22, cols: [1] }, { h: 1, cols: [1, 1], opens: [0, 1] }],
   },
   {
     id: 'apron2',
-    label: 'Pastki oynali',
+    labelKey: 'studio.lib.window.apron2',
     bands: [{ h: 1, cols: [1, 1], opens: [0, 1] }, { h: 0.3, cols: [1, 1] }],
   },
   {
     id: 'transom_apron',
-    label: 'Yuqori va pastki',
+    labelKey: 'studio.lib.window.transom_apron',
     bands: [
       { h: 0.22, cols: [1] },
       { h: 1, cols: [1, 1], opens: [0, 1] },
       { h: 0.26, cols: [1, 1] },
     ],
   },
-  { id: 'grid6', label: 'Panjarali', bands: [{ h: 1, cols: [1], opens: [0], grid: [2, 3] }] },
+  { id: 'grid6', labelKey: 'studio.lib.window.grid6', bands: [{ h: 1, cols: [1], opens: [0], grid: [2, 3] }] },
   {
     id: 'grid_double',
-    label: 'Panjarali ikki tavaqa',
+    labelKey: 'studio.lib.window.grid_double',
     bands: [{ h: 1, cols: [1, 1], opens: [0, 1], grid: [2, 3] }],
   },
   {
     id: 'colonial',
-    label: 'Kolonial',
+    labelKey: 'studio.lib.window.colonial',
     bands: [{ h: 1, cols: [1, 1], opens: [0, 1], grid: [3, 4] }],
   },
   {
     id: 'french',
-    label: 'Frantsuz',
+    labelKey: 'studio.lib.window.french',
     bands: [{ h: 1, cols: [1, 1], opens: [0, 1], grid: [1, 4] }],
   },
   {
     id: 'sidelights',
-    label: 'Yon oynali',
+    labelKey: 'studio.lib.window.sidelights',
     bands: [{ h: 1, cols: [0.55, 1.9, 0.55], opens: [1] }],
   },
   {
     id: 'studio',
-    label: 'Ateliye',
+    labelKey: 'studio.lib.window.studio',
     bands: [{ h: 1, cols: [1, 1, 1], opens: [1], grid: [2, 4] }],
   },
   {
     id: 'arch_fan',
-    label: 'Arkasimon',
+    labelKey: 'studio.lib.window.arch_fan',
     bands: [{ h: 0.32, cols: [1], fan: true }, { h: 1, cols: [1, 1], opens: [0, 1] }],
   },
   {
     id: 'arch_single',
-    label: 'Arka (bitta)',
+    labelKey: 'studio.lib.window.arch_single',
     bands: [{ h: 0.3, cols: [1], fan: true }, { h: 1, cols: [1], opens: [0], grid: [2, 3] }],
   },
   {
     id: 'arch_triple',
-    label: 'Arka (uch)',
+    labelKey: 'studio.lib.window.arch_triple',
     bands: [{ h: 0.34, cols: [1], fan: true }, { h: 1, cols: [1, 1, 1], opens: [0, 2] }],
   },
 ]

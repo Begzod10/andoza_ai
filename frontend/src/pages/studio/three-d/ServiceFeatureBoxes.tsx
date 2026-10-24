@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { Html } from "@react-three/drei";
 import { riserBoxes, type ServiceFeature } from "@/lib/serviceFeatures";
@@ -10,6 +11,7 @@ interface Props {
 
 /** Pipe risers found in the LiDAR scan, drawn as plain boxes. */
 export function ServiceFeatureBoxes({ features, verticesMm, visible = true }: Props) {
+  const { t } = useTranslation();
   const boxes = useMemo(() => riserBoxes(features, verticesMm), [features, verticesMm]);
   if (!visible || boxes.length === 0) return null;
   return (
@@ -22,7 +24,7 @@ export function ServiceFeatureBoxes({ features, verticesMm, visible = true }: Pr
           </mesh>
           <Html position={[0, b.height / 2 + 0.1, 0]} center distanceFactor={6} style={{ pointerEvents: "none" }}>
             <span style={{ fontSize: 11, background: "rgba(0,0,0,.6)", color: "#fff", padding: "1px 6px", borderRadius: 6, whiteSpace: "nowrap" }}>
-              Quvur qutisi
+              {t('studio.three_d.quvur_qutisi')}
             </span>
           </Html>
         </group>

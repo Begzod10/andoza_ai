@@ -1,4 +1,5 @@
 import type { ElectricalType } from '@/store/roomStore'
+import i18n from '@/i18n'
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
@@ -13,24 +14,40 @@ export const KEYBOARD_NUDGE_MM = 20
 
 // ─── Device catalog ───────────────────────────────────────────────────────────
 
-export interface CatalogEntry { type: ElectricalType; label: string; height: number; oneTime?: boolean }
+export interface CatalogEntry { type: ElectricalType; height: number; oneTime?: boolean }
 
 export const CATALOG: CatalogEntry[] = [
-  { type: 'panel',        label: 'Elektr qutisi',        height: 1500, oneTime: true },
-  { type: 'switch1',      label: 'Bitta kalit',          height: 900 },
-  { type: 'switch2',      label: 'Ikkita kalit',         height: 900 },
-  { type: 'socket1',      label: 'Bitta rozetka',        height: 300 },
-  { type: 'socket2',      label: 'Ikkita rozetka',       height: 300 },
-  { type: 'socket_media', label: 'TV + Ethernet + Ant.', height: 1200 },
+  { type: 'panel',        height: 1500, oneTime: true },
+  { type: 'switch1',      height: 900 },
+  { type: 'switch2',      height: 900 },
+  { type: 'socket1',      height: 300 },
+  { type: 'socket2',      height: 300 },
+  { type: 'socket_media', height: 1200 },
   // Mounted high on the wall, just under the ceiling line, the way a
   // split unit's indoor half actually hangs.
-  { type: 'ac',           label: 'Konditsioner',         height: 2400 },
+  { type: 'ac',           height: 2400 },
 ]
 
-export const TYPE_LABEL: Record<ElectricalType, string> = {
-  panel: 'Elektr qutisi', switch1: 'Bitta kalit', switch2: 'Ikkita kalit',
-  socket1: 'Bitta rozetka', socket2: 'Ikkita rozetka', socket_media: 'TV+ETH+ANT',
-  ac: 'Konditsioner',
+const LABEL_KEYS = {
+  panel: 'studio.placement.dev.panel',
+  switch1: 'studio.placement.dev.switch1',
+  switch2: 'studio.placement.dev.switch2',
+  socket1: 'studio.placement.dev.socket1',
+  socket2: 'studio.placement.dev.socket2',
+  socket_media: 'studio.placement.dev.socket_media',
+  ac: 'studio.placement.dev.ac',
+} as const satisfies Record<ElectricalType, string>
+
+/** The device's name in the current language. Read while rendering (not at
+ *  module load) so it follows a language change; callers subscribe with
+ *  `useTranslation()`. */
+export function electricalLabel(type: ElectricalType): string {
+  return i18n.t(LABEL_KEYS[type])
+}
+
+/** The same, shortened where the full name is long (tables, 3D tags). */
+export function electricalShort(type: ElectricalType): string {
+  return type === 'socket_media' ? i18n.t('studio.placement.dev_short.socket_media') : electricalLabel(type)
 }
 
 export const SOCKET_TYPES = new Set<ElectricalType>(['socket1', 'socket2', 'socket_media'])

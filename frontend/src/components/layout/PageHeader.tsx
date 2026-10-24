@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ export function PageHeader({
   rightSlot,
   className = '',
 }: PageHeaderProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   function handleBack() {
@@ -73,7 +75,7 @@ export function PageHeader({
         <button
           type="button"
           onClick={handleBack}
-          aria-label="Orqaga"
+          aria-label={t('common.orqaga')}
           className={[
             'flex-shrink-0 flex items-center justify-center',
             '-ml-2 w-9 h-9 rounded-lg',

@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useRef, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useRoomStore } from "@/store/roomStore";
@@ -243,8 +244,8 @@ export function useAddRoomNavigation(params: {
       if (blocker) {
         toast({
           variant: "warning",
-          title: `Bu devor orqasida allaqachon xona bor: "${blocker.name}".`,
-          description: "Yangi xonani boshqa devor orqasiga qo'shing.",
+          title: i18n.t('studio.three_d.orqasida_xona_bor', { name: blocker.name }),
+          description: i18n.t('studio.three_d.boshqa_devor'),
         });
         return;
       }

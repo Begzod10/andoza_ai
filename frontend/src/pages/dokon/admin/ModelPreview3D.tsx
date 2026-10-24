@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Component, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Bounds, Center, OrbitControls, useGLTF } from "@react-three/drei";
@@ -11,6 +12,11 @@ interface BoundaryState {
 /** A broken/corrupt .glb throws inside useGLTF's suspense — without this the
  * whole dialog would crash instead of showing a friendly message. Keyed by
  * blob URL in the parent so picking a different file resets it. */
+function PreviewFailed() {
+  const { t } = useTranslation();
+  return <p className="text-xs text-neutral-400 text-center px-4">{t("dokon.model.preview_failed")}</p>;
+}
+
 class PreviewErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   state: BoundaryState = { failed: false };
 
@@ -24,11 +30,7 @@ class PreviewErrorBoundary extends Component<{ children: ReactNode }, BoundarySt
 
   render() {
     if (this.state.failed) {
-      return (
-        <p className="text-xs text-neutral-400 text-center px-4">
-          Modelni ko'rib bo'lmadi — fayl buzilgan bo'lishi mumkin
-        </p>
-      );
+      return <PreviewFailed />;
     }
     return this.props.children;
   }
@@ -57,6 +59,7 @@ function GltfModel({ url, onMeasured }: { url: string; onMeasured?: (size: Measu
  * there was no way to catch a wrong file or a broken export before uploading.
  */
 export function ModelPreview3D({ file, onMeasured, themed = false }: { file: File | null; onMeasured?: (size: MeasuredSize | null) => void; themed?: boolean }) {
+  const { t } = useTranslation();
   const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const [size, setSize] = useState<MeasuredSize | null>(null);
   const report = useCallback(
@@ -104,7 +107,7 @@ export function ModelPreview3D({ file, onMeasured, themed = false }: { file: Fil
     </div>
     {size && (
       <p className={`mt-1.5 text-xs ${themed ? "text-ink-muted" : "text-neutral-500"}`}>
-        O'lchami (modeldan aniqlandi): {describeSize(size)}
+        {t("dokon.model.measured", { size: describeSize(size) })}
       </p>
     )}
     </div>

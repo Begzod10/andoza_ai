@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import * as RadixDialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,7 @@ interface DialogProps {
  * ```
  */
 export function Dialog({ open, onOpenChange, title, description, children, className, themed = true }: DialogProps) {
+  const { t } = useTranslation()
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -59,7 +61,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             </div>
             <RadixDialog.Close asChild>
               <button
-                aria-label="Yopish"
+                aria-label={t('common.yopish')}
                 className={cn('transition-colors rounded p-1 -mr-1 -mt-1', themed ? 'text-ink-muted hover:text-ink' : 'text-neutral-400 hover:text-neutral-700')}
               >
                 <X size={18} />

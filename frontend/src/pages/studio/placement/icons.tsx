@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ElectricalType } from '@/store/roomStore'
 import { NAVY } from './constants'
 import type { WallId } from './types'
@@ -5,6 +6,7 @@ import type { WallId } from './types'
 // ─── Sidebar SVG icons (navy blue, 44px tall) ─────────────────────────────────
 
 export function ElectricalIcon({ type }: { type: ElectricalType }) {
+  const { t } = useTranslation()
   const C = NAVY
   switch (type) {
     case 'panel':
@@ -25,7 +27,7 @@ export function ElectricalIcon({ type }: { type: ElectricalType }) {
           <line x1="8" y1="46" x2="36" y2="46" stroke={C} strokeWidth="2" strokeLinecap="round"/>
           {/* Label */}
           <text x="22" y="54" textAnchor="middle" fontSize="7.5" fontFamily="sans-serif"
-            fontWeight="700" fill={C} letterSpacing="0.3">ЩИТ</text>
+            fontWeight="700" fill={C} letterSpacing="0.3">{t('studio.placement.panel_badge')}</text>
         </svg>
       )
     case 'switch1':
@@ -94,6 +96,7 @@ export function ElectricalIcon({ type }: { type: ElectricalType }) {
 // ─── Floor-plan mini symbol (drawn on the SVG plan) ───────────────────────────
 
 export function MiniSymbol({ type, wallId, rotDeg }: { type: ElectricalType; wallId: string; rotDeg?: number }) {
+  const { t } = useTranslation()
   // The symbol's +x side points into the room: fixed per rectangle side, or
   // given explicitly for a polygon room's wall (see edgeRotDeg).
   const rotMap: Record<WallId, number> = { A: 90, C: -90, D: 0, B: 180 }
@@ -109,7 +112,7 @@ export function MiniSymbol({ type, wallId, rotDeg }: { type: ElectricalType; wal
           <rect x="-7" y="-10" width="14" height="12" rx="1" fill="white" fillOpacity="0.18"/>
           <line x1="-7" y1="-5" x2="7" y2="-5" stroke="white" strokeWidth="1" opacity="0.6"/>
           <line x1="0" y1="-10" x2="0" y2="4" stroke="white" strokeWidth="1" opacity="0.6"/>
-          <text y="10" textAnchor="middle" fontSize="5" fill={C} fontFamily="sans-serif" fontWeight="bold">ЩИТ</text>
+          <text y="10" textAnchor="middle" fontSize="5" fill={C} fontFamily="sans-serif" fontWeight="bold">{t('studio.placement.panel_badge')}</text>
         </>
       case 'switch1':
         return <>

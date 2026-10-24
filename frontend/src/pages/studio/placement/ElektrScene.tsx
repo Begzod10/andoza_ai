@@ -1,4 +1,5 @@
 import { Suspense, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -87,6 +88,7 @@ export function ElektrThreeDView({ room, geometry, designState, electricals, wir
   electricals: PlacedElectrical[]
   wireConfigs: Record<string, WireConfig>
 }) {
+  const { t } = useTranslation()
   // X follows wall A, Z follows wall B — the orientation every view shares
   const { W, D } = roomExtents(geometry, { W: room.length, D: room.width })
   const H = room.ceiling_height > 0 ? room.ceiling_height : 2.7
@@ -134,7 +136,7 @@ export function ElektrThreeDView({ room, geometry, designState, electricals, wir
       {/* bottom-left (was top-left) — the stories tab strip's centered title
           pill now floats along the top edge of the plan+3D area. */}
       <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/40 rounded text-white text-[10px] font-medium pointer-events-none select-none">
-        3D Ko'rinish
+        {t('studio.placement.korinish_3d')}
       </div>
     </div>
   )

@@ -1,3 +1,5 @@
+import type { TKey } from '@/i18n'
+
 /**
  * What a tiled floor is chosen by: the tile's size, and its face.
  *
@@ -22,7 +24,8 @@ export const TILE_SIZES: TileSize[] = [
 ]
 
 export interface TileFace {
-  label: string
+  /** Locale key of the face's name. */
+  labelKey: TKey
   /** `null` is the plain glazed tile the pattern draws on its own. */
   url: string | null
   /** Names this face's baked wall images — see `wallTileUrl`. */
@@ -30,10 +33,10 @@ export interface TileFace {
 }
 
 export const TILE_FACES: TileFace[] = [
-  { label: 'Oddiy', url: null, slug: 'plain' },
-  { label: 'Marmar oq', url: '/floor/tile/marble-white.jpg', slug: 'marble-white' },
-  { label: 'Marmar qora', url: '/floor/tile/marble-black.jpg', slug: 'marble-black' },
-  { label: 'Marmar kulrang', url: '/floor/tile/marble-grey.jpg', slug: 'marble-grey' },
+  { labelKey: 'studio.lib.tile_face.plain', url: null, slug: 'plain' },
+  { labelKey: 'studio.lib.tile_face.marble-white', url: '/floor/tile/marble-white.jpg', slug: 'marble-white' },
+  { labelKey: 'studio.lib.tile_face.marble-black', url: '/floor/tile/marble-black.jpg', slug: 'marble-black' },
+  { labelKey: 'studio.lib.tile_face.marble-grey', url: '/floor/tile/marble-grey.jpg', slug: 'marble-grey' },
 ]
 
 /** Tile is always laid in the same stack bond; the size and the face are the

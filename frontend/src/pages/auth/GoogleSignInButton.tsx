@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { currentLanguage } from "@/i18n";
 
 // "Sign in with Google" via Google Identity Services (GIS). GIS draws its own
 // button (Google's branding rules require it) and hands back an ID token — the
@@ -74,6 +76,7 @@ export default function GoogleSignInButton({
   onCredential: (idToken: string) => void;
   theme?: "day" | "night";
 }) {
+  const { t, i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   // GIS keeps the callback from initialize(); route it through a ref so it
@@ -100,7 +103,7 @@ export default function GoogleSignInButton({
           size: "large",
           shape: "pill",
           text: "continue_with",
-          locale: "uz",
+          locale: currentLanguage(),
           width: Math.min(400, Math.max(200, containerRef.current.offsetWidth || 320)),
         });
       })
@@ -112,7 +115,7 @@ export default function GoogleSignInButton({
     return () => {
       cancelled = true;
     };
-  }, [theme]);
+  }, [theme, i18n.language]);
 
   if (failed) return null;
 
@@ -120,13 +123,13 @@ export default function GoogleSignInButton({
     <div className="mt-5">
       <div className="mb-4 flex items-center gap-3 text-xs text-ink-muted">
         <span className="h-px flex-1 bg-line" />
-        yoki
+        {t("auth.yoki")}
         <span className="h-px flex-1 bg-line" />
       </div>
       <div
         ref={containerRef}
         data-testid="google-signin-button"
-        aria-label="Google bilan kirish"
+        aria-label={t("auth.google_bilan_kirish")}
         className="flex min-h-[44px] w-full justify-center"
       />
     </div>

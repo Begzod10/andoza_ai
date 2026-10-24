@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import type { TKey } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { Armchair, ReceiptText, Search, ShoppingCart } from "lucide-react";
 import { getMaterials, listCatalogFurniture } from "@/lib/api";
@@ -10,7 +13,7 @@ import { Panel } from "@/components/ui/Panel";
 type Tab = "mebel" | "material";
 
 /** Where the shopper is in the catalog. Kept by the page, not by ShopHome, so
- *  opening a product and coming back (after "Savatga qo'shish") lands on the
+ *  opening a product and coming back (after "Add to cart") lands on the
  *  same tab, category and search instead of a fresh Mebel tab. */
 export interface ShopBrowse {
   tab: Tab;
@@ -19,17 +22,20 @@ export interface ShopBrowse {
 }
 export const SHOP_BROWSE_START: ShopBrowse = { tab: "mebel", category: null, query: "" };
 
-const TAB_LABEL: Record<Tab, string> = { mebel: "Mebel", material: "Materiallar" };
+const TAB_KEYS: Record<Tab, TKey> = { mebel: "dokon.shop.tab_mebel", material: "dokon.shop.tab_material" };
 
 /** Category names as a person reads them; anything unlisted shows as it is stored. */
-const CATEGORY_LABEL: Record<string, string> = {
-  divan: "Divan", stol: "Stol", stul: "Stul", shkaf: "Shkaf", karavot: "Karavot", boshqa: "Boshqa",
-  boyoq: "Bo'yoq", oboy: "Oboy", laminat: "Laminat", parket: "Parket", plitka: "Plitka", gips: "Gips va suvoq",
-  sement: "Sement", elektr_mat: "Elektr", santexnika: "Santexnika", eshik: "Eshik", deraza: "Deraza", dekorativ: "Dekorativ",
+const CATEGORY_KEYS: Record<string, TKey> = {
+  divan: "dokon.shop.category.divan", stol: "dokon.shop.category.stol", stul: "dokon.shop.category.stul",
+  shkaf: "dokon.shop.category.shkaf", karavot: "dokon.shop.category.karavot", boshqa: "dokon.shop.category.boshqa",
+  boyoq: "dokon.shop.category.boyoq", oboy: "dokon.shop.category.oboy", laminat: "dokon.shop.category.laminat",
+  parket: "dokon.shop.category.parket", plitka: "dokon.shop.category.plitka", gips: "dokon.shop.category.gips",
+  sement: "dokon.shop.category.sement", elektr_mat: "dokon.shop.category.elektr_mat",
+  santexnika: "dokon.shop.category.santexnika", eshik: "dokon.shop.category.eshik",
+  deraza: "dokon.shop.category.deraza", dekorativ: "dokon.shop.category.dekorativ",
 };
 /** A catalog category key ("boyoq", "divan") as people read it. */
-export const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
-const label = categoryLabel;
+export const categoryLabel = (c: string, t: TFunction) => (c in CATEGORY_KEYS ? t(CATEGORY_KEYS[c]) : c);
 
 /** A card's picture, with its price on a tab that notches into the corner (the tab takes the page's own colour). */
 function Tile({
@@ -65,6 +71,7 @@ export function ShopHome({
   browse?: ShopBrowse;
   onBrowseChange?: (browse: ShopBrowse) => void;
 }) {
+  const { t } = useTranslation();
   const [own, setOwn] = useState<ShopBrowse>(SHOP_BROWSE_START);
   const { tab, category, query } = browse ?? own;
   const update = (patch: Partial<ShopBrowse>) => {
@@ -113,8 +120,8 @@ export function ShopHome({
       {/* The title, the search, and what is in the basket. */}
       <Panel className="mb-5 flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between lg:p-6">
         <div>
-          <h1 className="text-[28px] font-extrabold leading-tight text-ink">Do'kon</h1>
-          <p className="mt-1 text-sm text-ink-muted">Mebel va materiallar: narxlar do'konlar bo'yicha.</p>
+          <h1 className="text-[28px] font-extrabold leading-tight text-ink">{t("dokon.admin.dokon")}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{t("dokon.shop.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="relative block min-w-[220px] flex-1">
@@ -123,39 +130,39 @@ export function ShopHome({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Qidirish…"
-              aria-label="Qidirish"
+              placeholder={t("dokon.shop.search_ph")}
+              aria-label={t("dokon.admin.qidirish")}
               className="h-11 w-full rounded-full bg-card-soft pl-10 pr-4 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand-light"
             />
           </label>
           {onOrders && (
             <Button variant="soft" onClick={onOrders} leftIcon={<ReceiptText size={16} aria-hidden="true" />}>
-              Buyurtmalarim
+              {t("dokon.screens.my_orders")}
             </Button>
           )}
           <Button variant="accent" onClick={onCart} leftIcon={<ShoppingCart size={16} aria-hidden="true" />}>
-            Savat{cartCount > 0 ? ` (${cartCount})` : ""}
+            {cartCount > 0 ? t("dokon.shop.cart_count", { n: cartCount }) : t("dokon.screens.cart_title")}
           </Button>
         </div>
       </Panel>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Bo'lim" className="inline-flex gap-1 rounded-full bg-card p-1 shadow-panel">
-          {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
+        <div role="tablist" aria-label={t("dokon.shop.section")} className="inline-flex gap-1 rounded-full bg-card p-1 shadow-panel">
+          {(Object.keys(TAB_KEYS) as Tab[]).map((id) => (
             <button
-              key={t}
+              key={id}
               role="tab"
-              aria-selected={tab === t}
-              onClick={() => switchTab(t)}
+              aria-selected={tab === id}
+              onClick={() => switchTab(id)}
               className={`rounded-full px-5 py-2 text-sm font-semibold transition-all ${
-                tab === t ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow" : "text-ink-muted hover:text-ink"
+                tab === id ? "bg-gradient-to-br from-[#5B84F5] to-[#2F55D4] text-white shadow-glow" : "text-ink-muted hover:text-ink"
               }`}
             >
-              {TAB_LABEL[t]}
+              {t(TAB_KEYS[id])}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Toifalar">
+        <div className="flex flex-wrap gap-2" aria-label={t("dokon.shop.categories")}>
           {categories.map((c) => (
             <button
               key={c}
@@ -166,7 +173,7 @@ export function ShopHome({
                 category === c ? "bg-ink text-card" : "bg-card text-ink-muted shadow-panel hover:text-ink"
               }`}
             >
-              {label(c)}
+              {categoryLabel(c, t)}
             </button>
           ))}
         </div>
@@ -178,10 +185,10 @@ export function ShopHome({
         </div>
       )}
       {active.isError && (
-        <p role="alert" className="py-12 text-center text-red-400">Katalog yuklanmadi. Birozdan keyin qayta urinib ko'ring.</p>
+        <p role="alert" className="py-12 text-center text-red-400">{t("dokon.shop.catalog_failed")}</p>
       )}
       {!active.isLoading && !active.isError && items.length === 0 && (
-        <p className="py-12 text-center text-on-app-muted">Hech narsa topilmadi.</p>
+        <p className="py-12 text-center text-on-app-muted">{t("dokon.shop.nothing")}</p>
       )}
 
       {tab === "mebel" && featured && (
@@ -196,11 +203,11 @@ export function ShopHome({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" aria-hidden="true" />
                 <div className="absolute inset-x-5 bottom-5 flex flex-col items-start gap-3 text-white sm:inset-x-6 sm:bottom-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{label(featured.category)}{featured.store_name ? ` · ${featured.store_name}` : ""}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{categoryLabel(featured.category, t)}{featured.store_name ? ` · ${featured.store_name}` : ""}</p>
                     <p className="line-clamp-2 text-2xl font-extrabold leading-tight">{featured.name_uz}</p>
                   </div>
                   <span className="flex-shrink-0 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#2F55D4]">
-                    {featured.price_uzs ? formatUZS(featured.price_uzs) : "Narx so'rang"}
+                    {featured.price_uzs ? formatUZS(featured.price_uzs) : t("dokon.screens.ask_price")}
                   </span>
                 </div>
               </div>
@@ -212,8 +219,8 @@ export function ShopHome({
               image={f.thumbnail_url}
               fallback={<Armchair size={32} className="text-ink-muted" aria-hidden="true" />}
               title={f.name_uz}
-              meta={`${label(f.category)}${f.store_name ? ` · ${f.store_name}` : ""}`}
-              price={f.price_uzs ? formatUZS(f.price_uzs) : "Narx so'rang"}
+              meta={`${categoryLabel(f.category, t)}${f.store_name ? ` · ${f.store_name}` : ""}`}
+              price={f.price_uzs ? formatUZS(f.price_uzs) : t("dokon.screens.ask_price")}
               onOpen={() => onProductSelect(f)}
             />
           ))}
@@ -230,7 +237,7 @@ export function ShopHome({
                 <span className="h-16 w-16 rounded-2xl shadow-inner" style={{ backgroundColor: m.color_hex ?? "#C9CFDD" }} aria-hidden="true" />
               }
               title={m.name_uz}
-              meta={`${label(m.category)} · ${m.unit}`}
+              meta={`${categoryLabel(m.category, t)} · ${m.unit}`}
               price={formatUZS(m.price_uzs)}
               onOpen={() => onProductSelect(m)}
             />

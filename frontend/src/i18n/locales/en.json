@@ -1,0 +1,2224 @@
+{
+  "nav": {
+    "profil": "Profile"
+  },
+  "studio": {
+    "devor_rangi": "Wall color",
+    "pol_turi": "Floor type",
+    "qibla": {
+      "nomi": "Qibla",
+      "korinishi_yoq": "Hide the Qibla direction",
+      "korinishi_bor": "Show the Qibla direction",
+      "izoh": "The direction is calculated from the room location and the side wall A faces; the sun is set to match",
+      "joylashuv": "Room location",
+      "yonalish": "Direction wall A faces",
+      "boshqa": "Other place…",
+      "kenglik": "Latitude",
+      "uzunlik": "Longitude",
+      "notogri": "Invalid coordinates"
+    },
+    "skan": {
+      "korinishi": "Scan view",
+      "korinishi_yoq": "Turn off the scan view",
+      "korinishi_bor": "Turn on the scan view",
+      "izoh": "For reference only — not used for measuring",
+      "katalogdan_almashtirish": "Replace from the catalog",
+      "skanerlangan_modelni_ishlatish": "Use the scanned model",
+      "kategoriya": {
+        "table": "Table",
+        "chair": "Chair",
+        "sofa": "Sofa",
+        "bed": "Bed",
+        "storage": "Wardrobe",
+        "refrigerator": "Refrigerator",
+        "stove": "Stove",
+        "sink": "Sink",
+        "toilet": "Toilet",
+        "bathtub": "Bathtub",
+        "washer": "Washing machine",
+        "television": "Television",
+        "fireplace": "Fireplace",
+        "stairs": "Stairs",
+        "other": "Other"
+      }
+    },
+    "oflayn_saqlandi": "Offline mode — changes saved",
+    "dizaynni_bekor_qilish": "Discard the design",
+    "dizaynni_bekor_tasdiq": "Are you sure? All design changes will be removed.",
+    "ha_ochirish": "Yes, delete",
+    "kutubxonadan_ochirish": "Remove from the library",
+    "dokondan_tanlang": "Choose from the shop",
+    "pol_dokon_izoh": "A floor material chosen from the shop goes into the estimate at its exact price.",
+    "rang_dokon_izoh": "A color chosen from the shop goes into the estimate at its exact price.",
+    "naqsh_yoqilgan": "The pattern is on — the image is applied to each board separately. Change its size in \"Pattern → Settings\".",
+    "vertikal_cho_zish": "Vertical stretch",
+    "pol_tanlanmagan": "No floor chosen yet. Pick a type and it shows in 3D right away.",
+    "oz_rasmingiz": "Your image",
+    "havola_faqat_korish": "Anyone with this link can only view the room — editing is not possible.",
+    "quyosh_vaqti": "Sun time",
+    "quyosh_vaqti_toshkent": "Sun time — Tashkent time",
+    "eshik_deraza_tahrirlash": "Add or edit doors and windows",
+    "qoshish_menyusi": "Add menu",
+    "yordam": {
+      "sichqoncha_ong": "Right / middle button — pan",
+      "gildirak": "Wheel — zoom",
+      "bosh_joy": "Double-click empty space — back to the center",
+      "oqlar": "Arrows at the bottom right — rotate the view",
+      "ikki_barmoq": "Two fingers — pan and zoom",
+      "tanlash_1_5": "— Select / Move / Rotate / Size / Parts",
+      "ochirish": "— Delete",
+      "esc": "— cancel",
+      "boshqaruv": "Controls",
+      "sichqoncha": "Mouse",
+      "chap_tugma": "Left button — rotate",
+      "ikki_marta": "Double-click — focus on that point",
+      "sensor": "Touch screen",
+      "bir_barmoq": "One finger — rotate",
+      "klaviatura": "Keyboard",
+      "ichki_tashqi": "— Inside / Outside",
+      "kun_tun": "— Day/Night",
+      "chiroqlar": "— Light fixtures",
+      "markazlash": "— Center"
+    },
+    "yuklangan_rasmlar_admin": "Uploaded images are saved for all users.",
+    "yuklangan_rasmlar": "Uploaded images are saved for all users; only an administrator can delete them.",
+    "placement": {
+      "tab_elektr": "Electrical devices",
+      "tab_chiroq": "Light fixtures",
+      "tab_olchamlar": "Measurements",
+      "simlarni_aralash_izoh": "Randomize wire colors and routing",
+      "simlarni_aralash": "Shuffle wires",
+      "tiklash_izoh": "Restore the default color",
+      "tiklash": "Reset",
+      "qurilma_soni_one": "{{count}} device",
+      "qurilma_soni_other": "{{count}} devices",
+      "chiroq_soni_one": "{{count}} light fixture",
+      "chiroq_soni_other": "{{count}} light fixtures",
+      "olcham_soni_one": "{{count}} measurement",
+      "olcham_soni_other": "{{count}} measurements",
+      "dev": {
+        "panel": "Electrical panel",
+        "switch1": "Single switch",
+        "switch2": "Double switch",
+        "socket1": "Single socket",
+        "socket2": "Double socket",
+        "socket_media": "TV + Ethernet + antenna",
+        "ac": "Air conditioner"
+      },
+      "dev_short": {
+        "socket_media": "TV+ETH+ANT"
+      },
+      "panel_badge": "PANEL",
+      "chiroq": {
+        "xususiyatlari": "Light fixture properties",
+        "kunduzi": "Daylight",
+        "keng_burchak": "Medium wide angle (IES)",
+        "rang_harorat": "Color temperature",
+        "burchak": "Angle",
+        "qoshish_izoh": "Click anywhere in the room to add a light fixture",
+        "ochirish_izoh": "To delete, click the light fixture",
+        "hammasini_ochirish": "Delete all",
+        "hali_yoq": "No light fixtures added yet",
+        "jami_one": "Total: {{count}} light fixture",
+        "jami_other": "Total: {{count}} light fixtures"
+      },
+      "elektr": {
+        "quti_joylash": "Click a wall to place the electrical panel",
+        "tanlandi": "\"{{name}}\" selected — click a wall",
+        "avval_quti": "Place the electrical panel first, then the other devices",
+        "asosiy_qurilma": "Main device",
+        "allaqachon": "Already placed",
+        "quti_joylashtiring": "Place the electrical panel",
+        "joylashtirildi": "Placed",
+        "faqat_bir_marta": "Once only",
+        "qurilmalar": "Devices",
+        "belgilar": "Legend",
+        "sim_trassasi": "Cable route",
+        "qurilmani_ochirish": "To delete a device, click it",
+        "joylashtirilgan": "Placed devices",
+        "devor_royxat": "{{name}} — wall {{wall}}",
+        "hali_yoq": "No devices added yet"
+      },
+      "olchamlar": {
+        "jadval": "Measurements table",
+        "qurilmalar": "Devices",
+        "sim_uzunligi": "Cable length",
+        "qurilma": "Device",
+        "devor": "Wall",
+        "pos": "Pos.",
+        "avval_quti": "Place the electrical panel first — the cable length is calculated from it",
+        "rozetka_simlari": "Socket cables",
+        "kalit_simlari": "Switch cables",
+        "rozetka_yoki_kalit_yoq": "No sockets or switches added",
+        "jami_sim": "Total cable:",
+        "zaxira": "+10% reserve:",
+        "zanjir_izoh": "The dimension chain along the wall is only for A-B-C-D rooms — positions are in the table",
+        "hali_yoq": "No devices added yet",
+        "jami_qurilma_one": "Total: <b>{{count}}</b> device",
+        "jami_qurilma_other": "Total: <b>{{count}}</b> devices"
+      },
+      "korinish_3d": "3D view",
+      "chiroq_aria": "light fixture — press Enter or Delete to remove",
+      "el_aria": "{{name}} — wall {{wall}}. Move: arrow keys, delete: Delete"
+    },
+    "three_d": {
+      "dizayn_paneli_yopish": "Close the design panel",
+      "dizayn_paneli_ochish": "Open the design panel",
+      "bosqichlar": "Stages",
+      "bosqichlar_yopish": "Close the stages panel",
+      "bosqichlar_ochish": "Open the stages panel",
+      "oraliq": "Gap",
+      "mm": "mm",
+      "siljitish_tugatish": "Finish moving rooms",
+      "siljitish": "Move rooms",
+      "sahna_yuklanmoqda": "Loading the 3D scene…",
+      "quvur_qutisi": "Pipe duct",
+      "xona_qoshish": "Add a room",
+      "hamma_xonalar": "Show all rooms",
+      "faqat_shu_xona": "Show only this room",
+      "xonani_ochirish": "Delete the room",
+      "xonalar": "Rooms",
+      "hozir": "Current",
+      "vaqt": "Time:",
+      "tool_select": "Select",
+      "tool_rotate": "Rotate",
+      "tool_scale": "Size",
+      "blocked_opening": "There is a door or window — it cannot be cut",
+      "blocked_split": "The room would be split in two",
+      "blocked_hole": "A hole would be left inside the room",
+      "blocked_gone": "The neighboring room would disappear entirely",
+      "blocked_shape": "This room's shape cannot be cut",
+      "qoshni_shakli_sarlavha": "The neighboring room's shape will change",
+      "qoshni_shakli_matn": "This room extends into the neighboring room, and that room's shape will change. Continue?",
+      "orqasida_xona_bor": "There is already a room behind this wall: \"{{name}}\".",
+      "boshqa_devor": "Add the new room behind a different wall.",
+      "eshik_deraza": "Door / Window",
+      "kameralar": "Cameras",
+      "tahrirlashni_yoqish": "Enable editing",
+      "tahrirlashni_qulflash": "Lock editing",
+      "xonani_ochirish_tasdiq": "Confirm deleting the room \"{{name}}\""
+    },
+    "radial": {
+      "rang": "Color",
+      "oboy": "Wallpaper",
+      "panel": "Panel",
+      "kafel": "Tile",
+      "oyna": "Window",
+      "olchamli": "Custom size",
+      "eshik": "Door",
+      "yangi_xona": "New room",
+      "elektr": "Electrical",
+      "chiroq": "Light fixture",
+      "karniz": "Cornice",
+      "yoq": "None",
+      "shift_turi": "Ceiling type",
+      "parket": "Parquet",
+      "plintus": "Skirting board"
+    },
+    "page": {
+      "havola_yaratilmadi": "Could not create the link",
+      "havola_bekor_sarlavha": "Revoke the share link?",
+      "havola_bekor_matn": "The link will stop working.",
+      "qoldirish": "Keep it",
+      "havola_bekor_xato": "Could not revoke the link",
+      "xona_topilmadi": "Room not found",
+      "yangi_xona_yaratish": "Create a new room",
+      "xato": "Error",
+      "saqlanmoqda": "Saving...",
+      "saqlandi": "Saved",
+      "ulashish": "Share",
+      "xona_ochirish_sarlavha": "Confirm deleting the room",
+      "qaytarib_bolmaydi": "This action cannot be undone.",
+      "xona_ochirilmadi": "Could not delete the room",
+      "ulashish_havolasi": "Share link",
+      "havola_yaratilmoqda": "Creating the link…",
+      "nusxalandi": "Copied",
+      "nusxalash": "Copy",
+      "oflayn_kirish": "Offline mode — log in and your project will be saved to the cloud.",
+      "tarmoq_xatosi_mahalliy": "Network error — showing local data.",
+      "kirish": "Log in",
+      "olchamlar_toortburchak": "{{length}} × {{width}} × {{height}} m",
+      "olchamlar_koppburchak_one": "{{area}} m² · {{count}} wall · ceiling {{height}} m",
+      "olchamlar_koppburchak_other": "{{area}} m² · {{count}} walls · ceiling {{height}} m",
+      "havola_bekor": "Revoke"
+    },
+    "iso": {
+      "preview_aria": "Isometric room preview",
+      "devor": "Wall",
+      "boyoq": "Paint",
+      "naqsh": "Pattern",
+      "asosiy_rang": "Main color",
+      "naqsh_rangi": "Pattern color",
+      "laminat": "Laminate",
+      "beton": "Concrete",
+      "kerakli_oboy": "Wallpaper needed",
+      "jami_rulon_one": "{{count}} roll (~{{area}} m²)",
+      "jami_rulon_other": "{{count}} rolls (~{{area}} m²)",
+      "devor_rulon_one": "Wall {{wall}}: {{count}} roll ({{area}} m²)",
+      "devor_rulon_other": "Wall {{wall}}: {{count}} rolls ({{area}} m²)"
+    },
+    "walk": {
+      "sarlavha": "Walk mode",
+      "izoh": "Walk through the room in first person",
+      "yurish": "walk",
+      "yugurish": "run",
+      "chiqish": "exit",
+      "bosing": "Press or click here",
+      "toxtatish": "— stop"
+    },
+    "lib": {
+      "preset": {
+        "neoklassika": {
+          "label": "Neoclassical",
+          "title": "Neoclassical: light and elegant",
+          "summary": "Light beige walls, light oak parquet and an elegant chandelier give the classics a light, modern look."
+        },
+        "zamonaviy": {
+          "label": "Modern",
+          "title": "Modern: neutral and cozy",
+          "summary": "Grey-beige walls, a graphite accent, wood-look laminate and LED lighting make the room simple and comfortable."
+        },
+        "hitech": {
+          "label": "Hi-Tech",
+          "title": "Hi-Tech: contrast and technology",
+          "summary": "White walls, a dark anthracite accent, glossy tile and LED lighting give a high-tech, crisp linear look."
+        },
+        "milliy": {
+          "label": "National",
+          "title": "National style: a warm Eastern spirit",
+          "summary": "Cream wallpaper with dark red flowers, dark walnut parquet, a chandelier and a rug bring a warm, Eastern feel to the home."
+        },
+        "dark": {
+          "label": "Dark",
+          "title": "Dark, warm atmosphere",
+          "summary": "Dark grey walls and dark parquet give a deep, calm setting. Low, warm light keeps that mood."
+        },
+        "skandinav": {
+          "label": "Scandinavian",
+          "title": "Light Scandinavian style",
+          "summary": "Light walls, a natural wood floor and soft light make the room spacious and comfortable."
+        },
+        "klassik": {
+          "label": "Classic",
+          "title": "Classic, golden details",
+          "summary": "Damask wallpaper, warm brown parquet and a chandelier give a traditional, rich look."
+        },
+        "loft": {
+          "label": "Loft",
+          "title": "Loft: concrete and brick",
+          "summary": "Grey walls, a brick-look wall and a concrete floor set an industrial style, completed by track lights."
+        },
+        "minimalist": {
+          "label": "Minimalist",
+          "title": "Minimalist: white and grey",
+          "summary": "White walls, a light tiled floor and little furniture keep the room clean and simple."
+        }
+      },
+      "style": {
+        "neoklassika": "Neoclassical",
+        "klassik": "Classic",
+        "zamonaviy": "Modern",
+        "hitech": "Hi-Tech",
+        "minimalist": "Minimalist",
+        "skandinav": "Scandinavian",
+        "loft": "Loft",
+        "milliy": "National"
+      },
+      "oboy": {
+        "yolli": "Striped",
+        "damask": "Damask",
+        "geometrik": "Geometric",
+        "gul": "Floral",
+        "tekstura": "Texture",
+        "bolalar": "Kids"
+      },
+      "window": {
+        "single": "Single sash",
+        "double": "Double sash",
+        "triple": "Triple sash",
+        "panorama": "Panorama",
+        "transom2": "With a top transom",
+        "transom3": "With a top transom (3)",
+        "transom_wide": "With a wide top transom",
+        "apron2": "With a bottom window",
+        "transom_apron": "Top and bottom",
+        "grid6": "With a grid",
+        "grid_double": "Double sash with a grid",
+        "colonial": "Colonial",
+        "french": "French",
+        "sidelights": "With side lights",
+        "studio": "Atelier",
+        "arch_fan": "Arched",
+        "arch_single": "Arch (single)",
+        "arch_triple": "Arch (triple)"
+      },
+      "ceiling": {
+        "flat": {
+          "label": "Flat ceiling",
+          "hint": "Lowers the whole ceiling evenly — a simple, clean surface."
+        },
+        "double_layer": {
+          "label": "Two-level ceiling",
+          "hint": "Adds depth and volume — a two-step surface."
+        },
+        "floating": {
+          "label": "Floating ceiling",
+          "hint": "A light look, as if floating — lit along the edge."
+        },
+        "border": {
+          "label": "Ceiling with a border",
+          "hint": "A clean border that clearly marks the edge of the room."
+        },
+        "non_drop": {
+          "label": "Non-lowered ceiling",
+          "hint": "Simple, minimal and modern — the full height is kept."
+        },
+        "recessed": {
+          "label": "Recessed ceiling",
+          "hint": "A hidden recess — soft, luxurious light."
+        }
+      },
+      "ceiling_range": {
+        "drop": "Drop",
+        "border": "Border width",
+        "innerDrop": "Second level",
+        "gap": "Recess width",
+        "stripK": "Strip temperature"
+      },
+      "light": {
+        "pendant": {
+          "name": "Pendant light",
+          "hint": "Hangs above a table"
+        },
+        "chandelier": {
+          "name": "Chandelier",
+          "hint": "Central light for a living room"
+        },
+        "ceiling": {
+          "name": "Ceiling light",
+          "hint": "Flush with the ceiling"
+        },
+        "downlight": {
+          "name": "Downlight",
+          "hint": "Fitted into the ceiling"
+        },
+        "spotlight": {
+          "name": "Spotlight",
+          "hint": "Can be aimed"
+        },
+        "ies": {
+          "name": "IES spot",
+          "hint": "Measured beam profile (a narrow, sharp spot)"
+        },
+        "led_panel": {
+          "name": "LED panel",
+          "hint": "Wide light for an office or kitchen"
+        },
+        "led_linear": {
+          "name": "Linear LED",
+          "hint": "A long strip — rotate its angle"
+        },
+        "track": {
+          "name": "Track (rail)",
+          "hint": "A rail with several heads"
+        },
+        "led_track": {
+          "name": "LED track light",
+          "hint": "LED heads mounted on a track"
+        },
+        "bra": {
+          "name": "Wall sconce",
+          "hint": "On the wall — by a bed, in a corridor"
+        },
+        "bath": {
+          "name": "Bathroom light",
+          "hint": "Above a mirror, moisture-proof"
+        },
+        "floor_lamp": {
+          "name": "Floor lamp",
+          "hint": "Stands on the floor — next to a sofa"
+        }
+      },
+      "plaster": {
+        "beton": {
+          "name": "Concrete",
+          "hint": "Natural concrete — mottled, medium grain"
+        },
+        "beton_silliq": {
+          "name": "Smooth concrete",
+          "hint": "Polished concrete — soft mottling"
+        },
+        "beton_qopol": {
+          "name": "Rough concrete",
+          "hint": "Formwork-cast, a rough surface"
+        },
+        "suvoq": {
+          "name": "Gypsum plaster",
+          "hint": "White gypsum plaster — fine grain"
+        }
+      },
+      "stage": {
+        "suvoq": "Plaster",
+        "shpaklovka": "Putty",
+        "boyoq": "Paint/Wallpaper",
+        "pol": "Floor",
+        "montaj": "Installation",
+        "chiroq": "Light fixtures",
+        "mebel": "Furniture"
+      },
+      "tile_face": {
+        "plain": "Plain",
+        "marble-white": "White marble",
+        "marble-black": "Black marble",
+        "marble-grey": "Grey marble"
+      },
+      "floor_pattern": {
+        "herringbone": "Herringbone",
+        "double_herringbone": "Double Herringbone",
+        "chevron": "Chevron",
+        "wood_strip": "Wood Strip",
+        "brick_bond": "Brick Bond",
+        "stake_bond": "Stake Bond"
+      },
+      "wall_color": {
+        "6d6a41": "Olive green",
+        "d5c1a6": "Warm beige",
+        "e7dac9": "Cream",
+        "c3a279": "Yellowish brown",
+        "677882": "Grey-blue",
+        "b9b6af": "Soft grey",
+        "e8e0d5": "Off-white",
+        "beaf9c": "Light taupe",
+        "1a4228": "Emerald green",
+        "d6c2a9": "Light beige",
+        "eae1d2": "Ivory",
+        "a6a47d": "Sage green",
+        "a85f32": "Terracotta",
+        "d7c5ad": "Sandy beige",
+        "8f7755": "Mocha",
+        "1a2835": "Navy blue",
+        "e7ddd1": "Delicate cream",
+        "c9c0b7": "Light grey",
+        "c39243": "Gold"
+      },
+      "trim": {
+        "tekis": "Plain"
+      },
+      "camera": {
+        "c360_title": "360",
+        "c360_label": "360 camera — from the middle of the room",
+        "n_title": "Camera {{n}}",
+        "n_label": "Camera {{n}} — from a corner"
+      },
+      "unnamed_room": "Room",
+      "category": {
+        "divan": "Sofa",
+        "stol": "Table",
+        "stul": "Chair",
+        "karavot": "Bed",
+        "shkaf": "Wardrobe",
+        "lampa": "Lamp",
+        "boshqa": "Other"
+      },
+      "placement": {
+        "pol": "On the floor",
+        "devor": "On the wall",
+        "shift": "On the ceiling"
+      },
+      "part": "Part",
+      "compass": {
+        "n": "North",
+        "ne": "Northeast",
+        "e": "East",
+        "se": "Southeast",
+        "s": "South",
+        "sw": "Southwest",
+        "w": "West",
+        "nw": "Northwest"
+      },
+      "city": {
+        "toshkent": "Tashkent",
+        "samarqand": "Samarkand",
+        "buxoro": "Bukhara",
+        "andijon": "Andijan",
+        "namangan": "Namangan",
+        "fargona": "Fergana",
+        "nukus": "Nukus",
+        "urganch": "Urgench",
+        "qarshi": "Karshi",
+        "termiz": "Termez",
+        "jizzax": "Jizzakh",
+        "guliston": "Gulistan",
+        "navoiy": "Navoi"
+      }
+    },
+    "contact": {
+      "call_aria": "Call: {{label}}",
+      "telegram_aria": "Message on Telegram: {{label}}",
+      "call": "Call"
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "text": "Changes in the room are not saved yet. If you leave, they may be lost.",
+      "stay": "Stay",
+      "leave": "Leave without saving"
+    },
+    "plan_toggle": {
+      "to_2d": "Switch to the 2D plan view",
+      "to_3d": "Back to the 3D view",
+      "aria": "2D plan / 3D view"
+    },
+    "menu": {
+      "more": "More"
+    },
+    "tools": {
+      "aria": "Editing tools"
+    },
+    "gl": {
+      "title": "The 3D view could not be opened",
+      "text": "The browser's graphics memory is in use (WebGL). Try refreshing the page.",
+      "reload": "Refresh the page"
+    },
+    "shared": {
+      "eshik": "Door",
+      "deraza": "Window",
+      "balkon": "Balcony",
+      "balkon_eshigi": "Balcony door",
+      "yuklanmoqda": "Loading…",
+      "rasm_yuklash": "Upload an image",
+      "rasm_format": "JPG, PNG, WEBP · up to 15 MB",
+      "dona_soni_one": "{{count}} pc",
+      "dona_soni_other": "{{count}} pcs",
+      "faqat_rasm": "Image files only (JPG, PNG, WEBP...)",
+      "yuklab_bolmadi_msg": "The image could not be uploaded: {{message}}",
+      "yuklab_bolmadi": "The image could not be uploaded. Please try again.",
+      "hamma_ochirilsinmi": "Delete \"{{name}}\" for all users?",
+      "ochirib_bolmadi": "Could not delete.",
+      "mm_aria": "{{label}}, mm",
+      "decrease": "Decrease {{label}}",
+      "increase": "Increase {{label}}",
+      "devor": "Wall",
+      "wall_n": "Wall {{id}}",
+      "pol": "Floor",
+      "shift": "Ceiling",
+      "plintus": "Skirting board",
+      "karniz": "Cornice",
+      "parket": "Parquet",
+      "kafel": "Tile",
+      "laminat": "Laminate",
+      "beton": "Concrete",
+      "mebel": "Furniture",
+      "chiroq": "Light fixture",
+      "hamma_devorlar": "All walls",
+      "qidirish": "Search...",
+      "topilmadi": "Nothing found",
+      "qollash": "Apply",
+      "price_som": "{{price}} UZS"
+    },
+    "opening": {
+      "aria": "{{name}} — wall {{wall}}. Select: Enter, move: arrow keys, delete: Delete"
+    },
+    "tabs": {
+      "smeta": "Estimate",
+      "goto": "Go to {{label}}",
+      "prev_title": "Previous section — {{label}}",
+      "next_title": "Next section — {{label}}"
+    },
+    "inquiry": {
+      "send_failed": "The inquiry could not be sent",
+      "title": "Inquire with the shop",
+      "sent": "Your inquiry was sent. The shop will contact you.",
+      "message": "Message (optional)",
+      "placeholder": "For example: is this model in stock?",
+      "send": "Send"
+    },
+    "photo": {
+      "view_front": "Front (required)",
+      "view_left": "Left",
+      "view_back": "Back",
+      "view_right": "Right",
+      "title": "No file? Create one from an image",
+      "failed": "The model could not be created",
+      "count_label": "Number of images",
+      "one_hint": "Upload a clear image of the piece of furniture (a clean background works best) — the sides and back are drawn approximately. About 1–2 minutes.",
+      "aria_create": "Create a 3D model from an image",
+      "many_hint": "Images of one piece of furniture from different sides (the same lighting, a clean background). The front is required and at least one more is needed — the more images, the more accurate the details.",
+      "build_many_one": "Create a 3D model from {{count}} image",
+      "build_many_other": "Create a 3D model from {{count}} images",
+      "mode_single": "1 image",
+      "mode_multi": "Several images"
+    },
+    "new_room": {
+      "north": "north",
+      "south": "south",
+      "east": "east",
+      "west": "west",
+      "width": "Width",
+      "depth": "Length",
+      "height": "Height",
+      "wall_thickness": "Wall thickness",
+      "title": "New room",
+      "behind": "Behind this wall ({{side}} side)",
+      "create": "Create",
+      "creating": "Creating…"
+    },
+    "new_window": {
+      "title": "Window type",
+      "type": "Type",
+      "sizes": "Measurements",
+      "width": "Width",
+      "height": "Height",
+      "sill": "Height from the floor",
+      "frame_color": "Frame color",
+      "add": "+ Add a window"
+    },
+    "room_settings": {
+      "wall_a": "Wall A (length)",
+      "wall_b": "Wall B (width)",
+      "wall_c": "Wall C (length)",
+      "wall_d": "Wall D (width)",
+      "area": "Area",
+      "perimeter": "Perimeter",
+      "openings": "Openings",
+      "room_measures": "Room measurements",
+      "width": "Width",
+      "height": "Height",
+      "sill_short": "From floor",
+      "sill": "Height from the floor",
+      "type": "Type",
+      "title": "Room settings",
+      "sizes": "Measurements",
+      "length": "Length",
+      "ac": "Walls A – C",
+      "bd": "Walls B – D",
+      "ceiling_height": "Ceiling height",
+      "openings_title": "Windows and doors",
+      "no_element": "No items",
+      "add_window": "+ Window",
+      "add_door": "+ Door"
+    },
+    "door": {
+      "width_mm": "Width (mm)",
+      "height_mm": "Height (mm)",
+      "sill_mm": "Height from the floor (mm)",
+      "window_type": "Window type",
+      "open_angle": "Opening angle",
+      "frame_color": "Frame color"
+    },
+    "light": {
+      "warm": "Warm",
+      "soft": "Soft",
+      "neutral": "Neutral",
+      "daylight": "Daylight",
+      "cool": "Cool",
+      "add": "Add a light fixture",
+      "armed_hint": "Now click the exact spot on the 2D plan.",
+      "pick_hint": "Pick a type, then click a spot on the 2D plan.",
+      "lm_k": "{{lm}} lm · {{k}}K",
+      "in_room": "Light fixtures in the room ({{n}})",
+      "clear_all": "Delete all",
+      "empty_plan": "No light fixtures yet. Pick a type above, then click the exact spot on the 2D plan.",
+      "empty_3d": "No light fixtures yet. Pick a type above — the fixture goes to the middle of the room, then drag it into place in 3D.",
+      "off": "Off",
+      "on": "On",
+      "brightness": "Brightness",
+      "color_temp": "Color temperature",
+      "beam": "Beam angle",
+      "drop": "Hanging drop",
+      "wall_h": "Height on the wall",
+      "rotation": "Rotation",
+      "tilt": "Tilt",
+      "delete": "Delete the light fixture",
+      "reset_title": "Reset to the default value",
+      "reset": "Reset"
+    },
+    "add": {
+      "title": "Add an item",
+      "room_mehmonxona": "Living room",
+      "room_oshxona": "Kitchen",
+      "room_yotoqxona": "Bedroom",
+      "room_vanna": "Bathroom",
+      "all_walls_color": "Color for all walls",
+      "wall_color": "Color for {{wall}}",
+      "no_paint": "There is no paint in the shop yet",
+      "no_floor_material": "There is no floor material of this type in the shop yet",
+      "concrete_none": "There is no material for a concrete floor in the shop — the estimate does not price this floor.",
+      "add": "Add",
+      "back": "← Back",
+      "size": "Size",
+      "width": "Width",
+      "standard": "Standard: {{size}} m",
+      "width_decrease": "Decrease the width",
+      "width_increase": "Increase the width",
+      "proportional": "The height and depth change along with it in the same proportion.",
+      "add_plus": "+ Add",
+      "no_match": "No matching furniture in the catalog",
+      "no_room_furniture": "There is no furniture in the shop for this type of room",
+      "heading_exact": "Matches",
+      "heading_related": "Others that may fit",
+      "add_item": "Add {{name}}"
+    },
+    "dp": {
+      "suvoq_title": "Plaster",
+      "suvoq_text": "Plaster for a raw wall: upload an image or pick one from the library. It applies to all walls.",
+      "library": "Image library",
+      "remove_texture": "Remove the texture",
+      "putty_title": "Putty / Concrete",
+      "putty_text": "The surface after putty: pick a concrete texture or upload your own image. Your choice is saved.",
+      "which_wall": "Which wall",
+      "concrete_texture": "Concrete texture",
+      "putty_image": "Putty image",
+      "el_socket1": "Socket",
+      "el_socket2": "Double socket",
+      "el_socket_media": "Media socket (TV, internet)",
+      "el_switch1": "Switch (1 key)",
+      "el_switch2": "Switch (2 keys)",
+      "el_ac": "Air conditioner",
+      "el_panel": "Electrical panel",
+      "el_where": "Wall {{wall}} · at a height of {{cm}} cm",
+      "el_none": "No electrical points",
+      "el_none_text": "Tap a wall in 3D and pick a socket, a switch or an air conditioner. It will show up here.",
+      "el_title": "Electrical points ({{n}})",
+      "el_hint": "Every point counts toward the cable in the estimate. Add a new one by tapping a wall in 3D.",
+      "el_remove_aria": "Remove {{name}} ({{where}})",
+      "el_remove": "Remove",
+      "not_saved": "Not saved to the server{{reason}} — the image shows now, but it will be lost if the page is refreshed.",
+      "board_texture": "Board texture",
+      "floor_image": "Floor image",
+      "board_hint": "The image is applied to each board separately — its size equals the board's size.",
+      "floor_hint": "The image is spread over the whole floor.",
+      "texture_rotation": "Texture rotation",
+      "applied_boards": "Applied to the boards",
+      "applied_image": "Image applied",
+      "tab_type": "Type",
+      "tab_image": "Image",
+      "floor_shop_none": "There is no floor material of this type in the shop yet — the estimate does not price this floor.",
+      "floor_material": "Floor material",
+      "floor_texture": "Floor texture",
+      "uploaded_image": "Uploaded image",
+      "tex_settings": "Texture settings",
+      "scale_x": "Scale X",
+      "scale_y": "Scale Y",
+      "rotate": "Rotation",
+      "offset_x": "Offset X",
+      "offset_y": "Offset Y",
+      "reset_defaults": "Reset to default",
+      "pattern": "Pattern",
+      "pattern_remove": "Remove the pattern",
+      "skirting_add": "Add skirting board",
+      "skirting_remove": "Remove the skirting board",
+      "settings": "Settings",
+      "height": "Height",
+      "width": "Width",
+      "unit_mm": "mm",
+      "unit_cm": "cm",
+      "plank_length": "Board length",
+      "plank_width": "Board width",
+      "gap": "Gap",
+      "bevel": "Bevel (edge)",
+      "color_variation": "Color variation",
+      "color_over_texture": "Color (over the texture)",
+      "wood_color": "Wood color",
+      "reset_texture_color": "Return to the texture's own color",
+      "reset_floor_color": "Return to the floor type's color",
+      "reset_color": "Reset",
+      "rotation": "Rotation",
+      "cc_white": "White",
+      "cc_ivory": "Ivory",
+      "cc_sand": "Sand",
+      "cc_silver": "Silver",
+      "cc_ash": "Ash beige",
+      "ceiling_hint": "The shape of the ceiling sets the room's height and light.",
+      "hidden_led": "Hidden LED strip",
+      "ceiling_color": "Ceiling color",
+      "cornice": "Cornice",
+      "cornice_hint": "A decorative moulding in the corner between ceiling and wall.",
+      "cornice_remove": "Remove the cornice",
+      "cornice_add": "Add a cornice",
+      "min_mm": "Min: {{n}} mm",
+      "panels": "Wall panels",
+      "panels_switch": "Wall panels on/off",
+      "panel_width_mm": "Width (mm)",
+      "panel_height_mm": "Height (mm)",
+      "panel_depth_mm": "Thickness (mm)",
+      "panel_gap_mm": "Gap (mm)",
+      "orientation": "Orientation",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "chamfer_mm": "Chamfer (mm)",
+      "panel_color": "Panel color",
+      "panels_per_wall": "Number of panels on one wall",
+      "pcs": "pcs",
+      "panel_cols_one": "{{count}} column",
+      "panel_cols_other": "{{count}} columns",
+      "panel_rows_one": "{{count}} row",
+      "panel_rows_other": "{{count}} rows",
+      "walls_floor": "Wall / Floor",
+      "paint": "Paint",
+      "wall_image": "Wall image",
+      "wallpaper_library": "Wallpaper library",
+      "texture": "Texture",
+      "wallpaper_needed": "Wallpaper needed",
+      "calculating": "Calculating...",
+      "rolls_one": "{{count}} roll",
+      "rolls_other": "{{count}} rolls"
+    },
+    "mebel": {
+      "drop_here": "Drop the image",
+      "no_uv_title": "No UV coordinates — they are created automatically when an image is added",
+      "no_uv": "No UV",
+      "invisible_title": "An image is attached but not visible (a UV or image problem)",
+      "textured": "texture ✓",
+      "invisible": "not visible",
+      "none": "none",
+      "image_btn": "Image",
+      "uploading": "uploading",
+      "no_model": "No 3D model",
+      "no_texture": "No texture",
+      "apply_texture": "Apply a texture",
+      "no_shop": "No shop",
+      "change_category": "Change the category",
+      "placement": "Placement in the room",
+      "price_title": "Approximate price (UZS) — this price is used in the calculation",
+      "currency": "UZS",
+      "tex_manage_title": "Manage textures (by channel) — or drag an image onto this card",
+      "tex_manage": "Manage textures",
+      "delete_model": "Delete the model",
+      "file_missing": "The model file was not found",
+      "read_failed": "The model could not be read",
+      "texture_failed": "The texture could not be applied",
+      "all": "All",
+      "mine": "Mine",
+      "models": "3D models",
+      "parts_count_one": "{{count}} part.",
+      "parts_count_other": "{{count}} parts.",
+      "parts_hint": "Drag an image straight onto a part — if several images are dropped together, they are assigned to channels by file name (color · normal · rough · AO).",
+      "one_image_all": "One image for all empty channels",
+      "placed": "Placed:",
+      "model": "Model",
+      "change_color": "Change the color",
+      "reset_color": "Return to the original color",
+      "color": "Color"
+    },
+    "cplan": {
+      "no_outline": "No room outline was found for the 2D light plan — draw the room again or scan it",
+      "armed": "{{name}} — click a spot on the plan",
+      "hint": "Pick a light type from the list on the right, then click the exact spot on the plan. Drag a placed fixture to move it.",
+      "light_aria": "{{name}} — select: Enter, move: arrow keys, delete: Delete",
+      "to_center": "To center"
+    },
+    "arc": {
+      "uploaded": "Uploaded",
+      "add": "Add"
+    },
+    "furn": {
+      "detach_failed": "The part could not be detached",
+      "detach_title": "Detach the part as a separate object",
+      "detach": "Detach",
+      "delete_part": "Delete the part",
+      "move": "Move",
+      "resize": "Resize"
+    },
+    "mplan": {
+      "no_outline": "No room outline was found for the 2D plan — draw the room again or scan it",
+      "openings": "Doors and windows",
+      "place_hint": "Click a wall to place it. Drag an element to move it.",
+      "pick_element": "Pick an element",
+      "pan_hint": "Hold the right mouse button to pan the plan.",
+      "window_type": "Window type",
+      "window_type_selected": "The selected window will change to this look.",
+      "window_type_new": "A new window will be placed with this type.",
+      "add_in_3d": "Add a model in the 3D window — its shape is drawn on the plan.",
+      "furniture_aria": "{{name}} — select: Enter, move: arrow keys, delete: Delete",
+      "width": "Width",
+      "height": "Height",
+      "from_floor": "From floor",
+      "from_left": "From left",
+      "from_right": "From right",
+      "nudge_left": "Nudge left (50 mm)",
+      "nudge_right": "Nudge right (50 mm)",
+      "rotate": "Rotate°",
+      "rotate_left": "Rotate 15° left",
+      "rotate_right": "Rotate 15° right",
+      "size_pct": "Size %"
+    }
+  },
+  "smeta": {
+    "sarlavha": "Estimate",
+    "jami": "Total cost",
+    "pdf_yuklab": "Download PDF",
+    "miqdori": "Quantity",
+    "birlik": "Unit",
+    "narxi": "Price",
+    "summa": "Amount",
+    "hisoblash": "Calculate",
+    "qayta_hisoblash": "Recalculate",
+    "shundan_taxminiy": "of which approximate",
+    "diapazon": "Range",
+    "saqlash": "Save",
+    "saqlandi": "Saved ✓",
+    "taqsimot": "Cost breakdown",
+    "minimal": "Minimum price",
+    "maksimal": "Maximum price",
+    "elektr_ishlari": "Electrical work",
+    "qator_one": "{{count}} line",
+    "qator_other": "{{count}} lines",
+    "hammasini_yoyish": "Expand all",
+    "hammasini_yigish": "Collapse all",
+    "taxminiy": "approximate",
+    "dokon": "Shop",
+    "tepaga": "Back to top",
+    "mebel_bilan": "With furniture",
+    "faqat_tamir": "Renovation only",
+    "mebel_kirmagan": "Furniture and fittings are not included in the total",
+    "bozor_yangilash": "Update market prices",
+    "bozor_qidirilmoqda": "Looking up prices…",
+    "bozor_belgi": "market price",
+    "bozor_manba": "source",
+    "bozor_yangilandi_one": "{{count}} line updated with shop prices",
+    "bozor_yangilandi_other": "{{count}} lines updated with shop prices",
+    "bozor_topilmadi": "No reliable market price was found: the catalog prices were kept.",
+    "bozor_qaytish": "Go back to catalog prices",
+    "bozor_xato": "Could not check the market prices.",
+    "toifa": {
+      "tayyorlash": "Wall preparation",
+      "pardoz": "Wall finishing",
+      "pol": "Floor and skirting board",
+      "shift": "Ceiling",
+      "elektr": "Electrics and lighting",
+      "jihoz": "Furniture and fittings",
+      "boshqa": "Other costs"
+    },
+    "floor_stand_in_aria": "The floor price is approximate",
+    "floor_left_out_aria": "The floor is not in the estimate",
+    "floor_stand_in": "No product is chosen for the floor; the price is taken from the shop's average floor (approximate).",
+    "floor_left_out": "No product is chosen for the floor, so the floor is not in the estimate.",
+    "floor_pick": "Choose a floor",
+    "ha": "Yes",
+    "ha_taxminiy": "Yes (approximate)",
+    "yoq": "No",
+    "saqlanmadi": "The estimate was not saved. Check your connection and try again.",
+    "hisoblangan": "Calculated: {{when}}"
+  },
+  "ustalar": {
+    "sarlavha": "Craftsmen",
+    "verified": "Approved",
+    "usta_chaqirish": "Call a craftsman",
+    "tajriba": "Experience",
+    "boglaning": "Get in touch",
+    "narx": "Price",
+    "soum_m2": "UZS/m²",
+    "izoh": "Comment",
+    "yuborish": "Send",
+    "muvaffaqiyat": "Your request was sent successfully",
+    "hammasi": "All",
+    "narxi_arzon": "Price: low to high",
+    "narxi_qimmat": "Price: high to low",
+    "eng_yaxshi": "Top rated",
+    "tavsif": "Find approved craftsmen and get in touch with them.",
+    "boglaning_ism": "Contact {{name}}",
+    "izoh_placeholder": "Details about the room...",
+    "saralash": "Sort"
+  },
+  "errors": {
+    "tarmoq_xatosi": "Network error. Check your internet connection.",
+    "nomalum_xato": "An unknown error occurred.",
+    "otp_xato": "The code is incorrect. Please try again.",
+    "smeta_xato": "An error occurred while calculating the estimate.",
+    "pdf_xato": "An error occurred while downloading the PDF.",
+    "telefon_format": "The phone number is in the wrong format.",
+    "server_xato": "Server error. Please try again later.",
+    "gateway_down": "The server is temporarily not responding. Please try again shortly.",
+    "render_failed": "The render failed",
+    "render_timeout": "The render took too long. Please try again later.",
+    "model_empty": "The model is empty: no geometry was found. Try exporting the file in another format (GLB).",
+    "model_file_missing": "No 3D model file found (choose .glb, .gltf, .obj or .fbx)",
+    "format_unsupported": "Unsupported format: .{{ext}}",
+    "no_image": "No image selected",
+    "no_part": "No matching part found in the model",
+    "glb_export_failed": "GLB export failed"
+  },
+  "empty": {
+    "ustalar_yoq": "No craftsmen found.",
+    "smeta_yoq": "The estimate has not been calculated yet."
+  },
+  "auth": {
+    "telefon": "Phone number",
+    "qayta_yuborish": "Resend",
+    "orqaga": "Back",
+    "telefon_placeholder": "+998 90 123 45 67",
+    "chiqish": "Log out",
+    "kirish": "Log in",
+    "royxatdan_otish": "Sign up",
+    "otp_tasdiqlash": "Confirm the code",
+    "parolni_korsatish": "Show password",
+    "parolni_yashirish": "Hide password",
+    "akkaunt_yoqmi": "Don't have an account?",
+    "username": "Username",
+    "username_placeholder": "username",
+    "parol": "Password",
+    "parolni_tasdiqlang": "Confirm password",
+    "ism_ixtiyoriy": "Name (optional)",
+    "ismingiz": "Your name",
+    "allaqachon_akkaunt": "Already have an account?",
+    "yoki": "or",
+    "google_bilan_kirish": "Sign in with Google",
+    "xato_username_parol": "Username and password are required.",
+    "xato_login": "Wrong username or password.",
+    "xato_google": "Could not sign in with Google. Please try again.",
+    "xato_username": "Username is required.",
+    "xato_username_qisqa": "Username must be at least 3 characters.",
+    "xato_parol": "Password is required.",
+    "xato_parol_qisqa": "Password must be at least 6 characters.",
+    "xato_parollar_mos_emas": "Passwords do not match.",
+    "xato_username_band": "This username is already taken. Choose another one.",
+    "xato_royxatdan_otish": "Sign-up failed."
+  },
+  "ai": {
+    "builder_title": "AI designer",
+    "builder_placeholder": "Describe how your room should look. For example: a dark room with a warm atmosphere",
+    "dizayner_misollar": [
+      "A dark room with a warm atmosphere",
+      "Bright Scandinavian style, natural wood",
+      "Classic, golden details, with wallpaper",
+      "Loft: concrete and brick tones",
+      "Minimalist, white and gray",
+      "Neoclassical: light beige and an elegant chandelier",
+      "Hi-tech: white, black and LED lighting",
+      "National style: warm colors, a carpet and a floral pattern",
+      "Soft, cozy, warm colors"
+    ],
+    "dizayn_tavsifi": "Design description",
+    "tayyor_uslublar": "Ready-made styles (no AI, instant)",
+    "ai_namunalari": "Examples for AI",
+    "ai_ishlamadi_uslub": "The AI did not respond just now. Pick one of the ready-made styles above: they work without AI.",
+    "mebel_topilmadi": "No suitable furniture was found in the catalog, so no furniture will be added.",
+    "dizayn_yarat": "Create a design",
+    "rasm_qoshish": "Add an image",
+    "rasm_olib_tashlash": "Remove the image",
+    "rasm_placeholder": "Optional: for example, take only the colors",
+    "rasmdan_yarat": "Create a design from the image",
+    "rasm_turi_xato": "Upload a JPEG, PNG or WebP image only",
+    "rasm_hajmi_xato": "The image must not be larger than 10 MB",
+    "rasm_input": "Inspiration image",
+    "pin_label": "Pinterest link",
+    "pin_placeholder": "pinterest.com/pin/… or pin.it/…",
+    "pin_chip": "📌 Pinterest pin",
+    "pin_olib_tashlash": "Remove the link",
+    "pin_xato": "This is not a Pinterest pin link",
+    "pindan_yarat": "Create a design from Pinterest",
+    "pin_asosida": "Based on this pin",
+    "rasm_preview": "Selected image",
+    "oylayapti": "The AI is preparing the design…",
+    "boshqa_variant": "Another option",
+    "qaytarish": "Undo",
+    "qollandi_saqlang": "The design was applied. Press Save.",
+    "qollandi_saqlandi": "The design was applied and saved.",
+    "qollandi_saqlanmadi": "The design was applied but could not be saved. Press Save.",
+    "saqlanmoqda": "The design was applied, saving…",
+    "batafsil": "Details",
+    "qaytarildi_saqlandi": "The previous state was restored and saved.",
+    "qaytarildi_saqlanmadi": "The previous state was restored but could not be saved. Press Save.",
+    "qollandi_sarlavha": "AI design applied",
+    "qaytarildi": "The previous state was restored.",
+    "qism_devor": "Walls",
+    "qism_devor_shift": "Walls and ceiling",
+    "shift_label": "Ceiling",
+    "galtel_label": "cornice",
+    "galtel_yoq": "no cornice",
+    "qism_pol": "Floor",
+    "qism_chiroq": "Light fixtures",
+    "qism_mebel": "Furniture",
+    "chetki_devor": "wall",
+    "markaz": "center",
+    "burchak": "corner",
+    "izoh_qoshimcha": "This is a suggestion: switch off any parts you do not want and apply it. Furniture is added to what you already have.",
+    "yuborish": "Send",
+    "qollash": "Apply",
+    "bekor": "Cancel",
+    "fikrlanmoqda": "Analyzing...",
+    "draft_tayyor": "The AI suggestion is ready. Take a look.",
+    "qollandi": "The changes were applied.",
+    "xato": "AI error. Please try again.",
+    "sigmadi_one": "{{count}} piece of furniture did not fit in the room and was not placed.",
+    "sigmadi_other": "{{count}} pieces of furniture did not fit in the room and were not placed.",
+    "tool_call": "In progress",
+    "smeta_sarlavha": "Estimate assistant",
+    "smeta_savol_hint": "Ask a question about the estimate",
+    "smeta_placeholder": "For example: is there a cheaper option than laminate?",
+    "tavsiya_1": "Is there a cheaper alternative?",
+    "tavsiya_2": "Which part is the most expensive?",
+    "tavsiya_3": "How was this price calculated?"
+  },
+  "photoModel": {
+    "tugma": "3D model from an image",
+    "izoh": "3D model from an image of furniture · about 1–2 minutes",
+    "yuklanmoqda": "Sending the image...",
+    "yaratilmoqda": "Creating the model (1–2 minutes)...",
+    "qoshilmoqda": "Adding to the furniture...",
+    "tayyor": "Model added",
+    "katta": "The image must be smaller than 20 MB",
+    "xato": "The model could not be created"
+  },
+  "render": {
+    "nomi": "Render",
+    "sarlavha": "Realistic render",
+    "izoh": "Creates a realistic image from the current view of the room. Takes a few seconds.",
+    "placeholder": "Optional: for example, warm light, a wooden floor",
+    "boshlash": "Render",
+    "tayyorlanmoqda": "Capturing the image...",
+    "jarayonda": "Rendering...",
+    "tayyor": "Render ready",
+    "yuklab_olish": "Download",
+    "qayta": "Render again",
+    "asl": "Original",
+    "saqlangan": "Saved renders",
+    "avtomatik_tavsif": "Automatic description — edit it if you like",
+    "tavsifni_tahrirlash": "Edit the description",
+    "yoritish": "Lighting",
+    "yoritilmoqda": "Changing the lighting...",
+    "yorugliq": {
+      "midday_light": "Daytime",
+      "golden_light": "Golden hour",
+      "blue_hour_light": "Blue hour",
+      "ambient_light": "Diffused",
+      "warm_lamps": "Warm lamps",
+      "dimmed_mood": "Dimmed"
+    },
+    "sifat": "Quality",
+    "to4k": "Upscale to 4K",
+    "to4k_izoh": "Sharper: recommended for a 360° panorama",
+    "oshirilmoqda": "Upscaling the quality (4K)...",
+    "rejim_oddiy": "Standard",
+    "rejim_360": "360° panorama",
+    "panorama_izoh": "A 360° image is taken from the center of the room — you can rotate the result",
+    "panorama_olinmadi": "Could not capture the panorama. Check that the 3D view is open.",
+    "viewer": {
+      "nom": "360° panorama",
+      "maslahat": "Drag to rotate · wheel or two fingers: zoom",
+      "avto": "Auto-rotate",
+      "boshiga": "Reset",
+      "toliq": "Full screen",
+      "ochilmadi": "Could not open the 360° view — showing the regular image"
+    },
+    "natija_joyi": "The result will appear here",
+    "vaqt": "Usually 15–30 seconds",
+    "xato": "The render failed",
+    "rasm_yoq": "Could not capture the view. Please try again."
+  },
+  "common": {
+    "yuklanmoqda": "Loading...",
+    "bekor": "Cancel",
+    "yopish": "Close",
+    "orqaga": "Back",
+    "saqlash": "Save",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "ochirish": "Delete",
+    "price_per_unit": "{{price}} UZS/{{unit}}",
+    "tasdiqlash": "Confirm",
+    "elementni_ochirish": "Delete {{name}}",
+    "yuklanmoqda_qisqa": "Loading",
+    "m2": "m²",
+    "kochirish": "Move",
+    "qayta_urinish": "Try again",
+    "m": "m",
+    "price_som": "{{price}} UZS",
+    "telefon_xato": "Invalid phone number. For example: +998 90 123 45 67",
+    "telefon": "Phone",
+    "manzil": "Address",
+    "jami": "Total",
+    "yana_yuklash": "Load more",
+    "ortga": "Back",
+    "qoshish": "Add",
+    "sahifa_topilmadi": "Page not found",
+    "bosh_sahifa": "Back to the home page"
+  },
+  "profile": {
+    "hisobni_ochirish": "Delete account",
+    "hisobni_ochirish_izoh": "Your account, projects, images and orders will be deleted permanently.",
+    "til": "Language",
+    "foydalanuvchi": "User",
+    "mening_loyihalarim": "My projects",
+    "mening_loyihalarim_izoh": "All rooms and designs",
+    "yangi_hisob_kitob": "New calculation",
+    "yangi_hisob_kitob_izoh": "Estimate from room dimensions",
+    "ustalar": "Craftsmen",
+    "ustalar_izoh": "Approved craftsmen",
+    "sotuvchi_paneli": "Seller panel",
+    "sotuvchi_paneli_izoh": "Your shop and models",
+    "ochirib_bolmadi": "Could not delete the account. Please try again.",
+    "qaytarib_bolmaydi": "This cannot be undone",
+    "ochirish_matn": "Your account and all your data will be deleted permanently: projects, images, orders, and your shop or craftsman profile (if any). They cannot be restored.",
+    "parol_placeholder": "Enter your account password"
+  },
+  "layout": {
+    "uy": "Home",
+    "dokon": "Shop",
+    "ustalar": "Craftsmen",
+    "asosiy_navigatsiya": "Main navigation",
+    "yangi_loyiha": "New project",
+    "yangi_loyiha_qoshish": "Add a new project",
+    "xonani_qoshish": "How do you want to add the room?",
+    "lidar": "LiDAR scanner",
+    "lidar_izoh": "Scan the room with LiDAR and get a 3D model automatically",
+    "razmer_plan": "Dimensions / upload a plan",
+    "razmer_plan_izoh": "Enter the dimensions or upload a floor plan image",
+    "qolda_chizish": "Draw by hand",
+    "qolda_chizish_izoh": "Draw the room outline yourself",
+    "kunduzgi_rejimga": "Switch to day mode",
+    "tungi_rejimga": "Switch to night mode",
+    "kunduzgi_rejim": "Day mode",
+    "tungi_rejim": "Night mode"
+  },
+  "landing": {
+    "nav": {
+      "login": "Log in",
+      "start": "Get started"
+    },
+    "hero": {
+      "eyebrow": "Your digital assistant for renovation",
+      "title1": "See your room in 3D",
+      "title2": "before you renovate",
+      "subtitle": "Scan, design and get an accurate estimate — buy all the materials you need from one app.",
+      "primary": "Start for free",
+      "secondary": "How does it work?",
+      "note": "Free to sign up · No card required"
+    },
+    "conveyor": {
+      "pairs": [
+        {
+          "problem": "Unclear costs",
+          "problemTip": "There's no way to know upfront what materials and labor will cost",
+          "solution": "Exact estimate",
+          "solutionTip": "An exact price for every stage, calculated automatically"
+        },
+        {
+          "problem": "Many shops",
+          "problemTip": "Driving across town chasing different prices for each material",
+          "solution": "One shop",
+          "solutionTip": "Materials from 100+ shops in one place — compare and buy"
+        },
+        {
+          "problem": "Unreliable craftsman",
+          "problemTip": "It's hard to know in advance who does quality work",
+          "solution": "Verified craftsman",
+          "solutionTip": "Trusted craftsmen with ratings and reviews"
+        },
+        {
+          "problem": "Slow planning",
+          "problemTip": "Planning drags on for weeks",
+          "solution": "Fast 3D plan",
+          "solutionTip": "A ready 3D plan and visualization in minutes"
+        },
+        {
+          "problem": "Manual math",
+          "problemTip": "Hand calculations are slow and full of mistakes",
+          "solution": "Auto calculation",
+          "solutionTip": "Material quantities and prices computed automatically"
+        },
+        {
+          "problem": "Messy process",
+          "problemTip": "Not knowing where to start or what comes next",
+          "solution": "Clear stages",
+          "solutionTip": "A step-by-step plan — you stay in control"
+        }
+      ]
+    },
+    "problem": {
+      "heading": "Renovation doesn't have to be painful",
+      "items": [
+        {
+          "title": "Unclear costs",
+          "desc": "There's no way to know upfront what materials and labor will cost",
+          "fixTitle": "Instant pricing",
+          "fixDesc": "Materials and labor are calculated automatically"
+        },
+        {
+          "title": "Running between shops",
+          "desc": "A different shop and a different price for every material",
+          "fixTitle": "One place for all",
+          "fixDesc": "Shops and prices in a single app"
+        },
+        {
+          "title": "Unreliable craftsmen",
+          "desc": "It's hard to know in advance who does quality work",
+          "fixTitle": "Vetted craftsmen",
+          "fixDesc": "Choose by ratings and reviews"
+        },
+        {
+          "title": "Slow planning",
+          "desc": "Calculating everything by hand drags on for weeks",
+          "fixTitle": "Ready in minutes",
+          "fixDesc": "Plan and estimate in a few minutes"
+        }
+      ]
+    },
+    "solution": {
+      "heading": "Everything in one app",
+      "items": [
+        {
+          "title": "3D scanner",
+          "desc": "Scan your room or enter its dimensions — an accurate 3D model"
+        },
+        {
+          "title": "Design studio",
+          "desc": "Pick walls, floors, furniture and wallpaper in real time"
+        },
+        {
+          "title": "Accurate estimate",
+          "desc": "Materials and labor for every stage are calculated automatically"
+        },
+        {
+          "title": "Shop",
+          "desc": "Compare and buy materials from 100+ shops"
+        },
+        {
+          "title": "Craftsmen",
+          "desc": "Find trusted craftsmen near you"
+        },
+        {
+          "title": "Step by step",
+          "desc": "From bare walls to finished — every step under control"
+        }
+      ]
+    },
+    "how": {
+      "heading": "In three steps",
+      "steps": [
+        {
+          "title": "Scan",
+          "desc": "Scan the room with LiDAR or a photo, or enter its dimensions"
+        },
+        {
+          "title": "Design",
+          "desc": "Choose materials and furniture in the 3D studio"
+        },
+        {
+          "title": "Estimate & buy",
+          "desc": "Get an accurate estimate, find materials and craftsmen"
+        }
+      ]
+    },
+    "pricing": {
+      "heading": "Start for free",
+      "popular": "Recommended",
+      "free": {
+        "name": "Free",
+        "price": "0 UZS",
+        "features": [
+          "Room scanning",
+          "Design studio",
+          "Approximate estimate"
+        ],
+        "cta": "Get started"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "Coming soon",
+        "features": [
+          "Accurate estimate",
+          "Unlimited projects",
+          "Priority support"
+        ],
+        "cta": "Coming soon"
+      }
+    },
+    "finalCta": {
+      "heading": "Start your renovation today",
+      "subtitle": "Create your first project in just a few minutes.",
+      "button": "Start for free"
+    },
+    "footer": {
+      "tagline": "Your digital assistant for renovation",
+      "links": {
+        "dokon": "Shop",
+        "ustalar": "Craftsmen",
+        "kirish": "Log in"
+      },
+      "privacy": "Privacy Policy",
+      "deleteAccount": "Delete account",
+      "copyright": "© 2026 andoza.ai"
+    },
+    "paint": {
+      "label": "How it works — paint story",
+      "cards": [
+        {
+          "title": "Creative Design",
+          "desc": "Beautiful and modern designs for your ideas."
+        },
+        {
+          "title": "Fast Performance",
+          "desc": "Optimized for speed and a smooth experience."
+        },
+        {
+          "title": "Smart Analytics",
+          "desc": "Understand your data and grow faster."
+        },
+        {
+          "title": "Secure & Reliable",
+          "desc": "Your data is always safe with us."
+        }
+      ]
+    },
+    "story": {
+      "label": "How the app works",
+      "rail": {
+        "lidar": "LiDAR",
+        "plan": "Plan",
+        "view3d": "3D",
+        "wallpaper": "Wallpaper",
+        "window": "Window",
+        "furniture": "Furniture",
+        "estimate": "Estimate"
+      },
+      "s1": {
+        "kicker": "01 · LiDAR scanner",
+        "title": "Sweep your phone around and the room draws itself",
+        "body": "A phone with LiDAR measures the distance to the walls. One sweep collects thousands of points, and they form an accurate plan of the room.",
+        "points": "Points",
+        "accuracy": "Accuracy",
+        "accuracyValue": "±1 cm"
+      },
+      "s2": {
+        "kicker": "02 · Or draw it by hand",
+        "title": "No LiDAR? Draw the walls yourself",
+        "body": "The length of the wall you draw shows up live. Even if your hand shakes, the app straightens the plan for you. You can also add a room from a 360° photo.",
+        "walls": "Walls"
+      },
+      "area": "Area",
+      "s3": {
+        "kicker": "03 · Lift it into 3D",
+        "title": "A flat plan turns into a room",
+        "body": "Pull a corner up and the wall gets taller; pull it sideways and the room gets wider. The measurements update instantly.",
+        "height": "Height"
+      },
+      "view": "View",
+      "plan": "Plan",
+      "s4": {
+        "kicker": "04 · Wallpaper and floor",
+        "title": "Try wallpapers on by hand",
+        "body": "Pick a pattern and the wall changes right away. Laminate for the floor is tried the same way.",
+        "wallpaper": "Wallpaper",
+        "roll": "Rolls"
+      },
+      "wallpapers": {
+        "w0": "Striped",
+        "w1": "Diamond",
+        "w2": "Floral",
+        "w3": "Tropical leaf",
+        "w4": "Concrete",
+        "w5": "Wood panel"
+      },
+      "laminateOak": "Oak laminate",
+      "pricePerRoll": "{{n}} UZS / roll",
+      "pricePerSqm": "{{n}} UZS / m²",
+      "gypsum": "Gypsum",
+      "s5": {
+        "kicker": "05 · Door and window",
+        "title": "Tap a wall to add a window",
+        "body": "The window only goes on the wall you tapped. While you drag it, the distance to the wall’s edges shows live, and a guide line holds it at the center.",
+        "left": "From left",
+        "right": "From right"
+      },
+      "s6": {
+        "kicker": "06 · Furniture",
+        "title": "Drag furniture into place",
+        "body": "The bed, wardrobe and desk snap to the wall, and the distance to the wall shows live. The bed lands exactly at the center under the window.",
+        "placed": "Placed",
+        "free": "Free space"
+      },
+      "furniture": {
+        "rug": "Rug",
+        "bed": "Bed",
+        "nightstand": "Nightstand",
+        "wardrobe": "Wardrobe",
+        "desk": "Desk",
+        "chair": "Chair"
+      },
+      "dimensions": "{{n}} cm",
+      "s7": {
+        "kicker": "07 · Estimate and purchase",
+        "title": "The app works out what you need and how much",
+        "body": "The exact quantity for every wall and surface. Order materials from the Shop and choose a craftsman in the Craftsmen section.",
+        "heading": "Estimate · UZS",
+        "rowWallpaper": "Wallpaper, diamond",
+        "rowSkirting": "Skirting board, 2.5 m",
+        "rowLabor": "Craftsman’s labor",
+        "total": "Total",
+        "footnote": "Sample calculation, prices are illustrative."
+      },
+      "canvasLabel": "Room: the LiDAR scanner creates a plan, the plan turns into 3D, wallpaper is swapped by hand, a window and furniture are placed, an estimate is shown",
+      "room": "Room",
+      "bedroom": "Bedroom",
+      "sheet": "Sheet",
+      "start": "start",
+      "center": "center",
+      "addWindow": "Add window",
+      "addDoor": "Add door",
+      "laminate": "Laminate",
+      "skirting": "Skirting board",
+      "m": "m",
+      "m2": "m²",
+      "rolls_one": "{{count}} roll",
+      "rolls_other": "{{count}} rolls",
+      "rollsDiamond_one": "{{count}} roll · diamond",
+      "rollsDiamond_other": "{{count}} rolls · diamond",
+      "rollsPrice_one": "{{count}} roll · {{price}} UZS",
+      "rollsPrice_other": "{{count}} rolls · {{price}} UZS",
+      "pieces_one": "{{count}} pcs",
+      "pieces_other": "{{count}} pcs"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "updated": "Last updated",
+      "intro": "This document explains what data the andoza.ai website and the Andoza AI mobile app (the \"service\") collect, why, and who can see it. By using the service you confirm that you have read these terms.",
+      "sections": [
+        {
+          "title": "1. What we collect",
+          "body": [
+            "• Account: username or phone number, your name (optional) and a password. The password is stored only as a hash.",
+            "• Your projects: rooms, dimensions, design choices, estimates and order history.",
+            "• Photos and scans you upload: LiDAR room scans, your photos, product photos from shop owners, work photos from craftsmen.",
+            "• Shop or craftsman profile: name, district, phone, Telegram, price range (public once approved).",
+            "• Requests and orders: delivery address, phone number, payment method (a choice only; card details are not stored) and your message to a shop or craftsman.",
+            "• Technical data: a request log for security (such as the IP address) and abuse limits."
+          ]
+        },
+        {
+          "title": "2. App permissions",
+          "body": [
+            "• Camera: to scan a room and take product or work photos.",
+            "• Photo library: to pick pictures.",
+            "• LiDAR (on supported iPhones): to measure the shape of a room.",
+            "We do not ask for or collect your location (GPS)."
+          ]
+        },
+        {
+          "title": "3. How we use it",
+          "body": [
+            "• Show your room in 3D, calculate estimates and suggest designs.",
+            "• Sign you in (a code is sent to your phone by SMS).",
+            "• Connect you with shops and craftsmen: the shop or craftsman you contact sees your request.",
+            "• Security, abuse prevention and improving the service.",
+            "We do not sell your data or share it with third parties for advertising."
+          ]
+        },
+        {
+          "title": "4. Who receives it",
+          "body": [
+            "We use outside services to run the app; they receive only what they need:",
+            "• SMS provider (Eskiz or Playmobile): your phone number, to send the sign-in code.",
+            "• AI services (OpenAI or Google Gemini): your text prompt and general information about the room, for the AI designer and explanations.",
+            "• Tripo (3D model generation): a product photo when a 3D model is made from it.",
+            "• OpenStreetMap: map tiles are requested to show the craftsmen map, which exposes your device's IP address.",
+            "• Servers and file storage: data is kept on protected servers.",
+            "We may disclose data to authorities where the law requires it."
+          ]
+        },
+        {
+          "title": "5. Publicly visible data",
+          "body": [
+            "Approved shop and craftsman profiles (name, district, contact details, photos) are visible to other users. You can edit them in your profile settings. If you share a room by link, anyone with the link can view it."
+          ]
+        },
+        {
+          "title": "6. Retention and deletion",
+          "body": [
+            "We keep data while your account exists. To have your account and its data (projects, photos, profile) deleted, write to the contact below. We will review the request and delete the data as the law allows.",
+            "You can delete your account yourself in the app or on the web (Profile → Delete account), or see /delete-account."
+          ]
+        },
+        {
+          "title": "7. Security",
+          "body": [
+            "Data in transit is protected by HTTPS, passwords are stored as hashes, and SMS code attempts are rate limited. No system is perfectly secure, so do not share your password."
+          ]
+        },
+        {
+          "title": "8. Children",
+          "body": [
+            "The service is not meant for people under 16, and we do not knowingly collect their data."
+          ]
+        },
+        {
+          "title": "9. Changes",
+          "body": [
+            "If we update this policy we will publish it on this page with a new date."
+          ]
+        },
+        {
+          "title": "10. App statistics and errors",
+          "body": [
+            "The mobile app collects crash reports and usage statistics through Google Firebase (Crashlytics and Analytics): which screens were opened, the device type and the app version. This data is linked to an internal account ID and a device identifier; your name, phone number and email are never sent to these services."
+          ]
+        }
+      ],
+      "contactLabel": "Contact",
+      "back": "Back to home"
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "intro": "You can delete your andoza.ai account and its data yourself. You do not need to send a separate request.",
+      "sections": [
+        {
+          "title": "In the app",
+          "body": [
+            "• Sign in to the andoza.ai app.",
+            "• Open Profile.",
+            "• Tap \"Delete account\", enter your password (not needed if you signed in with a phone code) and confirm."
+          ]
+        },
+        {
+          "title": "On the website",
+          "body": [
+            "• Sign in with the \"Sign in\" button below.",
+            "• Go to Profile → Delete account.",
+            "• Read what will be deleted and confirm."
+          ]
+        },
+        {
+          "title": "What is deleted",
+          "body": [
+            "As soon as you confirm, the following is permanently deleted and cannot be restored:",
+            "• your account and profile;",
+            "• all projects, rooms and designs;",
+            "• uploaded photos and 3D models;",
+            "• orders;",
+            "• your shop or craftsman (usta) profile, if you have one."
+          ]
+        },
+        {
+          "title": "What may be kept",
+          "body": [
+            "Server logs kept for security (for example sign-in attempts) may be retained for a limited time and then removed. They do not contain your projects or photos."
+          ]
+        }
+      ],
+      "login": "Sign in",
+      "back": "Back to home"
+    }
+  },
+  "share": {
+    "notFoundTitle": "Link not found or no longer available",
+    "notFoundSubtitle": "This share link may have been revoked.",
+    "loading": "Loading…",
+    "credit": "Design created with andoza.ai"
+  },
+  "scan": {
+    "draw": {
+      "title": "Draw the room",
+      "hint": "Tap the corners of the room one after another",
+      "clear": "Clear",
+      "next": "Continue →"
+    },
+    "lidar": {
+      "errors": {
+        "LIDAR_UNAVAILABLE": "This device has no LiDAR sensor",
+        "USER_CANCELLED": "Scanning was canceled",
+        "CAPTURE_FAILED": "Scanning failed",
+        "BUILD_FAILED": "Could not process the room model",
+        "JSON_FAILED": "Could not read the result",
+        "UNSUPPORTED": "The LiDAR scanner is not available"
+      },
+      "unsupportedLine1": "The LiDAR scanner is only available",
+      "unsupportedLine2": "on iPhone/iPad Pro",
+      "unsupportedHint": "To enter the room dimensions by hand, use the step-by-step wizard",
+      "manualArrow": "Enter manually →",
+      "manual": "Enter manually",
+      "scanning": "Scanning…",
+      "slowly": "Move your phone slowly",
+      "retry": "Try again",
+      "title": "LiDAR scan",
+      "intro": "Apple RoomPlan detects walls, doors and windows automatically. Walk slowly around the room.",
+      "start": "Start scanning"
+    },
+    "photo360": {
+      "points": "{{captured}}/8 points",
+      "map": "360° point map",
+      "hint": "Turn your phone to the next point",
+      "capture": "Take photo"
+    }
+  },
+  "projects": {
+    "bosqich_n": "Stage {{n}} / {{total}}",
+    "bosqich_nomi": "Stage {{n}}: {{name}}",
+    "bosqichlar": {
+      "korobka": "Shell",
+      "suvoq": "Plaster",
+      "shpaklovka": "Putty",
+      "boyoq_oboy": "Paint / Wallpaper",
+      "pol": "Flooring",
+      "elektr_santexnika": "Electrical / Plumbing",
+      "mebel": "Furniture",
+      "tayyor": "Done"
+    },
+    "loyihani_ochish": "Open project",
+    "yangi_loyiha_boshlash": "Start a new project",
+    "ochish": "Open",
+    "boshlash": "Start",
+    "xona_yoq": "No rooms",
+    "yaratilgan": "Created",
+    "umumiy_korinish": "Overview",
+    "loyiha_soni_one": "project",
+    "loyiha_soni_other": "projects",
+    "xona_soni_one": "room",
+    "xona_soni_other": "rooms",
+    "xona_n_one": "{{count}} room",
+    "xona_n_other": "{{count}} rooms",
+    "oxirgisi": "Latest: {{date}}",
+    "yuklanmadi": "Couldn't load projects",
+    "yuklanmadi_izoh": "Couldn't connect to the server, so the project list didn't load. Your data is safe.",
+    "urinilmoqda": "Trying again...",
+    "hali_loyiha_yoq": "No projects yet",
+    "yangi_loyiha_plus": "+ New project",
+    "yangi_loyiha": "New project",
+    "loyiha_nomi": "Project name",
+    "nom_placeholder": "For example: Tashkent, Shaykhontohur",
+    "manzil": "Address (optional)",
+    "manzil_placeholder": "For example: Abdulla Qodiriy Street, 123",
+    "yaratilmoqda": "Creating...",
+    "yaratish": "Create",
+    "mening_loyihalarim": "My projects",
+    "ochirilganlar": "Deleted",
+    "barchasi": "All",
+    "dokon": "Shop",
+    "dokon_matn": "Compare material and furniture prices across shops.",
+    "dokon_ochish": "Open the shop",
+    "ustalar_korish": "View craftsmen"
+  },
+  "wizard": {
+    "devor_nomi": "Wall {{id}}",
+    "metr": "m",
+    "eshik": "Door",
+    "deraza": "Window",
+    "balkon": "Balcony",
+    "joylashuv": "Position",
+    "sol_m": "← Left (m)",
+    "ong_m": "Right → (m)",
+    "element_qoshish": "Add element",
+    "kenglik_m": "Width (m)",
+    "balandlik_m": "Height (m)",
+    "osti_m": "Sill (m)",
+    "qoshish": "Add",
+    "shift_balandligi": "Ceiling height?",
+    "shift_izoh": "Usually between 2.5 and 3.2 meters",
+    "aniq_qiymat": "Exact value (m)",
+    "shift_xato": "Must be between 2.0 and 4.0 m",
+    "uzunligini_kiriting": "Enter the length",
+    "uzunlik": "Length",
+    "a_bilan_bir_xil": "Same as wall A ({{length}} m)",
+    "almashtirish": "⇄ Swap door and window",
+    "eshik_deraza_qoshish": "Add door / window",
+    "olchamlar_tayyor": "Measurements ready",
+    "olchamlar_saqlandi": "Measurements saved",
+    "xona_yozilmadi": "The room hasn't been saved to the server yet",
+    "xona_qayd": "The room parameters were recorded successfully",
+    "pol_maydoni": "Floor area",
+    "devor_maydoni": "Wall area (net)",
+    "perimetr": "Perimeter",
+    "teshiklar": "Doors/windows",
+    "birlik_ta": "pcs",
+    "saqlanmadi": "The room wasn't saved to the server",
+    "saqlanmadi_izoh": "Check your internet connection and try again. Decorating and the estimate stay locked until the room is saved.",
+    "saqlanmoqda": "Saving…",
+    "saqlanmoqda_nuqta": "Saving...",
+    "bezashni_boshlash": "Start decorating",
+    "smeta_korish": "View estimate",
+    "yangi_xona": "+ Add a new room",
+    "saqlangan_loyiha": "You have a saved project",
+    "davom_etasizmi": "You were entering room measurements earlier. Continue?",
+    "yangi_boshlash": "Start over",
+    "davom_etish": "Continue",
+    "ortga": "Back",
+    "keyingi": "Next",
+    "mening_xonadonim": "My apartment",
+    "xona": "Room",
+    "izometrik_korinish": "Isometric view of the room",
+    "devor_korinishi": "{{label}} view"
+  },
+  "dokon": {
+    "admin": {
+      "category": {
+        "boyoq": "Paint",
+        "oboy": "Wallpaper",
+        "dekorativ": "Decorative",
+        "laminat": "Laminate",
+        "parket": "Parquet",
+        "plitka": "Tile",
+        "eshik": "Door",
+        "deraza": "Window",
+        "gips": "Gypsum",
+        "sement": "Cement",
+        "santexnika": "Plumbing",
+        "elektr_mat": "Electrical"
+      },
+      "unit": {
+        "litr": "liter",
+        "rulon": "roll",
+        "m2": "m²",
+        "qop": "bag",
+        "dona": "pcs",
+        "m": "m",
+        "komplekt": "set",
+        "kg": "kg"
+      },
+      "smeta_key": {
+        "suvoq": "Plaster",
+        "grunt": "Primer",
+        "shpatlyovka": "Putty",
+        "plintus": "Skirting board",
+        "gipsokarton": "Drywall",
+        "profil": "Profile",
+        "led_lenta": "LED strip",
+        "kabel": "Cable",
+        "galtel": "Cornice",
+        "light": "Light fixture: {{name}}"
+      },
+      "hammasi": "All",
+      "tahrirlash": "Edit",
+      "dokon": "Shop",
+      "qidirish": "Search",
+      "oldingi": "Previous",
+      "keyingi": "Next",
+      "yuklab_bolmadi": "Could not load",
+      "tanlang": "— select —",
+      "yoq": "— none —",
+      "mat": {
+        "aria": "Materials",
+        "title": "Materials",
+        "title_count": "Materials ({{count}})",
+        "add": "Add material",
+        "edit_title": "Edit material",
+        "nomi_boyicha": "By name",
+        "smeta_only": "Estimate products only",
+        "not_found": "No materials found.",
+        "hidden": "Hidden",
+        "shop_closed": "Shop closed",
+        "shop_closed_hint": "The shop is closed or under moderation: users do not see this material",
+        "hide": "Hide",
+        "show": "Show",
+        "smeta_badge": "Estimate: {{key}}",
+        "load_failed": "Could not load materials",
+        "toggle_failed": "Could not change the material",
+        "save_failed": "Could not save the material",
+        "birlik": "Unit",
+        "pack_qty": "Pack size",
+        "pack_unit": "Pack unit",
+        "pack_together": "Enter the pack size and unit together",
+        "smeta_key": "Estimate key",
+        "roll_width": "Roll width (cm)",
+        "roll_length": "Roll length (m)"
+      },
+      "nomi": "Name",
+      "narxi_som": "Price (UZS)",
+      "kategoriya": "Category",
+      "room_type": {
+        "mehmonxona": "Living room",
+        "oshxona": "Kitchen",
+        "yotoqxona": "Bedroom",
+        "hammom": "Bathroom",
+        "balkon": "Balcony"
+      },
+      "barchasi": "All",
+      "xona": "Room",
+      "turi": "Type",
+      "all_rooms": "All rooms",
+      "placement": "Placement in the room",
+      "placement_short": "Placement",
+      "not_selected": "— not selected —",
+      "title": "Shop management"
+    },
+    "order": {
+      "status": {
+        "accepted": "Accepted",
+        "gathering": "Being prepared",
+        "on_the_way": "On the way",
+        "delivered": "Delivered",
+        "cancelled": "Cancelled"
+      },
+      "next": {
+        "gathering": "Start preparing",
+        "on_the_way": "Send out for delivery",
+        "delivered": "Mark as delivered"
+      },
+      "cancelled_by": {
+        "buyer": "buyer",
+        "seller": "shop",
+        "admin": "administrator"
+      },
+      "payment": {
+        "cash": "Cash",
+        "card": "Card"
+      },
+      "new": "New",
+      "delivery_address": "Delivery address",
+      "call_buyer": "Call the buyer",
+      "cancelled_badge": "Cancelled",
+      "cancel_reason_seller": "Cancellation reason (shown to the buyer)",
+      "cancel_reason_ph": "For example: the product is out of stock",
+      "cancel_reason": "Cancellation reason",
+      "confirm_cancel": "Confirm cancellation",
+      "cancel_order": "Cancel the order",
+      "cancel_btn": "Cancel order",
+      "delivered_msg": "Order delivered",
+      "title": "Orders",
+      "title_count": "Orders ({{n}})",
+      "open_count": "{{n}} open",
+      "none": "No orders yet.",
+      "none_hint": "When a buyer orders your product, it will appear here.",
+      "not_found": "No orders found.",
+      "load_failed": "Could not load orders",
+      "status_failed": "Could not change the status",
+      "cancel_failed": "Could not cancel the order",
+      "finished": "This order is finished",
+      "no_store_note": "product without a shop (administrator only)",
+      "cancelled_line": "Cancelled by: {{who}}. Reason: {{reason}}",
+      "unknown": "unknown",
+      "by_status": "By status"
+    },
+    "status": {
+      "pending": "Under review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "model": {
+      "new_title": "New 3D model",
+      "admin_desc": "Enter the model file and its details",
+      "seller_desc": "The uploaded model becomes visible to everyone once an administrator approves it",
+      "name_ph": "For example: three-seater sofa",
+      "placement_help": "Where the model is placed in the room",
+      "glb_label": "3D model (.glb)",
+      "thumb_optional": "Image (optional)",
+      "thumb_catalog": "Image for the catalog (optional)",
+      "upload": "Upload",
+      "upload_failed": "Could not upload the model",
+      "update_failed": "Could not update the model",
+      "no_glb": "No GLB file selected",
+      "no_model": "No model selected",
+      "edit_title": "Edit model",
+      "ai_styles": "Set by AI: check it and correct if needed",
+      "active": "Active (visible in the catalog)",
+      "price_from": "Price, from",
+      "price_to": "Price, to",
+      "clear": "Clear",
+      "glb_wrong": "The file must be in .glb format",
+      "glb_big": "The file must not be larger than {{mb}} MB",
+      "photo_title": "Upload an image of the furniture and we will build the 3D model ourselves",
+      "ready": "3D model ready:",
+      "have_glb": "I already have a 3D file (.glb)",
+      "reason": "Reason: {{note}}",
+      "hidden": "Hidden from the catalog",
+      "hide": "Hide from the catalog",
+      "show": "Show in the catalog",
+      "preview_failed": "Could not preview the model: the file may be corrupted",
+      "measured": "Size (measured from the model): {{size}}",
+      "cm": "cm",
+      "styles": "Styles",
+      "all_styles": "Suits every style"
+    },
+    "mod": {
+      "title": "Awaiting review",
+      "aria": "Awaiting review",
+      "approve_failed": "Could not approve",
+      "reject_failed": "Could not reject",
+      "store_application": "Shop application",
+      "usta_application": "Craftsman application",
+      "no_info": "no details",
+      "download": "Download the file",
+      "reject": "Reject",
+      "reason_title": "Rejection reason",
+      "reason_desc": "\"{{label}}\": the seller will see this reason",
+      "reason_ph": "For example: low model quality, the image is unclear",
+      "price_range": "{{from}}–{{to}} UZS",
+      "trade": {
+        "elektrik": "Electrician",
+        "elektrik_loyihachi": "Electrical designer",
+        "santexnik": "Plumber",
+        "malyar": "Painter",
+        "oboy": "Wallpaper hanger",
+        "laminat": "Laminate installer",
+        "brigada": "Crew"
+      }
+    },
+    "store": {
+      "inactive": "inactive",
+      "models_one": "{{count}} model",
+      "models_other": "{{count}} models",
+      "models3d_one": "{{count}} 3D model",
+      "models3d_other": "{{count}} 3D models",
+      "back": "Back to shops",
+      "delete_title": "Delete the shop",
+      "add_model": "Add model",
+      "no_models": "This shop has no models yet",
+      "no_match": "No models match the filter",
+      "delete_confirm": "Delete the shop \"{{name}}\" and all its models?",
+      "create_failed": "Could not create the shop",
+      "new_title": "New shop",
+      "new_desc": "Enter the shop's details",
+      "viloyat": "Region",
+      "tier": "Tier"
+    },
+    "wp": {
+      "new_title": "New wallpaper",
+      "new_desc": "Enter the image, name, price and details",
+      "image_label": "Image (.jpg, .png, .webp)",
+      "name_ph": "For example: floral wallpaper",
+      "width": "Width (cm)",
+      "height": "Height (cm)",
+      "length": "Length (m)",
+      "hint": "For roll wallpaper: width and length; for single-panel (photo) wallpaper: width and height",
+      "details": "Details",
+      "details_ph": "Material, size and other notes",
+      "no_image": "No image selected",
+      "upload_failed": "Could not upload the image",
+      "update_failed": "Could not update the wallpaper",
+      "no_wallpaper": "No wallpaper selected",
+      "edit_title": "Edit wallpaper",
+      "delete_confirm": "Delete \"{{name}}\" for all users?",
+      "title_store": "Wallpapers",
+      "title_unassigned": "Wallpapers without a shop",
+      "hint_unassigned": "Not a 3D model: stored as an image and used to decorate walls",
+      "add": "Add wallpaper",
+      "none_store": "This shop has no wallpapers yet",
+      "none_all": "All wallpapers are assigned to a shop",
+      "dim_roll": "{{w}} cm × {{l}} m",
+      "dim_panel": "{{w}} × {{h}} cm",
+      "dim_single": "{{v}} cm"
+    },
+    "overview": {
+      "classify_failed": "The AI request failed",
+      "classify_queued_one": "{{count}} model was queued. The styles will appear in a few minutes.",
+      "classify_queued_other": "{{count}} models were queued. The styles will appear in a few minutes.",
+      "classify_none": "No models without a style.",
+      "classify_btn": "Set styles with AI",
+      "total_stores": "Total shops",
+      "active_stores": "Active shops",
+      "total_models": "Total 3D models",
+      "total_wallpapers": "Total wallpapers",
+      "stores": "Shops",
+      "add_store": "Add shop",
+      "no_stores": "No shops yet",
+      "unassigned_models": "Models without a shop",
+      "all_assigned": "All models are assigned to a shop"
+    },
+    "shop": {
+      "category": {
+        "divan": "Sofa",
+        "stol": "Table",
+        "stul": "Chair",
+        "shkaf": "Wardrobe",
+        "karavot": "Bed",
+        "boshqa": "Other",
+        "boyoq": "Paint",
+        "oboy": "Wallpaper",
+        "laminat": "Laminate",
+        "parket": "Parquet",
+        "plitka": "Tile",
+        "sement": "Cement",
+        "elektr_mat": "Electrical",
+        "santexnika": "Plumbing",
+        "eshik": "Door",
+        "deraza": "Window",
+        "dekorativ": "Decorative",
+        "gips": "Gypsum and plaster"
+      },
+      "subtitle": "Furniture and materials: prices by shop.",
+      "search_ph": "Search…",
+      "cart_count": "Cart ({{n}})",
+      "section": "Section",
+      "categories": "Categories",
+      "catalog_failed": "The catalog did not load. Please try again in a moment.",
+      "nothing": "Nothing found.",
+      "tab_mebel": "Furniture",
+      "tab_material": "Materials"
+    },
+    "screens": {
+      "my_orders": "My orders",
+      "ask_price": "Ask for the price",
+      "decrease": "Decrease",
+      "increase": "Increase",
+      "project_materials": "Project materials",
+      "no_project_materials": "No materials found for this project.",
+      "add_to_cart": "Add to cart",
+      "dealers": "Sellers",
+      "call_dealer": "Call {{name}}",
+      "qty": "Quantity",
+      "no_price_note": "This product has no price: ask the seller; it cannot be added to the cart.",
+      "compare": "Compare dealers",
+      "no_dealers": "No dealers found yet.",
+      "best_price": "Best price",
+      "price": "Price",
+      "delivery": "Delivery",
+      "term": "Delivery time",
+      "choose": "Select",
+      "cart_title": "Cart",
+      "cart_empty": "Your cart is empty",
+      "cart_empty_hint": "Pick the products you need from the shop.",
+      "back_to_shop": "Back to the shop",
+      "items_one": "{{count}} product",
+      "items_other": "{{count}} products",
+      "qty_of": "{{name}} quantity",
+      "remove": "Remove {{name}}",
+      "products": "Products",
+      "delivery_agreed": "The delivery cost is agreed with the shop.",
+      "place_order": "Place order",
+      "payment_title": "Payment",
+      "delivery_info": "Delivery details",
+      "address_ph": "City, street, house",
+      "payment_method": "Payment method",
+      "confirm_order": "Confirm order",
+      "tracking_title": "Order status",
+      "order_cancelled": "Order cancelled",
+      "cancelled_by": "Cancelled by: {{who}}",
+      "reason": "Reason: {{reason}}",
+      "order_date": "Order date",
+      "order_contents": "Order contents",
+      "shop_started": "The shop has started preparing the order: contact the shop to cancel it.",
+      "no_orders": "No orders yet",
+      "no_orders_hint": "Orders you place will appear here.",
+      "order_aria": "Order {{id}}, {{status}}",
+      "product": "Product",
+      "spec_category": "Category",
+      "spec_unit": "Unit",
+      "spec_size": "Size",
+      "size_value": "{{dims}} cm",
+      "submit_failed": "Could not send the order",
+      "partial": "({{count}} orders were sent, the rest are still in the cart)",
+      "cancel_q": "Cancel the order?",
+      "cancel_confirm": "Cancel the order",
+      "keep": "Keep it",
+      "cancel_failed": "Could not cancel the order",
+      "orders_load_failed": "Could not load orders",
+      "order_load_failed": "Could not load the order"
+    }
+  },
+  "seller": {
+    "title": "Seller panel",
+    "resubmit_failed": "Could not resubmit",
+    "toggle_failed": "Could not change",
+    "remove_failed": "Could not delete",
+    "no_contact": "No contact details entered",
+    "pending": "Your application is under review. Once approved, you can upload your 3D models.",
+    "rejected": "Application rejected.",
+    "rejected_note": "Application rejected: {{note}}",
+    "resubmit": "Fix and resubmit",
+    "edit_info": "Edit details",
+    "models": "3D models",
+    "models_count": "3D models ({{count}})",
+    "new_model": "+ New model",
+    "delete_title": "Delete \"{{name}}\"?",
+    "no_models": "No models uploaded yet.",
+    "no_models_hint": "Upload a 3D model in .glb format; it becomes visible to everyone once an administrator approves it.",
+    "apply_failed": "Could not send the application",
+    "apply_title": "Become a seller",
+    "apply_intro": "Enter your shop's details. Once an administrator approves it, you can upload your 3D furniture models and show them to all users.",
+    "apply_submit": "Send application",
+    "save_failed": "Could not save",
+    "shop_details": "Shop details",
+    "shop_name": "Shop name",
+    "shop_name_ph": "For example: Mebel Plus",
+    "district": "District",
+    "district_ph": "Chilanzar"
+  }
+}

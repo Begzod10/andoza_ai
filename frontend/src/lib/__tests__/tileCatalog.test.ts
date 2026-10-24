@@ -21,7 +21,7 @@ describe('the tile catalogue', () => {
 describe('tileSettings', () => {
   const square = TILE_SIZES[0]
   const oblong = TILE_SIZES.find((t) => t.label === '1200×600')!
-  const marble = TILE_FACES.find((f) => f.label === 'Marmar oq')!
+  const marble = TILE_FACES.find((f) => f.slug === 'marble-white')!
   const plain = TILE_FACES[0]
 
   it('lays the tile at the size that was picked', () => {

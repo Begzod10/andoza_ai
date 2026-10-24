@@ -10,6 +10,7 @@
  * degrees clockwise from true north, and the **scene frame** has −Z as north
  * and +X as east when `facing` is 0 (wall A's outward face pointing north).
  */
+import i18n, { type TKey } from '@/i18n'
 import { DEFAULT_SITE, CARDINAL_BEARING, type Cardinal } from './sunPosition'
 
 /** The Kaaba, Mecca. */
@@ -40,38 +41,38 @@ export function bearingToScene(bearing: number, facing: number | Cardinal = 0): 
   return [Math.sin(rel), -Math.cos(rel)]
 }
 
+/** Locale keys of the eight compass points, clockwise from north. */
+const POINT_KEYS = [
+  'studio.lib.compass.n', 'studio.lib.compass.ne', 'studio.lib.compass.e', 'studio.lib.compass.se',
+  'studio.lib.compass.s', 'studio.lib.compass.sw', 'studio.lib.compass.w', 'studio.lib.compass.nw',
+] as const
+
 /** Choices for which way wall A's outward face points. */
-export const FACING_OPTIONS: readonly { bearing: number; label: string }[] = [
-  { bearing: 0, label: 'Shimol' }, { bearing: 45, label: 'Shimoli-sharq' },
-  { bearing: 90, label: 'Sharq' }, { bearing: 135, label: 'Janubi-sharq' },
-  { bearing: 180, label: 'Janub' }, { bearing: 225, label: "Janubi-g'arb" },
-  { bearing: 270, label: "G'arb" }, { bearing: 315, label: "Shimoli-g'arb" },
-]
+export const FACING_OPTIONS: readonly { bearing: number; labelKey: (typeof POINT_KEYS)[number] }[] =
+  POINT_KEYS.map((labelKey, i) => ({ bearing: i * 45, labelKey }))
 
-const POINTS = ['Shimol', 'Shimoli-sharq', 'Sharq', 'Janubi-sharq', 'Janub', 'Janubi-g\'arb', 'G\'arb', 'Shimoli-g\'arb']
-
-/** Eight-point compass name in Uzbek, for the label beside the arrow. */
+/** Eight-point compass name in the interface language, for the label beside the arrow. */
 export function compassPoint(bearing: number): string {
-  return POINTS[Math.round((((bearing % 360) + 360) % 360) / 45) % 8]
+  return i18n.t(POINT_KEYS[Math.round((((bearing % 360) + 360) % 360) / 45) % 8])
 }
 
 export interface RoomLocation { latitude: number; longitude: number; label?: string }
 
-/** Uzbekistan's regional centres, for the location picker. */
-export const CITY_PRESETS: readonly (RoomLocation & { label: string })[] = [
-  { label: 'Toshkent', latitude: 41.31, longitude: 69.24 },
-  { label: 'Samarqand', latitude: 39.65, longitude: 66.96 },
-  { label: 'Buxoro', latitude: 39.77, longitude: 64.42 },
-  { label: 'Andijon', latitude: 40.78, longitude: 72.34 },
-  { label: 'Namangan', latitude: 41.0, longitude: 71.67 },
-  { label: "Farg'ona", latitude: 40.38, longitude: 71.79 },
-  { label: 'Nukus', latitude: 42.46, longitude: 59.61 },
-  { label: 'Urganch', latitude: 41.55, longitude: 60.63 },
-  { label: 'Qarshi', latitude: 38.86, longitude: 65.79 },
-  { label: 'Termiz', latitude: 37.22, longitude: 67.28 },
-  { label: 'Jizzax', latitude: 40.12, longitude: 67.83 },
-  { label: 'Guliston', latitude: 40.49, longitude: 68.78 },
-  { label: 'Navoiy', latitude: 40.1, longitude: 65.37 },
+/** Uzbekistan's regional centres, for the location picker. `label` is what a room saves (keep it as is); `labelKey` is what the picker shows. */
+export const CITY_PRESETS: readonly (RoomLocation & { label: string; labelKey: TKey })[] = [
+  { labelKey: 'studio.lib.city.toshkent', label: 'Toshkent', latitude: 41.31, longitude: 69.24 },
+  { labelKey: 'studio.lib.city.samarqand', label: 'Samarqand', latitude: 39.65, longitude: 66.96 },
+  { labelKey: 'studio.lib.city.buxoro', label: 'Buxoro', latitude: 39.77, longitude: 64.42 },
+  { labelKey: 'studio.lib.city.andijon', label: 'Andijon', latitude: 40.78, longitude: 72.34 },
+  { labelKey: 'studio.lib.city.namangan', label: 'Namangan', latitude: 41.0, longitude: 71.67 },
+  { labelKey: 'studio.lib.city.fargona', label: "Farg'ona", latitude: 40.38, longitude: 71.79 },
+  { labelKey: 'studio.lib.city.nukus', label: 'Nukus', latitude: 42.46, longitude: 59.61 },
+  { labelKey: 'studio.lib.city.urganch', label: 'Urganch', latitude: 41.55, longitude: 60.63 },
+  { labelKey: 'studio.lib.city.qarshi', label: 'Qarshi', latitude: 38.86, longitude: 65.79 },
+  { labelKey: 'studio.lib.city.termiz', label: 'Termiz', latitude: 37.22, longitude: 67.28 },
+  { labelKey: 'studio.lib.city.jizzax', label: 'Jizzax', latitude: 40.12, longitude: 67.83 },
+  { labelKey: 'studio.lib.city.guliston', label: 'Guliston', latitude: 40.49, longitude: 68.78 },
+  { labelKey: 'studio.lib.city.navoiy', label: 'Navoiy', latitude: 40.1, longitude: 65.37 },
 ]
 
 /** Whether a pair of numbers is a place on Earth. */

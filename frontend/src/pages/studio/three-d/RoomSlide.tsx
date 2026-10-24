@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -206,6 +207,7 @@ export function DoorDimensions({ axis, lineAcross, room, doors, height = 1.3 }: 
   doors: [number, number][];
   height?: number;
 }) {
+  const { t } = useTranslation();
   const at = (along: number): [number, number, number] =>
     axis === 'x' ? [along, height, lineAcross] : [lineAcross, height, along];
   const items: { a: number; b: number }[] = [];
@@ -222,7 +224,7 @@ export function DoorDimensions({ axis, lineAcross, room, doors, height = 1.3 }: 
               padding: '2px 7px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff',
               fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
             }}>
-              {(Math.max(0, b - a)).toFixed(2)} m
+              {(Math.max(0, b - a)).toFixed(2)} {t('common.m')}
             </span>
           </Html>
         </group>
@@ -248,6 +250,7 @@ export function GapField({ position, gapMm, onCommit }: {
   gapMm: number;
   onCommit: (mm: number) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState(String(gapMm));
   useEffect(() => { setDraft(String(gapMm)); }, [gapMm]);
   const commit = () => {
@@ -265,7 +268,7 @@ export function GapField({ position, gapMm, onCommit }: {
           fontSize: 12, fontWeight: 600, color: '#1E3A8A', whiteSpace: 'nowrap', pointerEvents: 'auto',
         }}
       >
-        Oraliq
+        {t('studio.three_d.oraliq')}
         <input
           inputMode="numeric"
           value={draft}
@@ -274,7 +277,7 @@ export function GapField({ position, gapMm, onCommit }: {
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           style={{ width: 52, border: '1px solid #CBD5E1', borderRadius: 8, padding: '2px 6px', fontSize: 13, textAlign: 'right' }}
         />
-        mm
+        {t('studio.three_d.mm')}
       </label>
     </Html>
   );
@@ -311,6 +314,7 @@ export function ResizeGhost({ box, side, height, note }: {
   /** Why the wall stopped short, said where it stopped. */
   note?: string;
 }) {
+  const { t } = useTranslation();
   const alongX = side === 'B' || side === 'D';
   const edge = side === 'B' ? box.cx + box.w / 2 : side === 'D' ? box.cx - box.w / 2 : side === 'C' ? box.cz + box.d / 2 : box.cz - box.d / 2;
   const wallPos: [number, number, number] = alongX ? [edge, height / 2, box.cz] : [box.cx, height / 2, edge];
@@ -338,12 +342,12 @@ export function ResizeGhost({ box, side, height, note }: {
       )}
       <Html position={[(from[0] + to[0]) / 2, 0.1, (from[2] + to[2]) / 2]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FF2E9A', color: '#fff', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-          {size.toFixed(2)} m
+          {size.toFixed(2)} {t('common.m')}
         </span>
       </Html>
       <Html position={[box.cx, height + 0.2, box.cz]} center zIndexRange={[60, 0]} style={{ pointerEvents: 'none' }}>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(17,24,39,0.85)', color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
-          {box.w.toFixed(2)} × {box.d.toFixed(2)} m
+          {box.w.toFixed(2)} × {box.d.toFixed(2)} {t('common.m')}
         </span>
       </Html>
     </group>
@@ -387,11 +391,12 @@ export function CutOutline({ outline, height = 0.08, color = '#F59E0B' }: { outl
 
 /** The button beside the lock. */
 export function MoveRoomsButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
-      title={active ? "Xonalarni siljitishni tugatish" : "Xonalarni siljitish"}
-      aria-label={active ? "Xonalarni siljitishni tugatish" : "Xonalarni siljitish"}
+      title={active ? t('studio.three_d.siljitish_tugatish') : t('studio.three_d.siljitish')}
+      aria-label={active ? t('studio.three_d.siljitish_tugatish') : t('studio.three_d.siljitish')}
       aria-pressed={active}
       className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ring-1 transition-colors ${
         active ? 'bg-brand text-white ring-brand/40' : 'bg-white/95 text-brand ring-black/5'

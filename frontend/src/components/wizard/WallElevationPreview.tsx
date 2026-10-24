@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Wall, WallElement } from '@/store/roomStore'
 import { resolveElementPositions } from '@/lib/wallPositions'
 
@@ -170,6 +171,7 @@ function ElementShape({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function WallElevationPreview({ wall, ceilingHeight, wallLabel }: WallElevationPreviewProps) {
+  const { t } = useTranslation()
   const wallLenMm = wall.length > 0 ? wall.length : 4000
   const ceilMm = ceilingHeight > 0 ? ceilingHeight : 2700
 
@@ -191,7 +193,7 @@ export function WallElevationPreview({ wall, ceilingHeight, wallLabel }: WallEle
       viewBox={`0 0 ${TARGET_W} ${totalH}`}
       width="100%"
       style={{ maxHeight: 220, display: 'block' }}
-      aria-label={`${wallLabel} devor ko'rinishi`}
+      aria-label={t('wizard.devor_korinishi', { label: wallLabel })}
     >
       {/* Wall rectangle */}
       <rect

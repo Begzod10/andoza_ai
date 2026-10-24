@@ -45,6 +45,8 @@ from typing import Any, Iterable
 
 from fastapi import HTTPException, status
 
+from app.i18n import translate_detail
+
 # Reserved non-wall surfaces — unchanged semantics, and never valid wall ids.
 NON_WALL_SURFACES: frozenset[str] = frozenset({"floor", "ceiling"})
 
@@ -126,7 +128,10 @@ def validate_finish_surface(room: Any, surface: str, wall_index: int | None = No
     if not surface or len(surface) > MAX_SURFACE_LEN:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"surface bo'sh bo'lmasligi va {MAX_SURFACE_LEN} belgidan oshmasligi kerak",
+            detail=translate_detail(
+                "surface bo'sh bo'lmasligi va {max_len} belgidan oshmasligi kerak",
+                max_len=MAX_SURFACE_LEN,
+            ),
         )
 
     if surface in NON_WALL_SURFACES:
@@ -140,10 +145,7 @@ def validate_finish_surface(room: Any, surface: str, wall_index: int | None = No
             return
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Xonada geometriya yo'q — surface faqat "
-                "'wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor' yoki 'ceiling' bo'lishi mumkin"
-            ),
+            detail="Xonada geometriya yo'q — surface faqat 'wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor' yoki 'ceiling' bo'lishi mumkin",
         )
 
     _validate_wall_index(surface, wall_index, len(wall_ids))
@@ -155,9 +157,10 @@ def validate_finish_surface(room: Any, surface: str, wall_index: int | None = No
 
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=(
-            f"Xonada '{surface}' nomli yuza yo'q. Mavjud devorlar: "
-            f"{', '.join(wall_ids)} (yoki 'floor' / 'ceiling')"
+        detail=translate_detail(
+            "Xonada '{surface}' nomli yuza yo'q. Mavjud devorlar: {walls} (yoki 'floor' / 'ceiling')",
+            surface=surface,
+            walls=", ".join(wall_ids),
         ),
     )
 
@@ -174,7 +177,11 @@ def _validate_wall_index(surface: str, wall_index: int | None, wall_count: int |
     if wall_index >= limit:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"wall_index {limit - 1} dan oshmasligi kerak (xonada {limit} ta devor bor)",
+            detail=translate_detail(
+                "wall_index {max_index} dan oshmasligi kerak (xonada {count} ta devor bor)",
+                max_index=limit - 1,
+                count=limit,
+            ),
         )
 
 

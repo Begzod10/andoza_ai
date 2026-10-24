@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface StudioMenuProps {
   open: boolean
@@ -15,6 +16,7 @@ export const StudioMenu = forwardRef<HTMLButtonElement | null, StudioMenuProps>(
   { open, onOpenChange, children },
   ref,
 ) {
+  const { t } = useTranslation()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const panelId = useId()
@@ -48,7 +50,7 @@ export const StudioMenu = forwardRef<HTMLButtonElement | null, StudioMenuProps>(
         ref={buttonRef}
         type="button"
         onClick={() => onOpenChange(!open)}
-        aria-label="Ko'proq"
+        aria-label={t('studio.menu.more')}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

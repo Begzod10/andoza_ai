@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { intlLocale } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials } from "@/lib/api";
 import type { Material, CatalogFurniture } from "@/lib/api";
@@ -9,7 +11,7 @@ import { buildFurnitureGroups } from "@/lib/furnitureSwapGroups";
 import { useDebounce } from "@/hooks/useDebounce";
 import { LightSymbol } from "@/lib/catalogIcons";
 import { MaterialSwatch } from "./MaterialSwatch";
-import { FLOOR_TYPES, getWallTargets, type WallTarget } from "./design-panel/shared";
+import { FLOOR_TYPES, getWallTargets, targetLabel, type WallTarget } from "./design-panel/shared";
 
 type Section = "wallpaper" | "lyustra" | "furniture" | "floor";
 
@@ -23,6 +25,14 @@ const FLOOR_TYPE_TO_MATERIAL_CATEGORY: Record<string, string> = {
   tile: "plitka",
 };
 type RoomTab = "Mehmonxona" | "Oshxona" | "Yotoqxona" | "Vanna";
+
+/** The tab's name in the locale files (the ids above are what the code keys on). */
+const ROOM_TAB_LABEL = {
+  Mehmonxona: "studio.add.room_mehmonxona",
+  Oshxona: "studio.add.room_oshxona",
+  Yotoqxona: "studio.add.room_yotoqxona",
+  Vanna: "studio.add.room_vanna",
+} as const satisfies Record<RoomTab, string>;
 
 interface AddObjectSheetProps {
   onClose: () => void;
@@ -59,16 +69,12 @@ const CEILING_LIGHT_TYPES = LIGHT_TYPES.filter(
 
 const ROOM_TABS: RoomTab[] = ["Mehmonxona", "Oshxona", "Yotoqxona", "Vanna"];
 
-const SECTION_TABS: { key: Section; label: string }[] = [
-  { key: "wallpaper", label: "Devor" },
-  { key: "floor",     label: "Pol" },
-  { key: "lyustra",   label: "Chiroq" },
-  { key: "furniture", label: "Mebel" },
-];
-
-function fmtPrice(uzs: number | null): string | null {
-  return uzs == null ? null : `${uzs.toLocaleString("uz-UZ")} so'm`;
-}
+const SECTION_TABS = [
+  { key: "wallpaper", labelKey: "studio.shared.devor" },
+  { key: "floor",     labelKey: "studio.shared.pol" },
+  { key: "lyustra",   labelKey: "studio.shared.chiroq" },
+  { key: "furniture", labelKey: "studio.shared.mebel" },
+] as const satisfies readonly { key: Section; labelKey: string }[];
 
 // Keeps Tab cycling inside the sheet instead of leaking out to the page
 // behind the backdrop while it's open.
@@ -96,6 +102,9 @@ export function AddObjectSheet({
   placementOverride,
   onPlaced,
 }: AddObjectSheetProps) {
+  const { t } = useTranslation();
+  const fmtPrice = (uzs: number | null): string | null =>
+    uzs == null ? null : t("studio.shared.price_som", { price: uzs.toLocaleString(intlLocale()) });
   const isSwap = !!placementOverride;
   const [section, setSection] = useState<Section>(initialSection);
   const [roomTab, setRoomTab] = useState<RoomTab>("Mehmonxona");
@@ -239,12 +248,12 @@ export function AddObjectSheet({
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
-          <h2 id="add-object-sheet-title" className="text-[20px] font-extrabold text-gray-900">Buyum qo'shish</h2>
+          <h2 id="add-object-sheet-title" className="text-[20px] font-extrabold text-gray-900">{t("studio.add.title")}</h2>
           <button
             ref={closeButtonRef}
             onClick={onClose}
             className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center"
-            aria-label="Yopish"
+            aria-label={t("common.yopish")}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M1 1l12 12M13 1L1 13"/>
@@ -262,7 +271,7 @@ export function AddObjectSheet({
                 section === s.key ? "bg-brand text-white" : "bg-gray-100 text-gray-600"
               }`}
             >
-              {s.label}
+              {t(s.labelKey)}
             </button>
           ))}
         </div>
@@ -282,23 +291,23 @@ export function AddObjectSheet({
                       targetWall === w.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
                     }`}
                   >
-                    {w.label}
+                    {targetLabel(w)}
                   </button>
                 ))}
               </div>
               <p className="text-[13px] text-muted mb-3">
-                {targetWall === "ALL" ? "Barcha devorlar uchun rang" : `${wallTargets.find((w) => w.key === targetWall)?.label} uchun rang`}
+                {targetWall === "ALL" ? t("studio.add.all_walls_color") : t("studio.add.wall_color", { wall: (() => { const w = wallTargets.find((x) => x.key === targetWall); return w ? targetLabel(w) : ""; })() })}
               </p>
               <input
                 type="text"
                 value={paintQuery}
                 onChange={(e) => setPaintQuery(e.target.value)}
-                placeholder="Qidirish..."
+                placeholder={t("studio.shared.qidirish")}
                 className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
               />
               {paintMaterials.length === 0 ? (
                 <p className="text-[13px] text-muted py-4 text-center">
-                  {paintQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bo'yoq mahsuloti yo'q"}
+                  {paintQuery ? t("studio.shared.topilmadi") : t("studio.add.no_paint")}
                 </p>
               ) : (
                 <div className="flex gap-3 flex-wrap">
@@ -317,7 +326,7 @@ export function AddObjectSheet({
                   onClick={applyWallpaper}
                   className="mt-5 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
                 >
-                  Qo'llash
+                  {t("studio.shared.qollash")}
                 </button>
               )}
             </div>
@@ -335,23 +344,23 @@ export function AddObjectSheet({
                       floorType === ft.key ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
                     }`}
                   >
-                    {ft.label}
+                    {t(ft.labelKey)}
                   </button>
                 ))}
               </div>
               {floorMaterialCategory ? (
                 <>
-                  <p className="text-[13px] text-muted mb-3">Do'kondan tanlang</p>
+                  <p className="text-[13px] text-muted mb-3">{t("studio.dokondan_tanlang")}</p>
                   <input
                     type="text"
                     value={floorQuery}
                     onChange={(e) => setFloorQuery(e.target.value)}
-                    placeholder="Qidirish..."
+                    placeholder={t("studio.shared.qidirish")}
                     className="w-full px-3 py-2 mb-3 text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-colors"
                   />
                   {floorProducts.length === 0 ? (
                     <p className="text-[13px] text-muted py-4 text-center">
-                      {floorQuery ? "Hech narsa topilmadi" : "Hozircha do'konda bu turdagi pol materiali yo'q"}
+                      {floorQuery ? t("studio.shared.topilmadi") : t("studio.add.no_floor_material")}
                     </p>
                   ) : (
                     <div className="flex gap-3 flex-wrap">
@@ -368,7 +377,7 @@ export function AddObjectSheet({
                 </>
               ) : (
                 <p className="text-[13px] text-muted py-4 text-center">
-                  Beton pol uchun do'konda material yo'q — smeta bu pol uchun narx hisoblamaydi.
+                  {t("studio.add.concrete_none")}
                 </p>
               )}
             </div>
@@ -377,25 +386,25 @@ export function AddObjectSheet({
           {/* ── Lyustra section — real ceiling-fixture catalog ──────────── */}
           {section === "lyustra" && (
             <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollSnapType: "x mandatory" }}>
-              {CEILING_LIGHT_TYPES.map((t) => (
+              {CEILING_LIGHT_TYPES.map((lt) => (
                 <div
-                  key={t.id}
+                  key={lt.id}
                   className="flex-shrink-0 w-40 bg-[#F7F8FA] rounded-[20px] p-3 border border-gray-100"
                   style={{ scrollSnapAlign: "start" }}
                 >
                   <div className="h-24 rounded-2xl flex items-center justify-center mb-2 bg-white text-4xl">
-                    <LightSymbol type={t.id} size={40} strokeWidth={1.5} className="text-gray-700" />
+                    <LightSymbol type={lt.id} size={40} strokeWidth={1.5} className="text-gray-700" />
                   </div>
-                  <p className="text-[14px] font-bold text-gray-900">{t.name}</p>
-                  <p className="text-[12px] text-muted mt-0.5">{t.lumens} lm · {t.colorK}K</p>
+                  <p className="text-[14px] font-bold text-gray-900">{t(lt.nameKey)}</p>
+                  <p className="text-[12px] text-muted mt-0.5">{t("studio.light.lm_k", { lm: lt.lumens, k: lt.colorK })}</p>
                   <button
                     onClick={() => {
-                      addLight({ id: `light_${t.id}_${Date.now()}`, type: t.id, ...nextLightPositionMm(geometry, lights.length) });
+                      addLight({ id: `light_${lt.id}_${Date.now()}`, type: lt.id, ...nextLightPositionMm(geometry, lights.length) });
                       onClose();
                     }}
                     className="mt-2 w-full py-1.5 bg-brand text-white rounded-xl text-[13px] font-semibold active:scale-95 transition-transform"
                   >
-                    Qo'shish
+                    {t("studio.add.add")}
                   </button>
                 </div>
               ))}
@@ -409,7 +418,7 @@ export function AddObjectSheet({
                 onClick={() => setPendingFurniture(null)}
                 className="flex items-center gap-1 text-[13px] font-semibold text-muted mb-3"
               >
-                ← Orqaga
+                {t("studio.add.back")}
               </button>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-16 h-16 bg-[#F7F8FA] rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -431,22 +440,22 @@ export function AddObjectSheet({
               </div>
 
               <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
-                Razmeri
+                {t("studio.add.size")}
               </p>
               <div className="bg-[#F9FAFB] rounded-2xl px-4">
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-[14px] font-semibold text-gray-800">Kenglik</p>
+                    <p className="text-[14px] font-semibold text-gray-800">{t("studio.add.width")}</p>
                     {pendingFurniture.footprint_w != null && (
                       <p className="text-[11px] text-muted">
-                        Standart: {(pendingFurniture.footprint_w / 100).toFixed(2)} m
+                        {t("studio.add.standard", { size: (pendingFurniture.footprint_w / 100).toFixed(2) })}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2.5">
                     <button
                       onClick={() => setFurnitureWidthCm((v) => Math.max(20, v - 5))}
-                      aria-label="Kenglikni kamaytirish"
+                      aria-label={t("studio.add.width_decrease")}
                       className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
                     >
                       −
@@ -456,7 +465,7 @@ export function AddObjectSheet({
                     </span>
                     <button
                       onClick={() => setFurnitureWidthCm((v) => Math.min(400, v + 5))}
-                      aria-label="Kenglikni oshirish"
+                      aria-label={t("studio.add.width_increase")}
                       className="w-11 h-11 rounded-full bg-[#EDEEF1] text-gray-700 text-lg font-bold flex items-center justify-center"
                     >
                       +
@@ -465,7 +474,7 @@ export function AddObjectSheet({
                 </div>
               </div>
               <p className="text-[11px] text-muted mt-2">
-                Bo'yi va chuqurligi shu nisbatda birga o'zgaradi.
+                {t("studio.add.proportional")}
               </p>
 
               <button
@@ -485,7 +494,7 @@ export function AddObjectSheet({
                 }}
                 className="mt-6 w-full py-3 bg-brand text-white rounded-[18px] font-bold text-[16px] active:scale-[0.98] transition-transform"
               >
-                + Qo'shish
+                {t("studio.add.add_plus")}
               </button>
             </div>
           )}
@@ -504,7 +513,7 @@ export function AddObjectSheet({
                         roomTab === tab ? "bg-brand-tint text-brand" : "bg-gray-100 text-muted"
                       }`}
                     >
-                      {tab}
+                      {t(ROOM_TAB_LABEL[tab])}
                     </button>
                   ))}
                 </div>
@@ -512,8 +521,8 @@ export function AddObjectSheet({
               {furnitureGroups.length === 0 ? (
                 <p className="text-[13px] text-muted py-6 text-center">
                   {isSwap
-                    ? "Katalogda mos mebel topilmadi"
-                    : "Bu xona turi uchun do'konda mebel yo'q"}
+                    ? t("studio.add.no_match")
+                    : t("studio.add.no_room_furniture")}
                 </p>
               ) : (
                 <div className="flex flex-col gap-4">
@@ -524,7 +533,7 @@ export function AddObjectSheet({
                   {group.heading && (
                     <div className="flex items-center gap-2">
                       <p className="text-[12px] font-bold uppercase tracking-wide text-muted flex-shrink-0">
-                        {group.heading}
+                        {t(group.heading)}
                       </p>
                       <div className="flex-1 h-px bg-gray-200" />
                     </div>
@@ -577,7 +586,7 @@ export function AddObjectSheet({
                               setFurnitureWidthCm(item.footprint_w ?? 100);
                             }
                           }}
-                          aria-label={`${item.name_uz} qo'shish`}
+                          aria-label={t("studio.add.add_item", { name: item.name_uz })}
                           className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0 font-bold text-xl active:scale-90 transition-transform"
                         >
                           +

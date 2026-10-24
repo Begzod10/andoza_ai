@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,7 +19,7 @@ import {
 import { StyleChips } from "@/components/dokon/StyleChips";
 import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { errorMessage } from "./errorMessage";
-import { CATEGORY_LABELS, PLACEMENT_LABELS, ROOM_TYPE_LABELS } from "./labels";
+import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
 
 /**
  * Edit an existing 3D model's metadata. The GLB/thumbnail file itself isn't
@@ -38,6 +39,7 @@ export function ModelEditDialog({
   stores: AdminStore[];
   onError: (msg: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [nameUz, setNameUz] = useState("");
   const [category, setCategory] = useState<AdminFurnitureCategory>("boshqa");
@@ -63,7 +65,7 @@ export function ModelEditDialog({
 
   const updateMutation = useMutation({
     mutationFn: () => {
-      if (!model) throw new Error("Model tanlanmagan");
+      if (!model) throw new Error(t("dokon.model.no_model"));
       return updateAdminFurniture(model.id, {
         name_uz: nameUz,
         category,
@@ -80,13 +82,13 @@ export function ModelEditDialog({
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "furniture"] });
     },
-    onError: (err) => onError(errorMessage(err, "Modelni yangilab bo'lmadi")),
+    onError: (err) => onError(errorMessage(err, t("dokon.model.update_failed"))),
   });
 
   if (!model) return null;
 
   return (
-    <Dialog themed open={open} onOpenChange={onOpenChange} title="Modelni tahrirlash" description={model.name_uz}>
+    <Dialog themed open={open} onOpenChange={onOpenChange} title={t("dokon.model.edit_title")} description={model.name_uz}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -95,46 +97,46 @@ export function ModelEditDialog({
         }}
         className="space-y-4"
       >
-        <Input themed label="Nomi" value={nameUz} onChange={(e) => setNameUz(e.target.value)} autoFocus />
+        <Input themed label={t("dokon.admin.nomi")} value={nameUz} onChange={(e) => setNameUz(e.target.value)} autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Turi" value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
+          <Select themed label={t("dokon.admin.turi")} value={category} onChange={(e) => setCategory(e.target.value as AdminFurnitureCategory)}>
             {ADMIN_FURNITURE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+              <option key={c} value={c}>{t(CATEGORY_KEYS[c])}</option>
             ))}
           </Select>
-          <Select themed label="Xona" value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
-            <option value="">Barcha xonalar</option>
+          <Select themed label={t("dokon.admin.xona")} value={roomType} onChange={(e) => setRoomType(e.target.value as AdminRoomType | "")}>
+            <option value="">{t("dokon.admin.all_rooms")}</option>
             {ADMIN_ROOM_TYPES.map((r) => (
-              <option key={r} value={r}>{ROOM_TYPE_LABELS[r]}</option>
+              <option key={r} value={r}>{t(ROOM_TYPE_KEYS[r])}</option>
             ))}
           </Select>
         </div>
 
         <StyleChips value={styles} onChange={setStyles} />
         {model?.styles_source === "ai" && (
-          <p className="text-xs text-ink-muted -mt-2">AI qo'ygan — tekshirib, kerak bo'lsa tuzating</p>
+          <p className="text-xs text-ink-muted -mt-2">{t("dokon.model.ai_styles")}</p>
         )}
 
         <Select themed
-          label="Xonada joylashuvi"
+          label={t("dokon.admin.placement")}
           value={placement}
           onChange={(e) => setPlacement(e.target.value as AdminPlacement)}
         >
           {ADMIN_PLACEMENTS.map((p) => (
-            <option key={p} value={p}>{PLACEMENT_LABELS[p]}</option>
+            <option key={p} value={p}>{t(PLACEMENT_KEYS[p])}</option>
           ))}
         </Select>
 
         <div className="grid grid-cols-2 gap-3">
-          <Select themed label="Do'kon" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
-            <option value="">— tanlanmagan —</option>
+          <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+            <option value="">{t("dokon.admin.not_selected")}</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </Select>
           <Input themed
-            label="Narxi (so'm)"
+            label={t("dokon.admin.narxi_som")}
             type="number"
             min={0}
             value={priceUzs}
@@ -150,15 +152,15 @@ export function ModelEditDialog({
             onChange={(e) => setIsActive(e.target.checked)}
             className="rounded border-line text-brand focus:ring-brand"
           />
-          Faol (katalogda ko'rinadi)
+          {t("dokon.model.active")}
         </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
-            Bekor qilish
+            {t("common.bekor")}
           </Button>
           <Button type="submit" disabled={!nameUz.trim()} loading={updateMutation.isPending}>
-            Saqlash
+            {t("common.saqlash")}
           </Button>
         </div>
       </form>

@@ -7,7 +7,7 @@ import { swallowPickClick } from '@/lib/pickEvents'
 import { useRoomStore } from "@/store/roomStore";
 import type { PlacedElectrical } from "@/store/roomStore";
 import { ELECTRICAL_DIMS } from "./constants";
-import { TYPE_LABEL } from "@/pages/studio/placement/constants";
+import { electricalShort } from "@/pages/studio/placement/constants";
 import { useHoldToDelete } from "@/hooks/useHoldToDelete";
 import { wallDefsFromVertices, type PolyWallDef } from "@/lib/wallDefsFromVertices";
 import { alongWallM, wallMountFrame, wallMountPoint } from "@/lib/wallMountFrame";
@@ -173,7 +173,7 @@ export function DraggableElectricalModels({
   function startDrag(el: PlacedElectrical, e: ThreeEvent<PointerEvent>) {
     e.stopPropagation()
     holdBind({
-      label: TYPE_LABEL[el.type] ?? 'Qurilma',
+      label: electricalShort(el.type),
       onDelete: () => useRoomStore.getState().removeElectrical(el.id),
     }).onPointerDown(e)
     dragPosMmRef.current = el.positionMm

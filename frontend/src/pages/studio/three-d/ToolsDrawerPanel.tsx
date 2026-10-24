@@ -1,6 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { formatClock } from "./helpers";
 import { useRoomStore } from "@/store/roomStore";
 import { CITY_PRESETS, FACING_OPTIONS, isValidCoordinate, qiblaBearing } from "@/lib/qibla";
@@ -24,6 +24,7 @@ import { roomListEntries } from "@/lib/roomList";
 /** Where the room is: a city picker, or hand-typed coordinates. Saves with the
  *  room (designState.location); a room never given one reads as Tashkent. */
 function QiblaLocation() {
+  const { t } = useTranslation()
   const location = useRoomStore((st) => st.designState.location);
   const setDesignState = useRoomStore((st) => st.setDesignState);
   const facing = useRoomStore((st) => st.designState.facing ?? 0);
@@ -43,7 +44,7 @@ function QiblaLocation() {
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <label className="text-xs text-ink-muted" htmlFor="qibla-city">{uz.studio.qibla.joylashuv}</label>
+      <label className="text-xs text-ink-muted" htmlFor="qibla-city">{t("studio.qibla.joylashuv")}</label>
       <select
         id="qibla-city"
         value={customMode ? "__custom" : location?.label ?? CITY_PRESETS[0].label}
@@ -55,14 +56,14 @@ function QiblaLocation() {
         }}
         className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
-        {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{c.label}</option>)}
-        <option value="__custom">{uz.studio.qibla.boshqa}</option>
+        {CITY_PRESETS.map((c) => <option key={c.label} value={c.label}>{t(c.labelKey)}</option>)}
+        <option value="__custom">{t("studio.qibla.boshqa")}</option>
       </select>
       {customMode && (
         <div className="flex gap-2">
           {([
-            [uz.studio.qibla.kenglik, lat, (v: string) => { setLat(v); commit(v, lon); }],
-            [uz.studio.qibla.uzunlik, lon, (v: string) => { setLon(v); commit(lat, v); }],
+            [t("studio.qibla.kenglik"), lat, (v: string) => { setLat(v); commit(v, lon); }],
+            [t("studio.qibla.uzunlik"), lon, (v: string) => { setLon(v); commit(lat, v); }],
           ] as const).map(([label, value, onChange]) => (
             <input
               key={label}
@@ -77,16 +78,16 @@ function QiblaLocation() {
         </div>
       )}
       {customMode && (lat !== "" || lon !== "") && !valid && (
-        <p className="text-xs text-red-600">{uz.studio.qibla.notogri}</p>
+        <p className="text-xs text-red-600">{t("studio.qibla.notogri")}</p>
       )}
-      <label className="text-xs text-ink-muted" htmlFor="qibla-facing">{uz.studio.qibla.yonalish}</label>
+      <label className="text-xs text-ink-muted" htmlFor="qibla-facing">{t("studio.qibla.yonalish")}</label>
       <select
         id="qibla-facing"
         value={facing}
         onChange={(e) => setDesignState({ facing: Number(e.target.value) })}
         className="min-h-[44px] rounded-xl border border-line bg-card-soft px-3 text-sm text-ink"
       >
-        {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{o.label}</option>)}
+        {FACING_OPTIONS.map((o) => <option key={o.bearing} value={o.bearing}>{t(o.labelKey)}</option>)}
       </select>
       <p className="text-xs text-ink-muted">
         {Math.round(qiblaBearing(location?.latitude, location?.longitude))}°
@@ -125,6 +126,7 @@ export function ToolsDrawerPanel({
    *  neighbour in the 3D view does not. */
   onOpenRoom: (roomId: string) => void;
 }) {
+  const { t } = useTranslation()
   if (!menuSlot) return null;
   const roomEntries = roomListEntries(rooms, activeRoomId);
   return createPortal(
@@ -132,7 +134,7 @@ export function ToolsDrawerPanel({
           {/* The flat's rooms. Nothing for a one-room project. */}
           {roomEntries.length > 0 && (
             <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Xonalar</p>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{t('studio.three_d.xonalar')}</p>
               <div className="flex flex-col gap-1.5">
                 {roomEntries.map((r) => (
                   <button
@@ -147,7 +149,7 @@ export function ToolsDrawerPanel({
                     }`}
                   >
                     <span className="truncate">{r.label}</span>
-                    {r.current && <span className="text-xs shrink-0 ml-2">Hozir</span>}
+                    {r.current && <span className="text-xs shrink-0 ml-2">{t('studio.three_d.hozir')}</span>}
                   </button>
                 ))}
               </div>
@@ -156,11 +158,11 @@ export function ToolsDrawerPanel({
           {/* Qibla: a floor arrow toward Mecca, for placing a prayer corner or
               checking which wall the room's Qibla falls on. */}
           <div className="px-4 py-3">
-            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{uz.studio.qibla.nomi}</p>
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{t("studio.qibla.nomi")}</p>
             <button
               onClick={() => setShowQibla(v => !v)}
-              title={showQibla ? uz.studio.qibla.korinishi_yoq : uz.studio.qibla.korinishi_bor}
-              aria-label={showQibla ? uz.studio.qibla.korinishi_yoq : uz.studio.qibla.korinishi_bor}
+              title={showQibla ? t("studio.qibla.korinishi_yoq") : t("studio.qibla.korinishi_bor")}
+              aria-label={showQibla ? t("studio.qibla.korinishi_yoq") : t("studio.qibla.korinishi_bor")}
               aria-pressed={showQibla}
               className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors border ${
                 showQibla
@@ -172,9 +174,9 @@ export function ToolsDrawerPanel({
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 6l3 6h-6z" fill="currentColor" />
               </svg>
-              <span>{uz.studio.qibla.nomi}</span>
+              <span>{t("studio.qibla.nomi")}</span>
             </button>
-            {showQibla && <p className="mt-2 text-xs text-emerald-700">{uz.studio.qibla.izoh}</p>}
+            {showQibla && <p className="mt-2 text-xs text-emerald-700">{t("studio.qibla.izoh")}</p>}
             {showQibla && <QiblaLocation />}
           </div>
 
@@ -206,9 +208,9 @@ export function ToolsDrawerPanel({
               {sceneLightOn && (
                 <div
                   className="flex items-center gap-2 px-3 py-2 rounded-full border border-amber-200 bg-amber-50"
-                  title="Quyosh vaqti — Toshkent bo'yicha"
+                  title={t("studio.quyosh_vaqti_toshkent")}
                 >
-                  <span className="text-xs font-medium text-ink-muted shrink-0">Vaqt:</span>
+                  <span className="text-xs font-medium text-ink-muted shrink-0">{t('studio.three_d.vaqt')}</span>
                   <span className="text-sm font-semibold text-amber-800 tabular-nums w-10 text-right">
                     {formatClock(sunHour)}
                   </span>
@@ -219,7 +221,7 @@ export function ToolsDrawerPanel({
                     step={0.25}
                     value={sunHour}
                     onChange={(e) => setSunHour(parseFloat(e.target.value))}
-                    aria-label="Quyosh vaqti"
+                    aria-label={t("studio.quyosh_vaqti")}
                     className="flex-1 accent-amber-500 cursor-pointer"
                   />
                 </div>
@@ -236,14 +238,14 @@ export function ToolsDrawerPanel({
           <div className="px-4 py-3">
             <button
               onClick={() => { closeMenu?.(); setShowAiSheet(true); }}
-              title="AI dizayner"
-              aria-label="AI dizayner"
+              title={t("ai.builder_title")}
+              aria-label={t("ai.builder_title")}
               className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-sm font-semibold bg-warning text-white hover:bg-warning-dark transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
               </svg>
-              <span>AI dizayner</span>
+              <span>{t("ai.builder_title")}</span>
             </button>
           </div>
 

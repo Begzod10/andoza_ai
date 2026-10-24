@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -19,6 +20,7 @@ export function ModelEditDialog({
   onClose: () => void;
   onSaved: (m: SellerModel) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(model.name_uz);
   const [price, setPrice] = useState(model.price_uzs != null ? String(model.price_uzs) : "");
   const [styles, setStyles] = useState<FurnitureStyle[]>(() => knownStyles(model.styles));
@@ -35,11 +37,11 @@ export function ModelEditDialog({
       onSaved(saved);
       onClose();
     },
-    onError: (err) => setError(errorMessage(err, "Saqlab bo'lmadi")),
+    onError: (err) => setError(errorMessage(err, t("seller.save_failed"))),
   });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()} title="Modelni tahrirlash" themed>
+    <Dialog open onOpenChange={(open) => !open && onClose()} title={t("dokon.model.edit_title")} themed>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -48,13 +50,13 @@ export function ModelEditDialog({
         }}
         className="space-y-4"
       >
-        <Input themed label="Nomi" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input themed label="Narxi (so'm)" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+        <Input themed label={t("dokon.admin.nomi")} value={name} onChange={(e) => setName(e.target.value)} />
+        <Input themed label={t("dokon.admin.narxi_som")} type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
         <StyleChips value={styles} onChange={setStyles} />
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="soft" onClick={onClose}>Bekor qilish</Button>
-          <Button type="submit" disabled={!name.trim()} loading={save.isPending}>Saqlash</Button>
+          <Button type="button" variant="soft" onClick={onClose}>{t("common.bekor")}</Button>
+          <Button type="submit" disabled={!name.trim()} loading={save.isPending}>{t("common.saqlash")}</Button>
         </div>
       </form>
     </Dialog>

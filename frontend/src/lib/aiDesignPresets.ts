@@ -1,5 +1,6 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
+import i18n, { type TKey } from '@/i18n'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -24,11 +25,12 @@ const KIND_MATCH: Record<Kind, RegExp> = {
 
 interface Preset {
   id: string
-  label: string
+  /** Locale keys: read while rendering, so they follow a language change. */
+  labelKey: TKey
   /** The furniture style this preset pulls from the catalog first. */
   furnitureStyle: FurnitureStyle
-  title: string
-  summary: string
+  titleKey: TKey
+  summaryKey: TKey
   walls: AiDesignPlan['walls']
   floor: NonNullable<AiDesignPlan['floor']>
   lights: AiDesignPlan['lights']
@@ -40,8 +42,8 @@ interface Preset {
 export const DESIGN_PRESETS: Preset[] = [
   // The four most asked for in Uzbek flats come first.
   {
-    id: 'neoklassika', label: 'Neoklassika', furnitureStyle: 'neoklassika', title: 'Neoklassika: och va nafis',
-    summary: "Och bej devorlar, och eman parket va nafis qandil klassikani yengil, zamonaviy ko'rinishda beradi.",
+    id: 'neoklassika', labelKey: 'studio.lib.preset.neoklassika.label', furnitureStyle: 'neoklassika', titleKey: 'studio.lib.preset.neoklassika.title',
+    summaryKey: 'studio.lib.preset.neoklassika.summary',
     walls: { main: { type: 'paint', color: '#efe9df' }, accent: { wall: 'C', color: '#d9cdb8' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
@@ -49,8 +51,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', strip: true, stripK: 3000 } }, skirting: { id: 'b054' }, cornice: { id: 't140' } },
   },
   {
-    id: 'zamonaviy', label: 'Zamonaviy', furnitureStyle: 'zamonaviy', title: 'Zamonaviy: neytral va qulay',
-    summary: "Kulrang-bej devorlar, grafit aksent, yog'ochsimon laminat va LED yoritish xonani sodda va qulay qiladi.",
+    id: 'zamonaviy', labelKey: 'studio.lib.preset.zamonaviy.label', furnitureStyle: 'zamonaviy', titleKey: 'studio.lib.preset.zamonaviy.title',
+    summaryKey: 'studio.lib.preset.zamonaviy.summary',
     walls: { main: { type: 'paint', color: '#d9d6d0' }, accent: { wall: 'C', color: '#8c8a86' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
     lights: [{ type: 'led_linear', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }, { type: 'floor_lamp', zone: 'corner_CD' }],
@@ -58,8 +60,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'flat', settings: { color: '#f2f1ee', strip: true, stripK: 3000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'hitech', label: 'Hi-Tech', furnitureStyle: 'hitech', title: 'Hi-Tech: kontrast va texnologik',
-    summary: "Oq devorlar, to'q antratsit aksent, yaltiroq plitka va LED yoritish texnologik, aniq chiziqli ko'rinish beradi.",
+    id: 'hitech', labelKey: 'studio.lib.preset.hitech.label', furnitureStyle: 'hitech', titleKey: 'studio.lib.preset.hitech.title',
+    summaryKey: 'studio.lib.preset.hitech.summary',
     walls: { main: { type: 'paint', color: '#f4f5f6' }, accent: { wall: 'C', color: '#2b2f33' } },
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'led_track', zone: 'wall_A' }, { type: 'spotlight', zone: 'wall_C' }],
@@ -69,8 +71,8 @@ export const DESIGN_PRESETS: Preset[] = [
   {
     // The studio has no ganch or islimi texture yet: a warm floral wallpaper, dark
     // walnut, a chandelier and a rug give the feel with what it can draw.
-    id: 'milliy', label: 'Milliy', furnitureStyle: 'milliy', title: "Milliy: iliq sharqona ruh",
-    summary: "Krem va to'q qizil gulli oboy, to'q yong'oq parket, qandil va gilam iliq, sharqona uy ruhini beradi.",
+    id: 'milliy', labelKey: 'studio.lib.preset.milliy.label', furnitureStyle: 'milliy', titleKey: 'studio.lib.preset.milliy.title',
+    summaryKey: 'studio.lib.preset.milliy.summary',
     walls: { main: { type: 'oboy', pattern: 'gul', base_color: '#f3e6cf', accent_color: '#9e2b25' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
@@ -78,8 +80,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'recessed', settings: { color: '#f3e6cf', strip: true, stripK: 2700 } }, skirting: { id: 'b055' }, cornice: { id: 't56' } },
   },
   {
-    id: 'dark', label: "Qorong'i", furnitureStyle: 'zamonaviy', title: "Qorong'i, iliq atmosfera",
-    summary: "To'q kulrang devorlar va to'q parket chuqur, xotirjam muhit beradi. Kam va iliq yorug'lik shu kayfiyatni saqlaydi.",
+    id: 'dark', labelKey: 'studio.lib.preset.dark.label', furnitureStyle: 'zamonaviy', titleKey: 'studio.lib.preset.dark.title',
+    summaryKey: 'studio.lib.preset.dark.summary',
     walls: { main: { type: 'paint', color: '#2c2c2c' }, accent: { wall: 'C', color: '#1a1a1a' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#3d2b1f' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_BC' }, { type: 'led_linear', zone: 'wall_C' }],
@@ -87,8 +89,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'border', settings: { color: '#2f2f2f', strip: true, stripK: 2700 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'skandinav', label: 'Skandinav', furnitureStyle: 'skandinav', title: 'Yorug skandinav uslubi',
-    summary: "Och devorlar, tabiiy yog'och pol va yumshoq yorug'lik xonani keng va qulay qiladi.",
+    id: 'skandinav', labelKey: 'studio.lib.preset.skandinav.label', furnitureStyle: 'skandinav', titleKey: 'studio.lib.preset.skandinav.title',
+    summaryKey: 'studio.lib.preset.skandinav.summary',
     walls: { main: { type: 'paint', color: '#f5f3ee' }, accent: { wall: 'C', color: '#dcd6c8' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#d2b48c' },
     lights: [{ type: 'pendant', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_CD' }, { type: 'spotlight', zone: 'wall_A' }],
@@ -96,8 +98,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'flat', settings: { color: '#ffffff', strip: false } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'klassik', label: 'Klassik', furnitureStyle: 'klassik', title: 'Klassik, oltin detallar',
-    summary: "Damask oboy, issiq jigarrang parket va qandil an'anaviy, boy ko'rinish beradi.",
+    id: 'klassik', labelKey: 'studio.lib.preset.klassik.label', furnitureStyle: 'klassik', titleKey: 'studio.lib.preset.klassik.title',
+    summaryKey: 'studio.lib.preset.klassik.summary',
     walls: { main: { type: 'oboy', pattern: 'damask', base_color: '#f5f1e6', accent_color: '#d4af37' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#8a5a33' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'floor_lamp', zone: 'corner_AB' }],
@@ -105,8 +107,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f5f1e6', strip: true, stripK: 2700 } }, skirting: { id: 'b053' }, cornice: { id: 't339' } },
   },
   {
-    id: 'loft', label: 'Loft', furnitureStyle: 'loft', title: "Loft: beton va g'isht",
-    summary: "Kulrang devorlar, g'ishtsimon devor va beton pol sanoat uslubini beradi, trek chiroqlar buni to'ldiradi.",
+    id: 'loft', labelKey: 'studio.lib.preset.loft.label', furnitureStyle: 'loft', titleKey: 'studio.lib.preset.loft.title',
+    summaryKey: 'studio.lib.preset.loft.summary',
     walls: { main: { type: 'paint', color: '#4a4a4a' }, accent: { wall: 'C', color: '#a0522d' } },
     floor: { type: 'concrete', pattern: null, tint: null },
     lights: [{ type: 'track', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_AB' }, { type: 'spotlight', zone: 'wall_C' }],
@@ -114,8 +116,8 @@ export const DESIGN_PRESETS: Preset[] = [
     trim: { ceiling: { design: 'non_drop', settings: { color: '#bdbab4' } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
-    id: 'minimalist', label: 'Minimalist', furnitureStyle: 'minimalist', title: 'Minimalist, oq va kulrang',
-    summary: "Oq devorlar, och plitka pol va oz sonli mebel xonani toza va sodda qoldiradi.",
+    id: 'minimalist', labelKey: 'studio.lib.preset.minimalist.label', furnitureStyle: 'minimalist', titleKey: 'studio.lib.preset.minimalist.title',
+    summaryKey: 'studio.lib.preset.minimalist.summary',
     walls: { main: { type: 'paint', color: '#ffffff' }, accent: { wall: 'C', color: '#e8e8e8' } },
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }],
@@ -180,7 +182,7 @@ export function presetPlan(
   }
   const accent = preset.walls.accent
   return {
-    title: preset.title, summary: preset.summary,
+    title: i18n.t(preset.titleKey), summary: i18n.t(preset.summaryKey),
     walls: {
       ...preset.walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),

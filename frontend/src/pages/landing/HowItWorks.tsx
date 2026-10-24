@@ -1,11 +1,17 @@
-import { useLang } from "./i18n";
+import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "./icons";
 import Reveal from "./Reveal";
 
 const ICONS: IconName[] = ["scan", "palette", "calculator"];
 
+interface Step {
+  title: string;
+  desc: string;
+}
+
 export default function HowItWorks() {
-  const { t } = useLang();
+  const { t } = useTranslation();
+  const steps = t("landing.how.steps", { returnObjects: true }) as Step[];
 
   return (
     <section
@@ -14,7 +20,7 @@ export default function HowItWorks() {
     >
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
-          {t.how.heading}
+          {t("landing.how.heading")}
         </h2>
       </Reveal>
 
@@ -25,7 +31,7 @@ export default function HowItWorks() {
           className="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-[#3b7fff]/30 to-transparent lg:block"
         />
         <div className="grid gap-10 lg:grid-cols-3 lg:gap-8">
-          {t.how.steps.map((step, i) => (
+          {steps.map((step, i) => (
             <Reveal key={step.title} delay={i * 0.12} className="relative text-center lg:px-4">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#2563eb] text-white shadow-[0_16px_35px_-12px_rgba(37,99,235,0.7)] ring-4 ring-white">
                 <span className="text-lg font-extrabold">{i + 1}</span>

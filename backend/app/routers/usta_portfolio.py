@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import func, select
 
+from app.i18n import translate_detail
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.models.usta import Usta
@@ -74,7 +75,7 @@ async def add_portfolio_item(
     if count >= _MAX_ITEMS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Portfoliyoda {_MAX_ITEMS} tadan ortiq rasm bo'lishi mumkin emas",
+            detail=translate_detail("Portfoliyoda {max_items} tadan ortiq rasm bo'lishi mumkin emas", max_items=_MAX_ITEMS),
         )
 
     content_type = file.content_type or ""
@@ -84,7 +85,7 @@ async def add_portfolio_item(
     if not data:
         raise HTTPException(status_code=400, detail="Bo'sh fayl yuborildi")
     if len(data) > _MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail=f"Rasm hajmi {_MAX_IMAGE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak")
+        raise HTTPException(status_code=413, detail=translate_detail("Rasm hajmi {mb} MB dan oshmasligi kerak", mb=_MAX_IMAGE_BYTES // (1024 * 1024)))
     if not data.startswith(_MAGIC[content_type]):
         raise HTTPException(status_code=415, detail="Rasm fayli buzilgan yoki noto'g'ri formatda")
 

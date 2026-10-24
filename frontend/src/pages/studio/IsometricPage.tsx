@@ -2,14 +2,14 @@ import * as React from "react";
 import { useOutletContext } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { updateRoom } from "@/lib/api";
-import { uz } from "@/locale/uz";
+import { useTranslation } from "react-i18next";
 import { useRoomStore, resolveWallColor, resolveWallCovering } from "@/store/roomStore";
 import type { WallCovering } from "@/store/roomStore";
 import { OBOY_PATTERNS, getOboySvgPattern } from "@/lib/oboyPatterns";
 import type { OboyPatternId } from "@/lib/oboyPatterns";
 import { computeOboyRolls } from "@/lib/oboySmeta";
 import type { Room } from "@/lib/api";
-import { getWallTargets, type WallTarget } from "@/components/studio/design-panel/shared";
+import { getWallTargets, targetLabel, type WallTarget } from "@/components/studio/design-panel/shared";
 
 interface StudioContext {
   room: Room;
@@ -23,13 +23,14 @@ const WALL_COLORS = [
 ]
 
 const FLOOR_TYPES = [
-  { key: "parquet", label: "Parket" },
-  { key: "tile", label: "Kafel" },
-  { key: "laminate", label: "Laminat" },
-  { key: "concrete", label: "Beton" },
-]
+  { key: "parquet", labelKey: "studio.radial.parket" },
+  { key: "tile", labelKey: "studio.radial.kafel" },
+  { key: "laminate", labelKey: "studio.iso.laminat" },
+  { key: "concrete", labelKey: "studio.iso.beton" },
+] as const
 
 export default function IsometricPage() {
+  const { t } = useTranslation()
   const { room } = useOutletContext<StudioContext>();
   const { designState, setDesignState, setWallCovering, geometry, ceilingHeight } = useRoomStore();
 
@@ -190,7 +191,7 @@ export default function IsometricPage() {
         <svg
           viewBox={`0 0 ${vbW.toFixed(1)} ${vbH.toFixed(1)}`}
           style={{ width: '100%', height: '100%', maxWidth: '700px', maxHeight: '100%' }}
-          aria-label="Isometric room preview"
+          aria-label={t('studio.iso.preview_aria')}
         >
           <defs>
             <pattern id="wood" patternUnits="userSpaceOnUse" width="40" height="20">
@@ -259,19 +260,19 @@ export default function IsometricPage() {
 
         {/* Wall target selector */}
         <section className="mb-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Devor</h3>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('studio.iso.devor')}</h3>
           <div className="flex flex-wrap gap-1.5">
-            {wallTargets.map(({ key, label }) => (
+            {wallTargets.map((option) => (
               <button
-                key={key}
-                onClick={() => setTargetWall(key)}
+                key={option.key}
+                onClick={() => setTargetWall(option.key)}
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  targetWall === key
+                  targetWall === option.key
                     ? 'bg-brand text-white border-brand font-semibold'
                     : 'border-gray-300 text-gray-600 hover:border-brand/50'
                 }`}
               >
-                {label}
+                {targetLabel(option)}
               </button>
             ))}
           </div>
@@ -290,7 +291,7 @@ export default function IsometricPage() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {mode === 'paint' ? "Bo'yoq" : 'Oboy'}
+                {mode === 'paint' ? t('studio.iso.boyoq') : t('studio.radial.oboy')}
               </button>
             ))}
           </div>
@@ -298,7 +299,7 @@ export default function IsometricPage() {
 
         {coveringMode === 'paint' && (
           <section className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.devor_rangi}</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.devor_rangi")}</h3>
             <div className="flex flex-wrap gap-2">
               {WALL_COLORS.map((color) => (
                 <button
@@ -323,14 +324,14 @@ export default function IsometricPage() {
 
         {coveringMode === 'oboy' && (
           <section className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Naqsh</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('studio.iso.naqsh')}</h3>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {OBOY_PATTERNS.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => handleSetOboy({ patternId: p.id })}
                   className="flex flex-col items-center gap-1"
-                  title={p.label}
+                  title={t(p.labelKey)}
                 >
                   <svg
                     width="60"
@@ -343,14 +344,14 @@ export default function IsometricPage() {
                     <defs dangerouslySetInnerHTML={{ __html: getOboySvgPattern(p.id, baseColor, accentColor, `thumb-${p.id}`) }} />
                     <rect width="60" height="60" fill={`url(#thumb-${p.id})`} />
                   </svg>
-                  <span className="text-xs text-gray-600">{p.label}</span>
+                  <span className="text-xs text-gray-600">{t(p.labelKey)}</span>
                 </button>
               ))}
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Asosiy rang</label>
+                <label className="text-xs font-medium text-gray-700 block mb-1">{t('studio.iso.asosiy_rang')}</label>
                 <input
                   type="color"
                   value={baseColor}
@@ -359,7 +360,7 @@ export default function IsometricPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Naqsh rangi</label>
+                <label className="text-xs font-medium text-gray-700 block mb-1">{t('studio.iso.naqsh_rangi')}</label>
                 <input
                   type="color"
                   value={accentColor}
@@ -373,7 +374,7 @@ export default function IsometricPage() {
 
         {/* Floor type */}
         <section className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">{uz.studio.pol_turi}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("studio.pol_turi")}</h3>
           <div className="space-y-2">
             {FLOOR_TYPES.map((ft) => (
               <button
@@ -385,7 +386,7 @@ export default function IsometricPage() {
                     : 'border-gray-200 hover:border-brand/40 text-gray-700'
                 }`}
               >
-                {ft.label}
+                {t(ft.labelKey)}
               </button>
             ))}
           </div>
@@ -394,14 +395,14 @@ export default function IsometricPage() {
         {/* Oboy smeta */}
         {smeta && smeta.totalRolls > 0 && (
           <section className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-card">
-            <h4 className="text-xs font-semibold text-amber-800 mb-1">Kerakli oboy</h4>
+            <h4 className="text-xs font-semibold text-amber-800 mb-1">{t('studio.iso.kerakli_oboy')}</h4>
             <p className="text-sm font-bold text-amber-900">
-              {smeta.totalRolls} rulon (~{smeta.totalAreaM2.toFixed(1)} m²)
+              {t('studio.iso.jami_rulon', { count: smeta.totalRolls, area: smeta.totalAreaM2.toFixed(1) })}
             </p>
             <div className="mt-2 space-y-0.5">
               {smeta.perWall.map((w) => (
                 <p key={w.wallId} className="text-xs text-amber-700">
-                  Devor {w.wallId}: {w.rolls} rulon ({w.areaM2.toFixed(1)} m²)
+                  {t('studio.iso.devor_rulon', { wall: w.wallId, count: w.rolls, area: w.areaM2.toFixed(1) })}
                 </p>
               ))}
             </div>
@@ -409,10 +410,10 @@ export default function IsometricPage() {
         )}
 
         {mutation.isPending && (
-          <p className="text-xs text-muted animate-pulse mt-2">{uz.common.saqlash}...</p>
+          <p className="text-xs text-muted animate-pulse mt-2">{t("common.saqlash")}...</p>
         )}
         {mutation.isError && (
-          <p className="text-xs text-amber-600 mt-2">Oflayn rejimda — o'zgarishlar saqlandi</p>
+          <p className="text-xs text-amber-600 mt-2">{t("studio.oflayn_saqlandi")}</p>
         )}
       </aside>
     </div>
