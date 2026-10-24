@@ -140,7 +140,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     for (const entry of items) {
       const size = sizeOf(entry.item)
       const rug = isRug(entry)
-      const spot = furnitureSpot(rug ? 'center' : entry.p.zone, size, model, rug ? [] : taken)
+      const spot = furnitureSpot(rug ? 'center' : entry.p.zone ?? 'center', size, model, rug ? [] : taken)
       // A piece that only fits across a door or window, or on top of another, is left out: a bare
       // corner is better than a blocked door. Rugs lie flat and always go in.
       if (!rug && spot.fit !== 'ok') { applied.skipped++; continue }

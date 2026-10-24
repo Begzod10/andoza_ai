@@ -1,5 +1,6 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
+import { type FurnitureRole } from '@/lib/furnitureRole'
 import i18n, { type TKey } from '@/i18n'
 
 /**
@@ -12,6 +13,11 @@ import i18n, { type TKey } from '@/i18n'
  */
 
 type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf'
+
+/** The role each kind plays in the room's furniture groups. */
+const KIND_ROLE: Record<Kind, FurnitureRole> = {
+  divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
+}
 
 /** What a kind looks like in the catalog (category and Uzbek name). */
 const KIND_MATCH: Record<Kind, RegExp> = {
@@ -34,7 +40,7 @@ interface Preset {
   walls: AiDesignPlan['walls']
   floor: NonNullable<AiDesignPlan['floor']>
   lights: AiDesignPlan['lights']
-  furniture: Array<{ kind: Kind; zone: string }>
+  furniture: Array<{ kind: Kind }>
   /** The ceiling, skirting and cornice: half of what tells one style from another. */
   trim: DesignTrim
 }
@@ -47,7 +53,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#efe9df' }, accent: { wall: 'C', color: '#d9cdb8' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+    furniture: [{ kind: 'divan' }, { kind: 'kreslo' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'tumba' }],
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', strip: true, stripK: 3000 } }, skirting: { id: 'b054' }, cornice: { id: 't140' } },
   },
   {
@@ -56,7 +62,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#d9d6d0' }, accent: { wall: 'C', color: '#8c8a86' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
     lights: [{ type: 'led_linear', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }, { type: 'floor_lamp', zone: 'corner_CD' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }, { kind: 'gilam', zone: 'center' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }, { kind: 'gilam' }],
     trim: { ceiling: { design: 'flat', settings: { color: '#f2f1ee', strip: true, stripK: 3000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
@@ -65,7 +71,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#f4f5f6' }, accent: { wall: 'C', color: '#2b2f33' } },
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'led_track', zone: 'wall_A' }, { type: 'spotlight', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_A' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }],
     trim: { ceiling: { design: 'floating', settings: { color: '#ffffff', strip: true, stripK: 4000 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
@@ -76,7 +82,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'oboy', pattern: 'gul', base_color: '#f3e6cf', accent_color: '#9e2b25' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'gilam', zone: 'center' }, { kind: 'stol', zone: 'center' }, { kind: 'kreslo', zone: 'corner_AB' }, { kind: 'shkaf', zone: 'wall_A' }],
+    furniture: [{ kind: 'divan' }, { kind: 'gilam' }, { kind: 'stol' }, { kind: 'kreslo' }, { kind: 'shkaf' }],
     trim: { ceiling: { design: 'recessed', settings: { color: '#f3e6cf', strip: true, stripK: 2700 } }, skirting: { id: 'b055' }, cornice: { id: 't56' } },
   },
   {
@@ -85,7 +91,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#2c2c2c' }, accent: { wall: 'C', color: '#1a1a1a' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#3d2b1f' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_BC' }, { type: 'led_linear', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan', zone: 'wall_A' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'tumba', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'tumba' }, { kind: 'kreslo' }],
     trim: { ceiling: { design: 'border', settings: { color: '#2f2f2f', strip: true, stripK: 2700 } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
@@ -94,7 +100,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#f5f3ee' }, accent: { wall: 'C', color: '#dcd6c8' } },
     floor: { type: 'laminate', pattern: 'wood_strip', tint: '#d2b48c' },
     lights: [{ type: 'pendant', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_CD' }, { type: 'spotlight', zone: 'wall_A' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'kreslo', zone: 'corner_AB' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'kreslo' }],
     trim: { ceiling: { design: 'flat', settings: { color: '#ffffff', strip: false } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
@@ -103,7 +109,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'oboy', pattern: 'damask', base_color: '#f5f1e6', accent_color: '#d4af37' } },
     floor: { type: 'parquet', pattern: 'herringbone', tint: '#8a5a33' },
     lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'floor_lamp', zone: 'corner_AB' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }, { kind: 'stol', zone: 'center' }, { kind: 'gilam', zone: 'center' }, { kind: 'shkaf', zone: 'wall_A' }],
+    furniture: [{ kind: 'divan' }, { kind: 'kreslo' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'shkaf' }],
     trim: { ceiling: { design: 'double_layer', settings: { color: '#f5f1e6', strip: true, stripK: 2700 } }, skirting: { id: 'b053' }, cornice: { id: 't339' } },
   },
   {
@@ -112,7 +118,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#4a4a4a' }, accent: { wall: 'C', color: '#a0522d' } },
     floor: { type: 'concrete', pattern: null, tint: null },
     lights: [{ type: 'track', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_AB' }, { type: 'spotlight', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan', zone: 'wall_B' }, { kind: 'stol', zone: 'center' }, { kind: 'tumba', zone: 'wall_C' }, { kind: 'kreslo', zone: 'corner_CD' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }, { kind: 'kreslo' }],
     trim: { ceiling: { design: 'non_drop', settings: { color: '#bdbab4' } }, skirting: { id: 'tekis' }, cornice: null },
   },
   {
@@ -121,7 +127,7 @@ export const DESIGN_PRESETS: Preset[] = [
     walls: { main: { type: 'paint', color: '#ffffff' }, accent: { wall: 'C', color: '#e8e8e8' } },
     floor: { type: 'tile', pattern: null, tint: null },
     lights: [{ type: 'led_panel', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }],
-    furniture: [{ kind: 'divan', zone: 'wall_C' }, { kind: 'stol', zone: 'center' }],
+    furniture: [{ kind: 'divan' }, { kind: 'stol' }],
     trim: { ceiling: { design: 'non_drop', settings: { color: '#ffffff' } }, skirting: { id: 'tekis' }, cornice: null },
   },
 ]
@@ -178,7 +184,7 @@ export function presetPlan(
     const item = pick(want.kind, catalog, roomType, used, preset.furnitureStyle)
     if (!item) continue
     used.add(item.id)
-    furniture.push({ id: item.id, name: item.name_uz, zone: resolveWalls(want.zone, wallIds) })
+    furniture.push({ id: item.id, name: item.name_uz, role: KIND_ROLE[want.kind] })
   }
   const accent = preset.walls.accent
   return {

@@ -433,7 +433,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
             </PartRow>
 
             <PartRow id="furniture" title={t("ai.qism_mebel")} enabled={plan.furniture.length > 0} checked={parts.furniture} onChange={(on) => changeParts({ ...parts, furniture: on })}>
-              {plan.furniture.map((f) => `${f.name} (${zoneLabel(f.zone)})`).join(", ")}
+              {plan.furniture.map((f) => f.zone ? `${f.name} (${zoneLabel(f.zone)})` : f.name).join(", ")}
             </PartRow>
 
             {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{t("ai.mebel_topilmadi")}</p>}
