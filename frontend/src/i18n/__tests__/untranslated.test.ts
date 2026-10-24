@@ -29,7 +29,7 @@ export const MIGRATED_DIRS: string[] = [
 // symbols/abbreviations that are the same in every language.
 export const ALLOW: string[] = [
   "andoza.ai", "andoza.ai v1.0.0", "O'zbekcha", "Русский", "English",
-  "Andoza", "AI", "progress 0%" /* debug-only readout */, "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
+  "AndozaAI", "progress 0%" /* debug-only readout */, "4K", "PDF", "JPG, PNG, WEBP", "Username", "F", "Del", "Esc", "m²",
 ];
 
 const TEXT_ATTRIBUTES = new Set(["label", "placeholder", "title", "aria-label", "alt", "description"]);

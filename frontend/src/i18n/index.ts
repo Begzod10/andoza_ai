@@ -54,8 +54,8 @@ function storedLanguage(): string | null {
  * this browser, else the browser's (ru* / en*), else Uzbek.
  */
 export function initialLanguage(userLanguage?: string | null): Language {
-  migrateLegacyLanguage();
   if (isLanguage(userLanguage)) return userLanguage;
+  migrateLegacyLanguage();
   const saved = storedLanguage();
   if (isLanguage(saved)) return saved;
   const browser = (typeof navigator !== "undefined" ? navigator.language : "") ?? "";

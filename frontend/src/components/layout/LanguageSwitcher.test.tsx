@@ -19,6 +19,13 @@ beforeEach(() => {
 afterEach(() => applyLanguage('uz'))
 
 describe('LanguageSwitcher', () => {
+  it('marks the active language with a fixed colour, not the --accent token the landing redefines', () => {
+    render(<LanguageSwitcher />)
+    const active = screen.getByRole('button', { name: "O'zbekcha" })
+    expect(active.className).toContain('bg-brand')
+    expect(active.className).not.toMatch(/accent/)
+  })
+
   it('offers the three languages, each named in itself, with the current one marked', () => {
     render(<LanguageSwitcher />)
     expect(screen.getByRole('button', { name: "O'zbekcha" }).getAttribute('aria-pressed')).toBe('true')

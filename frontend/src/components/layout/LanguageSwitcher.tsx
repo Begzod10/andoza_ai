@@ -22,7 +22,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
             onClick={() => setLanguage(id)}
             className={cn(
               'rounded-full px-2.5 py-1 text-xs font-semibold uppercase transition-colors',
-              active ? 'bg-accent text-white' : 'text-ink-muted hover:text-ink',
+              active ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink',
             )}
           >
             {id}
