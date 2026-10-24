@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { intlLocale } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
@@ -448,7 +449,7 @@ export function AddObjectSheet({
                     <p className="text-[14px] font-semibold text-gray-800">{t("studio.add.width")}</p>
                     {pendingFurniture.footprint_w != null && (
                       <p className="text-[11px] text-muted">
-                        {t("studio.add.standard", { size: (pendingFurniture.footprint_w / 100).toFixed(2) })}
+                        {t("studio.add.standard", { size: formatDecimal(pendingFurniture.footprint_w / 100, 2) })}
                       </p>
                     )}
                   </div>
@@ -461,7 +462,7 @@ export function AddObjectSheet({
                       −
                     </button>
                     <span className="text-[15px] font-bold text-gray-900 w-16 text-center">
-                      {(furnitureWidthCm / 100).toFixed(2)} m
+                      {formatDecimal(furnitureWidthCm / 100, 2)} m
                     </span>
                     <button
                       onClick={() => setFurnitureWidthCm((v) => Math.min(400, v + 5))}
@@ -539,8 +540,8 @@ export function AddObjectSheet({
                     </div>
                   )}
                   {group.items.map((item) => {
-                    const wM = item.footprint_w != null ? (item.footprint_w / 100).toFixed(2) : null;
-                    const dM = item.footprint_d != null ? (item.footprint_d / 100).toFixed(2) : null;
+                    const wM = item.footprint_w != null ? formatDecimal(item.footprint_w / 100, 2) : null;
+                    const dM = item.footprint_d != null ? formatDecimal(item.footprint_d / 100, 2) : null;
                     const size = wM && dM ? `${wM} × ${dM} m` : null;
                     const price = fmtPrice(item.price_uzs);
                     return (

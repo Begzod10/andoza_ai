@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { intlLocale } from "@/i18n";
 import { nanoid } from "nanoid";
@@ -570,8 +571,8 @@ export function MebelSection() {
             const shopSizeM = shopEntry
               ? { w: (shopEntry.footprint_w ?? 0) / 100, d: (shopEntry.footprint_d ?? 0) / 100 }
               : null;
-            const actualW = ((entry?.sizeM.w ?? shopSizeM?.w ?? 0) * so).toFixed(2);
-            const actualD = ((entry?.sizeM.d ?? shopSizeM?.d ?? 0) * so).toFixed(2);
+            const actualW = formatDecimal((entry?.sizeM.w ?? shopSizeM?.w ?? 0) * so, 2);
+            const actualD = formatDecimal((entry?.sizeM.d ?? shopSizeM?.d ?? 0) * so, 2);
             return (
               <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden mb-1">
                 <div className="flex items-center gap-2 text-xs px-2 py-1.5 bg-gray-50">

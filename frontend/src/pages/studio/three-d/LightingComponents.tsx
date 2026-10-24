@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { formatDecimal } from '@/lib/utils'
 import { useTranslation } from "react-i18next";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
@@ -717,16 +718,16 @@ function LightWallDistanceLabels({
     // it, and the light stuck whenever the finger crossed one.
     <>
       <Html position={[leftMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distLeft / 1000).toFixed(2)} {tr('common.m')}</div>
+        <div style={wallDimLabelStyle}>{formatDecimal(distLeft / 1000, 2)} {tr('common.m')}</div>
       </Html>
       <Html position={[rightMidX, y, worldZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distRight / 1000).toFixed(2)} {tr('common.m')}</div>
+        <div style={wallDimLabelStyle}>{formatDecimal(distRight / 1000, 2)} {tr('common.m')}</div>
       </Html>
       <Html position={[worldX, y, backMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distBack / 1000).toFixed(2)} {tr('common.m')}</div>
+        <div style={wallDimLabelStyle}>{formatDecimal(distBack / 1000, 2)} {tr('common.m')}</div>
       </Html>
       <Html position={[worldX, y, frontMidZ]} center zIndexRange={[210, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={wallDimLabelStyle}>{(distFront / 1000).toFixed(2)} {tr('common.m')}</div>
+        <div style={wallDimLabelStyle}>{formatDecimal(distFront / 1000, 2)} {tr('common.m')}</div>
       </Html>
     </>
   )

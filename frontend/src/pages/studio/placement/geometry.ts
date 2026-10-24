@@ -1,4 +1,5 @@
 import i18n from '@/i18n'
+import { formatDecimal } from '@/lib/utils'
 import type { PlacedElectrical } from '@/store/roomStore'
 import {
   nearestEdge, offsetPolygon, perimeterCoord, perimeterCorners, perimeterPoint,
@@ -293,7 +294,7 @@ export function fmtM(mm: number): string {
   const m = mm / 1000
   return m < 0.01
     ? `${mm}${i18n.t('studio.three_d.mm')}`
-    : `${m.toFixed(2).replace(/\.?0+$/, '')}${i18n.t('common.m')}`
+    : `${formatDecimal(m, 2).replace(/[.,]?0+$/, '')}${i18n.t('common.m')}`
 }
 
 // ─── 3D Elektr view ───────────────────────────────────────────────────────────

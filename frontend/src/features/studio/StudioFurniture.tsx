@@ -7,6 +7,7 @@
  * code-motion extraction, not a rewrite.
  */
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { formatDecimal } from '@/lib/utils'
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import { FurniturePlaceholder, appearScale, placeholderSize, type PlaceholderSize } from "./FurniturePlaceholder";
@@ -612,7 +613,7 @@ function DraggableFurnitureItem({
           >
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>{displayInfo.name}</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
-              {fw.toFixed(2)} × {fd.toFixed(2)} m
+              {formatDecimal(fw, 2)} × {formatDecimal(fd, 2)} m
               {displayInfo.priceUzs != null && ` · ${t('studio.shared.price_som', { price: displayInfo.priceUzs.toLocaleString(intlLocale()) })}`}
             </p>
           </div>

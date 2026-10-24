@@ -11,6 +11,7 @@
  * live — and vice versa.
  */
 import { useCallback, useRef, useState } from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { useRoomStore } from '@/store/roomStore'
 import type { PlacedFurniture, WallElement } from '@/store/roomStore'
@@ -612,7 +613,7 @@ export function MebelPlanView() {
                   <span className="min-w-0">
                     <span className="block text-[11px] font-semibold text-gray-800 truncate">{entry?.name ?? t('studio.mebel.model')}</span>
                     <span className="block text-[9px] text-gray-400 tabular-nums">
-                      {((entry?.sizeM.w ?? 0) * so).toFixed(2)}×{((entry?.sizeM.d ?? 0) * so).toFixed(2)} m
+                      {formatDecimal((entry?.sizeM.w ?? 0) * so, 2)}×{formatDecimal((entry?.sizeM.d ?? 0) * so, 2)} m
                     </span>
                   </span>
                 </button>
@@ -897,7 +898,7 @@ export function MebelPlanView() {
           {rect ? (
             <g fill="#8A857A" fontFamily="ui-sans-serif, system-ui" fontWeight={600}>
               <text x={W / 2} y={-T - 240} textAnchor="middle" fontSize={260}>A</text>
-              <text x={W / 2} y={-T - 20} textAnchor="middle" fontSize={200}>{(W / 1000).toFixed(1)} m</text>
+              <text x={W / 2} y={-T - 20} textAnchor="middle" fontSize={200}>{formatDecimal(W / 1000, 1)} m</text>
               <text x={W / 2} y={Dp + T + 380} textAnchor="middle" fontSize={260}>C</text>
               <text x={W + T + 240} y={Dp / 2} textAnchor="start" fontSize={260} dominantBaseline="middle">B</text>
               <text x={-T - 240} y={Dp / 2} textAnchor="end" fontSize={260} dominantBaseline="middle">D</text>
@@ -905,7 +906,7 @@ export function MebelPlanView() {
                 x={-T - 60} y={Dp / 2} fontSize={200} textAnchor="middle" dominantBaseline="middle"
                 transform={`rotate(-90 ${-T - 60} ${Dp / 2})`}
               >
-                {(Dp / 1000).toFixed(1)} m
+                {formatDecimal(Dp / 1000, 1)} m
               </text>
             </g>
           ) : (
@@ -916,7 +917,7 @@ export function MebelPlanView() {
                 const mz = (e.z1 + e.z2) / 2
                 return (
                   <text key={e.id} x={mx - e.nx * (T + 330)} y={mz - e.nz * (T + 330)} textAnchor="middle" dominantBaseline="middle" fontSize={210}>
-                    {e.id} · {(e.len / 1000).toFixed(1)} m
+                    {e.id} · {formatDecimal(e.len / 1000, 1)} m
                   </text>
                 )
               })}
@@ -1015,8 +1016,8 @@ export function MebelPlanView() {
               <FurnitureSymbol emoji={selFurEntry?.emoji} size={13} className="mr-1 inline -mt-0.5" />{selFurEntry?.name ?? t('studio.mebel.model')}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {((selFurEntry?.sizeM.w ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)}×
-              {((selFurEntry?.sizeM.d ?? 0) * (selFur.scaleOverride ?? 1)).toFixed(2)} m
+              {formatDecimal((selFurEntry?.sizeM.w ?? 0) * (selFur.scaleOverride ?? 1), 2)}×
+              {formatDecimal((selFurEntry?.sizeM.d ?? 0) * (selFur.scaleOverride ?? 1), 2)} m
             </span>
             <label className="flex items-center gap-1 text-[11px] text-gray-500">
               {t('studio.mplan.rotate')}

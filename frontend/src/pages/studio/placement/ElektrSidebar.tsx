@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { formatDecimal } from '@/lib/utils'
 import type { ElectricalType, PlacedElectrical } from '@/store/roomStore'
 import { CATALOG, electricalLabel } from './constants'
 import { ElectricalIcon } from './icons'
@@ -109,7 +110,7 @@ export function ElektrSidebar({
                   <span className="flex-1 text-gray-700">
                     {t('studio.placement.elektr.devor_royxat', { name: electricalLabel(cat.type), wall: el.wallId })}
                   </span>
-                  <span className="text-gray-400">{(el.heightMm / 1000).toFixed(1)}{t('common.m')}</span>
+                  <span className="text-gray-400">{formatDecimal(el.heightMm / 1000, 1)}{t('common.m')}</span>
                   <button
                     onClick={() => onRemoveElectrical(el.id)}
                     className="text-gray-300 hover:text-red-400 text-sm leading-none transition-colors"

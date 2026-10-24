@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDecimal } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { getMaterials, previewEstimate } from "@/lib/api";
 import type { Room, Material } from "@/lib/api";
@@ -337,7 +338,7 @@ export function WallSection({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${textureUvwIdBase}-scale-y`} className="text-xs text-gray-600 font-medium">{t("studio.vertikal_cho_zish")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{c.repeatY.toFixed(2)}×</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(c.repeatY, 2)}×</span>
                     </div>
                     <input id={`${textureUvwIdBase}-scale-y`} type="range" min="0.1" max="4" step="0.05" value={c.repeatY}
                       onChange={(e) => updateTextureProp({ repeatY: parseFloat(e.target.value) })}
@@ -359,7 +360,7 @@ export function WallSection({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${textureUvwIdBase}-offset-x`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_x")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{c.offsetX.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(c.offsetX, 2)}</span>
                     </div>
                     <input id={`${textureUvwIdBase}-offset-x`} type="range" min="0" max="1" step="0.01" value={c.offsetX}
                       onChange={(e) => updateTextureProp({ offsetX: parseFloat(e.target.value) })}
@@ -368,7 +369,7 @@ export function WallSection({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label htmlFor={`${textureUvwIdBase}-offset-y`} className="text-xs text-gray-600 font-medium">{t("studio.dp.offset_y")}</label>
-                      <span className="text-xs text-gray-500 tabular-nums">{c.offsetY.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{formatDecimal(c.offsetY, 2)}</span>
                     </div>
                     <input id={`${textureUvwIdBase}-offset-y`} type="range" min="0" max="1" step="0.01" value={c.offsetY}
                       onChange={(e) => updateTextureProp({ offsetY: parseFloat(e.target.value) })}
@@ -411,10 +412,10 @@ export function WallSection({
             })()
           ) : smeta && smeta.totalRolls > 0 ? (
             <>
-              <p className="text-sm font-bold text-amber-900">{t("studio.dp.rolls", { count: smeta.totalRolls })} (~{smeta.totalAreaM2.toFixed(1)} m²)</p>
+              <p className="text-sm font-bold text-amber-900">{t("studio.dp.rolls", { count: smeta.totalRolls })} (~{formatDecimal(smeta.totalAreaM2, 1)} m²)</p>
               <div className="mt-2 space-y-0.5">
                 {smeta.perWall.map((w) => (
-                  <p key={w.wallId} className="text-xs text-amber-700">{t("studio.shared.wall_n", { id: w.wallId })}: {t("studio.dp.rolls", { count: w.rolls })} ({w.areaM2.toFixed(1)} m²)</p>
+                  <p key={w.wallId} className="text-xs text-amber-700">{t("studio.shared.wall_n", { id: w.wallId })}: {t("studio.dp.rolls", { count: w.rolls })} ({formatDecimal(w.areaM2, 1)} m²)</p>
                 ))}
               </div>
             </>

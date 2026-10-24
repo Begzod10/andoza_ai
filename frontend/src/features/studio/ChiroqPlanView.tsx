@@ -12,6 +12,7 @@
  * in mid-air.
  */
 import { useRef, useState, useCallback } from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
 import { useRoomStore } from '@/store/roomStore'
@@ -355,7 +356,7 @@ export function ChiroqPlanView({
             <line x1={hover.x - 150} y1={hover.z} x2={hover.x + 150} y2={hover.z} stroke={BLUE} strokeWidth={14} />
             <line x1={hover.x} y1={hover.z - 150} x2={hover.x} y2={hover.z + 150} stroke={BLUE} strokeWidth={14} />
             <text x={hover.x + 220} y={hover.z - 120} fontSize={190} fill={BLUE} fontWeight="700">
-              {(hover.x / 1000).toFixed(2)} / {(hover.z / 1000).toFixed(2)}
+              {formatDecimal(hover.x / 1000, 2)} / {formatDecimal(hover.z / 1000, 2)}
             </text>
           </g>
         )}
@@ -364,11 +365,11 @@ export function ChiroqPlanView({
         {rect ? (
           <>
             <text x={W / 2} y={-T - 150} fontSize={210} fill="#6B7280" textAnchor="middle">
-              {(W / 1000).toFixed(1)} m
+              {formatDecimal(W / 1000, 1)} m
             </text>
             <text x={-T - 150} y={D / 2} fontSize={210} fill="#6B7280" textAnchor="middle"
                   transform={`rotate(-90 ${-T - 150} ${D / 2})`}>
-              {(D / 1000).toFixed(1)} m
+              {formatDecimal(D / 1000, 1)} m
             </text>
           </>
         ) : (
@@ -378,7 +379,7 @@ export function ChiroqPlanView({
               const mz = (e.z1 + e.z2) / 2
               return (
                 <text key={e.id} x={mx - e.nx * (T + 330)} y={mz - e.nz * (T + 330)} fontSize={190} fontWeight={600}>
-                  {e.id} · {(e.len / 1000).toFixed(1)} m
+                  {e.id} · {formatDecimal(e.len / 1000, 1)} m
                 </text>
               )
             })}

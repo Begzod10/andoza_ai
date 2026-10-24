@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { formatDecimal } from '@/lib/utils'
 import { nanoid } from 'nanoid'
 import { useTranslation } from 'react-i18next'
 import type { ElectricalType, PlacedElectrical, PlacedLight, RoomGeometry } from '@/store/roomStore'
@@ -250,7 +251,7 @@ export function FloorPlan({
             return (
               <text key={e.id} x={mx - e.nx * 22} y={my - e.nz * 22} fill="#888" fontFamily="sans-serif"
                 textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="bold">
-                {e.id} · {(e.len / 1000).toFixed(1)} {tr('common.m')}
+                {e.id} · {formatDecimal(e.len / 1000, 1)} {tr('common.m')}
               </text>
             )
           })}
@@ -259,11 +260,11 @@ export function FloorPlan({
         <>
           {/* Dimension labels */}
           <text x={PAD + rW / 2} y={PAD - 10} textAnchor="middle" fontSize="11" fill="#888" fontFamily="sans-serif">
-            {W.toFixed(1)} {tr('common.m')}
+            {formatDecimal(W, 1)} {tr('common.m')}
           </text>
           <text x={PAD - 10} y={PAD + rD / 2} textAnchor="middle" fontSize="11" fill="#888"
             fontFamily="sans-serif" transform={`rotate(-90, ${PAD - 10}, ${PAD + rD / 2})`}>
-            {D.toFixed(1)} {tr('common.m')}
+            {formatDecimal(D, 1)} {tr('common.m')}
           </text>
 
           {/* Wall lines */}
