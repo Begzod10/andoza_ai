@@ -201,16 +201,41 @@ export function parseZone(zone: string, model: RoomModel): ParsedZone | null {
   return null
 }
 
-/** Do two footprints, each grown by the margin, overlap? (Separating axes: exact for turned rectangles.) */
+/** The corners of a footprint grown by `margin`, as rectCorners gives them, into `out` (x0, z0, ... x3, z3). */
+function cornersInto(r: Rect, margin: number, out: Float64Array): void {
+  const fx = Math.sin(r.rotation), fz = Math.cos(r.rotation)
+  const rx = Math.cos(r.rotation), rz = -Math.sin(r.rotation)
+  const hw = (r.w + margin) / 2, hd = (r.d + margin) / 2
+  const signs = CORNER_SIGNS
+  for (let k = 0; k < 4; k++) {
+    const a = signs[2 * k], b = signs[2 * k + 1]
+    out[2 * k] = r.x + rx * hw * a + fx * hd * b
+    out[2 * k + 1] = r.z + rz * hw * a + fz * hd * b
+  }
+}
+const CORNER_SIGNS = [1, 1, 1, -1, -1, -1, -1, 1]
+const CA = new Float64Array(8), CB = new Float64Array(8)
+
+/**
+ * Do two footprints, each grown by the margin, overlap? (Separating axes: exact for turned rectangles.)
+ * Called many times for every layout, so it works on two scratch arrays instead of allocating.
+ */
 export function overlaps(a: Rect, b: Rect, margin = MARGIN): boolean {
-  const ca = rectCorners({ ...a, w: a.w + margin, d: a.d + margin })
-  const cb = rectCorners({ ...b, w: b.w + margin, d: b.d + margin })
-  for (const poly of [ca, cb]) {
+  cornersInto(a, margin, CA)
+  cornersInto(b, margin, CB)
+  for (const poly of [CA, CB]) {
     for (let i = 0; i < 4; i++) {
-      const [x1, z1] = poly[i], [x2, z2] = poly[(i + 1) % 4]
-      const ax = -(z2 - z1), az = x2 - x1
-      const pa = ca.map(([x, z]) => x * ax + z * az), pb = cb.map(([x, z]) => x * ax + z * az)
-      if (Math.max(...pa) <= Math.min(...pb) || Math.max(...pb) <= Math.min(...pa)) return false
+      const j = (i + 1) % 4
+      const ax = -(poly[2 * j + 1] - poly[2 * i + 1]), az = poly[2 * j] - poly[2 * i]
+      let minA = Infinity, maxA = -Infinity, minB = Infinity, maxB = -Infinity
+      for (let k = 0; k < 4; k++) {
+        const pa = CA[2 * k] * ax + CA[2 * k + 1] * az, pb = CB[2 * k] * ax + CB[2 * k + 1] * az
+        if (pa < minA) minA = pa
+        if (pa > maxA) maxA = pa
+        if (pb < minB) minB = pb
+        if (pb > maxB) maxB = pb
+      }
+      if (maxA <= minB || maxB <= minA) return false
     }
   }
   return true

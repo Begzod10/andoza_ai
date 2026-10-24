@@ -390,3 +390,24 @@ describe('final review: a second chair model is named, not lost', () => {
     expect(dropped).toContainEqual({ name: 'Taburet', count: 1 })
   })
 })
+
+describe('final review: layout time', () => {
+  it('an 8 x 6 room with 8 pieces is laid out well within budget', () => {
+    const model = roomModel(box(8000, 6000, { A: [el('eshik', 900, 1000)], C: [el('deraza', 1500, 3000)], B: [el('deraza', 1500, 2000)] }))
+    const pieces = [
+      piece('sofa', 'sofa', 2.3, 0.95), piece('coffee', 'coffee_table', 1.0, 0.6), piece('arm', 'armchair', 0.75, 0.75), piece('arm', 'armchair', 0.75, 0.75),
+      piece('tv', 'tv_unit', 1.6, 0.4), piece('table', 'dining_table', 1.8, 0.9), piece('chair', 'dining_chair', 0.45, 0.5),
+      { ...piece('wardrobe', 'wardrobe', 1.2, 0.6), tall: true },
+    ]
+    const times: number[] = []
+    for (let k = 0; k < 3; k++) {
+      const fresh = roomModel(box(8000, 6000, { A: [el('eshik', 900, 1000)], C: [el('deraza', 1500, 3000)], B: [el('deraza', 1500, 2000)] }))
+      const t0 = performance.now()
+      layoutFurniture(pieces, k === 0 ? model : fresh, 'mehmonxona', [])
+      times.push(performance.now() - t0)
+    }
+    const median = [...times].sort((a, b) => a - b)[1]
+    console.info(`8x6 layout ms: ${times.map((t) => t.toFixed(0)).join(', ')} (median ${median.toFixed(0)})`)
+    expect(median).toBeLessThan(250)
+  })
+})

@@ -15,7 +15,7 @@
  *
  * World frame: metres, origin at the room's centre. A piece's front is (sin, cos) of its rotation.
  */
-import { blocksOpening, overlaps, WALL_GAP, type Rect, type RoomModel, type WallInfo } from './aiDesignLayout'
+import { blocksOpening, overlaps, rectBounds, WALL_GAP, type Rect, type RoomModel, type WallInfo } from './aiDesignLayout'
 import type { FurnitureRole, GroupId } from './furnitureRole'
 import { doorEntries, type Pt } from './walkway'
 
@@ -496,12 +496,31 @@ function halfTurn(a: number): number {
   return Math.abs(r) < 1e-12 ? 0 : r
 }
 
-function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
-  const tableSplit = take(pieces, 'dining_table')
-  const table = tableSplit.got[0]
-  if (!table) return looseCandidate(ctx, pieces)
-  const chairPieces = tableSplit.rest.filter((p) => p.role === 'dining_chair')
-  const extra = tableSplit.rest.filter((p) => p.role !== 'dining_chair')
+/** A table spot with its chairs that fits the bare room (walls, openings, its own floor), before anything else stands there. */
+interface DiningSeat {
+  n: number; rotation: number; placed: Placed[]; usePoints: Pt[]
+  /** The floor its chairs need, which nothing taken may stand on. */
+  zones: Rect[]
+  /** Its pieces and their floor, as a box grown by MARGIN: a taken piece outside it cannot touch the set. */
+  box: { minX: number; maxX: number; minZ: number; maxZ: number }
+  /** The part of the score that does not depend on what else stands in the room. */
+  spot: number
+}
+
+/**
+ * The dining sets that fit each bare room, per table and chair piece. The layout asks for the dining
+ * group once for each arrangement of the main group it tries; only what is taken changes between
+ * those calls, so the room-only work is done once.
+ */
+const diningSeatCache = new WeakMap<RoomModel, WeakMap<Piece, { chair: Piece | undefined; seats: DiningSeat[] }>>()
+
+function diningSeats(ctx: Ctx, table: Piece, chair: Piece | undefined): DiningSeat[] {
+  let byTable = diningSeatCache.get(ctx.model)
+  if (!byTable) { byTable = new WeakMap(); diningSeatCache.set(ctx.model, byTable) }
+  const hitCache = byTable.get(table)
+  if (hitCache && hitCache.chair === chair) return hitCache.seats
+
+  const bare: Ctx = { ...ctx, taken: [], keepClear: [] }
   // The long side runs along the room's longest wall by preference (a scanned room may stand at any
   // angle); across it when that is all that fits, or seats more.
   const longest = ctx.model.walls.reduce((a, b) => (b.length > a.length + 1e-9 ? b : a))
@@ -509,36 +528,76 @@ function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
   const preferred = halfTurn(Math.atan2(-longest.dirZ, longest.dirX) + (table.w >= table.d ? 0 : Math.PI / 2))
   const orientations: Array<[number, number]> = [[preferred, 0]]
   if (table.w !== table.d) orientations.push([halfTurn(preferred + Math.PI / 2), ACROSS_PENALTY])
-  const full = chairPieces.length ? chairCount(Math.max(table.w, table.d)) : 0
+  const full = chair ? chairCount(Math.max(table.w, table.d)) : 0
   const counts = [6, 4, 2].filter((n) => n <= full)
   if (counts.length === 0) counts.push(0)
-  const centre = freeCentre(ctx)
 
-  const byCount = new Map<string, GroupCandidate[]>()
+  const seats: DiningSeat[] = []
   for (const [rotation, across] of orientations) for (const [x, z] of floorGrid(ctx.model)) {
     const t: Placed = { piece: table, rect: { x, z, w: table.w, d: table.d, rotation } }
-    const base = build(ctx, [], [t])
+    const base = build(bare, [], [t])
     if (!base) continue
-    const spot = nearestDoor(ctx, [x, z])
-      + (ctx.windows.some((w) => Math.hypot(w[0] - x, w[1] - z) <= WINDOW_NEAR) ? 1 : 0)
-      - Math.hypot(x - centre[0], z - centre[1]) - across
+    const spot = nearestDoor(ctx, [x, z]) + (ctx.windows.some((w) => Math.hypot(w[0] - x, w[1] - z) <= WINDOW_NEAR) ? 1 : 0) - across
     for (const n of counts) {
-      const chairs = n ? chairsAround(t.rect, chairPieces[0], n) : []
-      const placed = build(ctx, base, chairs)
+      const chairs = n && chair ? chairsAround(t.rect, chair, n) : []
+      const placed = build(bare, base, chairs)
       if (!placed) continue
-      const rest = alongWalls(ctx, placed, extra)
-      const dropped = [...(n ? [] : chairPieces), ...rest.dropped]
-      const usePoints: Pt[] = n
-        ? chairs.map((c) => offset(c.rect, -c.rect.d / 2 - BACK_USE))
-        : [offset(t.rect, table.d / 2 + FRONT_USE)]
-      const key = `${n}:${rotation}`
-      const list = byCount.get(key) ?? []
-      list.push({
-        placed: rest.placed, usePoints: [...usePoints, ...storageUse(rest.placed)], dropped,
-        score: spot - CHAIR_PENALTY * (full - n) - DROP_PENALTY * dropped.length,
+      const zones = clearanceZones(placed)
+      const all = [...placed.map((p) => rectBounds(p.rect)), ...zones.map(rectBounds)]
+      seats.push({
+        n, rotation, placed, zones, spot,
+        usePoints: n ? chairs.map((c) => offset(c.rect, -c.rect.d / 2 - BACK_USE)) : [offset(t.rect, table.d / 2 + FRONT_USE)],
+        box: {
+          minX: Math.min(...all.map((b) => b.minX)) - MARGIN, maxX: Math.max(...all.map((b) => b.maxX)) + MARGIN,
+          minZ: Math.min(...all.map((b) => b.minZ)) - MARGIN, maxZ: Math.max(...all.map((b) => b.maxZ)) + MARGIN,
+        },
       })
-      byCount.set(key, list)
     }
+  }
+  byTable.set(table, { chair, seats })
+  return seats
+}
+
+/** Is a seat clear of what is taken (pieces and the floor they need) and of the floor earlier groups keep? */
+function seatClear(seat: DiningSeat, near: Array<{ rect: Rect; keep: boolean }>): boolean {
+  for (const o of near) {
+    if (o.keep) {
+      if (seat.placed.some((p) => hit(o.rect, p.rect, 0))) return false
+    } else {
+      if (seat.placed.some((p) => hit(p.rect, o.rect, MARGIN))) return false
+      if (seat.zones.some((z) => hit(z, o.rect, 0))) return false
+    }
+  }
+  return true
+}
+
+function placeDining(ctx: Ctx, pieces: Piece[]): GroupCandidate[] {
+  const tableSplit = take(pieces, 'dining_table')
+  const table = tableSplit.got[0]
+  if (!table) return looseCandidate(ctx, pieces)
+  const chairPieces = tableSplit.rest.filter((p) => p.role === 'dining_chair')
+  const extra = tableSplit.rest.filter((p) => p.role !== 'dining_chair')
+  const full = chairPieces.length ? chairCount(Math.max(table.w, table.d)) : 0
+  const centre = freeCentre(ctx)
+  const obstacles = [
+    ...ctx.taken.map((rect) => ({ rect, keep: false, b: rectBounds(rect) })),
+    ...ctx.keepClear.map((rect) => ({ rect, keep: true, b: rectBounds(rect) })),
+  ]
+
+  const byCount = new Map<string, GroupCandidate[]>()
+  for (const seat of diningSeats(ctx, table, chairPieces[0])) {
+    const near = obstacles.filter((o) => o.b.minX < seat.box.maxX && o.b.maxX > seat.box.minX && o.b.minZ < seat.box.maxZ && o.b.maxZ > seat.box.minZ)
+    if (near.length && !seatClear(seat, near)) continue
+    const t = seat.placed[0].rect
+    const rest = alongWalls(ctx, seat.placed, extra)
+    const dropped = [...(seat.n ? [] : chairPieces), ...rest.dropped]
+    const key = `${seat.n}:${seat.rotation}`
+    const list = byCount.get(key) ?? []
+    list.push({
+      placed: rest.placed, usePoints: [...seat.usePoints, ...storageUse(rest.placed)], dropped,
+      score: seat.spot - Math.hypot(t.x - centre[0], t.z - centre[1]) - CHAIR_PENALTY * (full - seat.n) - DROP_PENALTY * dropped.length,
+    })
+    byCount.set(key, list)
   }
   return [...byCount.values()].flatMap((l) => l.sort((a, b) => b.score - a.score).slice(0, MAX_DINING))
 }

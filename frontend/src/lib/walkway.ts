@@ -68,22 +68,21 @@ export function walkable(model: RoomModel, taken: Rect[], from: Pt[], to: Pt[], 
   const { minX, maxX, minZ, maxZ } = model.box
   const nx = Math.max(1, Math.ceil((maxX - minX) / CELL)), nz = Math.max(1, Math.ceil((maxZ - minZ) / CELL))
   const reach = width / 2
-  const near = taken.map((r) => {
-    const c = rectCorners(r), pad = reach + 1e-9
-    return { r, minX: Math.min(...c.map((p) => p[0])) - pad, maxX: Math.max(...c.map((p) => p[0])) + pad, minZ: Math.min(...c.map((p) => p[1])) - pad, maxZ: Math.max(...c.map((p) => p[1])) + pad }
-  })
 
+  // Each piece blocks the cells within half a path of it: only the cells round its own footprint are looked at.
   const blocked = wallMask(model, width, nx, nz).slice()
-  for (let i = 0; i < nx; i++) {
-    for (let j = 0; j < nz; j++) {
-      const cx = minX + (i + 0.5) * CELL, cz = minZ + (j + 0.5) * CELL
-      let b = blocked[i * nz + j] === 1
-      for (let k = 0; !b && k < near.length; k++) {
-        const n = near[k]
-        if (cx < n.minX || cx > n.maxX || cz < n.minZ || cz > n.maxZ) continue
-        b = distanceTo(n.r, cx, cz) < reach - 1e-9
+  for (const r of taken) {
+    const c = rectCorners(r), pad = reach + 1e-9
+    const i0 = Math.max(0, Math.floor((Math.min(...c.map((p) => p[0])) - pad - minX) / CELL))
+    const i1 = Math.min(nx - 1, Math.floor((Math.max(...c.map((p) => p[0])) + pad - minX) / CELL))
+    const j0 = Math.max(0, Math.floor((Math.min(...c.map((p) => p[1])) - pad - minZ) / CELL))
+    const j1 = Math.min(nz - 1, Math.floor((Math.max(...c.map((p) => p[1])) + pad - minZ) / CELL))
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const id = i * nz + j
+        if (blocked[id]) continue
+        if (distanceTo(r, minX + (i + 0.5) * CELL, minZ + (j + 0.5) * CELL) < reach - 1e-9) blocked[id] = 1
       }
-      blocked[i * nz + j] = b ? 1 : 0
     }
   }
 
