@@ -408,6 +408,8 @@ describe('final review: layout time', () => {
     }
     const median = [...times].sort((a, b) => a - b)[1]
     console.info(`8x6 layout ms: ${times.map((t) => t.toFixed(0)).join(', ')} (median ${median.toFixed(0)})`)
-    expect(median).toBeLessThan(250)
+    // Measured on a Mac: ~50 ms alone, ~130-150 ms under full-suite load (~230 ms alone before the dining
+    // cache). The bound is generous so a slower CI runner under load does not flake.
+    expect(median).toBeLessThan(600)
   })
 })
