@@ -34,7 +34,7 @@ def make(summary="", **over):
         "walls": {"main": {"type": "paint", "color": "#e8dcc8"}},
         "floor": {"type": "parquet", "pattern": "chevron", "tint": None},
         "lights": [{"type": "chandelier", "zone": "center"}],
-        "furniture": [{"id": "F1", "zone": "wall_C"}, {"id": "F3", "zone": "wall_B"}],
+        "furniture": [{"id": "F1", "role": "sofa"}, {"id": "F3", "role": "bed"}],
         **over,
     }
     return ad.validate_plan(data, BY_LABEL, WALLS)
@@ -117,7 +117,7 @@ class TestFurnitureAndLights:
 
     def test_chosen_pieces_may_be_named_with_endings_and_synonyms(self):
         assert not txt.summary_problems("Divanni devor oldiga, tumbani esa qarshisiga qo'ydik.", make())
-        bed = make(furniture=[{"id": "F4", "zone": "wall_A"}])
+        bed = make(furniture=[{"id": "F4", "role": "bed"}])
         assert not txt.summary_problems("Krovat markazda turadi.", bed)  # krovat = karavot
 
     def test_a_bedroom_word_is_not_a_bed(self):
@@ -204,7 +204,7 @@ class TestDesignRoomEndToEnd:
             "title": "Iliq", "walls": {"main": {"type": "paint", "color": "#e8dcc8"}},
             "floor": {"type": "parquet", "pattern": "chevron", "tint": None},
             "lights": [{"type": "chandelier", "zone": "center"}],
-            "furniture": [{"id": "F1", "zone": "wall_C"}],
+            "furniture": [{"id": "F1", "role": "sofa"}],
             "summary": summary,
         }
         return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(data))])
@@ -272,8 +272,8 @@ class TestTheShopsOwnNames:
         # "stoli" belongs to the unchosen "Yozuv stoli" but the plan has no table-like name: it is caught...
         assert txt.summary_problems("Yozuv stoli oynaga qaraydi.", make(), self.NAMES)
         # ...and a plan that does hold "Jurnal stoli" makes the word fair to use
-        plan = make(furniture=[{"id": "F1", "zone": "wall_C"}, {"id": "F3", "zone": "wall_B"}])
-        plan.furniture.append({"id": "x", "name": "Jurnal stoli", "zone": "center"})
+        plan = make(furniture=[{"id": "F1", "role": "sofa"}, {"id": "F3", "role": "bed"}])
+        plan.furniture.append({"id": "x", "name": "Jurnal stoli", "role": "coffee_table"})
         assert not txt.summary_problems("Jurnal stoli markazda.", plan, self.NAMES)
 
     def test_reconcile_uses_the_names_when_given(self):
