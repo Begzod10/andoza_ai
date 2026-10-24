@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     MEDIA_URL_PREFIX: str = "/media"
 
     # Absolute public origin the API is reachable at, e.g.
-    # "https://andoza.jumaniyozov.uz". Optional escape hatch: when set, media
+    # "https://andozaai.uz". Optional escape hatch: when set, media
     # URLs are built from it instead of from the incoming request, so they are
     # correct no matter what the proxy forwards. Leave empty to derive the
     # origin from the request (see app/core/storage.py::absolute_media_url).
