@@ -980,9 +980,16 @@ def unique_name(it: Item, rows: list[dict]) -> str | None:
 def run(out_dir: Path, only: set[str] | None) -> None:
     http = Http()
     catalog_path = out_dir / "catalog.json"
-    existing = {}
-    if only and catalog_path.exists():
-        existing = {s["slug"]: s for s in json.loads(catalog_path.read_text())["stores"]}
+    # The catalog's "version", each store's "since" and the hand-made stores this script
+    # does not fetch (the market-average window store) survive a refetch: the seed relies
+    # on them to add later rows to a database seeded earlier (app/seed_demo_stores.py).
+    # Bump "version" and give new rows "since" by hand when the refetch adds products.
+    existing, version = {}, None
+    if catalog_path.exists():
+        old = json.loads(catalog_path.read_text())
+        existing = {s["slug"]: s for s in old["stores"]}
+        version = old.get("version")
+    fetched = {s.slug for s in STORES}
     stores_out = []
     for store in STORES:
         if only and store.slug not in only:
@@ -1035,13 +1042,17 @@ def run(out_dir: Path, only: set[str] | None) -> None:
             log(f"  {store.name} left out of the catalog")
             continue
         entry = {"slug": store.slug, "name": store.name, "website": store.website}
+        if "since" in existing.get(store.slug, {}):
+            entry["since"] = existing[store.slug]["since"]
         for key in ("district", "phone", "telegram"):
             if getattr(store, key):
                 entry[key] = getattr(store, key)
         entry["items"] = rows
         stores_out.append(entry)
+    stores_out += [s for slug, s in existing.items() if slug not in fetched]
     out_dir.mkdir(parents=True, exist_ok=True)
-    catalog_path.write_text(json.dumps({"stores": stores_out}, ensure_ascii=False, indent=1) + "\n")
+    out = {"version": version, "stores": stores_out} if version else {"stores": stores_out}
+    catalog_path.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
     total = sum(f.stat().st_size for f in (out_dir / "images").rglob("*.webp"))
     log(f"done: {sum(len(s['items']) for s in stores_out)} items, images {total / 1e6:.1f} MB, "
         f"{http.requests} requests")

@@ -18,15 +18,28 @@ contract with these stores yet, so every store row has ``is_demo = true`` (and a
 Furniture is seeded without a 3-D model (``glb_key`` null): it shows in the shop with
 its photo, but the studio and the AI designer only place pieces that have a model.
 
+It also seeds one store that is not a real shop: "Deraza bozori — o'rtacha narx",
+windows and a balcony door priced at the *median* Tashkent market price collected from
+public listings (no window maker publishes a price list). Its ``moderation_note`` says
+so, and every item carries its ``price_basis`` and ``sources`` in catalog.json; see
+``docs/research/2026-10-24-demo-stores-seed-report.md``.
+
 When it runs
 ------------
 Only with ``settings.DEMO_STORES`` on (docker-compose.prod.yml sets it) or ``--force``,
-and then only once:
+and each catalog row only once:
 
-* if any ``is_demo`` store exists, it does nothing, so a later deploy never re-adds a
-  piece an admin deleted or renamed;
+* catalog.json has a ``version``; every store and item has a ``since`` version (default
+  1; an item inherits its store's). A ``seed_markers`` row ``demo_stores_v<N>`` records
+  the highest version applied. A deploy inserts only rows whose ``since`` is greater
+  than that, then bumps the marker. Rows added to the catalog later therefore still
+  reach a database seeded earlier, while a row an admin deleted or renamed is never
+  put back;
+* a database seeded before versions existed (demo stores present, no version marker)
+  counts as version 1 applied;
 * after ``--remove`` it leaves a ``seed_markers`` row (``demo_stores_removed``) and
-  does nothing on later deploys; ``--force`` clears the marker and seeds again.
+  does nothing on later deploys; ``--force`` clears that marker and seeds every version
+  again (rows still present by name are left as they are).
 
 A store with a demo name that is *not* ``is_demo`` (a real partner added later under
 the same name) is never touched. Photos are uploaded inside the seed; if the seed
@@ -60,6 +73,7 @@ log = logging.getLogger(__name__)
 
 DEMO_NOTE = "DEMO: shartnomasiz namuna ma'lumot"
 REMOVED_MARKER = "demo_stores_removed"
+VERSION_PREFIX = "demo_stores_v"  # + the highest catalog version applied, e.g. demo_stores_v2
 DATA_DIR = Path(__file__).resolve().parent / "seed_data" / "demo_stores"
 
 # Storage keys of demo photos all sit under a demo/ folder, so --remove can delete
@@ -83,18 +97,46 @@ def load_catalog(data_dir: Path = DATA_DIR) -> dict:
     return json.loads((data_dir / "catalog.json").read_text(encoding="utf-8"))
 
 
-async def _state(session) -> str:
-    """'removed' after --remove, 'already_seeded' with a demo store present, else 'empty'."""
-    if await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER)) is not None:
-        return "removed"
+def catalog_version(catalog: dict) -> int:
+    return int(catalog.get("version", 1))
+
+
+def item_since(store: dict, item: dict) -> int:
+    """The catalog version that introduced *item* (it inherits its store's, default 1)."""
+    return int(item.get("since", store.get("since", 1)))
+
+
+async def _version_markers(session) -> list[SeedMarker]:
+    rows = (await session.execute(select(SeedMarker))).scalars().all()
+    return [m for m in rows if m.key.startswith(VERSION_PREFIX) and m.key[len(VERSION_PREFIX):].isdigit()]
+
+
+async def _applied_version(session) -> int:
+    """The highest catalog version already applied to this database (0 = never seeded).
+
+    A database seeded before catalog versions existed has demo stores but no marker:
+    that was version 1."""
+    markers = await _version_markers(session)
+    if markers:
+        return max(int(m.key[len(VERSION_PREFIX):]) for m in markers)
     if await session.scalar(select(Store).where(Store.is_demo.is_(True)).limit(1)) is not None:
-        return "already_seeded"
-    return "empty"
+        return 1
+    return 0
+
+
+async def _set_applied_version(session, version: int) -> None:
+    for m in await _version_markers(session):
+        await session.delete(m)
+    session.add(SeedMarker(key=f"{VERSION_PREFIX}{version}"))
+    await session.flush()
 
 
 async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
-                 upload: Uploader | None = None, uploaded: list[str] | None = None) -> dict[str, int]:
-    """Insert the missing demo rows through *session*; return what happened.
+                 upload: Uploader | None = None, uploaded: list[str] | None = None,
+                 after_version: int = 0) -> dict[str, int]:
+    """Insert the missing demo rows newer than *after_version* through *session*;
+    return what happened. A store with no newer item is not looked at at all, so a
+    store an admin deleted is not re-created by a later catalog version.
 
     Every storage key uploaded is appended to *uploaded*, so the caller can delete
     them if the transaction does not commit."""
@@ -103,6 +145,9 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
     counts = {"stores": 0, "furniture": 0, "materials": 0, "wallpapers": 0, "existing": 0,
               "skipped_real_store": 0}
     for idx, data in enumerate(catalog["stores"]):
+        items = [i for i in data["items"] if item_since(data, i) > after_version]
+        if not items:
+            continue
         store = await session.scalar(select(Store).where(Store.name == data["name"]))
         if store is None:
             store = Store(
@@ -115,7 +160,7 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
                 is_active=True,
                 status="approved",
                 is_demo=True,
-                moderation_note=DEMO_NOTE,
+                moderation_note=data.get("moderation_note", DEMO_NOTE),
             )
             session.add(store)
             await session.flush()
@@ -126,7 +171,7 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
             log.warning("Store %r exists and is not a DEMO store; its demo items are skipped", store.name)
             continue
 
-        for item in data["items"]:
+        for item in items:
             if item["kind"] == "wallpaper":
                 if await _add_wallpaper(session, store, item, data_dir, upload, uploaded):
                     counts["wallpapers"] += 1
@@ -285,27 +330,36 @@ async def _delete_files(keys: list[str]) -> int:
 
 
 async def seed_demo_stores(force: bool = False) -> dict:
-    """Seed once (see the module docstring); the result's "status" says what happened."""
+    """Seed the catalog versions this database has not had yet (see the module
+    docstring); the result's "status" says what happened."""
     if not (settings.DEMO_STORES or force):
         return {"status": "disabled"}
     catalog = load_catalog()
+    version = catalog_version(catalog)
     uploaded: list[str] = []
     try:
         async with AsyncSessionLocal() as session:
             async with session.begin():
-                state = await _state(session)
-                if state != "empty" and not force:
-                    return {"status": state}
-                marker = await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER))
-                if marker is not None:
-                    await session.delete(marker)
-                counts = await _apply(session, catalog, upload=upload_file, uploaded=uploaded)
+                removed = await session.scalar(select(SeedMarker).where(SeedMarker.key == REMOVED_MARKER))
+                if force:
+                    if removed is not None:
+                        await session.delete(removed)
+                    applied = 0
+                elif removed is not None:
+                    return {"status": "removed"}
+                else:
+                    applied = await _applied_version(session)
+                    if applied >= version:
+                        return {"status": "already_seeded", "version": applied}
+                counts = await _apply(session, catalog, upload=upload_file, uploaded=uploaded,
+                                      after_version=applied)
+                await _set_applied_version(session, version)
     except BaseException:
         # Nothing was committed, so no row points at these files: take them back out.
         await _delete_files(uploaded)
         raise
     await _drop_caches()
-    return {"status": "seeded", **counts}
+    return {"status": "seeded", "from_version": applied, "version": version, **counts}
 
 
 async def remove_demo_stores() -> dict[str, int]:
@@ -336,12 +390,14 @@ async def main(argv: list[str] | None = None) -> None:
     if c["status"] == "disabled":
         print("Demo stores: DEMO_STORES is off, nothing seeded.")
     elif c["status"] == "already_seeded":
-        print("Demo stores: already seeded once, nothing changed (admin edits are kept).")
+        print(f"Demo stores: catalog version {c['version']} already applied, nothing changed"
+              " (admin edits are kept).")
     elif c["status"] == "removed":
         print("Demo stores: removed earlier with --remove, not seeded again (use --force to reseed).")
     else:
         print(
-            f"Demo stores seed complete: {c['stores']} stores, {c['furniture']} furniture,"
+            f"Demo stores seed (catalog v{c['from_version']} -> v{c['version']}):"
+            f" {c['stores']} stores, {c['furniture']} furniture,"
             f" {c['materials']} materials, {c['wallpapers']} wallpapers inserted;"
             f" {c['existing']} already there;"
             f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
