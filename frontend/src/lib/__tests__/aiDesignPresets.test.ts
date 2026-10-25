@@ -6,6 +6,9 @@ import { LIGHT_TYPES } from '@/lib/lightCatalog'
 import { OBOY_PATTERNS } from '@/lib/oboyPatterns'
 import { CEILING_DESIGNS } from '@/lib/ceilingDesigns'
 import { trimProfilesOf } from '@/lib/trimProfiles'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import presetData from '@/lib/data/design_presets.json'
 import { FURNITURE_STYLES } from '../furnitureStyles'
 import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
 
@@ -234,5 +237,23 @@ describe('design presets', () => {
     it('a lone dining table becomes the coffee table', () => {
       expect(roleOf(presetPlan(tablePreset, [item('ovqat', 'Ovqat stoli', 'stol')]), 'ovqat')).toBe('coffee_table')
     })
+  })
+})
+
+describe('shared presets json', () => {
+  it('DESIGN_PRESETS ids unchanged', () => {
+    expect(DESIGN_PRESETS.map((p) => p.id)).toEqual([
+      'neoklassika', 'zamonaviy', 'hitech', 'milliy', 'dark', 'skandinav', 'klassik', 'loft', 'minimalist',
+    ])
+  })
+  it('trim profile ids in JSON equal trimProfiles.ts ids', () => {
+    expect(presetData.trimProfiles.skirting).toEqual(trimProfilesOf('skirting').map((p) => p.id))
+    expect(presetData.trimProfiles.cornice).toEqual(trimProfilesOf('cornice').map((p) => p.id))
+    expect(presetData.trimProfiles.ceiling).toEqual(CEILING_DESIGNS.map((d) => d.id))
+  })
+  it('backend copy is byte-identical', () => {
+    const f = resolve(__dirname, '../data/design_presets.json')
+    const b = resolve(__dirname, '../../../../backend/app/data/design_presets.json')
+    expect(readFileSync(f)).toEqual(readFileSync(b))
   })
 })

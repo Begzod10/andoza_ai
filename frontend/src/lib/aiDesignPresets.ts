@@ -2,6 +2,7 @@ import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
 import { inferRole, ROLE_GROUP, type FurnitureRole } from '@/lib/furnitureRole'
 import i18n, { type TKey } from '@/i18n'
+import presetData from '@/lib/data/design_presets.json'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -57,92 +58,11 @@ interface Preset {
   trim: DesignTrim
 }
 
-export const DESIGN_PRESETS: Preset[] = [
-  // The four most asked for in Uzbek flats come first.
-  {
-    id: 'neoklassika', labelKey: 'studio.lib.preset.neoklassika.label', furnitureStyle: 'neoklassika', titleKey: 'studio.lib.preset.neoklassika.title',
-    summaryKey: 'studio.lib.preset.neoklassika.summary',
-    walls: { main: { type: 'paint', color: '#efe9df' }, accent: { wall: 'C', color: '#d9cdb8' } },
-    floor: { type: 'parquet', pattern: 'herringbone', tint: '#c8a27a' },
-    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
-    furniture: [{ kind: 'divan' }, { kind: 'kreslo' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'tumba' }],
-    trim: { ceiling: { design: 'double_layer', settings: { color: '#f4f1ea', strip: true, stripK: 3000 } }, skirting: { id: 'b054' }, cornice: { id: 't140' } },
-  },
-  {
-    id: 'zamonaviy', labelKey: 'studio.lib.preset.zamonaviy.label', furnitureStyle: 'zamonaviy', titleKey: 'studio.lib.preset.zamonaviy.title',
-    summaryKey: 'studio.lib.preset.zamonaviy.summary',
-    walls: { main: { type: 'paint', color: '#d9d6d0' }, accent: { wall: 'C', color: '#8c8a86' } },
-    floor: { type: 'laminate', pattern: 'wood_strip', tint: '#a88b6a' },
-    lights: [{ type: 'led_linear', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }, { type: 'floor_lamp', zone: 'corner_CD' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }, { kind: 'gilam' }],
-    trim: { ceiling: { design: 'flat', settings: { color: '#f2f1ee', strip: true, stripK: 3000 } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-  {
-    id: 'hitech', labelKey: 'studio.lib.preset.hitech.label', furnitureStyle: 'hitech', titleKey: 'studio.lib.preset.hitech.title',
-    summaryKey: 'studio.lib.preset.hitech.summary',
-    walls: { main: { type: 'paint', color: '#f4f5f6' }, accent: { wall: 'C', color: '#2b2f33' } },
-    floor: { type: 'tile', pattern: null, tint: null },
-    lights: [{ type: 'led_panel', zone: 'center' }, { type: 'led_track', zone: 'wall_A' }, { type: 'spotlight', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }],
-    trim: { ceiling: { design: 'floating', settings: { color: '#ffffff', strip: true, stripK: 4000 } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-  {
-    // The studio has no ganch or islimi texture yet: a warm floral wallpaper, dark
-    // walnut, a chandelier and a rug give the feel with what it can draw.
-    id: 'milliy', labelKey: 'studio.lib.preset.milliy.label', furnitureStyle: 'milliy', titleKey: 'studio.lib.preset.milliy.title',
-    summaryKey: 'studio.lib.preset.milliy.summary',
-    walls: { main: { type: 'oboy', pattern: 'gul', base_color: '#f3e6cf', accent_color: '#9e2b25' } },
-    floor: { type: 'parquet', pattern: 'herringbone', tint: '#6b3f22' },
-    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'bra', zone: 'wall_D' }],
-    furniture: [{ kind: 'divan' }, { kind: 'gilam' }, { kind: 'stol' }, { kind: 'kreslo' }, { kind: 'shkaf' }],
-    trim: { ceiling: { design: 'recessed', settings: { color: '#f3e6cf', strip: true, stripK: 2700 } }, skirting: { id: 'b055' }, cornice: { id: 't56' } },
-  },
-  {
-    id: 'dark', labelKey: 'studio.lib.preset.dark.label', furnitureStyle: 'zamonaviy', titleKey: 'studio.lib.preset.dark.title',
-    summaryKey: 'studio.lib.preset.dark.summary',
-    walls: { main: { type: 'paint', color: '#2c2c2c' }, accent: { wall: 'C', color: '#1a1a1a' } },
-    floor: { type: 'parquet', pattern: 'herringbone', tint: '#3d2b1f' },
-    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_BC' }, { type: 'led_linear', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'tumba' }, { kind: 'kreslo' }],
-    trim: { ceiling: { design: 'border', settings: { color: '#2f2f2f', strip: true, stripK: 2700 } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-  {
-    id: 'skandinav', labelKey: 'studio.lib.preset.skandinav.label', furnitureStyle: 'skandinav', titleKey: 'studio.lib.preset.skandinav.title',
-    summaryKey: 'studio.lib.preset.skandinav.summary',
-    walls: { main: { type: 'paint', color: '#f5f3ee' }, accent: { wall: 'C', color: '#dcd6c8' } },
-    floor: { type: 'laminate', pattern: 'wood_strip', tint: '#d2b48c' },
-    lights: [{ type: 'pendant', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_CD' }, { type: 'spotlight', zone: 'wall_A' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'kreslo' }],
-    trim: { ceiling: { design: 'flat', settings: { color: '#ffffff', strip: false } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-  {
-    id: 'klassik', labelKey: 'studio.lib.preset.klassik.label', furnitureStyle: 'klassik', titleKey: 'studio.lib.preset.klassik.title',
-    summaryKey: 'studio.lib.preset.klassik.summary',
-    walls: { main: { type: 'oboy', pattern: 'damask', base_color: '#f5f1e6', accent_color: '#d4af37' } },
-    floor: { type: 'parquet', pattern: 'herringbone', tint: '#8a5a33' },
-    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }, { type: 'floor_lamp', zone: 'corner_AB' }],
-    furniture: [{ kind: 'divan' }, { kind: 'kreslo' }, { kind: 'stol' }, { kind: 'gilam' }, { kind: 'shkaf' }],
-    trim: { ceiling: { design: 'double_layer', settings: { color: '#f5f1e6', strip: true, stripK: 2700 } }, skirting: { id: 'b053' }, cornice: { id: 't339' } },
-  },
-  {
-    id: 'loft', labelKey: 'studio.lib.preset.loft.label', furnitureStyle: 'loft', titleKey: 'studio.lib.preset.loft.title',
-    summaryKey: 'studio.lib.preset.loft.summary',
-    walls: { main: { type: 'paint', color: '#4a4a4a' }, accent: { wall: 'C', color: '#a0522d' } },
-    floor: { type: 'concrete', pattern: null, tint: null },
-    lights: [{ type: 'track', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_AB' }, { type: 'spotlight', zone: 'wall_C' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }, { kind: 'tumba' }, { kind: 'kreslo' }],
-    trim: { ceiling: { design: 'non_drop', settings: { color: '#bdbab4' } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-  {
-    id: 'minimalist', labelKey: 'studio.lib.preset.minimalist.label', furnitureStyle: 'minimalist', titleKey: 'studio.lib.preset.minimalist.title',
-    summaryKey: 'studio.lib.preset.minimalist.summary',
-    walls: { main: { type: 'paint', color: '#ffffff' }, accent: { wall: 'C', color: '#e8e8e8' } },
-    floor: { type: 'tile', pattern: null, tint: null },
-    lights: [{ type: 'led_panel', zone: 'center' }, { type: 'downlight', zone: 'wall_A' }],
-    furniture: [{ kind: 'divan' }, { kind: 'stol' }],
-    trim: { ceiling: { design: 'non_drop', settings: { color: '#ffffff' } }, skirting: { id: 'tekis' }, cornice: null },
-  },
-]
+/**
+ * The preset data lives in one JSON shared with the backend (app/data/design_presets.json, kept
+ * byte-identical by tests): the AI prompt starts from the same plans.
+ */
+export const DESIGN_PRESETS = presetData.presets as Preset[]
 
 /**
  * The catalog piece of this kind that best suits the style, then the room. A piece of the style
