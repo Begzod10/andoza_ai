@@ -257,6 +257,14 @@ describe('ceiling and trim', () => {
     expect([ds.ceiling, ds.skirting, ds.cornice]).toEqual([{ design: 'flat' }, { id: 'b055' }, { id: 't56' }])
   })
 
+  it('an AI plan keeping the same ceiling design without settings keeps the current settings', () => {
+    useRoomStore.getState().setDesignState({ ceiling: { design: 'border', settings: { color: '#123456', stripK: 2700 } } })
+    applyDesignPlan({ ...plan(), trim: { ceiling: { design: 'border' } } }, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().designState.ceiling).toEqual({ design: 'border', settings: { color: '#123456', stripK: 2700 } })
+    applyDesignPlan({ ...plan(), trim: { ceiling: { design: 'flat' } } }, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().designState.ceiling).toEqual({ design: 'flat' })
+  })
+
   it('undo puts the ceiling and trim back', () => {
     const before = snapshotDesign()
     applyDesignPlan(trimmed(), ALL_PARTS, catalog)

@@ -261,6 +261,19 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
 
   const lightNames = plan?.lights.map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`) ?? []
   const main = plan?.walls.main
+  // The ceiling and the cornice the plan sets; an AI plan may name only some of them (or only the
+  // skirting, which is not listed), and then nothing or less is shown.
+  const trim = plan?.trim
+  const trimLine = trim
+    ? [
+        trim.ceiling && `${t("ai.shift_label")}: ${t(ceilingDesign(trim.ceiling.design).labelKey)}`,
+        trim.cornice === undefined
+          ? null
+          : trim.cornice
+            ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(trim.cornice.id, "cornice"))}`
+            : t("ai.galtel_yoq"),
+      ].filter(Boolean).join(", ")
+    : ""
 
   return (
     <>
@@ -410,18 +423,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
                   {plan.walls.accent.wall} {t("ai.chetki_devor")}: <Swatch color={plan.walls.accent.color} />
                 </span>
               )}
-              {plan.trim && (
-                <span className="mt-1 block text-xs text-gray-600">
-                  {[
-                    plan.trim.ceiling && `${t("ai.shift_label")}: ${t(ceilingDesign(plan.trim.ceiling.design).labelKey)}`,
-                    plan.trim.cornice === undefined
-                      ? null
-                      : plan.trim.cornice
-                        ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(plan.trim.cornice.id, "cornice"))}`
-                        : t("ai.galtel_yoq"),
-                  ].filter(Boolean).join(", ")}
-                </span>
-              )}
+              {trimLine && <span className="mt-1 block text-xs text-gray-600">{trimLine}</span>}
             </PartRow>
 
             <PartRow id="floor" title={t("ai.qism_pol")} enabled={!!plan.floor} checked={parts.floor} onChange={(on) => changeParts({ ...parts, floor: on })}>

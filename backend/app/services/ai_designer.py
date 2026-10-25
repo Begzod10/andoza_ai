@@ -18,6 +18,7 @@ walls and each model's size.
 """
 from __future__ import annotations
 
+import copy
 import json
 import random
 import re
@@ -138,7 +139,7 @@ class DesignPlan:
     image_notes: str = ""
 
     def is_empty(self) -> bool:
-        return not (self.walls or self.floor or self.lights or self.furniture)
+        return not (self.walls or self.floor or self.lights or self.furniture or self.trim)
 
 
 def _hex(value: Any) -> str | None:
@@ -188,9 +189,11 @@ def _clip_summary(text: str) -> str:
 
 def validate_plan(
     data: dict, furniture_by_label: dict[str, dict], wall_ids: list[str], max_furniture: int = MAX_FURNITURE,
+    starting_preset: dict | None = None,
 ) -> DesignPlan:
     """Keep only what the studio can apply; note what was dropped. Never raises on a bad
-    field, only when nothing at all is left. *wall_ids* are the room's own wall ids."""
+    field, only when nothing at all is left. *wall_ids* are the room's own wall ids;
+    *starting_preset* is the ready-made style the model was told to start from, if any."""
     zones = set(zones_for(wall_ids))
     first_wall_zone = f"wall_{wall_ids[0]}" if wall_ids else "center"
     plan = DesignPlan(
@@ -280,6 +283,11 @@ def validate_plan(
         kinds.append(category)
 
     plan.trim = _validate_trim(data.get("trim"), warn)
+    # The model names the ceiling by design only; kept from the starting style, it keeps that
+    # style's colour and light strip too (the dark style's dark border ceiling).
+    preset_ceiling = (starting_preset or {}).get("trim", {}).get("ceiling") or {}
+    if plan.trim and plan.trim.get("ceiling", {}).get("design") == preset_ceiling.get("design") and preset_ceiling.get("settings"):
+        plan.trim["ceiling"]["settings"] = copy.deepcopy(preset_ceiling["settings"])
 
     if plan.is_empty():
         raise DesignError("AI mos tavsiya topa olmadi. Boshqacha yozib ko'ring.")
@@ -354,13 +362,51 @@ def preset_for_style(style: str) -> dict | None:
     return next((p for p in presets.values() if p["furnitureStyle"] == style), None)
 
 
-def _starting_plan(preset: dict) -> dict:
-    """The preset's walls, floor, lights and trim as the model answers them: trim by profile id."""
+_PRESET_WALLS = "ABCD"  # presets are written for a plain room, walls A-D
+
+
+def _room_zone(zone: str, wall_of: dict[str, str]) -> str | None:
+    """A preset zone in this room's wall ids ("corner_CD" → "corner_W3_W4"); None when the room lacks
+    one of its walls."""
+    if zone == "center":
+        return zone
+    if zone.startswith("wall_"):
+        wall = wall_of.get(zone[5:])
+        return f"wall_{wall}" if wall else None
+    if zone.startswith("corner_") and len(zone) == 9:
+        a, b = wall_of.get(zone[7]), wall_of.get(zone[8])
+        return f"corner_{a}_{b}" if a and b else None
+    return None
+
+
+def starting_preset(prompt: str) -> dict | None:
+    """The ready-made style the model starts from for *prompt*, or None when it names no style."""
+    style = first_style_in_prompt(prompt)
+    return preset_for_style(style) if style else None
+
+
+def _starting_plan(preset: dict, wall_ids: list[str]) -> dict:
+    """The preset's walls, floor, lights and trim as the model answers them: walls and zones in this
+    room's own wall ids, by position (A is the first wall, B the second...), anything on a wall the room
+    does not have left out; trim by profile id. Works on a copy: the presets are cached."""
+    wall_of = dict(zip(_PRESET_WALLS, wall_ids))
+    walls = copy.deepcopy(preset["walls"])
+    accent = walls.get("accent")
+    if accent:
+        if accent.get("wall") in wall_of:
+            accent["wall"] = wall_of[accent["wall"]]
+        else:
+            del walls["accent"]
+    lights = []
+    for light in preset["lights"]:
+        zone = _room_zone(light["zone"], wall_of)
+        if zone:
+            lights.append({**light, "zone": zone})
     trim = preset["trim"]
     return {
-        "walls": preset["walls"],
-        "floor": preset["floor"],
-        "lights": preset["lights"],
+        "walls": walls,
+        "floor": copy.deepcopy(preset["floor"]),
+        "lights": lights,
         "trim": {
             "ceiling": trim["ceiling"]["design"] if trim.get("ceiling") else None,
             "skirting": trim["skirting"]["id"] if trim.get("skirting") else None,
@@ -506,7 +552,7 @@ def build_user_message(
         f"Plintus profillari: {', '.join(profiles['skirting'])}",
         f"Galtel profillari: {', '.join(profiles['cornice'])}",
         "",
-        *_style_guidance(prompt),
+        *_style_guidance(prompt, [w["id"] for w in room["walls"]]),
         "Mebel katalogi:",
         *(furniture_lines or ["(katalogda mebel yo'q: furniture bo'sh qolsin)"]),
     ])
@@ -524,12 +570,15 @@ _NO_STYLE_GUIDANCE = (
 )
 _GOLD_WORDS = re.compile(r"oltin|zarhal|gold|золот", re.I)
 _GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy oltin tus (#C9A24B yoki #B8860B)"
-# "och" from the start of a word only, so "pochta" or "qochma" do not ask for light colours.
-_LIGHT_WORDS = re.compile(r"\boch|yorug['ʻ’]?|светл|light", re.I)
+# Whole words only: "pochta", "ochiq oshxona" (an open kitchen) and "kam yorug'lik" (little light)
+# do not ask for light colours.
+_LIGHT_WORDS = re.compile(
+    r"\boch\b|\bochroq\b|\bochiq rang|\byorug['ʻ’] rang|\byorug['ʻ’]roq|светл|\blight\b", re.I,
+)
 _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 
 
-def _style_guidance(prompt: str) -> list[str]:
+def _style_guidance(prompt: str, wall_ids: list[str]) -> list[str]:
     """The starting plan of the style the request names (or general guidance when it names none),
     then the gold and light-colour lines when the request asks for them. Ends with a blank line."""
     style = first_style_in_prompt(prompt)
@@ -538,7 +587,7 @@ def _style_guidance(prompt: str) -> list[str]:
     if preset:
         lines += [
             f"Boshlang'ich reja ({STYLE_LABELS.get(style, style)}):",
-            json.dumps(_starting_plan(preset), ensure_ascii=False),
+            json.dumps(_starting_plan(preset, wall_ids), ensure_ascii=False),
             _STARTING_PLAN_RULE,
         ]
     else:
@@ -562,10 +611,11 @@ async def design_room(
     against the text designer's here (user_id=None)."""
     lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt)
     light_menu = ", ".join(f"{k} ({v})" for k, v in LIGHT_TYPE_NAMES.items())
+    message_prompt = prompt if image is None else (prompt or _IMAGE_DEFAULT_PROMPT)
     if image is None:
-        content: str | list[dict] = build_user_message(prompt, room, light_menu, lines)
+        content: str | list[dict] = build_user_message(message_prompt, room, light_menu, lines)
     else:
-        text = build_user_message(prompt or _IMAGE_DEFAULT_PROMPT, room, light_menu, lines)
+        text = build_user_message(message_prompt, room, light_menu, lines)
         content = [
             {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": image.data_b64}},
             {"type": "text", "text": text + "\n\n" + _IMAGE_INSTRUCTIONS},
@@ -586,6 +636,7 @@ async def design_room(
     area = room.get("area") or room["width"] * room["depth"]
     plan = validate_plan(
         extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
+        starting_preset=starting_preset(message_prompt),
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, the plan's own description is shown instead.
