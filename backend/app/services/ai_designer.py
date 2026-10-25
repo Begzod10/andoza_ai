@@ -60,6 +60,7 @@ _ROLE_BY_NAME: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"jurnal|kofe|coffee", "coffee_table"),
         (r"tumbochka|nightstand|prikrovat", "nightstand"),
         (r"\btv\b|televizor|tumba", "tv_unit"),
+        (r"ish stuli|ofis stuli|kompyuter stuli|kreslo-kompyuter|office chair|desk chair|офисн|компьютерн", "desk_chair"),
         (r"yozuv|kompyuter|desk|ish stoli", "desk"),
         (r"kreslo|armchair", "armchair"),
         (r"shkaf|garderob|wardrobe", "wardrobe"),

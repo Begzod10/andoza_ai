@@ -118,10 +118,10 @@ describe('design presets', () => {
     expect(presetPlan('klassik', CATALOG, 'mehmonxona')!.furniture.find((f) => f.id === 'shelf')!.role).toBe('wardrobe')
   })
 
-  it('a table that is a dining table in the catalog plays a dining table, not a coffee table', () => {
+  it('a dining table in the catalog stays a coffee table in a preset (a dining table has no sofa to sit before)', () => {
     const only = [item('sofa', 'Divan', 'divan'), item('kitchen-table', 'Oshxona stoli', 'stol', 'oshxona')]
     const plan = presetPlan('minimalist', only, 'mehmonxona')!
-    expect(plan.furniture.find((f) => f.id === 'kitchen-table')!.role).toBe('dining_table')
+    expect(plan.furniture.find((f) => f.id === 'kitchen-table')!.role).toBe('coffee_table')
   })
 
   it('a piece whose name says nothing falls back to the role of its kind', () => {
@@ -209,5 +209,30 @@ describe('design presets', () => {
   it('a catalog with no styles at all (or an old cached one without the field) picks by room as before', () => {
     const cat = [item('any', 'Divan', 'divan'), item('room', 'Divan', 'divan', 'mehmonxona')]
     expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('room')
+  })
+
+  describe('kind role and pick order', () => {
+    const roleOf = (plan: ReturnType<typeof presetPlan>, id: string) => plan!.furniture.find((f) => f.id === id)?.role
+    const tvPreset = DESIGN_PRESETS.find((p) => p.furniture.some((w) => w.kind === 'tumba'))!.id
+    const tablePreset = DESIGN_PRESETS.find((p) => p.furniture.some((w) => w.kind === 'stol'))!.id
+
+    it('prefers a TV tumba over a tumbochka', () => {
+      const cat = [item('tumbochka', 'Tumbochka', 'tumba'), item('tvt', 'TV tumba', 'tumba')]
+      expect(roleOf(presetPlan(tvPreset, cat), 'tvt')).toBe('tv_unit')
+      expect(roleOf(presetPlan(tvPreset, cat), 'tumbochka')).toBeUndefined()
+    })
+
+    it('places a lone tumbochka as the tv unit, not dropped', () => {
+      expect(roleOf(presetPlan(tvPreset, [item('tumbochka', 'Tumbochka', 'tumba')]), 'tumbochka')).toBe('tv_unit')
+    })
+
+    it('prefers a jurnal stoli over a dining table', () => {
+      const cat = [item('ovqat', 'Ovqat stoli', 'stol'), item('jurnal', 'Jurnal stoli', 'stol')]
+      expect(roleOf(presetPlan(tablePreset, cat), 'jurnal')).toBe('coffee_table')
+    })
+
+    it('a lone dining table becomes the coffee table', () => {
+      expect(roleOf(presetPlan(tablePreset, [item('ovqat', 'Ovqat stoli', 'stol')]), 'ovqat')).toBe('coffee_table')
+    })
   })
 })

@@ -33,6 +33,7 @@ const ROLE_BY_NAME: Array<[RegExp, FurnitureRole]> = [
   [/jurnal|kofe|coffee/i, 'coffee_table'],
   [/tumbochka|nightstand|prikrovat/i, 'nightstand'],
   [/\btv\b|televizor|tumba/i, 'tv_unit'],
+  [/ish stuli|ofis stuli|kompyuter stuli|kreslo-kompyuter|office chair|desk chair|офисн|компьютерн/i, 'desk_chair'],
   [/yozuv|kompyuter|desk|ish stoli/i, 'desk'],
   [/kreslo|armchair/i, 'armchair'],
   [/shkaf|garderob|wardrobe/i, 'wardrobe'],
