@@ -675,3 +675,25 @@ def test_first_style_by_position():
 
 def test_no_gold_hex_in_the_system_prompt():
     assert "#B8860B" not in ad._SYSTEM and "#C9A24B" not in ad._SYSTEM
+
+
+# --- final review ------------------------------------------------------------------------------
+
+@pytest.mark.parametrize(("room_type", "prompt"), [("oshxona", "zamonaviy oshxona"), ("hammom", "milliy hammom")])
+def test_styled_kitchen_and_bathroom_start_from_a_tile_floor(room_type, prompt):
+    message = _message(prompt, {**ROOM, "room_type": room_type})
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
+    assert "laminate" not in json.dumps(start) and "parquet" not in json.dumps(start)
+
+
+def test_a_styled_living_room_keeps_the_preset_floor():
+    start = _starting("zamonaviy", ["A", "B", "C", "D"])  # ROOM is a mehmonxona
+    assert start["floor"]["type"] == "laminate"
+
+
+def test_a_tile_floor_answer_is_kept_against_a_wooden_starting_preset():
+    from app.services.design_presets import load_presets
+    tile = {"type": "tile", "pattern": None, "tint": None}
+    p = ad.validate_plan({**GOOD, "floor": tile}, BY_LABEL, WALLS, starting_preset=load_presets()["zamonaviy"])
+    assert p.floor == tile

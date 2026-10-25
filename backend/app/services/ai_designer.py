@@ -552,7 +552,7 @@ def build_user_message(
         f"Plintus profillari: {', '.join(profiles['skirting'])}",
         f"Galtel profillari: {', '.join(profiles['cornice'])}",
         "",
-        *_style_guidance(prompt, [w["id"] for w in room["walls"]]),
+        *_style_guidance(prompt, [w["id"] for w in room["walls"]], room.get("room_type")),
         "Mebel katalogi:",
         *(furniture_lines or ["(katalogda mebel yo'q: furniture bo'sh qolsin)"]),
     ])
@@ -576,18 +576,23 @@ _LIGHT_WORDS = re.compile(
     r"\boch\b|\bochroq\b|\bochiq rang|\byorug['ʻ’] rang|\byorug['ʻ’]roq|светл|\blight\b", re.I,
 )
 _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
+# Kitchens and bathrooms are tiled whatever the style: a preset's wooden floor is not kept there.
+_TILE_ROOMS = ("oshxona", "hammom")
 
 
-def _style_guidance(prompt: str, wall_ids: list[str]) -> list[str]:
+def _style_guidance(prompt: str, wall_ids: list[str], room_type: str | None = None) -> list[str]:
     """The starting plan of the style the request names (or general guidance when it names none),
     then the gold and light-colour lines when the request asks for them. Ends with a blank line."""
     style = first_style_in_prompt(prompt)
     preset = preset_for_style(style) if style else None
     lines: list[str] = []
     if preset:
+        start = _starting_plan(preset, wall_ids)
+        if room_type in _TILE_ROOMS:
+            start["floor"] = {"type": "tile", "pattern": None, "tint": None}
         lines += [
             f"Boshlang'ich reja ({STYLE_LABELS.get(style, style)}):",
-            json.dumps(_starting_plan(preset, wall_ids), ensure_ascii=False),
+            json.dumps(start, ensure_ascii=False),
             _STARTING_PLAN_RULE,
         ]
     else:
