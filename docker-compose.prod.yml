@@ -168,7 +168,11 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://andozaai.uz/api/v1}
+        # Relative: the site calls the API on whichever host served it (nginx
+        # proxies /api/ on every name). On the old andoza.jumaniyozov.uz, opened by
+        # app builds <= 1.0.0+24, the app's auth cookies are on that host, so an
+        # absolute andozaai.uz URL would send none (docs/WEB_PROD_DEPLOY.md §4).
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
     ports:
       - "5173:80"
     restart: unless-stopped

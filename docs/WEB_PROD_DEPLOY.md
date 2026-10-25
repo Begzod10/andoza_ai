@@ -135,10 +135,45 @@ The old `andoza.jumaniyozov.uz` is answered by the same block: its pages redirec
 (301) to `https://andozaai.uz` with the same path, while `/api/` and `/media/` keep
 being served there so app builds that still call the old host do not break.
 
+**Except inside the app's WebView.** Mobile builds up to 1.0.0+24 open the Studio
+at `https://andoza.jumaniyozov.uz/...?app=1`, and the app's WebView refuses to
+follow a navigation to any other host, so a 301 to `andozaai.uz` leaves the
+Studio on "Studio yuklanmadi: Frame load interrupted". The app's WebView is told
+apart by its User-Agent (Android System WebView carries `; wv)`, iOS WKWebView has
+no `Safari/` token) and is served the site on the old host; browsers are still
+redirected. Drop the two `map`s and go back to the plain `$host` check once those
+builds are gone (1.0.0+25 and later use `andozaai.uz`).
+
+This works because the built site calls the API on a relative `/api/v1`
+(`VITE_API_URL` in `docker-compose.prod.yml`): on the old host the Studio then
+talks to the old host's `/api/`, where the app put its auth cookies. If the
+server's `.env` sets `VITE_API_URL` to a full URL, remove that line.
+
+To apply on the VPS: put the two `map` blocks above the `server` blocks in
+`/etc/nginx/sites-available/andoza.jumaniyozov.uz`, change the `if` in
+`location /` of the **:443** block (the one certbot manages) to
+`if ($andoza_old_redirect)`, then `nginx -t && systemctl reload nginx`. Check:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://andoza.jumaniyozov.uz/login                       # 301 (browser)
+curl -s -o /dev/null -w "%{http_code}\n" -A "Mozilla/5.0 (Linux; Android 15; Pixel 8; wv) AppleWebKit/537.36" https://andoza.jumaniyozov.uz/login   # 200 (app WebView)
+```
+
 On the VPS the file is `/etc/nginx/sites-available/andoza.jumaniyozov.uz`
 (symlinked into `sites-enabled/`):
 
 ```nginx
+# The app's own WebView (Studio in mobile builds <= 1.0.0+24) — see above.
+map $http_user_agent $andoza_app_webview {
+    default 0;
+    "~; wv\)" 1;                                          # Android System WebView
+    "~*(iPhone|iPad|iPod).*AppleWebKit(?!.*Safari)" 1;     # iOS WKWebView
+}
+map "$host:$andoza_app_webview" $andoza_old_redirect {
+    default 0;
+    "andoza.jumaniyozov.uz:0" 1;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -160,8 +195,9 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     location / {
-        # The site lives at andozaai.uz; the old domain keeps /api and /media for older app builds.
-        if ($host = andoza.jumaniyozov.uz) {
+        # The site lives at andozaai.uz; the old domain keeps /api and /media for older app
+        # builds, and the whole site for their WebView ($andoza_old_redirect, above).
+        if ($andoza_old_redirect) {
             return 301 https://andozaai.uz$request_uri;
         }
         proxy_pass http://127.0.0.1:5173;
