@@ -444,6 +444,11 @@ def test_the_endpoint_hands_the_designer_each_piece_s_styles(client):
     ("divan", "Divan Roma", "sofa"), ("karavot", "Karavot", "bed"),
     ("stol", "Ovqat stoli", "dining_table"), ("stul", "Stul", "dining_chair"),
     ("boshqa", "Puf", "decor"),
+    ("stul", "Ish stuli", "desk_chair"), ("stul", "Office chair", "desk_chair"),
+    ("kreslo", "Kompyuter stuli", "desk_chair"), ("stul", "Офисное кресло", "desk_chair"),
+    ("divan", "Kreslo", "armchair"),
+    ("stol", "Компьютерный стол", "desk"), ("kreslo", "Компьютерное кресло", "desk_chair"),
+    ("stul", "Офисный стул", "desk_chair"),
 ])
 def test_infer_role(category, name, role):
     assert ad.infer_role(category, name) == role

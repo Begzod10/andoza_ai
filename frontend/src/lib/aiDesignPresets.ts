@@ -1,6 +1,6 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
-import { inferRole, type FurnitureRole } from '@/lib/furnitureRole'
+import { inferRole, ROLE_GROUP, type FurnitureRole } from '@/lib/furnitureRole'
 import i18n, { type TKey } from '@/i18n'
 
 /**
@@ -30,6 +30,15 @@ const KIND_MATCH: Record<Kind, RegExp> = {
   tumba: /tumba|televizor|\btv\b|komod/i,
   gilam: /gilam|rug|carpet|kovrolin/i,
   shkaf: /shkaf|javon|bookcase|stellaj/i,
+}
+
+/**
+ * Names that make the best piece of a kind, tried before the generic KIND_MATCH: a TV stand rather
+ * than a bedside "tumbochka", a coffee table rather than a dining or writing table.
+ */
+const KIND_PREFER: Partial<Record<Kind, RegExp>> = {
+  tumba: /^(?!.*tumbochka).*(tumba|televizor|\btv\b)/i,
+  stol: /kofe|jurnal|coffee/i,
 }
 
 interface Preset {
@@ -144,16 +153,18 @@ function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
 ): CatalogFurniture | undefined {
   let best: CatalogFurniture | undefined
-  let bestScore: [number, number] = [-1, -1]
+  let bestScore: [number, number, number] = [-1, -1, -1]
   for (const c of catalog) {
     // A listing without a 3-D model (a photo-only shop item) cannot be placed in the studio.
     if (!c.glb_url || used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
     const styles = c.styles ?? []
-    const score: [number, number] = [
+    const score: [number, number, number] = [
+      KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === roomType ? 2 : c.room_type === null ? 1 : 0,
     ]
-    if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1])) {
+    const better = score.findIndex((v, i) => v !== bestScore[i])
+    if (better !== -1 && score[better] > bestScore[better]) {
       best = c
       bestScore = score
     }
@@ -189,7 +200,11 @@ export function presetPlan(
     if (!item) continue
     used.add(item.id)
     const inferred = inferRole(item.category, item.name_uz)
-    furniture.push({ id: item.id, name: item.name_uz, role: inferred === 'decor' ? KIND_ROLE[want.kind] : inferred })
+    // The piece's own role wins only inside the kind's group: a bedside table picked as a TV unit,
+    // or a dining table as a coffee table, would stand in a group with no anchor and be dropped.
+    const kindRole = KIND_ROLE[want.kind]
+    const role = ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
+    furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent
   return {
