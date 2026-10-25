@@ -2243,6 +2243,8 @@
       "kabinet": "Study",
       "hammom": "Bathroom",
       "balkon": "Balcony"
-    }
+    },
+    "type_guess": "Guess: {{type}}",
+    "type_save_failed": "Could not save the room type"
   }
 }

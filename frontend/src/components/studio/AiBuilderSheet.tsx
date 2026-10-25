@@ -11,6 +11,7 @@ import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
+import { effectiveRoomType } from "@/lib/roomType"
 import { RoomTypePicker } from "./RoomTypePicker"
 import { trimLabel, trimProfileDef } from "@/lib/trimProfiles"
 
@@ -95,7 +96,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
   const { t } = useTranslation()
   // The picker below changes the room's kind; the next request, preset or layout uses the new one.
   const pickedType = useRoomStore((s) => s.roomType)
-  const roomType = pickedType ?? roomTypeProp
+  const roomName = useRoomStore((s) => s.name)
+  // The room's own kind, else the one the studio guessed, else the guess from its name.
+  const roomType = effectiveRoomType(pickedType ?? roomTypeProp, roomName)
   const [prompt, setPrompt] = React.useState("")
   // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
   const [image, setImage] = React.useState<File | null>(null)

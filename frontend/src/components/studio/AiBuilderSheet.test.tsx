@@ -61,6 +61,25 @@ async function generate(prompt = "qorong'i xona") {
   await screen.findByText("Qorong'i uslub")
 }
 
+describe('AiBuilderSheet room type from the studio store', () => {
+  it('sends the room\'s own type, never mehmonxona', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    useRoomStore.setState({ roomType: 'yotoqxona' })
+    renderSheet({ roomType: undefined })
+    await generate()
+    expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'yotoqxona')
+  })
+
+  it('NULL type falls back to the guess from the name', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    useRoomStore.setState({ roomType: null, name: 'Oshxona' })
+    renderSheet({ roomType: undefined })
+    await generate()
+    expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'oshxona')
+    expect(screen.getByText('Taxmin: Oshxona')).toBeInTheDocument()
+  })
+})
+
 describe('AiBuilderSheet', () => {
   it('picker PATCHes the room and the next request uses the new type, keeping the open design', async () => {
     aiDesign.mockResolvedValue(PLAN)

@@ -71,6 +71,7 @@ export const createLifecycleSlice: StateCreator<
       designState?: DesignState
       name?: string
       roomId?: string
+      roomType?: string | null
       furniture?: PlacedFurniture[]
       electricals?: PlacedElectrical[]
       lights?: PlacedLight[]
@@ -95,6 +96,7 @@ export const createLifecycleSlice: StateCreator<
         : DEFAULT_DESIGN_STATE,
       name: s.name ?? defaultRoomName(),
       roomId: s.roomId ?? null,
+      roomType: isRoomType(s.roomType) ? s.roomType : null,
       furniture: s.furniture ?? [],
       electricals: s.electricals ?? [],
       lights: s.lights ?? [],

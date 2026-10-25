@@ -283,7 +283,7 @@ export default function StudioPage() {
       }
       const newRoom = await createRoom(aptId, {
         name: s.name || defaultRoomName(),
-        room_type: s.roomType ?? effectiveRoomType(null, s.name) ?? null,
+        room_type: s.roomType ?? effectiveRoomType(null, s.name) ?? undefined,
         ceiling_h: s.ceilingHeight / 1000,
         geometry: geometryPayload,
       });

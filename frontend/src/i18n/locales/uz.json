@@ -2243,6 +2243,8 @@
       "kabinet": "Kabinet",
       "hammom": "Hammom",
       "balkon": "Balkon"
-    }
+    },
+    "type_guess": "Taxmin: {{type}}",
+    "type_save_failed": "Xona turini saqlab bo'lmadi"
   }
 }

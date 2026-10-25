@@ -168,6 +168,7 @@ export const useRoomStore = create<RoomStore>()(
         ceilingHeight: state.ceilingHeight,
         wizardStep: state.wizardStep,
         name: state.name,
+        roomType: state.roomType,
         furniture: state.furniture,
         electricals: state.electricals,
         lights: state.lights,

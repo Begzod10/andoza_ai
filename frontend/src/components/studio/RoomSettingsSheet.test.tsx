@@ -21,6 +21,23 @@ describe('RoomSettingsSheet room type', () => {
     expect(useRoomStore.getState().roomType).toBe('hammom')
   })
 
+  it('uses the plain (not night-themed) select in the light sheet', () => {
+    render(<RoomSettingsSheet open onClose={() => {}} />)
+    expect(screen.getByLabelText('Xona turi').className).not.toContain('bg-card-soft')
+    expect(screen.getByLabelText('Xona turi').className).toContain('h-10')
+  })
+
+  it('does not undo a newer pick when an older PATCH fails', async () => {
+    let fail: (e: Error) => void = () => {}
+    updateRoom.mockImplementationOnce(() => new Promise((_, rej) => { fail = rej }))
+    render(<RoomSettingsSheet open onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Xona turi'), { target: { value: 'hammom' } })
+    fireEvent.change(screen.getByLabelText('Xona turi'), { target: { value: 'balkon' } })
+    fail(new Error('x'))
+    await new Promise((r) => setTimeout(r, 10))
+    expect(useRoomStore.getState().roomType).toBe('balkon')
+  })
+
   it('puts the old type back when the PATCH fails', async () => {
     useRoomStore.setState({ roomType: 'balkon' })
     updateRoom.mockRejectedValueOnce(new Error('x'))

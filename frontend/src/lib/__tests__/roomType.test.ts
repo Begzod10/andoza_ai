@@ -41,8 +41,8 @@ describe('effectiveRoomType', () => {
 
 describe('locales', () => {
   it.each([['uz', uz], ['ru', ru], ['en', en]])('%s has the room type labels', (_l, loc) => {
-    const rooms = (loc as unknown as { rooms: { type_label: string; type: Record<string, string> } }).rooms
-    expect(rooms.type_label).toBeTruthy()
+    const rooms = (loc as unknown as { rooms: Record<string, string | Record<string, string>> & { type: Record<string, string> } }).rooms
+    for (const k of ['type_label', 'type_none', 'type_guess', 'type_save_failed']) expect(rooms[k]).toBeTruthy()
     for (const id of ROOM_TYPES) expect(rooms.type[id]).toBeTruthy()
   })
 })
