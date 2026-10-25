@@ -16,7 +16,8 @@ import { useTranslation } from "react-i18next";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
-import { WebOnly, useEmbeddedApp } from "@/lib/embedded";
+import { WebOnly } from "@/lib/embedded";
+import { useCompactStudio } from "@/lib/compactStudio";
 import { MENU_ICON, MENU_ROW } from "@/components/studio/menuRow";
 import { UnsavedChangesGuard } from "@/components/studio/UnsavedChangesGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -64,13 +65,13 @@ export default function StudioPage() {
   // height is nobody's business any more.
   const headerRef = useRef<HTMLElement | null>(null);
   const [tabSlotEl, setTabSlotEl] = useState<HTMLDivElement | null>(null);
-  // Inside the native app, the header floats over the 3D viewport with no
-  // background (its buttons have their own), so the scene gets that row of the
-  // small screen too. Only while a page asks for it — the live 3D view — since
+  // On a small screen (the native app, or a phone's browser) the header floats
+  // over the 3D viewport with no background (its buttons have their own), so
+  // the scene gets that row of the screen too (lib/compactStudio). Only while a page asks for it — the live 3D view — since
   // a page with its own content at the top would sit under the buttons.
-  const embedded = useEmbeddedApp();
+  const compact = useCompactStudio();
   const [overlayHeader, setOverlayHeader] = useState(false);
-  const floatingHeader = embedded && overlayHeader;
+  const floatingHeader = compact && overlayHeader;
   // A slot inside the ⋮ dropdown for the current tab's own menu rows (the 3D
   // view's scan toggle, sun clock, AI builder and design-panel button). Null
   // while the dropdown is closed, which is exactly when they should not

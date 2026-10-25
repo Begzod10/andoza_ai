@@ -13,7 +13,7 @@ import { NewRoomSheet } from "@/components/studio/NewRoomSheet";
 import { requestViewCapture } from "./three-d/RoomCameras";
 import { useRoomStore } from "@/store/roomStore";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
-import { useEmbeddedApp } from "@/lib/embedded";
+import { useCompactStudio } from "@/lib/compactStudio";
 import { PlanViewToggle } from "@/components/studio/PlanViewToggle";
 import { QuarterArcMenu } from "@/components/studio/QuarterArcMenu";
 import { useArcCategories } from "@/features/studio/useArcCategories";
@@ -124,7 +124,7 @@ export type { PhaseKey } from "@/lib/phases"
 export default function ThreeDPage() {
   const { t } = useTranslation()
   const { room, onSave, tabSlot, menuSlot, closeMenu, setOverlayHeader } = useOutletContext<StudioContext>();
-  const embedded = useEmbeddedApp();
+  const compact = useCompactStudio();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
   const highQuality3d = useRoomStore((s) => s.highQuality3d);
@@ -772,7 +772,7 @@ export default function ThreeDPage() {
             try { await onSave(); } catch { /* offline — switch anyway */ }
             navigate(`/studio/${id}/ichkarida`);
           }}
-          onOpenSmeta={embedded ? () => navigate(`/smeta/${room.id}${location.search}`) : undefined}
+          onOpenSmeta={compact ? () => navigate(`/smeta/${room.id}${location.search}`) : undefined}
         />
 
         {/* Canvas area. relative: anchors the Mebelirovka top-right control
@@ -789,11 +789,11 @@ export default function ThreeDPage() {
             viewport otherwise. Inline there: the overlay variant positions
             itself absolutely, which inside a flex header would sit it over
             the title. */}
-        {/* Inside the native app the strip is left out and the smeta is a ⋮
-            menu row instead, so the floating header is just its buttons and
+        {/* On a small screen (lib/compactStudio) the strip is left out and the
+            smeta is a ⋮ menu row instead, so the floating header is just its buttons and
             the 3D view gets the screen. */}
         {tabSlot
-          ? embedded ? null : createPortal(<StudioTabStrip roomId={room.id} variant="inline" />, tabSlot)
+          ? compact ? null : createPortal(<StudioTabStrip roomId={room.id} variant="inline" />, tabSlot)
           : <StudioTabStrip roomId={room.id} />}
         {/* Mebelirovka: one viewport at a time. The 2D/3D pill switch swaps
             the full-width top-view plan editor ('2d') for the live 3D

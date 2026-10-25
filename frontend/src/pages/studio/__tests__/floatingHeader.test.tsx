@@ -45,7 +45,20 @@ function renderAt(url: string) {
   )
 }
 
-afterEach(() => sessionStorage.clear())
+afterEach(() => {
+  sessionStorage.clear()
+  vi.unstubAllGlobals()
+})
+
+/** A browser window as wide (or narrow) as a phone: matchMedia answers the compact query. */
+function stubPhoneWidth(phone: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: phone,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }))
+}
 
 describe('the studio header over the 3D view', () => {
   it('floats over it with no background inside the native app', async () => {
@@ -56,7 +69,16 @@ describe('the studio header over the 3D view', () => {
     expect(header.className).not.toContain('bg-card')
   })
 
-  it('keeps its own row and background in a browser', async () => {
+  it('floats in a phone-width browser too', async () => {
+    stubPhoneWidth(true)
+    renderAt('/studio/r1')
+    await screen.findByText('scene')
+    expect(document.querySelector('header')!.className).toContain('absolute')
+  })
+
+  it('keeps its own row and background in a wide browser', async () => {
+    stubPhoneWidth(false)
+
     renderAt('/studio/r1')
     await screen.findByText('scene')
     const header = document.querySelector('header')!

@@ -127,8 +127,9 @@ export function ToolsDrawerPanel({
   /** Opens another room of the flat — the only way to, now that tapping a
    *  neighbour in the 3D view does not. */
   onOpenRoom: (roomId: string) => void;
-  /** Opens the smeta — given inside the native app, where the 3D/Smeta strip
-   *  is left out of the header so the 3D view keeps the screen. */
+  /** Opens the smeta — given on a small screen (the app or a phone browser),
+   *  where the 3D/Smeta strip is left out of the header so the 3D view keeps
+   *  the screen. */
   onOpenSmeta?: () => void;
 }) {
   const { t } = useTranslation()
