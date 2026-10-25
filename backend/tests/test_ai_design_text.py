@@ -349,3 +349,40 @@ class TestHonestSummariesSurvive:
     @pytest.mark.parametrize("text", ["Brasi devorda.", "Bralar yoritadi.", "Brada yorug'lik."])
     def test_suffixed_bra_flagged(self, text):
         assert txt.summary_problems(text, make())
+
+
+class TestOwnColourNamesPassTheCheck:
+    """A summary written from the plan must not be rejected for the colour names it uses itself."""
+
+    @staticmethod
+    def _flags(hex_color):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": hex_color}}, floor=None)
+        return txt._colour_problems(txt._norm(txt.colour_name(hex_color)), plan)
+
+    @staticmethod
+    def _grid():
+        import colorsys
+        out = []
+        for hue in range(0, 360, 5):
+            for s in (0.05, 0.1, 0.12, 0.15, 0.25, 0.4, 0.47, 0.6, 0.9):
+                for l in (0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 0.92):
+                    r, g, b = colorsys.hls_to_rgb(hue / 360, l, s)
+                    out.append("#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255)))
+        out += ["#%02x%02x%02x" % (v, v, v) for v in range(0, 256, 15)]
+        return out
+
+    def test_every_name_on_a_grid_of_colours_passes(self):
+        bad = {h: (txt.colour_name(h), p) for h in self._grid() if (p := self._flags(h))}
+        assert not bad, f"{len(bad)} colours flagged, e.g. {list(bad.items())[:5]}"
+
+    @pytest.mark.parametrize("hex_color", ["#a8dadc", "#5fb3b3", "#e07b39", "#b49090"])
+    def test_reported_cases(self, hex_color):
+        assert self._flags(hex_color) == []
+
+    def test_a_clearly_wrong_word_is_still_flagged(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor=None)
+        assert txt._colour_problems("qizil devor", plan)
+        assert txt._colour_problems("sariq devor", plan)
+        orange = SimpleNamespace(walls={"main": {"type": "paint", "color": "#e07b39"}}, floor=None)
+        assert txt._colour_problems("ko'k devor", orange)
+        assert txt._colour_problems("oltin detallar", orange)

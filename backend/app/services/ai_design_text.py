@@ -43,15 +43,20 @@ def _hls(hex_color: str) -> tuple[float, float, float]:
 
 # family -> (words that claim it, test a colour must pass to back the claim).
 # Only colours with a clear identity are policed; neutrals (white, grey, beige) are too fuzzy to say wrong.
+# Each band covers every colour ``colour_name`` gives that word to, so a summary written from the plan
+# always passes; a word for another hue altogether ("qizil" for a blue) is still caught.
 _COLOUR_CLAIMS: dict[str, tuple[re.Pattern[str], Any]] = {
-    "oltin/sariq": (re.compile(r"\b(oltin|tilla|gold|sariq)"), lambda h, l, s: 35 <= h <= 70 and s >= 0.5 and 0.2 <= l <= 0.88),
+    "oltin": (re.compile(r"\b(oltin|tilla|gold)"), lambda h, l, s: 35 <= h <= 70 and s >= 0.45 and 0.2 <= l <= 0.88),
+    "sariq": (re.compile(r"(?<!to'q )\bsariq"), lambda h, l, s: 35 <= h <= 70 and s >= 0.1),
+    # "to'q sariq" is orange, or a dark yellow: not the plain yellow above
+    "to'q sariq": (re.compile(r"\bto'q sariq"), lambda h, l, s: 15 <= h <= 70 and s >= 0.1),
     "qora": (re.compile(r"\bqora\b|\bqoraroq"), lambda h, l, s: l <= 0.2),
-    "qizil": (re.compile(r"\b(qizil|bordo)"), lambda h, l, s: (h <= 15 or h >= 340) and s >= 0.35),
-    "ko'k": (re.compile(r"\b(ko'k|havorang|moviy|zangori)"), lambda h, l, s: 185 <= h <= 260 and s >= 0.15),
-    "yashil": (re.compile(r"\b(yashil|zaytun|zumrad|moxor)"), lambda h, l, s: 70 <= h <= 170 and s >= 0.12),
-    "pushti": (re.compile(r"\bpushti"), lambda h, l, s: (300 <= h <= 350) and s >= 0.2 and l >= 0.45),
-    "binafsha": (re.compile(r"\b(binafsha|lavanda)"), lambda h, l, s: 255 <= h <= 310 and s >= 0.12),
-    "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 45 and l <= 0.6 and s >= 0.12),
+    "qizil": (re.compile(r"\b(qizil|bordo)"), lambda h, l, s: (h <= 15 or h >= 340) and s >= 0.1),
+    "ko'k": (re.compile(r"\b(ko'k|havorang|moviy|zangori)"), lambda h, l, s: 170 <= h <= 260 and s >= 0.1),
+    "yashil": (re.compile(r"\b(yashil|zaytun|zumrad|moxor)"), lambda h, l, s: 70 <= h <= 170 and s >= 0.1),
+    "pushti": (re.compile(r"\bpushti"), lambda h, l, s: (300 <= h <= 350) and s >= 0.1),
+    "binafsha": (re.compile(r"\b(binafsha|lavanda)"), lambda h, l, s: 255 <= h <= 310 and s >= 0.1),
+    "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 50 and l <= 0.6 and s >= 0.1),
 }
 _WOOD_FLOORS = ("parquet", "laminate")
 
