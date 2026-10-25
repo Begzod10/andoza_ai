@@ -304,3 +304,40 @@ def test_a_pattern_id_in_the_prose_is_said_in_uzbek_and_the_summary_kept():
     plan = make("Polda herringbone naqshli parquet yotadi.")
     assert txt.reconcile_summary(plan) == []
     assert plan.summary == "Polda yelkan naqshli parket yotadi."
+
+
+class TestHonestSummariesSurvive:
+    """The failures of the real answers (eval report, 2026-10-26): honest summaries were thrown away."""
+    CATALOG = ["Stul Yog'och naqshli", "Kulrang divan Verona", "Vitrina Neo", "Uch o'rinli divan", "TV tumba"]
+
+    def test_common_words_not_flagged(self):
+        text = "Yog'och stul, naqshli gilam va kulrang yostiqlar iliq muhit beradi."
+        assert not txt._catalog_problems(txt._norm(text), make(), self.CATALOG)
+
+    def test_distinctive_unchosen_name_flagged(self):
+        problems = txt._catalog_problems("milliy ruhda vitrina neo turadi.", make(), self.CATALOG)
+        assert any("vitrina" in p for p in problems)
+
+    def test_shinam_is_not_track_light(self):
+        plan = make("Shinam va yorug' xona.")
+        assert not txt.summary_problems(plan.summary, plan)
+        assert txt.summary_problems("Trek chiroqlar o'rnatiladi.", make())
+        assert txt.summary_problems("Shina chiroq bor.", make())
+
+    def test_gold_named_oltin(self):
+        assert txt.colour_name("#C9A24B") == "oltin"
+        assert txt.colour_name("#B8860B") == "oltin"
+
+    def test_gold_accent_is_described_as_gold(self):
+        plan = make(walls={"main": {"type": "paint", "color": "#e8dcc8"}, "accent": {"wall": "B", "color": "#B8860B"}})
+        assert "oltin" in txt.describe_plan(plan)
+
+    def test_same_colour_accent_not_described_as_distinct(self):
+        plan = make(walls={"main": {"type": "paint", "color": "#e8dcc8"}, "accent": {"wall": "C", "color": "#E8DCC8"}})
+        assert "ajratiladi" not in txt.describe_plan(plan)
+        plan = make(walls={"main": {"type": "paint", "color": "#e8dcc8"}, "accent": {"wall": "C", "color": "#e9dcc9"}})
+        assert "ajratiladi" not in txt.describe_plan(plan)
+
+    def test_a_clearly_different_accent_is_still_described(self):
+        plan = make(walls={"main": {"type": "paint", "color": "#e8dcc8"}, "accent": {"wall": "C", "color": "#2f2b28"}})
+        assert "C devor" in txt.describe_plan(plan)
