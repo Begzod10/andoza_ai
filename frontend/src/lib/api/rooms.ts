@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { ServiceFeature } from "@/lib/serviceFeatures";
+import type { RoomType } from "@/lib/roomType";
 
 // ---------- Room types ----------
 
@@ -72,7 +73,8 @@ export interface Room {
   apartment_id: string;
   name: string;
   // Synthetic fields — always set by StudioPage.localRoom before being consumed
-  room_type: string;
+  /** The room's kind; null/absent for rooms made before types existed (guess from the name). */
+  room_type?: RoomType | null;
   area: number;
   ceiling_height: number;
   width: number;
@@ -102,12 +104,15 @@ export interface Room {
 
 export interface CreateRoomData {
   name: string;
+  room_type?: RoomType | null;
   ceiling_h: number;
   geometry: RoomGeometryData;
 }
 
 export interface UpdateRoomData {
   name?: string;
+  /** Absent leaves the type as it is; null clears it. */
+  room_type?: RoomType | null;
   ceiling_h?: number;
   geometry?: RoomGeometryData;
   surfaces?: Record<string, unknown>;

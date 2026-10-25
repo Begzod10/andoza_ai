@@ -2231,5 +2231,18 @@
     "shop_name_ph": "For example: Mebel Plus",
     "district": "District",
     "district_ph": "Chilanzar"
+  },
+  "rooms": {
+    "type_label": "Room type",
+    "type_none": "Not set",
+    "type": {
+      "mehmonxona": "Living room",
+      "yotoqxona": "Bedroom",
+      "bolalar": "Kids' room",
+      "oshxona": "Kitchen",
+      "kabinet": "Study",
+      "hammom": "Bathroom",
+      "balkon": "Balcony"
+    }
   }
 }

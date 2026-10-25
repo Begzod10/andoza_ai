@@ -21,6 +21,8 @@ import { cn, formatDecimal } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
 import type { TFunction } from 'i18next'
+import { RoomTypePicker } from '@/components/studio/RoomTypePicker'
+import { guessRoomType } from '@/lib/roomType'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -280,6 +282,8 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
 
   return (
     <div className="space-y-5">
+      <RoomTypePicker />
+
       <div>
         <h1 className="text-2xl font-extrabold text-ink">{t('wizard.shift_balandligi')}</h1>
         <p className="text-sm text-muted mt-1">{t('wizard.shift_izoh')}</p>
@@ -800,7 +804,9 @@ export default function WizardPage() {
         existingApartmentId ??
         createdApartmentIdRef.current ??
         (createdApartmentIdRef.current = (await createApartment({ name: t('wizard.mening_xonadonim') })).id)
-      const room = await createRoom(aptId, { name: t('wizard.xona'), ...roomDimensions() })
+      const roomName = t('wizard.xona')
+      const room_type = useRoomStore.getState().roomType ?? guessRoomType(roomName) ?? undefined
+      const room = await createRoom(aptId, { name: roomName, room_type, ...roomDimensions() })
       setRoomId(room.id)
       // Draft fulfilled — clean up
       if (draftId) {

@@ -11,6 +11,7 @@ import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
+import { RoomTypePicker } from "./RoomTypePicker"
 import { trimLabel, trimProfileDef } from "@/lib/trimProfiles"
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -90,8 +91,11 @@ function PartRow({
   )
 }
 
-export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, initialPinUrl }: AiBuilderSheetProps) {
+export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: roomTypeProp, initialPinUrl }: AiBuilderSheetProps) {
   const { t } = useTranslation()
+  // The picker below changes the room's kind; the next request, preset or layout uses the new one.
+  const pickedType = useRoomStore((s) => s.roomType)
+  const roomType = pickedType ?? roomTypeProp
   const [prompt, setPrompt] = React.useState("")
   // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
   const [image, setImage] = React.useState<File | null>(null)
@@ -279,6 +283,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
     <>
     <BottomSheet open={open} onOpenChange={close} title={t("ai.builder_title")} defaultSnap="full">
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto px-4 pb-4">
+        <RoomTypePicker roomId={roomId} fallback={roomTypeProp} disabled={running} />
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-gray-500">{t("ai.tayyor_uslublar")}</p>
           <div className="flex flex-wrap gap-1.5">

@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand'
+import { isRoomType } from '@/lib/roomType'
 import { defaultRoomName } from '@/lib/defaultNames'
 import { apiGeometryToStoreGeometry, randomElementId } from '@/lib/apiRoomGeometry'
 import type {
@@ -49,6 +50,7 @@ export const createLifecycleSlice: StateCreator<
       roomId: room.id ?? null,
       apartmentId: room.apartment_id ?? null,
       name: room.name ?? defaultRoomName(),
+      roomType: isRoomType(room.room_type) ? room.room_type : null,
       ceilingHeight: Math.round((room.ceiling_h ?? 2.7) * 1000),
       geometry,
       surfaces: (room.surfaces ?? {}) as AppliedSurfaces,
@@ -111,6 +113,7 @@ export const createLifecycleSlice: StateCreator<
       draftId: null,
       roomId: null,
       apartmentId: null,
+      roomType: null,
       name: defaultRoomName(),
       ceilingHeight: 2700,
       geometry: defaultGeometry(),

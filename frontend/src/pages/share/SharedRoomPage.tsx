@@ -20,6 +20,7 @@ import { RoomScene, SceneLighting, BrandedSky, PlacedLights } from "@/pages/stud
 import { FurnitureModels } from "@/features/studio/StudioFurniture";
 import { sunPosition, dayOfYear, siteOf } from "@/lib/sunPosition";
 import { Link2Off, Loader2 } from "lucide-react";
+import { effectiveRoomType } from "@/lib/roomType";
 import { IconBubble, Panel } from "@/components/ui/Panel";
 
 /**
@@ -125,7 +126,7 @@ export default function SharedRoomPage() {
       id: "shared",
       apartment_id: "shared",
       name: roomName || defaultRoomName(),
-      room_type: "mehmonxona",
+      room_type: effectiveRoomType(null, roomName) ?? null,
       area: 0,
       ceiling_height: ceilingHeight / 1000,
       width: (wallB?.length ?? 3000) / 1000,

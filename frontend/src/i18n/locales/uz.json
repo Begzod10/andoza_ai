@@ -2231,5 +2231,18 @@
     "shop_name_ph": "Masalan: Mebel Plus",
     "district": "Tuman",
     "district_ph": "Chilonzor"
+  },
+  "rooms": {
+    "type_label": "Xona turi",
+    "type_none": "Belgilanmagan",
+    "type": {
+      "mehmonxona": "Mehmonxona",
+      "yotoqxona": "Yotoqxona",
+      "bolalar": "Bolalar xonasi",
+      "oshxona": "Oshxona",
+      "kabinet": "Kabinet",
+      "hammom": "Hammom",
+      "balkon": "Balkon"
+    }
   }
 }
