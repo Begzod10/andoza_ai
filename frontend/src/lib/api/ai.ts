@@ -52,9 +52,10 @@ export interface AiDesignPlan {
   floor: { type: string; pattern: string | null; tint: string | null } | null;
   lights: Array<{ type: string; zone: string }>;
   furniture: Array<{ id: string; name: string; role?: FurnitureRole; zone?: string }>;
-  /** Ready-made styles only: the ceiling profile, the skirting and the cornice (null takes one
-   *  off). The AI designer does not send it, so its plans leave all three as they are. */
-  trim?: DesignTrim;
+  /** The ceiling profile, the skirting and the cornice (a null cornice takes it off). A ready-made
+   *  style sends all three; the AI designer sends only the ones it chose (a missing part stays as
+   *  it is), or null when it chose none. */
+  trim?: Partial<DesignTrim> | null;
   /** What the server dropped from the model's answer (an invented id, a bad colour). */
   warnings: string[];
   /** Image designs only: what the picture had and what the catalog lacked. */

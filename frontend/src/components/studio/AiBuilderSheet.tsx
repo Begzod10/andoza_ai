@@ -412,9 +412,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
               )}
               {plan.trim && (
                 <span className="mt-1 block text-xs text-gray-600">
-                  {t("ai.shift_label")}: {t(ceilingDesign(plan.trim.ceiling.design).labelKey)}
-                  {", "}
-                  {plan.trim.cornice ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(plan.trim.cornice.id, "cornice"))}` : t("ai.galtel_yoq")}
+                  {[
+                    plan.trim.ceiling && `${t("ai.shift_label")}: ${t(ceilingDesign(plan.trim.ceiling.design).labelKey)}`,
+                    plan.trim.cornice === undefined
+                      ? null
+                      : plan.trim.cornice
+                        ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(plan.trim.cornice.id, "cornice"))}`
+                        : t("ai.galtel_yoq"),
+                  ].filter(Boolean).join(", ")}
                 </span>
               )}
             </PartRow>

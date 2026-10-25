@@ -28,6 +28,7 @@ import structlog
 
 from app.config import settings
 from app.services.ai_design_text import reconcile_summary
+from app.services.design_presets import load_presets, trim_profiles
 from app.services.design_image import PreparedImage
 from app.services.llm import call_llm
 from app.services.smeta import LIGHT_TYPE_NAMES
@@ -125,6 +126,11 @@ class DesignPlan:
     floor: dict[str, Any] | None = None
     lights: list[dict[str, str]] = field(default_factory=list)
     furniture: list[dict[str, str]] = field(default_factory=list)
+    # The ceiling profile, skirting and cornice, in the shape the studio applies for a ready-made
+    # style (frontend DesignTrim): {"ceiling": {"design": id}, "skirting": {"id": id},
+    # "cornice": {"id": id} | None}. A key that is missing leaves that part as it is; a None
+    # cornice takes it off. None when the model chose no trim at all.
+    trim: dict[str, Any] | None = None
     warnings: list[str] = field(default_factory=list)
     # Image designs only: what the picture had and what the catalog lacked. Kept out of
     # summary because reconcile_summary (rightly) rejects a summary naming things the
@@ -273,9 +279,33 @@ def validate_plan(
         plan.furniture.append({"id": item["id"], "name": item["name"], "role": role})
         kinds.append(category)
 
+    plan.trim = _validate_trim(data.get("trim"), warn)
+
     if plan.is_empty():
         raise DesignError("AI mos tavsiya topa olmadi. Boshqacha yozib ko'ring.")
     return plan
+
+
+def _validate_trim(raw: Any, warn) -> dict[str, Any] | None:
+    """The model's trim ({"ceiling": id, "skirting": id, "cornice": id or null}) in the studio's shape.
+    An unknown profile is dropped with a warning, so that part stays as the room has it; a null
+    ceiling or skirting means the same. Only a null cornice is applied: a room without one."""
+    if not isinstance(raw, dict):
+        return None
+    profiles = trim_profiles()
+    trim: dict[str, Any] = {}
+    for kind, wrap in (("ceiling", "design"), ("skirting", "id"), ("cornice", "id")):
+        if kind not in raw:
+            continue
+        value = raw[kind]
+        if value is None:
+            if kind == "cornice":
+                trim["cornice"] = None
+        elif isinstance(value, str) and value in profiles[kind]:
+            trim[kind] = {wrap: value}
+        else:
+            warn("Noma'lum shift yoki plintus profili o'tkazib yuborildi")
+    return trim or None
 
 
 # The furniture styles (backend/app/schemas/admin_catalog.py FURNITURE_STYLES) as the menu names
@@ -301,6 +331,52 @@ def styles_in_prompt(prompt: str) -> set[str]:
     return {style for style, words in _STYLE_WORDS.items() if words.search(prompt or "")}
 
 
+def first_style_in_prompt(prompt: str) -> str | None:
+    """The style a request names first, by where it appears in the text ("loft va minimalist" →
+    loft); two matches at the same place go by FURNITURE_STYLES order (_STYLE_WORDS keeps it).
+    Position, not FURNITURE_STYLES order, decides: in that order minimalist comes before loft, and
+    the user who wrote "loft va minimalist" asked for a loft room."""
+    found = [
+        (m.start(), n, style)
+        for n, (style, words) in enumerate(_STYLE_WORDS.items())
+        if (m := words.search(prompt or ""))
+    ]
+    return min(found)[2] if found else None
+
+
+def preset_for_style(style: str) -> dict | None:
+    """The ready-made style for a furniture style: the preset with that id first (every furniture
+    style has one), then the first preset whose furnitureStyle it is ("dark" is a zamonaviy preset,
+    but zamonaviy has its own)."""
+    presets = load_presets()
+    if style in presets:
+        return presets[style]
+    return next((p for p in presets.values() if p["furnitureStyle"] == style), None)
+
+
+def _starting_plan(preset: dict) -> dict:
+    """The preset's walls, floor, lights and trim as the model answers them: trim by profile id."""
+    trim = preset["trim"]
+    return {
+        "walls": preset["walls"],
+        "floor": preset["floor"],
+        "lights": preset["lights"],
+        "trim": {
+            "ceiling": trim["ceiling"]["design"] if trim.get("ceiling") else None,
+            "skirting": trim["skirting"]["id"] if trim.get("skirting") else None,
+            "cornice": trim["cornice"]["id"] if trim.get("cornice") else None,
+        },
+    }
+
+
+_CATALOG_ROOM_TYPE = {"bolalar": "yotoqxona", "kabinet": "mehmonxona"}
+_KIDS_NAME = re.compile(r"bolalar|детск|kids", re.I)
+_PREFERRED_PIECES = {
+    "bolalar": lambda i: bool(_KIDS_NAME.search(i.get("name_uz") or "")),
+    "kabinet": lambda i: infer_role(i.get("category"), i.get("name_uz") or "") in ("desk", "desk_chair"),
+}
+
+
 def furniture_menu(
     items: list[dict], room_type: str | None, prompt: str = "",
 ) -> tuple[list[str], dict[str, dict]]:
@@ -311,9 +387,17 @@ def furniture_menu(
     they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
     """
     wanted = styles_in_prompt(prompt)
+    # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
+    # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
+    # desk chair first.
+    catalog_type = _CATALOG_ROOM_TYPE.get(room_type or "", room_type)
+    preferred = _PREFERRED_PIECES.get(room_type or "")
 
     def rank(i: dict) -> int:
-        return 0 if i.get("room_type") in (None, room_type) else 1
+        return 0 if i.get("room_type") in (None, catalog_type) else 1
+
+    def preferred_rank(i: dict) -> int:
+        return 0 if preferred and preferred(i) else 1
 
     def style_rank(i: dict) -> int:
         return 0 if wanted & set(i.get("styles") or []) else 1
@@ -323,7 +407,7 @@ def furniture_menu(
     # Lamps are the plan's lights, not furniture: offered here, a model picks a torsher twice.
     pool = [i for i in items if i.get("category") != "lampa" and not _LIGHT_LIKE.search(i["name_uz"])]
     random.shuffle(pool)
-    pool.sort(key=lambda i: (rank(i), style_rank(i)))
+    pool.sort(key=lambda i: (rank(i), preferred_rank(i), style_rank(i)))
     # With enough pieces made for this room (or for every room), the others are not offered at all:
     # a dressing table has no place in a living room.
     fitting = [i for i in pool if rank(i) == 0]
@@ -357,7 +441,7 @@ Qoidalar:
   Har bir mebelga vazifa (role) bering, "Vazifalar" qatoridan. Joyini o'zimiz hisoblaymiz.
   Mebel qatorida "uslub: ..." bo'lsa, u shu uslubga mos. So'rovda yoki rasmda uslub aniq bo'lsa (masalan neoklassika, hi-tech, milliy), mebelni avval shu uslubdagilardan tanlang. Uslubi yozilmagan mebel hamma uslubga mos. Mos uslubdagi mebel bo'lmasa, eng yaqinini oling.
   Vazifalar: sofa (divan), armchair (kreslo), coffee_table (jurnal stoli), tv_unit (TV tumba), dining_table (ovqat stoli), dining_chair (ovqat stuli, bitta model tanlang: sonini o'zimiz belgilaymiz), bed (karavot), nightstand (tumbochka), desk (yozuv stoli), desk_chair (ish stuli), wardrobe (shkaf), shelf (javon, stellaj), decor (bezak), rug (gilam).
-- Oltin/zarhal talab qilinsa: devor aksenti yoki oboy accent_color uchun haqiqiy oltin tus ishlating (masalan #C9A24B yoki #B8860B), boshqa narsani oltin deb atamang.
+- Shift profili (trim.ceiling), plintus (trim.skirting) va galtel (trim.cornice): faqat xabardagi ro'yxatlardan. cornice null bo'lsa galtel qo'yilmaydi.
 - Bolalar xonasi: yumshoq pastel ranglar (to'yingan, qichituvchi emas), yorqinlik yuqori, qarama-qarshilik past.
 - title: 2-4 so'zli nom.
 - summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring. Uni ENG OXIRIDA, hamma narsani tanlab bo'lgach yozing.
@@ -377,6 +461,7 @@ JSON shakli:
   "floor": {"type": "<pol turi>", "pattern": "<yog'och pol naqshi yoki null>", "tint": "#RRGGBB yoki null"},
   "lights": [{"type": "<chiroq turi>", "zone": "<zona>"}],
   "furniture": [{"id": "F1", "role": "<vazifa>"}],
+  "trim": {"ceiling": "<shift profili yoki null>", "skirting": "<plintus profili yoki null>", "cornice": "<galtel profili yoki null>"},
   "summary": "..."
 }
 Pol naqshi va tint faqat parquet va laminate uchun; plitka va beton uchun null."""
@@ -403,6 +488,7 @@ def build_user_message(
     room_type = room.get("room_type") or "xona turi noma'lum"
     area = room.get("area") or room["width"] * room["depth"]
     lo, hi = furniture_budget(area)
+    profiles = trim_profiles()
     return "\n".join([
         f"Foydalanuvchi so'rovi: {prompt.strip()}",
         "",
@@ -416,10 +502,52 @@ def build_user_message(
         f"Yog'och pol naqshlari: {', '.join(FLOOR_PATTERNS)}",
         f"Oboy naqshlari: {', '.join(p for p in OBOY_PATTERNS if p != 'bolalar')} (bolalar: faqat bolalar xonasi uchun)",
         f"Chiroq turlari: {light_menu}",
+        f"Shift profillari: {', '.join(profiles['ceiling'])}",
+        f"Plintus profillari: {', '.join(profiles['skirting'])}",
+        f"Galtel profillari: {', '.join(profiles['cornice'])}",
         "",
+        *_style_guidance(prompt),
         "Mebel katalogi:",
         *(furniture_lines or ["(katalogda mebel yo'q: furniture bo'sh qolsin)"]),
     ])
+
+
+_STARTING_PLAN_RULE = (
+    "Shu rejadan boshlang. So'rovda aniq aytilgan narsalarni o'zgartiring, qolganini saqlang. "
+    "Pol turi va naqshini, chiroq turlarini sababsiz almashtirmang."
+)
+_NO_STYLE_GUIDANCE = (
+    "Pol turini xona turi va atmosferaga qarab tanlang, har doim parket emas: oshxona va hammomda plitka, "
+    "loft yoki sanoat ruhida beton.",
+    "Qandil faqat klassik va neoklassik ruhda.",
+    "So'ralmagan accent devor qo'ymang.",
+)
+_GOLD_WORDS = re.compile(r"oltin|zarhal|gold|золот", re.I)
+_GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy oltin tus (#C9A24B yoki #B8860B)"
+# "och" from the start of a word only, so "pochta" or "qochma" do not ask for light colours.
+_LIGHT_WORDS = re.compile(r"\boch|yorug['ʻ’]?|светл|light", re.I)
+_LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
+
+
+def _style_guidance(prompt: str) -> list[str]:
+    """The starting plan of the style the request names (or general guidance when it names none),
+    then the gold and light-colour lines when the request asks for them. Ends with a blank line."""
+    style = first_style_in_prompt(prompt)
+    preset = preset_for_style(style) if style else None
+    lines: list[str] = []
+    if preset:
+        lines += [
+            f"Boshlang'ich reja ({STYLE_LABELS.get(style, style)}):",
+            json.dumps(_starting_plan(preset), ensure_ascii=False),
+            _STARTING_PLAN_RULE,
+        ]
+    else:
+        lines += list(_NO_STYLE_GUIDANCE)
+    if _GOLD_WORDS.search(prompt or ""):
+        lines.append(_GOLD_LINE)
+    if _LIGHT_WORDS.search(prompt or ""):
+        lines.append(_LIGHT_LINE)
+    return [*lines, ""]
 
 
 async def design_room(

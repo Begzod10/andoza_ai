@@ -243,10 +243,18 @@ describe('ceiling and trim', () => {
     expect([ds.ceiling, ds.skirting, ds.cornice]).toEqual([before.ceiling, before.skirting, before.cornice])
   })
 
-  it('an AI plan, which has no trim, leaves them alone', () => {
+  it('an AI plan, with null or no trim, leaves them alone', () => {
     useRoomStore.getState().setDesignState({ skirting: { id: 'b052' } })
     applyDesignPlan(plan(), ALL_PARTS, catalog)
+    applyDesignPlan({ ...plan(), trim: null }, ALL_PARTS, catalog)
     expect(useRoomStore.getState().designState.skirting).toEqual({ id: 'b052' })
+  })
+
+  it('an AI plan sets only the parts it chose, the rest stay', () => {
+    useRoomStore.getState().setDesignState({ ceiling: { design: 'flat' }, cornice: { id: 't56' } })
+    applyDesignPlan({ ...plan(), trim: { skirting: { id: 'b055' } } }, ALL_PARTS, catalog)
+    const ds = useRoomStore.getState().designState
+    expect([ds.ceiling, ds.skirting, ds.cornice]).toEqual([{ design: 'flat' }, { id: 'b055' }, { id: 't56' }])
   })
 
   it('undo puts the ceiling and trim back', () => {

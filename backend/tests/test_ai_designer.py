@@ -474,3 +474,111 @@ def test_prompt_lists_roles():
     assert len(ad.FURNITURE_ROLES) == 14
     for role in ad.FURNITURE_ROLES:
         assert role in ad._SYSTEM
+
+
+# --- start from the style's preset, gold/light lines, trim, room-type menu ----------------------
+
+STARTING_PLAN_RULE = (
+    "Shu rejadan boshlang. So'rovda aniq aytilgan narsalarni o'zgartiring, qolganini saqlang. "
+    "Pol turi va naqshini, chiroq turlarini sababsiz almashtirmang."
+)
+NO_STYLE_LINES = (
+    "Pol turini xona turi va atmosferaga qarab tanlang, har doim parket emas: oshxona va hammomda plitka, "
+    "loft yoki sanoat ruhida beton.",
+    "Qandil faqat klassik va neoklassik ruhda.",
+    "So'ralmagan accent devor qo'ymang.",
+)
+GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy oltin tus (#C9A24B yoki #B8860B)"
+LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
+
+
+def _message(prompt, room=None):
+    return ad.build_user_message(prompt, room or ROOM, "chandelier (Qandil)", LINES)
+
+
+def test_style_prompt_embeds_starting_plan():
+    from app.services.design_presets import load_presets
+    message = _message("Loft, g'isht va qora metall")
+    assert "Boshlang'ich reja (Loft)" in message
+    assert STARTING_PLAN_RULE in message
+    loft = load_presets()["loft"]
+    assert json.dumps(loft["floor"], ensure_ascii=False) in message  # concrete, no pattern
+    assert '"ceiling": "non_drop"' in message  # the preset's trim, as the profile ids the model answers with
+
+
+def test_two_styles_use_first():
+    message = _message("loft va minimalist")
+    assert message.count("Boshlang'ich reja") == 1
+    assert "Boshlang'ich reja (Loft)" in message
+
+
+def test_no_style_gets_general_guidance():
+    message = _message("qorong'i, iliq atmosfera")
+    for line in NO_STYLE_LINES:
+        assert line in message
+    assert "Boshlang'ich reja" not in message
+    assert STARTING_PLAN_RULE not in message
+
+
+def test_gold_line_only_when_asked():
+    assert GOLD_LINE not in _message("Neoklassik, och ranglar")
+    assert GOLD_LINE in _message("Klassik, oltin detallar")
+    assert "#C9A24B" not in ad._SYSTEM
+
+
+def test_light_accent_line():
+    assert LIGHT_LINE in _message("Neoklassik, och ranglar")
+    assert LIGHT_LINE not in _message("qorong'i, iliq atmosfera")
+
+
+def test_room_type_none_still_builds():
+    message = _message("loft", {**ROOM, "room_type": None})
+    assert "xona turi noma'lum" in message and "Boshlang'ich reja (Loft)" in message
+
+
+def test_message_lists_trim_profiles():
+    from app.services.design_presets import trim_profiles
+    message = _message("iliq")
+    profiles = trim_profiles()
+    for kind in ("ceiling", "skirting", "cornice"):
+        assert ", ".join(profiles[kind]) in message
+    assert '"trim"' in ad._SYSTEM
+
+
+def test_validate_plan_keeps_known_trim():
+    p = plan(trim={"ceiling": "double_layer", "skirting": "b054", "cornice": "t140"})
+    # the shape the studio applies for a ready-made style (frontend DesignTrim)
+    assert p.trim == {"ceiling": {"design": "double_layer"}, "skirting": {"id": "b054"}, "cornice": {"id": "t140"}}
+    assert p.warnings == []
+    assert plan(trim={"ceiling": "flat", "skirting": "tekis", "cornice": None}).trim["cornice"] is None
+
+
+def test_validate_plan_drops_unknown_trim_profile():
+    p = plan(trim={"ceiling": "dome", "skirting": "b054", "cornice": "t999"})
+    assert p.trim == {"skirting": {"id": "b054"}}  # unknown ones left out: the studio keeps what it has
+    assert len(p.warnings) == 2
+    assert plan(trim={"ceiling": "dome"}).trim is None
+    assert plan().trim is None and plan(trim="flat").trim is None
+
+
+def test_menu_bolalar_prefers_kids_items():
+    items = [
+        {"id": "sofa", "name_uz": "Divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "kids", "name_uz": "Bolalar karavoti", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+    ]
+    _, by_label = ad.furniture_menu(items, "bolalar")
+    order = [v["id"] for v in by_label.values()]
+    assert order[0] == "kids" and order.index("bed") < order.index("sofa")
+
+
+def test_menu_kabinet_prefers_desk():
+    items = [
+        {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "sofa", "name_uz": "Divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "chair", "name_uz": "Ish stuli", "category": "stul", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "mehmonxona", "placement": "pol"},
+    ]
+    _, by_label = ad.furniture_menu(items, "kabinet")
+    order = [v["id"] for v in by_label.values()]
+    assert set(order[:2]) == {"chair", "desk"} and order.index("sofa") < order.index("bed")
