@@ -12,7 +12,7 @@ import { SmetaAskDrawer } from "@/components/smeta/SmetaAskDrawer";
 import { CategorySection } from "@/components/smeta/CategorySection";
 import { CostBreakdown } from "@/components/smeta/CostBreakdown";
 import { StudioTabStrip } from "@/components/studio/StudioTabStrip";
-import { WebOnly } from "@/lib/embedded";
+import { useCompactStudio } from "@/lib/compactStudio";
 import { useAppThemeAttribute } from "@/hooks/useAppThemeAttribute";
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -62,6 +62,7 @@ export default function SmetaPage() {
   // Opened by direct link, outside AppShell — apply the theme here too.
   useAppThemeAttribute();
   const { roomId } = useParams<{ roomId: string }>();
+  const compact = useCompactStudio();
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const { toast } = useToast();
@@ -243,10 +244,10 @@ export default function SmetaPage() {
         </div>
       )}
 
-      {/* Header. Not inside the native app (lib/embedded): there the 3D/Smeta
-          strip below already names the page and leads back, and the small
-          screen is better spent on the smeta. */}
-      <WebOnly>
+      {/* Header. Not on a small screen (the native app or a phone browser, see
+          lib/compactStudio): there the 3D/Smeta strip below already names the
+          page and leads back, and the screen is better spent on the smeta. */}
+      {!compact && (
       <header className="border-b border-line bg-card">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
           <Link
@@ -264,7 +265,7 @@ export default function SmetaPage() {
           )}
         </div>
       </header>
-      </WebOnly>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Stories-style tab navigation — Smeta is a regular scrolling page
