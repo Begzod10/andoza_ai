@@ -143,11 +143,11 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
 _LIGHT_KINDS: dict[str, tuple[re.Pattern[str], frozenset[str]]] = {
     "qandil": (re.compile(r"\bqandil"), frozenset({"chandelier"})),
     "osma chiroq": (re.compile(r"\bosma chiroq"), frozenset({"pendant"})),
-    "bra": (re.compile(r"\bbra\b"), frozenset({"bra"})),
+    "bra": (re.compile(r"\bbra(?:si|lar|da)?\b"), frozenset({"bra"})),
     "torsher": (re.compile(r"\b(torsher|pol chirog)"), frozenset({"floor_lamp"})),
     "LED": (re.compile(r"\bled\b"), frozenset({"led_panel", "led_linear", "led_track"})),
     "spot": (re.compile(r"\b(spot|downlight)"), frozenset({"spotlight", "ies", "downlight"})),
-    "trek": (re.compile(r"\btrek\b|\bshina\b|\bшинн"), frozenset({"track", "led_track"})),
+    "trek": (re.compile(r"\btrek|\bshina(?!m)|\bшинн"), frozenset({"track", "led_track"})),
 }
 
 

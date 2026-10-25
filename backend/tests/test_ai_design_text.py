@@ -308,10 +308,10 @@ def test_a_pattern_id_in_the_prose_is_said_in_uzbek_and_the_summary_kept():
 
 class TestHonestSummariesSurvive:
     """The failures of the real answers (eval report, 2026-10-26): honest summaries were thrown away."""
-    CATALOG = ["Stul Yog'och naqshli", "Kulrang divan Verona", "Vitrina Neo", "Uch o'rinli divan", "TV tumba"]
+    CATALOG = ["Karavoti Stul Yog'och naqshli", "Kulrang divan Verona", "Vitrina Neo", "Uch o'rinli divan", "TV tumba"]
 
     def test_common_words_not_flagged(self):
-        text = "Yog'och stul, naqshli gilam va kulrang yostiqlar iliq muhit beradi."
+        text = "Yog'och karavoti, stul, naqshli gilam va kulrang yostiqlar iliq muhit beradi."
         assert not txt._catalog_problems(txt._norm(text), make(), self.CATALOG)
 
     def test_distinctive_unchosen_name_flagged(self):
@@ -341,3 +341,11 @@ class TestHonestSummariesSurvive:
     def test_a_clearly_different_accent_is_still_described(self):
         plan = make(walls={"main": {"type": "paint", "color": "#e8dcc8"}, "accent": {"wall": "C", "color": "#2f2b28"}})
         assert "C devor" in txt.describe_plan(plan)
+
+    @pytest.mark.parametrize("text", ["Trekli chiroq o'rnatiladi.", "Shinasi bor.", "Treklar yoritadi.", "Shina chiroq."])
+    def test_suffixed_track_words_flagged(self, text):
+        assert txt.summary_problems(text, make())
+
+    @pytest.mark.parametrize("text", ["Brasi devorda.", "Bralar yoritadi.", "Brada yorug'lik."])
+    def test_suffixed_bra_flagged(self, text):
+        assert txt.summary_problems(text, make())
