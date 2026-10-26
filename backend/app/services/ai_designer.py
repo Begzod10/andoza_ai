@@ -381,9 +381,14 @@ def _room_zone(zone: str, wall_of: dict[str, str]) -> str | None:
 
 # Moods that name a ready-made style of their own rather than a furniture style, as a request
 # names them, and how the starting plan is labelled. Not a bare "to'q": "to'q yashil devorlar" asks
-# for a dark green wall, not the dark style.
+# for a dark green wall, not the dark style. Nor a dark colour in English ("dark green walls") or
+# Russian ("тёмно-зелёные"), nor curtains that darken the room ("затемняющие шторы",
+# "qorong'ilashtiruvchi parda").
+_DARK_COLOURS = r"green|blue|navy|brown|gr[ae]y|black|red|wood|walnut|oak|olive|purple|beige|teal"
 _MOOD_WORDS: dict[str, re.Pattern[str]] = {
-    "dark": re.compile(r"qorong['ʻ’]?i|\bdark\b|тёмн|темн", re.I),
+    "dark": re.compile(
+        rf"qorong['ʻ’]?i(?!lash)|\bdark\b(?![\s-]+(?:{_DARK_COLOURS}))|(?<![а-яё])т[её]мн(?!о-)", re.I,
+    ),
 }
 MOOD_LABELS: dict[str, str] = {"dark": "Qorong'i"}
 
