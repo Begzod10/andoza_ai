@@ -206,9 +206,9 @@ _capture: contextvars.ContextVar[dict | None] = contextvars.ContextVar("eval_cap
 _reconcile = ai_designer.reconcile_summary
 
 
-def _recording_reconcile(plan, catalog_names=None):
+def _recording_reconcile(plan, catalog_names=None, piece_styles=None):
     raw = plan.summary
-    problems = _reconcile(plan, catalog_names)
+    problems = _reconcile(plan, catalog_names, piece_styles)
     rec = _capture.get()
     if rec is not None:
         rec.update(raw_summary=raw, summary_kept=not problems, summary_problems=problems)
@@ -350,4 +350,5 @@ async def main():
         print(f"\nplans written to {args.out}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
