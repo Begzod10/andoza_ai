@@ -250,13 +250,25 @@ const DOUBLE_BED_W = 140
 const SINGLE_BED_W = 120
 /** A dining table this long or longer seats six (`chairCount`), cm: a kitchen set seats four. */
 const SIX_SEAT_TABLE = 160
+/**
+ * A balcony narrower than this takes one seat, not two, and the smallest small table: on the eval's
+ * 3 x 1.4 m balcony a second armchair beside a 110 x 60 table was left out in most styles, metres.
+ */
+const NARROW_BALCONY = 1.8
+const narrowBalcony = (roomType: string | undefined, size: RoomSize | undefined) =>
+  roomType === 'balkon' && size !== undefined && size.minSide < NARROW_BALCONY
 
 /**
  * How well a bed suits the room's size: 2 for a double bed in a normal room or a single one in a small
  * room, 1 for one in between (121-139 cm), 0 for the other kind. Any other kind, an unknown room or a
  * bed of unknown width scores 2, so it is never put behind a bed that fits: the order is as before.
+ * A dining table and a narrow balcony's small table are scored by their size too.
  */
-function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
+function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined, roomType: string | undefined): number {
+  // On a narrow balcony the smallest table first, by its footprint (one with none last).
+  if (kind === 'kichik_stol' && narrowBalcony(roomType, size)) {
+    return c.footprint_w && c.footprint_d ? -(c.footprint_w * c.footprint_d) : -Infinity
+  }
   if (kind === 'ovqat_stoli') {
     // Up to four chairs: a table seating six comes after one seating four or fewer.
     const long = Math.max(c.footprint_w ?? 0, c.footprint_d ?? 0)
@@ -279,7 +291,7 @@ function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): n
  * kitchen over a dining table made for it, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
  * A children's piece comes first in a children's room and last anywhere else. A bed that suits the room's
  * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom; a
- * kitchen's table for four comes before a larger one.
+ * kitchen's table for four comes before a larger one; a narrow balcony's smallest small table first.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
@@ -299,7 +311,7 @@ function pick(
       kids && roomType === 'bolalar' ? 1 : 0,
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
       room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
-      sizeFit(kind, c, roomSize),
+      sizeFit(kind, c, roomSize, roomType),
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]
@@ -329,7 +341,8 @@ function resolveWalls(zone: string, wallIds: string[]): string {
 
 /**
  * The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id.
- * `roomSize` (`roomSizeOf`) picks a bed that fits the room; without it the bed is picked as any piece.
+ * `roomSize` (`roomSizeOf`) picks a bed that fits the room, and gives a balcony under 1.8 m across one
+ * seat and the smallest small table; without it these are picked as any piece.
  */
 export function presetPlan(
   id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],
@@ -339,7 +352,10 @@ export function presetPlan(
   if (!preset) return undefined
   const used = new Set<string>()
   const furniture: AiDesignPlan['furniture'] = []
-  const kinds = ROOM_SETS[roomType ?? ''] ?? preset.furniture.map((f) => f.kind)
+  const set = ROOM_SETS[roomType ?? '']
+  // A narrow balcony has room for one seat by its table.
+  const kinds = set && narrowBalcony(roomType, roomSize) ? set.filter((k, i) => k !== 'orindiq' || set.indexOf(k) === i)
+    : set ?? preset.furniture.map((f) => f.kind)
   for (const kind of kinds) {
     const item = pick(kind, catalog, roomType, used, preset.furnitureStyle, roomSize)
     if (!item) continue

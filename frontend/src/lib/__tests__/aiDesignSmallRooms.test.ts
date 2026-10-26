@@ -56,3 +56,25 @@ describe('a floor lamp on the 3 x 1.4 m balcony', () => {
     })
   }
 })
+
+describe('the ready-made set for a balcony under 1.8 m across', () => {
+  const tableArea = (c: CatalogFurniture) => c.footprint_w! * c.footprint_d!
+  for (const roomId of BALCONIES) {
+    it.each(PRESETS)(`${roomId}: %s takes one seat and the smallest small table, and drops neither`, (id) => {
+      const { plan, applied } = applyPreset(id, roomId)
+      const seats = plan.furniture.filter((f) => f.role === 'armchair' || f.role === 'dining_chair')
+      expect(seats).toHaveLength(1)
+      const tables = plan.furniture.filter((f) => f.role === 'coffee_table')
+      expect(tables).toHaveLength(1)
+      const smallest = Math.min(...catalog.filter((c) => c.category === 'stol' && /jurnal/i.test(c.name_uz)).map(tableArea))
+      expect(tableArea(byId.get(tables[0].id)!)).toBe(smallest)
+      expect(applied.dropped.filter((d) => d.role === 'armchair' || d.role === 'dining_chair')).toEqual([])
+    })
+  }
+
+  it('a balcony 1.8 m across or more keeps its two seats and the style\'s own table', () => {
+    const wide = presetPlan('klassik', catalog, 'balkon', undefined, { area: 5.4, minSide: 1.8 })!
+    expect(wide.furniture.filter((f) => f.role === 'armchair' || f.role === 'dining_chair')).toHaveLength(2)
+    expect(wide.furniture.find((f) => f.role === 'coffee_table')!.name).toBe('ZZ Jurnal stoli zarhal')
+  })
+})
