@@ -10,7 +10,7 @@
  * desk only when the desk is what was left out, a nightstand or a chair has no word of its own.
  */
 const ROLE_WORD: Partial<Record<string, string>> = {
-  bed: 'karavot', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba',
+  bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba',
 }
 
 // The start of a word: "tumba" names "tumbasi", not "tumbochka"; an Uzbek apostrophe is inside a word.

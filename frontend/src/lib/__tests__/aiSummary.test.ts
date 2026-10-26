@@ -69,6 +69,11 @@ describe('summaryWithout', () => {
     expect(summaryWithout('Devorlar oq. Gilamlar polda.', [{ name: 'Gilam' }])).toBe('Devorlar oq.')
   })
 
+  it('a bed is named by "krovat" as well as "karavot"', () => {
+    const text = 'Devorlar oq. Ikki kishilik krovat derazaga qaragan.'
+    expect(summaryWithout(text, [{ name: 'ZZ Karavot Grafit', role: 'bed' }])).toBe('Devorlar oq.')
+  })
+
   it('finds a full catalog name whatever its case, and works with no role at all', () => {
     const text = 'Devorlar oq. Burchakda zz pufik turadi.'
     expect(summaryWithout(text, [{ name: 'ZZ Pufik' }])).toBe('Devorlar oq.')
