@@ -39,6 +39,7 @@ from app.services.design_image import (
     prepare_design_image,
 )
 from app.services.llm import budget_exhausted, check_and_increment_budget_for
+from app.services.room_type import ROOM_TYPES
 from app.services.pinterest_pin import (
     NotAPinUrl,
     PinNotFound,
@@ -133,9 +134,19 @@ async def _load_wiring_meters(room_id: uuid.UUID, db: DbSession) -> float | None
 
 class AiDesignRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=500)
-    # The studio knows the room's kind; the stored room does not. Used to put the pieces
-    # made for that kind of room first in the catalog the model sees.
+    # The room's kind as the studio has it, which may be newer than the stored rooms.room_type.
+    # Used to put the pieces made for that kind of room first in the catalog the model sees;
+    # left out or unknown, the stored type is used (see _design_room_type).
     room_type: str | None = Field(default=None, max_length=20)
+
+
+def _design_room_type(requested: str | None, room: Room) -> str | None:
+    """The room type the designer works with: the request's when it is a known type, otherwise
+    the room's stored one. An unknown value is ignored rather than refused: the field is free
+    text, and an older client may send a name the type list no longer has."""
+    if requested in ROOM_TYPES:
+        return requested
+    return getattr(room, "room_type", None)
 
 
 def _room_summary(room: Room, room_type: str | None) -> dict:
@@ -197,7 +208,7 @@ async def _run_design(
     ]
     try:
         plan = await design_room(
-            prompt, _room_summary(room, room_type), furniture, user_id=user_id, image=image,
+            prompt, _room_summary(room, _design_room_type(room_type, room)), furniture, user_id=user_id, image=image,
         )
     except BudgetExceededError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
