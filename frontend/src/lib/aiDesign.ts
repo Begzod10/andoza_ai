@@ -8,7 +8,7 @@ import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import type { FloorPatternId } from '@/lib/floorGeometry'
 import { lightType } from '@/lib/lightCatalog'
 import type { LightTypeId } from '@/lib/lightCatalog'
-import { lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
+import { floorLampSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
 import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
 import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
@@ -79,6 +79,53 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
   return item?.footprint_w && item.footprint_d ? { w: item.footprint_w / 100, d: item.footprint_d / 100, tall } : { ...FALLBACK_SIZE, tall }
 }
 
+/** The main pieces that, when they do not fit, are tried again as a smaller one of their kind. */
+const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa']
+/** How many smaller pieces are tried for each one left out: each try lays out the whole room again. */
+const SWAP_TRIES = 5
+
+type Layout = ReturnType<typeof layoutFurniture>
+const droppedCount = (l: Layout) => l.dropped.reduce((s, d) => s + d.count, 0)
+
+/**
+ * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model and a smaller
+ * footprint. Those sharing a style with it come first, then the smallest.
+ */
+function smallerOfKind(piece: Piece, catalog: CatalogFurniture[]): CatalogFurniture[] {
+  const styles = catalog.find((c) => c.id === piece.id)?.styles ?? []
+  const area = (c: CatalogFurniture) => (c.footprint_w ?? 0) * (c.footprint_d ?? 0) / 1e4
+  const sameStyle = (c: CatalogFurniture) => (c.styles ?? []).some((s) => styles.includes(s))
+  return catalog
+    .filter((c) => c.glb_url && c.id !== piece.id && c.footprint_w && c.footprint_d && area(c) < piece.w * piece.d - 1e-9
+      && roleOf({ id: c.id, name: c.name_uz }, c) === piece.role)
+    .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(a) - area(b))
+}
+
+/**
+ * The layout, with each main piece it left out (a bed, wardrobe or sofa too big for the room)
+ * swapped for a smaller one of its kind from the catalog: the first that is placed with fewer pieces
+ * left out overall is kept. A piece with no such stand-in stays left out.
+ */
+function layoutWithSwaps(pieces: Piece[], catalog: CatalogFurniture[], layout: (ps: Piece[]) => Layout): Layout {
+  let current = pieces
+  let best = layout(current)
+  for (let i = 0; i < current.length; i++) {
+    const piece = current[i]
+    if (!SWAP_ROLES.includes(piece.role) || best.placed.some((p) => p.piece === piece)) continue
+    for (const c of smallerOfKind(piece, catalog).slice(0, SWAP_TRIES)) {
+      const swap: Piece = { id: c.id, name: c.name_uz, role: piece.role, ...sizeOf(c) }
+      const trial = current.map((p, k) => (k === i ? swap : p))
+      const next = layout(trial)
+      if (next.placed.some((p) => p.piece === swap) && droppedCount(next) < droppedCount(best)) {
+        current = trial
+        best = next
+        break
+      }
+    }
+  }
+  return best
+}
+
 /**
  * Puts the chosen parts of a plan into the room, on top of what is there: the wall finish and the
  * floor are replaced, and an earlier design's lights and furniture are replaced: the user's own
@@ -131,21 +178,6 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
   const geometry = useRoomStore.getState().geometry
   const model = roomModel(geometry)
 
-  if (parts.lights) {
-    // An earlier design's lights go; the user's own stay (and new ones are added beside them).
-    for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
-    const nthByZone = new Map<string, number>()
-    for (const light of plan.lights) {
-      const type = lightType(light.type)
-      const key = `${light.zone}:${type.mount === 'wall'}`
-      const nth = nthByZone.get(key) ?? 0
-      nthByZone.set(key, nth + 1)
-      const spot = lightSpot(light.zone, type.mount, model, nth)
-      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
-      applied.lights++
-    }
-  }
-
   if (parts.furniture) {
     // An earlier design's pieces go before the new ones are placed, so they neither stay nor
     // crowd the new ones out; the user's own stay, and the new ones avoid them.
@@ -159,7 +191,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const item = byId.get(p.id)
       return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
     })
-    const { placed, dropped } = layoutFurniture(pieces, model, roomType, taken)
+    const { placed, dropped } = layoutWithSwaps(pieces, catalog, (ps) => layoutFurniture(ps, model, roomType, taken))
     // Each placed piece is its own entry, chairs round a table too (they share one plan line).
     for (const { piece, rect } of placed) {
       store.placeFurniture({
@@ -169,6 +201,35 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     applied.furniture = placed.length
     applied.dropped = dropped
     applied.skipped = dropped.reduce((s, d) => s + d.count, 0)
+  }
+
+  // After the furniture, so a floor lamp can keep off it: the design's pieces and the user's own.
+  if (parts.lights) {
+    // An earlier design's lights go; the user's own stay (and new ones are added beside them).
+    for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
+    const byId = new Map(catalog.map((c) => [c.id, c]))
+    // A rug lies under things: a lamp may stand on it.
+    const solid: Rect[] = useRoomStore.getState().furniture.flatMap((f) => {
+      const item = byId.get(f.furniture_id)
+      if (item && (RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
+      const size = sizeOf(item)
+      return [{ x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }]
+    })
+    const nthByZone = new Map<string, number>()
+    for (const light of plan.lights) {
+      const type = lightType(light.type)
+      const key = `${light.zone}:${type.mount === 'wall'}`
+      const nth = nthByZone.get(key) ?? 0
+      nthByZone.set(key, nth + 1)
+      let spot = lightSpot(light.zone, type.mount, model, nth)
+      if (type.mount === 'floor' && model.walls.length) {
+        const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
+        const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
+        spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
+      }
+      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
+      applied.lights++
+    }
   }
   return applied
 }
