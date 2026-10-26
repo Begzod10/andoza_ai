@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { RoomGeometry } from '@/store/roomStore'
-import { floorLampSpot, furnitureSpot, lightSpot, parseZone, rectBounds, roomModel, type Rect } from '../aiDesignLayout'
+import { floorLampSpot, furnitureSpot, lightSpot, overlaps as overlapsRect, parseZone, rectBounds, roomModel, type Rect } from '../aiDesignLayout'
 
 // 4.0 m (walls A, C) x 3.0 m (walls B, D); lengths are millimetres in the store.
 const room = (): RoomGeometry => ({
@@ -172,15 +172,28 @@ describe('floorLampSpot', () => {
   const lamp = { w: 0.4, d: 0.4 }
   const at = (p: { x: number; z: number }): Rect => ({ ...p, ...lamp, rotation: 0 })
 
-  it('with the walls lined with furniture, stands just beside the piece it was in', () => {
+  it('with the walls lined with furniture, is left out rather than put beside the piece it was in', () => {
     // A ring of pieces 0.6 m deep along every wall: no wall or corner spot is free, the middle is.
     const ring: Rect[] = [
       { x: 0, z: -1.2, w: 4, d: 0.6, rotation: 0 }, { x: 0, z: 1.2, w: 4, d: 0.6, rotation: 0 },
       { x: 1.7, z: 0, w: 0.6, d: 3, rotation: 0 }, { x: -1.7, z: 0, w: 0.6, d: 3, rotation: 0 },
     ]
-    const s = floorLampSpot({ x: 1, z: -1 }, lamp, 'corner_A_B', four(), ring)
-    expect(s.x).toBeCloseTo(1, 5)
-    expect(s.z).toBeCloseTo(-0.9 + 0.2 + 0.05, 5) // the piece's front edge, a lamp's half and a little gap
-    expect(inside(at(s))).toBe(true)
+    expect(floorLampSpot({ x: 1, z: -1 }, lamp, 'corner_A_B', four(), ring)).toBeNull()
+  })
+
+  it('a spot clear of the furniture but in a door swing or past the wall is moved, inside and out of the swing', () => {
+    const withDoor = roomModel({
+      walls: [
+        { id: 'A', length: 4000, elements: [] }, { id: 'B', length: 3000, elements: [] },
+        { id: 'C', length: 4000, elements: [{ id: 'd', type: 'eshik', width: 900, height: 2100, sill_height: 0, position: 1550, positionAuto: false }] },
+        { id: 'D', length: 3000, elements: [] },
+      ],
+    } as RoomGeometry)
+    const swing = withDoor.clear.find((c) => c.kind === 'door')!.rect
+    for (const start of [{ x: swing.x, z: swing.z }, { x: 2.1, z: 0 }]) {
+      const s = floorLampSpot(start, lamp, 'corner_A_B', withDoor, [])!
+      expect(withDoor.inside(at(s))).toBe(true)
+      expect(overlapsRect(at(s), swing)).toBe(false)
+    }
   })
 })

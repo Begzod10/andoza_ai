@@ -331,6 +331,43 @@ describe('what the design really put in the room', () => {
   })
 })
 
+describe('a floor lamp with no clear spot on the 3 x 1.4 m balcony', () => {
+  // The eval's balcony (door in the middle of C) and its zamonaviy pieces, with both seats: the lamp
+  // finds no spot clear of them, the door's swing and the walls.
+  const el = (type: 'eshik' | 'deraza', width: number, position: number) =>
+    ({ id: `${type}-${position}`, type, width, height: 2100, sill_height: type === 'deraza' ? 900 : 0, position, positionAuto: false })
+  const BALCONY = { walls: [
+    { id: 'A', length: 3000, elements: [el('deraza', 2400, 300)] }, { id: 'B', length: 1400, elements: [] },
+    { id: 'C', length: 3000, elements: [el('eshik', 900, 1050)] }, { id: 'D', length: 1400, elements: [] },
+  ] } as RoomGeometry
+  const item = (id: string, name: string, w: number, d: number, category: string) => ({
+    id, name_uz: name, category, store_id: null, store_name: null, room_type: 'mehmonxona', placement: 'pol',
+    price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: w, footprint_d: d, height_cm: 60,
+  })
+  const CATALOG = [item('table', 'ZZ Jurnal stoli marmar', 110, 60, 'stol'), item('chair', 'ZZ Stul', 45, 45, 'stul'), item('arm', 'ZZ Kreslo Soft', 80, 80, 'boshqa')]
+  const LAMP_PLAN: AiDesignPlan = {
+    ...PLAN, summary: "Devorlar oq. Burchakda torsher turadi.",
+    lights: [{ type: 'chandelier', zone: 'center' }, { type: 'floor_lamp', zone: 'corner_C_D' }],
+    furniture: [
+      { id: 'table', name: 'ZZ Jurnal stoli marmar', role: 'coffee_table' }, { id: 'chair', name: 'ZZ Stul', role: 'armchair' },
+      { id: 'arm', name: 'ZZ Kreslo Soft', role: 'armchair' },
+    ],
+  }
+
+  it('the lights row lists only what was put in, the notice names the lamp, the summary drops it', async () => {
+    useRoomStore.setState({ geometry: BALCONY, catalogFurniture: CATALOG as never })
+    aiDesign.mockResolvedValueOnce(LAMP_PLAN)
+    renderSheet({ roomType: 'balkon', onSave: savesOk() })
+    await generate()
+    expect(useRoomStore.getState().lights.map((l) => l.type)).toEqual(['chandelier'])
+    const lightsRow = screen.getByLabelText(/Chiroq/).closest('label')!
+    expect(lightsRow).toHaveTextContent('Qandil')
+    expect(lightsRow).not.toHaveTextContent('Torsher')
+    expect(await screen.findByText('Joy yetmadi: Torsher')).toBeInTheDocument()
+    expect(screen.getByText('Devorlar oq.')).toBeInTheDocument()
+  })
+})
+
 describe('the bar that stays when the sheet is closed', () => {
   async function appliedThenClosed(props: Partial<React.ComponentProps<typeof AiBuilderSheet>> = {}) {
     aiDesign.mockResolvedValueOnce(PLAN)

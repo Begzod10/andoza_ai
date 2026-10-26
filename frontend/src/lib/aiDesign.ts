@@ -46,7 +46,11 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   /** What was put in the room, by name (a stand-in by its own), with how many: chairs round a table count each. */
   placed: Array<{ name: string; count: number }>
   /** The pieces that did not fit and were swapped for a smaller one of their kind, each swap once, with how many. */
-  swapped: Array<{ from: string; to: string; count: number }> }
+  swapped: Array<{ from: string; to: string; count: number }>
+  /** The plan's lights that were put in the room, in its order (`lights` of them). */
+  placedLights: AiDesignPlan['lights']
+  /** The lights left out, by type, with how many: a floor lamp with nowhere clear to stand. */
+  droppedLights: Array<{ type: string; count: number }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
@@ -83,8 +87,11 @@ function sizeOf(item: CatalogFurniture | undefined): { w: number; d: number; tal
   return item?.footprint_w && item.footprint_d ? { w: item.footprint_w / 100, d: item.footprint_d / 100, tall } : { ...FALLBACK_SIZE, tall }
 }
 
-/** The main pieces that, when they do not fit, are tried again as a smaller one of their kind. */
-const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa']
+/**
+ * The pieces that, when they do not fit, are tried again as a smaller one of their kind: the main ones,
+ * and a rug too big for the room (it lies under the rest, so a smaller one moves nothing else).
+ */
+const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa', 'rug']
 /** How many smaller pieces are tried for each one left out: each try lays out the whole room again. */
 const SWAP_TRIES = 5
 
@@ -126,7 +133,7 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
 }
 
 /**
- * The layout, with each main piece it left out (a bed, wardrobe or sofa too big for the room)
+ * The layout, with each main piece it left out (a bed, wardrobe, sofa or rug too big for the room)
  * swapped for a smaller one of its kind from the catalog: the first that is placed with the room's
  * pieces worth more overall (`weight`: the room's main piece outweighs all the rest, and in a bedroom a
  * wardrobe outweighs a nightstand) is kept. A piece with no such stand-in stays left out.
@@ -163,7 +170,7 @@ function layoutWithSwaps(
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string): AppliedCounts {
   const store = useRoomStore.getState()
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [] }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [], placedLights: [], droppedLights: [] }
 
   if (parts.walls && plan.walls.main) {
     const main = plan.walls.main
@@ -259,11 +266,19 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       if (type.mount === 'floor' && model.walls.length) {
         const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
         const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
+        // Nowhere clear of the furniture, the doors and the walls: the lamp is left out, and said to be.
+        if (!moved) {
+          const left = applied.droppedLights.find((d) => d.type === type.id)
+          if (left) left.count++
+          else applied.droppedLights.push({ type: type.id, count: 1 })
+          continue
+        }
         spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
         // The next floor lamp keeps off this one (two in one corner would share its spot).
         solid.push({ x: moved.x, z: moved.z, w: type.sizeM.w, d: type.sizeM.d, rotation: 0 })
       }
       store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
+      applied.placedLights.push(light)
       applied.lights++
     }
   }
