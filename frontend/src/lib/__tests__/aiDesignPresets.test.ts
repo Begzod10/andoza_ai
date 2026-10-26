@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import i18n from '@/i18n'
+import { describe, it, expect, afterEach } from 'vitest'
+import i18n, { applyLanguage, type Language } from '@/i18n'
 import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
@@ -490,6 +490,45 @@ describe('design presets', () => {
     it('a lone dining table becomes the coffee table', () => {
       expect(roleOf(presetPlan(tablePreset, [item('ovqat', 'Ovqat stoli', 'stol')]), 'ovqat')).toBe('coffee_table')
     })
+  })
+})
+
+describe("a ready-made style's summary matches the room it is applied to", () => {
+  afterEach(() => applyLanguage('uz'))
+  const LANGS: Language[] = ['uz', 'ru', 'en']
+  const cases = LANGS.flatMap((lang) => DESIGN_PRESETS.map((p) => [lang, p.id] as const))
+  const FLOOR_WORDS = /parket|laminat|beton|yog'och pol|паркет|ламинат|бетон|деревянн\S* пол|parquet|laminate|concrete|wood floor|herringbone|yelkan|ёлочк/i
+  const BATH_WORDS = /oboy|qandil|torsher|osma chiroq|обо[ия]|люстр|торшер|подвесн|wallpaper|chandelier|floor lamp|pendant/i
+
+  it.each(cases)('%s %s in a kitchen: no wood or concrete floor, and the tile sentence', (lang, id) => {
+    applyLanguage(lang)
+    const summary = presetPlan(id, [], 'oshxona')!.summary
+    expect(summary).not.toMatch(FLOOR_WORDS)
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.floor'))
+    expect(summary).not.toContain(i18n.t('studio.lib.presetRoom.bathroom'))
+  })
+
+  it.each(cases)('%s %s in a bathroom: no wood floor, wallpaper, chandelier or floor lamp; the tile and the bathroom sentences', (lang, id) => {
+    applyLanguage(lang)
+    const summary = presetPlan(id, [], 'hammom')!.summary
+    expect(summary).not.toMatch(FLOOR_WORDS)
+    expect(summary).not.toMatch(BATH_WORDS)
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.floor'))
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.bathroom'))
+  })
+
+  it.each(cases)('%s %s in a living room, a bedroom or a study keeps its own summary', (lang, id) => {
+    applyLanguage(lang)
+    const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+    for (const room of ['mehmonxona', 'yotoqxona', 'kabinet', undefined]) {
+      expect(presetPlan(id, [], room)!.summary, String(room)).toBe(i18n.t(preset.summaryKey))
+    }
+  })
+
+  it('a kitchen keeps the sentences that do not name the floor', () => {
+    // dark: "Dark grey walls and dark parquet ... Low, warm light keeps that mood."
+    applyLanguage('en')
+    expect(presetPlan('dark', [], 'oshxona')!.summary).toBe('Low, warm light keeps that mood. Floor: moisture-resistant tile.')
   })
 })
 

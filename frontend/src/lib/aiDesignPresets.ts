@@ -6,6 +6,7 @@ import type { RoomGeometry } from '@/store/roomStore'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
+import { SENTENCE_END, WORD_START } from '@/lib/aiSummary'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -138,6 +139,39 @@ function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] 
   // A plan whose only lights were lamps still lights the bathroom from the ceiling.
   if (!out.some((l) => ceiling(l.type))) out.unshift({ type: BATH_CENTRE, zone: 'center' })
   return out
+}
+
+/**
+ * The words a preset's summary uses, in uz, ru and en, for what a kitchen or a bathroom takes out:
+ * the summary is read in the language the style is applied in. Word starts, so an ending is matched
+ * too ("parketli", "паркетом", "люстрой").
+ */
+const APOS = "['ʻʼ‘’`]"
+const FLOOR_WORDS = [
+  'parket', 'laminat', 'beton', `yog${APOS}och\\p{L}* pol`, 'yelkan', 'herringbone',
+  'паркет', 'ламинат', 'бетон', 'деревянн\\p{L}* пол', 'ёлочк', 'елочк',
+  'parquet', 'laminate', 'concrete', 'wood\\p{L}* floor',
+]
+const BATH_WORDS = [
+  'oboy', 'qandil', `osma chiroq`, 'torsher',
+  'обо(?:и|ев|ям|ями|ях)(?!\\p{L})', 'люстр', 'подвесн', 'торшер',
+  'wallpaper', 'chandelier', 'pendant', 'floor lamp',
+]
+const wordsRe = (words: string[]) => new RegExp(`${WORD_START}(?:${words.join('|')})`, 'iu')
+const FLOOR_RE = wordsRe(FLOOR_WORDS)
+const BATH_RE = wordsRe(BATH_WORDS)
+
+/**
+ * The preset's summary for a kitchen or a bathroom: the sentences naming what `presetPlan` took out
+ * go (a wood or concrete floor; in a bathroom also wallpaper, a chandelier, a pendant, a floor lamp),
+ * and a sentence for what it put in comes after. Any other room keeps the summary as written.
+ */
+function roomSummary(summary: string, roomType: string | undefined): string {
+  if (!roomType || !WET_ROOMS.has(roomType)) return summary
+  const bathroom = roomType === 'hammom'
+  const kept = summary.trim().split(SENTENCE_END).filter((s) => !FLOOR_RE.test(s) && !(bathroom && BATH_RE.test(s)))
+  const added = [i18n.t('studio.lib.presetRoom.floor'), ...(bathroom ? [i18n.t('studio.lib.presetRoom.bathroom')] : [])]
+  return [...kept, ...added].join(' ')
 }
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
@@ -317,7 +351,7 @@ export function presetPlan(
   const walls = bathroom ? bathroomWalls(preset.walls) : preset.walls
   const lights = bathroom ? bathroomLights(preset.lights) : preset.lights
   return {
-    title: i18n.t(preset.titleKey), summary: i18n.t(preset.summaryKey),
+    title: i18n.t(preset.titleKey), summary: roomSummary(i18n.t(preset.summaryKey), roomType),
     walls: {
       ...walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),

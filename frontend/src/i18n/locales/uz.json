@@ -269,6 +269,10 @@
       "toxtatish": "— to'xtatish"
     },
     "lib": {
+      "presetRoom": {
+        "floor": "Pol: namlikka chidamli kafel.",
+        "bathroom": "Devorlar bo'yalgan, asosiy chiroq shiftda."
+      },
       "preset": {
         "neoklassika": {
           "label": "Neoklassika",

@@ -269,6 +269,10 @@
       "toxtatish": "— stop"
     },
     "lib": {
+      "presetRoom": {
+        "floor": "Floor: moisture-resistant tile.",
+        "bathroom": "The walls are painted, and the main light is on the ceiling."
+      },
       "preset": {
         "neoklassika": {
           "label": "Neoclassical",
