@@ -228,12 +228,14 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
     return problems
 
 
-# A sentence about the furniture: "mebel", a kind of piece, or a style ("uslubdagi", "uslubida",
-# "uslubidagi") given to a chosen piece's name ("minimalist uslubdagi Line va Mono", "Line va Mono
-# minimalist uslubida"). "Minimalist mehmonxona" or "uslubidagi xona" is about the room.
+# A style is given to the furniture when it is said beside it: "mebel", a kind of piece or a word of a
+# chosen piece's name within two words either way ("minimalist divan", "skandinav uslubidagi mebel",
+# "mebel sifatida loft uslubida", "minimalist uslubdagi Line va Mono", "Line va Mono minimalist uslubida").
+# "Minimalist mehmonxona" or "skandinav uslubidagi xonada divan" is about the room.
 _FURNITURE_TALK = re.compile(r"\bmebel|" + "|".join(words.pattern for words, _ in _FURNITURE_KINDS.values()))
-_STYLED_BY = re.compile(r"\buslub(?:i?dagi|ida)\b")
-# "zamonaviy materiallar" are modern materials, not a style of the pieces made of them.
+_NEAR = 2
+# A request may say "minimal" for the style; prose says "minimal miqdorda" (a small amount) too.
+_STYLE_IN_PROSE = {"minimalist": re.compile(r"\bminimalist")}
 _OF_MATERIALS = re.compile(r"\s+material")
 
 
@@ -267,12 +269,21 @@ def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) ->
         text = names_said.sub("mebel", text)
     problems: list[str] = []
     for sentence in _SENTENCE_END.split(text):
-        styled = _STYLED_BY.search(sentence) and names & set(_NAME_WORD.findall(sentence))
-        if not (_FURNITURE_TALK.search(sentence) or styled):
-            continue
+        tokens = list(_NAME_WORD.finditer(sentence))
+        words_of, starts = [t[0] for t in tokens], [t.start() for t in tokens]
+
+        def beside_furniture(m: re.Match[str]) -> bool:
+            first = max(i for i, at in enumerate(starts) if at <= m.start())
+            last = max(i for i, at in enumerate(starts) if at < m.end())
+            near = words_of[max(0, first - _NEAR) : first] + words_of[last + 1 : last + 1 + _NEAR]
+            return any(_FURNITURE_TALK.match(w) or w in names for w in near)
+
         for style, words in _STYLE_WORDS.items():
             claim = f"'{STYLE_LABELS[style]}' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"
-            said = any(not _OF_MATERIALS.match(sentence, m.end()) for m in words.finditer(sentence))
+            said = any(
+                beside_furniture(m) and not _OF_MATERIALS.match(sentence, m.end())
+                for m in _STYLE_IN_PROSE.get(style, words).finditer(sentence)
+            )
             if said and style not in held and claim not in problems:
                 problems.append(claim)
     return problems

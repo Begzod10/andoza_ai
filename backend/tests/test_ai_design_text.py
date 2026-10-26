@@ -934,6 +934,29 @@ class TestTheStyleOfTheFurniture:
         loft = {name: ["loft"] for name in self.CATALOG_STYLES}
         assert txt.summary_problems(text, self.MINIMALIST, piece_styles=loft)
 
+    LOFT = {name: ["loft"] for name in CATALOG_STYLES}
+
+    @pytest.mark.parametrize("text", [
+        "Skandinav uslubidagi xonada divan markazda.",
+        "Mebel va yoritish xonaga zamonaviy atmosfera beradi.",
+        "Mebel minimal miqdorda tanlandi.",
+        "Divan markazda, xona esa minimalist ruhda va juda yorug' bo'lib qoladi.",
+    ])
+    def test_a_style_away_from_the_furniture_is_no_claim_about_it(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.LOFT) == []
+
+    @pytest.mark.parametrize("text", [
+        "Minimalist divan tanlandi.", "Skandinav uslubidagi mebel tanlandi.", "Mebel sifatida zamonaviy uslubda.",
+        "Kreslo va divan skandinav uslubida.",
+    ])
+    def test_a_style_beside_the_furniture_is(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.LOFT)
+
+    def test_an_adjective_beside_a_piece_reads_as_its_style(self):
+        # "zamonaviy ko'rinishga ega" (looks modern) next to the sofa says what "zamonaviy uslubda" says:
+        # a word list cannot tell them apart, so it stays a claim.
+        assert txt.summary_problems("Divan zamonaviy ko'rinishga ega.", self.MINIMALIST, piece_styles=self.LOFT)
+
     def test_reconcile_passes_the_styles_on(self):
         plan = SimpleNamespace(**vars(self.MINIMALIST))
         assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)
