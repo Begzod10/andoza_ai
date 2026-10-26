@@ -378,6 +378,35 @@ describe('a main piece that does not fit', () => {
     expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1 }])
   })
 
+  // A 3.0 x 3.0 m bedroom, door on wall B: a 140 cm bed fits, a 160 does not.
+  const square = (): RoomGeometry => ({
+    walls: ['A', 'B', 'C', 'D'].map((id) => ({ id, length: 3000, elements: id === 'B' ? [door] : [] })),
+  }) as RoomGeometry
+
+  it('takes the largest smaller piece that fits, not the smallest: a 140 cm bed over a 90 cm one', () => {
+    useRoomStore.setState({ geometry: square() })
+    const catalog = [bed('double', 160, 200), bed('single', 90, 200), bed('b140', 140, 200)]
+    applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['b140'])
+  })
+
+  it("a children's bed is not put in a bedroom, but is in a children's room", () => {
+    useRoomStore.setState({ geometry: square() })
+    const catalog = [bed('double', 160, 200), bed('single', 90, 200), { ...item('kids', 'Bolalar karavoti', 120, 190, 'karavot'), styles: [] }]
+    applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['single'])
+    applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'bolalar')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['kids'])
+  })
+
+  it('counts an unstyled piece as one of the same style (it suits every style)', () => {
+    useRoomStore.setState({ geometry: square() })
+    const catalog = [bed('double', 160, 200, ['klassik']), bed('other', 140, 200, ['zamonaviy']),
+      bed('plain', 120, 200), bed('same', 90, 200, ['klassik'])]
+    applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['plain'])
+  })
+
   describe('a wardrobe too wide for the bedroom', () => {
     const cabinet = (id: string, name: string, w: number, d: number, more: Partial<CatalogFurniture> = {}): CatalogFurniture =>
       ({ ...item(id, name, w, d, 'shkaf'), ...more })

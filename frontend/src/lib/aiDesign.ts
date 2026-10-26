@@ -88,21 +88,28 @@ const SWAP_TRIES = 5
 type Layout = ReturnType<typeof layoutFurniture>
 const droppedCount = (l: Layout) => l.dropped.reduce((s, d) => s + d.count, 0)
 
+/** A children's piece, by name: the backend's `_KIDS_NAME`. */
+const KIDS_NAME = /bolalar|детск|kids/i
+
 /**
  * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model, a smaller
  * footprint, standing on the floor and made for this room (or for every room; with no room type,
- * any). Those sharing a style with it come first, then the smallest.
+ * any); a children's piece only in a children's room. Those sharing a style with it come first (an
+ * unstyled piece suits every style), then the largest, so a double bed gives way to the next size
+ * down, not a cot; among those, ones made for this very room before ones for every room.
  */
 function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: string): CatalogFurniture[] {
   const styles = catalog.find((c) => c.id === piece.id)?.styles ?? []
   const room = catalogRoomType(roomType)
   const area = (c: CatalogFurniture) => (c.footprint_w ?? 0) * (c.footprint_d ?? 0) / 1e4
-  const sameStyle = (c: CatalogFurniture) => (c.styles ?? []).some((s) => styles.includes(s))
+  const sameStyle = (c: CatalogFurniture) => styles.length === 0 || !c.styles?.length || c.styles.some((s) => styles.includes(s))
   return catalog
     .filter((c) => c.glb_url && c.id !== piece.id && c.footprint_w && c.footprint_d && area(c) < piece.w * piece.d - 1e-9
       && c.placement === 'pol' && (room === undefined || c.room_type === null || c.room_type === room)
+      && (roomType === 'bolalar' || !KIDS_NAME.test(c.name_uz))
       && roleOf({ id: c.id, name: c.name_uz }, c) === piece.role)
-    .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(a) - area(b))
+    .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(b) - area(a)
+      || Number(b.room_type !== null) - Number(a.room_type !== null))
 }
 
 /**
