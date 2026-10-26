@@ -436,14 +436,25 @@ def _light_said(name: str, sentence_start: bool, tail_said: bool) -> str:
     return said[0].upper() + said[1:] if sentence_start else said
 
 
+# The floor types as the studio's own floor menu names them (Parket, Kafel, Laminat, Beton), so the prose
+# reads the word the user picks the floor by.
+_FLOOR_SAID = {"parquet": "parket", "tile": "kafel", "laminate": "laminat", "concrete": "beton"}
+
+
+def _starts_sentence(m: re.Match[str]) -> bool:
+    before = m.string[: m.start()].rstrip()
+    return not before or before[-1] in ".!?"
+
+
 def _localise(text: str) -> str:
     """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
-    for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
-        text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
+    for raw, uz in {**_LAYING_NAMES, **_FLOOR_SAID}.items():
+        def floor_said(m: re.Match[str], uz: str = uz) -> str:
+            return uz[0].upper() + uz[1:] if _starts_sentence(m) else uz
+        text = re.sub(rf"\b{raw}\b", floor_said, text, flags=re.I)
     for raw in _LIGHT_IDS:
         def said(m: re.Match[str], raw: str = raw) -> str:
-            start = not m.string[: m.start()].strip() or m.string[: m.start()].rstrip()[-1] in ".!?"
-            return _light_said(_LIGHT_SAID[raw], start, bool(_SAID_AFTER.match(m.string, m.end())))
+            return _light_said(_LIGHT_SAID[raw], _starts_sentence(m), bool(_SAID_AFTER.match(m.string, m.end())))
         text = re.sub(rf"\b{_id_pattern(raw)}\b", said, text, flags=re.I)
     return text
 

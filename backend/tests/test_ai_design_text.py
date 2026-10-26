@@ -684,3 +684,30 @@ class TestColourWordsThatAreNotThePaint:
         plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor=None)
         assert txt._colour_problems("qizil devor va qora metall.", plan)
         assert txt._colour_problems("devorlar qora, metall oyoqli stol.", plan)
+
+
+class TestFloorIdsAreSaidInUzbek:
+    """The eval (2026-10-26) kept "Pol tile turi tanlangan": the floor's id, read as it is in the studio."""
+
+    def test_the_minimalist_case(self):
+        text = "Pol tile turi tanlangan, naqshsiz va rangsiz, bu xona yorqinligini ta'minlaydi."
+        assert txt._localise(text) == "Pol kafel turi tanlangan, naqshsiz va rangsiz, bu xona yorqinligini ta'minlaydi."
+
+    @pytest.mark.parametrize(("raw", "said"), [
+        ("tile", "kafel"), ("concrete", "beton"), ("parquet", "parket"), ("laminate", "laminat"), ("Tile", "kafel"),
+    ])
+    def test_each_floor_type_mid_sentence(self, raw, said):
+        assert txt._localise(f"Polga {raw} tanlandi.") == f"Polga {said} tanlandi."
+
+    def test_a_floor_id_starting_a_sentence_keeps_its_capital(self):
+        # The neoklassik summary of the eval came out as "... tanlandi. parket pol yelkan naqshida".
+        assert txt._localise("Devorlar bej. Parquet pol herringbone naqshida.") == "Devorlar bej. Parket pol yelkan naqshida."
+        assert txt._localise("Tile pol salqin.") == "Kafel pol salqin."
+
+    def test_only_whole_words(self):
+        assert txt._localise("Tiles va tilet.") == "Tiles va tilet."
+
+    def test_the_minimalist_summary_is_kept_in_uzbek(self):
+        plan = make("Pol tile turi tanlangan, naqshsiz va rangsiz.", floor={"type": "tile", "pattern": None, "tint": None})
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == "Pol kafel turi tanlangan, naqshsiz va rangsiz."
