@@ -905,6 +905,28 @@ class TestTheStyleOfTheFurniture:
         assert txt.summary_problems(text, plan, piece_styles=styles) == []
         assert txt.summary_problems("Zamonaviy divan va stellaj tanlandi.", plan, piece_styles=styles)
 
+    @staticmethod
+    def _named(*names):
+        return _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}},
+                          {"type": "parquet", "pattern": None, "tint": None}, ["chandelier"], list(names))
+
+    @pytest.mark.parametrize(("text", "name", "styles"), [
+        ("ZZ Stellaj Loft devor oldida turadi.", "ZZ Stellaj Loft", ["skandinav"]),
+        ("Stellaj Loft devor oldida turadi.", "ZZ Stellaj Loft", ["skandinav"]),
+        ("Klassik divan markazda turadi.", "Klassik divan", ["zamonaviy"]),
+    ])
+    def test_a_style_word_in_a_chosen_piece_s_name_is_its_name(self, text, name, styles):
+        assert txt.summary_problems(text, self._named(name), piece_styles={name: styles}) == []
+
+    def test_a_style_claimed_beside_such_a_name_is_still_read(self):
+        styles = {"ZZ Stellaj Loft": ["skandinav"]}
+        assert txt.summary_problems("Loft uslubidagi stellaj tanlandi.", self._named("ZZ Stellaj Loft"), piece_styles=styles)
+
+    def test_the_plan_s_own_description_passes(self):
+        plan = self._named("ZZ Stellaj Loft", "Klassik divan", "ZZ Kreslo Skandi")
+        styles = {"ZZ Stellaj Loft": ["skandinav"], "Klassik divan": ["zamonaviy"], "ZZ Kreslo Skandi": ["milliy"]}
+        assert txt.summary_problems(txt.describe_plan(plan), plan, piece_styles=styles) == []
+
     def test_reconcile_passes_the_styles_on(self):
         plan = SimpleNamespace(**vars(self.MINIMALIST))
         assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)

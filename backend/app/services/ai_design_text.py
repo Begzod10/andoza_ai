@@ -236,6 +236,18 @@ _STYLED_BY = re.compile(r"\buslubdagi\b(.*)")
 _OF_MATERIALS = re.compile(r"\s+material")
 
 
+def _names_said(plan: Any) -> re.Pattern[str] | None:
+    """The chosen pieces' names as a text says them: whole, or without their short words ("Stellaj Loft"
+    for "ZZ Stellaj Loft"), any spacing, the longest first."""
+    said: set[str] = set()
+    for f in plan.furniture:
+        words = _NAME_WORD.findall(_norm(f.get("name", "")))
+        for kept in (words, [w for w in words if len(w) >= 3]):
+            if kept:
+                said.add(r"\s+".join(map(re.escape, kept)))
+    return re.compile(r"\b(?:" + "|".join(sorted(said, key=len, reverse=True)) + r")\b") if said else None
+
+
 def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) -> list[str]:
     """A style given to the furniture that no chosen piece has. A piece with no style suits every style,
     and so does one *piece_styles* does not know."""
@@ -248,6 +260,10 @@ def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) ->
     held = {style for styles in chosen for style in styles}
     names = {w for f in plan.furniture for w in _NAME_WORD.findall(_norm(f.get("name", "")))
              if len(w) >= 4 and w not in _NAME_FILLER}
+    # A chosen piece's name is read as "mebel": it names a piece, and a style word of its own ("ZZ Stellaj
+    # Loft", "Klassik divan") is the shop's name, no claim; a style said beside it still is.
+    if names_said := _names_said(plan):
+        text = names_said.sub("mebel", text)
     problems: list[str] = []
     for sentence in _SENTENCE_END.split(text):
         after = _STYLED_BY.search(sentence)
