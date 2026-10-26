@@ -28,7 +28,7 @@ from typing import Any
 import structlog
 
 from app.config import settings
-from app.services.ai_design_text import describe_plan, reconcile_summary
+from app.services.ai_design_text import _ANY_COLOUR, describe_plan, reconcile_summary
 from app.services.design_presets import load_presets, trim_profiles
 from app.services.design_image import PreparedImage
 from app.services.llm import call_llm
@@ -658,7 +658,7 @@ _NO_STYLE_GUIDANCE = (
 # A room type's plan is a suggestion, not the user's choice: the request's colours and materials
 # win over it, and none of it is held "without reason" as a named style's plan is.
 _DEFAULT_PLAN_RULE = (
-    "Uslub aytilmagan: bu reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
+    "Uslub aytilmagan: quyidagi reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
     "So'rovdagi rang, atmosfera va material istaklari (masalan iliq ranglar, yorqin, to'q, yog'och) undan ustun: "
     "devor, pol va ranglarni shularga moslab o'zgartiring. So'rovda aytilmagan narsalarda shu rejaga tayaning."
 )
@@ -672,18 +672,39 @@ _LIGHT_WORDS = re.compile(
 _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 # Kitchens and bathrooms are tiled whatever the style: a preset's wooden floor is not kept there.
 _TILE_ROOMS = ("oshxona", "hammom")
+# Words of colour or mood in a request with no style. The room type's plan then sends no wall colours:
+# the model, given a grey wall, keeps it for "iliq ranglar".
+_MOOD_COLOUR_WORDS = re.compile(r"\biliq\w*|\byorqin\w*|\bto'q(?:roq)?\b|\bsokin\w*|\bquyuq\w*")
+
+
+def _asks_for_colours(prompt: str) -> bool:
+    """Whether *prompt* names a colour, a light or dark tone, or a mood ("iliq ranglar", "sokin")."""
+    text = re.sub(_APOS, "'", (prompt or "").lower())
+    return bool(
+        _MOOD_COLOUR_WORDS.search(text) or _ANY_COLOUR.search(text)
+        or _LIGHT_WORDS.search(text) or _GOLD_WORDS.search(text)
+    )
+
+
+def _room_type_plan(preset: dict, wall_ids: list[str], prompt: str) -> dict:
+    """The room type's starting plan as a suggestion: never an accent wall nobody asked for, and no
+    wall colours at all when the request has colours or a mood of its own."""
+    start = _starting_plan(preset, wall_ids)
+    start["walls"].pop("accent", None)
+    if _asks_for_colours(prompt):
+        del start["walls"]
+    return start
 
 
 def _style_guidance(
     prompt: str, wall_ids: list[str], room_type: str | None = None, has_image: bool = False,
 ) -> list[str]:
     """The starting plan of the style or mood the request names; when it names none, the room type's
-    own as a suggestion with the general floor and chandelier guidance (only that guidance for a room
-    of no known type, or with a photo, which is the style itself); then the gold and light-colour lines when the request asks for them. Ends with
+    own as a suggestion, with the general guidance (only that guidance for a room of no known type,
+    or with a photo, which is the style itself); then the gold and light-colour lines when the request asks for them. Ends with
     a blank line."""
     choice = _starting_choice(prompt)
-    named = choice is not None
-    choice = choice or (None if has_image else _room_type_choice(room_type))
+    default = None if choice or has_image else _room_type_choice(room_type)
     lines: list[str] = []
     if choice:
         label, preset = choice
@@ -693,11 +714,20 @@ def _style_guidance(
         lines += [
             f"Boshlang'ich reja ({label}):",
             json.dumps(start, ensure_ascii=False),
-            _STARTING_PLAN_RULE if named else _DEFAULT_PLAN_RULE,
+            _STARTING_PLAN_RULE,
         ]
-        if not named:
-            # Not the accent line: the room type's plan decides the accent wall itself.
-            lines += list(_NO_STYLE_GUIDANCE[:2])
+    elif default:
+        label, preset = default
+        start = _room_type_plan(preset, wall_ids, prompt)
+        if room_type in _TILE_ROOMS:
+            start["floor"] = {"type": "tile", "pattern": None, "tint": None}
+        # The rule first, so the model reads the plan as the suggestion it is.
+        lines += [
+            _DEFAULT_PLAN_RULE,
+            f"Boshlang'ich reja ({label}):",
+            json.dumps(start, ensure_ascii=False),
+            *_NO_STYLE_GUIDANCE,
+        ]
     else:
         lines += list(_NO_STYLE_GUIDANCE)
     if _GOLD_WORDS.search(prompt or ""):

@@ -551,7 +551,7 @@ def test_no_style_gets_general_guidance():
 # --- a room type's own starting style when the request names none ---------------------------------
 
 SOFT_PLAN_RULE = (
-    "Uslub aytilmagan: bu reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
+    "Uslub aytilmagan: quyidagi reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
     "So'rovdagi rang, atmosfera va material istaklari (masalan iliq ranglar, yorqin, to'q, yog'och) undan ustun: "
     "devor, pol va ranglarni shularga moslab o'zgartiring. So'rovda aytilmagan narsalarda shu rejaga tayaning."
 )
@@ -573,8 +573,37 @@ def test_a_room_type_s_plan_gives_way_to_the_request_s_colours():
     assert _plan_label(message) == "Zamonaviy"
     assert "rang" in SOFT_PLAN_RULE and "ustun" in SOFT_PLAN_RULE
     assert STARTING_PLAN_RULE not in message
-    # the general floor and chandelier guidance still holds; the plan itself decides the accent wall
-    assert NO_STYLE_LINES[0] in message and NO_STYLE_LINES[1] in message
+    # the general guidance still holds, the accent wall line too
+    for line in NO_STYLE_LINES:
+        assert line in message
+
+
+def test_a_room_type_s_plan_sends_no_wall_colours_when_the_request_has_its_own():
+    message = _message("Iliq ranglar")  # zamonaviy: #d9d6d0 walls, a #8c8a86 accent
+    assert "#d9d6d0" not in message and "#8c8a86" not in message
+    start = _starting("Iliq ranglar", WALLS)
+    assert "walls" not in start and {"floor", "lights", "trim"} <= set(start)
+
+
+def test_a_room_type_s_plan_keeps_the_wall_colour_but_never_an_accent():
+    start = _starting("Shinam mehmonxona", WALLS)
+    assert start["walls"] == {"main": {"type": "paint", "color": "#d9d6d0"}}
+    assert NO_STYLE_LINES[2] in _message("Shinam mehmonxona")
+
+
+@pytest.mark.parametrize(("prompt", "colours"), [
+    ("Iliq ranglar", True), ("yorqin xona", True), ("to'q devorlar", True), ("toʻq devorlar", True),
+    ("och tuslar", True), ("sokin", True), ("quyuq ranglar", True), ("kulrang devor", True),
+    ("Yashil va oq", True), ("oltin detallar", True), ("светлая", True),
+    ("Shinam mehmonxona", False), ("ochiq oshxona", False), ("keng va qulay", False),
+])
+def test_colour_and_mood_words_take_the_wall_colours_out_of_the_room_type_s_plan(prompt, colours):
+    assert ("walls" not in _starting(prompt, WALLS)) is colours
+
+
+def test_the_soft_rule_comes_before_the_room_type_s_plan():
+    message = _message("Shinam mehmonxona")
+    assert message.index(SOFT_PLAN_RULE) < message.index("Boshlang'ich reja")
 
 
 def test_a_named_style_wins_over_the_room_type_s_own():
