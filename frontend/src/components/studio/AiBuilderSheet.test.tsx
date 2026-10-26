@@ -486,6 +486,26 @@ describe('a ready-made style in this room', () => {
     expect(placed()).not.toContain('sofa')
     expect(placed()).not.toContain('coffee')
   })
+
+  it("a kitchen cabinet too big for the room is never swapped for a clothes wardrobe", async () => {
+    const piece = (id: string, name: string, category: string, room_type: string | null, w: number, d: number) => ({
+      id, name_uz: name, category, store_id: null, store_name: null, room_type, placement: 'pol',
+      price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: w, footprint_d: d, styles: [],
+    })
+    const catalog = [
+      piece('dining', 'Oshxona stoli', 'stol', 'oshxona', 120, 80),
+      piece('chair', 'Oshxona stuli', 'stul', 'oshxona', 45, 50),
+      piece('cabinet', 'Oshxona shkafi', 'shkaf', 'oshxona', 600, 60),
+      piece('wardrobe', 'Kiyim shkafi', 'shkaf', null, 100, 60),
+    ]
+    const placed = () => useRoomStore.getState().furniture.map((f) => f.furniture_id)
+    useRoomStore.setState({ catalogFurniture: catalog as never, geometry: room(4000, 3500) })
+    renderSheet({ roomType: 'oshxona' })
+    fireEvent.click(screen.getByText('Hi-Tech'))
+    await waitFor(() => expect(placed()).toContain('dining'))
+    expect(placed()).not.toContain('cabinet')
+    expect(placed()).not.toContain('wardrobe')
+  })
 })
 
 describe('zoneLabel', () => {

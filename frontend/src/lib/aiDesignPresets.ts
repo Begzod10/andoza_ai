@@ -30,6 +30,12 @@ const KIND_ROLE: Record<Kind, FurnitureRole> = {
   kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf',
 }
 
+/**
+ * Kinds whose own role always wins: a kitchen or bath cabinet is a shelf, never the wardrobe its
+ * "shkaf" reads as, or a layout too small for it would swap in a clothes wardrobe.
+ */
+const KIND_ROLE_WINS: ReadonlySet<Kind> = new Set<Kind>(['oshxona_shkafi', 'hammom_shkafi'])
+
 const text = (pattern: RegExp) => (c: CatalogFurniture) => pattern.test(`${c.category} ${c.name_uz}`)
 const roleIs = (role: FurnitureRole) => (c: CatalogFurniture) => inferRole(c.category, c.name_uz) === role
 /** A cupboard of any kind (`inferRole` reads a "shkaf" as a wardrobe, a "javon" as a shelf). */
@@ -267,7 +273,7 @@ export function presetPlan(
     // The piece's own role wins only inside the kind's group: a bedside table picked as a TV unit,
     // or a dining table as a coffee table, would stand in a group with no anchor and be dropped.
     const kindRole = KIND_ROLE[kind]
-    const role = ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
+    const role = !KIND_ROLE_WINS.has(kind) && ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent
