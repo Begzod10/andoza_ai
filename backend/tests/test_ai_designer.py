@@ -513,7 +513,7 @@ def test_two_styles_use_first():
 
 
 def test_no_style_gets_general_guidance():
-    message = _message("qorong'i, iliq atmosfera")
+    message = _message("iliq, sokin atmosfera")
     for line in NO_STYLE_LINES:
         assert line in message
     assert "Boshlang'ich reja" not in message
@@ -697,3 +697,48 @@ def test_a_tile_floor_answer_is_kept_against_a_wooden_starting_preset():
     tile = {"type": "tile", "pattern": None, "tint": None}
     p = ad.validate_plan({**GOOD, "floor": tile}, BY_LABEL, WALLS, starting_preset=load_presets()["zamonaviy"])
     assert p.floor == tile
+
+
+# --- moods that pick a ready-made style ----------------------------------------------------------
+
+@pytest.mark.parametrize(("prompt", "preset"), [
+    ("qorong'i, sokin mehmonxona", "dark"),
+    ("qorongʻi xona", "dark"),
+    ("dark mood", "dark"),
+    ("тёмная гостиная", "dark"),
+    ("to'q yashil devorlar", None),  # a dark colour is not the dark style
+    ("qorong'i loft", "dark"),
+    ("loft, qorong'i", "loft"),
+])
+def test_the_dark_mood_starts_from_the_dark_preset_where_it_comes_first(prompt, preset):
+    found = ad.starting_preset(prompt)
+    assert (found["id"] if found else None) == preset
+
+
+def test_a_dark_request_starts_from_the_dark_plan():
+    start = _starting("qorong'i, sokin mehmonxona", ["A", "B", "C", "D"])
+    assert start["walls"]["accent"] == {"wall": "C", "color": "#1a1a1a"}
+    assert start["trim"]["ceiling"] == "border"
+    assert "Boshlang'ich reja (Qorong'i)" in _message("qorong'i, sokin mehmonxona")
+
+
+def test_a_dark_kitchen_still_starts_from_a_tile_floor():
+    message = _message("qorong'i oshxona", {**ROOM, "room_type": "oshxona"})
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
+
+
+def test_a_dark_request_puts_the_dark_style_s_furniture_first():
+    items = [_styled("loft", ["loft"]), _styled("modern", ["zamonaviy"])]
+    _, by_label = ad.furniture_menu(items, "mehmonxona", "qorong'i, sokin")
+    assert by_label["F1"]["id"] == "modern"
+    # a furniture style the request names is still the one that comes first
+    _, by_label = ad.furniture_menu(items, "mehmonxona", "qorong'i loft")
+    assert by_label["F1"]["id"] == "loft"
+
+
+async def test_a_dark_answer_keeping_the_border_ceiling_keeps_its_settings():
+    reply = SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps({**GOOD, "trim": {"ceiling": "border"}}))])
+    with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+        p = await ad.design_room("qorong'i, sokin mehmonxona", ROOM, ITEMS, user_id="u")
+    assert p.trim["ceiling"] == {"design": "border", "settings": {"color": "#2f2f2f", "strip": True, "stripK": 2700}}

@@ -379,10 +379,50 @@ def _room_zone(zone: str, wall_of: dict[str, str]) -> str | None:
     return None
 
 
+# Moods that name a ready-made style of their own rather than a furniture style, as a request
+# names them, and how the starting plan is labelled. Not a bare "to'q": "to'q yashil devorlar" asks
+# for a dark green wall, not the dark style.
+_MOOD_WORDS: dict[str, re.Pattern[str]] = {
+    "dark": re.compile(r"qorong['ʻ’]?i|\bdark\b|тёмн|темн", re.I),
+}
+MOOD_LABELS: dict[str, str] = {"dark": "Qorong'i"}
+
+
+def _starting_choice(prompt: str) -> tuple[str, dict] | None:
+    """The plan label and ready-made style the request names first: a furniture style's preset or a
+    mood's own. Position decides, as between styles ("qorong'i loft" is the dark style, "loft,
+    qorong'i" the loft one); at the same place a furniture style goes first."""
+    found = [
+        (m.start(), n, kind, key)
+        for kind, words in ((0, _STYLE_WORDS), (1, _MOOD_WORDS))
+        for n, (key, pattern) in enumerate(words.items())
+        if (m := pattern.search(prompt or ""))
+    ]
+    if not found:
+        return None
+    _, _, kind, key = min(found, key=lambda f: (f[0], f[2], f[1]))
+    if kind == 0:
+        preset = preset_for_style(key)
+        return (STYLE_LABELS.get(key, key), preset) if preset else None
+    preset = load_presets().get(key)
+    return (MOOD_LABELS[key], preset) if preset else None
+
+
 def starting_preset(prompt: str) -> dict | None:
-    """The ready-made style the model starts from for *prompt*, or None when it names no style."""
-    style = first_style_in_prompt(prompt)
-    return preset_for_style(style) if style else None
+    """The ready-made style the model starts from for *prompt*, or None when it names none."""
+    choice = _starting_choice(prompt)
+    return choice[1] if choice else None
+
+
+def furniture_styles_for_prompt(prompt: str) -> set[str]:
+    """The furniture styles whose pieces the menu puts first: those the request names, or, when it
+    names none, the furniture style of the ready-made style it starts from (a dark room is furnished
+    zamonaviy)."""
+    named = styles_in_prompt(prompt)
+    if named:
+        return named
+    preset = starting_preset(prompt)
+    return {preset["furnitureStyle"]} if preset and preset.get("furnitureStyle") else set()
 
 
 def _starting_plan(preset: dict, wall_ids: list[str]) -> dict:
@@ -432,7 +472,7 @@ def furniture_menu(
     cut where it matters least; among them, pieces of a style the request names come first, so
     they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
     """
-    wanted = styles_in_prompt(prompt)
+    wanted = furniture_styles_for_prompt(prompt)
     # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
     # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
     # desk chair first.
@@ -581,17 +621,17 @@ _TILE_ROOMS = ("oshxona", "hammom")
 
 
 def _style_guidance(prompt: str, wall_ids: list[str], room_type: str | None = None) -> list[str]:
-    """The starting plan of the style the request names (or general guidance when it names none),
+    """The starting plan of the style or mood the request names (or general guidance when it names none),
     then the gold and light-colour lines when the request asks for them. Ends with a blank line."""
-    style = first_style_in_prompt(prompt)
-    preset = preset_for_style(style) if style else None
+    choice = _starting_choice(prompt)
     lines: list[str] = []
-    if preset:
+    if choice:
+        label, preset = choice
         start = _starting_plan(preset, wall_ids)
         if room_type in _TILE_ROOMS:
             start["floor"] = {"type": "tile", "pattern": None, "tint": None}
         lines += [
-            f"Boshlang'ich reja ({STYLE_LABELS.get(style, style)}):",
+            f"Boshlang'ich reja ({label}):",
             json.dumps(start, ensure_ascii=False),
             _STARTING_PLAN_RULE,
         ]
