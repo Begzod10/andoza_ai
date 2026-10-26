@@ -93,8 +93,9 @@ type Score = [number, number, number, number, number, number]
  * The catalog piece of this kind that best suits the style, then the room. A piece of the style
  * scores 2, an unstyled one (fits every style) 1, another style 0; the room scores the same way.
  * Style outranks room, but a piece made for another room (a kitchen cabinet in a living room) comes
- * after every piece for this room or any room: it is used only when nothing else fits. A tie keeps
- * catalog order. `styles` may be missing on an old cached catalog.
+ * after every piece for this room or any room: it is used only when nothing else fits. The kind's
+ * preferred name (KIND_PREFER) comes before even that: a kitchen still takes the coffee table, not its
+ * own dining table, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
  * A children's piece comes first in a children's room and last anywhere else.
  */
 function pick(
@@ -111,9 +112,9 @@ function pick(
     const kids = KIDS_NAME.test(c.name_uz)
     const score: Score = [
       kids && roomType !== 'bolalar' ? 0 : 1,
-      room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
       kids && roomType === 'bolalar' ? 1 : 0,
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
+      room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]

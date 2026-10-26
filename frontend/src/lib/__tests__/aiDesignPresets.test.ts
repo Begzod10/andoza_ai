@@ -215,6 +215,11 @@ describe('design presets', () => {
     }
   })
 
+  it.each(DESIGN_PRESETS.map((p) => p.id))('%s in a kitchen still takes the coffee table over the kitchen one for its coffee table', (id) => {
+    const cat = [item('coffee', 'Kofe stoli', 'stol', 'mehmonxona'), item('kitchen-table', 'Oshxona stoli', 'stol', 'oshxona')]
+    expect(presetPlan(id, cat, 'oshxona')!.furniture.map((f) => [f.id, f.role])).toEqual([['coffee', 'coffee_table']])
+  })
+
   it('with nothing of its style, a piece of another style still fills the room', () => {
     const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }]
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')
