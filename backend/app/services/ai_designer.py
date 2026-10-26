@@ -490,8 +490,11 @@ _CATALOG_ROOM_TYPE = {"bolalar": "yotoqxona", "kabinet": "mehmonxona"}
 _KIDS_NAME = re.compile(r"bolalar|детск|kids", re.I)
 _PREFERRED_PIECES = {
     "bolalar": lambda i: bool(_KIDS_NAME.search(i.get("name_uz") or "")),
-    "kabinet": lambda i: infer_role(i.get("category"), i.get("name_uz") or "") in ("desk", "desk_chair"),
 }
+# Roles a room type always offers, whatever room the catalog files the piece under, ahead of the
+# rest: a study borrows living-room pieces, but its desk may be filed under the bedroom. (A
+# children's room needs no entry: it takes bedroom pieces, and beds and desks are filed there.)
+_ALWAYS_ROLES = {"kabinet": ("desk", "desk_chair", "shelf")}
 
 
 def furniture_menu(
@@ -506,13 +509,17 @@ def furniture_menu(
     """
     wanted = furniture_styles_for_prompt(prompt, None if has_image else room_type)
     # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
-    # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
-    # desk chair first.
+    # room takes bedroom pieces, children's ones first; a study takes living-room pieces, plus its
+    # desk, desk chair and shelf from any room, those first.
     catalog_type = _CATALOG_ROOM_TYPE.get(room_type or "", room_type)
     preferred = _PREFERRED_PIECES.get(room_type or "")
+    always = _ALWAYS_ROLES.get(room_type or "", ())
+
+    def always_rank(i: dict) -> int:
+        return 0 if always and infer_role(i.get("category"), i.get("name_uz") or "") in always else 1
 
     def rank(i: dict) -> int:
-        return 0 if i.get("room_type") in (None, catalog_type) else 1
+        return 0 if i.get("room_type") in (None, catalog_type) or always_rank(i) == 0 else 1
 
     def preferred_rank(i: dict) -> int:
         return 0 if preferred and preferred(i) else 1
@@ -525,7 +532,7 @@ def furniture_menu(
     # Lamps are the plan's lights, not furniture: offered here, a model picks a torsher twice.
     pool = [i for i in items if i.get("category") != "lampa" and not _LIGHT_LIKE.search(i["name_uz"])]
     random.shuffle(pool)
-    pool.sort(key=lambda i: (rank(i), preferred_rank(i), style_rank(i)))
+    pool.sort(key=lambda i: (rank(i), always_rank(i), preferred_rank(i), style_rank(i)))
     # With enough pieces made for this room (or for every room), the others are not offered at all:
     # a dressing table has no place in a living room.
     fitting = [i for i in pool if rank(i) == 0]

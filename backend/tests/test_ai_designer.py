@@ -745,6 +745,39 @@ def test_menu_kabinet_prefers_desk():
     assert set(order[:2]) == {"chair", "desk"} and order.index("sofa") < order.index("bed")
 
 
+def _living(n):
+    return [
+        {"id": f"l{k}", "name_uz": f"Zal {k}", "category": "divan", "room_type": "mehmonxona", "placement": "pol"}
+        for k in range(n)
+    ]
+
+
+def test_menu_kabinet_always_offers_a_desk_chair_and_shelf_from_other_rooms_first():
+    study = [
+        {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "chair", "name_uz": "Ofis stuli", "category": "stul", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "shelf", "name_uz": "Kitob javoni", "category": "javon", "room_type": "yotoqxona", "placement": "pol"},
+    ]
+    bed = {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"}
+    items = _living(ad.MAX_CATALOG_IN_PROMPT + 10) + [bed] + study
+    _, by_label = ad.furniture_menu(items, "kabinet")
+    order = [v["id"] for v in by_label.values()]
+    assert set(order[:3]) == {"desk", "chair", "shelf"}
+    assert "bed" not in order and len(order) == ad.MAX_CATALOG_IN_PROMPT
+
+
+def test_menu_mehmonxona_does_not_pull_in_other_rooms_desks():
+    desk = {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "yotoqxona", "placement": "pol"}
+    items = [desk] + _living(10)
+    _, by_label = ad.furniture_menu(items, "mehmonxona")
+    assert [v["id"] for v in by_label.values()] == [f"l{k}" for k in range(10)]
+
+
+def test_menu_kabinet_without_a_desk_still_builds():
+    _, by_label = ad.furniture_menu(_living(10), "kabinet")
+    assert [v["id"] for v in by_label.values()] == [f"l{k}" for k in range(10)]
+
+
 # --- fix round 1 -------------------------------------------------------------------------------
 
 def _room_walls(ids):
