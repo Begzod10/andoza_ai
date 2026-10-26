@@ -106,8 +106,8 @@ const ROOM_SETS: Partial<Record<string, Kind[]>> = {
 }
 
 /** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
-const WET_ROOMS = new Set(['oshxona', 'hammom'])
-const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
+export const WET_ROOMS: ReadonlySet<string> = new Set(['oshxona', 'hammom'])
+export const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
 
 /**
  * A bathroom's walls and lights. Wallpaper does not take the damp: an oboy wall is painted in the
