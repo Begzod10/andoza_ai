@@ -393,7 +393,7 @@ describe('a main piece that does not fit', () => {
     const catalog = [bed('double', 160, 200), item('stand', 'Tumbochka', 45, 40, 'tumbochka')]
     const counts = applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
     expect(useRoomStore.getState().furniture).toHaveLength(0)
-    expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1 }])
+    expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1, role: 'bed' }])
   })
 
 

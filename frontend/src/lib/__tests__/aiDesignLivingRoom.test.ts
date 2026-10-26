@@ -96,7 +96,7 @@ describe('the screenshot living room', () => {
     expect(Math.abs(Math.sin(tables[0].rotation))).toBeCloseTo(1, 5) // long side across the room's long axis
     expect(placed.filter((f) => f.furniture_id === 'wardrobe')).toHaveLength(0)
     expect(placed.filter((f) => f.furniture_id === 'pouf')).toHaveLength(1)
-    expect(applied.dropped).toEqual([{ name: 'Kreslo', count: 2 }, { name: 'Shkaf', count: 1 }])
+    expect(applied.dropped).toEqual([{ name: 'Kreslo', count: 2, role: 'armchair' }, { name: 'Shkaf', count: 1, role: 'wardrobe' }])
     expect(applied.skipped).toBe(3)
     expect(applied.furniture + applied.skipped).toBe(PLAN.furniture.length - 1 + 4) // the chair line stands for four
   })
