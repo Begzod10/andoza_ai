@@ -205,6 +205,16 @@ describe('design presets', () => {
     expect(presetPlan('hitech', cat, 'mehmonxona')!.furniture[0].id).toBe('this-room')
   })
 
+  it("a piece made for another room comes after one for this room or any room, whatever its style", () => {
+    for (const room_type of ['mehmonxona', null]) {
+      const cat = [
+        { ...item('kitchen', 'Oshxona shkafi', 'shkaf', 'oshxona'), styles: ['milliy'] },
+        { ...item('javon', 'Javon', 'shkaf', room_type), styles: ['skandinav'] },
+      ]
+      expect(presetPlan('milliy', cat, 'mehmonxona')!.furniture.map((f) => f.id), String(room_type)).toEqual(['javon'])
+    }
+  })
+
   it('with nothing of its style, a piece of another style still fills the room', () => {
     const cat = [{ ...item('other', 'Divan', 'divan'), styles: ['milliy'] }]
     expect(presetPlan('hitech', cat)!.furniture[0].id).toBe('other')
