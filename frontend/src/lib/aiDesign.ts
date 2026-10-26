@@ -89,11 +89,16 @@ type Layout = ReturnType<typeof layoutFurniture>
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
+/**
+ * A wardrobe for clothes, by name: only such a piece stands in for one. "Shkaf" alone names any
+ * cupboard (a bookcase, a bathroom cabinet), which would be a wardrobe to `inferRole`.
+ */
+const WARDROBE_NAME = /kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб/i
 
 /**
- * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model, a smaller
- * footprint, standing on the floor and made for this room (or for every room; with no room type,
- * any); a children's piece only in a children's room. Those sharing a style with it come first (an
+ * The catalog's pieces that could stand in for `piece`: the same role (for a wardrobe, one named as a
+ * wardrobe for clothes), a 3-D model, a smaller footprint, standing on the floor and made for this
+ * room (or for every room; with no room type, any); a children's piece only in a children's room. Those sharing a style with it come first (an
  * unstyled piece suits every style), then the largest, so a double bed gives way to the next size
  * down, not a cot; among those, ones made for this very room before ones for every room.
  */
@@ -106,7 +111,7 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
     .filter((c) => c.glb_url && c.id !== piece.id && c.footprint_w && c.footprint_d && area(c) < piece.w * piece.d - 1e-9
       && c.placement === 'pol' && (room === undefined || c.room_type === null || c.room_type === room)
       && (roomType === 'bolalar' || !KIDS_NAME.test(c.name_uz))
-      && roleOf({ id: c.id, name: c.name_uz }, c) === piece.role)
+      && (piece.role === 'wardrobe' ? WARDROBE_NAME.test(c.name_uz) : roleOf({ id: c.id, name: c.name_uz }, c) === piece.role))
     .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(b) - area(a)
       || Number(b.room_type !== null) - Number(a.room_type !== null))
 }

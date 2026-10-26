@@ -435,16 +435,33 @@ describe('a main piece that does not fit', () => {
       expect(placedIds()).toEqual([])
     })
 
+    it('is not swapped for a bookcase or a bathroom cabinet, whatever room they are for', () => {
+      const catalog = [big,
+        cabinet('books', 'Kitob shkafi', 90, 35, { room_type: null }),
+        cabinet('bath', 'Hammom shkafi', 60, 45, { room_type: null })]
+      for (const roomType of ['yotoqxona', undefined]) {
+        applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, roomType)
+        expect(placedIds()).toEqual([])
+      }
+    })
+
+    it('is swapped only for a clothes wardrobe, by any of its names', () => {
+      for (const name of ['Kiyim shkafi Nord', 'Garderob', 'Wardrobe Oslo', 'Шкаф для одежды', 'Гардероб Лион']) {
+        applyDesignPlan(wardrobePlan(), ALL_PARTS, [big, cabinet('w', name, 150, 60, { room_type: 'yotoqxona' })], 'yotoqxona')
+        expect(placedIds()).toEqual(['w'])
+      }
+    })
+
     it("is swapped for a bedroom's wardrobe", () => {
       const catalog = [big, cabinet('bath', 'Shkafcha', 60, 30, { room_type: 'hammom' }),
-        cabinet('bedroom', 'Shkaf', 150, 60, { room_type: 'yotoqxona' })]
+        cabinet('bedroom', 'Kiyim shkafi', 150, 60, { room_type: 'yotoqxona' })]
       applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, 'yotoqxona')
       expect(placedIds()).toEqual(['bedroom'])
     })
 
     it("in a children's room, takes a bedroom's wardrobe (the catalog has no children's rooms)", () => {
       const catalog = [big, cabinet('living', 'Shkaf', 120, 50, { room_type: 'mehmonxona' }),
-        cabinet('bedroom', 'Shkaf', 150, 60, { room_type: 'yotoqxona' })]
+        cabinet('bedroom', 'Kiyim shkafi', 150, 60, { room_type: 'yotoqxona' })]
       applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, 'bolalar')
       expect(placedIds()).toEqual(['bedroom'])
     })
