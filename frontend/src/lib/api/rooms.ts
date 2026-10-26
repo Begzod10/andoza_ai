@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { ApiError, apiClient } from "./client";
 import type { ServiceFeature } from "@/lib/serviceFeatures";
 import type { RoomType } from "@/lib/roomType";
 
@@ -120,6 +120,8 @@ export interface UpdateRoomData {
   state?: Record<string, unknown>;
   /** @deprecated use state instead */
   design_state?: Record<string, unknown>;
+  /** The `updated_at` last read: when the room has changed since, nothing is written (`RoomChangedError`). */
+  expected_updated_at?: string;
 }
 
 // ---------- Rooms ----------
@@ -142,14 +144,30 @@ export async function getRoom(roomId: string): Promise<Room> {
   return apiClient<Room>(`/rooms/${roomId}`);
 }
 
+/**
+ * The room was changed elsewhere after the `expected_updated_at` the PATCH sent (409), so nothing was
+ * written. Told by the status: the server's message is in the app's language.
+ */
+export class RoomChangedError extends Error {
+  constructor() {
+    super("Room changed since it was read");
+    this.name = "RoomChangedError";
+  }
+}
+
 export async function updateRoom(
   roomId: string,
   data: UpdateRoomData
 ): Promise<Room> {
-  return apiClient<Room>(`/rooms/${roomId}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+  try {
+    return await apiClient<Room>(`/rooms/${roomId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) throw new RoomChangedError();
+    throw e;
+  }
 }
 
 /** Upload a captured 3D-viewport snapshot (JPEG blob) as the room's project-card thumbnail. */
