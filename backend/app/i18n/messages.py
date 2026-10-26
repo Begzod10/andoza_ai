@@ -202,6 +202,7 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     ("room_type {allowed} dan biri bo'lishi kerak", "room_type должен быть одним из: {allowed}", "room_type must be one of: {allowed}"),
     ("room_type {allowed} dan biri (yoki bo'sh) bo'lishi kerak", "room_type должен быть одним из: {allowed} (или пустым)", "room_type must be one of: {allowed} (or empty)"),
     ("placement {allowed} dan biri bo'lishi kerak", "placement должен быть одним из: {allowed}", "placement must be one of: {allowed}"),
+    ("model_yaw {allowed} dan biri bo'lishi kerak", "model_yaw должен быть одним из: {allowed}", "model_yaw must be one of: {allowed}"),
     ("sort {allowed} dan biri (yoki bo'sh) bo'lishi kerak", "sort должен быть одним из: {allowed} (или пустым)", "sort must be one of: {allowed} (or empty)"),
     ("styles {allowed} dan bo'lishi kerak", "styles должны быть из списка: {allowed}", "styles must be from: {allowed}"),
     ("Noto'g'ri kind — ruxsat etilgan: {allowed}", "Неверный kind — допустимые значения: {allowed}", "Invalid kind — allowed: {allowed}"),

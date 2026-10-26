@@ -12,6 +12,7 @@ class FurnitureOut(BaseModel):
     category: str
     room_type: str | None
     placement: str
+    model_yaw: int = 0
     name_uz: str
     price_uzs: int | None
     # Resolved absolute URLs — the client loads glb_url straight into the

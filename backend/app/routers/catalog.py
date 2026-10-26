@@ -141,6 +141,7 @@ def _furniture_out(request: Request, f: Furniture) -> FurnitureOut:
         category=f.category,
         room_type=f.room_type,
         placement=f.placement,
+        model_yaw=f.model_yaw or 0,  # unset on a row not yet flushed
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
         glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
@@ -182,7 +183,7 @@ async def list_furniture(
     # plain-http request could pin http:// URLs on an https site and bring the
     # mixed-content breakage back for the TTL window.
     cache_key = (
-        f"furniture:{request_base_url(request)}:"
+        f"furniture:v2:{request_base_url(request)}:"
         f"{category}:{room_type}:{q}:{int(has_model)}:{page}:{per_page}"
     )
     cached = await cache_get(cache_key)

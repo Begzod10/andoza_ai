@@ -1,5 +1,7 @@
 import type { CatalogFurniture } from '@/lib/api'
 import type { TKey } from '@/i18n'
+// Type only: modelYaw.ts pulls in three, which this module (read by light pages too) should not.
+import type { ModelYaw } from '@/lib/modelYaw'
 
 export interface MaterialSlot {
   /** Internal GLB material name */
@@ -118,6 +120,16 @@ export interface ResolvedCatalogEntry {
    *  to auto-detect it from the loaded GLB's own geometry once available
    *  (see extractSceneInfo in modelConverter.ts), same as a fresh user import. */
   autoScale: true
+  /** How far to turn the GLB about +Y so it faces the room (see lib/modelYaw).
+   *  `sizeM` is already the turned size; only extents measured from the raw
+   *  GLB need turning. 0 for a row that predates it. */
+  modelYaw: ModelYaw
+}
+
+/** A stored yaw as a quarter turn; anything else (missing in an older cached
+ *  row, or not one of the four) is no turn at all. */
+function asModelYaw(yaw: number | undefined): ModelYaw {
+  return yaw === 90 || yaw === 180 || yaw === 270 ? yaw : 0
 }
 
 /** Undefined for a shop listing with no GLB yet (admin created the entry
@@ -132,5 +144,6 @@ export function catalogToFurnitureEntry(f: CatalogFurniture | undefined): Resolv
     scale: 1,
     sizeM: { w: (f.footprint_w ?? 0) / 100, d: (f.footprint_d ?? 0) / 100, h: 0 },
     autoScale: true,
+    modelYaw: asModelYaw(f.model_yaw),
   }
 }

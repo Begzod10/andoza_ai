@@ -4,6 +4,13 @@ import { Canvas } from "@react-three/fiber";
 import { Bounds, Center, OrbitControls, useGLTF } from "@react-three/drei";
 import { extractSceneInfo } from "@/lib/modelConverter";
 import { describeSize, type MeasuredSize } from "@/lib/modelSize";
+import { detectModelYaw, yawRadians, type ModelYaw, type YawGuess } from "@/lib/modelYaw";
+import type { FurnitureRole } from "@/lib/furnitureRole";
+
+/** What the preview reads of a model: its size, and which way it faces. */
+export type OnMeasured = (size: MeasuredSize | null, front: YawGuess) => void;
+
+const NO_FRONT: YawGuess = { yaw: 0, detected: false };
 
 interface BoundaryState {
   failed: boolean;
@@ -36,20 +43,33 @@ class PreviewErrorBoundary extends Component<{ children: ReactNode }, BoundarySt
   }
 }
 
-function GltfModel({ url, onMeasured }: { url: string; onMeasured?: (size: MeasuredSize | null) => void }) {
+/** A small arrow on the floor in front of the model, pointing +Z: where its front faces after the turn. */
+function FrontArrow() {
+  return (
+    <group position={[0, -0.5, 0.9]} rotation={[Math.PI / 2, 0, 0]} data-testid="front-arrow">
+      <mesh>
+        <coneGeometry args={[0.12, 0.3, 12]} />
+        <meshBasicMaterial color="#e11d48" />
+      </mesh>
+    </group>
+  );
+}
+
+function GltfModel({ url, role, onMeasured }: { url: string; role: FurnitureRole | null; onMeasured?: OnMeasured }) {
   const { scene } = useGLTF(url);
   // Measured the way the studio sizes a catalog model (units detected from the geometry), so the
-  // numbers stored with it are the numbers it will be drawn at.
+  // numbers stored with it are the numbers it will be drawn at. The size is as the file lies, before
+  // the front is turned. A new role (the name or category changed) looks for the front again.
   useEffect(() => {
     if (!onMeasured) return;
     try {
       const { w, d, h } = extractSceneInfo(scene).sizeM;
       const cm = (m: number) => Math.round(m * 1000) / 10;
-      onMeasured({ width_cm: cm(w), depth_cm: cm(d), height_cm: cm(h) });
+      onMeasured({ width_cm: cm(w), depth_cm: cm(d), height_cm: cm(h) }, detectModelYaw(scene, role));
     } catch {
-      onMeasured(null);
+      onMeasured(null, NO_FRONT);
     }
-  }, [scene, onMeasured]);
+  }, [scene, role, onMeasured]);
   return <primitive object={scene} />;
 }
 
@@ -58,27 +78,45 @@ function GltfModel({ url, onMeasured }: { url: string; onMeasured?: (size: Measu
  * upload form — before this, the only feedback was the raw file name, so
  * there was no way to catch a wrong file or a broken export before uploading.
  */
-export function ModelPreview3D({ file, onMeasured, themed = false }: { file: File | null; onMeasured?: (size: MeasuredSize | null) => void; themed?: boolean }) {
+export function ModelPreview3D({
+  file,
+  src = null,
+  yaw,
+  role = null,
+  onMeasured,
+  themed = false,
+}: {
+  file: File | null;
+  /** A model already stored, shown when there is no `file`. */
+  src?: string | null;
+  /** Which way the model faces: turns it so its front is on +Z, and shows an arrow there. */
+  yaw?: ModelYaw;
+  /** What the piece is for: only one with a tall back (a bed, a sofa, a chair) has its front looked for. */
+  role?: FurnitureRole | null;
+  onMeasured?: OnMeasured;
+  themed?: boolean;
+}) {
   const { t } = useTranslation();
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const blobUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const url = blobUrl ?? src;
   const [size, setSize] = useState<MeasuredSize | null>(null);
   const report = useCallback(
-    (next: MeasuredSize | null) => {
+    (next: MeasuredSize | null, front: YawGuess) => {
       setSize(next);
-      onMeasured?.(next);
+      onMeasured?.(next, front);
     },
     [onMeasured],
   );
 
   useEffect(() => {
     return () => {
-      if (url) URL.revokeObjectURL(url);
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [url]);
+  }, [blobUrl]);
 
   // No file, no size: a size measured from an earlier file must not outlive it.
   useEffect(() => {
-    if (!url) report(null);
+    if (!url) report(null, NO_FRONT);
   }, [url, report]);
 
   if (!url) return null;
@@ -97,7 +135,11 @@ export function ModelPreview3D({ file, onMeasured, themed = false }: { file: Fil
           <Suspense fallback={null}>
             <Bounds fit clip observe margin={1.2}>
               <Center>
-                <GltfModel url={url} onMeasured={report} />
+                {/* Detection reads the model in its own frame, so this turn does not reach it. */}
+                <group rotation={[0, yawRadians(yaw), 0]}>
+                  <GltfModel url={url} role={role} onMeasured={report} />
+                </group>
+                {yaw !== undefined && <FrontArrow />}
               </Center>
             </Bounds>
           </Suspense>

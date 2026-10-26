@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { FurnitureStyle } from "../furnitureStyles";
+import type { ModelYaw } from "../modelYaw";
 
 // ---------- Admin: shops and 3D-model catalog ----------
 //
@@ -81,6 +82,8 @@ export interface AdminFurniture {
   placement: AdminPlacement;
   name_uz: string;
   price_uzs: number | null;
+  /** Which way the model faces (degrees about +Y that turn its back to -Z). */
+  model_yaw: number;
   glb_url: string | null;
   thumbnail_url: string | null;
   footprint_w: number | null;
@@ -106,6 +109,8 @@ export interface UploadAdminFurnitureInput {
   footprint_w?: number | null;
   footprint_d?: number | null;
   height_cm?: number | null;
+  /** Which way the model faces: degrees about +Y that turn its back to -Z. Omitted = 0. */
+  model_yaw?: ModelYaw;
   /** Styles the model suits; empty or omitted = every style. */
   styles?: FurnitureStyle[];
 }
@@ -136,6 +141,7 @@ export async function uploadAdminFurniture(input: UploadAdminFurnitureInput): Pr
   if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
   if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
   if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
+  if (input.model_yaw != null) form.append("model_yaw", String(input.model_yaw));
   if (input.styles?.length) form.append("styles", input.styles.join(","));
   return apiClient<AdminFurniture>("/admin/furniture", { method: "POST", body: form });
 }
@@ -156,6 +162,8 @@ export async function updateAdminFurniture(
     price_uzs: number | null;
     footprint_w: number | null;
     footprint_d: number | null;
+    /** Only when changed: the server swaps the footprint itself. */
+    model_yaw: ModelYaw;
     styles: FurnitureStyle[];
     is_active: boolean;
   }>,

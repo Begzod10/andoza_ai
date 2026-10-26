@@ -35,4 +35,18 @@ describe('resolveCatalogEntry', () => {
     expect(resolveCatalogEntry(row({ glb_url: undefined }))).toBeUndefined()
     expect(resolveCatalogEntry(undefined)).toBeUndefined()
   })
+
+  it('carries the model yaw, and none for an old row without it', () => {
+    expect(resolveCatalogEntry(row({ model_yaw: 270 }))?.modelYaw).toBe(270)
+    expect(resolveCatalogEntry(row())?.modelYaw).toBe(0)
+  })
+
+  it('reads a yaw that is not a quarter turn as none', () => {
+    expect(resolveCatalogEntry(row({ model_yaw: 45 }))?.modelYaw).toBe(0)
+  })
+
+  it('keeps the stored footprint, which is already the turned size', () => {
+    expect(resolveCatalogEntry(row({ model_yaw: 90, footprint_w: 90, footprint_d: 210 }))?.sizeM)
+      .toMatchObject({ w: 0.9, d: 2.1 })
+  })
 })

@@ -4,7 +4,12 @@ from collections.abc import Iterable
 from datetime import datetime
 from uuid import UUID
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Degrees the studio turns a GLB so its front faces the room.
+ModelYaw = Literal[0, 90, 180, 270]
 
 # Kept in sync with frontend/src/lib/furnitureCatalog.ts (FurnitureCategory)
 FURNITURE_CATEGORIES = {"divan", "stol", "stul", "karavot", "shkaf", "lampa", "boshqa"}
@@ -111,6 +116,7 @@ class FurnitureUpdate(BaseModel):
     category: str | None = None
     room_type: str | None = None
     placement: str | None = None
+    model_yaw: ModelYaw | None = None
     store_id: UUID | None = None
     price_uzs: int | None = Field(default=None, ge=0)
     footprint_w: float | None = Field(default=None, gt=0)
@@ -127,6 +133,7 @@ class FurnitureAdminOut(BaseModel):
     category: str
     room_type: str | None
     placement: str
+    model_yaw: int
     name_uz: str
     price_uzs: int | None
     glb_url: str | None

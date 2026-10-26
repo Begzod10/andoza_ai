@@ -10,6 +10,7 @@ and reach the public catalog only once an admin approves them (see
 from __future__ import annotations
 
 import uuid as uuid_module
+from typing import get_args
 
 import structlog
 from fastapi import APIRouter, Form, HTTPException, Query, Request, UploadFile, status
@@ -17,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.i18n import translate_detail
-from app.schemas.admin_catalog import FURNITURE_STYLES
+from app.schemas.admin_catalog import FURNITURE_STYLES, ModelYaw
 from app.api.v1.deps import CurrentUser, DbSession
 from app.core.storage import absolute_media_url, upload_file
 from app.database import run_after_commit
@@ -98,6 +99,7 @@ def _out(f: Furniture, request: Request) -> SellerFurnitureOut:
         styles=f.styles or [],
         styles_source=f.styles_source,
         placement=f.placement,
+        model_yaw=f.model_yaw or 0,  # unset on a row not yet flushed
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
         glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
@@ -223,6 +225,7 @@ async def upload_furniture(
     room_type: str | None = Form(default=None),
     styles: str | None = Form(default=None),
     placement: str = Form(default="pol"),
+    model_yaw: int = Form(default=0),
     price_uzs: int | None = Form(default=None, ge=0),
     footprint_w: float | None = Form(default=None, gt=0, le=2000),
     footprint_d: float | None = Form(default=None, gt=0, le=2000),
@@ -237,6 +240,8 @@ async def upload_furniture(
         raise HTTPException(status_code=422, detail=translate_detail("room_type {allowed} dan biri (yoki bo'sh) bo'lishi kerak", allowed=', '.join(sorted(ROOM_TYPES))))
     if placement not in PLACEMENTS:
         raise HTTPException(status_code=422, detail=translate_detail("placement {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PLACEMENTS))))
+    if model_yaw not in get_args(ModelYaw):
+        raise HTTPException(status_code=422, detail=translate_detail("model_yaw {allowed} dan biri bo'lishi kerak", allowed=", ".join(map(str, get_args(ModelYaw)))))
     try:
         style_list = parse_styles_form(styles)
     except ValueError as exc:
@@ -297,6 +302,7 @@ async def upload_furniture(
         styles=style_list,
         styles_source="manual" if style_list else None,
         placement=placement,
+        model_yaw=model_yaw,
         name_uz=name_uz.strip(),
         price_uzs=price_uzs,
         glb_key=stored_glb if stored_glb.startswith("http") else gkey,

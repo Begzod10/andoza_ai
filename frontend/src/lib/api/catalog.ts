@@ -23,6 +23,9 @@ export interface CatalogFurniture {
   height_cm?: number | null;
   /** Styles the model suits; empty = every style. Absent in older cached responses. */
   styles?: string[];
+  /** Degrees (0/90/180/270) to turn the GLB about +Y so its back is on -Z (see lib/modelYaw).
+   * footprint_w/footprint_d are already the turned size. Absent in older cached responses. */
+  model_yaw?: number;
 }
 
 export interface PaginatedCatalogFurniture {

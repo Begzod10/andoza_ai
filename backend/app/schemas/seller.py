@@ -104,6 +104,7 @@ class SellerFurnitureOut(BaseModel):
     styles: list[str] = []
     styles_source: str | None = None
     placement: str
+    model_yaw: int
     name_uz: str
     price_uzs: int | None
     glb_url: str | None

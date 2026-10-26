@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
@@ -16,7 +16,10 @@ import {
 } from "@/lib/api";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "@/pages/dokon/admin/labels";
 import { ModelPreview3D } from "@/pages/dokon/admin/ModelPreview3D";
-import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
+import { ModelFrontField } from "@/pages/dokon/admin/ModelFrontField";
+import { sizeFields, turnedMeasuredSize, type MeasuredSize } from "@/lib/modelSize";
+import type { ModelYaw, YawGuess } from "@/lib/modelYaw";
+import { inferRole } from "@/lib/furnitureRole";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
@@ -46,12 +49,21 @@ export function SellerModelFormDialog({
   const [error, setError] = useState<FormError>(null);
   // The real size of the chosen model, measured from the file, stored with it.
   const [measured, setMeasured] = useState<MeasuredSize | null>(null);
+  // Which way the model faces: found from its shape, then the seller's to change.
+  const [yaw, setYaw] = useState<ModelYaw>(0);
+  const [foundYaw, setFoundYaw] = useState<ModelYaw | null>(null);
+  const onMeasured = useCallback((size: MeasuredSize | null, front: YawGuess) => {
+    setMeasured(size);
+    setYaw(front.yaw);
+    setFoundYaw(front.detected ? front.yaw : null);
+  }, []);
   // True while a model is being built from a photo (a minute or two).
   const [building, setBuilding] = useState(false);
 
   function reset() {
     setNameUz(""); setCategory("divan"); setRoomType(""); setPlacement("pol"); setStyles([]);
     setPriceUzs(""); setFile(null); setThumbnail(null); setError(null);
+    setYaw(0); setFoundYaw(null);
   }
 
   function pickModel(f: File | null) {
@@ -79,7 +91,9 @@ export function SellerModelFormDialog({
         placement,
         styles,
         price_uzs: priceUzs ? Number(priceUzs) : null,
-        ...sizeFields(measured),
+        model_yaw: yaw,
+        // Stored as the model stands once turned to face the room.
+        ...sizeFields(turnedMeasuredSize(measured, yaw)),
       });
     },
     onSuccess: () => {
@@ -158,7 +172,8 @@ export function SellerModelFormDialog({
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumbnail(e.target.files?.[0] ?? null)} className="text-xs w-full" />
         </div>
 
-        <ModelPreview3D file={file} onMeasured={setMeasured} themed />
+        <ModelPreview3D file={file} role={inferRole(category, nameUz)} onMeasured={onMeasured} themed />
+        {file && <ModelFrontField value={yaw} found={foundYaw} onChange={setYaw} />}
 
         {error && <p role="alert" className="text-sm text-red-500">{formErrorText(t, error)}</p>}
 

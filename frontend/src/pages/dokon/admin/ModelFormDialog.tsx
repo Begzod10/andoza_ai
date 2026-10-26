@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/ui/Dialog";
@@ -17,7 +17,10 @@ import {
 } from "@/lib/api";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
 import { ModelPreview3D } from "./ModelPreview3D";
-import { sizeFields, type MeasuredSize } from "@/lib/modelSize";
+import { ModelFrontField } from "./ModelFrontField";
+import { sizeFields, turnedMeasuredSize, type MeasuredSize } from "@/lib/modelSize";
+import type { ModelYaw, YawGuess } from "@/lib/modelYaw";
+import { inferRole } from "@/lib/furnitureRole";
 import { StyleChips } from "@/components/dokon/StyleChips";
 import type { FurnitureStyle } from "@/lib/furnitureStyles";
 import { PhotoToModelField } from "@/components/studio/PhotoToModelField";
@@ -68,10 +71,20 @@ export function ModelFormDialog({
     setFile(null);
     setThumbnail(null);
     setPhotoError(null);
+    setYaw(0);
+    setFoundYaw(null);
   }
 
   // The real size of the chosen model, measured from the file and stored with it.
   const [measured, setMeasured] = useState<MeasuredSize | null>(null);
+  // Which way the model faces: found from its shape, then the admin's to change.
+  const [yaw, setYaw] = useState<ModelYaw>(0);
+  const [foundYaw, setFoundYaw] = useState<ModelYaw | null>(null);
+  const onMeasured = useCallback((size: MeasuredSize | null, front: YawGuess) => {
+    setMeasured(size);
+    setYaw(front.yaw);
+    setFoundYaw(front.detected ? front.yaw : null);
+  }, []);
 
   const uploadMutation = useMutation({
     mutationFn: () => {
@@ -86,7 +99,9 @@ export function ModelFormDialog({
         styles,
         store_id: fixedStoreId ?? storeId ?? null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
-        ...sizeFields(measured),
+        model_yaw: yaw,
+        // Stored as the model stands once turned to face the room.
+        ...sizeFields(turnedMeasuredSize(measured, yaw)),
       });
     },
     onSuccess: () => {
@@ -204,7 +219,8 @@ export function ModelFormDialog({
         />
         {photoError && <p role="alert" className="text-sm text-red-500">{formErrorText(t, photoError)}</p>}
 
-        <ModelPreview3D themed file={file} onMeasured={setMeasured} />
+        <ModelPreview3D themed file={file} role={inferRole(category, nameUz)} onMeasured={onMeasured} />
+        {file && <ModelFrontField value={yaw} found={foundYaw} onChange={setYaw} />}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
