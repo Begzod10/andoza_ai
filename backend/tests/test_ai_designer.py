@@ -514,11 +514,74 @@ def test_two_styles_use_first():
 
 
 def test_no_style_gets_general_guidance():
-    message = _message("iliq, sokin atmosfera")
+    message = _message("iliq, sokin atmosfera", {**ROOM, "room_type": None})
     for line in NO_STYLE_LINES:
         assert line in message
     assert "Boshlang'ich reja" not in message
     assert STARTING_PLAN_RULE not in message
+
+
+# --- a room type's own starting style when the request names none ---------------------------------
+
+SOFT_PLAN_RULE = (
+    "Uslub aytilmagan: bu reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
+    "So'rovdagi rang, atmosfera va material istaklari (masalan iliq ranglar, yorqin, to'q, yog'och) undan ustun: "
+    "devor, pol va ranglarni shularga moslab o'zgartiring. So'rovda aytilmagan narsalarda shu rejaga tayaning."
+)
+
+
+def _plan_label(message):
+    return message.split("Boshlang'ich reja (", 1)[1].split(")", 1)[0]
+
+
+def test_a_cosy_bedroom_starts_from_the_scandinavian_plan_with_the_soft_rule():
+    message = _message("Shinam yotoqxona", {**ROOM, "room_type": "yotoqxona"})
+    assert _plan_label(message) == "Skandinav"
+    assert SOFT_PLAN_RULE in message
+    assert STARTING_PLAN_RULE not in message and "sababsiz" not in message
+
+
+def test_a_room_type_s_plan_gives_way_to_the_request_s_colours():
+    message = _message("Iliq ranglar")  # ROOM is a mehmonxona
+    assert _plan_label(message) == "Zamonaviy"
+    assert "rang" in SOFT_PLAN_RULE and "ustun" in SOFT_PLAN_RULE
+    assert STARTING_PLAN_RULE not in message
+    # the general floor and chandelier guidance still holds; the plan itself decides the accent wall
+    assert NO_STYLE_LINES[0] in message and NO_STYLE_LINES[1] in message
+
+
+def test_a_named_style_wins_over_the_room_type_s_own():
+    message = _message("loft", {**ROOM, "room_type": "yotoqxona"})
+    assert _plan_label(message) == "Loft"
+    assert STARTING_PLAN_RULE in message and SOFT_PLAN_RULE not in message
+
+
+@pytest.mark.parametrize(("room_type", "preset"), [
+    ("mehmonxona", "zamonaviy"), ("oshxona", "zamonaviy"), ("yotoqxona", "skandinav"), ("bolalar", "skandinav"),
+    ("balkon", "skandinav"), ("kabinet", "minimalist"), ("hammom", "minimalist"), (None, None),
+])
+def test_each_room_type_has_its_starting_style(room_type, preset):
+    found = ad.starting_preset("iliq, sokin", room_type)
+    assert (found["id"] if found else None) == preset
+    assert ad.starting_preset("loft", room_type)["id"] == "loft"
+
+
+def test_a_bathroom_without_a_style_starts_from_minimalist_on_tile():
+    message = _message("sokin hammom", {**ROOM, "room_type": "hammom"})
+    assert _plan_label(message) == "Minimalist"
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
+
+
+def test_a_kitchen_without_a_style_starts_from_a_tile_floor():
+    message = _message("iliq oshxona", {**ROOM, "room_type": "oshxona"})
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
+
+
+def test_gold_and_light_lines_hold_with_a_room_type_s_plan():
+    message = _message("och ranglar, oltin detallar")
+    assert GOLD_LINE in message and LIGHT_LINE in message
 
 
 def test_gold_line_only_when_asked():
