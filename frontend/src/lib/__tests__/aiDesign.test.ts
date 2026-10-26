@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useRoomStore } from '@/store/roomStore'
-import type { RoomGeometry } from '@/store/roomStore'
+import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import type { AiDesignPlan, CatalogFurniture } from '@/lib/api'
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from '../aiDesign'
 
@@ -291,5 +291,38 @@ describe('snapshot and restore', () => {
     applyDesignPlan(plan(), ALL_PARTS, catalog)
     expect(before.lights).toHaveLength(0)
     expect(before.designState.wallCoverings.ALL).not.toEqual({ kind: 'paint', color: '#2c2c2c' })
+  })
+})
+
+describe('a main piece that does not fit', () => {
+  // A small bedroom, 2.6 x 3.0 m with its door on a long wall: a 160 cm double bed finds no place.
+  const door = { id: 'door', type: 'eshik', width: 800, height: 2000, sill_height: 0, position: 800, positionAuto: false } as WallElement
+  const bedroom = (): RoomGeometry => ({
+    walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? 3000 : 2600, elements: id === 'B' ? [door] : [] })),
+  }) as RoomGeometry
+  const bed = (id: string, w: number, d: number, styles: string[] = []): CatalogFurniture =>
+    ({ ...item(id, `Karavot ${id}`, w, d, 'karavot'), styles })
+  const bedPlan = (): AiDesignPlan => ({ ...plan(), lights: [], furniture: [{ id: 'double', name: 'Karavot double', role: 'bed', zone: 'wall_A' }] })
+
+  beforeEach(() => useRoomStore.setState({ geometry: bedroom() }))
+
+  it('is swapped for a smaller one of the same kind from the catalog', () => {
+    const counts = applyDesignPlan(bedPlan(), ALL_PARTS, [bed('double', 160, 200), bed('single', 90, 200)], 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['single'])
+    expect(counts.furniture).toBe(1)
+    expect(counts.dropped).toEqual([])
+  })
+
+  it('prefers a smaller piece of the same style over an even smaller one of another style', () => {
+    const catalog = [bed('double', 160, 200, ['klassik']), bed('other', 90, 190, ['zamonaviy']), bed('same', 100, 200, ['klassik'])]
+    applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['same'])
+  })
+
+  it('with no smaller piece of its kind, is left out as before', () => {
+    const catalog = [bed('double', 160, 200), item('stand', 'Tumbochka', 45, 40, 'tumbochka')]
+    const counts = applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture).toHaveLength(0)
+    expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1 }])
   })
 })
