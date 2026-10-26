@@ -123,9 +123,11 @@ describe('a rug the layout cannot lay inside the room', () => {
     return { applied, model, rugs }
   }
   const BEDROOM = [piece('ZZ Bir kishilik karavot', 'bed'), piece('ZZ Tumbochka Nord', 'nightstand'), BUXORO]
+  // The eval's 200 x 300 rug fits the 3 x 2.6 m room turned, wall to wall: a 250 x 350 one fits neither way.
+  const bigRug = catalog.map((c) => (c.name_uz === BUXORO.name ? { ...c, footprint_w: 250, footprint_d: 350 } : c))
 
-  it('the 3 x 2.6 m bedroom: the 200 x 300 rug, lying across the bed, gives way to a smaller one for every room', () => {
-    const anyRoom = catalog.map((c) => (c.name_uz === 'ZZ Gilam kulrang' ? { ...c, room_type: null } : c))
+  it('the 3 x 2.6 m bedroom: a 250 x 350 rug gives way to a smaller one for every room', () => {
+    const anyRoom = bigRug.map((c) => (c.name_uz === 'ZZ Gilam kulrang' ? { ...c, room_type: null } : c))
     const r = applyPlan('small', 'yotoqxona', BEDROOM, anyRoom)
     expect(r.applied.swapped).toEqual([{ from: 'ZZ Gilam Buxoro naqshli', to: 'ZZ Gilam kulrang', count: 1 }])
     expect(r.rugs.map((x) => x.name)).toEqual(['ZZ Gilam kulrang'])
@@ -133,8 +135,8 @@ describe('a rug the layout cannot lay inside the room', () => {
     expect(r.applied.dropped).toEqual([])
   })
 
-  it('the 3 x 2.6 m bedroom, with no smaller rug made for it: the rug is left out and named', () => {
-    const r = applyPlan('small', 'yotoqxona', BEDROOM)
+  it('the 3 x 2.6 m bedroom, with no smaller rug made for it: a 250 x 350 rug is left out and named', () => {
+    const r = applyPlan('small', 'yotoqxona', BEDROOM, bigRug)
     expect(r.rugs).toEqual([])
     expect(r.applied.dropped).toEqual([{ name: 'ZZ Gilam Buxoro naqshli', count: 1, role: 'rug' }])
   })

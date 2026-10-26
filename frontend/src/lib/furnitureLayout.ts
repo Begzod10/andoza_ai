@@ -209,9 +209,9 @@ const RUG_STEP = 0.1
 /**
  * A rug lies under the middle of the main group, turned with its first piece (in the room's middle
  * when the group was not placed). One that would cross a wall there is moved toward the room's
- * middle until it lies inside; it lies under things and never counts as in the way. Null when it
- * crosses a wall even in the middle: too big for the room, it is left out (and may be swapped for a
- * smaller one).
+ * middle until it lies inside, and failing that tried again turned a quarter; it lies under things
+ * and never counts as in the way. Null when it crosses a wall either way: too big for the room, it
+ * is left out (and may be swapped for a smaller one).
  */
 function rugSpot(rug: Piece, group: Placed[], model: RoomModel): Rect | null {
   const { box } = model
@@ -219,14 +219,14 @@ function rugSpot(rug: Piece, group: Placed[], model: RoomModel): Rect | null {
   const centre: Pt = group.length
     ? [group.reduce((s, p) => s + p.rect.x, 0) / group.length, group.reduce((s, p) => s + p.rect.z, 0) / group.length]
     : middle
-  const rotation = group[0]?.rect.rotation ?? 0
-  const at = (t: number): Rect => ({
-    x: centre[0] + (middle[0] - centre[0]) * t, z: centre[1] + (middle[1] - centre[1]) * t, w: rug.w, d: rug.d, rotation,
-  })
+  const turn = group[0]?.rect.rotation ?? 0
   const steps = Math.ceil(Math.hypot(middle[0] - centre[0], middle[1] - centre[1]) / RUG_STEP)
-  for (let k = 0; k <= steps; k++) {
-    const r = at(steps ? k / steps : 0)
-    if (model.inside(r)) return r
+  for (const rotation of [turn, turn + Math.PI / 2]) {
+    for (let k = 0; k <= steps; k++) {
+      const t = steps ? k / steps : 0
+      const r = { x: centre[0] + (middle[0] - centre[0]) * t, z: centre[1] + (middle[1] - centre[1]) * t, w: rug.w, d: rug.d, rotation }
+      if (model.inside(r)) return r
+    }
   }
   return null
 }
