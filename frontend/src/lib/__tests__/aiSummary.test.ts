@@ -151,3 +151,22 @@ describe('summaryWithout: a sentence listing pieces among other words', () => {
     expect(summaryWithout(text, [{ name: 'ZZ Kreslo Nord', role: 'armchair' }], ['ZZ Divan Oslo'])).toBe('Devorlar oq.')
   })
 })
+
+describe('summaryWithout: a piece said to be left out or replaced is not named', () => {
+  const GILAM = { name: 'ZZ Gilam jun och', role: 'rug' }
+
+  it('"gilam o\'rniga plitka" stays when the rug was dropped (minimalist)', () => {
+    for (const rug of [GILAM, { name: 'Gilam', role: 'rug' }]) expect(summaryWithout(MINIMALIST, [rug], ['ZZ Divan Line'])).toBe(MINIMALIST)
+  })
+
+  it('nor does a negation: "... yo\'q", "... emas", "...siz"', () => {
+    for (const text of ["Devorlar oq. Polda gilam yo'q.", 'Devorlar oq. Bu gilam emas, plitka.', 'Devorlar oq. Pol gilamsiz, toza plitka.',
+      "Devorlar oq. ZZ Gilam jun och o'rniga plitka tanlandi."]) {
+      expect(summaryWithout(text, [GILAM])).toBe(text)
+    }
+  })
+
+  it('a rug said to be in the room is named by "gilam" and goes', () => {
+    expect(summaryWithout('Devorlar oq. Polda och gilam yotadi.', [GILAM])).toBe('Devorlar oq.')
+  })
+})

@@ -10,7 +10,7 @@
  * desk only when the desk is what was left out, a nightstand or a chair has no word of its own.
  */
 const ROLE_WORD: Partial<Record<string, string>> = {
-  bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba',
+  bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba', rug: 'gilam',
 }
 
 // The start of a word: "tumba" names "tumbasi", not "tumbochka"; an Uzbek apostrophe is inside a word.
@@ -18,6 +18,12 @@ export const WORD_START = "(?<![\\p{L}\\p{N}'ʻʼ‘’`])"
 // The end of one, after the endings a name or role word takes in a sentence ("shkafi", "tumbasi",
 // "gilamlar", "divanga"): "Gilam" names "Gilamlar", not "Gilamcha".
 const WORD_END = "(?:lar)?(?:i|si)?(?:ga|da|dan|ni|ning|dir)?(?![\\p{L}\\p{N}'ʻʼ‘’`])"
+/**
+ * After a name or role word: the piece is said to be replaced or not there ("gilam o'rniga plitka",
+ * "gilam yo'q", "divan emas"), so the word does not name it. "Gilamsiz" is no match to begin with: "siz"
+ * is not among WORD_END's endings.
+ */
+const NOT_THERE = "(?!\\s+(?:o['ʻʼ‘’`]rniga|yo['ʻʼ‘’`]q|emas)(?![\\p{L}\\p{N}'ʻʼ‘’`]))"
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A sentence ends at . ! ? or … followed by a space: "3.5 m" and "yog'och" do not end one. */
@@ -31,26 +37,29 @@ const isAnd = (sep: string) => sep.trim() !== ','
 
 /**
  * `summary` with every sentence removed that names one of `dropped`: by its full catalog name, or by
- * its role's word outside a `kept` piece's name. A sentence listing two or more of the plan's pieces
- * (`dropped` and `kept`, by name), whatever else it says, or a "Mebel: A, B, C." list, loses only the
- * dropped items and goes only when no piece is left in it. When every sentence would go, the summary
- * stays whole: something is better than nothing.
+ * its role's word outside a `kept` piece's name, and not as replaced or missing (`NOT_THERE`). A sentence
+ * listing two or more of the plan's pieces (`dropped` and `kept`, by name), whatever else it says, or a
+ * "Mebel: A, B, C." list, loses only the dropped items and goes only when no piece is left in it. When
+ * every sentence would go, the summary stays whole: something is better than nothing.
  */
 export function summaryWithout(summary: string, dropped: { name: string; role?: string }[], kept: string[] = []): string {
   if (dropped.length === 0) return summary
   const names = dropped.map((d) => d.name.trim().toLowerCase()).filter(Boolean)
   const words = dropped.map((d) => (d.role ? ROLE_WORD[d.role] : undefined)).filter(Boolean)
-  const nameWord = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}`, 'iu') : null
-  const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})${WORD_END}`, 'iu') : null
+  const nameWord = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}${NOT_THERE}`, 'iu') : null
+  const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})${WORD_END}${NOT_THERE}`, 'iu') : null
   const keptNames = kept.map((n) => n.trim()).filter(Boolean)
   // A role word inside a kept piece's own name ("Tuvalet stoli", "Kitob shkafi") is that piece's, not the dropped one's.
   const keptName = keptNames.length ? new RegExp(`${WORD_START}(?:${keptNames.map(escape).join('|')})${WORD_END}`, 'giu') : null
+  // A dropped piece's own name said as replaced ("ZZ Gilam jun och o'rniga") holds its role word too.
+  const anyName = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}`, 'giu') : null
   const namesKept = (text: string) => keptName !== null && text.search(keptName) !== -1
   /** Where `text` names a dropped piece, as [start, end], or null. */
   const droppedAt = (text: string): [number, number] | null => {
     const byName = nameWord?.exec(text)
     if (byName) return [byName.index, byName.index + byName[0].length]
-    const bare = keptName ? text.replace(keptName, (m) => ' '.repeat(m.length)) : text
+    const blank = (t: string, re: RegExp | null) => (re ? t.replace(re, (m) => ' '.repeat(m.length)) : t)
+    const bare = blank(blank(text, keptName), anyName)
     const byRole = roleWord?.exec(bare)
     return byRole ? [byRole.index, byRole.index + byRole[0].length] : null
   }
