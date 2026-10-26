@@ -2,6 +2,7 @@ import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
 import { inferRole, ROLE_GROUP, WARDROBE_NAME, type FurnitureRole } from '@/lib/furnitureRole'
 import { catalogRoomType } from '@/lib/roomType'
+import type { RoomGeometry } from '@/store/roomStore'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
 
@@ -89,8 +90,28 @@ export const DESIGN_PRESETS = presetData.presets as Preset[]
 
 type Score = [number, number, number, number, number, number, number]
 
-/** A room's floor size, metres. */
-export interface RoomSize { w: number; d: number }
+/** A room's floor area, m2, and its shorter side, metres: what the backend tells the AI. */
+export interface RoomSize { area: number; minSide: number }
+
+/**
+ * The room's size the way the backend's `_room_summary` reads it: the area of its outline (a scan
+ * turned 45 degrees or an L-shaped room has a bounding box far larger than its floor), else width by
+ * depth; the sides are walls A and B, else the first two walls. Undefined when the walls have no length.
+ */
+export function roomSizeOf(geometry: RoomGeometry): RoomSize | undefined {
+  const { walls, vertices } = geometry
+  const lengthOf = (id: string, at: number) => (walls.find((w) => w.id === id)?.length || walls[at]?.length || 0) / 1000
+  const w = lengthOf('A', 0), d = lengthOf('B', 1)
+  if (!(w > 0 && d > 0)) return undefined
+  // Shoelace, mm2 to m2.
+  const shoelace = vertices && vertices.length >= 3
+    ? Math.abs(vertices.reduce((sum, [x1, z1], i) => {
+      const [x2, z2] = vertices[(i + 1) % vertices.length]
+      return sum + x1 * z2 - x2 * z1
+    }, 0)) / 2 / 1e6
+    : 0
+  return { area: shoelace || w * d, minSide: Math.min(w, d) }
+}
 
 /**
  * A bedroom this small takes a single bed: under 10 m2, or under 2.6 m across. The backend's
@@ -108,7 +129,7 @@ const SINGLE_BED_W = 120
  */
 function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
   if (kind !== 'karavot' || !size || c.footprint_w == null) return 1
-  const small = size.w * size.d < SMALL_ROOM_AREA || Math.min(size.w, size.d) < SMALL_ROOM_SIDE
+  const small = size.area < SMALL_ROOM_AREA || size.minSide < SMALL_ROOM_SIDE
   return small ? (c.footprint_w <= SINGLE_BED_W ? 1 : 0) : (c.footprint_w >= DOUBLE_BED_W ? 1 : 0)
 }
 
@@ -170,7 +191,7 @@ function resolveWalls(zone: string, wallIds: string[]): string {
 
 /**
  * The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id.
- * `roomSize` (metres) picks a bed that fits the room; without it the bed is picked as any piece.
+ * `roomSize` (`roomSizeOf`) picks a bed that fits the room; without it the bed is picked as any piece.
  */
 export function presetPlan(
   id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],

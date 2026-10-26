@@ -452,6 +452,19 @@ describe('a ready-made style in this room', () => {
     fireEvent.click(screen.getByText('Hi-Tech'))
     await waitFor(() => expect(placedBed()).toEqual(['single']))
   })
+
+  it('a scanned room turned 45 degrees is read by its walls, not its far larger bounding box', async () => {
+    // 3 x 2.5 m: small. Its box is about 3.9 x 3.9 m, which would read as a normal room.
+    const c = Math.SQRT1_2
+    const geometry = {
+      walls: ['W1', 'W2', 'W3', 'W4'].map((id, i) => ({ id, length: i % 2 ? 2500 : 3000, elements: [] })),
+      vertices: [[0, 0], [3000 * c, 3000 * c], [500 * c, 5500 * c], [-2500 * c, 2500 * c]],
+    } as RoomGeometry
+    useRoomStore.setState({ catalogFurniture: BEDS as never, geometry })
+    renderSheet({ roomType: 'yotoqxona' })
+    fireEvent.click(screen.getByText('Hi-Tech'))
+    await waitFor(() => expect(placedBed()).toEqual(['single']))
+  })
 })
 
 describe('zoneLabel', () => {

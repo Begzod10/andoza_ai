@@ -10,7 +10,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import presetData from '@/lib/data/design_presets.json'
 import { FURNITURE_STYLES } from '../furnitureStyles'
-import { DESIGN_PRESETS, presetPlan } from '../aiDesignPresets'
+import { DESIGN_PRESETS, presetPlan, roomSizeOf, type RoomSize } from '../aiDesignPresets'
+import type { RoomGeometry } from '@/store/roomStore'
 
 const item = (id: string, name: string, category: string, room_type: string | null = null): CatalogFurniture => ({
   id, name_uz: name, category, room_type, store_id: null, store_name: null, placement: 'pol',
@@ -294,29 +295,29 @@ describe('design presets', () => {
       const bed = (id: string, name: string, w: number | null, styles: string[] = []) =>
         ({ ...item(id, name, 'karavot', 'yotoqxona'), footprint_w: w, styles })
       const BEDS = [bed('single', 'Bir kishilik karavot', 90), bed('double', 'Karavot 160', 160, ['skandinav'])]
-      const bedOf = (id: string, roomType: string, roomSize?: { w: number; d: number }, cat = BEDS) =>
+      const bedOf = (id: string, roomType: string, roomSize?: RoomSize, cat = BEDS) =>
         presetPlan(id, cat, roomType, undefined, roomSize)!.furniture.find((f) => f.role === 'bed')!.id
 
       it('a normal bedroom takes the wide bed over an unstyled single one', () => {
-        expect(bedOf('hitech', 'yotoqxona', { w: 4, d: 3.5 })).toBe('double')
+        expect(bedOf('hitech', 'yotoqxona', { area: 14, minSide: 3.5 })).toBe('double')
       })
 
       it('a small bedroom (under 10 m2 or under 2.6 m across) takes the narrow bed', () => {
-        expect(bedOf('hitech', 'yotoqxona', { w: 3, d: 2.6 })).toBe('single') // 7.8 m2
-        expect(bedOf('hitech', 'yotoqxona', { w: 5, d: 2.5 })).toBe('single') // 12.5 m2, but 2.5 m across
+        expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 })).toBe('single') // 7.8 m2
+        expect(bedOf('hitech', 'yotoqxona', { area: 12.5, minSide: 2.5 })).toBe('single') // 12.5 m2, but 2.5 m across
       })
 
       it('with no room size, or a bed with no footprint, the pick is as before', () => {
         expect(bedOf('hitech', 'yotoqxona')).toBe('single')
         const unknown = [bed('single', 'Bir kishilik karavot', null), bed('double', 'Karavot 160', 160, ['skandinav'])]
-        expect(bedOf('hitech', 'yotoqxona', { w: 3, d: 2.6 }, unknown)).toBe('single')
+        expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 }, unknown)).toBe('single')
       })
 
       it("a children's room follows the same rule, but its children's bed still comes first", () => {
-        expect(bedOf('hitech', 'bolalar', { w: 4, d: 3.5 })).toBe('double')
-        expect(bedOf('hitech', 'bolalar', { w: 3, d: 2.6 })).toBe('single')
+        expect(bedOf('hitech', 'bolalar', { area: 14, minSide: 3.5 })).toBe('double')
+        expect(bedOf('hitech', 'bolalar', { area: 7.8, minSide: 2.6 })).toBe('single')
         const kids = [...BEDS, bed('kids', 'Bolalar karavoti', 90)]
-        expect(bedOf('hitech', 'bolalar', { w: 4, d: 3.5 }, kids)).toBe('kids')
+        expect(bedOf('hitech', 'bolalar', { area: 14, minSide: 3.5 }, kids)).toBe('kids')
       })
     })
 
@@ -351,6 +352,35 @@ describe('design presets', () => {
     it('a lone dining table becomes the coffee table', () => {
       expect(roleOf(presetPlan(tablePreset, [item('ovqat', 'Ovqat stoli', 'stol')]), 'ovqat')).toBe('coffee_table')
     })
+  })
+})
+
+describe("a room's size for the bed rule, as the backend reads it", () => {
+  const walls = (ids: string[], lengths: number[]) => ids.map((id, i) => ({ id, length: lengths[i], elements: [] }))
+
+  it('an ABCD room: wall A by wall B', () => {
+    expect(roomSizeOf({ walls: walls(['A', 'B', 'C', 'D'], [4000, 3500, 4000, 3500]) })).toEqual({ area: 14, minSide: 3.5 })
+  })
+
+  it('an L-shaped room: the floor of its outline, not of its bounding box', () => {
+    // 4 x 4 m with a 2 x 2 m corner cut out: 12 m2, where the box says 16.
+    const vertices: [number, number][] = [[0, 0], [4000, 0], [4000, 2000], [2000, 2000], [2000, 4000], [0, 4000]]
+    const size = roomSizeOf({ walls: walls(['W1', 'W2', 'W3', 'W4', 'W5', 'W6'], [4000, 2000, 2000, 2000, 2000, 4000]), vertices })!
+    expect(size.area).toBeCloseTo(12)
+    expect(size.minSide).toBe(2) // the first two walls, as the backend has it
+  })
+
+  it('a rotated rectangle (a RoomPlan scan) keeps its own size', () => {
+    const c = Math.SQRT1_2
+    const vertices: [number, number][] = [[0, 0], [3000 * c, 3000 * c], [500 * c, 5500 * c], [-2500 * c, 2500 * c]]
+    const size = roomSizeOf({ walls: walls(['W1', 'W2', 'W3', 'W4'], [3000, 2500, 3000, 2500]), vertices })!
+    expect(size.area).toBeCloseTo(7.5)
+    expect(size.minSide).toBe(2.5)
+  })
+
+  it('a room with no real dimensions has no size, rather than the 4 x 3 fallback', () => {
+    expect(roomSizeOf({ walls: [] } as RoomGeometry)).toBeUndefined()
+    expect(roomSizeOf({ walls: walls(['A', 'B'], [0, 0]) })).toBeUndefined()
   })
 })
 
