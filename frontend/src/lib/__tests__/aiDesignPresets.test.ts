@@ -422,6 +422,10 @@ describe('design presets', () => {
       expect(plan('loft', 'balkon', cat).furniture.map((f) => f.id)).toEqual(['coffee', 'balcony-arm', 'living-arm'])
     })
 
+    it.each(presets)('%s: a side table is never the dining table in a kitchen', (id) => {
+      expect(pairs(id, 'oshxona', [item('side', 'Yon stolcha', 'stol', 'oshxona')])).toEqual([])
+    })
+
     it('a bedside or a writing table is never the small table on a balcony; a side table is', () => {
       const cat = [item('night', 'Tumbochka', 'boshqa'), item('desk', 'Yozuv stoli', 'stol'), item('side', 'Yon stolcha', 'stol')]
       expect(pairs('loft', 'balkon', cat)).toEqual([['side', 'coffee_table']])

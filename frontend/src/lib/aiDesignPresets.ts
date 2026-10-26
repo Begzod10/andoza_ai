@@ -61,7 +61,8 @@ const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
   tumbochka: roleIs('nightstand'),
   garderob: (c) => WARDROBE_NAME.test(c.name_uz),
   yozuv_stoli: roleIs('desk'),
-  ovqat_stoli: roleIs('dining_table'),
+  // A side table reads as a dining table to `inferRole` (its category), but seats no one.
+  ovqat_stoli: (c) => roleIs('dining_table')(c) && !SIDE_TABLE_NAME.test(c.name_uz),
   stul: roleIs('dining_chair'),
   // Only a cupboard the catalog made for a kitchen: a bookcase or a wardrobe is not one.
   oshxona_shkafi: (c) => c.room_type === 'oshxona' && storage(c),
