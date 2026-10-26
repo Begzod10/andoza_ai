@@ -89,3 +89,8 @@ export function detectModelYaw(scene: THREE.Object3D, role: FurnitureRole | null
 export function turnedSize(size: { w: number; d: number }, yaw: ModelYaw): { w: number; d: number } {
   return yaw === 90 || yaw === 270 ? { w: size.d, d: size.w } : { w: size.w, d: size.d }
 }
+
+/** The yaw in the radians three.js turns by (`rotation.y`); a model without one is not turned. */
+export function yawRadians(yaw: number | undefined): number {
+  return yaw ? (yaw * Math.PI) / 180 : 0
+}

@@ -41,6 +41,7 @@ import { saveModelToDb, arrayBufferToBlobUrl } from "@/lib/modelDb";
 import { nanoid } from "nanoid";
 import * as THREE from "three";
 import { toDiffuseOnly } from "@/lib/modelMaterials";
+import { turnedSize, yawRadians, type ModelYaw } from "@/lib/modelYaw";
 
 // ─── Shared furniture entry (catalog + user-uploaded) ─────────────────────────
 
@@ -55,6 +56,10 @@ type AnyFurnitureEntry = {
    *  loaded GLB's own geometry (extractSceneInfo) the first time it renders,
    *  same as a freshly-imported user model. */
   autoScale?: boolean
+  /** Do'kon catalog models: how far the GLB is turned about +Y so its back is
+   *  on -Z (see lib/modelYaw). Applied INSIDE the placement's rotation; sizeM
+   *  is already the turned size. Absent = not turned. */
+  modelYaw?: ModelYaw
 }
 
 /**
@@ -188,13 +193,19 @@ export function FurnitureItem({ item }: { item: PlacedFurniture }) {
 
   if (!entry || !modelPath) return null;
   const s = (autoScale ?? entry.scale) * (item.scaleOverride ?? 1);
+  // The model's own yaw turns it to face the room first; the placement's
+  // rotation turns it from there. Bottom alignment is unaffected: a turn
+  // about Y leaves box.min.y where it was.
   return (
-    <primitive
-      object={cloned}
+    <group
       position={[item.x / 1000, yOffUnit * s, item.y / 1000]}
       rotation={[0, item.rotation, 0]}
       scale={s}
-    />
+    >
+      <group rotation={[0, yawRadians(entry.modelYaw), 0]}>
+        <primitive object={cloned} />
+      </group>
+    </group>
   );
 }
 
@@ -231,7 +242,8 @@ export interface SelectedPart {
   label: string
 }
 
-function DraggableFurnitureItem({
+/** Exported for its tests; the studio renders it through DraggableFurnitureModels. */
+export function DraggableFurnitureItem({
   item,
   isDragging,
   isSelected,
@@ -279,7 +291,10 @@ function DraggableFurnitureItem({
     return c
   }, [scene, debugLabel, item.hiddenParts])
   const groupRef = useRef<THREE.Group>(null)
-  const primitiveRef = useRef<THREE.Object3D>(null)
+  /** The node that carries the placement's rotation and scale — the live
+   *  rotate/scale drag writes to it. The model's own yaw sits on a group
+   *  inside it, so a drag never undoes it. */
+  const primitiveRef = useRef<THREE.Group>(null)
   const selRef = useRef<THREE.Group>(null)
   const { invalidate } = useThree()
   const [detaching, setDetaching] = useState(false)
@@ -366,16 +381,21 @@ function DraggableFurnitureItem({
   }
 
   // Compute Y offset and XZ footprint ONCE per clone, before R3F sets position.
-  const { yOffUnit, geomHW, geomHD, geomHH } = useMemo(() => {
+  const { yOffUnit, rawHW, rawHD, geomHH } = useMemo(() => {
     const box = new THREE.Box3().setFromObject(cloned)
     const ok = isFinite(box.min.x)
     return {
       yOffUnit: ok ? -box.min.y : 0,
-      geomHW: ok ? (box.max.x - box.min.x) / 2 : 0.3,
-      geomHD: ok ? (box.max.z - box.min.z) / 2 : 0.3,
+      rawHW: ok ? (box.max.x - box.min.x) / 2 : 0.3,
+      rawHD: ok ? (box.max.z - box.min.z) / 2 : 0.3,
       geomHH: ok ? (box.max.y - box.min.y) / 2 : 0.5,
     }
   }, [cloned])
+  // The box above is the raw GLB's; the model stands turned by its yaw, so a
+  // quarter turn swaps its width and depth. These are the placed model's own
+  // (pre-placement-rotation) half-extents, as the collision resolver wants.
+  const modelYaw = entry?.modelYaw ?? 0
+  const { w: geomHW, d: geomHD } = turnedSize({ w: rawHW, d: rawHD }, modelYaw)
 
   // A do'kon catalog model has no authored scale — detect it from the loaded
   // GLB's own geometry, same heuristic a fresh user import goes through.
@@ -463,17 +483,17 @@ function DraggableFurnitureItem({
 
   return (
     <group ref={groupRef} position={[item.x / 1000, 0, item.y / 1000]}>
-      <primitive
-        ref={primitiveRef}
-        object={cloned}
-        position={[0, yOff, 0]}
-        rotation={[0, item.rotation, 0]}
-        scale={s}
-        onPointerDown={toolMode === 'part' ? handlePartClick : onMeshPointerDown}
-        onClick={swallowPickClick}
-        onPointerEnter={() => { document.body.style.cursor = meshCursor }}
-        onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
-      />
+      <group ref={primitiveRef} position={[0, yOff, 0]} rotation={[0, item.rotation, 0]} scale={s}>
+        <group rotation={[0, yawRadians(modelYaw), 0]}>
+          <primitive
+            object={cloned}
+            onPointerDown={toolMode === 'part' ? handlePartClick : onMeshPointerDown}
+            onClick={swallowPickClick}
+            onPointerEnter={() => { document.body.style.cursor = meshCursor }}
+            onPointerLeave={() => { if (!isDragging) document.body.style.cursor = '' }}
+          />
+        </group>
+      </group>
       {/* Part-mode action bar — floats above the model while a part is selected */}
       {toolMode === 'part' && selectedPartKey && (
         <Html position={[0, buttonH, 0]} center zIndexRange={[110, 0]} style={{ pointerEvents: 'none' }}>
@@ -530,7 +550,7 @@ function DraggableFurnitureItem({
           same frame loop while a live scale drag is in flight. */}
       {isSelected && (
         <group ref={selRef} rotation={[0, item.rotation, 0]}>
-          <SelectionOutline object={cloned} scale={s} position={[0, yOff, 0]} rotationY={0} />
+          <SelectionOutline object={cloned} scale={s} position={[0, yOff, 0]} rotationY={yawRadians(modelYaw)} />
         </group>
       )}
       {toolMode === 'move' && (

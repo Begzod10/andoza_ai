@@ -19,6 +19,7 @@ import { extractSceneInfo } from '@/lib/modelConverter'
 import { FurnitureSymbol } from '@/lib/catalogIcons'
 import { rectHull, type Hull } from '@/lib/modelFootprint'
 import { topViewOutline, topViewPoints, type Poly, type TopView } from '@/lib/modelTopView'
+import { yawRadians } from '@/lib/modelYaw'
 
 export type AnyFurnitureEntry = FurnitureCatalogEntry | UserFurnitureEntry | ResolvedCatalogEntry
 
@@ -65,6 +66,22 @@ function pathData(polys: Poly[], s: number): string {
         'Z',
     )
     .join('')
+}
+
+/**
+ * A traced top view (model space, plan x/z) turned by the model's yaw, the way
+ * the 3-D turns the GLB before the placement's own rotation. Same sense as
+ * THREE's rotation about +Y — (x, z) → (x·cos + z·sin, −x·sin + z·cos), as
+ * hullBounds — so the placement's rotate() and every hull consumer stack on
+ * top of it unchanged. A copy: the trace is cached and shared per model.
+ */
+function turnTopView(view: TopView, yaw: number | undefined): TopView {
+  const a = yawRadians(yaw)
+  if (a === 0) return view
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  const turn = (poly: Poly): Poly => poly.map(([x, z]) => [x * c + z * s, -x * s + z * c])
+  return { outline: view.outline.map(turn), details: view.details.map(turn) }
 }
 
 /** The drawn symbol, once the model has been traced. */
@@ -145,9 +162,12 @@ function BoxSymbol(props: ShapeProps) {
 function ModelSymbol(props: ShapeProps) {
   const { entry } = props
   const { scene } = useGLTF(entry.modelPath)
+  // Traced from the raw GLB, then turned by the model's yaw. The box symbol
+  // needs no such turn: a catalog entry's sizeM is already the turned size.
+  const modelYaw = 'modelYaw' in entry ? entry.modelYaw : 0
   const view = useMemo(
-    () => topViewOutline(scene as THREE.Object3D, entry.modelPath),
-    [scene, entry.modelPath],
+    () => turnTopView(topViewOutline(scene as THREE.Object3D, entry.modelPath), modelYaw),
+    [scene, entry.modelPath, modelYaw],
   )
   // A do'kon catalog model has no authored scale — detect it from the same
   // loaded geometry the outline was just traced from, same heuristic a fresh

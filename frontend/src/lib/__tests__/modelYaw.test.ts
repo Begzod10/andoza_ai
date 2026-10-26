@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { detectModelYaw, MODEL_YAWS, turnedSize, yawFromPoints, type ModelYaw } from '../modelYaw'
+import { detectModelYaw, MODEL_YAWS, turnedSize, yawFromPoints, yawRadians, type ModelYaw } from '../modelYaw'
 import cases from './fixtures/modelYawCases.json'
 
 type Case = { name: string; points: [number, number, number][]; yaw: ModelYaw; detected: boolean }
@@ -94,4 +94,16 @@ describe('turnedSize', () => {
 
 it('MODEL_YAWS lists the four turns', () => {
   expect(MODEL_YAWS).toEqual([0, 90, 180, 270])
+})
+
+describe('yawRadians', () => {
+  it('turns degrees into the radians three.js rotates by', () => {
+    expect(yawRadians(0)).toBe(0)
+    expect(yawRadians(90)).toBeCloseTo(Math.PI / 2)
+    expect(yawRadians(270)).toBeCloseTo((3 * Math.PI) / 2)
+  })
+
+  it('is no turn for a model without a yaw', () => {
+    expect(yawRadians(undefined)).toBe(0)
+  })
 })
