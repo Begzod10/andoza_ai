@@ -11,8 +11,8 @@ Two things here:
     not there, a floor or wall finish that is not the one chosen;
   * ``describe_plan`` writes a plain summary from the plan itself, which is true by construction.
 
-``reconcile_summary`` uses the first to decide whether to keep the model's wording and falls back
-to the second when it cannot be trusted. The check is deliberately a list of concrete words, not
+``reconcile_summary`` uses the first to keep the model's wording without its false sentences and
+falls back to the second when nothing of it can be trusted. The check is deliberately a list of concrete words, not
 language understanding: it catches the claims that matter and leaves the model's prose alone
 otherwise.
 """
@@ -554,16 +554,26 @@ def reconcile_summary(
     plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
 ) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
-    wording (empty when it was kept, at most without its English or id-bearing sentences).
+    wording: empty when it was kept, at most without its English or id-bearing sentences; the problems
+    when a false sentence was dropped from it or the whole was written from the plan instead.
     *catalog_names* are the shop's own piece names, *piece_styles* their catalog styles by name."""
+    def problems_of(text: str) -> list[str]:
+        return summary_problems(text, plan, catalog_names, piece_styles)
+
     localised = _localise(plan.summary or "")
     uzbek = _uzbek_sentences(localised, plan, catalog_names)
-    if len(uzbek.split()) >= 2:
-        plan.summary = uzbek
-        problems = summary_problems(uzbek, plan, catalog_names, piece_styles)
-    else:
+    if len(uzbek.split()) < 2:
         # Nothing, or a lone word ("Iliq."), is left to read: say why the whole text was not kept.
-        problems = summary_problems(localised, plan, catalog_names, piece_styles) or ["matn bo'sh"]
-    if problems:
         plan.summary = describe_plan(plan)
+        return problems_of(localised) or ["matn bo'sh"]
+    problems = problems_of(uzbek)
+    if not problems:
+        plan.summary = uzbek
+        return []
+    # Only the sentences that are wrong on their own go. Every check reads the plan, not the other
+    # sentences, so one alone is judged as it is in the whole; a claim spread over several (three
+    # English words) is caught when what is left is read again, and then nothing of it is kept.
+    rest = " ".join(s for s in _SENTENCE_END.split(uzbek) if s and not problems_of(s))
+    keep = len(rest.split()) >= 2 and not problems_of(rest)
+    plan.summary = rest if keep else describe_plan(plan)
     return problems

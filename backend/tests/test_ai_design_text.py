@@ -638,12 +638,17 @@ class TestAnEnglishTailDoesNotCostTheSummary:
         )
 
     def test_yotoq_2_loses_its_english_but_still_names_a_desk_the_plan_does_not_hold(self):
-        # The plan holds a dressing table, not the writing desk the Uzbek names: that is a real lie.
+        # The plan holds a dressing table, not the writing desk the Uzbek names: that is a real lie,
+        # and the sentence that tells it goes. The walls, floor and lights before it are honest and stay.
         menu = ["ZZ Karavot Verona 160", "ZZ Tuvalet stoli Verona", "ZZ Yozuv stoli Nord", "ZZ Stul"]
         plan = SimpleNamespace(**vars(self.YOTOQ_2))
         problems = txt.reconcile_summary(plan, menu)
         assert problems == ["'yozuv' aytilgan, lekin rejada yo'q"]
-        assert plan.summary == txt.describe_plan(plan)
+        assert plan.summary == (
+            "Yotoqxona uchun iliq va tinchlantiruvchi atmosfera yaratish maqsadida devorlar uchun ochiq pastel bej "
+            "rangli bo'yoq tanlandi va pol uchun to'q jigarrang yelkan naqshli parket tanlandi. Markaziy qandil va eshik "
+            "devorida joylashgan bra yordamchi yoritgich sifatida tanlandi, bu esa xonaga iliq va qulay yorug'lik beradi."
+        )
 
     def test_yotoq_2_without_the_desk_is_kept(self):
         problems, summary = self._reconciled(self.YOTOQ_2)
@@ -900,3 +905,71 @@ class TestTheStyleOfTheFurniture:
         with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
             plan = await ad.design_room("iliq", TestDesignRoomEndToEnd.ROOM, items, user_id="u")
         assert "minimalist" not in plan.summary.lower()
+
+
+class TestOnlyTheWrongSentenceGoes:
+    """One false sentence cost the whole summary: the honest sentences around it are kept now."""
+
+    MINIMALIST = TestTheStyleOfTheFurniture.MINIMALIST
+    BOLALAR = TestAWardrobeIsNotABookcase.BOLALAR
+
+    def test_minimalist_loses_only_its_furniture_style_sentence(self):
+        plan = SimpleNamespace(**vars(self.MINIMALIST))
+        problems = txt.reconcile_summary(plan, None, TestTheStyleOfTheFurniture.ALL_SKANDINAV)
+        assert problems == ["'Minimalist' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"]
+        assert plan.summary == (
+            "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda, C devori esa yengil aksent rang bilan "
+            "bo'yalgan. Pol plitkadan tanlandi, bu xona uchun soddalik va tozalikka urg'u beradi. Asosiy yorug'lik LED "
+            "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi. Bu "
+            "elementlar xonada zamonaviy va tartibli atmosfera yaratadi."
+        )
+
+    def test_bolalar_loses_only_its_wardrobe_sentence(self):
+        plan = SimpleNamespace(**vars(self.BOLALAR))
+        assert txt.reconcile_summary(plan) == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+        assert plan.summary == (
+            "Bu dizayn bolalar xonasi uchun yumshoq pastel ko'k devor rangi va iliq yog'och laminat pol bilan tanlandi. "
+            "Yorqin atmosfera uchun markaziy shift chirog'i va ikki devor chiroqlari (bra) qo'shildi."
+        )
+
+    def test_a_summary_wrong_in_every_sentence_falls_back(self):
+        plan = make("Oltin detallar xonani bezaydi. Plitka pol salqin. Bra devorda.")
+        problems = txt.reconcile_summary(plan)
+        assert len(problems) == 3
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_lone_word_left_is_not_kept(self):
+        plan = make("Iliq. Oltin detallar xonani bezaydi.")
+        assert txt.reconcile_summary(plan)
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_wrong_claim_spread_over_sentences_falls_back(self):
+        # No sentence is English enough alone, the whole is: the remainder is checked again and fails.
+        plan = make("Devorlar bej, the parket. Pol parket, the qandil. Qandil and divan.")
+        assert any("o'zbekcha emas" in p for p in txt.reconcile_summary(plan))
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_clean_summary_of_many_sentences_is_unchanged(self):
+        text = "Iliq bej devorlar. Parket pol shevron naqshida. Markazda qandil, divan va tumba."
+        plan = make(text)
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == text
+
+    def test_what_is_kept_never_trips_the_check(self):
+        plan = SimpleNamespace(**vars(self.BOLALAR))
+        txt.reconcile_summary(plan)
+        assert plan.summary != txt.describe_plan(plan)
+        assert txt.summary_problems(plan.summary, plan) == []
+
+    @pytest.mark.parametrize(("summary", "event"), [
+        ("Iliq bej devorlar va parket pol. Oltin chiroq xonani bezaydi.", "ai_design.summary_trimmed"),
+        ("Oltin chiroq xonani bezaydi.", "ai_design.summary_replaced"),
+    ])
+    async def test_the_log_tells_a_trim_from_a_replacement(self, summary, event):
+        from structlog.testing import capture_logs
+
+        reply = TestDesignRoomEndToEnd()._reply(summary)
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)), capture_logs() as logs:
+            await ad.design_room("iliq", TestDesignRoomEndToEnd.ROOM, ITEMS, user_id="u")
+        events = [e for e in logs if e["event"].startswith("ai_design.summary_")]
+        assert [e["event"] for e in events] == [event] and events[0]["problems"]
