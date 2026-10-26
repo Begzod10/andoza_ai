@@ -8,7 +8,7 @@ import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import type { FloorPatternId } from '@/lib/floorGeometry'
 import { lightType } from '@/lib/lightCatalog'
 import type { LightTypeId } from '@/lib/lightCatalog'
-import { lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
+import { floorLampSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
 import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
 import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
@@ -178,21 +178,6 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
   const geometry = useRoomStore.getState().geometry
   const model = roomModel(geometry)
 
-  if (parts.lights) {
-    // An earlier design's lights go; the user's own stay (and new ones are added beside them).
-    for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
-    const nthByZone = new Map<string, number>()
-    for (const light of plan.lights) {
-      const type = lightType(light.type)
-      const key = `${light.zone}:${type.mount === 'wall'}`
-      const nth = nthByZone.get(key) ?? 0
-      nthByZone.set(key, nth + 1)
-      const spot = lightSpot(light.zone, type.mount, model, nth)
-      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
-      applied.lights++
-    }
-  }
-
   if (parts.furniture) {
     // An earlier design's pieces go before the new ones are placed, so they neither stay nor
     // crowd the new ones out; the user's own stay, and the new ones avoid them.
@@ -216,6 +201,35 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     applied.furniture = placed.length
     applied.dropped = dropped
     applied.skipped = dropped.reduce((s, d) => s + d.count, 0)
+  }
+
+  // After the furniture, so a floor lamp can keep off it: the design's pieces and the user's own.
+  if (parts.lights) {
+    // An earlier design's lights go; the user's own stay (and new ones are added beside them).
+    for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
+    const byId = new Map(catalog.map((c) => [c.id, c]))
+    // A rug lies under things: a lamp may stand on it.
+    const solid: Rect[] = useRoomStore.getState().furniture.flatMap((f) => {
+      const item = byId.get(f.furniture_id)
+      if (item && (RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
+      const size = sizeOf(item)
+      return [{ x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }]
+    })
+    const nthByZone = new Map<string, number>()
+    for (const light of plan.lights) {
+      const type = lightType(light.type)
+      const key = `${light.zone}:${type.mount === 'wall'}`
+      const nth = nthByZone.get(key) ?? 0
+      nthByZone.set(key, nth + 1)
+      let spot = lightSpot(light.zone, type.mount, model, nth)
+      if (type.mount === 'floor' && model.walls.length) {
+        const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
+        const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
+        spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
+      }
+      store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
+      applied.lights++
+    }
   }
   return applied
 }
