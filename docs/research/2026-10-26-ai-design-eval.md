@@ -536,3 +536,58 @@ Ko'ndalang raqamlar (13 ta AI rejasi):
 
 Harness o'zi yaratgan hamma narsani o'chirdi: ZZ mebel, `evaltest_` foydalanuvchi, kvartira va xonalar (kaskad).
 Tekshiruvda 0 qoldi. Vaqtinchalik vitest fayl va konteynerdagi `/tmp/eval*.json` o'chirildi.
+
+## 2-bosqichdan keyin (2026-10-26)
+
+2-bosqich tuzatishlari tekshirildi: "qorong'i" `dark` tayyor uslubidan boshlanadi; sig'maydigan karavot, shkaf yoki
+divan katalogdagi kichikroq shu turdagi buyumga almashtiriladi; kichik yotoqxonaga bir kishilik karavot aytiladi;
+torsher mebel ichida turmaydi.
+
+- **Harness**: `eval_ai_design.py --set phase2` (yangi 4 so'rovli to'plam, `--only` bilan toraytirsa bo'ladi).
+  **4 ta OpenAI chaqiruvi**, hammasi 200, 4.7–6.2 soniya.
+- **Joylashuv**: vaqtinchalik vitest `applyDesignPlan(plan, ALL_PARTS, catalog, roomType)` ni chaqirdi (almashtirish
+  va torsher siljitish shu yo'lda), keyin torsher to'rtburchagini (`lightCatalog` o'lchami) har bir mebel
+  to'rtburchagi bilan solishtirdi. Test fayl o'chirildi. Ma'lumot:
+  `/private/tmp/claude-501/-Users-mac-Projects-andoza-ai/3fd8fe5c-d9c1-4c28-815c-e1f7c8f83e8c/scratchpad/ai-eval/p2/`
+  (`eval.json`, `layout_out.json`).
+
+| So'rov (xona) | Oldin | Keyin | U R M J I | Karavot | Shkaf | Izoh |
+|---|---|---|---|---|---|---|
+| Shinam yotoqxona (yotoqxona 4×3.5) | 7 | **6** | U7 R6 M7 J7 I4 | Grafit 180, joylandi | Kiyim shkafi Grafit tushdi → **Kitob shkafi Oxford** (mehmonxona javoni) | saqlandi |
+| Shinam yotoqxona (kichik 3×2.6) | 6 | **6** | U6 R7 M6 J7 I3 | **Bir kishilik, 90 sm**, joylandi | Kiyim shkafi Verona tushdi → **Hammom shkafi** | almashtirildi |
+| Qorong'i, dramatik (mehmonxona 4.5×3.2) | 6 | **7** | U8 R8 M6 J7 I6 | — | — | saqlandi |
+| Qorong'i, sokin yotoqxona (kichik 3×2.6, yangi) | — | **7** | U8 R7 M6 J7 I6 | **Bir kishilik, 90 sm**, joylandi | Kiyim shkafi Grafit tushdi → **Hammom shkafi** | saqlandi |
+
+Hech bir rejada buyum tashlab ketilmadi (`dropped` bo'sh), xonadan chiqish va eshikni to'sish 0. Yagona ustma-ust
+tushish yotoqxonada stul yozuv stoli ostiga kirgani (oldin ham shunday edi).
+
+### Tekshiruvlar
+
+| Kutilgan | Natija | Izoh |
+|---|---|---|
+| Kichik xonada karavot (≤120 sm) | **O'tdi** (2/2) | Model ikkala so'rovda "Bir kishilik karavot"ni (200×90) o'zi tanladi, almashtirish kerak bo'lmadi. Oldin 160 sm karavot tushib qolardi. |
+| Kichik xonada kiyim shkafi | **O'tmadi** (0/2) | Shkaf "joylandi", lekin u **Hammom shkafi** (60×45×85, `hammom` buyumi). Eng kichik haqiqiy shkaf (Nord, 150×58) ham sig'madi. |
+| Yotoqxonada karavot va shkaf | **Yarim** | Karavot joylandi. Shkaf o'rniga mehmonxonaning klassik **Kitob shkafi Oxford**i turdi. Nord 150×58 ham 4×3.5 xonada (180 karavot, yozuv stoli bilan) sig'madi. |
+| Qorong'i so'rovlar `dark`dan boshlanadi | **O'tdi** (2/2) | Boshlang'ich reja `dark` (`furnitureStyle` zamonaviy). Natijada ikkalasida ham `#2c2c2c` devor, C devorda `#1a1a1a` aksent, `border` shift `settings` bilan (`#2f2f2f`, LED tasma 2700 K), qora yelkan parket, qandil + torsher + LED chiziq saqlandi. |
+| Torsher mebel ichida emas | **O'tdi** (2/2) | Mehmonxonada (1.5, −1.35) va kichik xonada (1.25, 0.9): hech bir mebel to'rtburchagi bilan kesishmaydi, xona ichida. Oldin 6 ta rejada mebel ichida edi. |
+
+### Topilmalar
+
+1. **Almashtirish xona turiga qaramaydi va eng kichigidan boshlaydi** (`aiDesign.ts`, `smallerOfKind`): `shkaf`
+   kategoriyasidagi har qanday buyum `wardrobe` rolini oladi, shuning uchun kiyim shkafi o'rniga hammom shkafi yoki
+   kitob javoni tushadi. Bu 3/3 shkafda bo'ldi va tashlab ketilgan shkafni yashirib qo'yadi: foydalanuvchi "Joy
+   yetmadi" o'rniga yotoqxonada hammom shkafini ko'radi. Taklif: nomzodlarni xona turi (yoki `null`) bo'yicha
+   cheklash va kiyim shkafini nomidan ajratish; eng kichigidan emas, sig'adigan eng kattasidan boshlash.
+2. **150 sm kiyim shkafi 4×3.5 yotoqxonaga ham sig'maydi** (180 karavot, tumbochka, yozuv stoli bilan). Geometriya
+   bo'yicha C devorda joy bor, ya'ni joylashuv qoidalari (o'tish joyi, karavot yon tomoni) juda qattiq yoki shkaf
+   guruhi kech joylanadi (`furnitureLayout.ts`). Kichik xonada esa shkafsiz qolishni aytish kerak.
+3. **Izoh joylashuvdan keyin yangilanmaydi**: uchala shkaf almashtirishida izoh "kiyim shkafi" deydi (almashtirilgan
+   shablon matni ham "Kiyim shkafi Verona" deydi), xonada esa hammom shkafi yoki kitob javoni turadi.
+4. **Izohda inglizcha qoladi**: kichik yotoqxonada oxirgi inglizcha jumla sabab izoh almashtirildi (to'g'ri). Lekin
+   yotoqxonada "Ceiling trim border, skirting b054 va galtel t160", qorong'i mehmonxonada "chandelier", "floor lamp",
+   "led linear" tekshiruvdan o'tib saqlandi.
+5. **Qorong'i mehmonxona mebeli aralash**: `dark` zamonaviy mebelni oldinga qo'yadi, lekin model klassik Kreslo
+   Barokko va milliy o'ymakor jurnal stolini qo'shdi (izoh buni ochiq aytadi).
+
+Tozalash: harness ZZ mebel va `evaltest_` foydalanuvchini o'chirdi (tekshiruvda 0), konteynerdagi
+`/tmp/eval_p2.json` va vaqtinchalik vitest fayl o'chirildi.

@@ -7,11 +7,12 @@ the designer and the `has_model=true` catalog see them), user and rooms (each wi
 `room_type`), asks for a design in each scenario `--repeats` times, prints a report and removes
 everything it made.
 
-Two scenario sets:
+Three scenario sets (`--only id,id` narrows one to those scenario ids):
   style   the style evaluation of docs/research/2026-10-26-ai-design-eval.md: 13 prompts in a
           living room 4.5x3.2, bedroom 4x3.5, kids' room 3.5x3 and small room 3x2.6
   robust  odd requests: vague, contradictory, English, Russian, prompt injection, over the limit,
           kitchen, bathroom, an L-shaped and a scanned room
+  phase2  four requests rechecking beds and wardrobes in the bedrooms and the dark style
 
 The app runs in this process (not over the network) so the run can see the model's own summary
 before `reconcile_summary` replaces it: each run records `raw_summary`, `summary_kept` and
@@ -190,6 +191,13 @@ SCENARIOS = {
         ("hammom", "bath", "Toza, zamonaviy hammom"),
         ("bolalar", "kids", "Bolalar xonasi: quvnoq va rangli"),
         ("lshakl", "lshape", "Zamonaviy mehmonxona, divan va stol bilan"),
+    ],
+    # the phase-2 recheck: a bed and wardrobe in both bedrooms, the dark style in the living and small rooms
+    "phase2": [
+        ("yotoq", "bedroom43", "Shinam yotoqxona"),
+        ("yotoq_kichik", "small", "Shinam yotoqxona"),
+        ("qorongi", "living45", "Qorong'i, dramatik"),
+        ("qorongi_kichik", "small", "Qorong'i, sokin yotoqxona"),
     ],
 }
 
