@@ -106,3 +106,43 @@ describe('a rug that fits the room', () => {
     expect(presetPlan('milliy', catalog, 'yotoqxona')!.furniture.find((f) => f.role === 'rug')!.name).toBe('ZZ Gilam Buxoro naqshli')
   })
 })
+
+describe('a rug the layout cannot lay inside the room', () => {
+  const piece = (name: string, role: string) => ({ id: catalog.find((c) => c.name_uz === name)!.id, name, role })
+  const BUXORO = piece('ZZ Gilam Buxoro naqshli', 'rug')
+  function applyPlan(roomId: RoomId, roomType: string, furniture: ReturnType<typeof piece>[], cat = catalog) {
+    useRoomStore.getState().resetRoom()
+    useRoomStore.getState().loadRoom({ geometry: { walls: data.rooms[roomId].walls }, ceiling_h: 2.7 } as never)
+    useRoomStore.setState({ lights: [], furniture: [] })
+    const applied = applyDesignPlan({ title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture }, ALL_PARTS, cat, roomType)
+    const model = roomModel(useRoomStore.getState().geometry)
+    const rugs = useRoomStore.getState().furniture.flatMap((f) => {
+      const c = byId.get(f.furniture_id)!
+      return /gilam/i.test(c.name_uz) ? [{ name: c.name_uz, rect: { x: f.x / 1000, z: f.y / 1000, w: c.footprint_w! / 100, d: c.footprint_d! / 100, rotation: f.rotation } }] : []
+    })
+    return { applied, model, rugs }
+  }
+  const BEDROOM = [piece('ZZ Bir kishilik karavot', 'bed'), piece('ZZ Tumbochka Nord', 'nightstand'), BUXORO]
+
+  it('the 3 x 2.6 m bedroom: the 200 x 300 rug, lying across the bed, gives way to a smaller one for every room', () => {
+    const anyRoom = catalog.map((c) => (c.name_uz === 'ZZ Gilam kulrang' ? { ...c, room_type: null } : c))
+    const r = applyPlan('small', 'yotoqxona', BEDROOM, anyRoom)
+    expect(r.applied.swapped).toEqual([{ from: 'ZZ Gilam Buxoro naqshli', to: 'ZZ Gilam kulrang', count: 1 }])
+    expect(r.rugs.map((x) => x.name)).toEqual(['ZZ Gilam kulrang'])
+    expect(r.model.inside(r.rugs[0].rect)).toBe(true)
+    expect(r.applied.dropped).toEqual([])
+  })
+
+  it('the 3 x 2.6 m bedroom, with no smaller rug made for it: the rug is left out and named', () => {
+    const r = applyPlan('small', 'yotoqxona', BEDROOM)
+    expect(r.rugs).toEqual([])
+    expect(r.applied.dropped).toEqual([{ name: 'ZZ Gilam Buxoro naqshli', count: 1, role: 'rug' }])
+  })
+
+  it('the 4.5 x 3.2 m living room keeps the 200 x 300 rug', () => {
+    const r = applyPlan('living45', 'mehmonxona', [piece('ZZ Divan Samarqand', 'sofa'), piece("ZZ Jurnal stoli o'ymakor", 'coffee_table'), BUXORO])
+    expect(r.rugs.map((x) => x.name)).toEqual(['ZZ Gilam Buxoro naqshli'])
+    expect(r.model.inside(r.rugs[0].rect)).toBe(true)
+    expect(r.applied.swapped).toEqual([])
+  })
+})

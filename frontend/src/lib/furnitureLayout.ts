@@ -195,9 +195,12 @@ export function layoutFurniture(
   const placed = best?.placed ?? fill([], [])
   const primaryPlaced = best?.primary ?? []
 
-  for (const rug of rugs) placed.push({ piece: rug, rect: rugSpot(rug, primaryPlaced, model) })
+  for (const rug of rugs) {
+    const rect = rugSpot(rug, primaryPlaced, model)
+    if (rect) placed.push({ piece: rug, rect })
+  }
 
-  return { placed, dropped: droppedOf([...byGroup.values()].flat(), placed, unusedChairs), weight: weight(placed) }
+  return { placed, dropped: droppedOf([...byGroup.values()].flat().concat(rugs), placed, unusedChairs), weight: weight(placed) }
 }
 
 /** The step a rug is moved by toward the room's middle when it would cross a wall, metres. */
@@ -206,9 +209,11 @@ const RUG_STEP = 0.1
 /**
  * A rug lies under the middle of the main group, turned with its first piece (in the room's middle
  * when the group was not placed). One that would cross a wall there is moved toward the room's
- * middle until it lies inside; it lies under things and never counts as in the way.
+ * middle until it lies inside; it lies under things and never counts as in the way. Null when it
+ * crosses a wall even in the middle: too big for the room, it is left out (and may be swapped for a
+ * smaller one).
  */
-function rugSpot(rug: Piece, group: Placed[], model: RoomModel): Rect {
+function rugSpot(rug: Piece, group: Placed[], model: RoomModel): Rect | null {
   const { box } = model
   const middle: Pt = [(box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2]
   const centre: Pt = group.length
@@ -223,7 +228,7 @@ function rugSpot(rug: Piece, group: Placed[], model: RoomModel): Rect {
     const r = at(steps ? k / steps : 0)
     if (model.inside(r)) return r
   }
-  return at(1)
+  return null
 }
 
 /** A room with no walls to stand things on: each piece in the middle or the nearest free floor to it. */
@@ -234,7 +239,7 @@ function inTheMiddle(pieces: Piece[], model: RoomModel, taken: Rect[]): ReturnTy
   for (const piece of [...pieces].sort((a, b) => Number(b.role === 'rug') - Number(a.role === 'rug'))) {
     const rug = piece.role === 'rug'
     const spot = furnitureSpot('center', piece, model, rug ? [] : solid)
-    if (!rug && spot.fit !== 'ok') { out.set(piece.name, (out.get(piece.name) ?? 0) + 1); continue }
+    if (rug ? !model.inside(spot.rect) : spot.fit !== 'ok') { out.set(piece.name, (out.get(piece.name) ?? 0) + 1); continue }
     if (!rug) solid.push(spot.rect)
     placed.push({ piece, rect: spot.rect })
   }
