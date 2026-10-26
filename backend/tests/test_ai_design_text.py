@@ -611,6 +611,20 @@ class TestAnEnglishTailDoesNotCostTheSummary:
     def test_a_raw_piece_id_is_a_leak(self):
         assert any("ichki nom" in p for p in txt.summary_problems("F1 divan markazda turadi.", make()))
 
+    def test_a_shop_name_with_a_label_in_it_is_no_leak(self):
+        # "Divan F1 Lux" is the shop's own name: the label is part of it, not the prompt's F1.
+        text = "Divan F1 Lux burchakda turadi, devorlar bej va pol parket."
+        plan = _eval_plan(text, {"main": {"type": "paint", "color": "#e8dcc8"}},
+                          {"type": "parquet", "pattern": None, "tint": None}, [], ["Divan F1 Lux"])
+        assert txt.reconcile_summary(plan, ["Divan F1 Lux", "Kreslo F2"]) == []
+        assert plan.summary == text
+        # A label of no name, or of a piece the plan did not choose, is still the prompt's.
+        assert any("ichki nom" in p for p in txt.summary_problems("Divan F1 Lux va F3 burchakda.", plan, ["Divan F1 Lux"]))
+
+    def test_a_label_in_a_catalog_name_is_no_leak(self):
+        plan = _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}}, None, [], ["Divan"])
+        assert not any("ichki nom" in p for p in txt.summary_problems("Kreslo F2 yo'q.", plan, ["Divan", "Kreslo F2"]))
+
     def test_a_clean_summary_is_unchanged(self):
         text = "Iliq bej devorlar, parket pol. Markazda qandil 2.5 metr balandlikda, divan va tumba bilan."
         plan = make(text)

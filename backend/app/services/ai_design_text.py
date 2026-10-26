@@ -157,10 +157,12 @@ def _plan_trim_ids(plan: Any) -> list[str]:
 _PIECE_LABELS = re.compile(r"\bf\d+\b")
 
 
-def _language_problems(text: str, plan: Any) -> list[str]:
+def _language_problems(text: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     if _RAW_IDS.search(text):
         return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
-    if _PIECE_LABELS.search(text):
+    # A label that is part of a shop's own name ("Divan F1 Lux") is the name, not the prompt's label.
+    names = _norm(" ".join([*(f.get("name", "") for f in plan.furniture), *(catalog_names or [])]))
+    if set(_PIECE_LABELS.findall(text)) - set(_PIECE_LABELS.findall(names)):
         return ["matnda ichki nom bor (mebel belgisi)"]
     if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
         return ["matnda ichki nom bor (shift yoki plintus profili)"]
@@ -297,7 +299,7 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
-        *_language_problems(text, plan),
+        *_language_problems(text, plan, catalog_names),
         *_colour_of_things_problems(text),
         *_colour_problems(text, plan),
         *_furniture_problems(text, plan),
@@ -471,12 +473,12 @@ def _localise(text: str) -> str:
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
-def _uzbek_sentences(text: str, plan: Any) -> str:
+def _uzbek_sentences(text: str, plan: Any, catalog_names: list[str] | None = None) -> str:
     """*text* without the sentences that are not for the user: one in English (the model often ends by
     translating itself) or one that reads the studio's ids. Dropping them costs nothing the plan holds,
     while judging the whole text by them would throw the honest Uzbek away with them."""
     sentences = _SENTENCE_END.split(text.strip())
-    return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan))
+    return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan, catalog_names))
 
 
 def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
@@ -484,7 +486,7 @@ def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list
     wording (empty when it was kept, at most without its English or id-bearing sentences).
     *catalog_names* are the shop's own piece names."""
     localised = _localise(plan.summary or "")
-    uzbek = _uzbek_sentences(localised, plan)
+    uzbek = _uzbek_sentences(localised, plan, catalog_names)
     if len(uzbek.split()) >= 2:
         plan.summary = uzbek
         problems = summary_problems(uzbek, plan, catalog_names)
