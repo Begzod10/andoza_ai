@@ -116,6 +116,9 @@ class RoomUpdate(BaseModel):
     state: dict | None = None
     # Absent leaves the stored type alone; an explicit null clears it.
     room_type: RoomType | None = None
+    # The updated_at the caller last read. When it is not the room's current one the PATCH is
+    # refused (409) and nothing is written. Absent: no check.
+    expected_updated_at: datetime | None = None
 
 
 class RoomOut(BaseModel):

@@ -138,6 +138,9 @@ class DesignPlan:
     # summary because reconcile_summary (rightly) rejects a summary naming things the
     # plan does not apply, and these notes are about exactly such things.
     image_notes: str = ""
+    # The id of the ready-made style the plan started from (the room type's default included);
+    # None when there was none, as with an image and no named style.
+    style: str | None = None
 
     def is_empty(self) -> bool:
         return not (self.walls or self.floor or self.lights or self.furniture or self.trim)
@@ -823,10 +826,12 @@ async def design_room(
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     log.info("ai_design.answered", chars=len(text))
     area = room.get("area") or room["width"] * room["depth"]
+    start = starting_preset(message_prompt, None if image else room.get("room_type"))
     plan = validate_plan(
         extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
-        starting_preset=starting_preset(message_prompt, None if image else room.get("room_type")),
+        starting_preset=start,
     )
+    plan.style = start["id"] if start else None
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, those sentences go, or when nothing honest is
     # left, the plan's own description is shown instead.

@@ -1033,3 +1033,22 @@ def test_the_message_shows_the_room_area():
 def test_the_menu_shows_the_bed_s_size():
     lines, _ = ad.furniture_menu(ITEMS, "yotoqxona")
     assert any(line.startswith("F") and "Krovat (krovat, 2x1.6 m" in line for line in lines)
+
+
+async def _planned(prompt, room, image=None):
+    reply = SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(GOOD))])
+    with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+        return await ad.design_room(prompt, room, ITEMS, user_id="u", image=image)
+
+
+async def test_design_plan_style_named():
+    assert (await _planned("loft uslubida", ROOM)).style == "loft"
+
+
+async def test_design_plan_style_room_default():
+    assert (await _planned("Shinam xona", {**ROOM, "room_type": "yotoqxona"})).style == "skandinav"
+
+
+async def test_design_plan_style_none_with_image():
+    image = SimpleNamespace(media_type="image/jpeg", data_b64="AAAA")
+    assert (await _planned("", {**ROOM, "room_type": "yotoqxona"}, image=image)).style is None
