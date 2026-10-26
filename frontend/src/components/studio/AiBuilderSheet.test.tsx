@@ -1029,17 +1029,32 @@ describe('applying the design to every room of the apartment', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['studio-nav-total', 'bed'] })
   })
 
-  it('a new variant forgets the other rooms\' undo', async () => {
+  it('a new design in this room keeps the other rooms\' undo: one Qaytarish puts every room back', async () => {
     bulk.apply.mockResolvedValue({ outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }], undo: UNDO })
+    bulk.undo.mockResolvedValue([{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }])
+    getRooms.mockResolvedValue(THREE_ROOMS)
+    renderSheet({ aptId: 'apt', onSave: savesOk() })
+    fireEvent.click(screen.getByText('Skandinav'))
+    await confirmAll()
+    await screen.findByText(/1 ta xonaga qo'llandi/)
+    fireEvent.click(screen.getByText('Minimalist'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Qaytarish' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Qaytarish' }))
+    await waitFor(() => expect(bulk.undo).toHaveBeenCalledWith(UNDO))
+    expect(await screen.findByText(/1 ta xona qaytarildi/)).toBeInTheDocument()
+  })
+
+  it('a new AI variant keeps the other rooms\' undo too', async () => {
+    bulk.apply.mockResolvedValue({ outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }], undo: UNDO })
+    bulk.undo.mockResolvedValue([])
     await appliedWithRooms()
     await confirmAll()
     await screen.findByText(/1 ta xonaga qo'llandi/)
     fireEvent.click(screen.getByText('Boshqa variant'))
     await waitFor(() => expect(aiDesign).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByText(/1 ta xonaga qo'llandi/)).toBeNull())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Qaytarish' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: 'Qaytarish' }))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Qaytarish' })).toBeNull())
-    expect(bulk.undo).not.toHaveBeenCalled()
+    await waitFor(() => expect(bulk.undo).toHaveBeenCalledWith(UNDO))
   })
 
   it('says so when the rooms could not be read', async () => {

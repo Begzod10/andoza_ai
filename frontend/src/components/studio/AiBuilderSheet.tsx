@@ -160,7 +160,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   const [barHidden, setBarHidden] = React.useState(false)
   // What the design in the room was made from: what the apartment's other rooms are designed from.
   const [source, setSource] = React.useState<DesignSource | null>(null)
-  // The other rooms as they were before the last "Barcha xonalarga qo'llash", for "Qaytarish".
+  // The other rooms as they were before the first "Barcha xonalarga qo'llash", for "Qaytarish". Kept
+  // across new designs of this room; cleared by a room switch, or once the other rooms are put back.
   const [roomsUndo, setRoomsUndo] = React.useState<RoomsUndo | null>(null)
   const [roomsNotice, setRoomsNotice] = React.useState("")
   const [confirmRooms, setConfirmRooms] = React.useState(false)
@@ -323,13 +324,12 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   }
 
   /**
-   * A new design for this room: the other rooms keep what the last "Barcha xonalarga qo'llash" gave
-   * them, and are no longer undone with this room.
+   * A new design for this room. The other rooms keep what the last "Barcha xonalarga qo'llash" gave
+   * them, and their undo stays: one "Qaytarish" still puts every room back as it was before.
    */
   function newSource(next: DesignSource) {
     setSource(next)
     setFurnitureOffByUser(false)
-    setRoomsUndo(null)
     setRoomsNotice("")
   }
 
