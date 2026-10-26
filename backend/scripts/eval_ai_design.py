@@ -7,7 +7,7 @@ the designer and the `has_model=true` catalog see them), user and rooms (each wi
 `room_type`), asks for a design in each scenario `--repeats` times, prints a report and removes
 everything it made.
 
-Three scenario sets (`--only id,id` narrows one to those scenario ids):
+Four scenario sets (`--only id,id` narrows one to those scenario ids):
   style   the style evaluation of docs/research/2026-10-26-ai-design-eval.md: 13 prompts in a
           living room 4.5x3.2, bedroom 4x3.5, kids' room 3.5x3 and small room 3x2.6
   robust  odd requests: vague, contradictory, English, Russian, prompt injection, over the limit,
