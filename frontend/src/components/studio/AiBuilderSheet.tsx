@@ -427,8 +427,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
               {applied && applied.dropped.length > 0 && (
                 <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(applied.dropped) })}</p>
               )}
-              {applied?.swapped.map(({ from, to }) => (
-                <p key={`${from}|${to}`} className="mt-1 text-xs leading-snug text-gray-600">{t("ai.orniga_qoyildi", { from, to })}</p>
+              {applied?.swapped.map(({ from, to, count }) => (
+                <p key={`${from}|${to}`} className="mt-1 text-xs leading-snug text-gray-600">
+                  {t("ai.orniga_qoyildi", { from: t("ai.dropped_item", { name: from, count }), to })}
+                </p>
               ))}
               {plan.pin_image_url && (
                 <img src={plan.pin_image_url} alt={t("ai.pin_asosida")} title={t("ai.pin_asosida")} className="mt-2 h-20 rounded-xl object-cover" />

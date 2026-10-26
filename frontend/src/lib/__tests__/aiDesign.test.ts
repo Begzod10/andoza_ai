@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { useRoomStore } from '@/store/roomStore'
 import type { RoomGeometry, WallElement } from '@/store/roomStore'
 import type { AiDesignPlan, CatalogFurniture } from '@/lib/api'
-import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from '../aiDesign'
+import { ALL_PARTS, applyDesignPlan, countSwaps, restoreDesign, snapshotDesign } from '../aiDesign'
 import { overlaps, type Rect } from '../aiDesignLayout'
 
 const geometry = (): RoomGeometry => ({
@@ -488,7 +488,7 @@ describe('a bedroom with a bed too big for it', () => {
     const counts = applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
     const ids = useRoomStore.getState().furniture.map((f) => f.furniture_id)
     expect(ids).toEqual(expect.arrayContaining(['b160', 'wardrobe']))
-    expect(counts.swapped).toEqual([{ from: 'Karavot huge', to: 'Karavot 160' }])
+    expect(counts.swapped).toEqual([{ from: 'Karavot huge', to: 'Karavot 160', count: 1 }])
   })
 
   it('fits a 160 bed with a desk and its chair', () => {
@@ -501,5 +501,12 @@ describe('a bedroom with a bed too big for it', () => {
     const counts = applyDesignPlan(deskPlan, ALL_PARTS, catalog, 'yotoqxona')
     expect(useRoomStore.getState().furniture.map((f) => f.furniture_id).sort()).toEqual(['b160', 'chair', 'desk'])
     expect(counts.dropped).toEqual([])
+  })
+})
+
+describe('countSwaps', () => {
+  it('makes the same swap, made more than once, one entry with how many', () => {
+    expect(countSwaps([{ from: 'Shkaf', to: 'Nord' }, { from: 'Karavot', to: 'Karavot 140' }, { from: 'Shkaf', to: 'Nord' }]))
+      .toEqual([{ from: 'Shkaf', to: 'Nord', count: 2 }, { from: 'Karavot', to: 'Karavot 140', count: 1 }])
   })
 })

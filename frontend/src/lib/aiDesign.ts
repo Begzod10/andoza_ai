@@ -45,8 +45,8 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   dropped: Array<{ name: string; count: number }>
   /** What was put in the room, by name (a stand-in by its own), with how many: chairs round a table count each. */
   placed: Array<{ name: string; count: number }>
-  /** The pieces that did not fit and were swapped for a smaller one of their kind. */
-  swapped: Array<{ from: string; to: string }> }
+  /** The pieces that did not fit and were swapped for a smaller one of their kind, each swap once, with how many. */
+  swapped: Array<{ from: string; to: string; count: number }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
@@ -89,6 +89,17 @@ const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa']
 const SWAP_TRIES = 5
 
 type Layout = ReturnType<typeof layoutFurniture>
+type Swap = { from: string; to: string }
+
+/** The same swap made more than once (two wardrobes of one kind) as one entry, with how many, in first-made order. */
+export function countSwaps(swaps: Swap[]): AppliedCounts['swapped'] {
+  const out = new Map<string, AppliedCounts['swapped'][number]>()
+  for (const { from, to } of swaps) {
+    const key = `${from}|${to}`
+    out.set(key, { from, to, count: (out.get(key)?.count ?? 0) + 1 })
+  }
+  return [...out.values()]
+}
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
@@ -122,10 +133,10 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
  */
 function layoutWithSwaps(
   pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
-): Layout & { swapped: AppliedCounts['swapped'] } {
+): Layout & { swapped: Swap[] } {
   let current = pieces
   let best = layout(current)
-  const swapped: AppliedCounts['swapped'] = []
+  const swapped: Swap[] = []
   for (let i = 0; i < current.length; i++) {
     const piece = current[i]
     if (!SWAP_ROLES.includes(piece.role) || best.placed.some((p) => p.piece === piece)) continue
@@ -218,7 +229,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     }
     applied.furniture = placed.length
     applied.dropped = dropped
-    applied.swapped = swapped
+    applied.swapped = countSwaps(swapped)
     const times = new Map<string, number>()
     for (const { piece } of placed) times.set(piece.name, (times.get(piece.name) ?? 0) + 1)
     applied.placed = [...times].map(([name, count]) => ({ name, count }))
