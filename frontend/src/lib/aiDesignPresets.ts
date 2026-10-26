@@ -1,6 +1,7 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
 import { inferRole, ROLE_GROUP, type FurnitureRole } from '@/lib/furnitureRole'
+import { catalogRoomType } from '@/lib/roomType'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
 
@@ -74,6 +75,8 @@ function pick(
 ): CatalogFurniture | undefined {
   let best: CatalogFurniture | undefined
   let bestScore: [number, number, number] = [-1, -1, -1]
+  // The catalog has no children's room or study pieces: those rooms take the bedroom's and the living room's.
+  const room = catalogRoomType(roomType)
   for (const c of catalog) {
     // A listing without a 3-D model (a photo-only shop item) cannot be placed in the studio.
     if (!c.glb_url || used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
@@ -81,7 +84,7 @@ function pick(
     const score: [number, number, number] = [
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
-      c.room_type === roomType ? 2 : c.room_type === null ? 1 : 0,
+      c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]
     const better = score.findIndex((v, i) => v !== bestScore[i])
     if (better !== -1 && score[better] > bestScore[better]) {

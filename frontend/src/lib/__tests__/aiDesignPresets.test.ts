@@ -85,6 +85,13 @@ describe('design presets', () => {
     expect(presetPlan('minimalist', only, 'mehmonxona')!.furniture.map((f) => f.id)).toEqual(['sofa', 'kitchen-table'])
   })
 
+  it("a children's room and a study take the catalog's bedroom and living-room pieces, as the AI designer does", () => {
+    const rugs = [item('kitchen-rug', 'Gilam', 'gilam', 'oshxona'), item('bed-rug', 'Gilam', 'gilam', 'yotoqxona')]
+    expect(presetPlan('dark', rugs, 'bolalar')!.furniture.map((f) => f.id)).toEqual(['bed-rug'])
+    expect(presetPlan('minimalist', CATALOG, 'kabinet')!.furniture.map((f) => f.id))
+      .toEqual(presetPlan('minimalist', CATALOG, 'mehmonxona')!.furniture.map((f) => f.id))
+  })
+
   it('leaves out a kind the catalog has nothing for, instead of guessing, and works with no catalog at all', () => {
     expect(presetPlan('klassik', [item('sofa', 'Divan', 'divan')], undefined)!.furniture.map((f) => f.id)).toEqual(['sofa'])
     const bare = presetPlan('loft', [], undefined)!
