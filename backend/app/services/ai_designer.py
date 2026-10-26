@@ -741,7 +741,7 @@ async def design_room(
     area = room.get("area") or room["width"] * room["depth"]
     plan = validate_plan(
         extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
-        starting_preset=starting_preset(message_prompt),
+        starting_preset=starting_preset(message_prompt, room.get("room_type")),
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, those sentences go, or when nothing honest is

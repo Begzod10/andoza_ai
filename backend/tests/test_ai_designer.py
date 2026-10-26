@@ -589,6 +589,13 @@ def test_a_room_type_s_style_puts_its_furniture_first():
     assert ad.furniture_styles_for_prompt("Shinam yotoqxona", None) == set()
 
 
+async def test_design_room_hands_the_room_type_s_style_to_validation():
+    reply = SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps({**GOOD, "trim": {"ceiling": "flat"}}))])
+    with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+        p = await ad.design_room("Iliq ranglar", ROOM, ITEMS, user_id="u")  # a mehmonxona: zamonaviy
+    assert p.trim["ceiling"] == {"design": "flat", "settings": {"color": "#f2f1ee", "strip": True, "stripK": 3000}}
+
+
 def test_gold_and_light_lines_hold_with_a_room_type_s_plan():
     message = _message("och ranglar, oltin detallar")
     assert GOLD_LINE in message and LIGHT_LINE in message
