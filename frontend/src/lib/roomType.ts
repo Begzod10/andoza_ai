@@ -29,6 +29,16 @@ export function guessRoomType(name: string): RoomType | null {
   return null
 }
 
+/**
+ * The catalog's room for a room type: the catalog has no children's room or study (the backend's
+ * `_CATALOG_ROOM_TYPE`), so a children's room takes bedroom pieces and a study living-room ones.
+ */
+const CATALOG_ROOM_TYPE: Partial<Record<string, string>> = { bolalar: 'yotoqxona', kabinet: 'mehmonxona' }
+
+export function catalogRoomType(type: string | undefined): string | undefined {
+  return type === undefined ? undefined : CATALOG_ROOM_TYPE[type] ?? type
+}
+
 /** What the AI designer is told: the room's own type, else the guess from its name, else nothing. */
 export function effectiveRoomType(type: string | null | undefined, name: string): RoomType | undefined {
   return (isRoomType(type) ? type : null) ?? guessRoomType(name) ?? undefined

@@ -377,4 +377,35 @@ describe('a main piece that does not fit', () => {
     expect(useRoomStore.getState().furniture).toHaveLength(0)
     expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1 }])
   })
+
+  describe('a wardrobe too wide for the bedroom', () => {
+    const cabinet = (id: string, name: string, w: number, d: number, more: Partial<CatalogFurniture> = {}): CatalogFurniture =>
+      ({ ...item(id, name, w, d, 'shkaf'), ...more })
+    const wardrobePlan = (): AiDesignPlan => ({ ...plan(), lights: [], furniture: [{ id: 'big', name: 'Shkaf big', role: 'wardrobe', zone: 'wall_A' }] })
+    const big = cabinet('big', 'Shkaf big', 400, 60, { room_type: 'yotoqxona' })
+    const placedIds = () => useRoomStore.getState().furniture.map((f) => f.furniture_id)
+
+    it("is not swapped for a kitchen's wall cabinet, a bathroom's cabinet or one hung on a wall", () => {
+      const catalog = [big,
+        cabinet('kitchen', 'Osma shkaf', 80, 35, { room_type: 'oshxona', placement: 'devor' }),
+        cabinet('bath', 'Shkafcha', 60, 30, { room_type: 'hammom' }),
+        cabinet('hung', 'Devor shkafi', 70, 30, { placement: 'devor' })]
+      applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, 'yotoqxona')
+      expect(placedIds()).toEqual([])
+    })
+
+    it("is swapped for a bedroom's wardrobe", () => {
+      const catalog = [big, cabinet('bath', 'Shkafcha', 60, 30, { room_type: 'hammom' }),
+        cabinet('bedroom', 'Shkaf', 150, 60, { room_type: 'yotoqxona' })]
+      applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, 'yotoqxona')
+      expect(placedIds()).toEqual(['bedroom'])
+    })
+
+    it("in a children's room, takes a bedroom's wardrobe (the catalog has no children's rooms)", () => {
+      const catalog = [big, cabinet('living', 'Shkaf', 120, 50, { room_type: 'mehmonxona' }),
+        cabinet('bedroom', 'Shkaf', 150, 60, { room_type: 'yotoqxona' })]
+      applyDesignPlan(wardrobePlan(), ALL_PARTS, catalog, 'bolalar')
+      expect(placedIds()).toEqual(['bedroom'])
+    })
+  })
 })
