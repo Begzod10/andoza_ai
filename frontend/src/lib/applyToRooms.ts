@@ -38,16 +38,23 @@ function targetOf(room: Room): (TargetRoom & { roomType: string; guessed: boolea
   }
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+function listOr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : []
+}
+
 /**
  * The room's design as saved, repaired as a sibling room's is (`siblingDesignState`): a room never
- * opened starts from `DEFAULT_DESIGN_STATE`, with no furniture or lights.
+ * opened starts from `DEFAULT_DESIGN_STATE`, with no furniture or lights. A malformed blob reads the
+ * same way: furniture or lights that are not a list are none, a designState that is not an object
+ * is the default.
  */
 function savedDesign(room: Room): RoomDesign {
-  const saved = room.state as SavedDesign | null | undefined
+  const saved = isObject(room.state) ? (room.state as SavedDesign) : undefined
   return {
-    designState: siblingDesignState(room.state),
-    furniture: saved?.furniture ?? [],
-    lights: saved?.lights ?? [],
+    designState: siblingDesignState(isObject(saved?.designState) ? { designState: saved.designState } : null),
+    furniture: listOr<PlacedFurniture>(saved?.furniture),
+    lights: listOr<PlacedLight>(saved?.lights),
   }
 }
 
@@ -76,7 +83,8 @@ const statusOf = (r: PromiseSettledResult<unknown>): RoomOutcome['status'] =>
  * Puts the design into every room of the apartment but the open one (whose store has it already):
  * each room's new design is worked out from the room as the server holds it, merged into its saved
  * `state` (the PATCH replaces it whole), and written guarded by the `updated_at` it was read with, all
- * at once. A room with no walls is left out. Gives what became of each room, and what undoes the
+ * at once. A room with no walls is left out; one that cannot be worked out, or was read without an
+ * `updated_at` to guard its write, is `failed` and not written. Gives what became of each room, and what undoes the
  * rooms written.
  *
  * `catalog` is the shop's: the names and prices of the pieces placed are read from it.
@@ -86,20 +94,32 @@ export async function applyToOtherRooms(args: {
 }): Promise<{ outcomes: RoomOutcome[]; undo: RoomsUndo }> {
   const { aptId, currentRoomId, source, parts, catalog } = args
   const rooms = (await getRooms(aptId)).filter((r) => r.id !== currentRoomId)
-  const writes = rooms.flatMap((room) => {
+
+  // Every room is worked out before anything is written: a room that cannot be is that room's
+  // failure alone, and never one that leaves rooms written with nothing to tell of them or undo them.
+  type Work = { room: Room; state: Record<string, unknown> | null; guard: string | null }
+  const work: Work[] = rooms.flatMap((room): Work[] => {
     const target = targetOf(room)
     if (!target) return []
-    const plan = planForRoom(source, target, catalog)
-    const { designState, furniture, lights } = designRoomState(savedDesign(room), target.geometry, plan, parts, catalog, target.roomType)
-    const state = { ...room.state, designState, furniture, lights }
-    return [{ room, request: updateRoom(room.id, { state, expected_updated_at: room.updated_at ?? undefined }) }]
+    // A room read without its updated_at cannot be written guarded, so it is not written.
+    if (!room.updated_at) return [{ room, state: null, guard: null }]
+    try {
+      const plan = planForRoom(source, target, catalog)
+      const { designState, furniture, lights } = designRoomState(savedDesign(room), target.geometry, plan, parts, catalog, target.roomType)
+      const state = { ...(isObject(room.state) ? room.state : {}), designState, furniture, lights }
+      return [{ room, state, guard: room.updated_at }]
+    } catch {
+      return [{ room, state: null, guard: null }]
+    }
   })
-  const results = await Promise.allSettled(writes.map((w) => w.request))
+  const results = await Promise.allSettled(work.map(({ room, state, guard }) => (state && guard
+    ? updateRoom(room.id, { state, expected_updated_at: guard })
+    : Promise.reject(new Error('Room not designed')))))
 
   const outcomes: RoomOutcome[] = []
   const undo: RoomsUndo = []
   results.forEach((r, i) => {
-    const { room } = writes[i]
+    const { room } = work[i]
     outcomes.push({ roomId: room.id, name: room.name, status: statusOf(r) })
     if (r.status === 'fulfilled') {
       undo.push({ roomId: room.id, name: room.name, prevState: room.state ?? null, writtenAt: r.value.updated_at ?? '' })
@@ -111,12 +131,12 @@ export async function applyToOtherRooms(args: {
 /**
  * Puts back each room's `state` as it was, guarded by the `updated_at` our write gave it: a room
  * changed since is left as it is (`changed`). A room that had no state gets an empty one, which opens
- * as the default: the PATCH takes no null.
+ * as the default: the PATCH takes no null. An entry without that updated_at is not written (`failed`):
+ * an unguarded write could undo someone else's change.
  */
 export async function undoOtherRooms(undo: RoomsUndo): Promise<RoomOutcome[]> {
-  const results = await Promise.allSettled(undo.map((u) => updateRoom(u.roomId, {
-    state: (u.prevState ?? {}) as Record<string, unknown>,
-    expected_updated_at: u.writtenAt || undefined,
-  })))
+  const results = await Promise.allSettled(undo.map((u) => (u.writtenAt
+    ? updateRoom(u.roomId, { state: (u.prevState ?? {}) as Record<string, unknown>, expected_updated_at: u.writtenAt })
+    : Promise.reject(new Error('No updated_at to guard the undo')))))
   return results.map((r, i) => ({ roomId: undo[i].roomId, name: undo[i].name, status: statusOf(r) }))
 }

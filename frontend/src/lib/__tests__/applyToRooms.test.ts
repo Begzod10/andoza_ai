@@ -8,6 +8,21 @@ import type { CatalogFurniture, Room } from '@/lib/api'
 import { DEFAULT_DESIGN_STATE } from '@/store/roomStore'
 import { ALL_PARTS } from '../aiDesign'
 import { planForRoom, type DesignSource } from '../planForRoom'
+
+// `planForRoom` as it is, but able to throw for one room, to show one room's failure is that room's alone.
+const planSpy = vi.hoisted(() => ({ failFor: null as string | null }))
+vi.mock('../planForRoom', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../planForRoom')>()
+  return {
+    ...real,
+    planForRoom: (...a: Parameters<typeof real.planForRoom>) => {
+      if (planSpy.failFor && a[1].geometry.walls.some((w) => w.elements?.some((e) => e.id.startsWith(`${planSpy.failFor}:`)))) {
+        throw new Error('bad room')
+      }
+      return real.planForRoom(...a)
+    },
+  }
+})
 import { apiGeometryToStoreGeometry, roomScopedElementId } from '../apiRoomGeometry'
 
 const api = vi.hoisted(() => ({ getRooms: vi.fn(), updateRoom: vi.fn() }))
@@ -61,6 +76,7 @@ const args = { aptId: 'apt', currentRoomId: 'cur', source: SOURCE, parts: ALL_PA
 const sentFor = (id: string) => api.updateRoom.mock.calls.find(([roomId]) => roomId === id)?.[1]
 
 beforeEach(() => {
+  planSpy.failFor = null
   api.getRooms.mockReset().mockResolvedValue([CURRENT, BEDROOM, LIVING, NEVER_OPENED])
   api.updateRoom.mockReset().mockImplementation(async (id: string) => ({ id, updated_at: `${id}-written` }))
 })
@@ -136,6 +152,35 @@ describe('applyToOtherRooms', () => {
     ])
   })
 
+  it('a room whose design cannot be worked out is "failed" and not written; the rest are written and undoable', async () => {
+    planSpy.failFor = 'liv'
+    const { outcomes, undo } = await applyToOtherRooms(args)
+    expect(outcomes.map((o) => [o.roomId, o.status])).toEqual([['bed', 'applied'], ['liv', 'failed'], ['new', 'applied']])
+    expect(api.updateRoom.mock.calls.map(([id]) => id).sort()).toEqual(['bed', 'new'])
+    expect(undo.map((u) => u.roomId)).toEqual(['bed', 'new'])
+  })
+
+  it('reads a malformed saved state as an empty one: furniture or lights not a list, designState not an object', async () => {
+    const broken = room('liv', 'Zal', { state: { designState: 'x', furniture: 'oops', lights: { a: 1 }, electricals: [1] } })
+    api.getRooms.mockResolvedValue([CURRENT, broken])
+    const { outcomes } = await applyToOtherRooms(args)
+    expect(outcomes).toEqual([{ roomId: 'liv', name: 'Zal', status: 'applied' }])
+    const state = sentFor('liv').state
+    expect(state.electricals).toEqual([1])
+    expect(state.furniture.length).toBeGreaterThan(0)
+    expect(state.furniture.every((f: { fromDesign?: boolean }) => f.fromDesign)).toBe(true)
+    expect(Array.isArray(state.lights)).toBe(true)
+    expect(state.designState.wallCoverings.ALL).toBeDefined()
+  })
+
+  it('a room read without an updated_at is "failed" and not written: no unguarded write', async () => {
+    api.getRooms.mockResolvedValue([CURRENT, BEDROOM, room('liv', 'Zal', { updated_at: null })])
+    const { outcomes, undo } = await applyToOtherRooms(args)
+    expect(outcomes.map((o) => [o.roomId, o.status])).toEqual([['bed', 'applied'], ['liv', 'failed']])
+    expect(api.updateRoom.mock.calls.map(([id]) => id)).toEqual(['bed'])
+    expect(undo.map((u) => u.roomId)).toEqual(['bed'])
+  })
+
   it('leaves out a room with no walls: there is nothing to design', async () => {
     api.getRooms.mockResolvedValue([CURRENT, BEDROOM, room('empty', 'Bo\'sh', { geometry: null })])
     const { outcomes } = await applyToOtherRooms(args)
@@ -168,6 +213,15 @@ describe('undoOtherRooms', () => {
     })
     const outcomes = await undoOtherRooms(UNDO)
     expect(outcomes.map((o) => [o.roomId, o.status])).toEqual([['bed', 'changed'], ['new', 'applied']])
+    const bedWrites = api.updateRoom.mock.calls.filter(([id]) => id === 'bed')
+    expect(bedWrites).toHaveLength(1)
+    expect(bedWrites[0][1].expected_updated_at).toBe('bed-written')
+  })
+
+  it('an entry without the updated_at of our write is "failed" and not written: no unguarded write', async () => {
+    const outcomes = await undoOtherRooms([{ ...UNDO[0], writtenAt: '' }, UNDO[1]])
+    expect(outcomes.map((o) => [o.roomId, o.status])).toEqual([['bed', 'failed'], ['new', 'applied']])
+    expect(api.updateRoom.mock.calls.map(([id]) => id)).toEqual(['new'])
   })
 
   it('a room that could not be reached is "failed"', async () => {
