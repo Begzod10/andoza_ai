@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { RoomGeometry } from '@/store/roomStore'
-import { furnitureSpot, lightSpot, parseZone, rectBounds, roomModel, type Rect } from '../aiDesignLayout'
+import { floorLampSpot, furnitureSpot, lightSpot, parseZone, rectBounds, roomModel, type Rect } from '../aiDesignLayout'
 
 // 4.0 m (walls A, C) x 3.0 m (walls B, D); lengths are millimetres in the store.
 const room = (): RoomGeometry => ({
@@ -165,5 +165,22 @@ describe('furnitureSpot fit', () => {
     expect(furnitureSpot('wall_A', { w: 1, d: 0.5 }, four(), []).fit).toBe('ok')
     const huge = furnitureSpot('center', { w: 9, d: 9 }, four(), [])
     expect(huge.fit).toBe('none')
+  })
+})
+
+describe('floorLampSpot', () => {
+  const lamp = { w: 0.4, d: 0.4 }
+  const at = (p: { x: number; z: number }): Rect => ({ ...p, ...lamp, rotation: 0 })
+
+  it('with the walls lined with furniture, stands just beside the piece it was in', () => {
+    // A ring of pieces 0.6 m deep along every wall: no wall or corner spot is free, the middle is.
+    const ring: Rect[] = [
+      { x: 0, z: -1.2, w: 4, d: 0.6, rotation: 0 }, { x: 0, z: 1.2, w: 4, d: 0.6, rotation: 0 },
+      { x: 1.7, z: 0, w: 0.6, d: 3, rotation: 0 }, { x: -1.7, z: 0, w: 0.6, d: 3, rotation: 0 },
+    ]
+    const s = floorLampSpot({ x: 1, z: -1 }, lamp, 'corner_A_B', four(), ring)
+    expect(s.x).toBeCloseTo(1, 5)
+    expect(s.z).toBeCloseTo(-0.9 + 0.2 + 0.05, 5) // the piece's front edge, a lamp's half and a little gap
+    expect(inside(at(s))).toBe(true)
   })
 })
