@@ -678,8 +678,9 @@ _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 # Kitchens and bathrooms are tiled whatever the style: a preset's wooden floor is not kept there.
 _TILE_ROOMS = ("oshxona", "hammom")
 # Words of colour or mood in a request with no style. The room type's plan then sends no wall colours:
-# the model, given a grey wall, keeps it for "iliq ranglar".
-_MOOD_COLOUR_WORDS = re.compile(r"\biliq\w*|\byorqin\w*|\bto'q(?:roq)?\b|\bsokin\w*|\bquyuq\w*")
+# the model, given a grey wall, keeps it for "iliq ranglar". Not "sokin": a calm room keeps the
+# plan's calm walls (left to choose, the model painted a calm study dark grey).
+_MOOD_COLOUR_WORDS = re.compile(r"\biliq\w*|\byorqin\w*|\bto'q(?:roq)?\b|\bquyuq\w*")
 
 
 def _asks_for_colours(prompt: str) -> bool:

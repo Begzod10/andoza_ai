@@ -604,9 +604,9 @@ def test_a_room_type_s_plan_keeps_the_wall_colour_but_never_an_accent():
 
 @pytest.mark.parametrize(("prompt", "colours"), [
     ("Iliq ranglar", True), ("yorqin xona", True), ("to'q devorlar", True), ("toʻq devorlar", True),
-    ("och tuslar", True), ("sokin", True), ("quyuq ranglar", True), ("kulrang devor", True),
+    ("och tuslar", True), ("quyuq ranglar", True), ("kulrang devor", True),
     ("Yashil va oq", True), ("oltin detallar", True), ("светлая", True),
-    ("Shinam mehmonxona", False), ("ochiq oshxona", False), ("keng va qulay", False),
+    ("Shinam mehmonxona", False), ("sokin", False), ("ochiq oshxona", False), ("keng va qulay", False),
 ])
 def test_colour_and_mood_words_take_the_wall_colours_out_of_the_room_type_s_plan(prompt, colours):
     assert ("walls" not in _starting(prompt, WALLS)) is colours
