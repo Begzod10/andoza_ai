@@ -43,6 +43,13 @@ const ROLE_BY_CATEGORY: Record<string, FurnitureRole> = {
   divan: 'sofa', karavot: 'bed', stol: 'dining_table', stul: 'dining_chair',
 }
 
+/**
+ * A wardrobe for clothes, by name. "Shkaf" alone names any cupboard (a bookcase, a bathroom cabinet),
+ * which `inferRole` reads as a wardrobe too; only one named like this stands in for a wardrobe or is
+ * worth a wardrobe's weight in a bedroom.
+ */
+export const WARDROBE_NAME = /kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб/i
+
 /** The role of a catalog piece from its name, then its category; anything else is decor. */
 export function inferRole(category: string | null | undefined, name: string): FurnitureRole {
   for (const [pattern, role] of ROLE_BY_NAME) if (pattern.test(name || '')) return role

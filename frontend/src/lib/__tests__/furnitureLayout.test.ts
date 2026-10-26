@@ -413,3 +413,17 @@ describe('final review: layout time', () => {
     expect(median).toBeLessThan(600)
   })
 })
+
+describe('what a bedroom piece weighs', () => {
+  const model = () => roomModel(box(5000, 4500, { B: [el('eshik', 900, 800)] }))
+  const bed = piece('Karavot', 'bed', 1.6, 2.0)
+  it('a clothes wardrobe outweighs the desk with its chair', () => {
+    const { weight } = layoutFurniture([bed, { ...piece('Kiyim shkafi', 'wardrobe', 1.5, 0.6), tall: true }], model(), 'yotoqxona', [])
+    expect(weight).toBe(100 + 10)
+  })
+  it('a bookcase read as a wardrobe weighs one, like any other storage', () => {
+    const { placed, weight } = layoutFurniture([bed, { ...piece('Kitob shkafi', 'wardrobe', 0.9, 0.35), tall: true }], model(), 'yotoqxona', [])
+    expect(placed).toHaveLength(2)
+    expect(weight).toBe(100 + 1)
+  })
+})

@@ -22,6 +22,7 @@ const item = (id: string, w: number, d: number, category: string, placement = 'p
 const CATALOG = [
   item('divan', 2.1, 0.9, 'divan'), item('stol', 1.1, 0.6, 'stol'), item('kreslo', 0.9, 0.9, 'kreslo'), item('tv', 1.5, 0.4, 'tv_tumba'),
   item('shkaf', 1.8, 0.6, 'shkaf'), item('karavot', 2.0, 1.6, 'karavot'), item('tumba', 0.5, 0.4, 'tumba'), item('stul', 0.45, 0.45, 'stul'),
+  item('garderob', 1.8, 0.6, 'shkaf'),
 ]
 const plan = (furniture: Array<[string, string]>): AiDesignPlan => ({
   title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [],
@@ -112,7 +113,7 @@ describe('more pieces than fit', () => {
 
   it('places what fits of eight pieces, counts the rest, and none touches the door', () => {
     const asked: Array<[string, string]> = [
-      ['divan', 'wall_C'], ['tv', 'wall_B'], ['shkaf', 'wall_D'], ['kreslo', 'corner_A_B'], ['stol', 'center'],
+      ['divan', 'wall_C'], ['tv', 'wall_B'], ['garderob', 'wall_D'], ['kreslo', 'corner_A_B'], ['stol', 'center'],
       ['karavot', 'wall_A'], ['tumba', 'corner_C_D'], ['stul', 'wall_B'],
     ]
     const { applied, placed, rects, model } = run(room(), asked)
@@ -122,8 +123,8 @@ describe('more pieces than fit', () => {
     // a 4 m wall (3.2 m of it) and takes 2.2 of the 3 m depth, wherever it slides: the 0.76 m strip left is
     // too shallow for the sofa (0.9 m), the wardrobe and its doors (1.3 m) or a dining table with chairs.
     // A bedroom keeps its wardrobe, so the bed goes into a corner with one side on the wall instead, and
-    // the wardrobe stands across from it; everything else is named as left out.
-    expect(placed.map((f) => f.furniture_id)).toEqual(['karavot', 'shkaf'])
+    // the wardrobe (one for clothes, by its name) stands across from it; everything else is named as left out.
+    expect(placed.map((f) => f.furniture_id)).toEqual(['karavot', 'garderob'])
     for (const r of rects) expect(model.inside(r)).toBe(true)
     for (const r of rects) for (const z of doorZones(model)) expect(hits(r, z)).toBe(false)
   })

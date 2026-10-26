@@ -11,7 +11,7 @@ import type { LightTypeId } from '@/lib/lightCatalog'
 import { floorLampSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLayout'
 import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
-import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
+import { WARDROBE_NAME, inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
 import { catalogRoomType } from '@/lib/roomType'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
@@ -93,11 +93,6 @@ type Layout = ReturnType<typeof layoutFurniture>
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
-/**
- * A wardrobe for clothes, by name: only such a piece stands in for one. "Shkaf" alone names any
- * cupboard (a bookcase, a bathroom cabinet), which would be a wardrobe to `inferRole`.
- */
-const WARDROBE_NAME = /kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб/i
 
 /**
  * The catalog's pieces that could stand in for `piece`: the same role (for a wardrobe, one named as a

@@ -22,7 +22,7 @@
  */
 import { furnitureSpot, type Rect, type RoomModel } from './aiDesignLayout'
 import { chairCount, clearanceZones, groupCandidates, type Piece, type Placed } from './furnitureGroups'
-import { ROLE_GROUP, type FurnitureRole, type GroupId } from './furnitureRole'
+import { ROLE_GROUP, WARDROBE_NAME, type FurnitureRole, type GroupId } from './furnitureRole'
 import { doorEntries, walkable, type Pt } from './walkway'
 
 const ORDER: GroupId[] = ['lounge', 'dining', 'sleep', 'work', 'storage', 'extra']
@@ -31,7 +31,8 @@ const PRIMARY_TRIES = 12
 /**
  * What a placed piece is worth when arrangements are compared: one each, but in a bedroom a wardrobe
  * is worth more than the desk and its chair together (3 + 1) with a few small pieces beside them, so a
- * bedroom keeps its wardrobe.
+ * bedroom keeps its wardrobe. Only a wardrobe for clothes (`WARDROBE_NAME`): a bookcase read as a
+ * wardrobe weighs one.
  */
 const BEDROOM_WEIGHT: Partial<Record<FurnitureRole, number>> = { wardrobe: 10, desk: 3 }
 /**
@@ -120,8 +121,9 @@ export function layoutFurniture(
     ? [others, others.map((g) => (g === 'work' ? 'storage' : g === 'storage' ? 'work' : g))]
     : [others]
   const anchor = ANCHOR[primary]
-  const weight = (ps: Placed[]) => ps.reduce((s, p) =>
-    s + (p.piece.role === anchor ? ANCHOR_WEIGHT : (bedroom && BEDROOM_WEIGHT[p.piece.role]) || 1), 0)
+  const worth = (p: Piece) => p.role === anchor ? ANCHOR_WEIGHT
+    : (bedroom && (p.role !== 'wardrobe' || WARDROBE_NAME.test(p.name)) && BEDROOM_WEIGHT[p.role]) || 1
+  const weight = (ps: Placed[]) => ps.reduce((s, p) => s + worth(p.piece), 0)
   const rects = (ps: Placed[]) => ps.map((p) => p.rect)
 
   /**
