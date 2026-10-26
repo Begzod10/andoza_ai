@@ -6,6 +6,7 @@ import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { useNoPageZoom } from "@/hooks/useNoPageZoom";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import { RoomTypeBadge } from "@/components/studio/RoomTypeBadge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getRoom, getDraftRoom, createApartment, createRoom, updateRoom, deleteRoom,
@@ -51,6 +52,9 @@ export default function StudioPage() {
   const apartmentId = useRoomStore((s) => s.apartmentId);
   const name = useRoomStore((s) => s.name);
   const roomType = useRoomStore((s) => s.roomType);
+  // The store's id (as RoomSettingsSheet's picker uses): null for a draft not
+  // saved yet, so the header's type picker keeps the pick local until then.
+  const storeRoomId = useRoomStore((s) => s.roomId);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const draftId = useRoomStore((s) => s.draftId);
   const loadDraftState = useRoomStore((s) => s.loadDraftState);
@@ -533,18 +537,33 @@ export default function StudioPage() {
                 </svg>
               </NavLink>
             </WebOnly>
-            <button
-              className="min-w-0 text-left hidden sm:block"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <p className="text-[16px] lg:text-[20px] font-extrabold text-ink truncate">{room.name}</p>
-              <p className="text-[11px] text-ink-muted flex items-center gap-1">
-                {dimsLabel}
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
-                </svg>
-              </p>
-            </button>
+            {/* The name and the dimensions open the room settings; the room
+                type beside them opens its own small picker. Separate buttons,
+                since a button cannot hold another. The name truncates first,
+                then the type, and the dimensions never do. */}
+            <div className="min-w-0 hidden sm:block">
+              <button
+                className="block max-w-full min-w-0 text-left"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <p className="text-[16px] lg:text-[20px] font-extrabold text-ink truncate">{room.name}</p>
+              </button>
+              <div className="text-[11px] text-ink-muted flex items-center gap-1 min-w-0">
+                <button
+                  className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  {dimsLabel}
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
+                  </svg>
+                </button>
+                {/* While the store still holds another room (switching rooms),
+                    show its type but do not offer to change it: the pick
+                    would be PATCHed to that other room. */}
+                <RoomTypeBadge roomId={storeRoomId} readOnly={!!storeRoomId && storeRoomId !== roomId} />
+              </div>
+            </div>
           </div>
 
           {/* The tab strip rides in the middle of the header (2026-09-28, at
