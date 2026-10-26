@@ -1179,6 +1179,8 @@
     "qollandi": "Изменения применены.",
     "xato": "Ошибка AI. Попробуйте ещё раз.",
     "joy_yetmadi": "Не хватило места: {{list}} не размещены.",
+    "joy_yetmadi_royxat": "Не хватило места: {{list}}",
+    "orniga_qoyildi": "Вместо «{{from}}» поставлено «{{to}}»",
     "dropped_item_one": "{{name}}",
     "dropped_item_other": "{{name}} ({{count}})",
     "tool_call": "Выполняется",

@@ -43,7 +43,11 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   /** Pieces left out because there was no clean place for them (the total of `dropped`). */
   skipped: number
   /** What was left out, by name, with how many. */
-  dropped: Array<{ name: string; count: number }> }
+  dropped: Array<{ name: string; count: number }>
+  /** What was put in the room, by name (a stand-in by its own), with how many: chairs round a table count each. */
+  placed: Array<{ name: string; count: number }>
+  /** The pieces that did not fit and were swapped for a smaller one of their kind. */
+  swapped: Array<{ from: string; to: string }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
@@ -124,9 +128,10 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
  */
 function layoutWithSwaps(
   pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
-): Layout {
+): Layout & { swapped: AppliedCounts['swapped'] } {
   let current = pieces
   let best = layout(current)
+  const swapped: AppliedCounts['swapped'] = []
   for (let i = 0; i < current.length; i++) {
     const piece = current[i]
     if (!SWAP_ROLES.includes(piece.role) || best.placed.some((p) => p.piece === piece)) continue
@@ -137,11 +142,12 @@ function layoutWithSwaps(
       if (next.placed.some((p) => p.piece === swap) && next.weight > best.weight) {
         current = trial
         best = next
+        swapped.push({ from: piece.name, to: swap.name })
         break
       }
     }
   }
-  return best
+  return { ...best, swapped }
 }
 
 /**
@@ -152,7 +158,7 @@ function layoutWithSwaps(
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string): AppliedCounts {
   const store = useRoomStore.getState()
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [] }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [] }
 
   if (parts.walls && plan.walls.main) {
     const main = plan.walls.main
@@ -209,7 +215,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const item = byId.get(p.id)
       return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
     })
-    const { placed, dropped } = layoutWithSwaps(pieces, catalog, roomType, (ps) => layoutFurniture(ps, model, roomType, taken))
+    const { placed, dropped, swapped } = layoutWithSwaps(pieces, catalog, roomType, (ps) => layoutFurniture(ps, model, roomType, taken))
     // Each placed piece is its own entry, chairs round a table too (they share one plan line).
     for (const { piece, rect } of placed) {
       store.placeFurniture({
@@ -218,6 +224,10 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     }
     applied.furniture = placed.length
     applied.dropped = dropped
+    applied.swapped = swapped
+    const times = new Map<string, number>()
+    for (const { piece } of placed) times.set(piece.name, (times.get(piece.name) ?? 0) + 1)
+    applied.placed = [...times].map(([name, count]) => ({ name, count }))
     applied.skipped = dropped.reduce((s, d) => s + d.count, 0)
   }
 

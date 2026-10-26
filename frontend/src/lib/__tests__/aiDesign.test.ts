@@ -95,7 +95,7 @@ describe('applyDesignPlan', () => {
   it('applies only the parts that are switched on', () => {
     const counts = applyDesignPlan(plan(), { walls: false, floor: true, lights: false, furniture: false }, catalog)
     const s = useRoomStore.getState()
-    expect(counts).toEqual({ walls: false, floor: true, lights: 0, furniture: 0, skipped: 0, dropped: [] })
+    expect(counts).toEqual({ walls: false, floor: true, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [] })
     expect(s.lights).toHaveLength(0) && expect(s.furniture).toHaveLength(0)
     expect(s.designState.wallCoverings.ALL).not.toEqual({ kind: 'paint', color: '#2c2c2c' })
   })

@@ -1147,6 +1147,8 @@
     "qollandi": "O'zgarishlar qo'llandi.",
     "xato": "AI xatosi. Qayta urinib ko'ring.",
     "joy_yetmadi": "Joy yetmadi: {{list}} qo'yilmadi.",
+    "joy_yetmadi_royxat": "Joy yetmadi: {{list}}",
+    "orniga_qoyildi": "{{from}} o'rniga {{to}} qo'yildi",
     "dropped_item_one": "{{name}}",
     "dropped_item_other": "{{count}} ta {{name}}",
     "tool_call": "Bajarilmoqda",
