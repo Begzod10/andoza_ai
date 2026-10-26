@@ -124,15 +124,17 @@ const DOUBLE_BED_W = 140
 const SINGLE_BED_W = 120
 
 /**
- * Whether a bed suits the room's size: 1, or 0 for a double bed in a small room or a single one in
- * a normal room. Any other kind, an unknown room or a bed of unknown width scores 1 too, as before.
+ * How well a bed suits the room's size: 2 for a double bed in a normal room or a single one in a small
+ * room, 1 for one in between (121-139 cm), 0 for the other kind. Any other kind, an unknown room or a
+ * bed of unknown width scores 2, so it is never put behind a bed that fits: the order is as before.
  */
 function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
-  if (kind !== 'karavot' || !size || c.footprint_w == null) return 1
+  if (kind !== 'karavot' || !size || c.footprint_w == null) return 2
   // A mattress is never wider than it is long, and the catalog stores some beds turned (200 x 90).
   const width = c.footprint_d == null ? c.footprint_w : Math.min(c.footprint_w, c.footprint_d)
   const small = size.area < SMALL_ROOM_AREA || size.minSide < SMALL_ROOM_SIDE
-  return small ? (width <= SINGLE_BED_W ? 1 : 0) : (width >= DOUBLE_BED_W ? 1 : 0)
+  if (width > SINGLE_BED_W && width < DOUBLE_BED_W) return 1
+  return (small ? width <= SINGLE_BED_W : width >= DOUBLE_BED_W) ? 2 : 0
 }
 
 /**

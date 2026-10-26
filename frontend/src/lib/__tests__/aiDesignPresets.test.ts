@@ -313,6 +313,14 @@ describe('design presets', () => {
         expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 }, unknown)).toBe('single')
       })
 
+      it('a bed between single and double comes after a bed that fits, before one that does not', () => {
+        const normal = [bed('single', 'Bir kishilik karavot', 90), bed('mid', 'Karavot 130', 130, ['skandinav'])]
+        expect(bedOf('hitech', 'yotoqxona', { area: 14, minSide: 3.5 }, normal)).toBe('mid')
+        const small = [bed('double', 'Karavot 160', 160, ['hitech']), bed('mid', 'Karavot 130', 130, ['skandinav'])]
+        expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 }, small)).toBe('mid')
+        expect(bedOf('hitech', 'yotoqxona', { area: 14, minSide: 3.5 }, [...normal, bed('double', 'Karavot 160', 160, ['skandinav'])])).toBe('double')
+      })
+
       it("a bed's width is its shorter side, whichever way round the catalog stores it", () => {
         const turned = [
           { ...bed('single', 'Bir kishilik karavot', 200), footprint_d: 90 },
