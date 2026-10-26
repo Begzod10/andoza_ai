@@ -94,6 +94,10 @@ const ROOM_SETS: Partial<Record<string, Kind[]>> = {
   yotoqxona: BEDROOM_SET, bolalar: KIDS_SET, oshxona: KITCHEN_SET, kabinet: STUDY_SET, balkon: BALCONY_SET, hammom: BATHROOM_SET,
 }
 
+/** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
+const WET_ROOMS = new Set(['oshxona', 'hammom'])
+const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
+
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
 
@@ -273,7 +277,7 @@ export function presetPlan(
       ...preset.walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),
     },
-    floor: preset.floor,
+    floor: roomType && WET_ROOMS.has(roomType) ? WET_FLOOR : preset.floor,
     lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
     furniture, trim: preset.trim, warnings: [],
   }

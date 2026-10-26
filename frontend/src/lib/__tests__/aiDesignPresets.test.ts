@@ -365,14 +365,16 @@ describe('design presets', () => {
       item('books', 'Kitob javoni', 'shkaf'),
       item('bath-cabinet', 'Vanna shkafi', 'shkaf', 'hammom'),
     ]
+    const TILE = { type: 'tile', pattern: null, tint: null }
     const LIVING_ROLES = ['sofa', 'coffee_table', 'tv_unit', 'armchair', 'rug']
     const plan = (id: string, roomType: string | undefined, cat = ROOMS) => presetPlan(id, cat, roomType)!
     const pairs = (id: string, roomType: string | undefined, cat = ROOMS) => plan(id, roomType, cat).furniture.map((f) => [f.id, f.role])
     const presets = DESIGN_PRESETS.map((p) => p.id)
 
-    it.each(presets)('%s in a kitchen: a dining table, its chairs and a kitchen cabinet, no sofa or coffee table', (id) => {
+    it.each(presets)('%s in a kitchen: a dining table, its chairs and a kitchen cabinet, no sofa or coffee table, on tile', (id) => {
       // Chairs share one plan line: the layout seats as many as the table takes.
       expect(pairs(id, 'oshxona')).toEqual([['dining', 'dining_table'], ['chair', 'dining_chair'], ['kitchen-cabinet', 'wardrobe']])
+      expect(plan(id, 'oshxona').floor).toEqual(TILE)
       // No kitchen cabinet in the catalog: none is guessed (a bookcase or a bath cabinet is not one).
       expect(pairs(id, 'oshxona', ROOMS.filter((c) => c.id !== 'kitchen-cabinet'))).toEqual([['dining', 'dining_table'], ['chair', 'dining_chair']])
     })
@@ -387,8 +389,9 @@ describe('design presets', () => {
       expect(plan(id, 'balkon').floor).toEqual(DESIGN_PRESETS.find((p) => p.id === id)!.floor)
     })
 
-    it.each(presets)('%s in a bathroom: no living-room furniture, a bath cabinet when the catalog has one', (id) => {
+    it.each(presets)('%s in a bathroom: no living-room furniture, a tile floor, a bath cabinet when the catalog has one', (id) => {
       expect(pairs(id, 'hammom')).toEqual([['bath-cabinet', 'wardrobe']])
+      expect(plan(id, 'hammom').floor).toEqual(TILE)
       expect(pairs(id, 'hammom', ROOMS.filter((c) => c.id !== 'bath-cabinet'))).toEqual([])
     })
 
