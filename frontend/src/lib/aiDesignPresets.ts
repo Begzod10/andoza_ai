@@ -17,7 +17,7 @@ import presetData from '@/lib/data/design_presets.json'
 
 type Kind =
   | 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot' | 'tumbochka' | 'garderob' | 'yozuv_stoli'
-  | 'ovqat_stoli' | 'stul' | 'oshxona_shkafi' | 'ish_stuli' | 'javon' | 'kichik_stol' | 'orindiq' | 'hammom_shkafi'
+  | 'ovqat_stoli' | 'stul' | 'oshxona_shkafi' | 'ish_stuli' | 'javon' | 'kichik_stol' | 'orindiq' | 'hammom_shkafi' | 'kabinet_kreslo'
 
 /**
  * The role a kind plays when the catalog piece itself says nothing more (its name and category
@@ -27,8 +27,14 @@ const KIND_ROLE: Record<Kind, FurnitureRole> = {
   divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
   karavot: 'bed', tumbochka: 'nightstand', garderob: 'wardrobe', yozuv_stoli: 'desk',
   ovqat_stoli: 'dining_table', stul: 'dining_chair', oshxona_shkafi: 'shelf', ish_stuli: 'desk_chair', javon: 'shelf',
-  kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf',
+  kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf', kabinet_kreslo: 'armchair',
 }
+
+/**
+ * Kinds whose own role always wins: a kitchen or bath cabinet is a shelf, never the wardrobe its
+ * "shkaf" reads as, or a layout too small for it would swap in a clothes wardrobe.
+ */
+const KIND_ROLE_WINS: ReadonlySet<Kind> = new Set<Kind>(['oshxona_shkafi', 'hammom_shkafi'])
 
 const text = (pattern: RegExp) => (c: CatalogFurniture) => pattern.test(`${c.category} ${c.name_uz}`)
 const roleIs = (role: FurnitureRole) => (c: CatalogFurniture) => inferRole(c.category, c.name_uz) === role
@@ -55,7 +61,8 @@ const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
   tumbochka: roleIs('nightstand'),
   garderob: (c) => WARDROBE_NAME.test(c.name_uz),
   yozuv_stoli: roleIs('desk'),
-  ovqat_stoli: roleIs('dining_table'),
+  // A side table reads as a dining table to `inferRole` (its category), but seats no one.
+  ovqat_stoli: (c) => roleIs('dining_table')(c) && !SIDE_TABLE_NAME.test(c.name_uz),
   stul: roleIs('dining_chair'),
   // Only a cupboard the catalog made for a kitchen: a bookcase or a wardrobe is not one.
   oshxona_shkafi: (c) => c.room_type === 'oshxona' && storage(c),
@@ -65,6 +72,8 @@ const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
   orindiq: (c) => roleIs('armchair')(c) || roleIs('dining_chair')(c),
   // A bath or mirror cabinet: a cupboard the catalog made for a bathroom.
   hammom_shkafi: (c) => c.room_type === 'hammom' && storage(c),
+  // A study's armchair: `kreslo` also matches an office chair ("Kreslo-kompyuter", "Office chair").
+  kabinet_kreslo: roleIs('armchair'),
 }
 
 /**
@@ -79,7 +88,7 @@ const KIDS_SET: Kind[] = [...BEDROOM_SET, 'yozuv_stoli']
  * takes, and `sizeFit` puts a table for four first), and a kitchen cabinet when the catalog has one.
  */
 const KITCHEN_SET: Kind[] = ['ovqat_stoli', 'stul', 'oshxona_shkafi']
-const STUDY_SET: Kind[] = ['yozuv_stoli', 'ish_stuli', 'javon', 'kreslo']
+const STUDY_SET: Kind[] = ['yozuv_stoli', 'ish_stuli', 'javon', 'kabinet_kreslo']
 /**
  * A balcony: a small table and two seats (two pieces: a seat is never taken twice). The catalog does
  * have a balcony room (`room_type` 'balkon', as the backend's admin catalog allows), so a balcony's
@@ -267,7 +276,7 @@ export function presetPlan(
     // The piece's own role wins only inside the kind's group: a bedside table picked as a TV unit,
     // or a dining table as a coffee table, would stand in a group with no anchor and be dropped.
     const kindRole = KIND_ROLE[kind]
-    const role = ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
+    const role = !KIND_ROLE_WINS.has(kind) && ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent

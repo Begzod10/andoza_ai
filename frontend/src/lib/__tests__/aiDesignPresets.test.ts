@@ -373,7 +373,7 @@ describe('design presets', () => {
 
     it.each(presets)('%s in a kitchen: a dining table, its chairs and a kitchen cabinet, no sofa or coffee table, on tile', (id) => {
       // Chairs share one plan line: the layout seats as many as the table takes.
-      expect(pairs(id, 'oshxona')).toEqual([['dining', 'dining_table'], ['chair', 'dining_chair'], ['kitchen-cabinet', 'wardrobe']])
+      expect(pairs(id, 'oshxona')).toEqual([['dining', 'dining_table'], ['chair', 'dining_chair'], ['kitchen-cabinet', 'shelf']])
       expect(plan(id, 'oshxona').floor).toEqual(TILE)
       // No kitchen cabinet in the catalog: none is guessed (a bookcase or a bath cabinet is not one).
       expect(pairs(id, 'oshxona', ROOMS.filter((c) => c.id !== 'kitchen-cabinet'))).toEqual([['dining', 'dining_table'], ['chair', 'dining_chair']])
@@ -384,13 +384,18 @@ describe('design presets', () => {
       expect(plan(id, 'kabinet').floor).toEqual(DESIGN_PRESETS.find((p) => p.id === id)!.floor)
     })
 
+    it.each(presets)('%s: an office chair is never the armchair in a study', (id) => {
+      const cat = [item('desk', 'Yozuv stoli', 'stol'), item('pc-chair', 'Kreslo-kompyuter', 'kreslo'), item('office', 'Office chair', 'stul')]
+      expect(pairs(id, 'kabinet', cat)).toEqual([['desk', 'desk'], ['pc-chair', 'desk_chair']])
+    })
+
     it.each(presets)('%s on a balcony: a small table and two seats', (id) => {
       expect(pairs(id, 'balkon')).toEqual([['coffee', 'coffee_table'], ['armchair', 'armchair'], ['chair', 'armchair']])
       expect(plan(id, 'balkon').floor).toEqual(DESIGN_PRESETS.find((p) => p.id === id)!.floor)
     })
 
     it.each(presets)('%s in a bathroom: no living-room furniture, a tile floor, a bath cabinet when the catalog has one', (id) => {
-      expect(pairs(id, 'hammom')).toEqual([['bath-cabinet', 'wardrobe']])
+      expect(pairs(id, 'hammom')).toEqual([['bath-cabinet', 'shelf']])
       expect(plan(id, 'hammom').floor).toEqual(TILE)
       expect(pairs(id, 'hammom', ROOMS.filter((c) => c.id !== 'bath-cabinet'))).toEqual([])
     })
@@ -420,6 +425,10 @@ describe('design presets', () => {
     it("a balcony prefers pieces made for a balcony, and takes another room's when there are none", () => {
       const cat = [item('living-arm', 'Kreslo', 'kreslo', 'mehmonxona'), item('balcony-arm', 'Kreslo', 'kreslo', 'balkon'), item('coffee', 'Kofe stoli', 'stol', 'mehmonxona')]
       expect(plan('loft', 'balkon', cat).furniture.map((f) => f.id)).toEqual(['coffee', 'balcony-arm', 'living-arm'])
+    })
+
+    it.each(presets)('%s: a side table is never the dining table in a kitchen', (id) => {
+      expect(pairs(id, 'oshxona', [item('side', 'Yon stolcha', 'stol', 'oshxona')])).toEqual([])
     })
 
     it('a bedside or a writing table is never the small table on a balcony; a side table is', () => {
