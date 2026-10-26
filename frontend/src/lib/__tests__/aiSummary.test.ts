@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summaryWithout } from '../aiSummary'
+import { SENTENCE_END, summaryWithout } from '../aiSummary'
 
 // Summaries from the AI designer eval: each names a piece the layout then had to leave out.
 const BEDROOM = "Devorlar och ko'k rangda bo'yaladi. Pol — parket, yelkan terishda. Yoritish: shift chirog'i, torsher. "
@@ -79,11 +79,11 @@ describe('summaryWithout', () => {
     const kept = ['Tuvalet stoli', 'Kitob shkafi']
     expect(summaryWithout(text, [{ name: 'Yozuv stoli Nord', role: 'desk' }], kept)).toBe(text)
     expect(summaryWithout(text, [{ name: 'Kiyim shkafi Nord', role: 'wardrobe' }], kept)).toBe(text)
-    // Without the kept piece the sentence still goes; with the word said apart from its name, it names the
-    // desk, which goes from the list of the two.
+    // Without the kept piece, or with the word said apart from its name (and not as a bare list item),
+    // the sentence still goes.
     expect(summaryWithout(text, [{ name: 'Yozuv stoli Nord', role: 'desk' }])).toBe('Devorlar oq. Kitob shkafi burchakda.')
     expect(summaryWithout('Devorlar oq. Tuvalet stoli va yozuv stoli deraza yonida.', [{ name: 'Yozuv stoli Nord', role: 'desk' }], kept))
-      .toBe('Devorlar oq. Tuvalet stoli deraza yonida.')
+      .toBe('Devorlar oq.')
     expect(summaryWithout('Devorlar oq. Yozuv stoli deraza yonida.', [{ name: 'Yozuv stoli Nord', role: 'desk' }], kept)).toBe('Devorlar oq.')
   })
 
@@ -108,10 +108,10 @@ const ILIQ_FURNITURE = "Mebel sifatida zamonaviy uslubdagi divan (ZZ Divan Nova)
 const STUL = { name: 'ZZ Stul', role: 'dining_chair' }
 
 describe('summaryWithout: a sentence listing pieces among other words', () => {
-  it('hi-tech: one dropped chair leaves the five placed pieces in their sentence', () => {
+  it('hi-tech: its items carry words of their own ("minimalistik ZZ Stul", "shuningdek"), so the sentence goes whole', () => {
     const kept = ['ZZ Divan Vektor', 'ZZ Jurnal stoli shisha-metall', 'ZZ Kreslo Indastrial', 'ZZ TV tumba Glyanets', 'ZZ Stellaj Loft', 'ZZ Pufik']
     const out = summaryWithout(HITECH, [STUL], kept)
-    expect(out).toBe(HITECH.replace("ZZ Kreslo Indastrial, minimalistik ZZ Stul va loft", 'ZZ Kreslo Indastrial va loft'))
+    expect(out).toBe(HITECH.split(SENTENCE_END).slice(0, 3).join(' '))
   })
 
   it('minimalist: the last item goes, the sentence keeps its ending and its "va"', () => {
@@ -186,5 +186,37 @@ describe('summaryWithout: "kind (Name)" is one item', () => {
 
   it('at the start of the sentence, the next item takes its capital', () => {
     expect(summaryWithout('Divan (ZZ Divan Nova) va kreslo (ZZ Kreslo Soft) tanlandi.', [SOFA], kept)).toBe('Kreslo (ZZ Kreslo Soft) tanlandi.')
+  })
+})
+
+describe('summaryWithout: only a list of bare pieces is edited item by item', () => {
+  const kept = ['ZZ Divan Oslo', 'ZZ Kreslo Nord', 'ZZ Pufik']
+  const without = (name: string) => kept.filter((k) => k !== name)
+  const cases: Array<[string, { name: string; role?: string }]> = [
+    ['ZZ Divan Oslo va ZZ Kreslo Nord gilam ustida turadi.', { name: 'ZZ Gilam jun och', role: 'rug' }],
+    ['Gilam ostida ZZ Divan Oslo va ZZ Kreslo Nord turadi.', { name: 'ZZ Gilam jun och', role: 'rug' }],
+    ["ZZ Divan Oslo A devori bo'ylab, ZZ Kreslo Nord esa deraza yonida joylashgan.", { name: 'ZZ Kreslo Nord', role: 'armchair' }],
+    ["ZZ Divan Oslo deraza yonida turadi va ZZ Kreslo Nord unga qarama-qarshi qo'yilgan.", { name: 'ZZ Divan Oslo', role: 'sofa' }],
+    ['ZZ Divan Oslo va ZZ Kreslo Nord (ZZ Pufik bilan) turadi.', { name: 'ZZ Pufik' }],
+  ]
+  it.each(cases)('"%s": an item with words of its own, so the sentence goes whole', (sentence, dropped) => {
+    expect(summaryWithout(`Devorlar oq. ${sentence}`, [dropped], without(dropped.name))).toBe('Devorlar oq.')
+  })
+
+  it('every item of a "Mebel:" list is a piece, with nothing said to be kept', () => {
+    expect(summaryWithout('Devorlar oq. Mebel: ZZ Divan Oslo, ZZ Kreslo Nord va ZZ Pufik.', [{ name: 'ZZ Pufik' }]))
+      .toBe('Devorlar oq. Mebel: ZZ Divan Oslo va ZZ Kreslo Nord.')
+    expect(summaryWithout('Devorlar oq. Mebel: ZZ Divan Oslo, ZZ Kreslo Nord va ZZ Pufik.', [{ name: 'ZZ Kreslo Nord', role: 'armchair' }]))
+      .toBe('Devorlar oq. Mebel: ZZ Divan Oslo va ZZ Pufik.')
+  })
+
+  it("a last piece said to be missing is no bare item: the sentence, not naming it, stays", () => {
+    const text = "Devorlar oq. ZZ Divan Oslo va ZZ Kreslo Nord yo'q joyda turadi."
+    expect(summaryWithout(text, [{ name: 'ZZ Kreslo Nord', role: 'armchair' }], ['ZZ Divan Oslo'])).toBe(text)
+  })
+
+  it('a lone kind word is a bare item too', () => {
+    expect(summaryWithout('Devorlar oq. Xonada divan, ZZ Kreslo Nord va ZZ Pufik turadi.', [{ name: 'ZZ Pufik' }], ['ZZ Kreslo Nord']))
+      .toBe('Devorlar oq. Xonada divan va ZZ Kreslo Nord turadi.')
   })
 })

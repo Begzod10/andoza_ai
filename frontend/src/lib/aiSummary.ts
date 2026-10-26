@@ -46,12 +46,14 @@ function leadIn(before: string): string {
 /** What joins a list's items, kept in the split: ", ", " va ", " hamda " ("3,5 m" is no list). */
 const ITEM_SEP = /(,(?!\d)\s*|\s+(?:va|hamda)\s+)/iu
 const isAnd = (sep: string) => sep.trim() !== ','
+/** Every role's word: a lone one is a bare list item ("Xonada divan, ZZ Kreslo Nord va ..."). */
+const KIND_WORDS = Object.values(ROLE_WORD).join('|')
 
 /**
  * `summary` with every sentence removed that names one of `dropped`: by its full catalog name, or by
- * its role's word outside a `kept` piece's name, and not as replaced or missing (`NOT_THERE`). A sentence
- * listing two or more of the plan's pieces (`dropped` and `kept`, by name), whatever else it says, or a
- * "Mebel: A, B, C." list, loses only the dropped items and goes only when no piece is left in it. When
+ * its role's word outside a `kept` piece's name, and not as replaced or missing (`NOT_THERE`). A list of
+ * two or more of the plan's pieces (`dropped` and `kept`) whose items are bare pieces (see `without`), or
+ * a "Mebel: A, B, C." list, loses only the dropped items and goes only when no piece is left in it. When
  * every sentence would go, the summary stays whole: something is better than nothing.
  */
 export function summaryWithout(summary: string, dropped: { name: string; role?: string }[], kept: string[] = []): string {
@@ -75,38 +77,68 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
     const byRole = roleWord?.exec(bare)
     return byRole ? [byRole.index, byRole.index + byRole[0].length] : null
   }
-  /** The sentence without its dropped items when it lists pieces, else whole or null when it names a dropped piece. */
+  const hit = (text: string) => droppedAt(text) !== null
+  // A bare mention of a piece: its name, "kind (Name)", or a lone kind word.
+  const planNames = [...names, ...keptNames].map(escape).join('|')
+  const name = planNames ? `${WORD_START}(?:${planNames})${WORD_END}` : '(?!)'
+  const kindWord = `${WORD_START}(?:${KIND_WORDS})${WORD_END}`
+  const inBrackets = planNames ? `\\(\\s*(?:${planNames})\\s*\\)` : '(?!)'
+  const FIRST = new RegExp(`^(.*?)(${name}|${kindWord}|${inBrackets})\\s*$`, 'isu')
+  const MIDDLE = new RegExp(`^\\s*(?:${name}|${kindWord}|[^()]*?${inBrackets})\\s*$`, 'isu')
+  // A last piece said to be missing ("ZZ Kreslo Nord yo'q joyda") is no bare item.
+  const LAST = new RegExp(`^(\\s*(?:[^()]*?${inBrackets}|${name}|${kindWord}))${NOT_THERE}((?:\\s.*)?)$`, 'isu')
+  type Item = { lead: string; mention: string; tail: string }
+  /** An item as lead-in, bare mention and tail (a lead-in only on the first, a tail only on the last); null when it is not bare. */
+  const parse = (item: string, i: number, n: number, mebel: boolean): Item | null => {
+    if (mebel) return { lead: '', mention: item, tail: '' }
+    if (i === 0) { const m = item.match(FIRST); return m ? { lead: m[1], mention: item.slice(m[1].length), tail: '' } : null }
+    if (i === n - 1) { const m = item.match(LAST); return m ? { lead: '', mention: m[1], tail: m[2] } : null }
+    return MIDDLE.test(item) ? { lead: '', mention: item, tail: '' } : null
+  }
+  /** A dropped first item's lead-in as it stays: its kind goes with a name in brackets. */
+  const leadOf = (it: Item) => (/^\s*\(/u.test(it.mention) ? leadIn(`${it.lead}(`) : it.lead)
+  const whole = (sentence: string) => (hit(sentence) ? null : sentence)
+
+  /**
+   * The sentence without its dropped items when it is a list of bare pieces, else whole, or null when it
+   * names a dropped piece. A list's items are each a piece's name, "kind (Name)" or a lone kind word, with
+   * at most words before the first and after the last; a "Mebel:" list's items are all pieces. An item
+   * with words of its own ("ZZ Kreslo Nord esa deraza yonida") makes the sentence one to keep or drop whole.
+   */
   const without = (sentence: string): string | null => {
     const [, prefix = '', body, end] = sentence.match(LIST)!
+    const mebel = prefix !== ''
     const parts = body.split(ITEM_SEP)
-    const items = parts.filter((_, i) => i % 2 === 0)
+    const raw = parts.filter((_, i) => i % 2 === 0)
     const seps = parts.filter((_, i) => i % 2 === 1)
-    const at = items.map(droppedAt)
-    const pieceItems = items.map((item, i) => at[i] !== null || namesKept(item))
-    const first = pieceItems.indexOf(true), last = pieceItems.lastIndexOf(true)
-    const isList = prefix !== '' || pieceItems.filter(Boolean).length > 1
-    if (!isList) return at.some((a) => a !== null) ? null : sentence
-    if (at.every((a) => a === null)) return sentence
-    if (items.every((_, i) => !pieceItems[i] || at[i] !== null)) return null
+    if (raw.length < 2 && !mebel) return whole(sentence)
+    const items = raw.map((item, i) => parse(item, i, raw.length, mebel))
+    if (items.some((it) => it === null)) return whole(sentence)
+    const parsed = items as Item[]
+    const gone = parsed.map((it) => hit(it.mention))
+    const piece = parsed.map((it, i) => mebel || gone[i] || namesKept(it.mention))
+    if (!mebel && piece.filter(Boolean).length < 2) return whole(sentence)
+    const n = parsed.length
+    // Words before the first piece or after the last that name a dropped one: the whole sentence goes.
+    if (hit(leadOf(parsed[0])) || hit(parsed[n - 1].tail)) return null
+    if (!gone.some(Boolean)) return sentence
+    if (piece.every((p, i) => !p || gone[i])) return null
     // Each item as it stays, with the joiner before it: a dropped one goes, but the first keeps the words
     // before its piece and the last the words after it ("... ZZ Stul mebellari tanlandi"), which belong to
     // the whole sentence. A dropped item in the middle takes the joiner before it, so "A, B va C" without
     // B is "A va C".
-    type Kept = { text: string; sep: string; inList: boolean; glued?: 'next' | 'prev' }
+    type Kept = { text: string; sep: string; listed: boolean; glued?: 'next' | 'prev' }
     const out: Kept[] = []
-    items.forEach((item, i) => {
+    parsed.forEach((it, i) => {
       const sep = i > 0 ? seps[i - 1] : ''
-      const inList = i >= first && i <= last
-      const a = at[i]
-      if (a === null) out.push({ text: item, sep, inList })
-      else if (i === first) out.push({ text: leadIn(item.slice(0, a[0])), sep, inList: false, glued: 'next' })
-      else if (i === last) out.push({ text: item.slice(a[1]).replace(/^\)/u, ''), sep: '', inList: false, glued: 'prev' })
+      if (!gone[i]) out.push({ text: it.lead + it.mention + it.tail, sep, listed: true })
+      else if (i === 0) out.push({ text: leadOf(it), sep, listed: false, glued: 'next' })
+      else if (i === n - 1) out.push({ text: it.tail, sep: '', listed: false, glued: 'prev' })
     })
     // A list said "A, B va C" keeps its "va" before the last piece left when the "va" went with C.
-    const and = seps.slice(first, last).find(isAnd)
-    const listed = out.filter((o) => o.inList)
-    const tail = listed[listed.length - 1]
-    if (and && listed.length > 1 && !listed.slice(1).some((o) => isAnd(o.sep))) tail.sep = and
+    const and = seps.find(isAnd)
+    const listed = out.filter((o) => o.listed)
+    if (and && listed.length > 1 && !listed.slice(1).some((o) => isAnd(o.sep))) listed[listed.length - 1].sep = and
     let text = ''
     out.forEach((o, k) => {
       const glue = k === 0 || o.glued === 'prev' || out[k - 1].glued === 'next'
@@ -114,7 +146,7 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
     })
     text = text.trim()
     // The sentence lost its first word: the next one takes its capital.
-    if (prefix === '' && /^\p{Lu}/u.test(body) && !/^\p{Lu}/u.test(text)) text = text.charAt(0).toLocaleUpperCase() + text.slice(1)
+    if (!mebel && /^\p{Lu}/u.test(body) && !/^\p{Lu}/u.test(text)) text = text.charAt(0).toLocaleUpperCase() + text.slice(1)
     return `${prefix}${text}${end}`
   }
   const sentences = summary.trim().split(SENTENCE_END)
