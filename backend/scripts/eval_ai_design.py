@@ -116,6 +116,9 @@ CAT = [
     ("shkaf", Y, 80, 30, 120, "Bolalar kitob javoni", []),
     ("stol", Y, 120, 60, 75, "Yozuv stoli Nord", ["skandinav"]),
     ("stul", Y, 50, 50, 90, "Ish stuli", []),
+    # a study's always-offered pieces (#70) under their plain names, filed under the bedroom
+    ("stol", Y, 120, 60, 75, "Ish stoli", []),
+    ("shkaf", Y, 80, 30, 180, "Kitob javoni", []),
     ("lampa", Y, 35, 35, 150, "Torsher lampa", []),
 ]
 
