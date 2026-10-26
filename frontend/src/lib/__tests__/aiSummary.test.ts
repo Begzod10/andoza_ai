@@ -220,3 +220,14 @@ describe('summaryWithout: only a list of bare pieces is edited item by item', ()
       .toBe('Devorlar oq. Xonada divan va ZZ Kreslo Nord turadi.')
   })
 })
+
+describe('summaryWithout: a floor lamp left out', () => {
+  it('is named by "torsher" (and "торшер", "floor lamp"), and its sentence goes', () => {
+    const LAMP = { name: 'Torsher', role: 'floor_lamp' }
+    expect(summaryWithout("Devorlar oq. Burchakda torsher turadi.", [LAMP])).toBe('Devorlar oq.')
+    expect(summaryWithout('Стены белые. В углу стоит торшер.', [LAMP])).toBe('Стены белые.')
+    expect(summaryWithout('Walls are white. A floor lamp stands in the corner.', [{ name: 'Floor lamp', role: 'floor_lamp' }])).toBe('Walls are white.')
+    expect(summaryWithout('Walls are white. A tall lamp stands in the corner.', [{ name: 'Floor lamp X', role: 'floor_lamp' }]))
+      .toBe('Walls are white. A tall lamp stands in the corner.')
+  })
+})

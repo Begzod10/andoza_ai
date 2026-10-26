@@ -11,6 +11,8 @@
  */
 const ROLE_WORD: Partial<Record<string, string>> = {
   bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba', rug: 'gilam',
+  // A floor lamp the layout left out (a light, not furniture): its word in the three languages a summary is in.
+  floor_lamp: 'torsher|торшер\\p{L}*|floor\\s+lamps?',
 }
 
 // The start of a word: "tumba" names "tumbasi", not "tumbochka"; an Uzbek apostrophe is inside a word.

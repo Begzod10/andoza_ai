@@ -148,3 +148,17 @@ describe('a rug the layout cannot lay inside the room', () => {
     expect(r.applied.swapped).toEqual([])
   })
 })
+
+describe('a floor lamp left out is said to be', () => {
+  it("the balcony with zamonaviy's two seats: the lamp is in droppedLights, not in placedLights", () => {
+    useRoomStore.getState().resetRoom()
+    useRoomStore.getState().loadRoom({ geometry: { walls: data.rooms.balcony.walls }, ceiling_h: 2.7 } as never)
+    useRoomStore.setState({ lights: [], furniture: [] })
+    // No room size: the two-seat set, which leaves the lamp nowhere clear.
+    const plan = presetPlan('zamonaviy', catalog, 'balkon')!
+    const applied = applyDesignPlan(plan, ALL_PARTS, catalog, 'balkon')
+    expect(applied.droppedLights).toEqual([{ type: 'floor_lamp', count: 1 }])
+    expect(applied.placedLights).toEqual(plan.lights.filter((l) => l.type !== 'floor_lamp'))
+    expect(applied.lights).toBe(applied.placedLights.length)
+  })
+})

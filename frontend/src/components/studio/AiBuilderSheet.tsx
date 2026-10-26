@@ -281,7 +281,13 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
   const furnitureLine = applied && parts.furniture
     ? countedNames(applied.placed)
     : plan?.furniture.map((f) => f.zone ? `${f.name} (${zoneLabel(f.zone)})` : f.name).join(", ")
-  const lightNames = plan?.lights.map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`) ?? []
+  // The lights as put in, once they are: a floor lamp with nowhere clear to stand is not among them.
+  const lightNames = (applied && parts.lights ? applied.placedLights : plan?.lights ?? [])
+    .map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`)
+  // What was left out: the pieces, then the lights by their type's name.
+  const leftOut = applied
+    ? [...applied.dropped, ...applied.droppedLights.map((l) => ({ name: t(lightType(l.type).nameKey), count: l.count, role: l.type }))]
+    : []
   const main = plan?.walls.main
   // The ceiling and the cornice the plan sets; an AI plan may name only some of them (or only the
   // skirting, which is not listed), and then nothing or less is shown.
@@ -426,10 +432,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
             <div className="rounded-2xl bg-blue-50 px-4 py-3">
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
               {/* Told before the layout: a sentence about a piece that did not fit would describe a room that is not there. */}
-              <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, applied.dropped, [...applied.placed.map((p) => p.name), ...applied.swapped.map((s) => s.from)]) : plan.summary}</p>
+              <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, leftOut, [...applied.placed.map((p) => p.name), ...applied.swapped.map((s) => s.from)]) : plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
-              {applied && applied.dropped.length > 0 && (
-                <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(applied.dropped) })}</p>
+              {leftOut.length > 0 && (
+                <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(leftOut) })}</p>
               )}
               {applied?.swapped.map(({ from, to, count }) => (
                 <p key={`${from}|${to}`} className="mt-1 text-xs leading-snug text-gray-600">
