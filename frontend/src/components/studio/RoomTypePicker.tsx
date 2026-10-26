@@ -11,13 +11,15 @@ import { useRoomStore } from '@/store/roomStore'
  * has picked again meanwhile) and says so. A room with no kind shows "not set" with the guess from
  * its name as a hint, so picking that very type saves it.
  */
-export function RoomTypePicker({ roomId, fallback, disabled, themed = false }: {
+export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onPicked }: {
   roomId?: string | null
   /** The guess the AI designer uses while the room has no kind of its own. */
   fallback?: string | null
   disabled?: boolean
   /** Follow the app's day/night theme (only on surfaces that do; the studio sheets are always light). */
   themed?: boolean
+  /** Told right after a pick is kept in the store (before any PATCH), e.g. to close a popover. */
+  onPicked?: () => void
 }) {
   const { t } = useTranslation()
   const stored = useRoomStore((s) => s.roomType)
@@ -29,6 +31,7 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false }: {
     const next: RoomType | null = isRoomType(raw) ? raw : null
     const previous = stored
     setRoomType(next)
+    onPicked?.()
     if (!roomId || roomId === 'local') return
     try {
       await updateRoom(roomId, { room_type: next })

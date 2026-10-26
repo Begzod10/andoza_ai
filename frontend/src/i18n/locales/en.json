@@ -2268,7 +2268,9 @@
       "balkon": "Balcony"
     },
     "type_guess": "Guess: {{type}}",
-    "type_save_failed": "Could not save the room type"
+    "type_save_failed": "Could not save the room type",
+    "type_guess_mark": "(guess)",
+    "type_choose": "Choose the room type"
   },
   "models": {
     "front_label": "Front",
