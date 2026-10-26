@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, SmallInteger, String, func
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +18,7 @@ class Furniture(Base):
             "status IN (%s)" % ", ".join(f"'{t}'" for t in MODERATION_STATUSES),
             name="ck_furniture_status",
         ),
+        CheckConstraint("model_yaw IN (0, 90, 180, 270)", name="ck_furniture_model_yaw"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -82,6 +83,14 @@ class Furniture(Base):
         server_default="pol",
         comment="Where this model is meant to sit inside a room: "
                 "pol (floor-standing) / devor (wall-mounted) / shift (ceiling-hung)",
+    )
+    model_yaw: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Degrees (0/90/180/270) the studio turns the GLB so its front faces the "
+                "room; footprint_w/d are stored after this turn",
     )
     footprint_w: Mapped[float | None] = mapped_column(
         Numeric(5, 2),

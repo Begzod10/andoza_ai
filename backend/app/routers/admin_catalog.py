@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import uuid as uuid_module
+from typing import get_args
 
 import structlog
 from redis.exceptions import RedisError
@@ -17,6 +18,7 @@ from app.core.cache import cache_delete_prefix, get_redis
 from app.core.storage import absolute_media_url, delete_file, upload_file
 from app.core.model_files import model_keys, served_key
 from app.services.furniture_style_queue import enqueue_style, enqueue_style_after_commit
+from app.services.model_yaw import apply_model_yaw
 from app.services.model_optimize_queue import enqueue_optimize_after_commit
 from app.database import run_after_commit
 from app.models.furniture import Furniture
@@ -30,6 +32,7 @@ from app.schemas.admin_catalog import (
     USTA_CATEGORIES,
     FurnitureAdminOut,
     FurnitureUpdate,
+    ModelYaw,
     PaginatedUstalarAdmin,
     StoreAdminOut,
     StoreCreate,
@@ -95,6 +98,7 @@ def _furniture_out(f: Furniture, request: Request, store_name: str | None) -> Fu
         category=f.category,
         room_type=f.room_type,
         placement=f.placement,
+        model_yaw=f.model_yaw or 0,  # unset on a row not yet flushed
         name_uz=f.name_uz,
         price_uzs=f.price_uzs,
         glb_url=absolute_media_url(request, served_key(f.glb_key, f.glb_opt_key) if f.glb_key else None),
@@ -250,6 +254,7 @@ async def upload_furniture_model(
     category: str = Form(...),
     room_type: str | None = Form(default=None),
     placement: str = Form(default="pol"),
+    model_yaw: int = Form(default=0),
     store_id: uuid_module.UUID | None = Form(default=None),
     price_uzs: int | None = Form(default=None),
     footprint_w: float | None = Form(default=None),
@@ -275,6 +280,11 @@ async def upload_furniture_model(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=translate_detail("placement {allowed} dan biri bo'lishi kerak", allowed=', '.join(sorted(PLACEMENTS))),
+        )
+    if model_yaw not in get_args(ModelYaw):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=translate_detail("model_yaw {allowed} dan biri bo'lishi kerak", allowed=", ".join(map(str, get_args(ModelYaw)))),
         )
     try:
         style_list = parse_styles_form(styles)
@@ -354,6 +364,7 @@ async def upload_furniture_model(
         category=category,
         room_type=room_type,
         placement=placement,
+        model_yaw=model_yaw,
         name_uz=name_uz,
         price_uzs=price_uzs,
         glb_key=glb_key,
@@ -530,6 +541,11 @@ async def update_furniture(
             new_store = store_result.scalar_one_or_none()
             if new_store is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Do'kon topilmadi")
+
+    if updates.get("model_yaw") is not None:
+        footprint_sent = bool({"footprint_w", "footprint_d"} & payload.model_fields_set)
+        apply_model_yaw(furniture, updates["model_yaw"], footprint_sent)
+    updates.pop("model_yaw", None)  # null means "leave as is"; a real value was applied above
 
     for field, value in updates.items():
         setattr(furniture, field, value)
