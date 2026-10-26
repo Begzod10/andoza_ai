@@ -43,7 +43,11 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   /** Pieces left out because there was no clean place for them (the total of `dropped`). */
   skipped: number
   /** What was left out, by name, with how many. */
-  dropped: Array<{ name: string; count: number }> }
+  dropped: Array<{ name: string; count: number }>
+  /** What was put in the room, by name (a stand-in by its own), with how many: chairs round a table count each. */
+  placed: Array<{ name: string; count: number }>
+  /** The pieces that did not fit and were swapped for a smaller one of their kind. */
+  swapped: Array<{ from: string; to: string }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
@@ -86,15 +90,19 @@ const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa']
 const SWAP_TRIES = 5
 
 type Layout = ReturnType<typeof layoutFurniture>
-const droppedCount = (l: Layout) => l.dropped.reduce((s, d) => s + d.count, 0)
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
+/**
+ * A wardrobe for clothes, by name: only such a piece stands in for one. "Shkaf" alone names any
+ * cupboard (a bookcase, a bathroom cabinet), which would be a wardrobe to `inferRole`.
+ */
+const WARDROBE_NAME = /kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб/i
 
 /**
- * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model, a smaller
- * footprint, standing on the floor and made for this room (or for every room; with no room type,
- * any); a children's piece only in a children's room. Those sharing a style with it come first (an
+ * The catalog's pieces that could stand in for `piece`: the same role (for a wardrobe, one named as a
+ * wardrobe for clothes), a 3-D model, a smaller footprint, standing on the floor and made for this
+ * room (or for every room; with no room type, any); a children's piece only in a children's room. Those sharing a style with it come first (an
  * unstyled piece suits every style), then the largest, so a double bed gives way to the next size
  * down, not a cot; among those, ones made for this very room before ones for every room.
  */
@@ -107,21 +115,23 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
     .filter((c) => c.glb_url && c.id !== piece.id && c.footprint_w && c.footprint_d && area(c) < piece.w * piece.d - 1e-9
       && c.placement === 'pol' && (room === undefined || c.room_type === null || c.room_type === room)
       && (roomType === 'bolalar' || !KIDS_NAME.test(c.name_uz))
-      && roleOf({ id: c.id, name: c.name_uz }, c) === piece.role)
+      && (piece.role === 'wardrobe' ? WARDROBE_NAME.test(c.name_uz) : roleOf({ id: c.id, name: c.name_uz }, c) === piece.role))
     .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(b) - area(a)
       || Number(b.room_type !== null) - Number(a.room_type !== null))
 }
 
 /**
  * The layout, with each main piece it left out (a bed, wardrobe or sofa too big for the room)
- * swapped for a smaller one of its kind from the catalog: the first that is placed with fewer pieces
- * left out overall is kept. A piece with no such stand-in stays left out.
+ * swapped for a smaller one of its kind from the catalog: the first that is placed with the room's
+ * pieces worth more overall (`weight`: in a bedroom a wardrobe outweighs a nightstand) is kept. A
+ * piece with no such stand-in stays left out.
  */
 function layoutWithSwaps(
   pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
-): Layout {
+): Layout & { swapped: AppliedCounts['swapped'] } {
   let current = pieces
   let best = layout(current)
+  const swapped: AppliedCounts['swapped'] = []
   for (let i = 0; i < current.length; i++) {
     const piece = current[i]
     if (!SWAP_ROLES.includes(piece.role) || best.placed.some((p) => p.piece === piece)) continue
@@ -129,14 +139,15 @@ function layoutWithSwaps(
       const swap: Piece = { id: c.id, name: c.name_uz, role: piece.role, ...sizeOf(c) }
       const trial = current.map((p, k) => (k === i ? swap : p))
       const next = layout(trial)
-      if (next.placed.some((p) => p.piece === swap) && droppedCount(next) < droppedCount(best)) {
+      if (next.placed.some((p) => p.piece === swap) && next.weight > best.weight) {
         current = trial
         best = next
+        swapped.push({ from: piece.name, to: swap.name })
         break
       }
     }
   }
-  return best
+  return { ...best, swapped }
 }
 
 /**
@@ -147,7 +158,7 @@ function layoutWithSwaps(
  */
 export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string): AppliedCounts {
   const store = useRoomStore.getState()
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [] }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [] }
 
   if (parts.walls && plan.walls.main) {
     const main = plan.walls.main
@@ -204,7 +215,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const item = byId.get(p.id)
       return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
     })
-    const { placed, dropped } = layoutWithSwaps(pieces, catalog, roomType, (ps) => layoutFurniture(ps, model, roomType, taken))
+    const { placed, dropped, swapped } = layoutWithSwaps(pieces, catalog, roomType, (ps) => layoutFurniture(ps, model, roomType, taken))
     // Each placed piece is its own entry, chairs round a table too (they share one plan line).
     for (const { piece, rect } of placed) {
       store.placeFurniture({
@@ -213,6 +224,10 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     }
     applied.furniture = placed.length
     applied.dropped = dropped
+    applied.swapped = swapped
+    const times = new Map<string, number>()
+    for (const { piece } of placed) times.set(piece.name, (times.get(piece.name) ?? 0) + 1)
+    applied.placed = [...times].map(([name, count]) => ({ name, count }))
     applied.skipped = dropped.reduce((s, d) => s + d.count, 0)
   }
 
