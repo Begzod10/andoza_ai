@@ -78,3 +78,31 @@ describe('the ready-made set for a balcony under 1.8 m across', () => {
     expect(wide.furniture.find((f) => f.role === 'coffee_table')!.name).toBe('ZZ Jurnal stoli zarhal')
   })
 })
+
+describe('a rug that fits the room', () => {
+  const rugOf = (r: ReturnType<typeof applyPreset>) => r.placed.filter((p) => p.c.name_uz.includes('Gilam'))
+  it.each(PRESETS)('the 3 x 2.6 m room: %s lays a rug inside the room, or none', (id) => {
+    const r = applyPreset(id, 'small')
+    for (const rug of rugOf(r)) expect(r.model.inside(rug.rect), rug.c.name_uz).toBe(true)
+  })
+
+  it.each(['milliy', 'klassik'])("the 3 x 2.6 m room: %s's ready-made set takes a rug that leaves 0.3 m round it", (id) => {
+    const r = applyPreset(id, 'small')
+    const rug = byId.get(r.plan.furniture.find((f) => f.role === 'rug')!.id)!
+    const [short, long] = [rug.footprint_w!, rug.footprint_d!].sort((a, b) => a - b)
+    expect(short).toBeLessThanOrEqual(260 - 60)
+    expect(long).toBeLessThanOrEqual(300 - 60)
+  })
+
+  it.each([['milliy', 'ZZ Gilam Buxoro naqshli'], ['klassik', 'ZZ Gilam Fors']])('the 4.5 x 3.2 m living room keeps %s\'s own 200 x 300 rug', (id, name) => {
+    const r = applyPreset(id, 'living45')
+    expect(rugOf(r).map((p) => p.c.name_uz)).toEqual([name])
+    expect(r.model.inside(rugOf(r)[0].rect)).toBe(true)
+  })
+
+  it('with no rug that fits, the smallest is taken; with no room size, the pick is as before', () => {
+    const tiny = { area: 2, minSide: 1 }
+    expect(presetPlan('milliy', catalog, 'yotoqxona', undefined, tiny)!.furniture.find((f) => f.role === 'rug')!.name).toMatch(/jun och|kulrang/)
+    expect(presetPlan('milliy', catalog, 'yotoqxona')!.furniture.find((f) => f.role === 'rug')!.name).toBe('ZZ Gilam Buxoro naqshli')
+  })
+})

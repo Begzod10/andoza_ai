@@ -257,17 +257,26 @@ const SIX_SEAT_TABLE = 160
 const NARROW_BALCONY = 1.8
 const narrowBalcony = (roomType: string | undefined, size: RoomSize | undefined) =>
   roomType === 'balkon' && size !== undefined && size.minSide < NARROW_BALCONY
+/** The floor a rug leaves bare at each side, metres: a 200 x 300 rug is for a room 2.6 x 3.6 m or larger. */
+const RUG_MARGIN = 0.3
 
 /**
  * How well a bed suits the room's size: 2 for a double bed in a normal room or a single one in a small
  * room, 1 for one in between (121-139 cm), 0 for the other kind. Any other kind, an unknown room or a
  * bed of unknown width scores 2, so it is never put behind a bed that fits: the order is as before.
- * A dining table and a narrow balcony's small table are scored by their size too.
+ * A dining table, a rug (`RUG_MARGIN`) and a narrow balcony's small table are scored by their size too.
  */
 function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined, roomType: string | undefined): number {
   // On a narrow balcony the smallest table first, by its footprint (one with none last).
   if (kind === 'kichik_stol' && narrowBalcony(roomType, size)) {
     return c.footprint_w && c.footprint_d ? -(c.footprint_w * c.footprint_d) : -Infinity
+  }
+  if (kind === 'gilam' && size && c.footprint_w && c.footprint_d) {
+    // The room's sides from its size (a rectangle's: its area over its shorter side), less the margin;
+    // a rug that fits either way round scores 2, one that does not the less the larger it is.
+    const sides = [size.minSide, size.area / size.minSide].map((m) => m * 100 - 2 * RUG_MARGIN * 100)
+    const [short, long] = [c.footprint_w, c.footprint_d].sort((a, b) => a - b)
+    return short <= sides[0] && long <= sides[1] ? 2 : -(c.footprint_w * c.footprint_d)
   }
   if (kind === 'ovqat_stoli') {
     // Up to four chairs: a table seating six comes after one seating four or fewer.
@@ -291,7 +300,8 @@ function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined, ro
  * kitchen over a dining table made for it, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
  * A children's piece comes first in a children's room and last anywhere else. A bed that suits the room's
  * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom; a
- * kitchen's table for four comes before a larger one; a narrow balcony's smallest small table first.
+ * kitchen's table for four comes before a larger one; a rug that fits the room before one that does not,
+ * and of those the smallest; a narrow balcony's smallest small table first.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
@@ -341,8 +351,8 @@ function resolveWalls(zone: string, wallIds: string[]): string {
 
 /**
  * The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id.
- * `roomSize` (`roomSizeOf`) picks a bed that fits the room, and gives a balcony under 1.8 m across one
- * seat and the smallest small table; without it these are picked as any piece.
+ * `roomSize` (`roomSizeOf`) picks a bed and a rug that fit the room, and gives a balcony under 1.8 m across
+ * one seat and the smallest small table; without it these are picked as any piece.
  */
 export function presetPlan(
   id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],
