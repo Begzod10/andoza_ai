@@ -12,6 +12,7 @@ import { floorLampSpot, lightSpot, roomModel, type Rect } from '@/lib/aiDesignLa
 import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
 import { inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
+import { catalogRoomType } from '@/lib/roomType'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
 export interface DesignParts { walls: boolean; floor: boolean; lights: boolean; furniture: boolean }
@@ -87,18 +88,28 @@ const SWAP_TRIES = 5
 type Layout = ReturnType<typeof layoutFurniture>
 const droppedCount = (l: Layout) => l.dropped.reduce((s, d) => s + d.count, 0)
 
+/** A children's piece, by name: the backend's `_KIDS_NAME`. */
+const KIDS_NAME = /bolalar|детск|kids/i
+
 /**
- * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model and a smaller
- * footprint. Those sharing a style with it come first, then the smallest.
+ * The catalog's pieces that could stand in for `piece`: the same role, a 3-D model, a smaller
+ * footprint, standing on the floor and made for this room (or for every room; with no room type,
+ * any); a children's piece only in a children's room. Those sharing a style with it come first (an
+ * unstyled piece suits every style), then the largest, so a double bed gives way to the next size
+ * down, not a cot; among those, ones made for this very room before ones for every room.
  */
-function smallerOfKind(piece: Piece, catalog: CatalogFurniture[]): CatalogFurniture[] {
+function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: string): CatalogFurniture[] {
   const styles = catalog.find((c) => c.id === piece.id)?.styles ?? []
+  const room = catalogRoomType(roomType)
   const area = (c: CatalogFurniture) => (c.footprint_w ?? 0) * (c.footprint_d ?? 0) / 1e4
-  const sameStyle = (c: CatalogFurniture) => (c.styles ?? []).some((s) => styles.includes(s))
+  const sameStyle = (c: CatalogFurniture) => styles.length === 0 || !c.styles?.length || c.styles.some((s) => styles.includes(s))
   return catalog
     .filter((c) => c.glb_url && c.id !== piece.id && c.footprint_w && c.footprint_d && area(c) < piece.w * piece.d - 1e-9
+      && c.placement === 'pol' && (room === undefined || c.room_type === null || c.room_type === room)
+      && (roomType === 'bolalar' || !KIDS_NAME.test(c.name_uz))
       && roleOf({ id: c.id, name: c.name_uz }, c) === piece.role)
-    .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(a) - area(b))
+    .sort((a, b) => Number(sameStyle(b)) - Number(sameStyle(a)) || area(b) - area(a)
+      || Number(b.room_type !== null) - Number(a.room_type !== null))
 }
 
 /**
@@ -106,13 +117,15 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[]): CatalogFurnit
  * swapped for a smaller one of its kind from the catalog: the first that is placed with fewer pieces
  * left out overall is kept. A piece with no such stand-in stays left out.
  */
-function layoutWithSwaps(pieces: Piece[], catalog: CatalogFurniture[], layout: (ps: Piece[]) => Layout): Layout {
+function layoutWithSwaps(
+  pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
+): Layout {
   let current = pieces
   let best = layout(current)
   for (let i = 0; i < current.length; i++) {
     const piece = current[i]
     if (!SWAP_ROLES.includes(piece.role) || best.placed.some((p) => p.piece === piece)) continue
-    for (const c of smallerOfKind(piece, catalog).slice(0, SWAP_TRIES)) {
+    for (const c of smallerOfKind(piece, catalog, roomType).slice(0, SWAP_TRIES)) {
       const swap: Piece = { id: c.id, name: c.name_uz, role: piece.role, ...sizeOf(c) }
       const trial = current.map((p, k) => (k === i ? swap : p))
       const next = layout(trial)
@@ -191,7 +204,7 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       const item = byId.get(p.id)
       return { id: p.id, name: p.name, role: roleOf(p, item), ...sizeOf(item) }
     })
-    const { placed, dropped } = layoutWithSwaps(pieces, catalog, (ps) => layoutFurniture(ps, model, roomType, taken))
+    const { placed, dropped } = layoutWithSwaps(pieces, catalog, roomType, (ps) => layoutFurniture(ps, model, roomType, taken))
     // Each placed piece is its own entry, chairs round a table too (they share one plan line).
     for (const { piece, rect } of placed) {
       store.placeFurniture({
@@ -208,10 +221,10 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     // An earlier design's lights go; the user's own stay (and new ones are added beside them).
     for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
     const byId = new Map(catalog.map((c) => [c.id, c]))
-    // A rug lies under things: a lamp may stand on it.
+    // A rug lies under things, and a piece hung on the wall is above them: a lamp may stand there.
     const solid: Rect[] = useRoomStore.getState().furniture.flatMap((f) => {
       const item = byId.get(f.furniture_id)
-      if (item && (RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
+      if (item && (item.placement === 'devor' || RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
       const size = sizeOf(item)
       return [{ x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }]
     })
@@ -226,6 +239,8 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
         const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
         const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
         spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
+        // The next floor lamp keeps off this one (two in one corner would share its spot).
+        solid.push({ x: moved.x, z: moved.z, w: type.sizeM.w, d: type.sizeM.d, rotation: 0 })
       }
       store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
       applied.lights++

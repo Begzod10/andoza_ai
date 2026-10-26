@@ -322,6 +322,9 @@ STYLE_LABELS: dict[str, str] = {
     "neoklassika": "Neoklassika", "klassik": "Klassik", "zamonaviy": "Zamonaviy", "hitech": "Hi-Tech",
     "minimalist": "Minimalist", "skandinav": "Skandinav", "loft": "Loft", "milliy": "Milliy",
 }
+# Every apostrophe a request may carry in o', g' and the like: ASCII, the Uzbek okina (ʻ), the
+# curly quotes (’ ‘), the modifier apostrophe (ʼ) and a backtick.
+_APOS = "['ʻ’‘ʼ`]"
 _STYLE_WORDS: dict[str, re.Pattern[str]] = {
     "neoklassika": re.compile(r"neo[-\s]?klassi|neoclassic", re.I),
     "klassik": re.compile(r"(?<!neo)(?<!neo-)(?<!neo )klassi|(?<!neo)classic", re.I),
@@ -330,7 +333,7 @@ _STYLE_WORDS: dict[str, re.Pattern[str]] = {
     "minimalist": re.compile(r"minimal", re.I),
     "skandinav": re.compile(r"skandinav|scandi", re.I),
     "loft": re.compile(r"\bloft", re.I),
-    "milliy": re.compile(r"milliy|sharqona|o['ʻ’]?zbekona", re.I),
+    "milliy": re.compile(rf"milliy|sharqona|o{_APOS}?zbekona", re.I),
 }
 
 
@@ -381,9 +384,16 @@ def _room_zone(zone: str, wall_of: dict[str, str]) -> str | None:
 
 # Moods that name a ready-made style of their own rather than a furniture style, as a request
 # names them, and how the starting plan is labelled. Not a bare "to'q": "to'q yashil devorlar" asks
-# for a dark green wall, not the dark style.
+# for a dark green wall, not the dark style. Nor a dark colour in English ("dark green walls") or
+# Russian ("тёмно-зелёные"), nor curtains that darken the room ("затемняющие шторы",
+# "qorong'ilashtiruvchi parda"). Uzbek is matched in Cyrillic too ("қоронғи хона").
+_DARK_COLOURS = r"green|blue|navy|brown|gr[ae]y|black|red|wood|walnut|oak|olive|purple|beige|teal"
 _MOOD_WORDS: dict[str, re.Pattern[str]] = {
-    "dark": re.compile(r"qorong['ʻ’]?i|\bdark\b|тёмн|темн", re.I),
+    "dark": re.compile(
+        rf"qorong{_APOS}?i(?!lash)|қоронғи(?!лаш)"
+        rf"|\bdark\b(?![\s-]+(?:{_DARK_COLOURS}))|(?<![а-яё])т[её]мн(?!о-)",
+        re.I,
+    ),
 }
 MOOD_LABELS: dict[str, str] = {"dark": "Qorong'i"}
 
@@ -631,7 +641,7 @@ _GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy 
 # Whole words only: "pochta", "ochiq oshxona" (an open kitchen) and "kam yorug'lik" (little light)
 # do not ask for light colours.
 _LIGHT_WORDS = re.compile(
-    r"\boch\b|\bochroq\b|\bochiq rang|\byorug['ʻ’] rang|\byorug['ʻ’]roq|светл|\blight\b", re.I,
+    rf"\boch\b|\bochroq\b|\bochiq rang|\byorug{_APOS} rang|\byorug{_APOS}roq|светл|\blight\b", re.I,
 )
 _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 # Kitchens and bathrooms are tiled whatever the style: a preset's wooden floor is not kept there.

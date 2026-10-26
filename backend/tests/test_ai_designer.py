@@ -399,6 +399,7 @@ def test_the_menu_shows_a_piece_s_styles_and_leaves_unstyled_lines_as_they_were(
     ("Neoklassika, och bej", {"neoklassika"}),
     ("klassik uslub, oltin detallar", {"klassik"}),
     ("milliy uslub, gilam", {"milliy"}),
+    ("o‘zbekona", {"milliy"}), ("oʼzbekona", {"milliy"}), ("o`zbekona", {"milliy"}),
     ("zamonaviy va loft aralash", {"zamonaviy", "loft"}),
     ("Skandinav, yorug'", {"skandinav"}),
     ("minimalist oq xona", {"minimalist"}),
@@ -649,6 +650,7 @@ async def test_design_room_hands_the_starting_preset_to_validation():
 @pytest.mark.parametrize(("prompt", "asked"), [
     ("pochta", False), ("ochiq oshxona", False), ("kam yorug'lik", False),
     ("och ranglar", True), ("yorug' ranglar", True), ("yorugʻ ranglar", True), ("светлая комната", True),
+    ("yorug‘ ranglar", True), ("yorugʼroq", True), ("yorug`roq", True),
 ])
 def test_light_line_only_for_light_colours(prompt, asked):
     assert (LIGHT_LINE in _message(prompt)) is asked
@@ -709,6 +711,23 @@ def test_a_tile_floor_answer_is_kept_against_a_wooden_starting_preset():
     ("to'q yashil devorlar", None),  # a dark colour is not the dark style
     ("qorong'i loft", "dark"),
     ("loft, qorong'i", "loft"),
+    ("qorong'i mehmonxona", "dark"),
+    ("dark room", "dark"),
+    ("тёмная комната", "dark"),
+    ("в тёмных тонах", "dark"),
+    # A dark colour, or curtains that darken the room, are not the dark style.
+    ("dark green walls", None),
+    ("dark-blue accent wall", None),
+    ("dark wood floor", None),
+    ("тёмно-зелёные стены", None),
+    ("затемняющие шторы", None),
+    ("qorong'ilashtiruvchi parda", None),
+    # Every apostrophe a phone keyboard types, and Uzbek in Cyrillic.
+    ("qorong‘i", "dark"),
+    ("qorongʼi", "dark"),
+    ("qorong`i", "dark"),
+    ("қоронғи хона", "dark"),
+    ("қоронғилаштирувчи парда", None),
 ])
 def test_the_dark_mood_starts_from_the_dark_preset_where_it_comes_first(prompt, preset):
     found = ad.starting_preset(prompt)
