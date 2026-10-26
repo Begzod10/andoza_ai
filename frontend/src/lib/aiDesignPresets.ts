@@ -120,12 +120,12 @@ const NOT_IN_BATHROOM = new Set(['chandelier', 'pendant', 'floor_lamp'])
 const BATH_CENTRE = 'downlight'
 const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)?.mount
 
-function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
+export function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
   const main = walls.main
   return main?.type === 'oboy' ? { ...walls, main: { type: 'paint', color: main.base_color } } : walls
 }
 
-function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
+export function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
   const ceiling = (type: string) => !NOT_IN_BATHROOM.has(type) && ['ceiling', 'recessed', 'track'].includes(mountOf(type) ?? '')
   const other = lights.find((l) => ceiling(l.type))?.type ?? BATH_CENTRE
   const out: AiDesignPlan['lights'] = []
