@@ -465,6 +465,27 @@ describe('a ready-made style in this room', () => {
     fireEvent.click(screen.getByText('Hi-Tech'))
     await waitFor(() => expect(placedBed()).toEqual(['single']))
   })
+
+  it('in a kitchen, places a dining table with its chairs, not a sofa', async () => {
+    const piece = (id: string, name: string, category: string, room_type: string, w: number, d: number) => ({
+      id, name_uz: name, category, store_id: null, store_name: null, room_type, placement: 'pol',
+      price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: w, footprint_d: d, styles: [],
+    })
+    const catalog = [
+      piece('sofa', 'Divan', 'divan', 'mehmonxona', 200, 90),
+      piece('coffee', 'Kofe stoli', 'stol', 'mehmonxona', 100, 60),
+      piece('dining', 'Oshxona stoli', 'stol', 'oshxona', 120, 80),
+      piece('chair', 'Oshxona stuli', 'stul', 'oshxona', 45, 50),
+    ]
+    const placed = () => useRoomStore.getState().furniture.map((f) => f.furniture_id)
+    useRoomStore.setState({ catalogFurniture: catalog as never, geometry: room(4000, 3500) })
+    renderSheet({ roomType: 'oshxona' })
+    fireEvent.click(screen.getByText('Hi-Tech'))
+    await waitFor(() => expect(placed()).toContain('dining'))
+    expect(placed().filter((id) => id === 'chair').length).toBeGreaterThanOrEqual(2)
+    expect(placed()).not.toContain('sofa')
+    expect(placed()).not.toContain('coffee')
+  })
 })
 
 describe('zoneLabel', () => {
