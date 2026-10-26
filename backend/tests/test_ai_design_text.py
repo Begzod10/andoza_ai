@@ -791,3 +791,45 @@ class TestFloorIdsAreSaidInUzbek:
         plan = make("Pol tile turi tanlangan, naqshsiz va rangsiz.", floor={"type": "tile", "pattern": None, "tint": None})
         assert txt.reconcile_summary(plan) == []
         assert plan.summary == "Pol kafel turi tanlangan, naqshsiz va rangsiz."
+
+
+class TestAWardrobeIsNotABookcase:
+    """The bolalar eval run (2026-10-26) said "kiyim shkafi" for a chosen "ZZ Bolalar kitob javoni": one
+    word for every cupboard let a bookcase back a wardrobe."""
+
+    BOLALAR = _eval_plan(
+        "Bu dizayn bolalar xonasi uchun yumshoq pastel ko'k devor rangi va iliq yog'och laminat pol bilan tanlandi. "
+        "Yorqin atmosfera uchun markaziy shift chirog'i va ikki devor chiroqlari (bra) qo'shildi. Mebel sifatida "
+        "bolalar karavoti, kiyim shkafi, yozuv stoli, ish stuli va pufik tanlandi, bu kombinatsiya bolalar uchun "
+        "qulay va funktsional makon yaratadi.",
+        {"main": {"type": "paint", "color": "#c3ddf9"}},
+        {"type": "laminate", "pattern": "wood_strip", "tint": "#f4ead5"},
+        ["ceiling", "bra", "bra"],
+        ["ZZ Bolalar karavoti", "ZZ Bolalar kitob javoni", "ZZ Yozuv stoli Nord", "ZZ Ish stuli", "ZZ Pufik"],
+        {"ceiling": {"design": "flat"}, "skirting": {"id": "tekis"}, "cornice": {"id": "t140"}},
+    )
+
+    @staticmethod
+    def _with(*names):
+        return _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}}, None, [], list(names))
+
+    def test_the_real_bolalar_summary_is_caught_for_its_wardrobe(self):
+        problems = txt.summary_problems(self.BOLALAR.summary, self.BOLALAR)
+        assert problems == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+
+    @pytest.mark.parametrize("text", ["Burchakda kiyim shkafi.", "Garderob devor oldida."])
+    def test_a_wardrobe_is_backed_only_by_a_wardrobe(self, text):
+        assert txt.summary_problems(text, self._with("ZZ Stellaj Loft", "ZZ Kitob shkafi Oxford"))
+        assert not txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    @pytest.mark.parametrize("text", ["Devorda kitob javoni.", "Kitob shkafi burchakda.", "Stellaj va vitrina."])
+    def test_a_shelf_is_backed_only_by_a_shelf(self, text):
+        assert txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    def test_a_bookcase_backs_a_book_shelf(self):
+        assert not txt.summary_problems("Devorda kitob javoni turadi.", self._with("Kitob shkafi"))
+
+    def test_a_plain_cupboard_is_backed_by_either(self):
+        for name in ("ZZ Kiyim shkafi Nord", "Kitob shkafi", "ZZ Oshxona shkafi"):
+            assert not txt.summary_problems("Burchakda shkaf turadi.", self._with(name))
+        assert txt.summary_problems("Burchakda shkaf turadi.", self._with("ZZ Pufik"))

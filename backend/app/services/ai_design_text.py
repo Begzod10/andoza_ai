@@ -193,25 +193,38 @@ def _language_problems(text: str, plan: Any, catalog_names: list[str] | None = N
 
 # ── Furniture ────────────────────────────────────────────────────────────────
 
-# Words for the same kind of piece, so "krovat" in the text is backed by a "Karavot" in the plan.
-_FURNITURE_KINDS: dict[str, re.Pattern[str]] = {
-    "divan": re.compile(r"\b(divan|sofa)"),
-    "karavot": re.compile(r"\b(karavot|krovat)"),
-    "stol": re.compile(r"\bstol"),
-    "stul": re.compile(r"\b(stul|o'rindiq)"),
-    "kreslo": re.compile(r"\bkreslo"),
-    "shkaf": re.compile(r"\b(shkaf|garderob|javon|vitrina|stellaj|kitob javon)"),
-    "tumba": re.compile(r"\b(tumba|komod)"),
-    "gilam": re.compile(r"\b(gilam|kovrolin)"),
+# A wardrobe for clothes (the frontend's WARDROBE_NAME) and a shelf for books or show: both are a "shkaf"
+# in the shop's words, but a bookcase does not back "kiyim shkafi".
+_WARDROBE = r"kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб"
+_SHELF = r"kitob javon|kitob shkaf|javon|stellaj|vitrina"
+
+# kind -> (words in the text, words of a chosen name that back them), so "krovat" in the text is backed
+# by a "Karavot" in the plan. Where the text says it the same way the name does, the two are one pattern.
+_FURNITURE_KINDS: dict[str, tuple[re.Pattern[str], re.Pattern[str]]] = {
+    kind: (words, backing or words)
+    for kind, words, backing in (
+        ("divan", re.compile(r"\b(divan|sofa)"), None),
+        ("karavot", re.compile(r"\b(karavot|krovat)"), None),
+        ("stol", re.compile(r"\bstol"), None),
+        ("stul", re.compile(r"\b(stul|o'rindiq)"), None),
+        ("kreslo", re.compile(r"\bkreslo"), None),
+        ("kiyim shkafi", re.compile(rf"\b({_WARDROBE})"), None),
+        ("javon", re.compile(rf"\b({_SHELF})"), None),
+        # a plain "shkaf" says only "a cupboard": any of them backs it, a wardrobe or a shelf alike
+        ("shkaf", re.compile(r"(?<!kiyim )(?<!kitob )\bshkaf"), re.compile(rf"shkaf|{_WARDROBE}|{_SHELF}")),
+        ("tumba", re.compile(r"\b(tumba|komod)"), None),
+        ("gilam", re.compile(r"\b(gilam|kovrolin)"), None),
+    )
 }
 
 
 def _furniture_problems(text: str, plan: Any) -> list[str]:
     chosen = _norm(" ".join(f.get("name", "") for f in plan.furniture))
     problems = []
-    for kind, words in _FURNITURE_KINDS.items():
-        if words.search(text) and not words.search(chosen):
-            problems.append(f"'{kind}' aytilgan, lekin rejada yo'q")
+    for words, backing in _FURNITURE_KINDS.values():
+        # the words as the text says them: "kitob shkaf" is a shelf, where the kind's name would say "javon"
+        if (m := words.search(text)) and not backing.search(chosen):
+            problems.append(f"'{m.group(0)}' aytilgan, lekin rejada yo'q")
     return problems
 
 
