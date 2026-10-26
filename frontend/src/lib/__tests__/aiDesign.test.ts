@@ -336,6 +336,22 @@ describe('floor lamps and furniture', () => {
     expect(useRoomStore.getState().lights.map(({ xMm, zMm }) => ({ xMm, zMm }))).toEqual([corner])
   })
 
+  it('two floor lamps in one corner do not stand on the same spot', () => {
+    const lights = [{ type: 'floor_lamp', zone: 'corner_A_B' }, { type: 'floor_lamp', zone: 'corner_A_B' }]
+    applyDesignPlan(lampPlan(lights), LIGHTS_ONLY, beds)
+    const [a, b] = useRoomStore.getState().lights.map(lampRect)
+    expect(overlaps(a, b, 0)).toBe(false)
+  })
+
+  it('a lamp under a shelf hung on the wall stays where it was', () => {
+    const shelf = { ...item('shelf', 'Osma javon', 80, 30, 'javon'), placement: 'devor' as const }
+    const [corner] = freeSpot([{ type: 'floor_lamp', zone: 'corner_A_B' }])
+    const at = lampRect(corner)
+    useRoomStore.getState().placeFurniture({ id: 'mine', furniture_id: 'shelf', x: at.x * 1000, y: at.z * 1000, rotation: 0 })
+    applyDesignPlan(lampPlan([{ type: 'floor_lamp', zone: 'corner_A_B' }]), LIGHTS_ONLY, [...beds, shelf])
+    expect(useRoomStore.getState().lights.map(({ xMm, zMm }) => ({ xMm, zMm }))).toEqual([corner])
+  })
+
   it('ceiling and wall lights are left where they are, over the furniture or not', () => {
     const lights = [{ type: 'chandelier', zone: 'center' }, { type: 'bra', zone: 'wall_B' }]
     const before = freeSpot(lights)

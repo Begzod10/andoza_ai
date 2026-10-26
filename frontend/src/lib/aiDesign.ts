@@ -221,10 +221,10 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     // An earlier design's lights go; the user's own stay (and new ones are added beside them).
     for (const l of useRoomStore.getState().lights) if (l.fromDesign) store.removeLight(l.id)
     const byId = new Map(catalog.map((c) => [c.id, c]))
-    // A rug lies under things: a lamp may stand on it.
+    // A rug lies under things, and a piece hung on the wall is above them: a lamp may stand there.
     const solid: Rect[] = useRoomStore.getState().furniture.flatMap((f) => {
       const item = byId.get(f.furniture_id)
-      if (item && (RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
+      if (item && (item.placement === 'devor' || RUG_CATEGORY.test(item.category) || inferRole(item.category, item.name_uz) === 'rug')) return []
       const size = sizeOf(item)
       return [{ x: f.x / 1000, z: f.y / 1000, w: size.w, d: size.d, rotation: f.rotation }]
     })
@@ -239,6 +239,8 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
         const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
         const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
         spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
+        // The next floor lamp keeps off this one (two in one corner would share its spot).
+        solid.push({ x: moved.x, z: moved.z, w: type.sizeM.w, d: type.sizeM.d, rotation: 0 })
       }
       store.addLight({ id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true })
       applied.lights++
