@@ -228,10 +228,11 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
     return problems
 
 
-# A sentence about the furniture: "mebel", a kind of piece, or "uslubdagi" before a chosen piece's name
-# ("minimalist uslubdagi Line va Mono"). "Minimalist mehmonxona" or "uslubidagi xona" is about the room.
+# A sentence about the furniture: "mebel", a kind of piece, or a style ("uslubdagi", "uslubida",
+# "uslubidagi") given to a chosen piece's name ("minimalist uslubdagi Line va Mono", "Line va Mono
+# minimalist uslubida"). "Minimalist mehmonxona" or "uslubidagi xona" is about the room.
 _FURNITURE_TALK = re.compile(r"\bmebel|" + "|".join(words.pattern for words, _ in _FURNITURE_KINDS.values()))
-_STYLED_BY = re.compile(r"\buslubdagi\b(.*)")
+_STYLED_BY = re.compile(r"\buslub(?:i?dagi|ida)\b")
 # "zamonaviy materiallar" are modern materials, not a style of the pieces made of them.
 _OF_MATERIALS = re.compile(r"\s+material")
 
@@ -266,8 +267,8 @@ def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) ->
         text = names_said.sub("mebel", text)
     problems: list[str] = []
     for sentence in _SENTENCE_END.split(text):
-        after = _STYLED_BY.search(sentence)
-        if not (_FURNITURE_TALK.search(sentence) or (after and names & set(_NAME_WORD.findall(after[1])))):
+        styled = _STYLED_BY.search(sentence) and names & set(_NAME_WORD.findall(sentence))
+        if not (_FURNITURE_TALK.search(sentence) or styled):
             continue
         for style, words in _STYLE_WORDS.items():
             claim = f"'{STYLE_LABELS[style]}' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"

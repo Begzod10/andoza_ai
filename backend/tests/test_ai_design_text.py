@@ -927,6 +927,13 @@ class TestTheStyleOfTheFurniture:
         styles = {"ZZ Stellaj Loft": ["skandinav"], "Klassik divan": ["zamonaviy"], "ZZ Kreslo Skandi": ["milliy"]}
         assert txt.summary_problems(txt.describe_plan(plan), plan, piece_styles=styles) == []
 
+    @pytest.mark.parametrize("text", [
+        "Line va Mono minimalist uslubida tanlandi.", "Minimalist uslubidagi Line va Mono tanlandi.",
+    ])
+    def test_every_form_of_uslub_before_the_names_is_read(self, text):
+        loft = {name: ["loft"] for name in self.CATALOG_STYLES}
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=loft)
+
     def test_reconcile_passes_the_styles_on(self):
         plan = SimpleNamespace(**vars(self.MINIMALIST))
         assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)
