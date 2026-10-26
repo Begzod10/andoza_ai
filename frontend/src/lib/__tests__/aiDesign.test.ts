@@ -363,10 +363,12 @@ describe('floor lamps and furniture', () => {
 })
 
 describe('a main piece that does not fit', () => {
-  // A small bedroom, 2.6 x 3.0 m with its door on a long wall: a 160 cm double bed finds no place.
+  // A narrow bedroom, 2.2 x 3.0 m with its door on a long wall: a 160 cm double bed finds no place, not
+  // even along a wall (1.6 m of bed and 0.6 m beside it leave no gap to the wall across), a 140 cm one
+  // does. (A door may swing over the floor beside a bed, so the 2.6 m room this was keeps a double.)
   const door = { id: 'door', type: 'eshik', width: 800, height: 2000, sill_height: 0, position: 800, positionAuto: false } as WallElement
   const bedroom = (): RoomGeometry => ({
-    walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? 3000 : 2600, elements: id === 'B' ? [door] : [] })),
+    walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? 3000 : 2200, elements: id === 'B' ? [door] : [] })),
   }) as RoomGeometry
   const bed = (id: string, w: number, d: number, styles: string[] = []): CatalogFurniture =>
     ({ ...item(id, `Karavot ${id}`, w, d, 'karavot'), styles })
@@ -394,20 +396,15 @@ describe('a main piece that does not fit', () => {
     expect(counts.dropped).toEqual([{ name: 'Karavot double', count: 1 }])
   })
 
-  // A 3.0 x 3.0 m bedroom, door on wall B: a 140 cm bed fits, a 160 does not.
-  const square = (): RoomGeometry => ({
-    walls: ['A', 'B', 'C', 'D'].map((id) => ({ id, length: 3000, elements: id === 'B' ? [door] : [] })),
-  }) as RoomGeometry
 
-  it('takes the largest smaller piece that fits, not the smallest: a 140 cm bed over a 90 cm one', () => {
-    useRoomStore.setState({ geometry: square() })
-    const catalog = [bed('double', 160, 200), bed('single', 90, 200), bed('b140', 140, 200)]
+  it('takes the largest smaller piece that fits, not the smallest: a 120 cm bed over a 90 cm one', () => {
+    // A 140 cm bed is tried first and does not fit either.
+    const catalog = [bed('double', 160, 200), bed('single', 90, 200), bed('b140', 140, 200), bed('b120', 120, 200)]
     applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
-    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['b140'])
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['b120'])
   })
 
   it("a children's bed is not put in a bedroom, but is in a children's room", () => {
-    useRoomStore.setState({ geometry: square() })
     const catalog = [bed('double', 160, 200), bed('single', 90, 200), { ...item('kids', 'Bolalar karavoti', 120, 190, 'karavot'), styles: [] }]
     applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
     expect(useRoomStore.getState().furniture.map((f) => f.furniture_id)).toEqual(['single'])
@@ -416,7 +413,6 @@ describe('a main piece that does not fit', () => {
   })
 
   it('counts an unstyled piece as one of the same style (it suits every style)', () => {
-    useRoomStore.setState({ geometry: square() })
     const catalog = [bed('double', 160, 200, ['klassik']), bed('other', 140, 200, ['zamonaviy']),
       bed('plain', 120, 200), bed('same', 90, 200, ['klassik'])]
     applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')

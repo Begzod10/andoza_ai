@@ -21,14 +21,15 @@ const hits = (a: Rect, b: Rect) => {
   return p.minX < q.maxX - 1e-9 && q.minX < p.maxX - 1e-9 && p.minZ < q.maxZ - 1e-9 && q.minZ < p.maxZ - 1e-9
 }
 
-function run(planId: keyof typeof data.plans, furniture?: AiDesignPlan['furniture']) {
+function run(planId: keyof typeof data.plans, cat = catalog) {
   const p = data.plans[planId]
+  const byId = new Map(cat.map((c) => [c.id, c]))
   const room = data.rooms[p.room as keyof typeof data.rooms]
   useRoomStore.getState().resetRoom()
   useRoomStore.getState().loadRoom({ geometry: { walls: room.walls }, ceiling_h: 2.7 } as never)
   useRoomStore.setState({ lights: [], furniture: [] })
-  const plan: AiDesignPlan = { title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture: furniture ?? p.furniture }
-  const applied = applyDesignPlan(plan, ALL_PARTS, catalog, 'yotoqxona')
+  const plan: AiDesignPlan = { title: 't', summary: '', warnings: [], walls: {}, floor: null, lights: [], furniture: p.furniture }
+  const applied = applyDesignPlan(plan, ALL_PARTS, cat, 'yotoqxona')
   const model = roomModel(useRoomStore.getState().geometry)
   const placed = useRoomStore.getState().furniture.map((f) => {
     const c = byId.get(f.furniture_id)!
@@ -57,6 +58,25 @@ describe('the 4 x 3.5 m bedroom: bed, wardrobe, desk and chair do not all fit', 
     expect(dropped).toContain('ZZ Ish stuli')
     expect(allReachable(r)).toBe(true)
   })
+})
+
+describe('the 3 x 2.6 m bedroom: a single bed and a wardrobe', () => {
+  // The bed's floor at its side may reach into the door's swing (the door is open while someone walks
+  // in, not while someone gets into bed); that is what leaves the wall the wardrobe needs. The bed is
+  // 90 cm wide and 2 m long, stored the way the layout reads a footprint (its width along the head
+  // wall); the eval's stand-in stores it the other way round (200 x 90), and lying across its wall
+  // like that it leaves no wall for a wardrobe.
+  const singleBed = catalog.map((c) => (c.name_uz === 'ZZ Bir kishilik karavot' ? { ...c, footprint_w: 90, footprint_d: 200 } : c))
+  for (const id of ['yotoq_kichik#1', 'qorongi_kichik#1'] as const) {
+    it(`${id}: places the bed and a real wardrobe, each reachable from the door`, () => {
+      const r = run(id, singleBed)
+      expect(r.names).toContain('ZZ Bir kishilik karavot')
+      expect(r.names.some((n) => /kiyim shkaf/i.test(n))).toBe(true)
+      expect(allReachable(r)).toBe(true)
+      const doors = r.model.clear.filter((z) => z.kind === 'door').map((z) => z.rect)
+      for (const p of r.placed) for (const d of doors) expect(hits(p.rect, d)).toBe(false)
+    })
+  }
 })
 
 describe('a large bedroom: everything fits', () => {

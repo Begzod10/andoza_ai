@@ -86,7 +86,6 @@ const SWAP_ROLES: FurnitureRole[] = ['bed', 'wardrobe', 'sofa']
 const SWAP_TRIES = 5
 
 type Layout = ReturnType<typeof layoutFurniture>
-const droppedCount = (l: Layout) => l.dropped.reduce((s, d) => s + d.count, 0)
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
@@ -114,8 +113,9 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
 
 /**
  * The layout, with each main piece it left out (a bed, wardrobe or sofa too big for the room)
- * swapped for a smaller one of its kind from the catalog: the first that is placed with fewer pieces
- * left out overall is kept. A piece with no such stand-in stays left out.
+ * swapped for a smaller one of its kind from the catalog: the first that is placed with the room's
+ * pieces worth more overall (`weight`: in a bedroom a wardrobe outweighs a nightstand) is kept. A
+ * piece with no such stand-in stays left out.
  */
 function layoutWithSwaps(
   pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
@@ -129,7 +129,7 @@ function layoutWithSwaps(
       const swap: Piece = { id: c.id, name: c.name_uz, role: piece.role, ...sizeOf(c) }
       const trial = current.map((p, k) => (k === i ? swap : p))
       const next = layout(trial)
-      if (next.placed.some((p) => p.piece === swap) && droppedCount(next) < droppedCount(best)) {
+      if (next.placed.some((p) => p.piece === swap) && next.weight > best.weight) {
         current = trial
         best = next
         break
