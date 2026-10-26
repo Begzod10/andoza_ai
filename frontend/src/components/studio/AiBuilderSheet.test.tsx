@@ -428,6 +428,32 @@ describe('ready-made styles', () => {
   })
 })
 
+describe('a ready-made style in this room', () => {
+  const bed = (id: string, name: string, w: number, styles: string[]) => ({
+    id, name_uz: name, category: 'karavot', store_id: null, store_name: null, room_type: 'yotoqxona', placement: 'pol',
+    price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: w, footprint_d: 200, styles,
+  })
+  const BEDS = [bed('single', 'Bir kishilik karavot', 90, []), bed('double', 'Karavot 160', 160, ['skandinav'])]
+  const room = (w: number, d: number) => ({
+    walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? d : w, elements: [] })),
+  }) as RoomGeometry
+  const placedBed = () => useRoomStore.getState().furniture.map((f) => f.furniture_id)
+
+  it("takes a bed that fits the room's size", async () => {
+    useRoomStore.setState({ catalogFurniture: BEDS as never, geometry: room(4000, 3500) })
+    renderSheet({ roomType: 'yotoqxona' })
+    fireEvent.click(screen.getByText('Hi-Tech'))
+    await waitFor(() => expect(placedBed()).toEqual(['double']))
+  })
+
+  it('a small bedroom takes the single bed', async () => {
+    useRoomStore.setState({ catalogFurniture: BEDS as never, geometry: room(3000, 2600) })
+    renderSheet({ roomType: 'yotoqxona' })
+    fireEvent.click(screen.getByText('Hi-Tech'))
+    await waitFor(() => expect(placedBed()).toEqual(['single']))
+  })
+})
+
 describe('zoneLabel', () => {
   it('names zones for a person', () => {
     expect(zoneLabel('center')).toBe('markaz')

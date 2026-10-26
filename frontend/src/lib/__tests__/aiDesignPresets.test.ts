@@ -290,6 +290,36 @@ describe('design presets', () => {
       }
     })
 
+    describe("the bed fits the room's size", () => {
+      const bed = (id: string, name: string, w: number | null, styles: string[] = []) =>
+        ({ ...item(id, name, 'karavot', 'yotoqxona'), footprint_w: w, styles })
+      const BEDS = [bed('single', 'Bir kishilik karavot', 90), bed('double', 'Karavot 160', 160, ['skandinav'])]
+      const bedOf = (id: string, roomType: string, roomSize?: { w: number; d: number }, cat = BEDS) =>
+        presetPlan(id, cat, roomType, undefined, roomSize)!.furniture.find((f) => f.role === 'bed')!.id
+
+      it('a normal bedroom takes the wide bed over an unstyled single one', () => {
+        expect(bedOf('hitech', 'yotoqxona', { w: 4, d: 3.5 })).toBe('double')
+      })
+
+      it('a small bedroom (under 10 m2 or under 2.6 m across) takes the narrow bed', () => {
+        expect(bedOf('hitech', 'yotoqxona', { w: 3, d: 2.6 })).toBe('single') // 7.8 m2
+        expect(bedOf('hitech', 'yotoqxona', { w: 5, d: 2.5 })).toBe('single') // 12.5 m2, but 2.5 m across
+      })
+
+      it('with no room size, or a bed with no footprint, the pick is as before', () => {
+        expect(bedOf('hitech', 'yotoqxona')).toBe('single')
+        const unknown = [bed('single', 'Bir kishilik karavot', null), bed('double', 'Karavot 160', 160, ['skandinav'])]
+        expect(bedOf('hitech', 'yotoqxona', { w: 3, d: 2.6 }, unknown)).toBe('single')
+      })
+
+      it("a children's room follows the same rule, but its children's bed still comes first", () => {
+        expect(bedOf('hitech', 'bolalar', { w: 4, d: 3.5 })).toBe('double')
+        expect(bedOf('hitech', 'bolalar', { w: 3, d: 2.6 })).toBe('single')
+        const kids = [...BEDS, bed('kids', 'Bolalar karavoti', 90)]
+        expect(bedOf('hitech', 'bolalar', { w: 4, d: 3.5 }, kids)).toBe('kids')
+      })
+    })
+
     it("a living room keeps the preset's own furniture", () => {
       for (const p of DESIGN_PRESETS) {
         expect(presetPlan(p.id, BEDROOM, 'mehmonxona')!.furniture.map((f) => f.role), p.id).not.toContain('bed')

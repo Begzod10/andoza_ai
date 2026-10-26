@@ -9,6 +9,7 @@ import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
 import type { AppliedCounts, DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
+import { roomModel } from "@/lib/aiDesignLayout"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { summaryWithout } from "@/lib/aiSummary"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
@@ -239,7 +240,10 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
 
   /** A ready-made style: no request, so it works with the AI down and costs nothing. */
   async function usePreset(id: string) {
-    const next = presetPlan(id, catalogFurniture, roomType, wallIds ? wallIds.split('|') : undefined)
+    // The room's bounding box, metres: the bed is picked to fit it.
+    const { box } = roomModel(useRoomStore.getState().geometry)
+    const roomSize = { w: box.maxX - box.minX, d: box.maxZ - box.minZ }
+    const next = presetPlan(id, catalogFurniture, roomType, wallIds ? wallIds.split('|') : undefined, roomSize)
     if (!next) return
     setError("")
     const nextParts = { walls: true, floor: true, lights: true, furniture: next.furniture.length > 0 }

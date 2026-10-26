@@ -87,7 +87,30 @@ interface Preset {
  */
 export const DESIGN_PRESETS = presetData.presets as Preset[]
 
-type Score = [number, number, number, number, number, number]
+type Score = [number, number, number, number, number, number, number]
+
+/** A room's floor size, metres. */
+export interface RoomSize { w: number; d: number }
+
+/**
+ * A bedroom this small takes a single bed: under 10 m2, or under 2.6 m across. The backend's
+ * `_is_small_bedroom`, which tells the AI the same.
+ */
+const SMALL_ROOM_AREA = 10
+const SMALL_ROOM_SIDE = 2.6
+/** A double bed is this wide or wider, a single one this narrow or narrower, cm. */
+const DOUBLE_BED_W = 140
+const SINGLE_BED_W = 120
+
+/**
+ * Whether a bed suits the room's size: 1, or 0 for a double bed in a small room or a single one in
+ * a normal room. Any other kind, an unknown room or a bed of unknown width scores 1 too, as before.
+ */
+function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
+  if (kind !== 'karavot' || !size || c.footprint_w == null) return 1
+  const small = size.w * size.d < SMALL_ROOM_AREA || Math.min(size.w, size.d) < SMALL_ROOM_SIDE
+  return small ? (c.footprint_w <= SINGLE_BED_W ? 1 : 0) : (c.footprint_w >= DOUBLE_BED_W ? 1 : 0)
+}
 
 /**
  * The catalog piece of this kind that best suits the style, then the room. A piece of the style
@@ -96,13 +119,15 @@ type Score = [number, number, number, number, number, number]
  * after every piece for this room or any room: it is used only when nothing else fits. The kind's
  * preferred name (KIND_PREFER) comes before even that: a kitchen still takes the coffee table, not its
  * own dining table, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
- * A children's piece comes first in a children's room and last anywhere else.
+ * A children's piece comes first in a children's room and last anywhere else. A bed that suits the room's
+ * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
+  roomSize: RoomSize | undefined,
 ): CatalogFurniture | undefined {
   let best: CatalogFurniture | undefined
-  let bestScore: Score = [-1, -1, -1, -1, -1, -1]
+  let bestScore: Score = [-1, -1, -1, -1, -1, -1, -1]
   // The catalog has no children's room or study pieces: those rooms take the bedroom's and the living room's.
   const room = catalogRoomType(roomType)
   for (const c of catalog) {
@@ -115,6 +140,7 @@ function pick(
       kids && roomType === 'bolalar' ? 1 : 0,
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
       room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
+      sizeFit(kind, c, roomSize),
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]
@@ -142,9 +168,13 @@ function resolveWalls(zone: string, wallIds: string[]): string {
   return zone
 }
 
-/** The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id. */
+/**
+ * The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id.
+ * `roomSize` (metres) picks a bed that fits the room; without it the bed is picked as any piece.
+ */
 export function presetPlan(
   id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],
+  roomSize?: RoomSize,
 ): AiDesignPlan | undefined {
   const preset = DESIGN_PRESETS.find((p) => p.id === id)
   if (!preset) return undefined
@@ -152,7 +182,7 @@ export function presetPlan(
   const furniture: AiDesignPlan['furniture'] = []
   const kinds = roomType === 'bolalar' ? KIDS_SET : roomType === 'yotoqxona' ? BEDROOM_SET : preset.furniture.map((f) => f.kind)
   for (const kind of kinds) {
-    const item = pick(kind, catalog, roomType, used, preset.furnitureStyle)
+    const item = pick(kind, catalog, roomType, used, preset.furnitureStyle, roomSize)
     if (!item) continue
     used.add(item.id)
     const inferred = inferRole(item.category, item.name_uz)
