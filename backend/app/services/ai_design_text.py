@@ -132,10 +132,14 @@ _NAME_WORD = re.compile(r"[\w']+")
 
 def _names_a_piece(words: list[str], names: list[set[str]]) -> bool:
     """Whether every one of *words* is in one chosen piece's name, in any order ("kulrang gilam" for
-    "Gilam kulrang"). A word may carry an ending the name lacks ("gilamlar"), or the other way round."""
-    def has(name: set[str], word: str) -> bool:
-        return any(n.startswith(word) or word.startswith(n) for n in name)
-    return any(all(has(name, w) for w in words) for name in names)
+    "Gilam kulrang"). Each word is the name's own, except that the last, the noun, may carry an ending
+    the name lacks ("gilamlar" for "gilam"). A name's word under 3 letters (a model's "L") never counts."""
+    *exact, noun = words
+
+    def has(name: set[str]) -> bool:
+        long = {n for n in name if len(n) >= 3}
+        return all(w in long for w in exact) and any(noun.startswith(n) for n in long)
+    return any(has(name) for name in names)
 
 
 def _colour_of_things_problems(text: str, plan: Any) -> list[str]:

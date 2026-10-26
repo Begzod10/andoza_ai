@@ -134,6 +134,22 @@ class TestAColourThatIsPartOfAChosenPiecesName:
         for plan in (make(), self.qorongi()):
             assert any("'qizil gilam'" in p for p in txt.summary_problems("Markazda qizil gilam.", plan))
 
+    @pytest.mark.parametrize("summary, name", [
+        ("Markazda oq gilam.", "Gilam oqshom"),  # "oq" is not the start of another word
+        ("Burchakda qizil lampa.", "Divan L qizil"),  # "lampa" is not the "L" of a model
+        ("Markazda kulrang gilam.", "Gilamcha kulrang"),  # the summary may add an ending to the name's word, not drop one
+    ])
+    def test_only_the_name_s_own_words_excuse_a_colour(self, summary, name):
+        plan = ad.DesignPlan(
+            walls={"main": {"type": "paint", "color": "#e8dcc8"}},
+            furniture=[{"id": "f0", "name": name, "role": "rug"}],
+        )
+        assert any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems(summary, plan))
+
+    def test_a_noun_with_an_ending_still_names_the_piece(self):
+        plan = self.qorongi("Xonada kulrang gilamcha va divan bor.")
+        assert not any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems(plan.summary, plan))
+
     def test_the_name_in_its_own_order_still_passes(self):
         assert not any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems("Polda Gilam kulrang.", self.qorongi()))
 
