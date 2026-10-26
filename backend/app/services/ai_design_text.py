@@ -127,9 +127,27 @@ _COLOURED_THING = re.compile(
 )
 
 
-def _colour_of_things_problems(text: str) -> list[str]:
-    m = _COLOURED_THING.search(text)
-    return [f"'{m.group(0)}': mebel va chiroqning rangini tanlab bo'lmaydi"] if m else []
+_NAME_WORD = re.compile(r"[\w']+")
+
+
+def _names_a_piece(words: list[str], names: list[set[str]]) -> bool:
+    """Whether every one of *words* is in one chosen piece's name, in any order ("kulrang gilam" for
+    "Gilam kulrang"). A word may carry an ending the name lacks ("gilamlar"), or the other way round."""
+    def has(name: set[str], word: str) -> bool:
+        return any(n.startswith(word) or word.startswith(n) for n in name)
+    return any(all(has(name, w) for w in words) for name in names)
+
+
+def _colour_of_things_problems(text: str, plan: Any) -> list[str]:
+    # A colour word that is part of a chosen piece's own name names that piece; it claims nothing.
+    names = [set(_NAME_WORD.findall(_norm(f.get("name", "")))) for f in plan.furniture]
+    for m in _COLOURED_THING.finditer(text):
+        # The match stops at the noun's stem ("gilam" of "gilamlar"): take the whole word.
+        rest = _NAME_WORD.match(text, m.end())
+        words = _NAME_WORD.findall(m.group(0) + (rest.group(0) if rest else ""))
+        if not _names_a_piece(words, names):
+            return [f"'{m.group(0)}': mebel va chiroqning rangini tanlab bo'lmaydi"]
+    return []
 
 
 # A reply that goes on in English (the model sometimes translates itself) is not what the user reads.
@@ -300,7 +318,7 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
         *_language_problems(text, plan, catalog_names),
-        *_colour_of_things_problems(text),
+        *_colour_of_things_problems(text, plan),
         *_colour_problems(text, plan),
         *_furniture_problems(text, plan),
         *_light_problems(text, plan),
