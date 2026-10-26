@@ -218,8 +218,14 @@ _FURNITURE_KINDS: dict[str, tuple[re.Pattern[str], re.Pattern[str]]] = {
 }
 
 
+# Spaces of any kind, or a hyphen, between two words: "kiyim shkafi" is "kiyim  shkafi" or "kiyim-shkafi".
+_JOIN = re.compile(r"(?<=\w)(?:\s+|\s*-\s*)(?=\w)")
+
+
 def _furniture_problems(text: str, plan: Any) -> list[str]:
-    chosen = _norm(" ".join(f.get("name", "") for f in plan.furniture))
+    # The two-word kinds ("kiyim shkaf", "kitob javon") read one plain space between the words.
+    text = _JOIN.sub(" ", text)
+    chosen = _JOIN.sub(" ", _norm(" ".join(f.get("name", "") for f in plan.furniture)))
     problems = []
     for words, backing in _FURNITURE_KINDS.values():
         # the words as the text says them: "kitob shkaf" is a shelf, where the kind's name would say "javon"

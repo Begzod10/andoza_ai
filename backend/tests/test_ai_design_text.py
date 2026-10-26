@@ -834,6 +834,14 @@ class TestAWardrobeIsNotABookcase:
     def test_a_bookcase_backs_a_book_shelf(self):
         assert not txt.summary_problems("Devorda kitob javoni turadi.", self._with("Kitob shkafi"))
 
+    @pytest.mark.parametrize("text", ["Burchakda kiyim\u00a0shkafi.", "Burchakda kiyim  shkafi.", "Burchakda Kiyim-shkafi."])
+    def test_any_spacing_between_the_words_is_still_a_wardrobe(self, text):
+        assert txt.summary_problems(text, self._with("Kitob shkafi")) == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+        assert not txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    def test_any_spacing_between_the_words_is_still_a_bookcase(self):
+        assert txt.summary_problems("Devorda kitob\u00a0shkafi.", self._with("ZZ Kiyim shkafi Nord"))
+
     def test_a_plain_cupboard_is_backed_by_either(self):
         for name in ("ZZ Kiyim shkafi Nord", "Kitob shkafi", "ZZ Oshxona shkafi"):
             assert not txt.summary_problems("Burchakda shkaf turadi.", self._with(name))
