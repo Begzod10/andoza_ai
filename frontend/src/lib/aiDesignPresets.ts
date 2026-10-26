@@ -2,6 +2,7 @@ import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
 import { inferRole, ROLE_GROUP, WARDROBE_NAME, type FurnitureRole } from '@/lib/furnitureRole'
 import { catalogRoomType } from '@/lib/roomType'
+import type { RoomGeometry } from '@/store/roomStore'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
 
@@ -87,7 +88,54 @@ interface Preset {
  */
 export const DESIGN_PRESETS = presetData.presets as Preset[]
 
-type Score = [number, number, number, number, number, number]
+type Score = [number, number, number, number, number, number, number]
+
+/** A room's floor area, m2, and its shorter side, metres: what the backend tells the AI. */
+export interface RoomSize { area: number; minSide: number }
+
+/**
+ * The room's size the way the backend's `_room_summary` reads it: the area of its outline (a scan
+ * turned 45 degrees or an L-shaped room has a bounding box far larger than its floor), else width by
+ * depth; the sides are walls A and B, else the first two walls. Undefined when the walls have no length.
+ */
+export function roomSizeOf(geometry: RoomGeometry): RoomSize | undefined {
+  const { walls, vertices } = geometry
+  const lengthOf = (id: string, at: number) => (walls.find((w) => w.id === id)?.length || walls[at]?.length || 0) / 1000
+  const w = lengthOf('A', 0), d = lengthOf('B', 1)
+  if (!(w > 0 && d > 0)) return undefined
+  // Shoelace, mm2 to m2.
+  const shoelace = vertices && vertices.length >= 3
+    ? Math.abs(vertices.reduce((sum, [x1, z1], i) => {
+      const [x2, z2] = vertices[(i + 1) % vertices.length]
+      return sum + x1 * z2 - x2 * z1
+    }, 0)) / 2 / 1e6
+    : 0
+  return { area: shoelace || w * d, minSide: Math.min(w, d) }
+}
+
+/**
+ * A bedroom this small takes a single bed: under 10 m2, or under 2.6 m across. The backend's
+ * `_is_small_bedroom`, which tells the AI the same.
+ */
+const SMALL_ROOM_AREA = 10
+const SMALL_ROOM_SIDE = 2.6
+/** A double bed is this wide or wider, a single one this narrow or narrower, cm. */
+const DOUBLE_BED_W = 140
+const SINGLE_BED_W = 120
+
+/**
+ * How well a bed suits the room's size: 2 for a double bed in a normal room or a single one in a small
+ * room, 1 for one in between (121-139 cm), 0 for the other kind. Any other kind, an unknown room or a
+ * bed of unknown width scores 2, so it is never put behind a bed that fits: the order is as before.
+ */
+function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
+  if (kind !== 'karavot' || !size || c.footprint_w == null) return 2
+  // A mattress is never wider than it is long, and the catalog stores some beds turned (200 x 90).
+  const width = c.footprint_d == null ? c.footprint_w : Math.min(c.footprint_w, c.footprint_d)
+  const small = size.area < SMALL_ROOM_AREA || size.minSide < SMALL_ROOM_SIDE
+  if (width > SINGLE_BED_W && width < DOUBLE_BED_W) return 1
+  return (small ? width <= SINGLE_BED_W : width >= DOUBLE_BED_W) ? 2 : 0
+}
 
 /**
  * The catalog piece of this kind that best suits the style, then the room. A piece of the style
@@ -96,13 +144,15 @@ type Score = [number, number, number, number, number, number]
  * after every piece for this room or any room: it is used only when nothing else fits. The kind's
  * preferred name (KIND_PREFER) comes before even that: a kitchen still takes the coffee table, not its
  * own dining table, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
- * A children's piece comes first in a children's room and last anywhere else.
+ * A children's piece comes first in a children's room and last anywhere else. A bed that suits the room's
+ * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
+  roomSize: RoomSize | undefined,
 ): CatalogFurniture | undefined {
   let best: CatalogFurniture | undefined
-  let bestScore: Score = [-1, -1, -1, -1, -1, -1]
+  let bestScore: Score = [-1, -1, -1, -1, -1, -1, -1]
   // The catalog has no children's room or study pieces: those rooms take the bedroom's and the living room's.
   const room = catalogRoomType(roomType)
   for (const c of catalog) {
@@ -115,6 +165,7 @@ function pick(
       kids && roomType === 'bolalar' ? 1 : 0,
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
       room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
+      sizeFit(kind, c, roomSize),
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]
@@ -142,9 +193,13 @@ function resolveWalls(zone: string, wallIds: string[]): string {
   return zone
 }
 
-/** The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id. */
+/**
+ * The plan for a preset with its furniture taken from `catalog`. Undefined for an unknown id.
+ * `roomSize` (`roomSizeOf`) picks a bed that fits the room; without it the bed is picked as any piece.
+ */
 export function presetPlan(
   id: string, catalog: CatalogFurniture[], roomType?: string, wallIds: string[] = ['A', 'B', 'C', 'D'],
+  roomSize?: RoomSize,
 ): AiDesignPlan | undefined {
   const preset = DESIGN_PRESETS.find((p) => p.id === id)
   if (!preset) return undefined
@@ -152,7 +207,7 @@ export function presetPlan(
   const furniture: AiDesignPlan['furniture'] = []
   const kinds = roomType === 'bolalar' ? KIDS_SET : roomType === 'yotoqxona' ? BEDROOM_SET : preset.furniture.map((f) => f.kind)
   for (const kind of kinds) {
-    const item = pick(kind, catalog, roomType, used, preset.furnitureStyle)
+    const item = pick(kind, catalog, roomType, used, preset.furnitureStyle, roomSize)
     if (!item) continue
     used.add(item.id)
     const inferred = inferRole(item.category, item.name_uz)

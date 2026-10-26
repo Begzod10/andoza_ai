@@ -102,6 +102,58 @@ class TestColoursOfThingsThatCannotBeColoured:
         assert not any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems(text, make()))
 
 
+class TestAColourThatIsPartOfAChosenPiecesName:
+    """'kulrang gilam' for the chosen 'ZZ Gilam kulrang' names that piece: it claims no colour."""
+
+    # The qorong'i eval run (2026-10-26): kept but for this one rule.
+    QORONGI_SUMMARY = (
+        "Mehmonxona devorlari qorong'i kulrang va qora ranglarda bo'yoq bilan qoplangan, bu xona uchun dramatik va "
+        "jiddiy atmosfera yaratadi. Pol uchun herringbone naqshli yog'och parket tanlandi, u issiq va tabiiy tus beradi. "
+        "Markazda qandil, burchakda torsher va devorda LED chiziqli yoritgichlar yordamida xira va iliq yoritish "
+        "ta'minlandi. Zamonaviy uslubdagi Nova divan, Soft kreslo, shisha-metall jurnal stoli, Grafit TV tumba va "
+        "kulrang gilam xona dizaynini mukammal to'ldiradi."
+    )
+    QORONGI_NAMES = ["ZZ Divan Nova", "ZZ Kreslo Soft", "ZZ Jurnal stoli shisha-metall", "ZZ TV tumba Grafit", "ZZ Gilam kulrang"]
+    QORONGI_ROLES = ["sofa", "armchair", "coffee_table", "tv_unit", "rug"]
+
+    def qorongi(self, summary=QORONGI_SUMMARY):
+        return ad.DesignPlan(
+            title="Qorong'i Zamonaviy Mehmonxona", summary=summary,
+            walls={"main": {"type": "paint", "color": "#2c2c2c"}, "accent": {"wall": "C", "color": "#1a1a1a"}},
+            floor={"type": "parquet", "pattern": "herringbone", "tint": "#3d2b1f"},
+            lights=[{"type": "chandelier", "zone": "center"}, {"type": "floor_lamp", "zone": "corner_B_C"}, {"type": "led_linear", "zone": "wall_C"}],
+            furniture=[{"id": f"f{i}", "name": n, "role": r} for i, (n, r) in enumerate(zip(self.QORONGI_NAMES, self.QORONGI_ROLES))],
+        )
+
+    def test_the_real_qorongi_summary_is_kept(self):
+        plan = self.qorongi()
+        assert txt.reconcile_summary(plan, self.QORONGI_NAMES) == []
+        assert "kulrang gilam" in plan.summary
+
+    def test_a_colour_no_chosen_name_holds_is_still_caught(self):
+        for plan in (make(), self.qorongi()):
+            assert any("'qizil gilam'" in p for p in txt.summary_problems("Markazda qizil gilam.", plan))
+
+    @pytest.mark.parametrize("summary, name", [
+        ("Markazda oq gilam.", "Gilam oqshom"),  # "oq" is not the start of another word
+        ("Burchakda qizil lampa.", "Divan L qizil"),  # "lampa" is not the "L" of a model
+        ("Markazda kulrang gilam.", "Gilamcha kulrang"),  # the summary may add an ending to the name's word, not drop one
+    ])
+    def test_only_the_name_s_own_words_excuse_a_colour(self, summary, name):
+        plan = ad.DesignPlan(
+            walls={"main": {"type": "paint", "color": "#e8dcc8"}},
+            furniture=[{"id": "f0", "name": name, "role": "rug"}],
+        )
+        assert any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems(summary, plan))
+
+    def test_a_noun_with_an_ending_still_names_the_piece(self):
+        plan = self.qorongi("Xonada kulrang gilamcha va divan bor.")
+        assert not any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems(plan.summary, plan))
+
+    def test_the_name_in_its_own_order_still_passes(self):
+        assert not any("rangini tanlab bo'lmaydi" in p for p in txt.summary_problems("Polda Gilam kulrang.", self.qorongi()))
+
+
 class TestLanguage:
     def test_a_reply_that_turns_english_is_replaced(self):
         mixed = "Devorlar bo'yaldi. The walls are painted with a dark tint. The floor includes parquet and lighting."
