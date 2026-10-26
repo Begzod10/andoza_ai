@@ -386,3 +386,41 @@ class TestOwnColourNamesPassTheCheck:
         orange = SimpleNamespace(walls={"main": {"type": "paint", "color": "#e07b39"}}, floor=None)
         assert txt._colour_problems("ko'k devor", orange)
         assert txt._colour_problems("oltin detallar", orange)
+
+
+class TestEnglishAndIdsLeakingThrough:
+    """Kept summaries of the eval (2026-10-26) that still read the studio's ids or English."""
+    TRIM = {"ceiling": "border", "skirting": "b054", "cornice": "t160"}
+
+    def test_the_trim_ids_in_the_text_fall_back_to_the_plain_summary(self):
+        plan = make("Ceiling trim border, skirting b054 va galtel t160 xonaga nafis ko'rinish beradi.", trim=self.TRIM)
+        assert txt.reconcile_summary(plan)
+        assert plan.summary == txt.describe_plan(plan)
+
+    @pytest.mark.parametrize("text", ["Plintus b054 devorni tugatadi.", "Galtel T160 shiftni bezaydi.", "Shift border uslubida."])
+    def test_each_plan_trim_id_is_a_leak(self, text):
+        assert txt.summary_problems(text, make(trim=self.TRIM))
+
+    def test_light_ids_are_said_in_uzbek_and_the_summary_kept(self):
+        lights = [{"type": "chandelier", "zone": "center"}, {"type": "floor_lamp", "zone": "corner"},
+                  {"type": "led_linear", "zone": "center"}]
+        plan = make("Markazda chandelier, burchakda floor lamp va shiftda led linear yorug'lik beradi.", lights=lights)
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == "Markazda Qandil, burchakda Torsher va shiftda LED chiziqli yorug'lik beradi."
+
+    @pytest.mark.parametrize("raw", ["floor_lamp", "Floor-Lamp", "FLOOR LAMP"])
+    def test_light_id_variants(self, raw):
+        assert txt._localise(f"Burchakda {raw} turadi.") == "Burchakda Torsher turadi."
+
+    def test_a_clean_uzbek_summary_is_unchanged(self):
+        text = "Iliq bej devorlar, parket pol va markazdagi qandil sokin muhit beradi."
+        plan = make(text, trim=self.TRIM)
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == text
+
+    def test_a_shop_code_that_is_not_the_plan_trim_id_is_left_alone(self):
+        plan = make(trim={"ceiling": "flat", "skirting": "b052", "cornice": "t56"})
+        assert not txt.summary_problems("Qandil KG1126P-18 va B054 divan xonani bezaydi.", plan)
+
+    def test_a_light_named_as_its_id_keeps_the_prose_spelling(self):
+        assert txt._localise("Devorda bra va led_track bor.") == "Devorda bra va LED trek chirog'i bor."

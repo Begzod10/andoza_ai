@@ -112,9 +112,24 @@ _ENGLISH = re.compile(r"\b(the|is|are|with|and|includes?|floor|walls?|furniture|
 _RAW_IDS = re.compile(r"\b(herringbone|wood_strip|brick_bond|stake_bond|double_herringbone)\b")
 
 
-def _language_problems(text: str) -> list[str]:
+# The trim words of the studio's menu ("ceiling trim border", "skirting"): the user reads shift, plintus, galtel.
+_TRIM_WORDS = re.compile(r"\b(ceiling|trim|border|skirting|cornice)\b")
+# Trim ids that are plain Uzbek words, so the prose may say them ("tekis" is flat).
+_UZBEK_TRIM_IDS = frozenset({"tekis"})
+
+
+def _plan_trim_ids(plan: Any) -> list[str]:
+    """The plan's own profile ids. Only these: a shop's names carry model codes of the same look (B054)."""
+    trim = getattr(plan, "trim", None) or {}
+    ids = [(trim.get(kind) or {}).get(key) for kind, key in (("ceiling", "design"), ("skirting", "id"), ("cornice", "id"))]
+    return [i.lower() for i in ids if isinstance(i, str) and i.lower() not in _UZBEK_TRIM_IDS]
+
+
+def _language_problems(text: str, plan: Any) -> list[str]:
     if _RAW_IDS.search(text):
         return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
+    if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
+        return ["matnda ichki nom bor (shift yoki plintus profili)"]
     return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
 
 
@@ -239,7 +254,7 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
-        *_language_problems(text),
+        *_language_problems(text, plan),
         *_colour_of_things_problems(text),
         *_colour_problems(text, plan),
         *_furniture_problems(text, plan),
@@ -356,10 +371,25 @@ def describe_plan(plan: Any) -> str:
     return ". ".join(parts) + "." if parts else ""
 
 
+def _id_pattern(raw: str) -> str:
+    """An id as prose writes it: "floor_lamp", "floor lamp", "floor-lamp"."""
+    return r"[ _-]".join(re.escape(part) for part in raw.split("_"))
+
+
+# Light ids said in Uzbek, the longest first so "led_track" is not read as "led" + "track". The ceiling
+# light is left out: "ceiling" in prose is the ceiling itself, a leak the language check catches. So is
+# an id that is already the name ("bra"): the prose's own spelling stays.
+_LIGHT_IDS = sorted(
+    (t for t, name in LIGHT_TYPE_NAMES.items() if t != "ceiling" and name.lower() != t), key=len, reverse=True
+)
+
+
 def _localise(text: str) -> str:
     """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
     for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
         text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
+    for raw in _LIGHT_IDS:
+        text = re.sub(rf"\b{_id_pattern(raw)}\b", LIGHT_TYPE_NAMES[raw], text, flags=re.I)
     return text
 
 
