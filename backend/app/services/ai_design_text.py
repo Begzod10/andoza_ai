@@ -125,9 +125,15 @@ def _plan_trim_ids(plan: Any) -> list[str]:
     return [i.lower() for i in ids if isinstance(i, str) and i.lower() not in _UZBEK_TRIM_IDS]
 
 
+# The short labels the prompt gives the pieces (F1, F2...): they mean nothing to the user.
+_PIECE_LABELS = re.compile(r"\bf\d+\b")
+
+
 def _language_problems(text: str, plan: Any) -> list[str]:
     if _RAW_IDS.search(text):
         return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
+    if _PIECE_LABELS.search(text):
+        return ["matnda ichki nom bor (mebel belgisi)"]
     if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
         return ["matnda ichki nom bor (shift yoki plintus profili)"]
     return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
@@ -422,11 +428,30 @@ def _localise(text: str) -> str:
     return text
 
 
+# A sentence ends at ".", "!" or "?" followed by a space: "2.5" and the apostrophes of "ko'k" stay whole.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def _uzbek_sentences(text: str, plan: Any) -> str:
+    """*text* without the sentences that are not for the user: one in English (the model often ends by
+    translating itself) or one that reads the studio's ids. Dropping them costs nothing the plan holds,
+    while judging the whole text by them would throw the honest Uzbek away with them."""
+    sentences = _SENTENCE_END.split(text.strip())
+    return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan))
+
+
 def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
-    wording (empty when it was kept as written). *catalog_names* are the shop's own piece names."""
-    plan.summary = _localise(plan.summary or "")
-    problems = summary_problems(plan.summary, plan, catalog_names) if plan.summary else ["matn bo'sh"]
+    wording (empty when it was kept, at most without its English or id-bearing sentences).
+    *catalog_names* are the shop's own piece names."""
+    localised = _localise(plan.summary or "")
+    uzbek = _uzbek_sentences(localised, plan)
+    if len(uzbek.split()) >= 2:
+        plan.summary = uzbek
+        problems = summary_problems(uzbek, plan, catalog_names)
+    else:
+        # Nothing, or a lone word ("Iliq."), is left to read: say why the whole text was not kept.
+        problems = summary_problems(localised, plan, catalog_names) or ["matn bo'sh"]
     if problems:
         plan.summary = describe_plan(plan)
     return problems
