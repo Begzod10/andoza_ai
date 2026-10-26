@@ -28,7 +28,7 @@ from typing import Any
 import structlog
 
 from app.config import settings
-from app.services.ai_design_text import reconcile_summary
+from app.services.ai_design_text import describe_plan, reconcile_summary
 from app.services.design_presets import load_presets, trim_profiles
 from app.services.design_image import PreparedImage
 from app.services.llm import call_llm
@@ -512,7 +512,9 @@ def furniture_menu(
     lines: list[str] = []
     for n, item in enumerate(chosen, start=1):
         label = f"F{n}"
-        by_label[label] = {"id": item["id"], "name": item["name_uz"], "category": item["category"]}
+        by_label[label] = {
+            "id": item["id"], "name": item["name_uz"], "category": item["category"], "styles": item.get("styles") or [],
+        }
         size = ""
         if item.get("footprint_w") and item.get("footprint_d"):
             # The catalog stores footprints in centimetres.
@@ -712,8 +714,13 @@ async def design_room(
         starting_preset=starting_preset(message_prompt),
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
-    # pieces that validation dropped. Where it does, the plan's own description is shown instead.
-    wrong = reconcile_summary(plan, [item["name"] for item in by_label.values()])
+    # pieces that validation dropped. Where it does, those sentences go, or when nothing honest is
+    # left, the plan's own description is shown instead.
+    wrong = reconcile_summary(
+        plan, [item["name"] for item in by_label.values()], {item["name"]: item["styles"] for item in by_label.values()},
+    )
     if wrong:
-        log.info("ai_design.summary_replaced", problems=wrong)
+        # Trimmed: only the false sentences went, the model's other words are kept.
+        replaced = plan.summary == describe_plan(plan)
+        log.info("ai_design.summary_replaced" if replaced else "ai_design.summary_trimmed", problems=wrong)
     return plan

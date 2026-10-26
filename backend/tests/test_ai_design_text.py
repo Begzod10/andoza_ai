@@ -638,12 +638,17 @@ class TestAnEnglishTailDoesNotCostTheSummary:
         )
 
     def test_yotoq_2_loses_its_english_but_still_names_a_desk_the_plan_does_not_hold(self):
-        # The plan holds a dressing table, not the writing desk the Uzbek names: that is a real lie.
+        # The plan holds a dressing table, not the writing desk the Uzbek names: that is a real lie,
+        # and the sentence that tells it goes. The walls, floor and lights before it are honest and stay.
         menu = ["ZZ Karavot Verona 160", "ZZ Tuvalet stoli Verona", "ZZ Yozuv stoli Nord", "ZZ Stul"]
         plan = SimpleNamespace(**vars(self.YOTOQ_2))
         problems = txt.reconcile_summary(plan, menu)
         assert problems == ["'yozuv' aytilgan, lekin rejada yo'q"]
-        assert plan.summary == txt.describe_plan(plan)
+        assert plan.summary == (
+            "Yotoqxona uchun iliq va tinchlantiruvchi atmosfera yaratish maqsadida devorlar uchun ochiq pastel bej "
+            "rangli bo'yoq tanlandi va pol uchun to'q jigarrang yelkan naqshli parket tanlandi. Markaziy qandil va eshik "
+            "devorida joylashgan bra yordamchi yoritgich sifatida tanlandi, bu esa xonaga iliq va qulay yorug'lik beradi."
+        )
 
     def test_yotoq_2_without_the_desk_is_kept(self):
         problems, summary = self._reconciled(self.YOTOQ_2)
@@ -791,3 +796,268 @@ class TestFloorIdsAreSaidInUzbek:
         plan = make("Pol tile turi tanlangan, naqshsiz va rangsiz.", floor={"type": "tile", "pattern": None, "tint": None})
         assert txt.reconcile_summary(plan) == []
         assert plan.summary == "Pol kafel turi tanlangan, naqshsiz va rangsiz."
+
+
+class TestAWardrobeIsNotABookcase:
+    """The bolalar eval run (2026-10-26) said "kiyim shkafi" for a chosen "ZZ Bolalar kitob javoni": one
+    word for every cupboard let a bookcase back a wardrobe."""
+
+    BOLALAR = _eval_plan(
+        "Bu dizayn bolalar xonasi uchun yumshoq pastel ko'k devor rangi va iliq yog'och laminat pol bilan tanlandi. "
+        "Yorqin atmosfera uchun markaziy shift chirog'i va ikki devor chiroqlari (bra) qo'shildi. Mebel sifatida "
+        "bolalar karavoti, kiyim shkafi, yozuv stoli, ish stuli va pufik tanlandi, bu kombinatsiya bolalar uchun "
+        "qulay va funktsional makon yaratadi.",
+        {"main": {"type": "paint", "color": "#c3ddf9"}},
+        {"type": "laminate", "pattern": "wood_strip", "tint": "#f4ead5"},
+        ["ceiling", "bra", "bra"],
+        ["ZZ Bolalar karavoti", "ZZ Bolalar kitob javoni", "ZZ Yozuv stoli Nord", "ZZ Ish stuli", "ZZ Pufik"],
+        {"ceiling": {"design": "flat"}, "skirting": {"id": "tekis"}, "cornice": {"id": "t140"}},
+    )
+
+    @staticmethod
+    def _with(*names):
+        return _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}}, None, [], list(names))
+
+    def test_the_real_bolalar_summary_is_caught_for_its_wardrobe(self):
+        problems = txt.summary_problems(self.BOLALAR.summary, self.BOLALAR)
+        assert problems == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+
+    @pytest.mark.parametrize("text", ["Burchakda kiyim shkafi.", "Garderob devor oldida."])
+    def test_a_wardrobe_is_backed_only_by_a_wardrobe(self, text):
+        assert txt.summary_problems(text, self._with("ZZ Stellaj Loft", "ZZ Kitob shkafi Oxford"))
+        assert not txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    @pytest.mark.parametrize("text", ["Devorda kitob javoni.", "Kitob shkafi burchakda.", "Stellaj va vitrina."])
+    def test_a_shelf_is_backed_only_by_a_shelf(self, text):
+        assert txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    def test_a_bookcase_backs_a_book_shelf(self):
+        assert not txt.summary_problems("Devorda kitob javoni turadi.", self._with("Kitob shkafi"))
+
+    @pytest.mark.parametrize("text", ["Burchakda kiyim\u00a0shkafi.", "Burchakda kiyim  shkafi.", "Burchakda Kiyim-shkafi."])
+    def test_any_spacing_between_the_words_is_still_a_wardrobe(self, text):
+        assert txt.summary_problems(text, self._with("Kitob shkafi")) == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+        assert not txt.summary_problems(text, self._with("ZZ Kiyim shkafi Nord"))
+
+    def test_any_spacing_between_the_words_is_still_a_bookcase(self):
+        assert txt.summary_problems("Devorda kitob\u00a0shkafi.", self._with("ZZ Kiyim shkafi Nord"))
+
+    def test_a_plain_cupboard_is_backed_by_either(self):
+        for name in ("ZZ Kiyim shkafi Nord", "Kitob shkafi", "ZZ Oshxona shkafi"):
+            assert not txt.summary_problems("Burchakda shkaf turadi.", self._with(name))
+        assert txt.summary_problems("Burchakda shkaf turadi.", self._with("ZZ Pufik"))
+
+
+class TestTheStyleOfTheFurniture:
+    """The minimalist eval run (2026-10-26) called all its pieces "minimalist uslubdagi". The catalog styles
+    them minimalist (Divan Line, Jurnal stoli Mono), unstyled (Stul) and skandinav (the rest), so the
+    sentence passes as it is; were every piece skandinav it would be a lie."""
+
+    MINIMALIST = _eval_plan(
+        "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda, C devori esa yengil aksent rang bilan "
+        "bo'yalgan. Pol plitkadan tanlandi, bu xona uchun soddalik va tozalikka urg'u beradi. Asosiy yorug'lik LED "
+        "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi. Mebel "
+        "sifatida minimalist uslubdagi ZZ Divan Line, ZZ Jurnal stoli Mono, ZZ Stul, ZZ Javon Nord, ZZ Gilam jun och "
+        "va ZZ TV tumba Nord tanlandi. Bu elementlar xonada zamonaviy va tartibli atmosfera yaratadi.",
+        {"main": {"type": "paint", "color": "#ffffff"}, "accent": {"wall": "C", "color": "#e8e8e8"}},
+        {"type": "tile", "pattern": None, "tint": None},
+        ["led_panel", "downlight"],
+        ["ZZ Divan Line", "ZZ Jurnal stoli Mono", "ZZ Stul", "ZZ Javon Nord", "ZZ Gilam jun och", "ZZ TV tumba Nord"],
+        {"ceiling": {"design": "non_drop", "settings": {"color": "#ffffff"}}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+    # The catalog's own styles of the six pieces (eval.json).
+    CATALOG_STYLES = {
+        "ZZ Divan Line": ["minimalist"], "ZZ Jurnal stoli Mono": ["minimalist"], "ZZ Stul": [],
+        "ZZ Javon Nord": ["skandinav"], "ZZ Gilam jun och": ["skandinav"], "ZZ TV tumba Nord": ["skandinav"],
+    }
+    ALL_SKANDINAV = {name: ["skandinav"] for name in CATALOG_STYLES}
+
+    def test_the_real_minimalist_summary_is_caught_when_no_piece_is_minimalist(self):
+        problems = txt.summary_problems(self.MINIMALIST.summary, self.MINIMALIST, piece_styles=self.ALL_SKANDINAV)
+        assert problems == ["'Minimalist' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"]
+
+    def test_with_the_catalog_s_own_styles_it_passes(self):
+        assert txt.summary_problems(self.MINIMALIST.summary, self.MINIMALIST, piece_styles=self.CATALOG_STYLES) == []
+
+    @pytest.mark.parametrize("text", [
+        "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda.",
+        "Skandinav uslubidagi xona yorug' va sokin.",
+    ])
+    def test_the_style_of_the_room_is_not_a_claim_about_the_furniture(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles={n: ["loft"] for n in self.CATALOG_STYLES}) == []
+
+    @pytest.mark.parametrize("text", [
+        "Minimalist divan va stol tanlandi.", "Mebel minimalist ruhda.", "Minimalist uslubdagi Line va Mono tanlandi.",
+    ])
+    def test_each_way_of_giving_furniture_a_style_is_read(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.ALL_SKANDINAV)
+
+    def test_one_piece_of_that_style_backs_it(self):
+        styles = {**self.ALL_SKANDINAV, "ZZ Stul": ["minimalist", "zamonaviy"]}
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST, piece_styles=styles)
+
+    def test_an_unstyled_piece_suits_every_style(self):
+        styles = {**self.ALL_SKANDINAV, "ZZ Stul": []}
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST, piece_styles=styles)
+
+    def test_without_the_styles_nothing_is_checked(self):
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST)
+
+    def test_modern_materials_are_not_a_style_of_the_furniture(self):
+        # The hitech eval run (2026-10-26): hi-tech and loft pieces "with metal and modern materials".
+        plan = _eval_plan("", {"main": {"type": "paint", "color": "#ffffff"}}, None, [],
+                          ["ZZ Divan Vektor", "ZZ Stellaj Loft"])
+        text = ("Mebellar orasida ZZ Divan Vektor va ZZ Stellaj Loft tanlandi, ular metall va zamonaviy materiallar "
+                "bilan uyg'unlashadi.")
+        styles = {"ZZ Divan Vektor": ["hitech"], "ZZ Stellaj Loft": ["loft"]}
+        assert txt.summary_problems(text, plan, piece_styles=styles) == []
+        assert txt.summary_problems("Zamonaviy divan va stellaj tanlandi.", plan, piece_styles=styles)
+
+    @staticmethod
+    def _named(*names):
+        return _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}},
+                          {"type": "parquet", "pattern": None, "tint": None}, ["chandelier"], list(names))
+
+    @pytest.mark.parametrize(("text", "name", "styles"), [
+        ("ZZ Stellaj Loft devor oldida turadi.", "ZZ Stellaj Loft", ["skandinav"]),
+        ("Stellaj Loft devor oldida turadi.", "ZZ Stellaj Loft", ["skandinav"]),
+        ("Klassik divan markazda turadi.", "Klassik divan", ["zamonaviy"]),
+    ])
+    def test_a_style_word_in_a_chosen_piece_s_name_is_its_name(self, text, name, styles):
+        assert txt.summary_problems(text, self._named(name), piece_styles={name: styles}) == []
+
+    def test_a_style_claimed_beside_such_a_name_is_still_read(self):
+        styles = {"ZZ Stellaj Loft": ["skandinav"]}
+        assert txt.summary_problems("Loft uslubidagi stellaj tanlandi.", self._named("ZZ Stellaj Loft"), piece_styles=styles)
+
+    def test_the_plan_s_own_description_passes(self):
+        plan = self._named("ZZ Stellaj Loft", "Klassik divan", "ZZ Kreslo Skandi")
+        styles = {"ZZ Stellaj Loft": ["skandinav"], "Klassik divan": ["zamonaviy"], "ZZ Kreslo Skandi": ["milliy"]}
+        assert txt.summary_problems(txt.describe_plan(plan), plan, piece_styles=styles) == []
+
+    @pytest.mark.parametrize("text", [
+        "Line va Mono minimalist uslubida tanlandi.", "Minimalist uslubidagi Line va Mono tanlandi.",
+    ])
+    def test_every_form_of_uslub_before_the_names_is_read(self, text):
+        loft = {name: ["loft"] for name in self.CATALOG_STYLES}
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=loft)
+
+    LOFT = {name: ["loft"] for name in CATALOG_STYLES}
+
+    @pytest.mark.parametrize("text", [
+        "Skandinav uslubidagi xonada divan markazda.",
+        "Mebel va yoritish xonaga zamonaviy atmosfera beradi.",
+        "Mebel minimal miqdorda tanlandi.",
+        "Divan markazda, xona esa minimalist ruhda va juda yorug' bo'lib qoladi.",
+    ])
+    def test_a_style_away_from_the_furniture_is_no_claim_about_it(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.LOFT) == []
+
+    @pytest.mark.parametrize("text", [
+        "Minimalist divan tanlandi.", "Skandinav uslubidagi mebel tanlandi.", "Mebel sifatida zamonaviy uslubda.",
+        "Kreslo va divan skandinav uslubida.",
+    ])
+    def test_a_style_beside_the_furniture_is(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.LOFT)
+
+    def test_an_adjective_beside_a_piece_reads_as_its_style(self):
+        # "zamonaviy ko'rinishga ega" (looks modern) next to the sofa says what "zamonaviy uslubda" says:
+        # a word list cannot tell them apart, so it stays a claim.
+        assert txt.summary_problems("Divan zamonaviy ko'rinishga ega.", self.MINIMALIST, piece_styles=self.LOFT)
+
+    def test_reconcile_passes_the_styles_on(self):
+        plan = SimpleNamespace(**vars(self.MINIMALIST))
+        assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)
+
+    async def test_design_room_reads_the_styles_from_the_catalog(self):
+        items = [{**ITEMS[0], "styles": ["loft"]}, *ITEMS[1:]]
+        reply = TestDesignRoomEndToEnd()._reply("Iliq bej devorlar va parket pol. Minimalist uslubdagi divan tanlandi.")
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+            plan = await ad.design_room("iliq", TestDesignRoomEndToEnd.ROOM, items, user_id="u")
+        assert "minimalist" not in plan.summary.lower()
+
+
+class TestOnlyTheWrongSentenceGoes:
+    """One false sentence cost the whole summary: the honest sentences around it are kept now."""
+
+    MINIMALIST = TestTheStyleOfTheFurniture.MINIMALIST
+    BOLALAR = TestAWardrobeIsNotABookcase.BOLALAR
+
+    def test_minimalist_loses_only_its_furniture_style_sentence(self):
+        # ...and the "Bu elementlar ..." after it, which spoke of the pieces that sentence listed.
+        plan = SimpleNamespace(**vars(self.MINIMALIST))
+        problems = txt.reconcile_summary(plan, None, TestTheStyleOfTheFurniture.ALL_SKANDINAV)
+        assert problems == ["'Minimalist' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"]
+        assert plan.summary == (
+            "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda, C devori esa yengil aksent rang bilan "
+            "bo'yalgan. Pol plitkadan tanlandi, bu xona uchun soddalik va tozalikka urg'u beradi. Asosiy yorug'lik LED "
+            "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi."
+        )
+
+    def test_bolalar_loses_only_its_wardrobe_sentence(self):
+        plan = SimpleNamespace(**vars(self.BOLALAR))
+        assert txt.reconcile_summary(plan) == ["'kiyim shkaf' aytilgan, lekin rejada yo'q"]
+        assert plan.summary == (
+            "Bu dizayn bolalar xonasi uchun yumshoq pastel ko'k devor rangi va iliq yog'och laminat pol bilan tanlandi. "
+            "Yorqin atmosfera uchun markaziy shift chirog'i va ikki devor chiroqlari (bra) qo'shildi."
+        )
+
+    def test_a_sentence_that_points_back_at_a_dropped_one_goes_with_it(self):
+        plan = make(
+            "Iliq bej devorlar va parket pol. Mebel sifatida divan va kreslo tanlandi. Ular bir-biriga juda mos keladi."
+        )
+        assert txt.reconcile_summary(plan) == ["'kreslo' aytilgan, lekin rejada yo'q"]
+        assert plan.summary == "Iliq bej devorlar va parket pol."
+
+    @pytest.mark.parametrize("start", ["Bu elementlar", "Bular", "Ushbu mebellar"])
+    def test_each_way_of_pointing_back(self, start):
+        plan = make(f"Iliq bej devorlar va parket pol. Mebel sifatida divan va kreslo tanlandi. {start} xonani bezaydi.")
+        txt.reconcile_summary(plan)
+        assert plan.summary == "Iliq bej devorlar va parket pol."
+
+    def test_a_sentence_that_points_back_at_a_kept_one_stays(self):
+        plan = make("Plitka pol salqin. Mebel sifatida divan va tumba tanlandi. Ular bir-biriga juda mos keladi.")
+        txt.reconcile_summary(plan)
+        assert plan.summary == "Mebel sifatida divan va tumba tanlandi. Ular bir-biriga juda mos keladi."
+
+    def test_a_summary_wrong_in_every_sentence_falls_back(self):
+        plan = make("Oltin detallar xonani bezaydi. Plitka pol salqin. Bra devorda.")
+        problems = txt.reconcile_summary(plan)
+        assert len(problems) == 3
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_lone_word_left_is_not_kept(self):
+        plan = make("Iliq. Oltin detallar xonani bezaydi.")
+        assert txt.reconcile_summary(plan)
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_wrong_claim_spread_over_sentences_falls_back(self):
+        # No sentence is English enough alone, the whole is: the remainder is checked again and fails.
+        plan = make("Devorlar bej, the parket. Pol parket, the qandil. Qandil and divan.")
+        assert any("o'zbekcha emas" in p for p in txt.reconcile_summary(plan))
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_clean_summary_of_many_sentences_is_unchanged(self):
+        text = "Iliq bej devorlar. Parket pol shevron naqshida. Markazda qandil, divan va tumba."
+        plan = make(text)
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == text
+
+    def test_what_is_kept_never_trips_the_check(self):
+        plan = SimpleNamespace(**vars(self.BOLALAR))
+        txt.reconcile_summary(plan)
+        assert plan.summary != txt.describe_plan(plan)
+        assert txt.summary_problems(plan.summary, plan) == []
+
+    @pytest.mark.parametrize(("summary", "event"), [
+        ("Iliq bej devorlar va parket pol. Oltin chiroq xonani bezaydi.", "ai_design.summary_trimmed"),
+        ("Oltin chiroq xonani bezaydi.", "ai_design.summary_replaced"),
+    ])
+    async def test_the_log_tells_a_trim_from_a_replacement(self, summary, event):
+        from structlog.testing import capture_logs
+
+        reply = TestDesignRoomEndToEnd()._reply(summary)
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)), capture_logs() as logs:
+            await ad.design_room("iliq", TestDesignRoomEndToEnd.ROOM, ITEMS, user_id="u")
+        events = [e for e in logs if e["event"].startswith("ai_design.summary_")]
+        assert [e["event"] for e in events] == [event] and events[0]["problems"]

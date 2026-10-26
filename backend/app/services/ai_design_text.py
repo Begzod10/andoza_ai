@@ -11,8 +11,8 @@ Two things here:
     not there, a floor or wall finish that is not the one chosen;
   * ``describe_plan`` writes a plain summary from the plan itself, which is true by construction.
 
-``reconcile_summary`` uses the first to decide whether to keep the model's wording and falls back
-to the second when it cannot be trusted. The check is deliberately a list of concrete words, not
+``reconcile_summary`` uses the first to keep the model's wording without its false sentences and
+falls back to the second when nothing of it can be trusted. The check is deliberately a list of concrete words, not
 language understanding: it catches the claims that matter and leaves the model's prose alone
 otherwise.
 """
@@ -193,25 +193,105 @@ def _language_problems(text: str, plan: Any, catalog_names: list[str] | None = N
 
 # ── Furniture ────────────────────────────────────────────────────────────────
 
-# Words for the same kind of piece, so "krovat" in the text is backed by a "Karavot" in the plan.
-_FURNITURE_KINDS: dict[str, re.Pattern[str]] = {
-    "divan": re.compile(r"\b(divan|sofa)"),
-    "karavot": re.compile(r"\b(karavot|krovat)"),
-    "stol": re.compile(r"\bstol"),
-    "stul": re.compile(r"\b(stul|o'rindiq)"),
-    "kreslo": re.compile(r"\bkreslo"),
-    "shkaf": re.compile(r"\b(shkaf|garderob|javon|vitrina|stellaj|kitob javon)"),
-    "tumba": re.compile(r"\b(tumba|komod)"),
-    "gilam": re.compile(r"\b(gilam|kovrolin)"),
+# A wardrobe for clothes (the frontend's WARDROBE_NAME) and a shelf for books or show: both are a "shkaf"
+# in the shop's words, but a bookcase does not back "kiyim shkafi".
+_WARDROBE = r"kiyim shkaf|garderob|wardrobe|шкаф для одежды|гардероб"
+_SHELF = r"kitob javon|kitob shkaf|javon|stellaj|vitrina"
+
+# kind -> (words in the text, words of a chosen name that back them), so "krovat" in the text is backed
+# by a "Karavot" in the plan. Where the text says it the same way the name does, the two are one pattern.
+_FURNITURE_KINDS: dict[str, tuple[re.Pattern[str], re.Pattern[str]]] = {
+    kind: (words, backing or words)
+    for kind, words, backing in (
+        ("divan", re.compile(r"\b(divan|sofa)"), None),
+        ("karavot", re.compile(r"\b(karavot|krovat)"), None),
+        ("stol", re.compile(r"\bstol"), None),
+        ("stul", re.compile(r"\b(stul|o'rindiq)"), None),
+        ("kreslo", re.compile(r"\bkreslo"), None),
+        ("kiyim shkafi", re.compile(rf"\b({_WARDROBE})"), None),
+        ("javon", re.compile(rf"\b({_SHELF})"), None),
+        # a plain "shkaf" says only "a cupboard": any of them backs it, a wardrobe or a shelf alike
+        ("shkaf", re.compile(r"(?<!kiyim )(?<!kitob )\bshkaf"), re.compile(rf"shkaf|{_WARDROBE}|{_SHELF}")),
+        ("tumba", re.compile(r"\b(tumba|komod)"), None),
+        ("gilam", re.compile(r"\b(gilam|kovrolin)"), None),
+    )
 }
 
 
+# Spaces of any kind, or a hyphen, between two words: "kiyim shkafi" is "kiyim  shkafi" or "kiyim-shkafi".
+_JOIN = re.compile(r"(?<=\w)(?:\s+|\s*-\s*)(?=\w)")
+
+
 def _furniture_problems(text: str, plan: Any) -> list[str]:
-    chosen = _norm(" ".join(f.get("name", "") for f in plan.furniture))
+    # The two-word kinds ("kiyim shkaf", "kitob javon") read one plain space between the words.
+    text = _JOIN.sub(" ", text)
+    chosen = _JOIN.sub(" ", _norm(" ".join(f.get("name", "") for f in plan.furniture)))
     problems = []
-    for kind, words in _FURNITURE_KINDS.items():
-        if words.search(text) and not words.search(chosen):
-            problems.append(f"'{kind}' aytilgan, lekin rejada yo'q")
+    for words, backing in _FURNITURE_KINDS.values():
+        # the words as the text says them: "kitob shkaf" is a shelf, where the kind's name would say "javon"
+        if (m := words.search(text)) and not backing.search(chosen):
+            problems.append(f"'{m.group(0)}' aytilgan, lekin rejada yo'q")
+    return problems
+
+
+# A style is given to the furniture when it is said beside it: "mebel", a kind of piece or a word of a
+# chosen piece's name within two words either way ("minimalist divan", "skandinav uslubidagi mebel",
+# "mebel sifatida loft uslubida", "minimalist uslubdagi Line va Mono", "Line va Mono minimalist uslubida").
+# "Minimalist mehmonxona" or "skandinav uslubidagi xonada divan" is about the room.
+_FURNITURE_TALK = re.compile(r"\bmebel|" + "|".join(words.pattern for words, _ in _FURNITURE_KINDS.values()))
+_NEAR = 2
+# A request may say "minimal" for the style; prose says "minimal miqdorda" (a small amount) too.
+_STYLE_IN_PROSE = {"minimalist": re.compile(r"\bminimalist")}
+_OF_MATERIALS = re.compile(r"\s+material")
+
+
+def _names_said(plan: Any) -> re.Pattern[str] | None:
+    """The chosen pieces' names as a text says them: whole, or without their short words ("Stellaj Loft"
+    for "ZZ Stellaj Loft"), any spacing, the longest first."""
+    said: set[str] = set()
+    for f in plan.furniture:
+        words = _NAME_WORD.findall(_norm(f.get("name", "")))
+        for kept in (words, [w for w in words if len(w) >= 3]):
+            if kept:
+                said.add(r"\s+".join(map(re.escape, kept)))
+    return re.compile(r"\b(?:" + "|".join(sorted(said, key=len, reverse=True)) + r")\b") if said else None
+
+
+def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) -> list[str]:
+    """A style given to the furniture that no chosen piece has. A piece with no style suits every style,
+    and so does one *piece_styles* does not know."""
+    # The designer's own vocabulary of styles; imported here, as the designer imports this module.
+    from app.services.ai_designer import _STYLE_WORDS, STYLE_LABELS
+
+    chosen = [piece_styles.get(f.get("name", "")) for f in plan.furniture]
+    if not chosen or any(not styles for styles in chosen):
+        return []
+    held = {style for styles in chosen for style in styles}
+    names = {w for f in plan.furniture for w in _NAME_WORD.findall(_norm(f.get("name", "")))
+             if len(w) >= 4 and w not in _NAME_FILLER}
+    # A chosen piece's name is read as "mebel": it names a piece, and a style word of its own ("ZZ Stellaj
+    # Loft", "Klassik divan") is the shop's name, no claim; a style said beside it still is.
+    if names_said := _names_said(plan):
+        text = names_said.sub("mebel", text)
+    problems: list[str] = []
+    for sentence in _SENTENCE_END.split(text):
+        tokens = list(_NAME_WORD.finditer(sentence))
+        words_of, starts = [t[0] for t in tokens], [t.start() for t in tokens]
+
+        def beside_furniture(m: re.Match[str]) -> bool:
+            first = max(i for i, at in enumerate(starts) if at <= m.start())
+            last = max(i for i, at in enumerate(starts) if at < m.end())
+            near = words_of[max(0, first - _NEAR) : first] + words_of[last + 1 : last + 1 + _NEAR]
+            return any(_FURNITURE_TALK.match(w) or w in names for w in near)
+
+        for style, words in _STYLE_WORDS.items():
+            claim = f"'{STYLE_LABELS[style]}' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"
+            said = any(
+                beside_furniture(m) and not _OF_MATERIALS.match(sentence, m.end())
+                for m in _STYLE_IN_PROSE.get(style, words).finditer(sentence)
+            )
+            if said and style not in held and claim not in problems:
+                problems.append(claim)
     return problems
 
 
@@ -316,11 +396,15 @@ def _repeat_problems(text: str) -> list[str]:
     return [f"'{m.group(0)}': so'z takrorlangan"] if m else []
 
 
-def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
-    """What the summary claims that the plan does not hold; empty when it can be trusted."""
+def summary_problems(
+    summary: str, plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
+) -> list[str]:
+    """What the summary claims that the plan does not hold; empty when it can be trusted. *piece_styles*
+    are the catalog styles of the shop's pieces by name; without them a style is not checked."""
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
+        *(_style_problems(text, plan, piece_styles) if piece_styles is not None else []),
         *_language_problems(text, plan, catalog_names),
         *_colour_of_things_problems(text, plan),
         *_colour_problems(text, plan),
@@ -503,18 +587,41 @@ def _uzbek_sentences(text: str, plan: Any, catalog_names: list[str] | None = Non
     return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan, catalog_names))
 
 
-def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
+# The words a sentence starts with when it speaks of the one before: "Ular", "Bular", "Bu elementlar".
+_POINTS_BACK = re.compile(r"(?:ular\w*|bular\w*|bu elementlar\w*|ushbu mebel\w*)\b")
+
+
+def reconcile_summary(
+    plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
+) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
-    wording (empty when it was kept, at most without its English or id-bearing sentences).
-    *catalog_names* are the shop's own piece names."""
+    wording: empty when it was kept, at most without its English or id-bearing sentences; the problems
+    when a false sentence was dropped from it or the whole was written from the plan instead.
+    *catalog_names* are the shop's own piece names, *piece_styles* their catalog styles by name."""
+    def problems_of(text: str) -> list[str]:
+        return summary_problems(text, plan, catalog_names, piece_styles)
+
     localised = _localise(plan.summary or "")
     uzbek = _uzbek_sentences(localised, plan, catalog_names)
-    if len(uzbek.split()) >= 2:
-        plan.summary = uzbek
-        problems = summary_problems(uzbek, plan, catalog_names)
-    else:
+    if len(uzbek.split()) < 2:
         # Nothing, or a lone word ("Iliq."), is left to read: say why the whole text was not kept.
-        problems = summary_problems(localised, plan, catalog_names) or ["matn bo'sh"]
-    if problems:
         plan.summary = describe_plan(plan)
+        return problems_of(localised) or ["matn bo'sh"]
+    problems = problems_of(uzbek)
+    if not problems:
+        plan.summary = uzbek
+        return []
+    # Only the sentences that are wrong on their own go. Every check reads the plan, not the other
+    # sentences, so one alone is judged as it is in the whole; a claim spread over several (three
+    # English words) is caught when what is left is read again, and then nothing of it is kept.
+    # A sentence that points back ("Ular...", "Bu elementlar...") at one that went would point at nothing.
+    kept: list[str] = []
+    went = False
+    for sentence in filter(None, _SENTENCE_END.split(uzbek)):
+        went = bool(problems_of(sentence)) or (went and bool(_POINTS_BACK.match(_norm(sentence))))
+        if not went:
+            kept.append(sentence)
+    rest = " ".join(kept)
+    keep = len(rest.split()) >= 2 and not problems_of(rest)
+    plan.summary = rest if keep else describe_plan(plan)
     return problems
