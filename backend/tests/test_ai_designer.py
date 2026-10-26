@@ -601,6 +601,18 @@ def test_colour_and_mood_words_take_the_wall_colours_out_of_the_room_type_s_plan
     assert ("walls" not in _starting(prompt, WALLS)) is colours
 
 
+def test_a_study_without_a_style_starts_on_laminate_not_minimalist_tile():
+    message = _message("sokin kabinet", {**ROOM, "room_type": "kabinet"})
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "laminate", "pattern": None, "tint": None}
+    # a shape the studio takes as it is
+    p = ad.validate_plan({**GOOD, "floor": start["floor"]}, BY_LABEL, WALLS)
+    assert p.floor == {"type": "laminate", "pattern": None, "tint": None}
+    # a named minimalist study keeps the style's own tile
+    named = _message("minimalist kabinet", {**ROOM, "room_type": "kabinet"})
+    assert json.loads(named.split("Boshlang'ich reja", 1)[1].split("\n")[1])["floor"]["type"] == "tile"
+
+
 def test_the_soft_rule_comes_before_the_room_type_s_plan():
     message = _message("Shinam mehmonxona")
     assert message.index(SOFT_PLAN_RULE) < message.index("Boshlang'ich reja")

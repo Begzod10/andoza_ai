@@ -686,10 +686,15 @@ def _asks_for_colours(prompt: str) -> bool:
     )
 
 
-def _room_type_plan(preset: dict, wall_ids: list[str], prompt: str) -> dict:
+def _room_type_plan(preset: dict, wall_ids: list[str], prompt: str, room_type: str | None) -> dict:
     """The room type's starting plan as a suggestion: never an accent wall nobody asked for, and no
-    wall colours at all when the request has colours or a mood of its own."""
+    wall colours at all when the request has colours or a mood of its own. A wet room is tiled; a dry
+    one is not (the minimalist study's tile becomes laminate)."""
     start = _starting_plan(preset, wall_ids)
+    if room_type in _TILE_ROOMS:
+        start["floor"] = {"type": "tile", "pattern": None, "tint": None}
+    elif start["floor"].get("type") == "tile":
+        start["floor"] = {"type": "laminate", "pattern": None, "tint": None}
     start["walls"].pop("accent", None)
     if _asks_for_colours(prompt):
         del start["walls"]
@@ -718,9 +723,7 @@ def _style_guidance(
         ]
     elif default:
         label, preset = default
-        start = _room_type_plan(preset, wall_ids, prompt)
-        if room_type in _TILE_ROOMS:
-            start["floor"] = {"type": "tile", "pattern": None, "tint": None}
+        start = _room_type_plan(preset, wall_ids, prompt, room_type)
         # The rule first, so the model reads the plan as the suggestion it is.
         lines += [
             _DEFAULT_PLAN_RULE,
