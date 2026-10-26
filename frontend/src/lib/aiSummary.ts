@@ -21,11 +21,11 @@ export const WORD_START = "(?<![\\p{L}\\p{N}'ʻʼ‘’`])"
 // "gilamlar", "divanga"): "Gilam" names "Gilamlar", not "Gilamcha".
 const WORD_END = "(?:lar)?(?:i|si)?(?:ga|da|dan|ni|ning|dir)?(?![\\p{L}\\p{N}'ʻʼ‘’`])"
 /**
- * After a name or role word: the piece is said to be replaced or not there ("gilam o'rniga plitka",
- * "gilam yo'q", "divan emas"), so the word does not name it. "Gilamsiz" is no match to begin with: "siz"
+ * After a name or role word: the piece is said to be replaced, not there or only like it ("gilam
+ * o'rniga plitka", "gilam yo'q", "divan emas", "gilamga o'xshash"), so the word does not name it. "Gilamsiz" is no match to begin with: "siz"
  * is not among WORD_END's endings.
  */
-const NOT_THERE = "(?!\\s+(?:o['ʻʼ‘’`]rniga|yo['ʻʼ‘’`]q|emas)(?![\\p{L}\\p{N}'ʻʼ‘’`]))"
+const NOT_THERE = "(?!\\s+(?:o['ʻʼ‘’`]rniga|yo['ʻʼ‘’`]q|emas|o['ʻʼ‘’`]xshash\\p{L}*)(?![\\p{L}\\p{N}'ʻʼ‘’`]))"
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A sentence ends at . ! ? or … followed by a space: "3.5 m" and "yog'och" do not end one. */

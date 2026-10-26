@@ -159,9 +159,9 @@ describe('summaryWithout: a piece said to be left out or replaced is not named',
     for (const rug of [GILAM, { name: 'Gilam', role: 'rug' }]) expect(summaryWithout(MINIMALIST, [rug], ['ZZ Divan Line'])).toBe(MINIMALIST)
   })
 
-  it('nor does a negation: "... yo\'q", "... emas", "...siz"', () => {
+  it('nor does a negation: "... yo\'q", "... emas", "...siz", nor a likeness: "gilamga o\'xshash"', () => {
     for (const text of ["Devorlar oq. Polda gilam yo'q.", 'Devorlar oq. Bu gilam emas, plitka.', 'Devorlar oq. Pol gilamsiz, toza plitka.',
-      "Devorlar oq. ZZ Gilam jun och o'rniga plitka tanlandi."]) {
+      "Devorlar oq. ZZ Gilam jun och o'rniga plitka tanlandi.", "Devorlar oq. Pol gilamga o'xshash yumshoq laminat."]) {
       expect(summaryWithout(text, [GILAM])).toBe(text)
     }
   })
