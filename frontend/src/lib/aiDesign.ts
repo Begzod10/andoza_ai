@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid'
-import type { TFunction } from 'i18next'
 import type { AiDesignPlan } from '@/lib/api'
 import type { CatalogFurniture } from '@/lib/api'
 import { useRoomStore } from '@/store/roomStore'
@@ -257,14 +256,4 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     }
   }
   return applied
-}
-
-/**
- * The notice line naming what did not fit ("Joy yetmadi: Ovqat stoli, 4 ta stul qo'yilmadi."), or
- * empty when everything did. Built with `t` when the design is applied.
- */
-export function droppedNotice(dropped: AppliedCounts['dropped'], t: TFunction): string {
-  if (dropped.length === 0) return ''
-  const list = dropped.map(({ name, count }) => t('ai.dropped_item', { name, count })).join(', ')
-  return t('ai.joy_yetmadi', { list })
 }

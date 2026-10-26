@@ -286,6 +286,15 @@ describe('what the design really put in the room', () => {
     expect(furnitureRow()).not.toHaveTextContent('Katta divan')
   })
 
+  it('names what did not fit once: under the summary, not in the status line too', async () => {
+    aiDesign.mockResolvedValueOnce(TIGHT)
+    renderSheet({ roomType: 'yotoqxona', onSave: savesOk() })
+    await generate()
+    expect(await screen.findByRole('status')).toHaveTextContent("qo'llandi va saqlandi")
+    expect(screen.getByRole('status')).not.toHaveTextContent('Joy yetmadi')
+    expect(screen.getAllByText(/Joy yetmadi/)).toHaveLength(1)
+  })
+
   it('counts the pieces placed of one kind', async () => {
     aiDesign.mockResolvedValueOnce({ ...PLAN, lights: [], furniture: [{ id: 'table', name: 'Ovqat stoli' }, { id: 'chair', name: 'Stul' }] })
     renderSheet({ roomType: 'oshxona' })

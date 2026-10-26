@@ -6,7 +6,7 @@ import i18n from "@/i18n"
 import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
-import { ALL_PARTS, applyDesignPlan, droppedNotice, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
+import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
 import type { AppliedCounts, DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
@@ -146,13 +146,13 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     setBarHidden(false)
     const applied = applyDesignPlan(next, nextParts, catalogFurniture, roomType)
     setApplied(applied)
-    const extra = applied.dropped.length > 0 ? ` ${droppedNotice(applied.dropped, t)}` : ""
+    // What did not fit is named under the summary, where it stays: not in the status line too.
     if (!onSaveRef.current) {
-      setNotice(t("ai.qollandi_saqlang") + extra)
+      setNotice(t("ai.qollandi_saqlang"))
       return
     }
     setNotice(t("ai.saqlanmoqda"))
-    setNotice(((await persist()) ? t("ai.qollandi_saqlandi") : t("ai.qollandi_saqlanmadi")) + extra)
+    setNotice((await persist()) ? t("ai.qollandi_saqlandi") : t("ai.qollandi_saqlanmadi"))
   }
 
   React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
