@@ -211,6 +211,33 @@ class TestDesignRoom:
         assert p.image_notes == notes
         assert "image_notes" in ad._IMAGE_INSTRUCTIONS
 
+    async def test_a_photo_alone_gets_no_room_type_plan(self):
+        # The photo is the style: the room type's suggestion would pull the design away from it.
+        call = AsyncMock(return_value=self._reply(json.dumps({**GOOD, "trim": {"ceiling": "flat"}})))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            p = await ad.design_room("", ROOM, ITEMS, user_id="u", image=self._image())
+        text = call.await_args.kwargs["messages"][0]["content"][1]["text"]
+        assert "Boshlang'ich reja" not in text
+        for line in NO_STYLE_LINES:
+            assert line in text
+        assert p.trim["ceiling"] == {"design": "flat"}  # not zamonaviy's ceiling settings
+        assert "Xona: Xona (mehmonxona)" in text  # the room is still named by its type
+
+    async def test_a_photo_does_not_reorder_the_menu_by_the_room_type_s_style(self):
+        items = [_styled("modern", ["zamonaviy"], "yotoqxona"), _styled("scandi", ["skandinav"], "yotoqxona")]
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("Shinam yotoqxona", {**ROOM, "room_type": "yotoqxona"}, items, user_id="u",
+                                 image=self._image())
+        assert "F1: Divan modern" in call.await_args.kwargs["messages"][0]["content"][1]["text"]
+
+    async def test_a_photo_with_a_named_style_keeps_its_strict_plan(self):
+        call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
+        with patch("app.services.ai_designer.call_llm", new=call):
+            await ad.design_room("loft", ROOM, ITEMS, user_id="u", image=self._image())
+        text = call.await_args.kwargs["messages"][0]["content"][1]["text"]
+        assert "Boshlang'ich reja (Loft)" in text and STARTING_PLAN_RULE in text
+
     async def test_without_an_image_nothing_changes(self):
         call = AsyncMock(return_value=self._reply(json.dumps(GOOD)))
         with patch("app.services.ai_designer.call_llm", new=call):

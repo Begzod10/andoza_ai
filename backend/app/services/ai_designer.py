@@ -490,15 +490,16 @@ _PREFERRED_PIECES = {
 
 
 def furniture_menu(
-    items: list[dict], room_type: str | None, prompt: str = "",
+    items: list[dict], room_type: str | None, prompt: str = "", has_image: bool = False,
 ) -> tuple[list[str], dict[str, dict]]:
     """The catalog as short labelled lines for the prompt, and the label -> item map.
 
     Pieces made for this room type (and those for every room) come first, so a long catalog is
     cut where it matters least; among them, pieces of a style the request names come first, so
-    they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
+    they are not the ones cut. With a photo the room type's own style does not count: the photo is
+    the style. Each line names the piece's styles; an unstyled piece suits any.
     """
-    wanted = furniture_styles_for_prompt(prompt, room_type)
+    wanted = furniture_styles_for_prompt(prompt, None if has_image else room_type)
     # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
     # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
     # desk chair first.
@@ -610,7 +611,7 @@ def _is_small_bedroom(room: dict, area: float) -> bool:
 
 
 def build_user_message(
-    prompt: str, room: dict, light_menu: str, furniture_lines: list[str],
+    prompt: str, room: dict, light_menu: str, furniture_lines: list[str], has_image: bool = False,
 ) -> str:
     walls = "; ".join(
         f"{w['id']} {w['length']:g} m" + (f" ({', '.join(w['openings'])})" if w["openings"] else "")
@@ -638,7 +639,7 @@ def build_user_message(
         f"Plintus profillari: {', '.join(profiles['skirting'])}",
         f"Galtel profillari: {', '.join(profiles['cornice'])}",
         "",
-        *_style_guidance(prompt, [w["id"] for w in room["walls"]], room.get("room_type")),
+        *_style_guidance(prompt, [w["id"] for w in room["walls"]], room.get("room_type"), has_image),
         "Mebel katalogi:",
         *(furniture_lines or ["(katalogda mebel yo'q: furniture bo'sh qolsin)"]),
     ])
@@ -673,14 +674,16 @@ _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 _TILE_ROOMS = ("oshxona", "hammom")
 
 
-def _style_guidance(prompt: str, wall_ids: list[str], room_type: str | None = None) -> list[str]:
+def _style_guidance(
+    prompt: str, wall_ids: list[str], room_type: str | None = None, has_image: bool = False,
+) -> list[str]:
     """The starting plan of the style or mood the request names; when it names none, the room type's
     own as a suggestion with the general floor and chandelier guidance (only that guidance for a room
-    of no known type); then the gold and light-colour lines when the request asks for them. Ends with
+    of no known type, or with a photo, which is the style itself); then the gold and light-colour lines when the request asks for them. Ends with
     a blank line."""
     choice = _starting_choice(prompt)
     named = choice is not None
-    choice = choice or _room_type_choice(room_type)
+    choice = choice or (None if has_image else _room_type_choice(room_type))
     lines: list[str] = []
     if choice:
         label, preset = choice
@@ -714,13 +717,13 @@ async def design_room(
 
     With an image the daily limit is the router's own pool, so it is not counted
     against the text designer's here (user_id=None)."""
-    lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt)
+    lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt, has_image=image is not None)
     light_menu = ", ".join(f"{k} ({v})" for k, v in LIGHT_TYPE_NAMES.items())
     message_prompt = prompt if image is None else (prompt or _IMAGE_DEFAULT_PROMPT)
     if image is None:
         content: str | list[dict] = build_user_message(message_prompt, room, light_menu, lines)
     else:
-        text = build_user_message(message_prompt, room, light_menu, lines)
+        text = build_user_message(message_prompt, room, light_menu, lines, has_image=True)
         content = [
             {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": image.data_b64}},
             {"type": "text", "text": text + "\n\n" + _IMAGE_INSTRUCTIONS},
@@ -741,7 +744,7 @@ async def design_room(
     area = room.get("area") or room["width"] * room["depth"]
     plan = validate_plan(
         extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
-        starting_preset=starting_preset(message_prompt, room.get("room_type")),
+        starting_preset=starting_preset(message_prompt, None if image else room.get("room_type")),
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, those sentences go, or when nothing honest is
