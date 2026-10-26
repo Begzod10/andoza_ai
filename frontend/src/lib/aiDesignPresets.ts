@@ -17,7 +17,7 @@ import presetData from '@/lib/data/design_presets.json'
 
 type Kind =
   | 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot' | 'tumbochka' | 'garderob' | 'yozuv_stoli'
-  | 'ovqat_stoli' | 'stul' | 'oshxona_shkafi' | 'ish_stuli' | 'javon' | 'kichik_stol' | 'orindiq' | 'hammom_shkafi'
+  | 'ovqat_stoli' | 'stul' | 'oshxona_shkafi' | 'ish_stuli' | 'javon' | 'kichik_stol' | 'orindiq' | 'hammom_shkafi' | 'kabinet_kreslo'
 
 /**
  * The role a kind plays when the catalog piece itself says nothing more (its name and category
@@ -27,7 +27,7 @@ const KIND_ROLE: Record<Kind, FurnitureRole> = {
   divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
   karavot: 'bed', tumbochka: 'nightstand', garderob: 'wardrobe', yozuv_stoli: 'desk',
   ovqat_stoli: 'dining_table', stul: 'dining_chair', oshxona_shkafi: 'shelf', ish_stuli: 'desk_chair', javon: 'shelf',
-  kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf',
+  kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf', kabinet_kreslo: 'armchair',
 }
 
 /**
@@ -72,6 +72,8 @@ const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
   orindiq: (c) => roleIs('armchair')(c) || roleIs('dining_chair')(c),
   // A bath or mirror cabinet: a cupboard the catalog made for a bathroom.
   hammom_shkafi: (c) => c.room_type === 'hammom' && storage(c),
+  // A study's armchair: `kreslo` also matches an office chair ("Kreslo-kompyuter", "Office chair").
+  kabinet_kreslo: roleIs('armchair'),
 }
 
 /**
@@ -86,7 +88,7 @@ const KIDS_SET: Kind[] = [...BEDROOM_SET, 'yozuv_stoli']
  * takes, and `sizeFit` puts a table for four first), and a kitchen cabinet when the catalog has one.
  */
 const KITCHEN_SET: Kind[] = ['ovqat_stoli', 'stul', 'oshxona_shkafi']
-const STUDY_SET: Kind[] = ['yozuv_stoli', 'ish_stuli', 'javon', 'kreslo']
+const STUDY_SET: Kind[] = ['yozuv_stoli', 'ish_stuli', 'javon', 'kabinet_kreslo']
 /**
  * A balcony: a small table and two seats (two pieces: a seat is never taken twice). The catalog does
  * have a balcony room (`room_type` 'balkon', as the backend's admin catalog allows), so a balcony's

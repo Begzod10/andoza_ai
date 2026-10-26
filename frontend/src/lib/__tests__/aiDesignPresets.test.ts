@@ -384,6 +384,11 @@ describe('design presets', () => {
       expect(plan(id, 'kabinet').floor).toEqual(DESIGN_PRESETS.find((p) => p.id === id)!.floor)
     })
 
+    it.each(presets)('%s: an office chair is never the armchair in a study', (id) => {
+      const cat = [item('desk', 'Yozuv stoli', 'stol'), item('pc-chair', 'Kreslo-kompyuter', 'kreslo'), item('office', 'Office chair', 'stul')]
+      expect(pairs(id, 'kabinet', cat)).toEqual([['desk', 'desk'], ['pc-chair', 'desk_chair']])
+    })
+
     it.each(presets)('%s on a balcony: a small table and two seats', (id) => {
       expect(pairs(id, 'balkon')).toEqual([['coffee', 'coffee_table'], ['armchair', 'armchair'], ['chair', 'armchair']])
       expect(plan(id, 'balkon').floor).toEqual(DESIGN_PRESETS.find((p) => p.id === id)!.floor)
