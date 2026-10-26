@@ -891,6 +891,31 @@ describe('applying the design to every room of the apartment', () => {
     expect(bulk.apply.mock.calls[0][0].source).toEqual({ kind: 'preset', id: 'skandinav' })
   })
 
+  it('a style that found no furniture for this room still furnishes the others', async () => {
+    // An empty catalog: the preset puts no furniture in this room, so its furniture part is off.
+    useRoomStore.setState({ catalogFurniture: [] })
+    bulk.apply.mockResolvedValue({ outcomes: [], undo: [] })
+    bulk.preview.mockReturnValue(PREVIEW)
+    getRooms.mockResolvedValue(THREE_ROOMS)
+    renderSheet({ aptId: 'apt' })
+    fireEvent.click(screen.getByText('Skandinav'))
+    fireEvent.click(await allRoomsButton())
+    const dialog = await screen.findByRole('dialog', { name: "Barcha xonalarga qo'llash" })
+    expect(within(dialog).getByText('Yotoqxona', { selector: 'p' }).closest('li')).toHaveTextContent('Yotoqxona: Karavot 160, Tumbochka')
+    fireEvent.click(within(dialog).getByRole('button', { name: "Qo'llash" }))
+    await waitFor(() => expect(bulk.apply).toHaveBeenCalledTimes(1))
+    expect(bulk.apply.mock.calls[0][0].parts.furniture).toBe(true)
+  })
+
+  it('furniture the user switched off stays off for the other rooms', async () => {
+    bulk.apply.mockResolvedValue({ outcomes: [], undo: [] })
+    await appliedWithRooms()
+    fireEvent.click(screen.getByLabelText(/Mebel/))
+    await confirmAll()
+    await waitFor(() => expect(bulk.apply).toHaveBeenCalledTimes(1))
+    expect(bulk.apply.mock.calls[0][0].parts).toEqual({ walls: true, floor: true, lights: true, furniture: false })
+  })
+
   it('is busy while applying: the buttons wait', async () => {
     bulk.apply.mockReturnValue(new Promise(() => {}))
     await appliedWithRooms()

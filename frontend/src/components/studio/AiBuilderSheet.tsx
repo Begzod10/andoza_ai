@@ -165,6 +165,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   const [roomsNotice, setRoomsNotice] = React.useState("")
   const [confirmRooms, setConfirmRooms] = React.useState(false)
   const [roomsBusy, setRoomsBusy] = React.useState(false)
+  // Furniture the user switched off. A plan that found no furniture for this room has the part off too,
+  // but another room may well find some: only the user's own choice keeps it out of the others.
+  const [furnitureOffByUser, setFurnitureOffByUser] = React.useState(false)
   // Set at once, where the busy state waits for a render: a second tap is not a second write.
   const roomsInFlight = React.useRef(false)
   // The room open now: a bulk result that lands after a switch belongs to the room it was made for.
@@ -183,6 +186,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
     setRoomsNotice("")
     setNotice("")
     setConfirmRooms(false)
+    setFurnitureOffByUser(false)
   }, [roomId])
   const onSaveRef = React.useRef(onSave)
   onSaveRef.current = onSave
@@ -324,6 +328,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
    */
   function newSource(next: DesignSource) {
     setSource(next)
+    setFurnitureOffByUser(false)
     setRoomsUndo(null)
     setRoomsNotice("")
   }
@@ -346,7 +351,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
     const forRoom = roomId
     try {
       const { outcomes, undo: written } = await applyToOtherRooms({
-        aptId, currentRoomId: roomId, source, parts, catalog: catalogFurniture,
+        aptId, currentRoomId: roomId, source, parts: roomsParts, catalog: catalogFurniture,
       })
       refreshRooms(outcomes)
       if (roomIdRef.current !== forRoom) return
@@ -366,6 +371,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   /** Switching a part on or off shows the change at once, and keeps it saved. */
   function changeParts(next: DesignParts) {
     setParts(next)
+    if (next.furniture !== parts.furniture) setFurnitureOffByUser(!next.furniture)
     if (plan && undo) void commit(plan, next)
   }
 
@@ -438,6 +444,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
       ].filter(Boolean).join(", ")
     : ""
 
+  // The parts the other rooms get: this room's, but furniture unless the user switched it off.
+  const roomsParts: DesignParts = { ...parts, furniture: !furnitureOffByUser }
   // Offered once a design is in the room, in an apartment of 2 rooms or more.
   const canApplyToRooms = !!aptId && !!source && !!undo && (aptRooms?.length ?? 0) >= 2
   const roomsPreview = React.useMemo(
@@ -707,7 +715,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
                   ? t("ai.xona_hisoblanmadi")
                   : `${t(`rooms.type.${room.roomType}` as "rooms.type.mehmonxona")}${room.guessed ? ` ${t("ai.xona_taxmin")}` : ""}${
                       // With furniture switched off, none is put in: the list names none.
-                      !parts.furniture ? "" : `: ${room.furnitureNames.length > 0 ? room.furnitureNames.join(", ") : t("ai.xona_mebel_yoq")}`
+                      !roomsParts.furniture ? "" : `: ${room.furnitureNames.length > 0 ? room.furnitureNames.join(", ") : t("ai.xona_mebel_yoq")}`
                     }`}
             </p>
           </li>
