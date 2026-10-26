@@ -496,6 +496,40 @@ _PREFERRED_PIECES = {
 # rest: a study borrows living-room pieces, but its desk may be filed under the bedroom. (A
 # children's room needs no entry: it takes bedroom pieces, and beds and desks are filed there.)
 _ALWAYS_ROLES = {"kabinet": ("desk", "desk_chair", "shelf")}
+MAX_ALWAYS_PER_ROLE = 3
+# A study's shelf is one for books: not a chest of drawers or a display case (infer_role's "shelf"
+# takes those too), and not a kitchen's or a bathroom's. A book cupboard ("kitob shkafi") is one.
+_STUDY_SHELF = re.compile(r"javon|stellaj|kitob|bookcase", re.I)
+_WET_ROOM_NAME = re.compile(r"oshxona|hammom|vanna|кухон|ванн", re.I)
+
+
+def _always_role(item: dict, roles: tuple[str, ...]) -> str | None:
+    name = item.get("name_uz") or ""
+    role = infer_role(item.get("category"), name)
+    if role in ("desk", "desk_chair") and role in roles:
+        return role
+    if "shelf" in roles and _STUDY_SHELF.search(name) and not _WET_ROOM_NAME.search(name) \
+            and item.get("room_type") not in ("oshxona", "hammom"):
+        return "shelf"
+    return None
+
+
+def always_offered(items: list[dict], room_type: str | None, prompt: str = "", has_image: bool = False) -> list[dict]:
+    """The pieces *room_type* always offers from any room (_ALWAYS_ROLES): up to
+    MAX_ALWAYS_PER_ROLE of each role, those of a style the request names first."""
+    roles = _ALWAYS_ROLES.get(room_type or "", ())
+    if not roles:
+        return []
+    wanted = furniture_styles_for_prompt(prompt, None if has_image else room_type)
+    by_role: dict[str, list[dict]] = {role: [] for role in roles}
+    for item in items:
+        role = _always_role(item, roles)
+        if role:
+            by_role[role].append(item)
+    return [
+        item for role in roles
+        for item in sorted(by_role[role], key=lambda i: 0 if wanted & set(i.get("styles") or []) else 1)[:MAX_ALWAYS_PER_ROLE]
+    ]
 
 
 def furniture_menu(
@@ -514,10 +548,9 @@ def furniture_menu(
     # desk, desk chair and shelf from any room, those first.
     catalog_type = _CATALOG_ROOM_TYPE.get(room_type or "", room_type)
     preferred = _PREFERRED_PIECES.get(room_type or "")
-    always = _ALWAYS_ROLES.get(room_type or "", ())
 
     def always_rank(i: dict) -> int:
-        return 0 if always and infer_role(i.get("category"), i.get("name_uz") or "") in always else 1
+        return 0 if i["id"] in always else 1
 
     def rank(i: dict) -> int:
         return 0 if i.get("room_type") in (None, catalog_type) or always_rank(i) == 0 else 1
@@ -533,6 +566,7 @@ def furniture_menu(
     # Lamps are the plan's lights, not furniture: offered here, a model picks a torsher twice.
     pool = [i for i in items if i.get("category") != "lampa" and not _LIGHT_LIKE.search(i["name_uz"])]
     random.shuffle(pool)
+    always = {i["id"] for i in always_offered(pool, room_type, prompt, has_image)}
     pool.sort(key=lambda i: (rank(i), always_rank(i), preferred_rank(i), style_rank(i)))
     # With enough pieces made for this room (or for every room), the others are not offered at all:
     # a dressing table has no place in a living room.
