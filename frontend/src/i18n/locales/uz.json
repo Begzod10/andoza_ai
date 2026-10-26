@@ -2247,5 +2247,11 @@
     },
     "type_guess": "Taxmin: {{type}}",
     "type_save_failed": "Xona turini saqlab bo'lmadi"
+  },
+  "models": {
+    "front_label": "Old tomon",
+    "front_auto": "Old tomon: avtomatik aniqlandi ({{deg}}°)",
+    "front_none": "Old tomon aniqlanmadi: kerak bo'lsa o'zingiz tanlang",
+    "front_option": "{{deg}}° burish"
   }
 }

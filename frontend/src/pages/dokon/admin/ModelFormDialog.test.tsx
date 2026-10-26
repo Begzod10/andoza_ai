@@ -15,7 +15,18 @@ vi.mock('@/lib/api', () => ({
   ADMIN_ROOM_TYPES: ['mehmonxona'],
   ADMIN_PLACEMENTS: ['pol', 'devor', 'shift'],
 }))
-vi.mock('./ModelPreview3D', () => ({ ModelPreview3D: () => null })) // needs WebGL
+// Needs WebGL: stands in for the preview, measuring a picked model as 232×197 with its back found at 270°.
+vi.mock('./ModelPreview3D', async () => {
+  const { useEffect } = await import('react')
+  return {
+    ModelPreview3D: ({ file, onMeasured }: { file: File | null; onMeasured?: (...a: unknown[]) => void }) => {
+      useEffect(() => {
+        if (file) onMeasured?.({ width_cm: 232, depth_cm: 197, height_cm: 110 }, { yaw: 270, detected: true })
+      }, [file, onMeasured])
+      return null
+    },
+  }
+})
 
 function open() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -111,5 +122,38 @@ describe('admin 3D model dialog — styles', () => {
     fireEvent.click(submit())
     await waitFor(() => expect(api.uploadAdminFurniture).toHaveBeenCalled())
     expect(api.uploadAdminFurniture.mock.calls[0][0].styles).toEqual(['hitech', 'zamonaviy'])
+  })
+})
+
+describe('admin 3D model dialog — the model\'s front', () => {
+  it('shows the detected front and sends model_yaw with the turned footprint', async () => {
+    api.uploadAdminFurniture.mockResolvedValue({})
+    open()
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Karavot' } })
+    const glb = document.querySelector('input[type=file][accept=".glb"]') as HTMLInputElement
+    fireEvent.change(glb, { target: { files: [new File(['x'], 'karavot.glb')] } })
+
+    expect(await screen.findByText('Old tomon: avtomatik aniqlandi (270°)')).toBeInTheDocument()
+    const front = screen.getByLabelText('Old tomon')
+    expect(front).toHaveValue('270')
+
+    fireEvent.click(submit())
+    await waitFor(() => expect(api.uploadAdminFurniture).toHaveBeenCalledTimes(1))
+    expect(api.uploadAdminFurniture.mock.calls[0][0]).toMatchObject({ model_yaw: 270, footprint_w: 197, footprint_d: 232, height_cm: 110 })
+
+    // The upload closes and resets the form; pick the model again and turn its front back by hand.
+    api.uploadAdminFurniture.mockClear()
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Karavot' } })
+    fireEvent.change(glb, { target: { files: [new File(['y'], 'karavot2.glb')] } })
+    await waitFor(() => expect(screen.getByLabelText('Old tomon')).toHaveValue('270'))
+    fireEvent.change(screen.getByLabelText('Old tomon'), { target: { value: '0' } })
+    fireEvent.click(submit())
+    await waitFor(() => expect(api.uploadAdminFurniture).toHaveBeenCalledTimes(1))
+    expect(api.uploadAdminFurniture.mock.calls[0][0]).toMatchObject({ model_yaw: 0, footprint_w: 232, footprint_d: 197 })
+  })
+
+  it('asks for no front before a model is picked', () => {
+    open()
+    expect(screen.queryByLabelText('Old tomon')).toBeNull()
   })
 })

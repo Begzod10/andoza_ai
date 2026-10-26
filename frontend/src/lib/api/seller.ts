@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { FurnitureStyle } from "../furnitureStyles";
+import type { ModelYaw } from "../modelYaw";
 import type { AdminFurnitureCategory, AdminPlacement, AdminRoomType } from "./admin";
 import type { OrderLine, OrderStatus } from "./orders";
 
@@ -92,6 +93,8 @@ export interface UploadModelInput {
   footprint_w?: number | null;
   footprint_d?: number | null;
   height_cm?: number | null;
+  /** Which way the model faces: degrees about +Y that turn its back to -Z. Omitted = 0. */
+  model_yaw?: ModelYaw;
   /** Styles the model suits; empty or omitted = every style. */
   styles?: FurnitureStyle[];
 }
@@ -109,6 +112,7 @@ export async function uploadMyModel(input: UploadModelInput): Promise<SellerMode
   if (input.footprint_w != null) form.append("footprint_w", String(input.footprint_w));
   if (input.footprint_d != null) form.append("footprint_d", String(input.footprint_d));
   if (input.height_cm != null) form.append("height_cm", String(input.height_cm));
+  if (input.model_yaw != null) form.append("model_yaw", String(input.model_yaw));
   if (input.styles?.length) form.append("styles", input.styles.join(","));
   return apiClient<SellerModel>("/seller/furniture", { method: "POST", body: form });
 }

@@ -29,12 +29,14 @@ vi.mock('@/lib/api', () => ({
 }))
 // The 3D preview needs WebGL; the page logic does not.
 // A stand-in that "measures" any file it is given, as the real one does once the model has loaded.
+// A file named "*-side.glb" lies with its back on +X, so its front is found at 90°.
 vi.mock('@/pages/dokon/admin/ModelPreview3D', async () => {
   const { useEffect } = await import('react')
   return {
-    ModelPreview3D: ({ file, onMeasured }: { file: File | null; onMeasured?: (s: unknown) => void }) => {
+    ModelPreview3D: ({ file, onMeasured }: { file: File | null; onMeasured?: (...a: unknown[]) => void }) => {
       useEffect(() => {
-        onMeasured?.(file ? { width_cm: 210, depth_cm: 90, height_cm: 85 } : null)
+        const side = !!file?.name.endsWith('-side.glb')
+        onMeasured?.(file ? { width_cm: 210, depth_cm: 90, height_cm: 85 } : null, side ? { yaw: 90, detected: true } : { yaw: 0, detected: false })
       }, [file, onMeasured])
       return null
     },
@@ -160,6 +162,21 @@ describe('SellerPage', () => {
     fireEvent.change(input, { target: { files: [new File(['x'], 'sofa.obj')] } })
     expect(await screen.findByRole('alert')).toHaveTextContent('.glb')
     expect(api.uploadMyModel).not.toHaveBeenCalled()
+  })
+
+  it("sends the model's front with the size it has once turned", async () => {
+    api.getMyStore.mockResolvedValue(store())
+    api.listMyModels.mockResolvedValue({ total: 0, page: 1, per_page: 100, items: [] })
+    api.uploadMyModel.mockResolvedValue(model({ status: 'pending', is_active: false }))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Yangi model/ }))
+    fireEvent.change(screen.getByLabelText('Nomi'), { target: { value: 'Divan' } })
+    const input = document.querySelector('input[type=file][accept=".glb"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'divan-side.glb')] } })
+    expect(await screen.findByText('Old tomon: avtomatik aniqlandi (90°)')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Yuklash' }))
+    await waitFor(() => expect(api.uploadMyModel).toHaveBeenCalled())
+    expect(api.uploadMyModel.mock.calls[0][0]).toMatchObject({ model_yaw: 90, footprint_w: 90, footprint_d: 210, height_cm: 85 })
   })
 })
 

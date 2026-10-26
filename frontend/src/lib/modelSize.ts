@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { turnedSize, type ModelYaw } from "@/lib/modelYaw";
 
 /** A model's real size in centimetres, as the studio will draw it. */
 export interface MeasuredSize {
@@ -15,6 +16,13 @@ export function sizeFields(size: MeasuredSize | null): { footprint_w?: number; f
   if (!size) return {};
   const ok = [size.width_cm, size.depth_cm, size.height_cm].every((v) => Number.isFinite(v) && v > 0 && v <= MAX_CM);
   return ok ? { footprint_w: size.width_cm, footprint_d: size.depth_cm, height_cm: size.height_cm } : {};
+}
+
+/** The size of a model once turned by its yaw: a quarter turn swaps width and depth. */
+export function turnedMeasuredSize(size: MeasuredSize | null, yaw: ModelYaw): MeasuredSize | null {
+  if (!size) return null;
+  const { w, d } = turnedSize({ w: size.width_cm, d: size.depth_cm }, yaw);
+  return { ...size, width_cm: w, depth_cm: d };
 }
 
 /** "210 × 90 × 85 sm": width, depth and height, as a person reads them. */

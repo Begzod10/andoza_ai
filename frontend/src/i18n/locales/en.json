@@ -2247,5 +2247,11 @@
     },
     "type_guess": "Guess: {{type}}",
     "type_save_failed": "Could not save the room type"
+  },
+  "models": {
+    "front_label": "Front",
+    "front_auto": "Front: detected automatically ({{deg}}°)",
+    "front_none": "Front not detected: pick it yourself if needed",
+    "front_option": "Turn {{deg}}°"
   }
 }
