@@ -251,7 +251,18 @@ describe('previewOtherRooms', () => {
     expect(kitchen.furnitureNames).toEqual([])
   })
 
-  it('leaves out a room with no walls, as applying does', () => {
-    expect(previewOtherRooms([room('empty', 'Bo\'sh', { geometry: null })], SOURCE, CATALOG)).toEqual([])
+  it('names a room with no walls as skipped, as applying leaves it out', () => {
+    expect(previewOtherRooms([room('empty', 'Bo\'sh', { geometry: null, room_type: 'yotoqxona' })], SOURCE, CATALOG)).toEqual([
+      { roomId: 'empty', name: 'Bo\'sh', roomType: 'yotoqxona', guessed: false, furnitureNames: [], skipped: 'no_walls' },
+    ])
+  })
+
+  it('a room that cannot be worked out is skipped as failed, and the others are still listed', () => {
+    planSpy.failFor = 'liv'
+    const preview = previewOtherRooms([BEDROOM, LIVING], SOURCE, CATALOG)
+    expect(preview.map(({ roomId, skipped }) => ({ roomId, skipped }))).toEqual([
+      { roomId: 'bed', skipped: null }, { roomId: 'liv', skipped: 'failed' },
+    ])
+    expect(preview[1].furnitureNames).toEqual([])
   })
 })

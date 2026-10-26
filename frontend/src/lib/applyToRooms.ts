@@ -59,20 +59,36 @@ function savedDesign(room: Room): RoomDesign {
 }
 
 /**
- * For the confirm list: each of `rooms` that has walls, its type (`guessed` when the room has none of
- * its own) and the names of the furniture it would get, from the plan it would get (`planForRoom`).
+ * A room in the confirm list: its type (`guessed` when the room has none of its own) and the names of
+ * the furniture it would get. `skipped` says why a room will not be designed: it has no walls drawn
+ * (`no_walls`, which applying leaves out), or it cannot be worked out (`failed`).
  */
-export function previewOtherRooms(
-  rooms: Room[], source: DesignSource, catalog: CatalogFurniture[],
-): Array<{ roomId: string; name: string; roomType: string; guessed: boolean; furnitureNames: string[] }> {
-  return rooms.flatMap((room) => {
-    const target = targetOf(room)
-    if (!target) return []
-    const plan = planForRoom(source, target, catalog)
-    return [{
-      roomId: room.id, name: room.name, roomType: target.roomType, guessed: target.guessed,
-      furnitureNames: plan.furniture.map((f) => f.name),
-    }]
+export interface RoomPreview {
+  roomId: string
+  name: string
+  roomType: string
+  guessed: boolean
+  furnitureNames: string[]
+  skipped: null | 'no_walls' | 'failed'
+}
+
+/**
+ * For the confirm list: each of `rooms`, with the furniture it would get from the plan it would get
+ * (`planForRoom`). One room that cannot be read or worked out is that room's `skipped`, never a list
+ * that fails whole.
+ */
+export function previewOtherRooms(rooms: Room[], source: DesignSource, catalog: CatalogFurniture[]): RoomPreview[] {
+  return rooms.map((room) => {
+    const roomType = effectiveRoomType(room.room_type, room.name) ?? 'mehmonxona'
+    const base = { roomId: room.id, name: room.name, roomType, guessed: !isRoomType(room.room_type), furnitureNames: [] as string[] }
+    try {
+      const target = targetOf(room)
+      if (!target) return { ...base, skipped: 'no_walls' as const }
+      const plan = planForRoom(source, target, catalog)
+      return { ...base, furnitureNames: plan.furniture.map((f) => f.name), skipped: null }
+    } catch {
+      return { ...base, skipped: 'failed' as const }
+    }
   })
 }
 

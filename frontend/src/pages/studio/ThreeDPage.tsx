@@ -1202,6 +1202,7 @@ export default function ThreeDPage() {
         setShowAiSheet={setShowAiSheet}
         onSave={onSave}
         roomId={room.id}
+        aptId={aptId}
         roomType={effectiveRoomType(room.room_type, room.name)}
         aiPin={aiPin}
         radial={radial}
