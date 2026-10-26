@@ -43,6 +43,11 @@ def _scanned_at(room: Any) -> datetime | None:
     return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
+def _scan_group(room: Any) -> str | None:
+    scan = room.room_scan if isinstance(room.room_scan, dict) else None
+    return (scan or {}).get("scan_group") or None
+
+
 def is_untouched(room: Any) -> bool:
     """Nobody has designed anything in this room yet."""
     if room.surfaces or room.furniture_layout:
@@ -54,7 +59,14 @@ def is_untouched(room: Any) -> bool:
 
 
 def is_same_scan(new: Any, old: Any, now: datetime) -> bool:
-    """*old* is an earlier, recent LiDAR scan of the room *new* scanned again."""
+    """*old* is an earlier, recent LiDAR scan of the room *new* scanned again.
+
+    Rooms from one multi-room scan session (the same ``scan_group``) are
+    different rooms of the flat, however alike two bedrooms are.
+    """
+    group = _scan_group(new)
+    if group and group == _scan_group(old):
+        return False
     at = _scanned_at(old)
     if at is None or now - at > WINDOW:
         return False
