@@ -400,6 +400,36 @@ describe('design presets', () => {
       expect(pairs(id, 'hammom', ROOMS.filter((c) => c.id !== 'bath-cabinet'))).toEqual([])
     })
 
+    it.each(presets)('%s in a bathroom: painted walls, no chandelier, pendant or floor lamp, and a ceiling light', (id) => {
+      const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+      const bath = plan(id, 'hammom')
+      const main = preset.walls.main!
+      // A wallpaper wall becomes paint in its own base colour; a painted one is as it was.
+      expect(bath.walls.main).toEqual(main.type === 'oboy' ? { type: 'paint', color: main.base_color } : main)
+      const types = bath.lights.map((l) => l.type)
+      for (const banned of ['chandelier', 'pendant', 'floor_lamp']) expect(types, banned).not.toContain(banned)
+      const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)!.mount
+      expect(types.some((t) => ['ceiling', 'recessed', 'track'].includes(mountOf(t)))).toBe(true)
+      // The centre still has a light, and a wall lamp is only ever the moisture-proof bath light.
+      expect(bath.lights.some((l) => l.zone === 'center')).toBe(true)
+      expect(bath.lights.filter((l) => mountOf(l.type) === 'wall').every((l) => l.type === 'bath')).toBe(true)
+    })
+
+    it('a bathroom: a centre chandelier gives way to the preset\'s other ceiling light, else a downlight; one bra becomes the bath light', () => {
+      // neoklassika: chandelier and two bras.
+      expect(plan('neoklassika', 'hammom').lights).toEqual([{ type: 'downlight', zone: 'center' }, { type: 'bath', zone: 'wall_B' }])
+      // dark: chandelier, a floor lamp and an LED line on wall C.
+      expect(plan('dark', 'hammom').lights).toEqual([{ type: 'led_linear', zone: 'center' }, { type: 'led_linear', zone: 'wall_C' }])
+      // loft: a track in the centre stays, its floor lamp goes.
+      expect(plan('loft', 'hammom').lights).toEqual([{ type: 'track', zone: 'center' }, { type: 'spotlight', zone: 'wall_C' }])
+    })
+
+    it.each(presets)('%s in a kitchen keeps its walls and lights', (id) => {
+      const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+      expect(plan(id, 'oshxona').walls.main).toEqual(preset.walls.main)
+      expect(plan(id, 'oshxona').lights.map((l) => l.type)).toEqual(preset.lights.map((l) => l.type))
+    })
+
     it.each(presets)('%s in a living room, a bedroom, a children\'s room or an unknown room is as before', (id) => {
       const preset = DESIGN_PRESETS.find((p) => p.id === id)!
       for (const roomType of ['mehmonxona', 'yotoqxona', 'bolalar', undefined]) {

@@ -5,6 +5,7 @@ import { catalogRoomType } from '@/lib/roomType'
 import type { RoomGeometry } from '@/store/roomStore'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
+import { LIGHT_TYPES } from '@/lib/lightCatalog'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -106,6 +107,38 @@ const ROOM_SETS: Partial<Record<string, Kind[]>> = {
 /** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
 const WET_ROOMS = new Set(['oshxona', 'hammom'])
 const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
+
+/**
+ * A bathroom's walls and lights. Wallpaper does not take the damp: an oboy wall is painted in the
+ * wallpaper's base colour. A chandelier, a pendant or a floor lamp has no place there: one in the
+ * centre gives way to the preset's other ceiling light (an LED line, a track, a spot), else a
+ * downlight; a floor lamp goes. A wall lamp is kept only as the studio's moisture-proof bath light,
+ * and only one (it hangs over the mirror): a bra becomes it, at the first bra's wall.
+ */
+const NOT_IN_BATHROOM = new Set(['chandelier', 'pendant', 'floor_lamp'])
+const BATH_CENTRE = 'downlight'
+const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)?.mount
+
+function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
+  const main = walls.main
+  return main?.type === 'oboy' ? { ...walls, main: { type: 'paint', color: main.base_color } } : walls
+}
+
+function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
+  const ceiling = (type: string) => !NOT_IN_BATHROOM.has(type) && ['ceiling', 'recessed', 'track'].includes(mountOf(type) ?? '')
+  const other = lights.find((l) => ceiling(l.type))?.type ?? BATH_CENTRE
+  const out: AiDesignPlan['lights'] = []
+  for (const l of lights) {
+    if (l.type === 'floor_lamp') continue
+    if (NOT_IN_BATHROOM.has(l.type)) out.push({ type: l.zone === 'center' ? other : BATH_CENTRE, zone: l.zone })
+    else if (mountOf(l.type) === 'wall') {
+      if (!out.some((o) => o.type === 'bath')) out.push({ type: 'bath', zone: l.zone })
+    } else out.push(l)
+  }
+  // A plan whose only lights were lamps still lights the bathroom from the ceiling.
+  if (!out.some((l) => ceiling(l.type))) out.unshift({ type: BATH_CENTRE, zone: 'center' })
+  return out
+}
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
@@ -280,14 +313,17 @@ export function presetPlan(
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent
+  const bathroom = roomType === 'hammom'
+  const walls = bathroom ? bathroomWalls(preset.walls) : preset.walls
+  const lights = bathroom ? bathroomLights(preset.lights) : preset.lights
   return {
     title: i18n.t(preset.titleKey), summary: i18n.t(preset.summaryKey),
     walls: {
-      ...preset.walls,
+      ...walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),
     },
     floor: roomType && WET_ROOMS.has(roomType) ? WET_FLOOR : preset.floor,
-    lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
+    lights: lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
     furniture, trim: preset.trim, warnings: [],
   }
 }
