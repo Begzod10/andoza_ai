@@ -424,7 +424,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
             <div className="rounded-2xl bg-blue-50 px-4 py-3">
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
               {/* Told before the layout: a sentence about a piece that did not fit would describe a room that is not there. */}
-              <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, applied.dropped) : plan.summary}</p>
+              <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, applied.dropped, [...applied.placed.map((p) => p.name), ...applied.swapped.map((s) => s.from)]) : plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
               {applied && applied.dropped.length > 0 && (
                 <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(applied.dropped) })}</p>

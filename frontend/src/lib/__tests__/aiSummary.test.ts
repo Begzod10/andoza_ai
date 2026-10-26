@@ -9,9 +9,26 @@ const SMALL = "Xonaga yengil va keng ko'rinish beruvchi och kulrang bo'yoq devor
   + "Mebel sifatida bitta tor bir kishilik karavot, Skandinav uslubidagi kiyim shkafi va tor tumbochka tanlandi, joyni samarali ishlatish maqsadida."
 
 describe('summaryWithout', () => {
-  it('drops the sentence naming a dropped desk and chair (the bedroom eval)', () => {
-    expect(summaryWithout(BEDROOM, [{ name: 'ZZ Ish stuli', role: 'desk_chair' }, { name: 'ZZ Yozuv stoli Nord', role: 'desk' }]))
-      .toBe("Devorlar och ko'k rangda bo'yaladi. Pol — parket, yelkan terishda. Yoritish: shift chirog'i, torsher.")
+  it('takes a dropped desk and chair out of the furniture list, keeping the rest of it (the bedroom eval)', () => {
+    const kept = ['ZZ Karavot Grafit 180', 'ZZ Kiyim shkafi Grafit', 'ZZ Tumbochka Grafit', 'ZZ Pufik']
+    expect(summaryWithout(BEDROOM, [{ name: 'ZZ Ish stuli', role: 'desk_chair' }, { name: 'ZZ Yozuv stoli Nord', role: 'desk' }], kept))
+      .toBe("Devorlar och ko'k rangda bo'yaladi. Pol — parket, yelkan terishda. Yoritish: shift chirog'i, torsher. "
+        + 'Mebel: ZZ Karavot Grafit 180, ZZ Kiyim shkafi Grafit, ZZ Tumbochka Grafit, ZZ Pufik.')
+  })
+
+  it('a furniture list loses its sentence only when no item is left', () => {
+    const text = 'Devorlar oq. Mebel: ZZ Divan Oslo va ZZ Kreslo Nord. Pol parket.'
+    expect(summaryWithout(text, [{ name: 'ZZ Kreslo Nord', role: 'armchair' }], ['ZZ Divan Oslo'])).toBe('Devorlar oq. Mebel: ZZ Divan Oslo. Pol parket.')
+    expect(summaryWithout(text, [{ name: 'ZZ Divan Oslo', role: 'sofa' }, { name: 'ZZ Kreslo Nord', role: 'armchair' }]))
+      .toBe('Devorlar oq. Pol parket.')
+  })
+
+  it('a list of the plan\'s pieces without "Mebel:" is a list too, and keeps its "va"', () => {
+    const text = 'Devorlar oq. ZZ Divan Oslo, ZZ Kreslo Nord, ZZ Gilam va ZZ TV tumba.'
+    const kept = ['ZZ Divan Oslo', 'ZZ Gilam', 'ZZ TV tumba']
+    expect(summaryWithout(text, [{ name: 'ZZ Kreslo Nord', role: 'armchair' }], kept)).toBe('Devorlar oq. ZZ Divan Oslo, ZZ Gilam va ZZ TV tumba.')
+    expect(summaryWithout(text, [{ name: 'ZZ TV tumba', role: 'tv_unit' }], ['ZZ Divan Oslo', 'ZZ Kreslo Nord', 'ZZ Gilam']))
+      .toBe('Devorlar oq. ZZ Divan Oslo, ZZ Kreslo Nord va ZZ Gilam.')
   })
 
   it('drops the sentence naming a dropped wardrobe by its kind, not its name (the small-room eval)', () => {
@@ -46,7 +63,7 @@ describe('summaryWithout', () => {
   })
 
   it('finds a full catalog name whatever its case, and works with no role at all', () => {
-    const text = 'Devorlar oq. Mebel: zz pufik va gilam.'
+    const text = 'Devorlar oq. Burchakda zz pufik turadi.'
     expect(summaryWithout(text, [{ name: 'ZZ Pufik' }])).toBe('Devorlar oq.')
   })
 })
