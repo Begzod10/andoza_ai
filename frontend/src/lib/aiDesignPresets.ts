@@ -129,8 +129,10 @@ const SINGLE_BED_W = 120
  */
 function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
   if (kind !== 'karavot' || !size || c.footprint_w == null) return 1
+  // A mattress is never wider than it is long, and the catalog stores some beds turned (200 x 90).
+  const width = c.footprint_d == null ? c.footprint_w : Math.min(c.footprint_w, c.footprint_d)
   const small = size.area < SMALL_ROOM_AREA || size.minSide < SMALL_ROOM_SIDE
-  return small ? (c.footprint_w <= SINGLE_BED_W ? 1 : 0) : (c.footprint_w >= DOUBLE_BED_W ? 1 : 0)
+  return small ? (width <= SINGLE_BED_W ? 1 : 0) : (width >= DOUBLE_BED_W ? 1 : 0)
 }
 
 /**

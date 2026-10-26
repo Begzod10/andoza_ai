@@ -293,7 +293,7 @@ describe('design presets', () => {
 
     describe("the bed fits the room's size", () => {
       const bed = (id: string, name: string, w: number | null, styles: string[] = []) =>
-        ({ ...item(id, name, 'karavot', 'yotoqxona'), footprint_w: w, styles })
+        ({ ...item(id, name, 'karavot', 'yotoqxona'), footprint_w: w, footprint_d: 200, styles })
       const BEDS = [bed('single', 'Bir kishilik karavot', 90), bed('double', 'Karavot 160', 160, ['skandinav'])]
       const bedOf = (id: string, roomType: string, roomSize?: RoomSize, cat = BEDS) =>
         presetPlan(id, cat, roomType, undefined, roomSize)!.furniture.find((f) => f.role === 'bed')!.id
@@ -311,6 +311,14 @@ describe('design presets', () => {
         expect(bedOf('hitech', 'yotoqxona')).toBe('single')
         const unknown = [bed('single', 'Bir kishilik karavot', null), bed('double', 'Karavot 160', 160, ['skandinav'])]
         expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 }, unknown)).toBe('single')
+      })
+
+      it("a bed's width is its shorter side, whichever way round the catalog stores it", () => {
+        const turned = [
+          { ...bed('single', 'Bir kishilik karavot', 200), footprint_d: 90 },
+          { ...bed('double', 'Karavot 160', 160, ['hitech']), footprint_d: 200 },
+        ]
+        expect(bedOf('hitech', 'yotoqxona', { area: 7.8, minSide: 2.6 }, turned)).toBe('single')
       })
 
       it("a children's room follows the same rule, but its children's bed still comes first", () => {
