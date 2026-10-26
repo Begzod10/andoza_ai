@@ -272,9 +272,10 @@ function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined, ro
     return c.footprint_w && c.footprint_d ? -(c.footprint_w * c.footprint_d) : -Infinity
   }
   if (kind === 'gilam' && size && c.footprint_w && c.footprint_d) {
-    // The room's sides from its size (a rectangle's: its area over its shorter side), less the margin;
-    // a rug that fits either way round scores 2, one that does not the less the larger it is.
-    const sides = [size.minSide, size.area / size.minSide].map((m) => m * 100 - 2 * RUG_MARGIN * 100)
+    // The room's sides from its size (a rectangle's: its area over its shorter side; for an L-shape that
+    // may come out the shorter), less the margin; a rug that fits either way round scores 2, one that
+    // does not the less the larger it is.
+    const sides = [size.minSide, size.area / size.minSide].map((m) => m * 100 - 2 * RUG_MARGIN * 100).sort((a, b) => a - b)
     const [short, long] = [c.footprint_w, c.footprint_d].sort((a, b) => a - b)
     return short <= sides[0] && long <= sides[1] ? 2 : -(c.footprint_w * c.footprint_d)
   }

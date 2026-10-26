@@ -598,3 +598,13 @@ describe('shared presets json', () => {
     expect(readFileSync(f)).toEqual(readFileSync(b))
   })
 })
+
+describe("a rug fits the room's sides whichever is the shorter", () => {
+  // An L-shaped room's area over its first-wall side can come out shorter than that side: 4 m2 over 3 m.
+  const rug = (id: string, w: number, d: number, styles: string[]): CatalogFurniture =>
+    ({ ...item(id, 'Gilam', 'gilam'), footprint_w: w, footprint_d: d, styles })
+  it("the style's rug that fits is taken over a smaller unstyled one", () => {
+    const cat = [rug('mine', 60, 100, ['milliy']), rug('any', 50, 50, [])]
+    expect(presetPlan('milliy', cat, 'mehmonxona', undefined, { area: 4, minSide: 3 })!.furniture.map((f) => f.id)).toEqual(['mine'])
+  })
+})
