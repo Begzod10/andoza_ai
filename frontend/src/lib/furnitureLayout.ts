@@ -6,7 +6,8 @@
  * arrangements (best first, from `groupCandidates`) that still lets a person walk from the door to
  * every group placed so far; a group with no such arrangement is left out whole. The main group's
  * best few walkable arrangements are each tried this way, and the one whose placed pieces weigh the
- * most wins: each piece weighs one, but in a bedroom a wardrobe outweighs the desk with its chair, and
+ * most wins: each piece weighs one, but the room's main piece (its bed, sofa...) outweighs the rest
+ * together, in a bedroom a wardrobe outweighs the desk with its chair, and
  * the storage is also tried before the desk, so when only one of them fits it is the wardrobe. When
  * none of the main group's arrangements leaves the way open, its best one is taken anyway; when it has
  * none at all, its last resort is tried (a bed with one long side on a wall, a sofa or desk standing
@@ -33,6 +34,11 @@ const PRIMARY_TRIES = 12
  * bedroom keeps its wardrobe.
  */
 const BEDROOM_WEIGHT: Partial<Record<FurnitureRole, number>> = { wardrobe: 10, desk: 3 }
+/**
+ * The room's main piece (the bed of a bedroom, the sofa of a living room) outweighs everything else
+ * together: a layout without it never beats one with it.
+ */
+const ANCHOR_WEIGHT = 100
 
 const BY_ROOM_TYPE: Record<string, GroupId> = { mehmonxona: 'lounge', oshxona: 'dining', yotoqxona: 'sleep' }
 /** Without a known room type, the plan's main piece decides, in this order. */
@@ -81,7 +87,7 @@ export function layoutFurniture(
   pieces: Piece[], model: RoomModel, roomType: string | undefined, taken: Rect[],
 ): {
   placed: Placed[]; dropped: Array<{ name: string; count: number }>
-  /** What the placed pieces are worth (see BEDROOM_WEIGHT): the heavier of two layouts is the better. */
+  /** What the placed pieces are worth (see ANCHOR_WEIGHT, BEDROOM_WEIGHT): the heavier of two layouts is the better. */
   weight: number
 } {
   if (model.walls.length === 0) return inTheMiddle(pieces, model, taken)
@@ -113,7 +119,9 @@ export function layoutFurniture(
   const orders = bedroom && others.includes('work') && others.includes('storage')
     ? [others, others.map((g) => (g === 'work' ? 'storage' : g === 'storage' ? 'work' : g))]
     : [others]
-  const weight = (ps: Placed[]) => ps.reduce((s, p) => s + ((bedroom && BEDROOM_WEIGHT[p.piece.role]) || 1), 0)
+  const anchor = ANCHOR[primary]
+  const weight = (ps: Placed[]) => ps.reduce((s, p) =>
+    s + (p.piece.role === anchor ? ANCHOR_WEIGHT : (bedroom && BEDROOM_WEIGHT[p.piece.role]) || 1), 0)
   const rects = (ps: Placed[]) => ps.map((p) => p.rect)
 
   /**

@@ -467,3 +467,27 @@ describe('a main piece that does not fit', () => {
     })
   })
 })
+
+describe('a bedroom with a bed too big for it', () => {
+  // 4 x 2.4 m, its door on a short wall: a 2.1 x 1.9 m bed finds no place, a 160 cm one (stored 200 x
+  // 160) does, and beside it a clothes wardrobe but not the desk with its chair too. The wardrobe, desk
+  // and chair without a bed must not beat the bed with the wardrobe.
+  const door = { id: 'door', type: 'eshik', width: 800, height: 2000, sill_height: 0, position: 200, positionAuto: false } as WallElement
+  const room = (): RoomGeometry => ({
+    walls: ['A', 'B', 'C', 'D'].map((id, i) => ({ id, length: i % 2 ? 2400 : 4000, elements: id === 'B' ? [door] : [] })),
+  }) as RoomGeometry
+  const catalog = [item('huge', 'Karavot huge', 210, 190, 'karavot'), item('b160', 'Karavot 160', 200, 160, 'karavot'),
+    item('wardrobe', 'Kiyim shkafi', 180, 60, 'shkaf'), item('desk', 'Yozuv stoli', 120, 60, 'stol'),
+    item('chair', 'Ish stuli', 50, 50, 'stul')]
+  const bedPlan = (): AiDesignPlan => ({ ...plan(), lights: [], furniture: [
+    { id: 'huge', name: 'Karavot huge', role: 'bed', zone: 'wall_A' }, { id: 'wardrobe', name: 'Kiyim shkafi', role: 'wardrobe', zone: 'wall_C' },
+    { id: 'desk', name: 'Yozuv stoli', role: 'desk', zone: 'wall_D' }, { id: 'chair', name: 'Ish stuli', role: 'desk_chair', zone: 'wall_D' }] })
+
+  it('gets the stand-in bed and the wardrobe', () => {
+    useRoomStore.setState({ geometry: room() })
+    const counts = applyDesignPlan(bedPlan(), ALL_PARTS, catalog, 'yotoqxona')
+    const ids = useRoomStore.getState().furniture.map((f) => f.furniture_id)
+    expect(ids).toEqual(expect.arrayContaining(['b160', 'wardrobe']))
+    expect(counts.swapped).toEqual([{ from: 'Karavot huge', to: 'Karavot 160' }])
+  })
+})

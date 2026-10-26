@@ -123,8 +123,8 @@ function smallerOfKind(piece: Piece, catalog: CatalogFurniture[], roomType?: str
 /**
  * The layout, with each main piece it left out (a bed, wardrobe or sofa too big for the room)
  * swapped for a smaller one of its kind from the catalog: the first that is placed with the room's
- * pieces worth more overall (`weight`: in a bedroom a wardrobe outweighs a nightstand) is kept. A
- * piece with no such stand-in stays left out.
+ * pieces worth more overall (`weight`: the room's main piece outweighs all the rest, and in a bedroom a
+ * wardrobe outweighs a nightstand) is kept. A piece with no such stand-in stays left out.
  */
 function layoutWithSwaps(
   pieces: Piece[], catalog: CatalogFurniture[], roomType: string | undefined, layout: (ps: Piece[]) => Layout,
