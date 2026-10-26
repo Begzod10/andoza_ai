@@ -19,6 +19,9 @@ import {
 import { StyleChips } from "@/components/dokon/StyleChips";
 import { knownStyles, stylesPatch, type FurnitureStyle } from "@/lib/furnitureStyles";
 import { CATEGORY_KEYS, PLACEMENT_KEYS, ROOM_TYPE_KEYS } from "./labels";
+import { ModelPreview3D } from "./ModelPreview3D";
+import { ModelFrontField } from "./ModelFrontField";
+import { MODEL_YAWS, type ModelYaw } from "@/lib/modelYaw";
 import { requestError, type FormError } from "@/lib/formError";
 
 /**
@@ -46,6 +49,7 @@ export function ModelEditDialog({
   const [roomType, setRoomType] = useState<AdminRoomType | "">("");
   const [placement, setPlacement] = useState<AdminPlacement>("pol");
   const [styles, setStyles] = useState<FurnitureStyle[]>([]);
+  const [yaw, setYaw] = useState<ModelYaw>(0);
   const [storeId, setStoreId] = useState("");
   const [priceUzs, setPriceUzs] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -58,6 +62,7 @@ export function ModelEditDialog({
     setRoomType((model.room_type as AdminRoomType) ?? "");
     setPlacement(model.placement);
     setStyles(knownStyles(model.styles));
+    setYaw(MODEL_YAWS.includes(model.model_yaw as ModelYaw) ? (model.model_yaw as ModelYaw) : 0);
     setStoreId(model.store_id ?? "");
     setPriceUzs(model.price_uzs != null ? String(model.price_uzs) : "");
     setIsActive(model.is_active);
@@ -71,6 +76,7 @@ export function ModelEditDialog({
         category,
         room_type: roomType || null,
         placement,
+        ...(yaw !== (model.model_yaw ?? 0) ? { model_yaw: yaw } : {}),
         ...stylesPatch(knownStyles(model.styles), styles, model.styles_source),
         store_id: storeId || null,
         price_uzs: priceUzs ? Number(priceUzs) : null,
@@ -127,6 +133,9 @@ export function ModelEditDialog({
             <option key={p} value={p}>{t(PLACEMENT_KEYS[p])}</option>
           ))}
         </Select>
+
+        <ModelFrontField value={yaw} onChange={setYaw} />
+        {model.glb_url && <ModelPreview3D themed file={null} src={model.glb_url} yaw={yaw} />}
 
         <div className="grid grid-cols-2 gap-3">
           <Select themed label={t("dokon.admin.dokon")} value={storeId} onChange={(e) => setStoreId(e.target.value)}>

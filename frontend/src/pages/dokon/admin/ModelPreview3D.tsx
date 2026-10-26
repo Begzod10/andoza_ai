@@ -4,7 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { Bounds, Center, OrbitControls, useGLTF } from "@react-three/drei";
 import { extractSceneInfo } from "@/lib/modelConverter";
 import { describeSize, type MeasuredSize } from "@/lib/modelSize";
-import { detectModelYaw, type YawGuess } from "@/lib/modelYaw";
+import { detectModelYaw, yawRadians, type ModelYaw, type YawGuess } from "@/lib/modelYaw";
 import type { FurnitureRole } from "@/lib/furnitureRole";
 
 /** What the preview reads of a model: its size, and which way it faces. */
@@ -43,6 +43,18 @@ class PreviewErrorBoundary extends Component<{ children: ReactNode }, BoundarySt
   }
 }
 
+/** A small arrow on the floor in front of the model, pointing +Z: where its front faces after the turn. */
+function FrontArrow() {
+  return (
+    <group position={[0, -0.5, 0.9]} rotation={[Math.PI / 2, 0, 0]} data-testid="front-arrow">
+      <mesh>
+        <coneGeometry args={[0.12, 0.3, 12]} />
+        <meshBasicMaterial color="#e11d48" />
+      </mesh>
+    </group>
+  );
+}
+
 function GltfModel({ url, role, onMeasured }: { url: string; role: FurnitureRole | null; onMeasured?: OnMeasured }) {
   const { scene } = useGLTF(url);
   // Measured the way the studio sizes a catalog model (units detected from the geometry), so the
@@ -68,18 +80,25 @@ function GltfModel({ url, role, onMeasured }: { url: string; role: FurnitureRole
  */
 export function ModelPreview3D({
   file,
+  src = null,
+  yaw,
   role = null,
   onMeasured,
   themed = false,
 }: {
   file: File | null;
+  /** A model already stored, shown when there is no `file`. */
+  src?: string | null;
+  /** Which way the model faces: turns it so its front is on +Z, and shows an arrow there. */
+  yaw?: ModelYaw;
   /** What the piece is for: only one with a tall back (a bed, a sofa, a chair) has its front looked for. */
   role?: FurnitureRole | null;
   onMeasured?: OnMeasured;
   themed?: boolean;
 }) {
   const { t } = useTranslation();
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const blobUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const url = blobUrl ?? src;
   const [size, setSize] = useState<MeasuredSize | null>(null);
   const report = useCallback(
     (next: MeasuredSize | null, front: YawGuess) => {
@@ -91,9 +110,9 @@ export function ModelPreview3D({
 
   useEffect(() => {
     return () => {
-      if (url) URL.revokeObjectURL(url);
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [url]);
+  }, [blobUrl]);
 
   // No file, no size: a size measured from an earlier file must not outlive it.
   useEffect(() => {
@@ -116,7 +135,11 @@ export function ModelPreview3D({
           <Suspense fallback={null}>
             <Bounds fit clip observe margin={1.2}>
               <Center>
-                <GltfModel url={url} role={role} onMeasured={report} />
+                {/* Detection reads the model in its own frame, so this turn does not reach it. */}
+                <group rotation={[0, yawRadians(yaw), 0]}>
+                  <GltfModel url={url} role={role} onMeasured={report} />
+                </group>
+                {yaw !== undefined && <FrontArrow />}
               </Center>
             </Bounds>
           </Suspense>

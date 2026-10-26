@@ -12,15 +12,15 @@ export function ModelFrontField({
   onChange,
 }: {
   value: ModelYaw;
-  /** The turn found from the model's shape; null when it has no clear back. */
-  found: ModelYaw | null;
+  /** The turn found from the model's shape; null when it has no clear back; left out when nothing was looked for. */
+  found?: ModelYaw | null;
   onChange: (yaw: ModelYaw) => void;
 }) {
   const { t } = useTranslation();
   return (
     <Select themed
       label={t("models.front_label")}
-      helperText={found === null ? t("models.front_none") : t("models.front_auto", { deg: found })}
+      helperText={found === undefined ? undefined : found === null ? t("models.front_none") : t("models.front_auto", { deg: found })}
       value={value}
       onChange={(e) => onChange(Number(e.target.value) as ModelYaw)}
     >

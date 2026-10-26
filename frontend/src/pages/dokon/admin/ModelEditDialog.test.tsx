@@ -12,9 +12,14 @@ vi.mock('@/lib/api', () => ({
   ADMIN_PLACEMENTS: ['pol', 'devor', 'shift'],
 }))
 
+// Needs WebGL: stands in for the preview, showing which turn it was given.
+vi.mock('./ModelPreview3D', () => ({
+  ModelPreview3D: ({ yaw }: { yaw?: number }) => <div data-testid="preview" data-yaw={yaw} />,
+}))
+
 const model = (styles?: string[], styles_source?: string | null): AdminFurniture => ({
   id: 'm1', store_id: null, store_name: null, category: 'divan', room_type: null, placement: 'pol',
-  name_uz: 'Divan', price_uzs: null, glb_url: null, thumbnail_url: null, footprint_w: null, footprint_d: null,
+  name_uz: 'Divan', price_uzs: null, model_yaw: 0, glb_url: null, thumbnail_url: null, footprint_w: null, footprint_d: null,
   is_active: true, created_at: '2026-10-19T00:00:00Z', ...(styles ? { styles } : {}), ...(styles_source !== undefined ? { styles_source } : {}),
 })
 
@@ -89,5 +94,37 @@ describe('admin model edit — when styles are sent', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
     await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
     expect(api.updateAdminFurniture.mock.calls[0][1].styles).toEqual(['loft'])
+  })
+})
+
+describe('admin model edit — the front', () => {
+  const withGlb = (): AdminFurniture => ({ ...model(), glb_url: '/media/divan.glb' })
+
+  it("shows the model's front and saves a new one", async () => {
+    open(withGlb())
+    const select = screen.getByLabelText('Old tomon') as HTMLSelectElement
+    expect(select.value).toBe('0')
+    expect(screen.getByTestId('preview')).toHaveAttribute('data-yaw', '0')
+    fireEvent.change(select, { target: { value: '270' } })
+    expect(screen.getByTestId('preview')).toHaveAttribute('data-yaw', '270')
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    const payload = api.updateAdminFurniture.mock.calls[0][1]
+    expect(payload.model_yaw).toBe(270)
+    expect(payload).not.toHaveProperty('footprint_w')
+    expect(payload).not.toHaveProperty('footprint_d')
+  })
+
+  it('leaves model_yaw out when unchanged', async () => {
+    open({ ...withGlb(), model_yaw: 90 })
+    expect((screen.getByLabelText('Old tomon') as HTMLSelectElement).value).toBe('90')
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }))
+    await waitFor(() => expect(api.updateAdminFurniture).toHaveBeenCalled())
+    expect(api.updateAdminFurniture.mock.calls[0][1]).not.toHaveProperty('model_yaw')
+  })
+
+  it('shows no preview for a model without a file', () => {
+    open(model())
+    expect(screen.queryByTestId('preview')).not.toBeInTheDocument()
   })
 })

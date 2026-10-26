@@ -82,6 +82,8 @@ export interface AdminFurniture {
   placement: AdminPlacement;
   name_uz: string;
   price_uzs: number | null;
+  /** Which way the model faces (degrees about +Y that turn its back to -Z). */
+  model_yaw: number;
   glb_url: string | null;
   thumbnail_url: string | null;
   footprint_w: number | null;
@@ -160,6 +162,8 @@ export async function updateAdminFurniture(
     price_uzs: number | null;
     footprint_w: number | null;
     footprint_d: number | null;
+    /** Only when changed: the server swaps the footprint itself. */
+    model_yaw: ModelYaw;
     styles: FurnitureStyle[];
     is_active: boolean;
   }>,
