@@ -525,6 +525,26 @@ describe("a ready-made style's summary matches the room it is applied to", () =>
     }
   })
 
+  it.each(LANGS)('%s: a summary left with none of its own sentences starts by naming the style and the room', (lang) => {
+    applyLanguage(lang)
+    const adapted = {
+      uz: 'Neoklassika uslubi hammom uchun moslandi.',
+      ru: 'Стиль «Неоклассика» адаптирован для комнаты: ванная.',
+      en: 'The Neoclassical style, adapted for the bathroom.',
+    }[lang]
+    expect(presetPlan('neoklassika', [], 'hammom')!.summary).toBe(
+      `${adapted} ${i18n.t('studio.lib.presetRoom.floor')} ${i18n.t('studio.lib.presetRoom.bathroom')}`,
+    )
+  })
+
+  it.each(LANGS)('%s: a summary that keeps a sentence of its own gets no adapted sentence', (lang) => {
+    applyLanguage(lang)
+    const summary = presetPlan('dark', [], 'hammom')!.summary
+    const label = i18n.t(DESIGN_PRESETS.find((p) => p.id === 'dark')!.labelKey)
+    expect(summary.startsWith(i18n.t('studio.lib.preset.dark.summary').split(/(?<=[.!?…])\s+/u)[1])).toBe(true)
+    expect(summary).not.toContain(label)
+  })
+
   it('a kitchen keeps the sentences that do not name the floor', () => {
     // dark: "Dark grey walls and dark parquet ... Low, warm light keeps that mood."
     applyLanguage('en')

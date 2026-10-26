@@ -164,14 +164,19 @@ const BATH_RE = wordsRe(BATH_WORDS)
 /**
  * The preset's summary for a kitchen or a bathroom: the sentences naming what `presetPlan` took out
  * go (a wood or concrete floor; in a bathroom also wallpaper, a chandelier, a pendant, a floor lamp),
- * and a sentence for what it put in comes after. Any other room keeps the summary as written.
+ * and a sentence for what it put in comes after. When none of the preset's own sentences is left,
+ * a first one names the style and the room, so the summary still says what was applied: the style's
+ * label, not its title, which may name the very floor taken out ("Loft: beton va g'isht"). The room's
+ * name is lowercased, as it stands mid-sentence. Any other room keeps the summary as written.
  */
-function roomSummary(summary: string, roomType: string | undefined): string {
+function roomSummary(summary: string, roomType: string | undefined, labelKey: TKey): string {
   if (!roomType || !WET_ROOMS.has(roomType)) return summary
   const bathroom = roomType === 'hammom'
   const kept = summary.trim().split(SENTENCE_END).filter((s) => !FLOOR_RE.test(s) && !(bathroom && BATH_RE.test(s)))
+  const room = i18n.t(`rooms.type.${roomType}` as TKey).toLocaleLowerCase(i18n.language)
+  const adapted = kept.length === 0 ? [i18n.t('studio.lib.presetRoom.adapted', { style: i18n.t(labelKey), room })] : []
   const added = [i18n.t('studio.lib.presetRoom.floor'), ...(bathroom ? [i18n.t('studio.lib.presetRoom.bathroom')] : [])]
-  return [...kept, ...added].join(' ')
+  return [...adapted, ...kept, ...added].join(' ')
 }
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
@@ -351,7 +356,7 @@ export function presetPlan(
   const walls = bathroom ? bathroomWalls(preset.walls) : preset.walls
   const lights = bathroom ? bathroomLights(preset.lights) : preset.lights
   return {
-    title: i18n.t(preset.titleKey), summary: roomSummary(i18n.t(preset.summaryKey), roomType),
+    title: i18n.t(preset.titleKey), summary: roomSummary(i18n.t(preset.summaryKey), roomType, preset.labelKey),
     walls: {
       ...walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),

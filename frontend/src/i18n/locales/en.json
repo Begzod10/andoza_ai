@@ -270,6 +270,7 @@
     },
     "lib": {
       "presetRoom": {
+        "adapted": "The {{style}} style, adapted for the {{room}}.",
         "floor": "Floor: moisture-resistant tile.",
         "bathroom": "The walls are painted, and the main light is on the ceiling."
       },
