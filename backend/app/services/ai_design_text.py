@@ -232,6 +232,8 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
 # ("minimalist uslubdagi Line va Mono"). "Minimalist mehmonxona" or "uslubidagi xona" is about the room.
 _FURNITURE_TALK = re.compile(r"\bmebel|" + "|".join(words.pattern for words, _ in _FURNITURE_KINDS.values()))
 _STYLED_BY = re.compile(r"\buslubdagi\b(.*)")
+# "zamonaviy materiallar" are modern materials, not a style of the pieces made of them.
+_OF_MATERIALS = re.compile(r"\s+material")
 
 
 def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) -> list[str]:
@@ -253,7 +255,8 @@ def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) ->
             continue
         for style, words in _STYLE_WORDS.items():
             claim = f"'{STYLE_LABELS[style]}' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"
-            if words.search(sentence) and style not in held and claim not in problems:
+            said = any(not _OF_MATERIALS.match(sentence, m.end()) for m in words.finditer(sentence))
+            if said and style not in held and claim not in problems:
                 problems.append(claim)
     return problems
 

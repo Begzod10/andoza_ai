@@ -895,6 +895,16 @@ class TestTheStyleOfTheFurniture:
     def test_without_the_styles_nothing_is_checked(self):
         assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST)
 
+    def test_modern_materials_are_not_a_style_of_the_furniture(self):
+        # The hitech eval run (2026-10-26): hi-tech and loft pieces "with metal and modern materials".
+        plan = _eval_plan("", {"main": {"type": "paint", "color": "#ffffff"}}, None, [],
+                          ["ZZ Divan Vektor", "ZZ Stellaj Loft"])
+        text = ("Mebellar orasida ZZ Divan Vektor va ZZ Stellaj Loft tanlandi, ular metall va zamonaviy materiallar "
+                "bilan uyg'unlashadi.")
+        styles = {"ZZ Divan Vektor": ["hitech"], "ZZ Stellaj Loft": ["loft"]}
+        assert txt.summary_problems(text, plan, piece_styles=styles) == []
+        assert txt.summary_problems("Zamonaviy divan va stellaj tanlandi.", plan, piece_styles=styles)
+
     def test_reconcile_passes_the_styles_on(self):
         plan = SimpleNamespace(**vars(self.MINIMALIST))
         assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)
