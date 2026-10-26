@@ -228,6 +228,36 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
     return problems
 
 
+# A sentence about the furniture: "mebel", a kind of piece, or "uslubdagi" before a chosen piece's name
+# ("minimalist uslubdagi Line va Mono"). "Minimalist mehmonxona" or "uslubidagi xona" is about the room.
+_FURNITURE_TALK = re.compile(r"\bmebel|" + "|".join(words.pattern for words, _ in _FURNITURE_KINDS.values()))
+_STYLED_BY = re.compile(r"\buslubdagi\b(.*)")
+
+
+def _style_problems(text: str, plan: Any, piece_styles: dict[str, list[str]]) -> list[str]:
+    """A style given to the furniture that no chosen piece has. A piece with no style suits every style,
+    and so does one *piece_styles* does not know."""
+    # The designer's own vocabulary of styles; imported here, as the designer imports this module.
+    from app.services.ai_designer import _STYLE_WORDS, STYLE_LABELS
+
+    chosen = [piece_styles.get(f.get("name", "")) for f in plan.furniture]
+    if not chosen or any(not styles for styles in chosen):
+        return []
+    held = {style for styles in chosen for style in styles}
+    names = {w for f in plan.furniture for w in _NAME_WORD.findall(_norm(f.get("name", "")))
+             if len(w) >= 4 and w not in _NAME_FILLER}
+    problems: list[str] = []
+    for sentence in _SENTENCE_END.split(text):
+        after = _STYLED_BY.search(sentence)
+        if not (_FURNITURE_TALK.search(sentence) or (after and names & set(_NAME_WORD.findall(after[1])))):
+            continue
+        for style, words in _STYLE_WORDS.items():
+            claim = f"'{STYLE_LABELS[style]}' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"
+            if words.search(sentence) and style not in held and claim not in problems:
+                problems.append(claim)
+    return problems
+
+
 # ── Lights ───────────────────────────────────────────────────────────────────
 
 # kind of light -> (words in the text, plan light types that back it)
@@ -329,11 +359,15 @@ def _repeat_problems(text: str) -> list[str]:
     return [f"'{m.group(0)}': so'z takrorlangan"] if m else []
 
 
-def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
-    """What the summary claims that the plan does not hold; empty when it can be trusted."""
+def summary_problems(
+    summary: str, plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
+) -> list[str]:
+    """What the summary claims that the plan does not hold; empty when it can be trusted. *piece_styles*
+    are the catalog styles of the shop's pieces by name; without them a style is not checked."""
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
+        *(_style_problems(text, plan, piece_styles) if piece_styles is not None else []),
         *_language_problems(text, plan, catalog_names),
         *_colour_of_things_problems(text, plan),
         *_colour_problems(text, plan),
@@ -516,18 +550,20 @@ def _uzbek_sentences(text: str, plan: Any, catalog_names: list[str] | None = Non
     return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan, catalog_names))
 
 
-def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
+def reconcile_summary(
+    plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
+) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
     wording (empty when it was kept, at most without its English or id-bearing sentences).
-    *catalog_names* are the shop's own piece names."""
+    *catalog_names* are the shop's own piece names, *piece_styles* their catalog styles by name."""
     localised = _localise(plan.summary or "")
     uzbek = _uzbek_sentences(localised, plan, catalog_names)
     if len(uzbek.split()) >= 2:
         plan.summary = uzbek
-        problems = summary_problems(uzbek, plan, catalog_names)
+        problems = summary_problems(uzbek, plan, catalog_names, piece_styles)
     else:
         # Nothing, or a lone word ("Iliq."), is left to read: say why the whole text was not kept.
-        problems = summary_problems(localised, plan, catalog_names) or ["matn bo'sh"]
+        problems = summary_problems(localised, plan, catalog_names, piece_styles) or ["matn bo'sh"]
     if problems:
         plan.summary = describe_plan(plan)
     return problems

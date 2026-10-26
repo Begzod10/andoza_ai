@@ -833,3 +833,70 @@ class TestAWardrobeIsNotABookcase:
         for name in ("ZZ Kiyim shkafi Nord", "Kitob shkafi", "ZZ Oshxona shkafi"):
             assert not txt.summary_problems("Burchakda shkaf turadi.", self._with(name))
         assert txt.summary_problems("Burchakda shkaf turadi.", self._with("ZZ Pufik"))
+
+
+class TestTheStyleOfTheFurniture:
+    """The minimalist eval run (2026-10-26) called all its pieces "minimalist uslubdagi". The catalog styles
+    them minimalist (Divan Line, Jurnal stoli Mono), unstyled (Stul) and skandinav (the rest), so the
+    sentence passes as it is; were every piece skandinav it would be a lie."""
+
+    MINIMALIST = _eval_plan(
+        "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda, C devori esa yengil aksent rang bilan "
+        "bo'yalgan. Pol plitkadan tanlandi, bu xona uchun soddalik va tozalikka urg'u beradi. Asosiy yorug'lik LED "
+        "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi. Mebel "
+        "sifatida minimalist uslubdagi ZZ Divan Line, ZZ Jurnal stoli Mono, ZZ Stul, ZZ Javon Nord, ZZ Gilam jun och "
+        "va ZZ TV tumba Nord tanlandi. Bu elementlar xonada zamonaviy va tartibli atmosfera yaratadi.",
+        {"main": {"type": "paint", "color": "#ffffff"}, "accent": {"wall": "C", "color": "#e8e8e8"}},
+        {"type": "tile", "pattern": None, "tint": None},
+        ["led_panel", "downlight"],
+        ["ZZ Divan Line", "ZZ Jurnal stoli Mono", "ZZ Stul", "ZZ Javon Nord", "ZZ Gilam jun och", "ZZ TV tumba Nord"],
+        {"ceiling": {"design": "non_drop", "settings": {"color": "#ffffff"}}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+    # The catalog's own styles of the six pieces (eval.json).
+    CATALOG_STYLES = {
+        "ZZ Divan Line": ["minimalist"], "ZZ Jurnal stoli Mono": ["minimalist"], "ZZ Stul": [],
+        "ZZ Javon Nord": ["skandinav"], "ZZ Gilam jun och": ["skandinav"], "ZZ TV tumba Nord": ["skandinav"],
+    }
+    ALL_SKANDINAV = {name: ["skandinav"] for name in CATALOG_STYLES}
+
+    def test_the_real_minimalist_summary_is_caught_when_no_piece_is_minimalist(self):
+        problems = txt.summary_problems(self.MINIMALIST.summary, self.MINIMALIST, piece_styles=self.ALL_SKANDINAV)
+        assert problems == ["'Minimalist' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"]
+
+    def test_with_the_catalog_s_own_styles_it_passes(self):
+        assert txt.summary_problems(self.MINIMALIST.summary, self.MINIMALIST, piece_styles=self.CATALOG_STYLES) == []
+
+    @pytest.mark.parametrize("text", [
+        "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda.",
+        "Skandinav uslubidagi xona yorug' va sokin.",
+    ])
+    def test_the_style_of_the_room_is_not_a_claim_about_the_furniture(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles={n: ["loft"] for n in self.CATALOG_STYLES}) == []
+
+    @pytest.mark.parametrize("text", [
+        "Minimalist divan va stol tanlandi.", "Mebel minimalist ruhda.", "Minimalist uslubdagi Line va Mono tanlandi.",
+    ])
+    def test_each_way_of_giving_furniture_a_style_is_read(self, text):
+        assert txt.summary_problems(text, self.MINIMALIST, piece_styles=self.ALL_SKANDINAV)
+
+    def test_one_piece_of_that_style_backs_it(self):
+        styles = {**self.ALL_SKANDINAV, "ZZ Stul": ["minimalist", "zamonaviy"]}
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST, piece_styles=styles)
+
+    def test_an_unstyled_piece_suits_every_style(self):
+        styles = {**self.ALL_SKANDINAV, "ZZ Stul": []}
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST, piece_styles=styles)
+
+    def test_without_the_styles_nothing_is_checked(self):
+        assert not txt.summary_problems("Minimalist uslubdagi mebel tanlandi.", self.MINIMALIST)
+
+    def test_reconcile_passes_the_styles_on(self):
+        plan = SimpleNamespace(**vars(self.MINIMALIST))
+        assert txt.reconcile_summary(plan, list(self.CATALOG_STYLES), self.ALL_SKANDINAV)
+
+    async def test_design_room_reads_the_styles_from_the_catalog(self):
+        items = [{**ITEMS[0], "styles": ["loft"]}, *ITEMS[1:]]
+        reply = TestDesignRoomEndToEnd()._reply("Iliq bej devorlar va parket pol. Minimalist uslubdagi divan tanlandi.")
+        with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+            plan = await ad.design_room("iliq", TestDesignRoomEndToEnd.ROOM, items, user_id="u")
+        assert "minimalist" not in plan.summary.lower()

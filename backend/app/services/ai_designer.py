@@ -512,7 +512,9 @@ def furniture_menu(
     lines: list[str] = []
     for n, item in enumerate(chosen, start=1):
         label = f"F{n}"
-        by_label[label] = {"id": item["id"], "name": item["name_uz"], "category": item["category"]}
+        by_label[label] = {
+            "id": item["id"], "name": item["name_uz"], "category": item["category"], "styles": item.get("styles") or [],
+        }
         size = ""
         if item.get("footprint_w") and item.get("footprint_d"):
             # The catalog stores footprints in centimetres.
@@ -713,7 +715,9 @@ async def design_room(
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, the plan's own description is shown instead.
-    wrong = reconcile_summary(plan, [item["name"] for item in by_label.values()])
+    wrong = reconcile_summary(
+        plan, [item["name"] for item in by_label.values()], {item["name"]: item["styles"] for item in by_label.values()},
+    )
     if wrong:
         log.info("ai_design.summary_replaced", problems=wrong)
     return plan
