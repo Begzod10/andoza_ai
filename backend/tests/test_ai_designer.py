@@ -561,16 +561,27 @@ def _plan_label(message):
     return message.split("Boshlang'ich reja (", 1)[1].split(")", 1)[0]
 
 
+def _plan_in(message):
+    return json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+
+
+# Not the style's name: the model would write "Zamonaviy uslubda" for a request that named no style.
+ROOM_TYPE_LABEL = "xona turi uchun taklif"
+
+
 def test_a_cosy_bedroom_starts_from_the_scandinavian_plan_with_the_soft_rule():
     message = _message("Shinam yotoqxona", {**ROOM, "room_type": "yotoqxona"})
-    assert _plan_label(message) == "Skandinav"
+    assert _plan_label(message) == ROOM_TYPE_LABEL
+    assert _plan_in(message)["floor"]["tint"] == "#d2b48c"  # skandinav's light laminate
+    assert "Skandinav" not in message
     assert SOFT_PLAN_RULE in message
     assert STARTING_PLAN_RULE not in message and "sababsiz" not in message
 
 
 def test_a_room_type_s_plan_gives_way_to_the_request_s_colours():
     message = _message("Iliq ranglar")  # ROOM is a mehmonxona
-    assert _plan_label(message) == "Zamonaviy"
+    assert _plan_label(message) == ROOM_TYPE_LABEL
+    assert _plan_in(message)["floor"]["tint"] == "#a88b6a"  # zamonaviy's laminate
     assert "rang" in SOFT_PLAN_RULE and "ustun" in SOFT_PLAN_RULE
     assert STARTING_PLAN_RULE not in message
     # the general guidance still holds, the accent wall line too
@@ -636,8 +647,9 @@ def test_each_room_type_has_its_starting_style(room_type, preset):
 
 def test_a_bathroom_without_a_style_starts_from_minimalist_on_tile():
     message = _message("sokin hammom", {**ROOM, "room_type": "hammom"})
-    assert _plan_label(message) == "Minimalist"
-    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert _plan_label(message) == ROOM_TYPE_LABEL
+    start = _plan_in(message)
+    assert start["trim"]["ceiling"] == "non_drop"  # minimalist's ceiling
     assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
 
 

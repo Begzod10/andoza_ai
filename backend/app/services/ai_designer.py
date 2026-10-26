@@ -427,10 +427,15 @@ _ROOM_TYPE_PRESETS: dict[str, str] = {
 }
 
 
+# Not the style's name: labelled "Zamonaviy", the plan has the model write "Zamonaviy uslubda" for a
+# request that named no style.
+_ROOM_TYPE_PLAN_LABEL = "xona turi uchun taklif"
+
+
 def _room_type_choice(room_type: str | None) -> tuple[str, dict] | None:
     """The plan label and ready-made style *room_type* starts from; None for a room of no known type."""
     preset = load_presets().get(_ROOM_TYPE_PRESETS.get(room_type or "", ""))
-    return (STYLE_LABELS.get(preset["id"], preset["id"]), preset) if preset else None
+    return (_ROOM_TYPE_PLAN_LABEL, preset) if preset else None
 
 
 def starting_preset(prompt: str, room_type: str | None = None) -> dict | None:
