@@ -108,6 +108,20 @@ function skippedList(outcomes: RoomOutcome[]): string {
     .join(", ")
 }
 
+/**
+ * The other rooms' undo after one more apply: a room written before keeps the state it had before the
+ * first apply, with the guard our latest write gave it; a room this apply skipped keeps its entry.
+ */
+export function mergeRoomsUndo(before: RoomsUndo | null, written: RoomsUndo): RoomsUndo | null {
+  const merged = [...(before ?? [])]
+  for (const entry of written) {
+    const at = merged.findIndex((u) => u.roomId === entry.roomId)
+    if (at < 0) merged.push(entry)
+    else merged[at] = { ...merged[at], writtenAt: entry.writtenAt }
+  }
+  return merged.length > 0 ? merged : null
+}
+
 export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, roomType: roomTypeProp, initialPinUrl }: AiBuilderSheetProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -151,6 +165,25 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   const [roomsNotice, setRoomsNotice] = React.useState("")
   const [confirmRooms, setConfirmRooms] = React.useState(false)
   const [roomsBusy, setRoomsBusy] = React.useState(false)
+  // Set at once, where the busy state waits for a render: a second tap is not a second write.
+  const roomsInFlight = React.useRef(false)
+  // The room open now: a bulk result that lands after a switch belongs to the room it was made for.
+  const roomIdRef = React.useRef(roomId)
+
+  // `/studio/:roomId` keeps the page mounted from room to room: the design, its undo and the other
+  // rooms' undo are this room's, and must not be undone or applied from another.
+  React.useEffect(() => {
+    if (roomIdRef.current === roomId) return
+    roomIdRef.current = roomId
+    setPlan(null)
+    setApplied(null)
+    setUndo(null)
+    setSource(null)
+    setRoomsUndo(null)
+    setRoomsNotice("")
+    setNotice("")
+    setConfirmRooms(false)
+  }, [roomId])
   const onSaveRef = React.useRef(onSave)
   onSaveRef.current = onSave
   // Saves go one after another: a second design applied while the first is still being saved must not be skipped.
@@ -235,7 +268,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
     if (fileInput.current) fileInput.current.value = ""
   }
 
-  const canSend = !running && (pinUrl !== null || image !== null || prompt.trim().length >= 3)
+  // No new design while the other rooms are being written from this one.
+  const canSend = !running && !roomsBusy && (pinUrl !== null || image !== null || prompt.trim().length >= 3)
 
   async function generate(e?: React.FormEvent) {
     e?.preventDefault()
@@ -270,6 +304,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
 
   /** A ready-made style: no request, so it works with the AI down and costs nothing. */
   async function usePreset(id: string) {
+    if (roomsBusy) return
     // The bed is picked to fit the room's size, read as the backend reads it for the AI.
     const roomSize = roomSizeOf(useRoomStore.getState().geometry)
     const next = presetPlan(id, catalogFurniture, roomType, wallIds ? wallIds.split('|') : undefined, roomSize)
@@ -305,20 +340,24 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
 
   /** Puts the design into every other room of the apartment; what was skipped is named, with why. */
   async function applyToAllRooms() {
-    if (!aptId || !source || roomsBusy) return
+    if (!aptId || !source || roomsInFlight.current) return
+    roomsInFlight.current = true
     setRoomsBusy(true)
+    const forRoom = roomId
     try {
       const { outcomes, undo: written } = await applyToOtherRooms({
         aptId, currentRoomId: roomId, source, parts, catalog: catalogFurniture,
       })
-      setRoomsUndo(written.length > 0 ? written : null)
+      refreshRooms(outcomes)
+      if (roomIdRef.current !== forRoom) return
+      setRoomsUndo((before) => mergeRoomsUndo(before, written))
       const count = outcomes.filter((o) => o.status === "applied").length
       const skipped = skippedList(outcomes)
-      setRoomsNotice([t("ai.xonalarga_qollandi", { count }), skipped && t("ai.xonalar_otkazildi", { list: skipped })].filter(Boolean).join(" "))
-      refreshRooms(outcomes)
+      setRoomsNotice([count > 0 && t("ai.xonalarga_qollandi", { count }), skipped && t("ai.xonalar_otkazildi", { list: skipped })].filter(Boolean).join(" "))
     } catch {
-      setRoomsNotice(t("ai.xonalar_xato"))
+      if (roomIdRef.current === forRoom) setRoomsNotice(t("ai.xonalar_xato"))
     } finally {
+      roomsInFlight.current = false
       setRoomsBusy(false)
       setConfirmRooms(false)
     }
@@ -331,7 +370,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
   }
 
   async function revert() {
-    if (!undo || roomsBusy) return
+    if (!undo || roomsInFlight.current) return
     restoreDesign(undo)
     setUndo(null)
     setPlan(null)
@@ -351,14 +390,18 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
 
   /** Puts the other rooms back; a room changed since is left as it is, and named. */
   async function revertOtherRooms(written: RoomsUndo) {
+    roomsInFlight.current = true
     setRoomsBusy(true)
+    const forRoom = roomId
     try {
       const outcomes = await undoOtherRooms(written)
+      refreshRooms(outcomes)
+      if (roomIdRef.current !== forRoom) return
       const count = outcomes.filter((o) => o.status === "applied").length
       const skipped = skippedList(outcomes)
       setRoomsNotice([count > 0 && t("ai.xonalar_qaytarildi", { count }), skipped && t("ai.xonalar_qaytarilmadi", { list: skipped })].filter(Boolean).join(" "))
-      refreshRooms(outcomes)
     } finally {
+      roomsInFlight.current = false
       setRoomsBusy(false)
     }
   }
@@ -414,8 +457,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
               <button
                 key={preset.id}
                 type="button"
+                disabled={roomsBusy}
                 onClick={() => void usePreset(preset.id)}
-                className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20"
+                className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20 disabled:opacity-60"
               >
                 {t(preset.labelKey)}
               </button>
@@ -661,8 +705,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
                 ? t("ai.xona_chizilmagan")
                 : room.skipped === "failed"
                   ? t("ai.xona_hisoblanmadi")
-                  : `${t(`rooms.type.${room.roomType}` as "rooms.type.mehmonxona")}${room.guessed ? ` ${t("ai.xona_taxmin")}` : ""}: ${
-                      room.furnitureNames.length > 0 ? room.furnitureNames.join(", ") : t("ai.xona_mebel_yoq")
+                  : `${t(`rooms.type.${room.roomType}` as "rooms.type.mehmonxona")}${room.guessed ? ` ${t("ai.xona_taxmin")}` : ""}${
+                      // With furniture switched off, none is put in: the list names none.
+                      !parts.furniture ? "" : `: ${room.furnitureNames.length > 0 ? room.furnitureNames.join(", ") : t("ai.xona_mebel_yoq")}`
                     }`}
             </p>
           </li>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/i18n'
 import { useRoomStore } from '@/store/roomStore'
@@ -791,7 +791,7 @@ describe('applying the design to every room of the apartment', () => {
     return dialog
   }
 
-  it('is offered with 3 rooms, and not with 1', async () => {
+  it('is offered when the apartment has 3 rooms', async () => {
     await appliedWithRooms()
     expect(await allRoomsButton()).toBeInTheDocument()
     expect(getRooms).toHaveBeenCalledWith('apt')
@@ -896,8 +896,85 @@ describe('applying the design to every room of the apartment', () => {
     await appliedWithRooms()
     const dialog = await confirmAll()
     expect(within(dialog).getByRole('button', { name: "Qo'llanmoqda…" })).toBeDisabled()
-    // Behind the dialog (hidden from the accessibility tree while it is open), undo waits too.
+    // Behind the dialog (hidden from the accessibility tree while it is open), undo waits too, and so
+    // does a new design: the rooms are being written from this one.
     expect(screen.getByRole('button', { name: 'Qaytarish', hidden: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Skandinav', hidden: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Boshqa variant', hidden: true })).toBeDisabled()
+  })
+
+  it('a second tap while applying is not a second apply', async () => {
+    bulk.apply.mockReturnValue(new Promise(() => {}))
+    await appliedWithRooms()
+    fireEvent.click(await allRoomsButton())
+    const dialog = await screen.findByRole('dialog', { name: "Barcha xonalarga qo'llash" })
+    const apply = within(dialog).getByRole('button', { name: "Qo'llash" })
+    // Two taps in one batch: the second lands before the busy state has disabled the button.
+    act(() => { apply.click(); apply.click() })
+    await waitFor(() => expect(bulk.apply).toHaveBeenCalled())
+    expect(bulk.apply).toHaveBeenCalledTimes(1)
+  })
+
+  it('applied to no room, names only the rooms skipped', async () => {
+    bulk.apply.mockResolvedValue({ outcomes: [{ roomId: 'liv', name: 'Zal', status: 'changed' }], undo: [] })
+    await appliedWithRooms()
+    await confirmAll()
+    expect(await screen.findByText(/O'tkazib yuborildi: Zal/)).toBeInTheDocument()
+    expect(screen.queryByText(/0 ta xonaga qo'llandi/)).toBeNull()
+  })
+
+  it('the list leaves out the furniture when furniture is switched off', async () => {
+    await appliedWithRooms()
+    fireEvent.click(screen.getByLabelText(/Mebel/))
+    fireEvent.click(await allRoomsButton())
+    const dialog = await screen.findByRole('dialog', { name: "Barcha xonalarga qo'llash" })
+    // The room's name and its type read the same here: the first is the name.
+    const bed = within(dialog).getAllByText('Yotoqxona', { selector: 'p' })[0].closest('li')!
+    expect(bed).not.toHaveTextContent('Karavot')
+    expect(bed.querySelectorAll('p')[1]).toHaveTextContent(/^Yotoqxona$/)
+  })
+
+  it('a second apply keeps what the rooms were before the first, for undo', async () => {
+    const P_BED = { designState: { mine: 'bed' } }
+    const P_LIV = { designState: { mine: 'liv' } }
+    bulk.apply.mockResolvedValueOnce({
+      outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }, { roomId: 'liv', name: 'Zal', status: 'applied' }],
+      undo: [
+        { roomId: 'bed', name: 'Yotoqxona', prevState: P_BED, writtenAt: 'bed-1' },
+        { roomId: 'liv', name: 'Zal', prevState: P_LIV, writtenAt: 'liv-1' },
+      ],
+    })
+    // The second time the bedroom is read as the first apply left it, and the living room is skipped.
+    bulk.apply.mockResolvedValueOnce({
+      outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }, { roomId: 'liv', name: 'Zal', status: 'changed' }],
+      undo: [{ roomId: 'bed', name: 'Yotoqxona', prevState: { designState: { first: 'apply' } }, writtenAt: 'bed-2' }],
+    })
+    bulk.undo.mockResolvedValue([])
+    await appliedWithRooms()
+    await confirmAll()
+    await screen.findByText(/2 ta xonaga qo'llandi/)
+    fireEvent.click(screen.getByLabelText(/Mebel/))
+    await confirmAll()
+    await screen.findByText(/1 ta xonaga qo'llandi/)
+    fireEvent.click(screen.getByRole('button', { name: 'Qaytarish' }))
+    await waitFor(() => expect(bulk.undo).toHaveBeenCalledTimes(1))
+    expect(bulk.undo.mock.calls[0][0]).toEqual([
+      { roomId: 'bed', name: 'Yotoqxona', prevState: P_BED, writtenAt: 'bed-2' },
+      { roomId: 'liv', name: 'Zal', prevState: P_LIV, writtenAt: 'liv-1' },
+    ])
+  })
+
+  it('another room opened in the studio leaves nothing of this one to undo or apply', async () => {
+    bulk.apply.mockResolvedValue({ outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied' }], undo: UNDO })
+    const { rerender } = await appliedWithRooms()
+    await confirmAll()
+    await screen.findByText(/1 ta xonaga qo'llandi/)
+    rerender(<AiBuilderSheet open={false} onOpenChange={vi.fn()} roomId="bed" roomType="yotoqxona" aptId="apt" onSave={savesOk()} />)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull(), { timeout: 5000 })
+    expect(screen.queryByRole('button', { name: 'Qaytarish' })).toBeNull()
+    expect(screen.queryByRole('button', { name: "Barcha xonalarga qo'llash" })).toBeNull()
+    expect(screen.queryByText(/1 ta xonaga qo'llandi/)).toBeNull()
+    expect(bulk.undo).not.toHaveBeenCalled()
   })
 
   it('undo restores this room, then the others, and names the rooms it left as they were', async () => {
