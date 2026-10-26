@@ -208,7 +208,9 @@ describe('applyDesignPlan lays the furniture out in groups', () => {
       { id: 'chair', name: 'Stul', role: 'dining_chair' },
     ]), ALL_PARTS, CATALOG, 'mehmonxona')
     expect(applied.furniture).toBe(1)
-    expect(applied.dropped).toEqual([{ name: 'Ovqat stoli', count: 1 }, { name: 'Stul', count: chairCount(1.4) }])
+    expect(applied.dropped).toEqual([
+      { name: 'Ovqat stoli', count: 1, role: 'dining_table' }, { name: 'Stul', count: chairCount(1.4), role: 'dining_chair' },
+    ])
     expect(applied.skipped).toBe(1 + chairCount(1.4))
   })
 })

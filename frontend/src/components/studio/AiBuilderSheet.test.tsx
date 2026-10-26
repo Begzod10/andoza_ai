@@ -286,6 +286,16 @@ describe('what the design really put in the room', () => {
     expect(furnitureRow()).not.toHaveTextContent('Katta divan')
   })
 
+  it('the summary no longer describes a piece that did not fit; a swapped one it still does', async () => {
+    const summary = "Devorlar to'q rangda. Devor oldida katta divan turadi. Kiyim shkafi C devorda."
+    aiDesign.mockResolvedValueOnce({ ...TIGHT, summary })
+    renderSheet({ roomType: 'yotoqxona', onSave: savesOk() })
+    await generate()
+    expect(await screen.findByText("Devorlar to'q rangda. Kiyim shkafi C devorda.")).toBeInTheDocument()
+    expect(screen.queryByText(/katta divan turadi/)).toBeNull()
+    expect(screen.getByText('Joy yetmadi: Katta divan')).toBeInTheDocument()
+  })
+
   it('names what did not fit once: under the summary, not in the status line too', async () => {
     aiDesign.mockResolvedValueOnce(TIGHT)
     renderSheet({ roomType: 'yotoqxona', onSave: savesOk() })

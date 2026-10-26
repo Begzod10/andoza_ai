@@ -41,8 +41,8 @@ export function restoreDesign(snapshot: DesignSnapshot): void {
 export interface AppliedCounts { walls: boolean; floor: boolean; lights: number; furniture: number
   /** Pieces left out because there was no clean place for them (the total of `dropped`). */
   skipped: number
-  /** What was left out, by name, with how many. */
-  dropped: Array<{ name: string; count: number }>
+  /** What was left out, by name, with how many and the role it was asked for as. */
+  dropped: Array<{ name: string; count: number; role: FurnitureRole }>
   /** What was put in the room, by name (a stand-in by its own), with how many: chairs round a table count each. */
   placed: Array<{ name: string; count: number }>
   /** The pieces that did not fit and were swapped for a smaller one of their kind, each swap once, with how many. */
@@ -228,7 +228,8 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       })
     }
     applied.furniture = placed.length
-    applied.dropped = dropped
+    // A swap's stand-in is placed, so whatever is left out is a piece of the plan's own.
+    applied.dropped = dropped.map((d) => ({ ...d, role: pieces.find((p) => p.name === d.name)?.role ?? 'decor' }))
     applied.swapped = countSwaps(swapped)
     const times = new Map<string, number>()
     for (const { piece } of placed) times.set(piece.name, (times.get(piece.name) ?? 0) + 1)

@@ -10,6 +10,7 @@ import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib
 import type { AppliedCounts, DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
+import { summaryWithout } from "@/lib/aiSummary"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
 import { effectiveRoomType } from "@/lib/roomType"
 import { RoomTypePicker } from "./RoomTypePicker"
@@ -422,7 +423,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
           <section className="space-y-3" aria-label={plan.title}>
             <div className="rounded-2xl bg-blue-50 px-4 py-3">
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
-              <p className="mt-1 text-sm leading-snug text-gray-700">{plan.summary}</p>
+              {/* Told before the layout: a sentence about a piece that did not fit would describe a room that is not there. */}
+              <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, applied.dropped) : plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
               {applied && applied.dropped.length > 0 && (
                 <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(applied.dropped) })}</p>
