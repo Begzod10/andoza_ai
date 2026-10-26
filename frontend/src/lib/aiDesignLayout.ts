@@ -333,22 +333,20 @@ function onOpening(model: RoomModel, wallId: string, along: number): boolean {
 /** How far in from the walls a floor lamp moved off the furniture stands (its centre), and the step along them, metres. */
 const LAMP_WALL_GAP = 0.25
 const LAMP_STEP = 0.3
-/** The gap left between a lamp put beside a piece and the piece itself, metres. */
-const LAMP_BESIDE = 0.05
 
 /**
- * Where a floor lamp meant for `at` (world metres) stands so that it is not inside any of
- * `furniture`: where it is when that is clear, else the nearest free spot among the zone's other
- * spots, the room's corners and points along its walls (inside the room, out of a door's swing).
- * With none free, just beside the nearest edge of the piece it stands in.
+ * Where a floor lamp meant for `at` (world metres) stands: where it is when that is inside the room,
+ * clear of `furniture` and out of a door's swing, else the nearest such spot among the zone's other
+ * spots, the room's corners and points along its walls. Null when there is none (a narrow balcony
+ * lined with its seats): the lamp is better left out than standing in a piece, a doorway or a wall.
  */
 export function floorLampSpot(
   at: { x: number; z: number }, size: { w: number; d: number }, zone: string, model: RoomModel, furniture: Rect[],
-): { x: number; z: number } {
+): { x: number; z: number } | null {
   const probe = (x: number, z: number): Rect => ({ x, z, w: size.w, d: size.d, rotation: 0 })
-  const inFurniture = (r: Rect) => furniture.some((f) => overlaps(r, f, 0))
-  const here = probe(at.x, at.z)
-  if (!inFurniture(here)) return at
+  const inDoorSwing = (r: Rect) => model.clear.some((c) => c.kind === 'door' && overlaps(r, c.rect, 0))
+  const clear = (r: Rect) => model.inside(r) && !furniture.some((f) => overlaps(r, f, 0)) && !inDoorSwing(r)
+  if (clear(probe(at.x, at.z))) return at
 
   const candidates: Array<[number, number]> = []
   for (let nth = 0; nth < 5; nth++) {
@@ -363,23 +361,10 @@ export function floorLampSpot(
     candidates.push(onWall(reach), onWall(-reach)) // the corners
     for (const along of slideOffsets(reach, LAMP_STEP)) candidates.push(onWall(along))
   }
-  const inDoorSwing = (r: Rect) => model.clear.some((c) => c.kind === 'door' && overlaps(r, c.rect, 0))
   const free = candidates
-    .filter(([x, z]) => { const r = probe(x, z); return model.inside(r) && !inFurniture(r) && !inDoorSwing(r) })
+    .filter(([x, z]) => clear(probe(x, z)))
     .sort((a, b) => Math.hypot(a[0] - at.x, a[1] - at.z) - Math.hypot(b[0] - at.x, b[1] - at.z))
-  if (free.length) return { x: free[0][0], z: free[0][1] }
-
-  // Nowhere free: just outside the piece it stands in, past the nearest of its edges that keeps it in the room.
-  const f = furniture.find((r) => overlaps(here, r, 0))!
-  const fx = Math.sin(f.rotation), fz = Math.cos(f.rotation)
-  const rx = Math.cos(f.rotation), rz = -Math.sin(f.rotation)
-  const u = (at.x - f.x) * rx + (at.z - f.z) * rz, v = (at.x - f.x) * fx + (at.z - f.z) * fz
-  const half = Math.max(size.w, size.d) / 2 + LAMP_BESIDE
-  const sides = [
-    { u: f.w / 2 + half, v }, { u: -(f.w / 2 + half), v }, { u, v: f.d / 2 + half }, { u, v: -(f.d / 2 + half) },
-  ].map((s) => ({ x: f.x + rx * s.u + fx * s.v, z: f.z + rz * s.u + fz * s.v }))
-    .sort((a, b) => Math.hypot(a.x - at.x, a.z - at.z) - Math.hypot(b.x - at.x, b.z - at.z))
-  return sides.find((s) => model.inside(probe(s.x, s.z))) ?? sides[0]
+  return free.length ? { x: free[0][0], z: free[0][1] } : null
 }
 
 /** The spot for a light fixture, in the store's millimetres from the room's corner. */

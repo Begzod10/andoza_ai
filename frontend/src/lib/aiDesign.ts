@@ -259,6 +259,8 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
       if (type.mount === 'floor' && model.walls.length) {
         const at = { x: (spot.xMm - model.offsetMm.x) / 1000, z: (spot.zMm - model.offsetMm.z) / 1000 }
         const moved = floorLampSpot(at, type.sizeM, light.zone, model, solid)
+        // Nowhere clear of the furniture, the doors and the walls: the lamp is left out.
+        if (!moved) continue
         spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
         // The next floor lamp keeps off this one (two in one corner would share its spot).
         solid.push({ x: moved.x, z: moved.z, w: type.sizeM.w, d: type.sizeM.d, rotation: 0 })

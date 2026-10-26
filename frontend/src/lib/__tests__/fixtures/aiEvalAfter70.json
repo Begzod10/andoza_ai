@@ -1,0 +1,1056 @@
+{
+ "catalog": [
+  {
+   "id": "fec1be0e-ce7b-4599-b6dc-f9c6f54fced3",
+   "name_uz": "ZZ Divan Verona",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 220,
+   "footprint_d": 95,
+   "height_cm": 90,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "6e8574e3-26b2-4510-8666-2a87ab3ac79e",
+   "name_uz": "ZZ Divan Chester",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 230,
+   "footprint_d": 100,
+   "height_cm": 95,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "1ea123b4-dcc1-4f84-b633-1b1c3403472b",
+   "name_uz": "ZZ Divan Nova",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 210,
+   "footprint_d": 95,
+   "height_cm": 85,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "22c5067b-b091-457f-a50a-cfc51b4c5796",
+   "name_uz": "ZZ Divan Vektor",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 220,
+   "footprint_d": 90,
+   "height_cm": 75,
+   "styles": [
+    "hitech"
+   ]
+  },
+  {
+   "id": "9ab1ace5-6d75-4c4d-bafa-1ffcafc73475",
+   "name_uz": "ZZ Divan Samarqand",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 90,
+   "height_cm": 85,
+   "styles": [
+    "milliy"
+   ]
+  },
+  {
+   "id": "f2adde93-f557-49a4-b6ae-01ae07e9a98a",
+   "name_uz": "ZZ Divan Oslo",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 90,
+   "height_cm": 85,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "09abfc25-7ecd-402f-8908-4d3c53f3d7a3",
+   "name_uz": "ZZ Divan Bruklin",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 220,
+   "footprint_d": 95,
+   "height_cm": 80,
+   "styles": [
+    "loft"
+   ]
+  },
+  {
+   "id": "01f7e205-8bd1-497c-8496-1b188b41c6f0",
+   "name_uz": "ZZ Divan Line",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 90,
+   "height_cm": 75,
+   "styles": [
+    "minimalist"
+   ]
+  },
+  {
+   "id": "804990d4-6589-43df-8229-99d4edeb7e0c",
+   "name_uz": "ZZ Burchakli divan Comfort",
+   "category": "divan",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 260,
+   "footprint_d": 160,
+   "height_cm": 85,
+   "styles": []
+  },
+  {
+   "id": "7e0f58fa-4d7d-46cf-aab5-c2423af501d0",
+   "name_uz": "ZZ Kreslo Verona",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 85,
+   "footprint_d": 85,
+   "height_cm": 90,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "57a6309b-31e5-4279-9649-53f7a2b1d48a",
+   "name_uz": "ZZ Kreslo Barokko",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 85,
+   "footprint_d": 85,
+   "height_cm": 95,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "c6c3d4bb-f8e4-4133-85a9-f42f4610c45e",
+   "name_uz": "ZZ Kreslo Bergen",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 75,
+   "footprint_d": 80,
+   "height_cm": 85,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "61f60a53-9bd3-4a5e-9f55-9cf0e1eb7adf",
+   "name_uz": "ZZ Kreslo Indastrial",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 80,
+   "footprint_d": 80,
+   "height_cm": 80,
+   "styles": [
+    "loft"
+   ]
+  },
+  {
+   "id": "9fd519c3-d11d-487c-ad37-c65846726c44",
+   "name_uz": "ZZ Kreslo Buxoro",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 85,
+   "footprint_d": 85,
+   "height_cm": 85,
+   "styles": [
+    "milliy"
+   ]
+  },
+  {
+   "id": "0558ca02-eb18-4a66-b457-7b101911f6fd",
+   "name_uz": "ZZ Kreslo Soft",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 80,
+   "footprint_d": 80,
+   "height_cm": 80,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "7100f497-7131-4fba-b19d-bf048bb63fc8",
+   "name_uz": "ZZ Jurnal stoli marmar",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 110,
+   "footprint_d": 60,
+   "height_cm": 45,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "8122e85e-b317-484f-9623-bacc4df3952e",
+   "name_uz": "ZZ Jurnal stoli shisha-metall",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 110,
+   "footprint_d": 60,
+   "height_cm": 40,
+   "styles": [
+    "hitech"
+   ]
+  },
+  {
+   "id": "c161552a-79d6-47f9-b3c7-a29493fc5b63",
+   "name_uz": "ZZ Jurnal stoli eman",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 100,
+   "footprint_d": 60,
+   "height_cm": 45,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "8c1d9d7b-ee42-4918-8b34-d357c4242c4c",
+   "name_uz": "ZZ Jurnal stoli metall-yog'och",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 110,
+   "footprint_d": 60,
+   "height_cm": 45,
+   "styles": [
+    "loft"
+   ]
+  },
+  {
+   "id": "2661a9b9-7745-49cc-97a9-6690f7d4e8dc",
+   "name_uz": "ZZ Jurnal stoli o'ymakor",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 100,
+   "footprint_d": 60,
+   "height_cm": 40,
+   "styles": [
+    "milliy"
+   ]
+  },
+  {
+   "id": "4a2d682c-6223-4d1f-8411-c08c485dfca6",
+   "name_uz": "ZZ Jurnal stoli zarhal",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 110,
+   "footprint_d": 65,
+   "height_cm": 45,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "c4d06ee9-64b2-45b3-8204-05e95cc141b4",
+   "name_uz": "ZZ Jurnal stoli Mono",
+   "category": "stol",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 100,
+   "footprint_d": 55,
+   "height_cm": 35,
+   "styles": [
+    "minimalist"
+   ]
+  },
+  {
+   "id": "84a08e24-44fd-4bf9-8ce1-ce9963d11029",
+   "name_uz": "ZZ TV tumba Grafit",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 40,
+   "height_cm": 50,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "bed79997-ff3e-4e32-b8e0-c8aac77a4fcd",
+   "name_uz": "ZZ TV tumba Glyanets",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 180,
+   "footprint_d": 40,
+   "height_cm": 45,
+   "styles": [
+    "hitech"
+   ]
+  },
+  {
+   "id": "48bb6cf6-9217-4e61-b663-8eea5cfce341",
+   "name_uz": "ZZ TV tumba Nord",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 150,
+   "footprint_d": 40,
+   "height_cm": 50,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "bb7b3b79-4c2c-49b1-9f25-e56456171c8f",
+   "name_uz": "ZZ TV tumba Indastrial",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 45,
+   "height_cm": 55,
+   "styles": [
+    "loft"
+   ]
+  },
+  {
+   "id": "e3edf99b-de2e-4dbb-a494-e398a898fac1",
+   "name_uz": "ZZ TV tumba Paris",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 45,
+   "height_cm": 60,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "aef44e8f-32d0-4b95-a938-7f60ef3712a0",
+   "name_uz": "ZZ Gilam Buxoro naqshli",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 300,
+   "height_cm": 2,
+   "styles": [
+    "milliy"
+   ]
+  },
+  {
+   "id": "310f6e5a-1b55-4efb-9fa6-f81cd88943aa",
+   "name_uz": "ZZ Gilam Fors",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 300,
+   "height_cm": 2,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "6c4c0838-43f7-4d13-8e8f-1737f85f74e6",
+   "name_uz": "ZZ Gilam jun och",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 230,
+   "height_cm": 2,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "dcb02cb1-338d-4f22-a7a9-ad474469b916",
+   "name_uz": "ZZ Gilam kulrang",
+   "category": "boshqa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 230,
+   "height_cm": 2,
+   "styles": []
+  },
+  {
+   "id": "9ea5a2b1-d82a-4a3c-b701-3a9bce29935e",
+   "name_uz": "ZZ Kitob shkafi Oxford",
+   "category": "shkaf",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 90,
+   "footprint_d": 35,
+   "height_cm": 200,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "ca8e57c4-f7a0-44bb-bf5a-af82d0515b4f",
+   "name_uz": "ZZ Stellaj Loft",
+   "category": "shkaf",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 90,
+   "footprint_d": 35,
+   "height_cm": 190,
+   "styles": [
+    "loft"
+   ]
+  },
+  {
+   "id": "79056b32-7a18-48d5-af95-14a8c4e500cd",
+   "name_uz": "ZZ Vitrina Neo",
+   "category": "shkaf",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 90,
+   "footprint_d": 40,
+   "height_cm": 200,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "831368fd-b631-401f-9fdc-44f6ce865189",
+   "name_uz": "ZZ Javon Nord",
+   "category": "shkaf",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 80,
+   "footprint_d": 35,
+   "height_cm": 180,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "45c50f0c-9860-4c4e-8228-bf4b59576a51",
+   "name_uz": "ZZ Torsher",
+   "category": "lampa",
+   "room_type": "mehmonxona",
+   "placement": "pol",
+   "footprint_w": 40,
+   "footprint_d": 40,
+   "height_cm": 160,
+   "styles": []
+  },
+  {
+   "id": "f2fd2d33-c805-4bfe-a814-91a3df64276f",
+   "name_uz": "ZZ Pufik",
+   "category": "boshqa",
+   "room_type": null,
+   "placement": "pol",
+   "footprint_w": 50,
+   "footprint_d": 50,
+   "height_cm": 45,
+   "styles": []
+  },
+  {
+   "id": "1492dcf7-881d-4204-be7a-7004fc66292f",
+   "name_uz": "ZZ Stul",
+   "category": "stul",
+   "room_type": null,
+   "placement": "pol",
+   "footprint_w": 45,
+   "footprint_d": 45,
+   "height_cm": 85,
+   "styles": []
+  },
+  {
+   "id": "b5b50c1c-fb60-4a74-a31e-9a2b9f086120",
+   "name_uz": "ZZ Ovqat stoli Marmar",
+   "category": "stol",
+   "room_type": "oshxona",
+   "placement": "pol",
+   "footprint_w": 150,
+   "footprint_d": 90,
+   "height_cm": 75,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "66cc902f-eb5c-4629-9708-bebe31f1b296",
+   "name_uz": "ZZ Ovqat stuli Velvet",
+   "category": "stul",
+   "room_type": "oshxona",
+   "placement": "pol",
+   "footprint_w": 45,
+   "footprint_d": 50,
+   "height_cm": 90,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "bdc8bd10-2523-4bd9-a558-df9e4ea3a1cc",
+   "name_uz": "ZZ Oshxona shkafi",
+   "category": "shkaf",
+   "room_type": "oshxona",
+   "placement": "pol",
+   "footprint_w": 60,
+   "footprint_d": 60,
+   "height_cm": 85,
+   "styles": []
+  },
+  {
+   "id": "27f637a2-4578-41ca-9fcf-6c351fc8b9ae",
+   "name_uz": "ZZ Muzlatgich",
+   "category": "boshqa",
+   "room_type": "oshxona",
+   "placement": "pol",
+   "footprint_w": 70,
+   "footprint_d": 70,
+   "height_cm": 180,
+   "styles": []
+  },
+  {
+   "id": "17bfa315-44b3-46b9-b8c8-676332ef6da7",
+   "name_uz": "ZZ Hammom shkafi",
+   "category": "shkaf",
+   "room_type": "hammom",
+   "placement": "pol",
+   "footprint_w": 60,
+   "footprint_d": 45,
+   "height_cm": 85,
+   "styles": []
+  },
+  {
+   "id": "6d7fe0af-bb41-4cfd-8f53-20570d48a580",
+   "name_uz": "ZZ Kir savati",
+   "category": "boshqa",
+   "room_type": "hammom",
+   "placement": "pol",
+   "footprint_w": 40,
+   "footprint_d": 40,
+   "height_cm": 60,
+   "styles": []
+  },
+  {
+   "id": "afa93484-5816-4cc9-a22c-782594efc131",
+   "name_uz": "ZZ Karavot Verona 160",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 160,
+   "height_cm": 100,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "c882b03c-33a8-4fa3-9030-b9d1c5612f91",
+   "name_uz": "ZZ Karavot Nord 160",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 160,
+   "height_cm": 90,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "f9c748d1-7c71-421e-8d36-a42dbde7c0a7",
+   "name_uz": "ZZ Karavot Grafit 180",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 210,
+   "footprint_d": 180,
+   "height_cm": 95,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "b010b1d7-a682-4d84-b5ad-a0b30ebd3842",
+   "name_uz": "ZZ Karavot Saroy",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 210,
+   "footprint_d": 180,
+   "height_cm": 120,
+   "styles": [
+    "klassik"
+   ]
+  },
+  {
+   "id": "eb2f42f9-78e2-4a02-a9d6-88741d3ddaac",
+   "name_uz": "ZZ Bir kishilik karavot",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 200,
+   "footprint_d": 90,
+   "height_cm": 90,
+   "styles": []
+  },
+  {
+   "id": "992f63b9-2feb-4f58-98f0-ed3171c4058a",
+   "name_uz": "ZZ Bolalar karavoti",
+   "category": "karavot",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 80,
+   "height_cm": 80,
+   "styles": []
+  },
+  {
+   "id": "bc6be3b3-bcfb-436f-b39e-4193d07fec23",
+   "name_uz": "ZZ Kiyim shkafi Grafit",
+   "category": "shkaf",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 180,
+   "footprint_d": 60,
+   "height_cm": 220,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "e75b2c4e-9888-4d2b-9e0d-5fa6eff47574",
+   "name_uz": "ZZ Kiyim shkafi Verona",
+   "category": "shkaf",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 160,
+   "footprint_d": 60,
+   "height_cm": 220,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "b7fb39bd-0840-4f92-bead-2502eee3e097",
+   "name_uz": "ZZ Kiyim shkafi Nord",
+   "category": "shkaf",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 150,
+   "footprint_d": 58,
+   "height_cm": 210,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "8408a174-7966-49f9-a601-f6155a775e07",
+   "name_uz": "ZZ Tumbochka Nord",
+   "category": "boshqa",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 45,
+   "footprint_d": 40,
+   "height_cm": 50,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "e43867bb-d5d5-4686-ad75-ebbc0d87578d",
+   "name_uz": "ZZ Tumbochka Verona",
+   "category": "boshqa",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 50,
+   "footprint_d": 40,
+   "height_cm": 55,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "38445576-de39-4f8e-b496-276c8b932475",
+   "name_uz": "ZZ Tumbochka Grafit",
+   "category": "boshqa",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 45,
+   "footprint_d": 40,
+   "height_cm": 50,
+   "styles": [
+    "zamonaviy"
+   ]
+  },
+  {
+   "id": "a7ea7c46-b4a4-4466-9807-af8c7585d23a",
+   "name_uz": "ZZ Tuvalet stoli Verona",
+   "category": "stol",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 100,
+   "footprint_d": 45,
+   "height_cm": 75,
+   "styles": [
+    "neoklassika"
+   ]
+  },
+  {
+   "id": "b0dae3d3-73b9-46f1-be5c-092f9c5c2503",
+   "name_uz": "ZZ O'yin stoli",
+   "category": "stol",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 100,
+   "footprint_d": 60,
+   "height_cm": 55,
+   "styles": []
+  },
+  {
+   "id": "56eb4d7e-c2d6-41ee-a918-0ad142733f7f",
+   "name_uz": "ZZ Bolalar kitob javoni",
+   "category": "shkaf",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 80,
+   "footprint_d": 30,
+   "height_cm": 120,
+   "styles": []
+  },
+  {
+   "id": "9fb6cac4-8f6b-4e52-b344-760c49b58bc2",
+   "name_uz": "ZZ Yozuv stoli Nord",
+   "category": "stol",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 120,
+   "footprint_d": 60,
+   "height_cm": 75,
+   "styles": [
+    "skandinav"
+   ]
+  },
+  {
+   "id": "d5a4db52-70b5-41c0-aa97-3d3be9c4ca83",
+   "name_uz": "ZZ Ish stuli",
+   "category": "stul",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 50,
+   "footprint_d": 50,
+   "height_cm": 90,
+   "styles": []
+  },
+  {
+   "id": "67448557-eeaa-4187-8e49-eba977b3f998",
+   "name_uz": "ZZ Ish stoli",
+   "category": "stol",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 120,
+   "footprint_d": 60,
+   "height_cm": 75,
+   "styles": []
+  },
+  {
+   "id": "760e3de7-29ce-4d73-ba36-bebdacbc7ee9",
+   "name_uz": "ZZ Kitob javoni",
+   "category": "shkaf",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 80,
+   "footprint_d": 30,
+   "height_cm": 180,
+   "styles": []
+  },
+  {
+   "id": "9362d68b-e8d2-4265-8b56-e92ece89dac2",
+   "name_uz": "ZZ Torsher lampa",
+   "category": "lampa",
+   "room_type": "yotoqxona",
+   "placement": "pol",
+   "footprint_w": 35,
+   "footprint_d": 35,
+   "height_cm": 150,
+   "styles": []
+  }
+ ],
+ "rooms": {
+  "living45": {
+   "name": "Mehmonxona 4.5x3.2",
+   "room_type": "mehmonxona",
+   "walls": [
+    {
+     "id": "A",
+     "length": 4.5,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 1.6,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 3.2,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.75
+      }
+     ]
+    },
+    {
+     "id": "C",
+     "length": 4.5,
+     "elements": []
+    },
+    {
+     "id": "D",
+     "length": 3.2,
+     "elements": []
+    }
+   ]
+  },
+  "small": {
+   "name": "Kichik xona 3x2.6",
+   "room_type": "yotoqxona",
+   "walls": [
+    {
+     "id": "A",
+     "length": 3,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 1.2,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 2.6,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.25
+      }
+     ]
+    },
+    {
+     "id": "C",
+     "length": 3,
+     "elements": []
+    },
+    {
+     "id": "D",
+     "length": 2.6,
+     "elements": []
+    }
+   ]
+  },
+  "balcony": {
+   "name": "Balkon 3x1.4, eshik C o'rtasida",
+   "room_type": "balkon",
+   "walls": [
+    {
+     "id": "A",
+     "length": 3,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 2.4,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 1.4,
+     "elements": []
+    },
+    {
+     "id": "C",
+     "length": 3,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "D",
+     "length": 1.4,
+     "elements": []
+    }
+   ]
+  },
+  "balconyB": {
+   "name": "Balkon 3x1.4, eshik B da",
+   "room_type": "balkon",
+   "walls": [
+    {
+     "id": "A",
+     "length": 3,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 2.4,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 1.4,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "C",
+     "length": 3,
+     "elements": []
+    },
+    {
+     "id": "D",
+     "length": 1.4,
+     "elements": []
+    }
+   ]
+  },
+  "balconyC2": {
+   "name": "Balkon 3x1.4, eshik C 0.2 da",
+   "room_type": "balkon",
+   "walls": [
+    {
+     "id": "A",
+     "length": 3,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 2.4,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 1.4,
+     "elements": []
+    },
+    {
+     "id": "C",
+     "length": 3,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.2
+      }
+     ]
+    },
+    {
+     "id": "D",
+     "length": 1.4,
+     "elements": []
+    }
+   ]
+  },
+  "balconyC8": {
+   "name": "Balkon 3x1.4, eshik C 0.8 da",
+   "room_type": "balkon",
+   "walls": [
+    {
+     "id": "A",
+     "length": 3,
+     "elements": [
+      {
+       "type": "deraza",
+       "width": 2.4,
+       "height": 1.4,
+       "sill_height": 0.9,
+       "position": 0.5
+      }
+     ]
+    },
+    {
+     "id": "B",
+     "length": 1.4,
+     "elements": []
+    },
+    {
+     "id": "C",
+     "length": 3,
+     "elements": [
+      {
+       "type": "eshik",
+       "width": 0.9,
+       "height": 2.1,
+       "sill_height": 0,
+       "position": 0.8
+      }
+     ]
+    },
+    {
+     "id": "D",
+     "length": 1.4,
+     "elements": []
+    }
+   ]
+  }
+ }
+}
