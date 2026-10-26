@@ -477,6 +477,9 @@ def test_the_endpoint_hands_the_designer_each_piece_s_styles(client):
     ("divan", "Kreslo", "armchair"),
     ("stol", "Компьютерный стол", "desk"), ("kreslo", "Компьютерное кресло", "desk_chair"),
     ("stul", "Офисный стул", "desk_chair"),
+    # "ovqatlanish" ends in "ish": a dining chair or table is not a desk chair or desk
+    ("stul", "KLEIN ovqatlanish stuli", "dining_chair"), ("stol", "NARVI ovqatlanish stoli — oq", "dining_table"),
+    ("stul", "Ish stuli Pro", "desk_chair"), ("stol", "Ish stoli", "desk"),
 ])
 def test_infer_role(category, name, role):
     assert ad.infer_role(category, name) == role
@@ -743,6 +746,81 @@ def test_menu_kabinet_prefers_desk():
     _, by_label = ad.furniture_menu(items, "kabinet")
     order = [v["id"] for v in by_label.values()]
     assert set(order[:2]) == {"chair", "desk"} and order.index("sofa") < order.index("bed")
+
+
+def _living(n):
+    return [
+        {"id": f"l{k}", "name_uz": f"Zal {k}", "category": "divan", "room_type": "mehmonxona", "placement": "pol"}
+        for k in range(n)
+    ]
+
+
+def test_menu_kabinet_always_offers_a_desk_chair_and_shelf_from_other_rooms_first():
+    study = [
+        {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "chair", "name_uz": "Ofis stuli", "category": "stul", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "shelf", "name_uz": "Kitob javoni", "category": "javon", "room_type": "yotoqxona", "placement": "pol"},
+    ]
+    bed = {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"}
+    items = _living(ad.MAX_CATALOG_IN_PROMPT + 10) + [bed] + study
+    _, by_label = ad.furniture_menu(items, "kabinet")
+    order = [v["id"] for v in by_label.values()]
+    assert set(order[:3]) == {"desk", "chair", "shelf"}
+    assert "bed" not in order and len(order) == ad.MAX_CATALOG_IN_PROMPT
+
+
+def _demo_catalog():
+    from pathlib import Path
+    data = json.loads((Path(ad.__file__).parents[1] / "seed_data/demo_stores/catalog.json").read_text(encoding="utf-8"))
+    return [
+        {**item, "id": f"{store['slug']}-{n}"}
+        for store in data["stores"] for n, item in enumerate(store["items"]) if item.get("kind") == "furniture"
+    ]
+
+
+def test_a_study_s_always_offered_pieces_hold_no_dining_piece_or_chest_of_drawers():
+    names = [i["name_uz"] for i in ad.always_offered(_demo_catalog(), "kabinet")]
+    assert not any(word in name.lower() for name in names for word in ("ovqat", "komod"))
+
+
+def test_a_study_takes_book_shelves_and_cupboards_but_not_kitchen_or_bathroom_shelves():
+    items = [
+        {"id": "kitchen", "name_uz": "Oshxona javoni", "category": "shkaf", "room_type": "oshxona"},
+        {"id": "bath", "name_uz": "Javon", "category": "shkaf", "room_type": "hammom"},
+        {"id": "untagged-kitchen", "name_uz": "Oshxona javoni", "category": "shkaf", "room_type": None},
+        {"id": "komod", "name_uz": "Komod Rumba", "category": "shkaf", "room_type": None},
+        {"id": "vitrina", "name_uz": "Vitrina", "category": "shkaf", "room_type": "mehmonxona"},
+        {"id": "books", "name_uz": "Kitob shkafi", "category": "shkaf", "room_type": "yotoqxona"},
+        {"id": "rack", "name_uz": "Stellaj", "category": "shkaf", "room_type": "yotoqxona"},
+    ]
+    assert {i["id"] for i in ad.always_offered(items, "kabinet")} == {"books", "rack"}
+    assert ad.always_offered(items, "mehmonxona") == []
+
+
+def test_a_study_offers_at_most_three_of_each_always_offered_role_by_style():
+    desks = [
+        {"id": f"d{k}", "name_uz": f"Yozuv stoli {k}", "category": "stol", "room_type": "yotoqxona", "placement": "pol"}
+        for k in range(10)
+    ]
+    desks[-1]["styles"] = ["hitech"]
+    always = ad.always_offered(desks, "kabinet", "hi-tech uslubida")
+    assert len(always) == 3 and always[0]["id"] == "d9"
+    _, by_label = ad.furniture_menu(desks + _living(20), "kabinet", "hi-tech uslubida")
+    order = [v["id"] for v in by_label.values()]
+    assert order[0] == "d9" and sum(i.startswith("d") for i in order) == 3
+    assert sum(i.startswith("l") for i in order) == 20
+
+
+def test_menu_mehmonxona_does_not_pull_in_other_rooms_desks():
+    desk = {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "yotoqxona", "placement": "pol"}
+    items = [desk] + _living(10)
+    _, by_label = ad.furniture_menu(items, "mehmonxona")
+    assert [v["id"] for v in by_label.values()] == [f"l{k}" for k in range(10)]
+
+
+def test_menu_kabinet_without_a_desk_still_builds():
+    _, by_label = ad.furniture_menu(_living(10), "kabinet")
+    assert [v["id"] for v in by_label.values()] == [f"l{k}" for k in range(10)]
 
 
 # --- fix round 1 -------------------------------------------------------------------------------

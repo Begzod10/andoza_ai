@@ -15,6 +15,9 @@ describe('furniture roles', () => {
     ['divan', 'Kreslo', 'armchair'],
     ['stol', 'Компьютерный стол', 'desk'], ['kreslo', 'Компьютерное кресло', 'desk_chair'],
     ['stul', 'Офисный стул', 'desk_chair'],
+    // "ovqatlanish" ends in "ish": a dining chair or table is not a desk chair or desk
+    ['stul', 'KLEIN ovqatlanish stuli', 'dining_chair'], ['stol', 'NARVI ovqatlanish stoli — oq', 'dining_table'],
+    ['stul', 'Ish stuli Pro', 'desk_chair'], ['stol', 'Ish stoli', 'desk'],
   ])('%s / %s is %s', (category, name, role) => {
     expect(inferRole(category, name)).toBe(role)
   })

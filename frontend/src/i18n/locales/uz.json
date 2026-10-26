@@ -269,6 +269,11 @@
       "toxtatish": "— to'xtatish"
     },
     "lib": {
+      "presetRoom": {
+        "adapted": "{{style}} uslubi {{room}} uchun moslandi.",
+        "floor": "Pol: namlikka chidamli kafel.",
+        "bathroom": "Devorlar bo'yalgan, asosiy chiroq shiftda."
+      },
       "preset": {
         "neoklassika": {
           "label": "Neoklassika",

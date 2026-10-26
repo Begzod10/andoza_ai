@@ -14,14 +14,14 @@ const ROLE_WORD: Partial<Record<string, string>> = {
 }
 
 // The start of a word: "tumba" names "tumbasi", not "tumbochka"; an Uzbek apostrophe is inside a word.
-const WORD_START = "(?<![\\p{L}\\p{N}'ʻʼ‘’`])"
+export const WORD_START = "(?<![\\p{L}\\p{N}'ʻʼ‘’`])"
 // The end of one, after the endings a name or role word takes in a sentence ("shkafi", "tumbasi",
 // "gilamlar", "divanga"): "Gilam" names "Gilamlar", not "Gilamcha".
 const WORD_END = "(?:lar)?(?:i|si)?(?:ga|da|dan|ni|ning|dir)?(?![\\p{L}\\p{N}'ʻʼ‘’`])"
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A sentence ends at . ! ? or … followed by a space: "3.5 m" and "yog'och" do not end one. */
-const SENTENCE_END = /(?<=[.!?…])\s+/u
+export const SENTENCE_END = /(?<=[.!?…])\s+/u
 
 /** A furniture list: "Mebel: A, B va C." as the backend's `describe_plan` writes it, its items and its end. */
 const LIST = /^(\s*mebel\s*:\s*)?(.*?)([.!?…]*)$/isu

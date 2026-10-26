@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import i18n from '@/i18n'
+import { describe, it, expect, afterEach } from 'vitest'
+import i18n, { applyLanguage, type Language } from '@/i18n'
 import type { CatalogFurniture } from '@/lib/api'
 import { FLOOR_PATTERN_DEFS } from '@/lib/floorGeometry'
 import { LIGHT_TYPES } from '@/lib/lightCatalog'
@@ -400,6 +400,36 @@ describe('design presets', () => {
       expect(pairs(id, 'hammom', ROOMS.filter((c) => c.id !== 'bath-cabinet'))).toEqual([])
     })
 
+    it.each(presets)('%s in a bathroom: painted walls, no chandelier, pendant or floor lamp, and a ceiling light', (id) => {
+      const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+      const bath = plan(id, 'hammom')
+      const main = preset.walls.main!
+      // A wallpaper wall becomes paint in its own base colour; a painted one is as it was.
+      expect(bath.walls.main).toEqual(main.type === 'oboy' ? { type: 'paint', color: main.base_color } : main)
+      const types = bath.lights.map((l) => l.type)
+      for (const banned of ['chandelier', 'pendant', 'floor_lamp']) expect(types, banned).not.toContain(banned)
+      const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)!.mount
+      expect(types.some((t) => ['ceiling', 'recessed', 'track'].includes(mountOf(t)))).toBe(true)
+      // The centre still has a light, and a wall lamp is only ever the moisture-proof bath light.
+      expect(bath.lights.some((l) => l.zone === 'center')).toBe(true)
+      expect(bath.lights.filter((l) => mountOf(l.type) === 'wall').every((l) => l.type === 'bath')).toBe(true)
+    })
+
+    it('a bathroom: a centre chandelier gives way to the preset\'s other ceiling light, else a downlight; one bra becomes the bath light', () => {
+      // neoklassika: chandelier and two bras.
+      expect(plan('neoklassika', 'hammom').lights).toEqual([{ type: 'downlight', zone: 'center' }, { type: 'bath', zone: 'wall_B' }])
+      // dark: chandelier, a floor lamp and an LED line on wall C.
+      expect(plan('dark', 'hammom').lights).toEqual([{ type: 'led_linear', zone: 'center' }, { type: 'led_linear', zone: 'wall_C' }])
+      // loft: a track in the centre stays, its floor lamp goes.
+      expect(plan('loft', 'hammom').lights).toEqual([{ type: 'track', zone: 'center' }, { type: 'spotlight', zone: 'wall_C' }])
+    })
+
+    it.each(presets)('%s in a kitchen keeps its walls and lights', (id) => {
+      const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+      expect(plan(id, 'oshxona').walls.main).toEqual(preset.walls.main)
+      expect(plan(id, 'oshxona').lights.map((l) => l.type)).toEqual(preset.lights.map((l) => l.type))
+    })
+
     it.each(presets)('%s in a living room, a bedroom, a children\'s room or an unknown room is as before', (id) => {
       const preset = DESIGN_PRESETS.find((p) => p.id === id)!
       for (const roomType of ['mehmonxona', 'yotoqxona', 'bolalar', undefined]) {
@@ -460,6 +490,65 @@ describe('design presets', () => {
     it('a lone dining table becomes the coffee table', () => {
       expect(roleOf(presetPlan(tablePreset, [item('ovqat', 'Ovqat stoli', 'stol')]), 'ovqat')).toBe('coffee_table')
     })
+  })
+})
+
+describe("a ready-made style's summary matches the room it is applied to", () => {
+  afterEach(() => applyLanguage('uz'))
+  const LANGS: Language[] = ['uz', 'ru', 'en']
+  const cases = LANGS.flatMap((lang) => DESIGN_PRESETS.map((p) => [lang, p.id] as const))
+  const FLOOR_WORDS = /parket|laminat|beton|yog'och pol|паркет|ламинат|бетон|деревянн\S* пол|parquet|laminate|concrete|wood floor|herringbone|yelkan|ёлочк/i
+  const BATH_WORDS = /oboy|qandil|torsher|osma chiroq|обо[ия]|люстр|торшер|подвесн|wallpaper|chandelier|floor lamp|pendant/i
+
+  it.each(cases)('%s %s in a kitchen: no wood or concrete floor, and the tile sentence', (lang, id) => {
+    applyLanguage(lang)
+    const summary = presetPlan(id, [], 'oshxona')!.summary
+    expect(summary).not.toMatch(FLOOR_WORDS)
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.floor'))
+    expect(summary).not.toContain(i18n.t('studio.lib.presetRoom.bathroom'))
+  })
+
+  it.each(cases)('%s %s in a bathroom: no wood floor, wallpaper, chandelier or floor lamp; the tile and the bathroom sentences', (lang, id) => {
+    applyLanguage(lang)
+    const summary = presetPlan(id, [], 'hammom')!.summary
+    expect(summary).not.toMatch(FLOOR_WORDS)
+    expect(summary).not.toMatch(BATH_WORDS)
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.floor'))
+    expect(summary).toContain(i18n.t('studio.lib.presetRoom.bathroom'))
+  })
+
+  it.each(cases)('%s %s in a living room, a bedroom or a study keeps its own summary', (lang, id) => {
+    applyLanguage(lang)
+    const preset = DESIGN_PRESETS.find((p) => p.id === id)!
+    for (const room of ['mehmonxona', 'yotoqxona', 'kabinet', undefined]) {
+      expect(presetPlan(id, [], room)!.summary, String(room)).toBe(i18n.t(preset.summaryKey))
+    }
+  })
+
+  it.each(LANGS)('%s: a summary left with none of its own sentences starts by naming the style and the room', (lang) => {
+    applyLanguage(lang)
+    const adapted = {
+      uz: 'Neoklassika uslubi hammom uchun moslandi.',
+      ru: 'Стиль «Неоклассика» адаптирован для комнаты: ванная.',
+      en: 'The Neoclassical style, adapted for the bathroom.',
+    }[lang]
+    expect(presetPlan('neoklassika', [], 'hammom')!.summary).toBe(
+      `${adapted} ${i18n.t('studio.lib.presetRoom.floor')} ${i18n.t('studio.lib.presetRoom.bathroom')}`,
+    )
+  })
+
+  it.each(LANGS)('%s: a summary that keeps a sentence of its own gets no adapted sentence', (lang) => {
+    applyLanguage(lang)
+    const summary = presetPlan('dark', [], 'hammom')!.summary
+    const label = i18n.t(DESIGN_PRESETS.find((p) => p.id === 'dark')!.labelKey)
+    expect(summary.startsWith(i18n.t('studio.lib.preset.dark.summary').split(/(?<=[.!?…])\s+/u)[1])).toBe(true)
+    expect(summary).not.toContain(label)
+  })
+
+  it('a kitchen keeps the sentences that do not name the floor', () => {
+    // dark: "Dark grey walls and dark parquet ... Low, warm light keeps that mood."
+    applyLanguage('en')
+    expect(presetPlan('dark', [], 'oshxona')!.summary).toBe('Low, warm light keeps that mood. Floor: moisture-resistant tile.')
   })
 })
 

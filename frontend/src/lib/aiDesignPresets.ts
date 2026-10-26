@@ -5,6 +5,8 @@ import { catalogRoomType } from '@/lib/roomType'
 import type { RoomGeometry } from '@/store/roomStore'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
+import { LIGHT_TYPES } from '@/lib/lightCatalog'
+import { SENTENCE_END, WORD_START } from '@/lib/aiSummary'
 
 /**
  * Ready-made styles: the same kind of plan the AI designer makes, written by hand, so a style
@@ -106,6 +108,76 @@ const ROOM_SETS: Partial<Record<string, Kind[]>> = {
 /** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
 const WET_ROOMS = new Set(['oshxona', 'hammom'])
 const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
+
+/**
+ * A bathroom's walls and lights. Wallpaper does not take the damp: an oboy wall is painted in the
+ * wallpaper's base colour. A chandelier, a pendant or a floor lamp has no place there: one in the
+ * centre gives way to the preset's other ceiling light (an LED line, a track, a spot), else a
+ * downlight; a floor lamp goes. A wall lamp is kept only as the studio's moisture-proof bath light,
+ * and only one (it hangs over the mirror): a bra becomes it, at the first bra's wall.
+ */
+const NOT_IN_BATHROOM = new Set(['chandelier', 'pendant', 'floor_lamp'])
+const BATH_CENTRE = 'downlight'
+const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)?.mount
+
+function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
+  const main = walls.main
+  return main?.type === 'oboy' ? { ...walls, main: { type: 'paint', color: main.base_color } } : walls
+}
+
+function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
+  const ceiling = (type: string) => !NOT_IN_BATHROOM.has(type) && ['ceiling', 'recessed', 'track'].includes(mountOf(type) ?? '')
+  const other = lights.find((l) => ceiling(l.type))?.type ?? BATH_CENTRE
+  const out: AiDesignPlan['lights'] = []
+  for (const l of lights) {
+    if (l.type === 'floor_lamp') continue
+    if (NOT_IN_BATHROOM.has(l.type)) out.push({ type: l.zone === 'center' ? other : BATH_CENTRE, zone: l.zone })
+    else if (mountOf(l.type) === 'wall') {
+      if (!out.some((o) => o.type === 'bath')) out.push({ type: 'bath', zone: l.zone })
+    } else out.push(l)
+  }
+  // A plan whose only lights were lamps still lights the bathroom from the ceiling.
+  if (!out.some((l) => ceiling(l.type))) out.unshift({ type: BATH_CENTRE, zone: 'center' })
+  return out
+}
+
+/**
+ * The words a preset's summary uses, in uz, ru and en, for what a kitchen or a bathroom takes out:
+ * the summary is read in the language the style is applied in. Word starts, so an ending is matched
+ * too ("parketli", "паркетом", "люстрой").
+ */
+const APOS = "['ʻʼ‘’`]"
+const FLOOR_WORDS = [
+  'parket', 'laminat', 'beton', `yog${APOS}och\\p{L}* pol`, 'yelkan', 'herringbone',
+  'паркет', 'ламинат', 'бетон', 'деревянн\\p{L}* пол', 'ёлочк', 'елочк',
+  'parquet', 'laminate', 'concrete', 'wood\\p{L}* floor',
+]
+const BATH_WORDS = [
+  'oboy', 'qandil', `osma chiroq`, 'torsher',
+  'обо(?:и|ев|ям|ями|ях)(?!\\p{L})', 'люстр', 'подвесн', 'торшер',
+  'wallpaper', 'chandelier', 'pendant', 'floor lamp',
+]
+const wordsRe = (words: string[]) => new RegExp(`${WORD_START}(?:${words.join('|')})`, 'iu')
+const FLOOR_RE = wordsRe(FLOOR_WORDS)
+const BATH_RE = wordsRe(BATH_WORDS)
+
+/**
+ * The preset's summary for a kitchen or a bathroom: the sentences naming what `presetPlan` took out
+ * go (a wood or concrete floor; in a bathroom also wallpaper, a chandelier, a pendant, a floor lamp),
+ * and a sentence for what it put in comes after. When none of the preset's own sentences is left,
+ * a first one names the style and the room, so the summary still says what was applied: the style's
+ * label, not its title, which may name the very floor taken out ("Loft: beton va g'isht"). The room's
+ * name is lowercased, as it stands mid-sentence. Any other room keeps the summary as written.
+ */
+function roomSummary(summary: string, roomType: string | undefined, labelKey: TKey): string {
+  if (!roomType || !WET_ROOMS.has(roomType)) return summary
+  const bathroom = roomType === 'hammom'
+  const kept = summary.trim().split(SENTENCE_END).filter((s) => !FLOOR_RE.test(s) && !(bathroom && BATH_RE.test(s)))
+  const room = i18n.t(`rooms.type.${roomType}` as TKey).toLocaleLowerCase(i18n.language)
+  const adapted = kept.length === 0 ? [i18n.t('studio.lib.presetRoom.adapted', { style: i18n.t(labelKey), room })] : []
+  const added = [i18n.t('studio.lib.presetRoom.floor'), ...(bathroom ? [i18n.t('studio.lib.presetRoom.bathroom')] : [])]
+  return [...adapted, ...kept, ...added].join(' ')
+}
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
@@ -280,14 +352,17 @@ export function presetPlan(
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent
+  const bathroom = roomType === 'hammom'
+  const walls = bathroom ? bathroomWalls(preset.walls) : preset.walls
+  const lights = bathroom ? bathroomLights(preset.lights) : preset.lights
   return {
-    title: i18n.t(preset.titleKey), summary: i18n.t(preset.summaryKey),
+    title: i18n.t(preset.titleKey), summary: roomSummary(i18n.t(preset.summaryKey), roomType, preset.labelKey),
     walls: {
-      ...preset.walls,
+      ...walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),
     },
     floor: roomType && WET_ROOMS.has(roomType) ? WET_FLOOR : preset.floor,
-    lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
+    lights: lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
     furniture, trim: preset.trim, warnings: [],
   }
 }
