@@ -1,9 +1,11 @@
 import * as React from "react"
 import { ImagePlus } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { BottomSheet } from "@/components/ui/BottomSheet"
+import { Dialog } from "@/components/ui/Dialog"
 import { useTranslation } from "react-i18next"
 import i18n from "@/i18n"
-import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
+import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, getRooms, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
 import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
@@ -13,6 +15,9 @@ import { DESIGN_PRESETS, presetPlan, roomSizeOf } from "@/lib/aiDesignPresets"
 import { summaryWithout } from "@/lib/aiSummary"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
 import { effectiveRoomType } from "@/lib/roomType"
+import { applyToOtherRooms, previewOtherRooms, undoOtherRooms } from "@/lib/applyToRooms"
+import type { RoomOutcome, RoomsUndo } from "@/lib/applyToRooms"
+import type { DesignSource } from "@/lib/planForRoom"
 import { RoomTypePicker } from "./RoomTypePicker"
 import { trimLabel, trimProfileDef } from "@/lib/trimProfiles"
 
@@ -25,6 +30,8 @@ interface AiBuilderSheetProps {
   /** Saves the room. Given, a design is saved the moment it is applied; absent, the person is told to save. */
   onSave?: () => Promise<void>
   roomId: string
+  /** The apartment the room is in: given, a design applied here can be applied to its other rooms too. */
+  aptId?: string | null
   /** The room's kind (mehmonxona, yotoqxona...), so the pieces made for it are offered first. */
   roomType?: string
   /** A Pinterest pin to start from, e.g. one shared to the mobile app (`?ai_pin=`). */
@@ -93,8 +100,38 @@ function PartRow({
   )
 }
 
-export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: roomTypeProp, initialPinUrl }: AiBuilderSheetProps) {
+/** "Zal (boshqa oynada o'zgartirilgan), ...": the rooms not written, each with why. */
+function skippedList(outcomes: RoomOutcome[]): string {
+  return outcomes
+    .filter((o) => o.status !== "applied")
+    .map((o) => i18n.t("ai.xona_sabab", { name: o.name, reason: i18n.t(o.status === "changed" ? "ai.rooms_changed" : "ai.rooms_failed") }))
+    .join(", ")
+}
+
+/**
+ * The other rooms' undo after one more apply: a room written before keeps the state it had before the
+ * first apply, with the guard our latest write gave it; a room this apply skipped keeps its entry.
+ */
+export function mergeRoomsUndo(before: RoomsUndo | null, written: RoomsUndo): RoomsUndo | null {
+  const merged = [...(before ?? [])]
+  for (const entry of written) {
+    const at = merged.findIndex((u) => u.roomId === entry.roomId)
+    if (at < 0) merged.push(entry)
+    else merged[at] = { ...merged[at], writtenAt: entry.writtenAt }
+  }
+  return merged.length > 0 ? merged : null
+}
+
+export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, roomType: roomTypeProp, initialPinUrl }: AiBuilderSheetProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  // The apartment's rooms, shared with the studio's own list (`useFlatRooms`).
+  const { data: aptRooms } = useQuery({
+    queryKey: ["apt-rooms", aptId],
+    queryFn: () => getRooms(aptId!),
+    enabled: !!aptId,
+    staleTime: 5_000,
+  })
   // The picker below changes the room's kind; the next request, preset or layout uses the new one.
   const pickedType = useRoomStore((s) => s.roomType)
   const roomName = useRoomStore((s) => s.name)
@@ -121,6 +158,37 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
   // variant starts from, so variants replace one another instead of piling up.
   const [undo, setUndo] = React.useState<DesignSnapshot | null>(null)
   const [barHidden, setBarHidden] = React.useState(false)
+  // What the design in the room was made from: what the apartment's other rooms are designed from.
+  const [source, setSource] = React.useState<DesignSource | null>(null)
+  // The other rooms as they were before the first "Barcha xonalarga qo'llash", for "Qaytarish". Kept
+  // across new designs of this room; cleared by a room switch, or once the other rooms are put back.
+  const [roomsUndo, setRoomsUndo] = React.useState<RoomsUndo | null>(null)
+  const [roomsNotice, setRoomsNotice] = React.useState("")
+  const [confirmRooms, setConfirmRooms] = React.useState(false)
+  const [roomsBusy, setRoomsBusy] = React.useState(false)
+  // Furniture the user switched off. A plan that found no furniture for this room has the part off too,
+  // but another room may well find some: only the user's own choice keeps it out of the others.
+  const [furnitureOffByUser, setFurnitureOffByUser] = React.useState(false)
+  // Set at once, where the busy state waits for a render: a second tap is not a second write.
+  const roomsInFlight = React.useRef(false)
+  // The room open now: a bulk result that lands after a switch belongs to the room it was made for.
+  const roomIdRef = React.useRef(roomId)
+
+  // `/studio/:roomId` keeps the page mounted from room to room: the design, its undo and the other
+  // rooms' undo are this room's, and must not be undone or applied from another.
+  React.useEffect(() => {
+    if (roomIdRef.current === roomId) return
+    roomIdRef.current = roomId
+    setPlan(null)
+    setApplied(null)
+    setUndo(null)
+    setSource(null)
+    setRoomsUndo(null)
+    setRoomsNotice("")
+    setNotice("")
+    setConfirmRooms(false)
+    setFurnitureOffByUser(false)
+  }, [roomId])
   const onSaveRef = React.useRef(onSave)
   onSaveRef.current = onSave
   // Saves go one after another: a second design applied while the first is still being saved must not be skipped.
@@ -205,7 +273,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     if (fileInput.current) fileInput.current.value = ""
   }
 
-  const canSend = !running && (pinUrl !== null || image !== null || prompt.trim().length >= 3)
+  // No new design while the other rooms are being written from this one.
+  const canSend = !running && !roomsBusy && (pinUrl !== null || image !== null || prompt.trim().length >= 3)
 
   async function generate(e?: React.FormEvent) {
     e?.preventDefault()
@@ -233,12 +302,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     }
     setPlan(next)
     setParts(nextParts)
+    newSource({ kind: "ai", plan: next, wallIds: wallIds ? wallIds.split("|") : [] })
     close() // the sheet covers and dims the room: show the design
     await commit(next, nextParts)
   }
 
   /** A ready-made style: no request, so it works with the AI down and costs nothing. */
   async function usePreset(id: string) {
+    if (roomsBusy) return
     // The bed is picked to fit the room's size, read as the backend reads it for the AI.
     const roomSize = roomSizeOf(useRoomStore.getState().geometry)
     const next = presetPlan(id, catalogFurniture, roomType, wallIds ? wallIds.split('|') : undefined, roomSize)
@@ -247,28 +318,98 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     const nextParts = { walls: true, floor: true, lights: true, furniture: next.furniture.length > 0 }
     setPlan(next)
     setParts(nextParts)
+    newSource({ kind: "preset", id })
     close()
     await commit(next, nextParts)
+  }
+
+  /**
+   * A new design for this room. The other rooms keep what the last "Barcha xonalarga qo'llash" gave
+   * them, and their undo stays: one "Qaytarish" still puts every room back as it was before.
+   */
+  function newSource(next: DesignSource) {
+    setSource(next)
+    setFurnitureOffByUser(false)
+    setRoomsNotice("")
+  }
+
+  /** After rooms were written: the apartment's list, and each room written, are read again. */
+  function refreshRooms(outcomes: RoomOutcome[]) {
+    void queryClient.invalidateQueries({ queryKey: ["apt-rooms", aptId] })
+    for (const o of outcomes) {
+      if (o.status !== "applied") continue
+      void queryClient.invalidateQueries({ queryKey: ["room", o.roomId] })
+      void queryClient.invalidateQueries({ queryKey: ["studio-nav-total", o.roomId] })
+    }
+  }
+
+  /** Puts the design into every other room of the apartment; what was skipped is named, with why. */
+  async function applyToAllRooms() {
+    if (!aptId || !source || roomsInFlight.current) return
+    roomsInFlight.current = true
+    setRoomsBusy(true)
+    const forRoom = roomId
+    try {
+      const { outcomes, undo: written } = await applyToOtherRooms({
+        aptId, currentRoomId: roomId, source, parts: roomsParts, catalog: catalogFurniture,
+      })
+      refreshRooms(outcomes)
+      if (roomIdRef.current !== forRoom) return
+      setRoomsUndo((before) => mergeRoomsUndo(before, written))
+      const count = outcomes.filter((o) => o.status === "applied").length
+      const skipped = skippedList(outcomes)
+      setRoomsNotice([count > 0 && t("ai.xonalarga_qollandi", { count }), skipped && t("ai.xonalar_otkazildi", { list: skipped })].filter(Boolean).join(" "))
+    } catch {
+      if (roomIdRef.current === forRoom) setRoomsNotice(t("ai.xonalar_xato"))
+    } finally {
+      roomsInFlight.current = false
+      setRoomsBusy(false)
+      setConfirmRooms(false)
+    }
   }
 
   /** Switching a part on or off shows the change at once, and keeps it saved. */
   function changeParts(next: DesignParts) {
     setParts(next)
+    if (next.furniture !== parts.furniture) setFurnitureOffByUser(!next.furniture)
     if (plan && undo) void commit(plan, next)
   }
 
   async function revert() {
-    if (!undo) return
+    if (!undo || roomsInFlight.current) return
     restoreDesign(undo)
     setUndo(null)
     setPlan(null)
     setApplied(null)
-    if (!onSaveRef.current) {
-      setNotice(t("ai.qaytarildi"))
-      return
+    setSource(null)
+    // The other rooms go back alongside this one's save; what was said of them no longer holds.
+    setRoomsNotice("")
+    const others = roomsUndo ? revertOtherRooms(roomsUndo) : null
+    setRoomsUndo(null)
+    if (!onSaveRef.current) setNotice(t("ai.qaytarildi"))
+    else {
+      setNotice(t("ai.saqlanmoqda"))
+      setNotice((await persist()) ? t("ai.qaytarildi_saqlandi") : t("ai.qaytarildi_saqlanmadi"))
     }
-    setNotice(t("ai.saqlanmoqda"))
-    setNotice((await persist()) ? t("ai.qaytarildi_saqlandi") : t("ai.qaytarildi_saqlanmadi"))
+    await others
+  }
+
+  /** Puts the other rooms back; a room changed since is left as it is, and named. */
+  async function revertOtherRooms(written: RoomsUndo) {
+    roomsInFlight.current = true
+    setRoomsBusy(true)
+    const forRoom = roomId
+    try {
+      const outcomes = await undoOtherRooms(written)
+      refreshRooms(outcomes)
+      if (roomIdRef.current !== forRoom) return
+      const count = outcomes.filter((o) => o.status === "applied").length
+      const skipped = skippedList(outcomes)
+      setRoomsNotice([count > 0 && t("ai.xonalar_qaytarildi", { count }), skipped && t("ai.xonalar_qaytarilmadi", { list: skipped })].filter(Boolean).join(" "))
+    } finally {
+      roomsInFlight.current = false
+      setRoomsBusy(false)
+    }
   }
 
   function close() {
@@ -303,6 +444,15 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
       ].filter(Boolean).join(", ")
     : ""
 
+  // The parts the other rooms get: this room's, but furniture unless the user switched it off.
+  const roomsParts: DesignParts = { ...parts, furniture: !furnitureOffByUser }
+  // Offered once a design is in the room, in an apartment of 2 rooms or more.
+  const canApplyToRooms = !!aptId && !!source && !!undo && (aptRooms?.length ?? 0) >= 2
+  const roomsPreview = React.useMemo(
+    () => (confirmRooms && source ? previewOtherRooms((aptRooms ?? []).filter((r) => r.id !== roomId), source, catalogFurniture) : []),
+    [confirmRooms, source, aptRooms, roomId, catalogFurniture],
+  )
+
   return (
     <>
     <BottomSheet open={open} onOpenChange={close} title={t("ai.builder_title")} defaultSnap="full">
@@ -315,8 +465,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
               <button
                 key={preset.id}
                 type="button"
+                disabled={roomsBusy}
                 onClick={() => void usePreset(preset.id)}
-                className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20"
+                className="rounded-full bg-[#3B63DE]/10 px-3.5 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20 disabled:opacity-60"
               >
                 {t(preset.labelKey)}
               </button>
@@ -484,11 +635,23 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
             {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{t("ai.mebel_topilmadi")}</p>}
             <p className="text-[11px] leading-snug text-gray-500">{t("ai.izoh_qoshimcha")}</p>
 
+            {canApplyToRooms && (
+              <button
+                type="button"
+                disabled={roomsBusy}
+                onClick={() => setConfirmRooms(true)}
+                className="w-full rounded-full bg-[#3B63DE]/10 py-2.5 text-sm font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20 disabled:opacity-60"
+              >
+                {roomsBusy ? t("ai.qollanmoqda") : t("ai.barcha_xonalarga")}
+              </button>
+            )}
+
             {undo && (
               <button
                 type="button"
+                disabled={roomsBusy}
                 onClick={() => void revert()}
-                className="w-full rounded-full border-2 border-gray-300 py-2.5 text-sm font-semibold text-gray-700 hover:border-[#3B63DE]"
+                className="w-full rounded-full border-2 border-gray-300 py-2.5 text-sm font-semibold text-gray-700 hover:border-[#3B63DE] disabled:opacity-60"
               >
                 {t("ai.qaytarish")}
               </button>
@@ -497,11 +660,13 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
         )}
 
         {notice && <p role="status" className="text-sm font-medium text-green-700">{notice}</p>}
+        {roomsNotice && <p role="status" className="text-sm font-medium text-gray-700">{roomsNotice}</p>}
       </div>
     </BottomSheet>
 
-    {/* With the sheet closed the design is on screen; this says what was done and keeps undo within reach. */}
-    {!open && undo && !barHidden && (
+    {/* With the sheet closed the design is on screen; this says what was done and keeps undo within reach.
+        Once undone, it stays while it has the other rooms to tell of. */}
+    {!open && (undo || roomsNotice || roomsBusy) && !barHidden && (
       <div
         role="status"
         className="fixed bottom-24 left-1/2 z-30 flex w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-lg"
@@ -509,13 +674,21 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
         {/* The message is what says whether it was saved: it wraps rather than being cut, and on a narrow
             screen the buttons drop to a row of their own. */}
         <div className="min-w-0 flex-1 basis-[11rem]">
-          <p className="truncate text-sm font-bold text-gray-900">{plan?.title ?? t("ai.qollandi_sarlavha")}</p>
+          {undo && <p className="truncate text-sm font-bold text-gray-900">{plan?.title ?? t("ai.qollandi_sarlavha")}</p>}
           <p className="text-xs leading-snug text-gray-600">{notice}</p>
+          {roomsNotice && <p className="text-xs leading-snug text-gray-600">{roomsNotice}</p>}
         </div>
-        <div className="ml-auto flex items-center gap-1">
-        <button type="button" onClick={() => void revert()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">
-          {t("ai.qaytarish")}
-        </button>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {canApplyToRooms && (
+          <button type="button" disabled={roomsBusy} onClick={() => setConfirmRooms(true)} className="rounded-full bg-[#3B63DE]/10 px-3 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20 disabled:opacity-60">
+            {roomsBusy ? t("ai.qollanmoqda") : t("ai.barcha_xonalarga")}
+          </button>
+        )}
+        {undo && (
+          <button type="button" disabled={roomsBusy} onClick={() => void revert()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60">
+            {t("ai.qaytarish")}
+          </button>
+        )}
         <button type="button" onClick={() => onOpenChange(true)} className="rounded-full bg-[#3B63DE]/10 px-3 py-1.5 text-xs font-semibold text-[#2F55D4] hover:bg-[#3B63DE]/20">
           {t("ai.batafsil")}
         </button>
@@ -523,6 +696,50 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
         </div>
       </div>
     )}
+
+    {/* What each other room would get, before anything is written. */}
+    <Dialog
+      open={confirmRooms}
+      onOpenChange={(next) => { if (!roomsBusy) setConfirmRooms(next) }}
+      title={t("ai.barcha_xonalarga")}
+      description={t("ai.barcha_xonalarga_izoh")}
+    >
+      <ul className="space-y-2">
+        {roomsPreview.map((room) => (
+          <li key={room.roomId} className="rounded-xl border border-line px-3 py-2">
+            <p className="text-sm font-semibold">{room.name}</p>
+            <p className="text-xs leading-snug text-ink-muted">
+              {room.skipped === "no_walls"
+                ? t("ai.xona_chizilmagan")
+                : room.skipped === "failed"
+                  ? t("ai.xona_hisoblanmadi")
+                  : `${t(`rooms.type.${room.roomType}` as "rooms.type.mehmonxona")}${room.guessed ? ` ${t("ai.xona_taxmin")}` : ""}${
+                      // With furniture switched off, none is put in: the list names none.
+                      !roomsParts.furniture ? "" : `: ${room.furnitureNames.length > 0 ? room.furnitureNames.join(", ") : t("ai.xona_mebel_yoq")}`
+                    }`}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          disabled={roomsBusy}
+          onClick={() => setConfirmRooms(false)}
+          className="rounded-full px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-black/5 disabled:opacity-60"
+        >
+          {t("common.bekor")}
+        </button>
+        <button
+          type="button"
+          disabled={roomsBusy}
+          onClick={() => void applyToAllRooms()}
+          className="rounded-full bg-gradient-to-br from-[#6C87F2] to-[#3B63DE] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {roomsBusy ? t("ai.qollanmoqda") : t("ai.qollash")}
+        </button>
+      </div>
+    </Dialog>
     </>
   )
 }

@@ -106,8 +106,8 @@ const ROOM_SETS: Partial<Record<string, Kind[]>> = {
 }
 
 /** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
-const WET_ROOMS = new Set(['oshxona', 'hammom'])
-const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
+export const WET_ROOMS: ReadonlySet<string> = new Set(['oshxona', 'hammom'])
+export const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
 
 /**
  * A bathroom's walls and lights. Wallpaper does not take the damp: an oboy wall is painted in the
@@ -120,12 +120,12 @@ const NOT_IN_BATHROOM = new Set(['chandelier', 'pendant', 'floor_lamp'])
 const BATH_CENTRE = 'downlight'
 const mountOf = (type: string) => LIGHT_TYPES.find((t) => t.id === type)?.mount
 
-function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
+export function bathroomWalls(walls: AiDesignPlan['walls']): AiDesignPlan['walls'] {
   const main = walls.main
   return main?.type === 'oboy' ? { ...walls, main: { type: 'paint', color: main.base_color } } : walls
 }
 
-function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
+export function bathroomLights(lights: AiDesignPlan['lights']): AiDesignPlan['lights'] {
   const ceiling = (type: string) => !NOT_IN_BATHROOM.has(type) && ['ceiling', 'recessed', 'track'].includes(mountOf(type) ?? '')
   const other = lights.find((l) => ceiling(l.type))?.type ?? BATH_CENTRE
   const out: AiDesignPlan['lights'] = []

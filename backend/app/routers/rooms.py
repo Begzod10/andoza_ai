@@ -330,6 +330,19 @@ async def update_room(
 ) -> RoomOut:
     room = await _get_owned_room(room_id, current_user.id, db)
 
+    if body.expected_updated_at is not None:
+        expected = body.expected_updated_at
+        if expected.tzinfo is None:
+            expected = expected.replace(tzinfo=timezone.utc)
+        stored = room.updated_at
+        if stored.tzinfo is None:
+            stored = stored.replace(tzinfo=timezone.utc)
+        if expected != stored:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Xona boshqa joyda o'zgartirilgan. Saqlashdan oldin qayta yuklang.",
+            )
+
     if body.name is not None:
         room.name = body.name
     if "room_type" in body.model_fields_set:

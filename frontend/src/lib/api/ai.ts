@@ -62,6 +62,9 @@ export interface AiDesignPlan {
   image_notes?: string;
   /** Pin designs only: the pin's picture the design was made from. */
   pin_image_url?: string;
+  /** The ready-made style (a preset id) the plan started from; null when it started from none
+   *  (an image design). Missing on a plan from an older server. */
+  style?: string | null;
 }
 
 export interface SmetaAskResponse {

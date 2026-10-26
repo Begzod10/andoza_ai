@@ -116,6 +116,7 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     # --- not found -----------------------------------------------------
     ("Room not found", "Комната не найдена", "Room not found", "Xona topilmadi"),
     ("Apartment not found", "Квартира не найдена", "Apartment not found", "Kvartira topilmadi"),
+    ("Xona boshqa joyda o'zgartirilgan. Saqlashdan oldin qayta yuklang.", "Комната была изменена в другом месте. Перезагрузите её перед сохранением.", "The room was changed elsewhere. Reload it before saving."),
     ("Draft not found", "Черновик не найден", "Draft not found", "Qoralama topilmadi"),
     ("Device not found", "Устройство не найдено", "Device not found", "Qurilma topilmadi"),
     ("Estimate not found", "Смета не найдена", "Estimate not found", "Smeta topilmadi"),

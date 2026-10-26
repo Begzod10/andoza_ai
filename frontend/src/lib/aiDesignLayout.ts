@@ -183,22 +183,29 @@ export type ParsedZone =
   | { kind: 'wall'; wall: WallInfo }
   | { kind: 'corner'; wall: WallInfo; toward: WallInfo }
 
-/** The zone as walls of this room; null when it names a wall the room does not have. */
-export function parseZone(zone: string, model: RoomModel): ParsedZone | null {
-  if (zone === 'center') return { kind: 'center' }
-  const find = (id: string) => model.walls.find((w) => w.id === id)
-  if (zone.startsWith('wall_')) {
-    const wall = find(zone.slice(5))
-    return wall ? { kind: 'wall', wall } : null
-  }
+/**
+ * The wall ids a zone names, by its spelling alone: one for `wall_<id>`, two for `corner_<a>_<b>` (the
+ * old four-wall spelling is corner_AB), none for the centre. Null for a zone of no known spelling.
+ */
+export function zoneWallIds(zone: string): string[] | null {
+  if (zone === 'center') return []
+  if (zone.startsWith('wall_')) return [zone.slice(5)]
   if (zone.startsWith('corner_')) {
     const rest = zone.slice(7)
-    // corner_<a>_<b>; the old four-wall spelling is corner_AB.
     const parts = rest.includes('_') ? rest.split('_') : rest.length === 2 ? [rest[0], rest[1]] : []
-    const [a, b] = parts.length === 2 ? [find(parts[0]), find(parts[1])] : [undefined, undefined]
-    return a && b ? { kind: 'corner', wall: a, toward: b } : null
+    return parts.length === 2 ? parts : null
   }
   return null
+}
+
+/** The zone as walls of this room; null when it names a wall the room does not have. */
+export function parseZone(zone: string, model: RoomModel): ParsedZone | null {
+  const ids = zoneWallIds(zone)
+  if (!ids) return null
+  if (ids.length === 0) return { kind: 'center' }
+  const [a, b] = ids.map((id) => model.walls.find((w) => w.id === id))
+  if (ids.length === 1) return a ? { kind: 'wall', wall: a } : null
+  return a && b ? { kind: 'corner', wall: a, toward: b } : null
 }
 
 /** The corners of a footprint grown by `margin`, as rectCorners gives them, into `out` (x0, z0, ... x3, z3). */

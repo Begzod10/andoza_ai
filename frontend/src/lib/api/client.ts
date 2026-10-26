@@ -16,6 +16,14 @@ export function languageHeaders(): Record<string, string> {
   return { "Accept-Language": currentLanguage() };
 }
 
+/** A request the server answered with an error: its body (or `HTTP <status>`) as the message, and the status. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 function handleUnauthorized(): never {
   window.location.href = "/login";
   throw new Error("Unauthorized");
@@ -69,7 +77,7 @@ export async function apiClient<T>(
   // reload the login page and swallow the error the page wants to show.
   if (response.status === 401 && NO_SESSION_RETRY_PATHS.has(path)) {
     const errorBody = await response.text();
-    throw new Error(errorBody || `HTTP ${response.status}`);
+    throw new ApiError(errorBody || `HTTP ${response.status}`, response.status);
   }
 
   if (response.status === 401) {
@@ -96,7 +104,7 @@ export async function apiClient<T>(
 
     if (!retryResponse.ok) {
       const errorBody = await retryResponse.text();
-      throw new Error(errorBody || `HTTP ${retryResponse.status}`);
+      throw new ApiError(errorBody || `HTTP ${retryResponse.status}`, retryResponse.status);
     }
 
     const retryContentType = retryResponse.headers.get("Content-Type") ?? "";
@@ -108,7 +116,7 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || `HTTP ${response.status}`);
+    throw new ApiError(errorBody || `HTTP ${response.status}`, response.status);
   }
 
   const contentType = response.headers.get("Content-Type") ?? "";
