@@ -249,6 +249,15 @@ def _catalog_problems(text: str, plan: Any, catalog_names: list[str]) -> list[st
     return problems
 
 
+# A word said twice running ("spot spot", "chiroq chiroqlar"): what is left when an id was put in Uzbek badly.
+_REPEAT = re.compile(r"\b(\w[\w']*)\s+\1\b|\bchiro(?:q|g'i)\w*\s+chiro(?:q|g'i)")
+
+
+def _repeat_problems(text: str) -> list[str]:
+    m = _REPEAT.search(text)
+    return [f"'{m.group(0)}': so'z takrorlangan"] if m else []
+
+
 def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """What the summary claims that the plan does not hold; empty when it can be trusted."""
     text = _norm(summary)
@@ -260,6 +269,7 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
         *_furniture_problems(text, plan),
         *_light_problems(text, plan),
         *_surface_problems(text, plan),
+        *_repeat_problems(text),
     ]
 
 
@@ -376,12 +386,28 @@ def _id_pattern(raw: str) -> str:
     return r"[ _-]".join(re.escape(part) for part in raw.split("_"))
 
 
+# A light's name as prose says it: the estimate's "Trek (shina)" has brackets that read badly in a sentence.
+_LIGHT_SAID = {**LIGHT_TYPE_NAMES, "track": "Trek chirog'i"}
 # Light ids said in Uzbek, the longest first so "led_track" is not read as "led" + "track". The ceiling
 # light is left out: "ceiling" in prose is the ceiling itself, a leak the language check catches. So is
-# an id that is already the name ("bra"): the prose's own spelling stays.
+# an id that is already a word of its name ("bra", "ies" of "IES spot"): the prose's own spelling stays.
 _LIGHT_IDS = sorted(
-    (t for t, name in LIGHT_TYPE_NAMES.items() if t != "ceiling" and name.lower() != t), key=len, reverse=True
+    (t for t, name in _LIGHT_SAID.items() if t != "ceiling" and t not in name.lower().split()), key=len, reverse=True
 )
+# "chiroq", "chirog'i", "chiroqlar" (any apostrophe), and "tizimi": the prose already says what the
+# name's own last word would, so the name drops it ("pendant chiroq" is "osma chiroq", not "osma chiroq chiroq").
+_CHIROQ = r"chiro(?:q|g['’‘ʻʼ`´]i)"
+_LIGHT_TAIL = re.compile(rf"\s+{_CHIROQ}$", re.I)
+_SAID_AFTER = re.compile(rf"\s+(?:{_CHIROQ}|tizim)", re.I)
+
+
+def _light_said(name: str, sentence_start: bool, tail_said: bool) -> str:
+    """*name* as it reads in the middle of a sentence: lower case but for an acronym (LED, IES), capital
+    only to start one, and without its "chiroq" when the prose says it next."""
+    if tail_said:
+        name = _LIGHT_TAIL.sub("", name)
+    said = " ".join(w if len(w) > 1 and w.isupper() else w.lower() for w in name.split())
+    return said[0].upper() + said[1:] if sentence_start else said
 
 
 def _localise(text: str) -> str:
@@ -389,7 +415,10 @@ def _localise(text: str) -> str:
     for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
         text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
     for raw in _LIGHT_IDS:
-        text = re.sub(rf"\b{_id_pattern(raw)}\b", LIGHT_TYPE_NAMES[raw], text, flags=re.I)
+        def said(m: re.Match[str], raw: str = raw) -> str:
+            start = not m.string[: m.start()].strip() or m.string[: m.start()].rstrip()[-1] in ".!?"
+            return _light_said(_LIGHT_SAID[raw], start, bool(_SAID_AFTER.match(m.string, m.end())))
+        text = re.sub(rf"\b{_id_pattern(raw)}\b", said, text, flags=re.I)
     return text
 
 

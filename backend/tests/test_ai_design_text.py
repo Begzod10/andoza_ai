@@ -406,11 +406,35 @@ class TestEnglishAndIdsLeakingThrough:
                   {"type": "led_linear", "zone": "center"}]
         plan = make("Markazda chandelier, burchakda floor lamp va shiftda led linear yorug'lik beradi.", lights=lights)
         assert txt.reconcile_summary(plan) == []
-        assert plan.summary == "Markazda Qandil, burchakda Torsher va shiftda LED chiziqli yorug'lik beradi."
+        assert plan.summary == "Markazda qandil, burchakda torsher va shiftda LED chiziqli yorug'lik beradi."
 
     @pytest.mark.parametrize("raw", ["floor_lamp", "Floor-Lamp", "FLOOR LAMP"])
     def test_light_id_variants(self, raw):
-        assert txt._localise(f"Burchakda {raw} turadi.") == "Burchakda Torsher turadi."
+        assert txt._localise(f"Burchakda {raw} turadi.") == "Burchakda torsher turadi."
+
+    def test_a_light_name_starting_a_sentence_keeps_its_capital(self):
+        assert txt._localise("Chandelier markazda. Floor lamp burchakda.") == "Qandil markazda. Torsher burchakda."
+
+    # The prompt gives the model our own names ("ies (IES spot)", "pendant (Osma chiroq)"), so it writes
+    # them, an id and all: each comes out as clean Uzbek, no word said twice.
+    @pytest.mark.parametrize(("text", "said"), [
+        ("Shiftda IES spot chiroqlar bor.", "Shiftda IES spot chiroqlar bor."),
+        ("Stol ustida Pendant chiroq osilgan.", "Stol ustida osma chiroq osilgan."),
+        ("Hammomda bath chirog'i yonadi.", "Hammomda vanna chirog'i yonadi."),
+        ("Hammomda bath chirogʻi yonadi.", "Hammomda vanna chirogʻi yonadi."),
+        ("Shiftda Spotlight chiroqlar bor.", "Shiftda spot chiroqlar bor."),
+        ("Shiftda track tizimi bor.", "Shiftda trek tizimi bor."),
+        ("Shiftda track bor.", "Shiftda trek chirog'i bor."),
+    ])
+    def test_our_own_names_are_not_doubled(self, text, said):
+        assert txt._localise(text) == said
+
+    @pytest.mark.parametrize("text", ["Shiftda spot chiroq chiroqlar bor.", "IES spot spot chiroqlar yonadi."])
+    def test_a_word_said_twice_is_a_problem(self, text):
+        assert any("takror" in p for p in txt.summary_problems(text, make()))
+
+    def test_a_word_said_once_is_not(self):
+        assert not any("takror" in p for p in txt.summary_problems("Spot chiroqlar va osma chiroq yonadi.", make()))
 
     def test_a_clean_uzbek_summary_is_unchanged(self):
         text = "Iliq bej devorlar, parket pol va markazdagi qandil sokin muhit beradi."
