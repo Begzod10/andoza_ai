@@ -56,14 +56,15 @@ FURNITURE_ROLES = (
 )
 
 # Name rules, first match wins. "tumbochka" is a bedside table, so it must not reach "tumba" (a TV stand).
+# "ish" must start a word: "ovqatlanish stuli" is a dining chair, not a desk chair.
 _ROLE_BY_NAME: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern, re.I), role) for pattern, role in (
         (r"gilam|rug|carpet|kovrolin", "rug"),
         (r"jurnal|kofe|coffee", "coffee_table"),
         (r"tumbochka|nightstand|prikrovat", "nightstand"),
         (r"\btv\b|televizor|tumba", "tv_unit"),
-        (r"ish stuli|ofis stuli|kompyuter stuli|kreslo-kompyuter|office chair|desk chair|(офисн|компьютерн)\S*\s+(стул|кресл)", "desk_chair"),
-        (r"yozuv|kompyuter|desk|ish stoli|компьютерн\S*\s+стол", "desk"),
+        (r"\bish stuli|ofis stuli|kompyuter stuli|kreslo-kompyuter|office chair|desk chair|(офисн|компьютерн)\S*\s+(стул|кресл)", "desk_chair"),
+        (r"yozuv|kompyuter|desk|\bish stoli|компьютерн\S*\s+стол", "desk"),
         (r"kreslo|armchair", "armchair"),
         (r"shkaf|garderob|wardrobe", "wardrobe"),
         (r"javon|komod|stellaj|vitrina|bookcase", "shelf"),
