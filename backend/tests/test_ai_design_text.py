@@ -984,14 +984,14 @@ class TestOnlyTheWrongSentenceGoes:
     BOLALAR = TestAWardrobeIsNotABookcase.BOLALAR
 
     def test_minimalist_loses_only_its_furniture_style_sentence(self):
+        # ...and the "Bu elementlar ..." after it, which spoke of the pieces that sentence listed.
         plan = SimpleNamespace(**vars(self.MINIMALIST))
         problems = txt.reconcile_summary(plan, None, TestTheStyleOfTheFurniture.ALL_SKANDINAV)
         assert problems == ["'Minimalist' uslubdagi mebel aytilgan, lekin tanlangan mebel bu uslubda emas"]
         assert plan.summary == (
             "Ushbu minimalist mehmonxona dizayni uchun devorlar oq rangda, C devori esa yengil aksent rang bilan "
             "bo'yalgan. Pol plitkadan tanlandi, bu xona uchun soddalik va tozalikka urg'u beradi. Asosiy yorug'lik LED "
-            "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi. Bu "
-            "elementlar xonada zamonaviy va tartibli atmosfera yaratadi."
+            "panel va devor bo'ylab downlightlardan iborat bo'lib, yorug'lik xonani yorqin va zamonaviy qiladi."
         )
 
     def test_bolalar_loses_only_its_wardrobe_sentence(self):
@@ -1001,6 +1001,24 @@ class TestOnlyTheWrongSentenceGoes:
             "Bu dizayn bolalar xonasi uchun yumshoq pastel ko'k devor rangi va iliq yog'och laminat pol bilan tanlandi. "
             "Yorqin atmosfera uchun markaziy shift chirog'i va ikki devor chiroqlari (bra) qo'shildi."
         )
+
+    def test_a_sentence_that_points_back_at_a_dropped_one_goes_with_it(self):
+        plan = make(
+            "Iliq bej devorlar va parket pol. Mebel sifatida divan va kreslo tanlandi. Ular bir-biriga juda mos keladi."
+        )
+        assert txt.reconcile_summary(plan) == ["'kreslo' aytilgan, lekin rejada yo'q"]
+        assert plan.summary == "Iliq bej devorlar va parket pol."
+
+    @pytest.mark.parametrize("start", ["Bu elementlar", "Bular", "Ushbu mebellar"])
+    def test_each_way_of_pointing_back(self, start):
+        plan = make(f"Iliq bej devorlar va parket pol. Mebel sifatida divan va kreslo tanlandi. {start} xonani bezaydi.")
+        txt.reconcile_summary(plan)
+        assert plan.summary == "Iliq bej devorlar va parket pol."
+
+    def test_a_sentence_that_points_back_at_a_kept_one_stays(self):
+        plan = make("Plitka pol salqin. Mebel sifatida divan va tumba tanlandi. Ular bir-biriga juda mos keladi.")
+        txt.reconcile_summary(plan)
+        assert plan.summary == "Mebel sifatida divan va tumba tanlandi. Ular bir-biriga juda mos keladi."
 
     def test_a_summary_wrong_in_every_sentence_falls_back(self):
         plan = make("Oltin detallar xonani bezaydi. Plitka pol salqin. Bra devorda.")

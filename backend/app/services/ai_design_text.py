@@ -587,6 +587,10 @@ def _uzbek_sentences(text: str, plan: Any, catalog_names: list[str] | None = Non
     return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan, catalog_names))
 
 
+# The words a sentence starts with when it speaks of the one before: "Ular", "Bular", "Bu elementlar".
+_POINTS_BACK = re.compile(r"(?:ular\w*|bular\w*|bu elementlar\w*|ushbu mebel\w*)\b")
+
+
 def reconcile_summary(
     plan: Any, catalog_names: list[str] | None = None, piece_styles: dict[str, list[str]] | None = None,
 ) -> list[str]:
@@ -610,7 +614,14 @@ def reconcile_summary(
     # Only the sentences that are wrong on their own go. Every check reads the plan, not the other
     # sentences, so one alone is judged as it is in the whole; a claim spread over several (three
     # English words) is caught when what is left is read again, and then nothing of it is kept.
-    rest = " ".join(s for s in _SENTENCE_END.split(uzbek) if s and not problems_of(s))
+    # A sentence that points back ("Ular...", "Bu elementlar...") at one that went would point at nothing.
+    kept: list[str] = []
+    went = False
+    for sentence in filter(None, _SENTENCE_END.split(uzbek)):
+        went = bool(problems_of(sentence)) or (went and bool(_POINTS_BACK.match(_norm(sentence))))
+        if not went:
+            kept.append(sentence)
+    rest = " ".join(kept)
     keep = len(rest.split()) >= 2 and not problems_of(rest)
     plan.summary = rest if keep else describe_plan(plan)
     return problems
