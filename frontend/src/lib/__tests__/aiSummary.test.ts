@@ -62,6 +62,13 @@ describe('summaryWithout', () => {
     expect(summaryWithout(text, [{ name: 'Tumbochka Nord', role: 'nightstand' }])).toBe(text)
   })
 
+  it('a name or role word counts only as a whole word, endings and all', () => {
+    const text = 'Gilamcha eshik oldida. Divanchalar yo\'q. Divani burchakda.'
+    expect(summaryWithout(text, [{ name: 'Gilam', role: 'rug' }])).toBe(text)
+    expect(summaryWithout(text, [{ name: 'ZZ Divan Oslo', role: 'sofa' }])).toBe('Gilamcha eshik oldida. Divanchalar yo\'q.')
+    expect(summaryWithout('Devorlar oq. Gilamlar polda.', [{ name: 'Gilam' }])).toBe('Devorlar oq.')
+  })
+
   it('finds a full catalog name whatever its case, and works with no role at all', () => {
     const text = 'Devorlar oq. Burchakda zz pufik turadi.'
     expect(summaryWithout(text, [{ name: 'ZZ Pufik' }])).toBe('Devorlar oq.')

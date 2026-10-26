@@ -15,6 +15,10 @@ const ROLE_WORD: Partial<Record<string, string>> = {
 
 // The start of a word: "tumba" names "tumbasi", not "tumbochka"; an Uzbek apostrophe is inside a word.
 const WORD_START = "(?<![\\p{L}\\p{N}'ʻʼ‘’`])"
+// The end of one, after the endings a name or role word takes in a sentence ("shkafi", "tumbasi",
+// "gilamlar", "divanga"): "Gilam" names "Gilamlar", not "Gilamcha".
+const WORD_END = "(?:lar)?(?:i|si)?(?:ga|da|dan|ni|ning|dir)?(?![\\p{L}\\p{N}'ʻʼ‘’`])"
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A sentence ends at . ! ? or … followed by a space: "3.5 m" and "yog'och" do not end one. */
 const SENTENCE_END = /(?<=[.!?…])\s+/u
@@ -33,12 +37,10 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
   if (dropped.length === 0) return summary
   const names = dropped.map((d) => d.name.trim().toLowerCase()).filter(Boolean)
   const words = dropped.map((d) => (d.role ? ROLE_WORD[d.role] : undefined)).filter(Boolean)
-  const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})`, 'iu') : null
+  const nameWord = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}`, 'iu') : null
+  const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})${WORD_END}`, 'iu') : null
   const pieces = new Set([...names, ...kept.map((n) => n.trim().toLowerCase()).filter(Boolean)])
-  const namesDropped = (sentence: string) => {
-    const low = sentence.toLowerCase()
-    return names.some((n) => low.includes(n)) || (roleWord?.test(sentence) ?? false)
-  }
+  const namesDropped = (sentence: string) => (nameWord?.test(sentence) ?? false) || (roleWord?.test(sentence) ?? false)
   /** The sentence without its dropped items when it is a list, else whole or null when it names a dropped piece. */
   const without = (sentence: string): string | null => {
     const [, prefix = '', body, end] = sentence.match(LIST)!
