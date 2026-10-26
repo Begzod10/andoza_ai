@@ -74,6 +74,17 @@ describe('summaryWithout', () => {
     expect(summaryWithout(text, [{ name: 'ZZ Karavot Grafit', role: 'bed' }])).toBe('Devorlar oq.')
   })
 
+  it('"stol" or "shkaf" in a kept piece\'s name does not name a left-out desk or wardrobe', () => {
+    const text = 'Devorlar oq. Tuvalet stoli oyna yonida. Kitob shkafi burchakda.'
+    const kept = ['Tuvalet stoli', 'Kitob shkafi']
+    expect(summaryWithout(text, [{ name: 'Yozuv stoli Nord', role: 'desk' }], kept)).toBe(text)
+    expect(summaryWithout(text, [{ name: 'Kiyim shkafi Nord', role: 'wardrobe' }], kept)).toBe(text)
+    // Without the kept piece, or with the word said apart from its name, the sentence still goes.
+    expect(summaryWithout(text, [{ name: 'Yozuv stoli Nord', role: 'desk' }])).toBe('Devorlar oq. Kitob shkafi burchakda.')
+    expect(summaryWithout('Devorlar oq. Tuvalet stoli va yozuv stoli deraza yonida.', [{ name: 'Yozuv stoli Nord', role: 'desk' }], kept))
+      .toBe('Devorlar oq.')
+  })
+
   it('finds a full catalog name whatever its case, and works with no role at all', () => {
     const text = 'Devorlar oq. Burchakda zz pufik turadi.'
     expect(summaryWithout(text, [{ name: 'ZZ Pufik' }])).toBe('Devorlar oq.')

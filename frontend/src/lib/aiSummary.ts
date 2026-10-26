@@ -29,9 +29,10 @@ const ITEM_SEP = /,\s*|\s+va\s+/iu
 
 /**
  * `summary` with every sentence removed that names one of `dropped`: by its full catalog name, or by
- * its role's word. A list of pieces ("Mebel: A, B, C.", or any sentence whose items are all the plan's
- * pieces, `dropped` and `kept`) loses only the dropped items, and goes only when none is left. When every
- * sentence would go, the summary stays whole: something is better than nothing.
+ * its role's word outside a `kept` piece's name. A list of pieces ("Mebel: A, B, C.", or any sentence
+ * whose items are all the plan's pieces, `dropped` and `kept`) loses only the dropped items, and goes
+ * only when none is left. When every sentence would go, the summary stays whole: something is better
+ * than nothing.
  */
 export function summaryWithout(summary: string, dropped: { name: string; role?: string }[], kept: string[] = []): string {
   if (dropped.length === 0) return summary
@@ -39,8 +40,12 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
   const words = dropped.map((d) => (d.role ? ROLE_WORD[d.role] : undefined)).filter(Boolean)
   const nameWord = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}`, 'iu') : null
   const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})${WORD_END}`, 'iu') : null
-  const pieces = new Set([...names, ...kept.map((n) => n.trim().toLowerCase()).filter(Boolean)])
-  const namesDropped = (sentence: string) => (nameWord?.test(sentence) ?? false) || (roleWord?.test(sentence) ?? false)
+  const keptNames = kept.map((n) => n.trim()).filter(Boolean)
+  const pieces = new Set([...names, ...keptNames.map((n) => n.toLowerCase())])
+  // A role word inside a kept piece's own name ("Tuvalet stoli", "Kitob shkafi") is that piece's, not the dropped one's.
+  const keptName = keptNames.length ? new RegExp(`${WORD_START}(?:${keptNames.map(escape).join('|')})${WORD_END}`, 'giu') : null
+  const namesDropped = (sentence: string) =>
+    (nameWord?.test(sentence) ?? false) || (roleWord?.test(keptName ? sentence.replace(keptName, ' ') : sentence) ?? false)
   /** The sentence without its dropped items when it is a list, else whole or null when it names a dropped piece. */
   const without = (sentence: string): string | null => {
     const [, prefix = '', body, end] = sentence.match(LIST)!
