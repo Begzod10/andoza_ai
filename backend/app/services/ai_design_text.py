@@ -59,6 +59,11 @@ _COLOUR_CLAIMS: dict[str, tuple[re.Pattern[str], Any]] = {
     "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 50 and l <= 0.6 and s >= 0.1),
 }
 _WOOD_FLOORS = ("parquet", "laminate")
+# Any colour word, policed or neutral, with its endings ("qoraroq", "ko'kish").
+_ANY_COLOUR = re.compile(
+    r"\b(?:oltin\w*|tilla\w*|sariq\w*|qora\w*|qizil\w*|bordo|ko'k\w*|havorang|moviy|zangori|yashil\w*|zaytun\w*|pushti\w*|"
+    r"binafsha\w*|jigarrang\w*|qo'ng'ir\w*|oq|kulrang\w*|bej|krem\w*)"
+)
 
 
 def _plan_colours(plan: Any) -> list[str]:
@@ -71,27 +76,50 @@ def _plan_colours(plan: Any) -> list[str]:
     return [c for c in out if isinstance(c, str) and re.fullmatch(r"#[0-9a-f]{6}", c)]
 
 
+# Materials a colour word may describe instead of the paint: "qora metall oyoqlar", "oq marmar".
+_MATERIALS = (
+    "metall", "marmar", "mramor", "beton", "yog'och", "shisha", "xrom", "charm",
+    "plastik", "rattan", "bambuk", "mato", "teri", "eman", "yong'oq", "temir", "latun", "baxmal", "velvet",
+)
+# The colour word itself, when a material follows it; the material stays for the other checks.
+_COLOUR_OF_MATERIAL = re.compile(_ANY_COLOUR.pattern + rf"(?=\s+(?:{'|'.join(_MATERIALS)}))")
+# A clause about a wall: a material there ("qora metall panel", "aksent devor qora marmar") is the wall's colour.
+_WALL_WORDS = re.compile(r"\b(?:devor|panel|fon(?:i|da|ida)?\b|aksent|urg'u)")
+_CLAUSE = re.compile(r"[^.,;:!?]+")
+
+
+def _without_material_colours(text: str) -> str:
+    """*text* without the colour words of a material, except in a clause that speaks of a wall."""
+    return _CLAUSE.sub(lambda m: m[0] if _WALL_WORDS.search(m[0]) else _COLOUR_OF_MATERIAL.sub(" ", m[0]), text)
+# Two colour words joined into one ("ko'k-yashil"): a shade between them, so either may back it.
+_COMPOUND = re.compile(r"\b([a-z']+)-([a-z']+)\b")
+
+
 def _colour_problems(text: str, plan: Any) -> list[str]:
     colours = [_hls(c) for c in _plan_colours(plan)]
     wood_floor = bool(plan.floor and plan.floor.get("type") in _WOOD_FLOORS)
-    problems = []
-    for family, (words, backs) in _COLOUR_CLAIMS.items():
-        if not words.search(text):
-            continue
-        if any(backs(*c) for c in colours):
-            continue
+
+    def backed(family: str) -> bool:
         if family == "jigarrang" and wood_floor:  # a wooden floor is brown, tint or not
-            continue
-        problems.append(f"'{family}' rang aytilgan, lekin rejada bunday rang yo'q")
-    return problems
+            return True
+        return any(_COLOUR_CLAIMS[family][1](*c) for c in colours)
+
+    def families(word: str) -> list[str]:
+        return [family for family, (words, _) in _COLOUR_CLAIMS.items() if words.search(word)]
+
+    # Neither a material's colour (away from a wall) nor a compound with one fitting part claims anything
+    # about the paint, so they are taken out of the text before the claims are read.
+    text = _without_material_colours(text)
+    text = _COMPOUND.sub(lambda m: " " if any(map(backed, families(m[1]) + families(m[2]))) else m[0], text)
+    return [
+        f"'{family}' rang aytilgan, lekin rejada bunday rang yo'q"
+        for family, (words, _) in _COLOUR_CLAIMS.items()
+        if words.search(text) and not backed(family)
+    ]
 
 
 # A colour word right before a piece of furniture or a light: "qora divan", "oltin chiroq". The studio
 # cannot colour either (they come from the catalog as they are), so the claim can never come true.
-_ANY_COLOUR = re.compile(
-    r"\b(?:oltin\w*|tilla\w*|sariq\w*|qora\w*|qizil\w*|bordo|ko'k\w*|havorang|moviy|zangori|yashil\w*|zaytun\w*|pushti\w*|"
-    r"binafsha\w*|jigarrang\w*|qo'ng'ir\w*|oq|kulrang\w*|bej|krem\w*)"
-)
 _COLOURED_THING = re.compile(
     _ANY_COLOUR.pattern
     + r"(?:\s+(?:(?:uch|ikki|bir)\s+(?:o'rinli|kishilik)|[\w']+))?\s+"
@@ -125,9 +153,17 @@ def _plan_trim_ids(plan: Any) -> list[str]:
     return [i.lower() for i in ids if isinstance(i, str) and i.lower() not in _UZBEK_TRIM_IDS]
 
 
-def _language_problems(text: str, plan: Any) -> list[str]:
+# The short labels the prompt gives the pieces (F1, F2...): they mean nothing to the user.
+_PIECE_LABELS = re.compile(r"\bf\d+\b")
+
+
+def _language_problems(text: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     if _RAW_IDS.search(text):
         return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
+    # A label that is part of a shop's own name ("Divan F1 Lux") is the name, not the prompt's label.
+    names = _norm(" ".join([*(f.get("name", "") for f in plan.furniture), *(catalog_names or [])]))
+    if set(_PIECE_LABELS.findall(text)) - set(_PIECE_LABELS.findall(names)):
+        return ["matnda ichki nom bor (mebel belgisi)"]
     if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
         return ["matnda ichki nom bor (shift yoki plintus profili)"]
     return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
@@ -263,7 +299,7 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
-        *_language_problems(text, plan),
+        *_language_problems(text, plan, catalog_names),
         *_colour_of_things_problems(text),
         *_colour_problems(text, plan),
         *_furniture_problems(text, plan),
@@ -410,23 +446,53 @@ def _light_said(name: str, sentence_start: bool, tail_said: bool) -> str:
     return said[0].upper() + said[1:] if sentence_start else said
 
 
+# The floor types as the studio's own floor menu names them (Parket, Kafel, Laminat, Beton), so the prose
+# reads the word the user picks the floor by.
+_FLOOR_SAID = {"parquet": "parket", "tile": "kafel", "laminate": "laminat", "concrete": "beton"}
+
+
+def _starts_sentence(m: re.Match[str]) -> bool:
+    before = m.string[: m.start()].rstrip()
+    return not before or before[-1] in ".!?"
+
+
 def _localise(text: str) -> str:
     """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
-    for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
-        text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
+    for raw, uz in {**_LAYING_NAMES, **_FLOOR_SAID}.items():
+        def floor_said(m: re.Match[str], uz: str = uz) -> str:
+            return uz[0].upper() + uz[1:] if _starts_sentence(m) else uz
+        text = re.sub(rf"\b{raw}\b", floor_said, text, flags=re.I)
     for raw in _LIGHT_IDS:
         def said(m: re.Match[str], raw: str = raw) -> str:
-            start = not m.string[: m.start()].strip() or m.string[: m.start()].rstrip()[-1] in ".!?"
-            return _light_said(_LIGHT_SAID[raw], start, bool(_SAID_AFTER.match(m.string, m.end())))
+            return _light_said(_LIGHT_SAID[raw], _starts_sentence(m), bool(_SAID_AFTER.match(m.string, m.end())))
         text = re.sub(rf"\b{_id_pattern(raw)}\b", said, text, flags=re.I)
     return text
 
 
+# A sentence ends at ".", "!" or "?" followed by a space: "2.5" and the apostrophes of "ko'k" stay whole.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def _uzbek_sentences(text: str, plan: Any, catalog_names: list[str] | None = None) -> str:
+    """*text* without the sentences that are not for the user: one in English (the model often ends by
+    translating itself) or one that reads the studio's ids. Dropping them costs nothing the plan holds,
+    while judging the whole text by them would throw the honest Uzbek away with them."""
+    sentences = _SENTENCE_END.split(text.strip())
+    return " ".join(s for s in sentences if s and not _language_problems(_norm(s), plan, catalog_names))
+
+
 def reconcile_summary(plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """Make ``plan.summary`` say only what the plan holds. Returns what was wrong with the model's
-    wording (empty when it was kept as written). *catalog_names* are the shop's own piece names."""
-    plan.summary = _localise(plan.summary or "")
-    problems = summary_problems(plan.summary, plan, catalog_names) if plan.summary else ["matn bo'sh"]
+    wording (empty when it was kept, at most without its English or id-bearing sentences).
+    *catalog_names* are the shop's own piece names."""
+    localised = _localise(plan.summary or "")
+    uzbek = _uzbek_sentences(localised, plan, catalog_names)
+    if len(uzbek.split()) >= 2:
+        plan.summary = uzbek
+        problems = summary_problems(uzbek, plan, catalog_names)
+    else:
+        # Nothing, or a lone word ("Iliq."), is left to read: say why the whole text was not kept.
+        problems = summary_problems(localised, plan, catalog_names) or ["matn bo'sh"]
     if problems:
         plan.summary = describe_plan(plan)
     return problems

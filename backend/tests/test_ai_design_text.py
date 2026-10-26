@@ -448,3 +448,294 @@ class TestEnglishAndIdsLeakingThrough:
 
     def test_a_light_named_as_its_id_keeps_the_prose_spelling(self):
         assert txt._localise("Devorda bra va led_track bor.") == "Devorda bra va LED trek chirog'i bor."
+
+
+def _eval_plan(summary, walls, floor, lights, furniture, trim=None):
+    """A validated plan as the eval of 2026-10-26 recorded it: the pieces by their shop names."""
+    return SimpleNamespace(
+        summary=summary, walls=walls, floor=floor, lights=[{"type": t, "zone": "center"} for t in lights],
+        furniture=[{"name": n} for n in furniture], trim=trim,
+    )
+
+
+class TestAnEnglishTailDoesNotCostTheSummary:
+    """Six of the thirteen eval summaries (2026-10-26) were thrown away for one English sentence at
+    the end: the Uzbek before it was honest, so it is kept and only the English goes."""
+
+    HITECH = _eval_plan(
+        "Xonada qoraytirilgan devor C devorining aksenti sifatida ajratilgan, asosiy devorlar och kulrang bo'yoq "
+        "bilan qoplangan. Pol uchun toza va sovuq effekt beruvchi kafel tanlandi. Asosiy yoritish sifatida LED panel "
+        "va yordamchi chiroqlar sifatida LED trek va spot chiroqlar ishlatilgan. Mevcut hi-tech uslubga mos keladigan "
+        "F1 divan, F2 TV tumba, F3 shisha-metall jurnal stoli, F4 indastrial kreslo va F9 javon tanlandi, shuningdek, "
+        "F12 pufik dekor sifatida joylashtirildi. The room features a dark accent wall on wall C with light gray main walls.",
+        {"main": {"type": "paint", "color": "#f4f5f6"}, "accent": {"wall": "C", "color": "#2b2f33"}},
+        {"type": "tile", "pattern": None, "tint": None},
+        ["led_panel", "led_track", "spotlight"],
+        ["ZZ Divan Vektor", "ZZ TV tumba Glyanets", "ZZ Jurnal stoli shisha-metall", "ZZ Kreslo Indastrial",
+         "ZZ Pufik", "ZZ Javon Nord"],
+        {"ceiling": {"design": "floating"}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+    MILLIY = _eval_plan(
+        "Xonada milliy uslubga mos ravishda gul naqshli oboy va iliq rangli herringbone parquet pol tanlandi. "
+        "Asosiy yoritish uchun qandil va devor bra chiroqlari ishlatildi. Mebel sifatida milliy uslubdagi Samarqand "
+        "divan, Buxoro kreslosi, o'ymakor jurnal stoli, Buxoro naqshli gilam va bezak uchun pufik tanlandi. This design "
+        "reflects a traditional Uzbek style with warm tones and complementary furniture to create a cohesive and "
+        "inviting living room.",
+        {"main": {"type": "oboy", "pattern": "gul", "base_color": "#f3e6cf", "accent_color": "#9e2b25"}},
+        {"type": "parquet", "pattern": "herringbone", "tint": "#6b3f22"},
+        ["chandelier", "bra", "bra"],
+        ["ZZ Divan Samarqand", "ZZ Kreslo Buxoro", "ZZ Jurnal stoli o'ymakor", "ZZ Gilam Buxoro naqshli", "ZZ Pufik"],
+        {"ceiling": {"design": "recessed"}, "skirting": {"id": "b055"}, "cornice": {"id": "t56"}},
+    )
+    KLASSIK = _eval_plan(
+        "Bu klassik dizayn uchun damask naqshli oboy va oltin rangdagi aksent rang tanlandi. Pol uchun herringbone "
+        "naqshli parquet yog'ochi va iliq jigarrang tus tanlandi. Asosiy yoritish uchun qandil, devor uchun bra va "
+        "burchak uchun torsher chiroqlari tanlandi. Mebellar orasida klassik uslubdagi Chester divan, Barokko kreslo, "
+        "zarhal jurnal stoli, Oxford kitob shkafi va Fors gilami mavjud. This design combines damask wallpaper with "
+        "golden accents and herringbone parquet flooring to create a warm classical atmosphere, complemented by a "
+        "chandelier, bra, and floor lamp.",
+        {"main": {"type": "oboy", "pattern": "damask", "base_color": "#f5f1e6", "accent_color": "#c9a24b"}},
+        {"type": "parquet", "pattern": "herringbone", "tint": "#8a5a33"},
+        ["chandelier", "bra", "floor_lamp"],
+        ["ZZ Divan Chester", "ZZ Kreslo Barokko", "ZZ Jurnal stoli zarhal", "ZZ Kitob shkafi Oxford", "ZZ Gilam Fors"],
+        {"ceiling": {"design": "double_layer"}, "skirting": {"id": "b053"}, "cornice": {"id": "t339"}},
+    )
+    ZAMONAVIY = _eval_plan(
+        "Xonada iliq zamonaviy muhit yaratish uchun devorlar och rangli bo'yoq bilan qoplandi, asosiy devorda biroz "
+        "qorong'i aksent berildi. Pol uchun iliq rangdagi yog'och naqshli laminat tanlandi. Yorug'lik uchun LED "
+        "chiziqli asosiy chiroq, devor bo'ylab downlightlar va burchakda iliq ta'sir beruvchi torsher qo'shildi. Mebel "
+        "sifatida zamonaviy uslubdagi divan, ikki xil kreslo, zamonaviy TV tumba va minimalist jurnal stoli tanlandi. "
+        "This selection balances warm tones and modern style with functional and cozy furniture pieces.",
+        {"main": {"type": "paint", "color": "#d9d6d0"}, "accent": {"wall": "C", "color": "#8c8a86"}},
+        {"type": "laminate", "pattern": "wood_strip", "tint": "#a88b6a"},
+        ["led_linear", "downlight", "floor_lamp"],
+        ["ZZ Divan Nova", "ZZ Kreslo Soft", "ZZ TV tumba Grafit", "ZZ Jurnal stoli Mono", "ZZ Kreslo Bergen"],
+        {"ceiling": {"design": "flat"}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+    YOTOQ_2 = _eval_plan(
+        "Yotoqxona uchun iliq va tinchlantiruvchi atmosfera yaratish maqsadida devorlar uchun ochiq pastel bej rangli "
+        "bo'yoq tanlandi va pol uchun to'q jigarrang herringbone naqshli parket tanlandi. Markaziy qandil va eshik "
+        "devorida joylashgan bra yordamchi yoritgich sifatida tanlandi, bu esa xonaga iliq va qulay yorug'lik beradi. "
+        "Mebel sifatida neoklassik uslubdagi Verona karavoti, tumbochka, kiyim shkafi, yozuv stoli va oddiy stul "
+        "tanlandi. This design creates a cozy neoclassical bedroom with warm tones and harmonious lighting.",
+        {"main": {"type": "paint", "color": "#d9cfc6"}},
+        {"type": "parquet", "pattern": "herringbone", "tint": "#8b6d5c"},
+        ["chandelier", "bra"],
+        ["ZZ Karavot Verona 160", "ZZ Tumbochka Verona", "ZZ Kiyim shkafi Verona", "ZZ Tuvalet stoli Verona", "ZZ Stul"],
+        {"ceiling": {"design": "border"}, "skirting": {"id": "b054"}, "cornice": {"id": "t140"}},
+    )
+    BOLALAR = _eval_plan(
+        "Xonada iliq va yorqin atmosfera yaratish uchun och ko'k rangda devor bo'yoq ishlatildi. Yog'och polga "
+        "o'xshash, light blue rangga yaqin laminate wood_strip naqshida tanlandi. Asosiy yoritish uchun shift chirog'i, "
+        "yordamchi sifatida devorga o'rnatilgan bra chiroqlari tanlandi. Mebellar orasida bolalar karavoti, kitob "
+        "javoni, o'yin stoli va stul hamda bezak sifatida pufik joylandi. This design creates a bright and warm "
+        "atmosphere suitable for a children's room with harmonious colors and functional furniture.",
+        {"main": {"type": "paint", "color": "#a7d3f4"}},
+        {"type": "laminate", "pattern": "wood_strip", "tint": "#e6f1ff"},
+        ["ceiling", "bra", "bra"],
+        ["ZZ Bolalar karavoti", "ZZ Bolalar kitob javoni", "ZZ O'yin stoli", "ZZ Stul", "ZZ Pufik"],
+        {"ceiling": {"design": "flat"}, "skirting": {"id": "b053"}, "cornice": {"id": "t140"}},
+    )
+
+    @staticmethod
+    def _reconciled(plan):
+        plan = SimpleNamespace(**vars(plan))  # each test gets its own copy of the shared plan
+        return txt.reconcile_summary(plan), plan.summary
+
+    def test_hitech_keeps_its_uzbek_and_loses_the_english_and_the_piece_ids(self):
+        problems, summary = self._reconciled(self.HITECH)
+        assert problems == []
+        assert summary == (
+            "Xonada qoraytirilgan devor C devorining aksenti sifatida ajratilgan, asosiy devorlar och kulrang bo'yoq "
+            "bilan qoplangan. Pol uchun toza va sovuq effekt beruvchi kafel tanlandi. Asosiy yoritish sifatida LED "
+            "panel va yordamchi chiroqlar sifatida LED trek va spot chiroqlar ishlatilgan."
+        )
+
+    def test_milliy_keeps_its_uzbek(self):
+        problems, summary = self._reconciled(self.MILLIY)
+        assert problems == []
+        assert summary == (
+            "Xonada milliy uslubga mos ravishda gul naqshli oboy va iliq rangli yelkan parket pol tanlandi. "
+            "Asosiy yoritish uchun qandil va devor bra chiroqlari ishlatildi. Mebel sifatida milliy uslubdagi Samarqand "
+            "divan, Buxoro kreslosi, o'ymakor jurnal stoli, Buxoro naqshli gilam va bezak uchun pufik tanlandi."
+        )
+
+    def test_klassik_keeps_its_gold(self):
+        problems, summary = self._reconciled(self.KLASSIK)
+        assert problems == []
+        assert summary == (
+            "Bu klassik dizayn uchun damask naqshli oboy va oltin rangdagi aksent rang tanlandi. Pol uchun yelkan "
+            "naqshli parket yog'ochi va iliq jigarrang tus tanlandi. Asosiy yoritish uchun qandil, devor uchun bra va "
+            "burchak uchun torsher chiroqlari tanlandi. Mebellar orasida klassik uslubdagi Chester divan, Barokko "
+            "kreslo, zarhal jurnal stoli, Oxford kitob shkafi va Fors gilami mavjud."
+        )
+
+    def test_zamonaviy_keeps_its_uzbek(self):
+        problems, summary = self._reconciled(self.ZAMONAVIY)
+        assert problems == []
+        assert summary == self.ZAMONAVIY.summary.rsplit(" This selection", 1)[0]
+
+    def test_bolalar_keeps_its_uzbek(self):
+        problems, summary = self._reconciled(self.BOLALAR)
+        assert problems == []
+        assert summary == (
+            "Xonada iliq va yorqin atmosfera yaratish uchun och ko'k rangda devor bo'yoq ishlatildi. Yog'och polga "
+            "o'xshash, light blue rangga yaqin laminat to'g'ri taxta naqshida tanlandi. Asosiy yoritish uchun shift "
+            "chirog'i, yordamchi sifatida devorga o'rnatilgan bra chiroqlari tanlandi. Mebellar orasida bolalar "
+            "karavoti, kitob javoni, o'yin stoli va stul hamda bezak sifatida pufik joylandi."
+        )
+
+    def test_yotoq_2_loses_its_english_but_still_names_a_desk_the_plan_does_not_hold(self):
+        # The plan holds a dressing table, not the writing desk the Uzbek names: that is a real lie.
+        menu = ["ZZ Karavot Verona 160", "ZZ Tuvalet stoli Verona", "ZZ Yozuv stoli Nord", "ZZ Stul"]
+        plan = SimpleNamespace(**vars(self.YOTOQ_2))
+        problems = txt.reconcile_summary(plan, menu)
+        assert problems == ["'yozuv' aytilgan, lekin rejada yo'q"]
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_yotoq_2_without_the_desk_is_kept(self):
+        problems, summary = self._reconciled(self.YOTOQ_2)
+        assert problems == []
+        assert summary.endswith("yozuv stoli va oddiy stul tanlandi.")
+
+    def test_a_summary_wholly_in_english_still_falls_back(self):
+        plan = make("The walls are painted beige. The floor is parquet with a chandelier and furniture.")
+        assert any("o'zbekcha emas" in p for p in txt.reconcile_summary(plan))
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_one_word_remainder_is_not_kept(self):
+        plan = make("Iliq. The walls are painted beige with a warm floor and lighting.")
+        assert txt.reconcile_summary(plan)
+        assert plan.summary == txt.describe_plan(plan)
+
+    def test_a_raw_piece_id_is_a_leak(self):
+        assert any("ichki nom" in p for p in txt.summary_problems("F1 divan markazda turadi.", make()))
+
+    def test_a_shop_name_with_a_label_in_it_is_no_leak(self):
+        # "Divan F1 Lux" is the shop's own name: the label is part of it, not the prompt's F1.
+        text = "Divan F1 Lux burchakda turadi, devorlar bej va pol parket."
+        plan = _eval_plan(text, {"main": {"type": "paint", "color": "#e8dcc8"}},
+                          {"type": "parquet", "pattern": None, "tint": None}, [], ["Divan F1 Lux"])
+        assert txt.reconcile_summary(plan, ["Divan F1 Lux", "Kreslo F2"]) == []
+        assert plan.summary == text
+        # A label of no name, or of a piece the plan did not choose, is still the prompt's.
+        assert any("ichki nom" in p for p in txt.summary_problems("Divan F1 Lux va F3 burchakda.", plan, ["Divan F1 Lux"]))
+
+    def test_a_label_in_a_catalog_name_is_no_leak(self):
+        plan = _eval_plan("", {"main": {"type": "paint", "color": "#e8dcc8"}}, None, [], ["Divan"])
+        assert not any("ichki nom" in p for p in txt.summary_problems("Kreslo F2 yo'q.", plan, ["Divan", "Kreslo F2"]))
+
+    def test_a_clean_summary_is_unchanged(self):
+        text = "Iliq bej devorlar, parket pol. Markazda qandil 2.5 metr balandlikda, divan va tumba bilan."
+        plan = make(text)
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == text
+
+
+class TestColourWordsThatAreNotThePaint:
+    """Two eval summaries (2026-10-26) thrown away for a colour word that made no claim about the paint."""
+
+    YOTOQ = _eval_plan(
+        "Bu zamonaviy yotoqxona uchun devorlar engil ko'k-yashil rangda bo'yoq bilan qoplangan, bu xona atmosferasini "
+        "tinch va shinam qiladi. Pol herringbone naqshli parketdan tanlandi, iliqlik va tabiiylikni oshirish uchun. "
+        "Markaziy shift chirog'i va burchakda joylashgan torsher yordamida yumshoq va iliq yorug'lik ta'minlandi. Mebel "
+        "sifatida zamonaviy uslubdagi karavot Grafit, kiyim shkafi Grafit, tumbochka Grafit, pufik bezak, yozuv stoli "
+        "Nord va ish stuli tanlandi, ular bir-biri bilan uyg'un va funktsional.",
+        {"main": {"type": "paint", "color": "#c9d6d5"}},
+        {"type": "parquet", "pattern": "herringbone", "tint": "#8b6d5c"},
+        ["ceiling", "floor_lamp"],
+        ["ZZ Karavot Grafit 180", "ZZ Kiyim shkafi Grafit", "ZZ Tumbochka Grafit", "ZZ Pufik", "ZZ Ish stuli",
+         "ZZ Yozuv stoli Nord"],
+        {"ceiling": {"design": "floating"}, "skirting": {"id": "b054"}, "cornice": {"id": "t140"}},
+    )
+    LOFT = _eval_plan(
+        "Devorlar uchun to'q kulrang bo'yoq va C devori uchun g'isht rangida aksent tanlandi, bu loft uslubining "
+        "industriyal ko'rinishini ta'kidlaydi. Pol uchun beton qoldirildi, u qora metall va g'isht elementlari bilan "
+        "uyg'unlashadi. Asosiy yoritish uchun trek chiroqlari, burchaklarda esa torsher va devor uchun spot chiroqlar "
+        "ishlatildi. Mebel sifatida ZZ Divan Bruklin, ZZ Kreslo Indastrial, metall-yog'och jurnal stoli, ZZ TV tumba "
+        "Indastrial va ZZ Stellaj Loft tanlandi, ular loft uslubiga mos keladi va xona o'lchamiga mos keladi.",
+        {"main": {"type": "paint", "color": "#4a4a4a"}, "accent": {"wall": "C", "color": "#a0522d"}},
+        {"type": "concrete", "pattern": None, "tint": None},
+        ["track", "floor_lamp", "spotlight"],
+        ["ZZ Divan Bruklin", "ZZ Kreslo Indastrial", "ZZ Jurnal stoli metall-yog'och", "ZZ TV tumba Indastrial",
+         "ZZ Stellaj Loft"],
+        {"ceiling": {"design": "non_drop"}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+
+    def test_the_namer_calls_the_yotoq_wall_light_blue(self):
+        # Hue 175: just past the green band, so "ko'k-yashil" is the honest word for it.
+        assert txt.colour_name("#c9d6d5") == "och ko'k"
+
+    def test_yotoq_is_kept(self):
+        plan = SimpleNamespace(**vars(self.YOTOQ))
+        assert txt.reconcile_summary(plan) == []
+        assert "ko'k-yashil rangda" in plan.summary
+
+    def test_loft_is_kept_with_its_brick(self):
+        plan = SimpleNamespace(**vars(self.LOFT))
+        assert txt.reconcile_summary(plan) == []
+        assert "qora metall va g'isht elementlari" in plan.summary
+
+    @pytest.mark.parametrize("compound", ["ko'k-yashil", "yashil-ko'k", "ko‘k-yashil"])
+    def test_a_compound_is_backed_when_either_part_is(self, compound):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#c9d6d5"}}, floor=None)
+        assert txt._colour_problems(txt._norm(f"Devorlar {compound} rangda."), plan) == []
+
+    def test_a_compound_neither_part_of_which_fits_is_still_caught(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#c9d6d5"}}, floor=None)
+        assert txt._colour_problems("devorlar qizil-pushti rangda.", plan)
+
+    @pytest.mark.parametrize("text", [
+        "qora metall oyoqlar xonaga qat'iylik beradi.", "oq marmar yuzali stol.", "qora metall va g'isht.",
+        "kulrang beton pol.", "qora mramor, xrom va shisha.", "qora charm qoplamali.", "qora shisha eshikchalar.",
+        "qora xromli detallar.", "qora yog'ochdan yasalgan.", "qizil marmar.",
+    ])
+    def test_a_colour_of_a_material_is_not_the_paint(self, text):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor={"type": "concrete"})
+        assert txt._colour_problems(text, plan) == []
+
+    def test_a_wrong_colour_of_the_walls_is_still_caught(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor=None)
+        assert txt._colour_problems("qizil devor va qora metall.", plan)
+        assert txt._colour_problems("devorlar qora, metall oyoqli stol.", plan)
+
+
+    @pytest.mark.parametrize("text", [
+        "Devorlar oq rangda. Bir devor qora metall panel bilan ajratiladi.",
+        "Devorlar oq, qizil yog'och panel.",
+        "Aksent devor qora marmar ko'rinishida.",
+    ])
+    def test_a_material_on_a_wall_is_still_the_wall_colour(self, text):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#ffffff"}}, floor=None)
+        assert txt._colour_problems(txt._norm(text), plan)
+
+    def test_a_material_beside_a_wall_in_another_clause_is_not(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#ffffff"}}, floor=None)
+        assert txt._colour_problems("devorlar oq rangda, qora metall oyoqli stol.", plan) == []
+
+
+class TestFloorIdsAreSaidInUzbek:
+    """The eval (2026-10-26) kept "Pol tile turi tanlangan": the floor's id, read as it is in the studio."""
+
+    def test_the_minimalist_case(self):
+        text = "Pol tile turi tanlangan, naqshsiz va rangsiz, bu xona yorqinligini ta'minlaydi."
+        assert txt._localise(text) == "Pol kafel turi tanlangan, naqshsiz va rangsiz, bu xona yorqinligini ta'minlaydi."
+
+    @pytest.mark.parametrize(("raw", "said"), [
+        ("tile", "kafel"), ("concrete", "beton"), ("parquet", "parket"), ("laminate", "laminat"), ("Tile", "kafel"),
+    ])
+    def test_each_floor_type_mid_sentence(self, raw, said):
+        assert txt._localise(f"Polga {raw} tanlandi.") == f"Polga {said} tanlandi."
+
+    def test_a_floor_id_starting_a_sentence_keeps_its_capital(self):
+        # The neoklassik summary of the eval came out as "... tanlandi. parket pol yelkan naqshida".
+        assert txt._localise("Devorlar bej. Parquet pol herringbone naqshida.") == "Devorlar bej. Parket pol yelkan naqshida."
+        assert txt._localise("Tile pol salqin.") == "Kafel pol salqin."
+
+    def test_only_whole_words(self):
+        assert txt._localise("Tiles va tilet.") == "Tiles va tilet."
+
+    def test_the_minimalist_summary_is_kept_in_uzbek(self):
+        plan = make("Pol tile turi tanlangan, naqshsiz va rangsiz.", floor={"type": "tile", "pattern": None, "tint": None})
+        assert txt.reconcile_summary(plan) == []
+        assert plan.summary == "Pol kafel turi tanlangan, naqshsiz va rangsiz."

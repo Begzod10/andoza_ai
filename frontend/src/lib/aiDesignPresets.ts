@@ -1,6 +1,6 @@
 import type { AiDesignPlan, CatalogFurniture, DesignTrim } from '@/lib/api'
 import type { FurnitureStyle } from '@/lib/furnitureStyles'
-import { inferRole, ROLE_GROUP, type FurnitureRole } from '@/lib/furnitureRole'
+import { inferRole, ROLE_GROUP, WARDROBE_NAME, type FurnitureRole } from '@/lib/furnitureRole'
 import { catalogRoomType } from '@/lib/roomType'
 import i18n, { type TKey } from '@/i18n'
 import presetData from '@/lib/data/design_presets.json'
@@ -14,7 +14,7 @@ import presetData from '@/lib/data/design_presets.json'
  * A kind with no match is left out rather than guessed.
  */
 
-type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf'
+type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot' | 'tumbochka' | 'garderob' | 'yozuv_stoli'
 
 /**
  * The role a kind plays when the catalog piece itself says nothing more (its name and category
@@ -22,17 +22,39 @@ type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf'
  */
 const KIND_ROLE: Record<Kind, FurnitureRole> = {
   divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
+  karavot: 'bed', tumbochka: 'nightstand', garderob: 'wardrobe', yozuv_stoli: 'desk',
 }
 
-/** What a kind looks like in the catalog (category and Uzbek name). */
-const KIND_MATCH: Record<Kind, RegExp> = {
-  divan: /divan|sofa/i,
-  stol: /kofe|jurnal|stol|table/i,
-  kreslo: /kreslo|armchair|chair/i,
-  tumba: /tumba|televizor|\btv\b|komod/i,
-  gilam: /gilam|rug|carpet|kovrolin/i,
-  shkaf: /shkaf|javon|bookcase|stellaj/i,
+const text = (pattern: RegExp) => (c: CatalogFurniture) => pattern.test(`${c.category} ${c.name_uz}`)
+const roleIs = (role: FurnitureRole) => (c: CatalogFurniture) => inferRole(c.category, c.name_uz) === role
+
+/**
+ * What a kind looks like in the catalog (category and Uzbek name). The bedroom kinds are the roles
+ * the layout reads the piece as, so a "Kompyuter stuli" is no desk; a wardrobe is one for clothes
+ * (`WARDROBE_NAME`), not any "shkaf" such as a bookcase.
+ */
+const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
+  divan: text(/divan|sofa/i),
+  stol: text(/kofe|jurnal|stol|table/i),
+  kreslo: text(/kreslo|armchair|chair/i),
+  tumba: text(/tumba|televizor|\btv\b|komod/i),
+  gilam: text(/gilam|rug|carpet|kovrolin/i),
+  shkaf: text(/shkaf|javon|bookcase|stellaj/i),
+  karavot: roleIs('bed'),
+  tumbochka: roleIs('nightstand'),
+  garderob: (c) => WARDROBE_NAME.test(c.name_uz),
+  yozuv_stoli: roleIs('desk'),
 }
+
+/**
+ * A preset's furniture is a living room's. A bedroom takes this set instead, in the preset's style;
+ * a children's room a desk too. Kept here, not in the JSON the backend shares.
+ */
+const BEDROOM_SET: Kind[] = ['karavot', 'tumbochka', 'garderob', 'gilam']
+const KIDS_SET: Kind[] = [...BEDROOM_SET, 'yozuv_stoli']
+
+/** A children's piece, by name: the backend's `_KIDS_NAME`. */
+const KIDS_NAME = /bolalar|детск|kids/i
 
 /**
  * Names that make the best piece of a kind, tried before the generic KIND_MATCH: a TV stand rather
@@ -65,24 +87,34 @@ interface Preset {
  */
 export const DESIGN_PRESETS = presetData.presets as Preset[]
 
+type Score = [number, number, number, number, number, number]
+
 /**
  * The catalog piece of this kind that best suits the style, then the room. A piece of the style
  * scores 2, an unstyled one (fits every style) 1, another style 0; the room scores the same way.
- * Style outranks room; a tie keeps catalog order. `styles` may be missing on an old cached catalog.
+ * Style outranks room, but a piece made for another room (a kitchen cabinet in a living room) comes
+ * after every piece for this room or any room: it is used only when nothing else fits. The kind's
+ * preferred name (KIND_PREFER) comes before even that: a kitchen still takes the coffee table, not its
+ * own dining table, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
+ * A children's piece comes first in a children's room and last anywhere else.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
 ): CatalogFurniture | undefined {
   let best: CatalogFurniture | undefined
-  let bestScore: [number, number, number] = [-1, -1, -1]
+  let bestScore: Score = [-1, -1, -1, -1, -1, -1]
   // The catalog has no children's room or study pieces: those rooms take the bedroom's and the living room's.
   const room = catalogRoomType(roomType)
   for (const c of catalog) {
     // A listing without a 3-D model (a photo-only shop item) cannot be placed in the studio.
-    if (!c.glb_url || used.has(c.id) || !KIND_MATCH[kind].test(`${c.category} ${c.name_uz}`)) continue
+    if (!c.glb_url || used.has(c.id) || !KIND_MATCH[kind](c)) continue
     const styles = c.styles ?? []
-    const score: [number, number, number] = [
+    const kids = KIDS_NAME.test(c.name_uz)
+    const score: Score = [
+      kids && roomType !== 'bolalar' ? 0 : 1,
+      kids && roomType === 'bolalar' ? 1 : 0,
       KIND_PREFER[kind]?.test(c.name_uz) ? 1 : 0,
+      room === undefined || c.room_type === null || c.room_type === room ? 1 : 0,
       styles.includes(style) ? 2 : styles.length === 0 ? 1 : 0,
       c.room_type === room ? 2 : c.room_type === null ? 1 : 0,
     ]
@@ -118,14 +150,15 @@ export function presetPlan(
   if (!preset) return undefined
   const used = new Set<string>()
   const furniture: AiDesignPlan['furniture'] = []
-  for (const want of preset.furniture) {
-    const item = pick(want.kind, catalog, roomType, used, preset.furnitureStyle)
+  const kinds = roomType === 'bolalar' ? KIDS_SET : roomType === 'yotoqxona' ? BEDROOM_SET : preset.furniture.map((f) => f.kind)
+  for (const kind of kinds) {
+    const item = pick(kind, catalog, roomType, used, preset.furnitureStyle)
     if (!item) continue
     used.add(item.id)
     const inferred = inferRole(item.category, item.name_uz)
     // The piece's own role wins only inside the kind's group: a bedside table picked as a TV unit,
     // or a dining table as a coffee table, would stand in a group with no anchor and be dropped.
-    const kindRole = KIND_ROLE[want.kind]
+    const kindRole = KIND_ROLE[kind]
     const role = ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
