@@ -262,6 +262,19 @@ describe('WizardPage – Step 5 (Results)', () => {
     expect(screen.getByText('Eshik/derazalar')).toBeTruthy()
   })
 
+  it('wizard creates the room with the picked type', async () => {
+    const { createRoom } = await import('@/lib/api')
+    vi.mocked(createRoom).mockClear()
+    renderWizard()
+    fireEvent.change(screen.getByLabelText('Xona turi'), { target: { value: 'yotoqxona' } })
+    for (let i = 0; i < 5; i++) {
+      await waitFor(() => screen.getByText('Keyingi'))
+      fireEvent.click(screen.getByText('Keyingi'))
+    }
+    await waitFor(() => expect(createRoom).toHaveBeenCalled())
+    expect(vi.mocked(createRoom).mock.calls[0][1]).toMatchObject({ room_type: 'yotoqxona' })
+  })
+
   it('calls createApartment and createRoom on step 5', async () => {
     const { createApartment, createRoom } = await import('@/lib/api')
     renderWizard()

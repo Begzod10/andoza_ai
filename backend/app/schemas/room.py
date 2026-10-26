@@ -7,6 +7,10 @@ import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.room_type import ROOM_TYPES  # noqa: F401  (re-exported for callers)
+
+RoomType = Literal["mehmonxona", "yotoqxona", "bolalar", "oshxona", "kabinet", "hammom", "balkon"]
+
 
 class WallElement(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique opening identifier")
@@ -90,6 +94,7 @@ class RoomCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     ceiling_h: float = Field(ge=1.8, le=6.0)
     geometry: RoomGeometry
+    room_type: RoomType | None = None
 
     @model_validator(mode="after")
     def check_element_heights(self) -> "RoomCreate":
@@ -109,12 +114,15 @@ class RoomUpdate(BaseModel):
     surfaces: dict | None = None
     furniture_layout: list | None = None
     state: dict | None = None
+    # Absent leaves the stored type alone; an explicit null clears it.
+    room_type: RoomType | None = None
 
 
 class RoomOut(BaseModel):
     id: UUID
     apartment_id: UUID
     name: str
+    room_type: str | None = None
     ceiling_h: float | None
     geometry: dict | None
     surfaces: dict | None

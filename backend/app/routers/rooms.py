@@ -88,6 +88,7 @@ async def create_room(apt_id: UUID, body: RoomCreate, db: DbSession, current_use
     room = Room(
         apartment_id=apt_id,
         name=body.name,
+        room_type=body.room_type,
         ceiling_h=body.ceiling_h,
         geometry=body.geometry.model_dump(),
         **metrics,
@@ -331,6 +332,8 @@ async def update_room(
 
     if body.name is not None:
         room.name = body.name
+    if "room_type" in body.model_fields_set:
+        room.room_type = body.room_type
     if body.surfaces is not None:
         room.surfaces = body.surfaces
     if body.furniture_layout is not None:

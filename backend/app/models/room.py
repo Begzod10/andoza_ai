@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,12 @@ class Room(Base):
     """
 
     __tablename__ = "rooms"
+    __table_args__ = (
+        CheckConstraint(
+            "room_type IN ('mehmonxona','yotoqxona','bolalar','oshxona','kabinet','hammom','balkon')",
+            name="ck_rooms_room_type",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -39,6 +45,11 @@ class Room(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    room_type: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="mehmonxona|yotoqxona|bolalar|oshxona|kabinet|hammom|balkon; NULL = not set",
+    )
 
     # --- Geometry & physical dimensions ----------------------------------- #
     ceiling_h: Mapped[float | None] = mapped_column(

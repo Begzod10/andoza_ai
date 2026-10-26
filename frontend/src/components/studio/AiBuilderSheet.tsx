@@ -11,6 +11,8 @@ import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
+import { effectiveRoomType } from "@/lib/roomType"
+import { RoomTypePicker } from "./RoomTypePicker"
 import { trimLabel, trimProfileDef } from "@/lib/trimProfiles"
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -90,8 +92,13 @@ function PartRow({
   )
 }
 
-export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, initialPinUrl }: AiBuilderSheetProps) {
+export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: roomTypeProp, initialPinUrl }: AiBuilderSheetProps) {
   const { t } = useTranslation()
+  // The picker below changes the room's kind; the next request, preset or layout uses the new one.
+  const pickedType = useRoomStore((s) => s.roomType)
+  const roomName = useRoomStore((s) => s.name)
+  // The room's own kind, else the one the studio guessed, else the guess from its name.
+  const roomType = effectiveRoomType(pickedType ?? roomTypeProp, roomName)
   const [prompt, setPrompt] = React.useState("")
   // An inspiration image, kept until the user removes it, so "Boshqa variant" asks again with it.
   const [image, setImage] = React.useState<File | null>(null)
@@ -261,11 +268,25 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
 
   const lightNames = plan?.lights.map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`) ?? []
   const main = plan?.walls.main
+  // The ceiling and the cornice the plan sets; an AI plan may name only some of them (or only the
+  // skirting, which is not listed), and then nothing or less is shown.
+  const trim = plan?.trim
+  const trimLine = trim
+    ? [
+        trim.ceiling && `${t("ai.shift_label")}: ${t(ceilingDesign(trim.ceiling.design).labelKey)}`,
+        trim.cornice === undefined
+          ? null
+          : trim.cornice
+            ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(trim.cornice.id, "cornice"))}`
+            : t("ai.galtel_yoq"),
+      ].filter(Boolean).join(", ")
+    : ""
 
   return (
     <>
     <BottomSheet open={open} onOpenChange={close} title={t("ai.builder_title")} defaultSnap="full">
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto px-4 pb-4">
+        <RoomTypePicker roomId={roomId} fallback={roomTypeProp} disabled={running} />
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-gray-500">{t("ai.tayyor_uslublar")}</p>
           <div className="flex flex-wrap gap-1.5">
@@ -410,13 +431,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType, i
                   {plan.walls.accent.wall} {t("ai.chetki_devor")}: <Swatch color={plan.walls.accent.color} />
                 </span>
               )}
-              {plan.trim && (
-                <span className="mt-1 block text-xs text-gray-600">
-                  {t("ai.shift_label")}: {t(ceilingDesign(plan.trim.ceiling.design).labelKey)}
-                  {", "}
-                  {plan.trim.cornice ? `${t("ai.galtel_label")} ${trimLabel(trimProfileDef(plan.trim.cornice.id, "cornice"))}` : t("ai.galtel_yoq")}
-                </span>
-              )}
+              {trimLine && <span className="mt-1 block text-xs text-gray-600">{trimLine}</span>}
             </PartRow>
 
             <PartRow id="floor" title={t("ai.qism_pol")} enabled={!!plan.floor} checked={parts.floor} onChange={(on) => changeParts({ ...parts, floor: on })}>

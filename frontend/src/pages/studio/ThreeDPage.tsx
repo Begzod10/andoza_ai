@@ -66,6 +66,7 @@ import { ThreeDOverlaySheets } from "./three-d/ThreeDOverlaySheets";
 import { useTranslation } from "react-i18next";
 import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
+import { effectiveRoomType } from "@/lib/roomType";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
 
 /**
@@ -1201,7 +1202,7 @@ export default function ThreeDPage() {
         setShowAiSheet={setShowAiSheet}
         onSave={onSave}
         roomId={room.id}
-        roomType={room.room_type}
+        roomType={effectiveRoomType(room.room_type, room.name)}
         aiPin={aiPin}
         radial={radial}
         radialItems={(r) => buildRadialItems(r, {

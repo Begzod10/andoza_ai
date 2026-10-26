@@ -21,6 +21,8 @@ import { cn, formatDecimal } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
 import type { TFunction } from 'i18next'
+import { RoomTypePicker } from '@/components/studio/RoomTypePicker'
+import { guessRoomType } from '@/lib/roomType'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -280,6 +282,8 @@ function Step0({ ceilingHeight, onChange, onNext, onValidChange }: Step0Props) {
 
   return (
     <div className="space-y-5">
+      <RoomTypePicker themed />
+
       <div>
         <h1 className="text-2xl font-extrabold text-ink">{t('wizard.shift_balandligi')}</h1>
         <p className="text-sm text-muted mt-1">{t('wizard.shift_izoh')}</p>
@@ -622,6 +626,7 @@ export default function WizardPage() {
     loadDraftState,
     resetRoom,
     resetDesignState,
+    roomType,
   } = useRoomStore()
 
   // The wizard sits outside AppShell, which is what normally applies the theme;
@@ -675,6 +680,7 @@ export default function WizardPage() {
       // wizard has no design controls; autosave just snapshots whatever the
       // store held), so resetting it on every new-room entry loses nothing.
       resetDesignState()
+      useRoomStore.getState().setRoomType(null)
       if (draftId) {
         try {
           const draft = await getDraftRoom(draftId)
@@ -713,11 +719,12 @@ export default function WizardPage() {
         wizardStep: step,
         designState,
         roomId,
+        roomType: useRoomStore.getState().roomType,
       })
     }, 800)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ceilingHeight, geometry, step, designState, draftId, draftLoaded])
+  }, [ceilingHeight, geometry, step, designState, draftId, draftLoaded, roomType])
 
   // Keep first-wall lookup for the "link to A" feature in WallStep
   const wallA = geometry.walls.find((w) => w.id === 'A') ?? geometry.walls[0]!
@@ -800,7 +807,9 @@ export default function WizardPage() {
         existingApartmentId ??
         createdApartmentIdRef.current ??
         (createdApartmentIdRef.current = (await createApartment({ name: t('wizard.mening_xonadonim') })).id)
-      const room = await createRoom(aptId, { name: t('wizard.xona'), ...roomDimensions() })
+      const roomName = t('wizard.xona')
+      const room_type = useRoomStore.getState().roomType ?? guessRoomType(roomName) ?? undefined
+      const room = await createRoom(aptId, { name: roomName, room_type, ...roomDimensions() })
       setRoomId(room.id)
       // Draft fulfilled — clean up
       if (draftId) {

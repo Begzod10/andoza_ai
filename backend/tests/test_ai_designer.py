@@ -474,3 +474,226 @@ def test_prompt_lists_roles():
     assert len(ad.FURNITURE_ROLES) == 14
     for role in ad.FURNITURE_ROLES:
         assert role in ad._SYSTEM
+
+
+# --- start from the style's preset, gold/light lines, trim, room-type menu ----------------------
+
+STARTING_PLAN_RULE = (
+    "Shu rejadan boshlang. So'rovda aniq aytilgan narsalarni o'zgartiring, qolganini saqlang. "
+    "Pol turi va naqshini, chiroq turlarini sababsiz almashtirmang."
+)
+NO_STYLE_LINES = (
+    "Pol turini xona turi va atmosferaga qarab tanlang, har doim parket emas: oshxona va hammomda plitka, "
+    "loft yoki sanoat ruhida beton.",
+    "Qandil faqat klassik va neoklassik ruhda.",
+    "So'ralmagan accent devor qo'ymang.",
+)
+GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy oltin tus (#C9A24B yoki #B8860B)"
+LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
+
+
+def _message(prompt, room=None):
+    return ad.build_user_message(prompt, room or ROOM, "chandelier (Qandil)", LINES)
+
+
+def test_style_prompt_embeds_starting_plan():
+    from app.services.design_presets import load_presets
+    message = _message("Loft, g'isht va qora metall")
+    assert "Boshlang'ich reja (Loft)" in message
+    assert STARTING_PLAN_RULE in message
+    loft = load_presets()["loft"]
+    assert json.dumps(loft["floor"], ensure_ascii=False) in message  # concrete, no pattern
+    assert '"ceiling": "non_drop"' in message  # the preset's trim, as the profile ids the model answers with
+
+
+def test_two_styles_use_first():
+    message = _message("loft va minimalist")
+    assert message.count("Boshlang'ich reja") == 1
+    assert "Boshlang'ich reja (Loft)" in message
+
+
+def test_no_style_gets_general_guidance():
+    message = _message("qorong'i, iliq atmosfera")
+    for line in NO_STYLE_LINES:
+        assert line in message
+    assert "Boshlang'ich reja" not in message
+    assert STARTING_PLAN_RULE not in message
+
+
+def test_gold_line_only_when_asked():
+    assert GOLD_LINE not in _message("Neoklassik, och ranglar")
+    assert GOLD_LINE in _message("Klassik, oltin detallar")
+    assert "#C9A24B" not in ad._SYSTEM
+
+
+def test_light_accent_line():
+    assert LIGHT_LINE in _message("Neoklassik, och ranglar")
+    assert LIGHT_LINE not in _message("qorong'i, iliq atmosfera")
+
+
+def test_room_type_none_still_builds():
+    message = _message("loft", {**ROOM, "room_type": None})
+    assert "xona turi noma'lum" in message and "Boshlang'ich reja (Loft)" in message
+
+
+def test_message_lists_trim_profiles():
+    from app.services.design_presets import trim_profiles
+    message = _message("iliq")
+    profiles = trim_profiles()
+    for kind in ("ceiling", "skirting", "cornice"):
+        assert ", ".join(profiles[kind]) in message
+    assert '"trim"' in ad._SYSTEM
+
+
+def test_validate_plan_keeps_known_trim():
+    p = plan(trim={"ceiling": "double_layer", "skirting": "b054", "cornice": "t140"})
+    # the shape the studio applies for a ready-made style (frontend DesignTrim)
+    assert p.trim == {"ceiling": {"design": "double_layer"}, "skirting": {"id": "b054"}, "cornice": {"id": "t140"}}
+    assert p.warnings == []
+    assert plan(trim={"ceiling": "flat", "skirting": "tekis", "cornice": None}).trim["cornice"] is None
+
+
+def test_validate_plan_drops_unknown_trim_profile():
+    p = plan(trim={"ceiling": "dome", "skirting": "b054", "cornice": "t999"})
+    assert p.trim == {"skirting": {"id": "b054"}}  # unknown ones left out: the studio keeps what it has
+    assert len(p.warnings) == 2
+    assert plan(trim={"ceiling": "dome"}).trim is None
+    assert plan().trim is None and plan(trim="flat").trim is None
+
+
+def test_menu_bolalar_prefers_kids_items():
+    items = [
+        {"id": "sofa", "name_uz": "Divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "kids", "name_uz": "Bolalar karavoti", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+    ]
+    _, by_label = ad.furniture_menu(items, "bolalar")
+    order = [v["id"] for v in by_label.values()]
+    assert order[0] == "kids" and order.index("bed") < order.index("sofa")
+
+
+def test_menu_kabinet_prefers_desk():
+    items = [
+        {"id": "bed", "name_uz": "Karavot", "category": "karavot", "room_type": "yotoqxona", "placement": "pol"},
+        {"id": "sofa", "name_uz": "Divan", "category": "divan", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "chair", "name_uz": "Ish stuli", "category": "stul", "room_type": "mehmonxona", "placement": "pol"},
+        {"id": "desk", "name_uz": "Yozuv stoli", "category": "stol", "room_type": "mehmonxona", "placement": "pol"},
+    ]
+    _, by_label = ad.furniture_menu(items, "kabinet")
+    order = [v["id"] for v in by_label.values()]
+    assert set(order[:2]) == {"chair", "desk"} and order.index("sofa") < order.index("bed")
+
+
+# --- fix round 1 -------------------------------------------------------------------------------
+
+def _room_walls(ids):
+    return {**ROOM, "walls": [{"id": w, "length": 3.0, "openings": []} for w in ids]}
+
+
+def _starting(prompt, ids):
+    message = _message(prompt, _room_walls(ids))
+    line = message.split("Boshlang'ich reja", 1)[1].split("\n")[1]
+    return json.loads(line)
+
+
+def test_starting_plan_keeps_letters_in_an_a_to_d_room():
+    start = _starting("zamonaviy", ["A", "B", "C", "D"])
+    assert start["walls"]["accent"]["wall"] == "C"
+    zones = [l["zone"] for l in start["lights"]]
+    assert zones == ["center", "wall_A", "corner_C_D"]
+
+
+def test_starting_plan_translates_walls_to_the_room_s_own_ids():
+    start = _starting("zamonaviy", ["W1", "W2", "W3", "W4"])
+    assert start["walls"]["accent"]["wall"] == "W3"
+    assert [l["zone"] for l in start["lights"]] == ["center", "wall_W1", "corner_W3_W4"]
+    neo = _starting("neoklassika", ["W1", "W2", "W3", "W4"])
+    assert [l["zone"] for l in neo["lights"]] == ["center", "wall_W2", "wall_W4"]
+
+
+def test_starting_plan_drops_what_a_smaller_room_lacks():
+    start = _starting("zamonaviy", ["W1", "W2", "W3"])  # corner_CD needs a fourth wall
+    assert [l["zone"] for l in start["lights"]] == ["center", "wall_W1"]
+    assert start["walls"]["accent"]["wall"] == "W3"
+    neo = _starting("neoklassika", ["W1", "W2", "W3"])
+    assert [l["zone"] for l in neo["lights"]] == ["center", "wall_W2"]
+
+
+def test_building_a_message_leaves_the_cached_presets_alone():
+    import copy
+    from app.services.design_presets import load_presets
+    before = copy.deepcopy(load_presets())
+    _message("zamonaviy", _room_walls(["W1", "W2", "W3"]))
+    _message("neoklassika", _room_walls(["W1", "W2", "W3", "W4"]))
+    assert load_presets() == before
+
+
+def test_same_ceiling_as_the_starting_preset_keeps_its_settings():
+    from app.services.design_presets import load_presets
+    dark = load_presets()["dark"]
+    p = ad.validate_plan({**GOOD, "trim": {"ceiling": "border"}}, BY_LABEL, WALLS, starting_preset=dark)
+    assert p.trim["ceiling"] == {"design": "border", "settings": {"color": "#2f2f2f", "strip": True, "stripK": 2700}}
+    p.trim["ceiling"]["settings"]["color"] = "#000000"
+    assert dark["trim"]["ceiling"]["settings"]["color"] == "#2f2f2f"  # a copy, not the cached preset
+    other = ad.validate_plan({**GOOD, "trim": {"ceiling": "flat"}}, BY_LABEL, WALLS, starting_preset=dark)
+    assert other.trim["ceiling"] == {"design": "flat"}
+
+
+async def test_design_room_hands_the_starting_preset_to_validation():
+    reply = SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps({**GOOD, "trim": {"ceiling": "non_drop"}}))])
+    with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
+        p = await ad.design_room("loft uslubida", ROOM, ITEMS, user_id="u")
+    assert p.trim["ceiling"] == {"design": "non_drop", "settings": {"color": "#bdbab4"}}
+
+
+@pytest.mark.parametrize(("prompt", "asked"), [
+    ("pochta", False), ("ochiq oshxona", False), ("kam yorug'lik", False),
+    ("och ranglar", True), ("yorug' ranglar", True), ("yorugʻ ranglar", True), ("светлая комната", True),
+])
+def test_light_line_only_for_light_colours(prompt, asked):
+    assert (LIGHT_LINE in _message(prompt)) is asked
+
+
+def test_a_plan_with_only_trim_is_not_empty():
+    assert not ad.DesignPlan(trim={"cornice": None}).is_empty()
+
+
+def test_first_style_tie_at_same_position_goes_by_furniture_styles_order(monkeypatch):
+    import re as _re
+    words = {"klassik": _re.compile("uslub"), "loft": _re.compile("uslub")}
+    monkeypatch.setattr(ad, "_STYLE_WORDS", words)
+    assert ad.first_style_in_prompt("uslub") == "klassik"
+    monkeypatch.setattr(ad, "_STYLE_WORDS", dict(reversed(list(words.items()))))
+    assert ad.first_style_in_prompt("uslub") == "loft"  # _STYLE_WORDS order is the tie-break
+
+
+def test_first_style_by_position():
+    assert ad.first_style_in_prompt("minimalist, keyin loft") == "minimalist"
+    assert ad.first_style_in_prompt("loft va minimalist") == "loft"
+    assert ad.first_style_in_prompt("iliq") is None
+
+
+def test_no_gold_hex_in_the_system_prompt():
+    assert "#B8860B" not in ad._SYSTEM and "#C9A24B" not in ad._SYSTEM
+
+
+# --- final review ------------------------------------------------------------------------------
+
+@pytest.mark.parametrize(("room_type", "prompt"), [("oshxona", "zamonaviy oshxona"), ("hammom", "milliy hammom")])
+def test_styled_kitchen_and_bathroom_start_from_a_tile_floor(room_type, prompt):
+    message = _message(prompt, {**ROOM, "room_type": room_type})
+    start = json.loads(message.split("Boshlang'ich reja", 1)[1].split("\n")[1])
+    assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
+    assert "laminate" not in json.dumps(start) and "parquet" not in json.dumps(start)
+
+
+def test_a_styled_living_room_keeps_the_preset_floor():
+    start = _starting("zamonaviy", ["A", "B", "C", "D"])  # ROOM is a mehmonxona
+    assert start["floor"]["type"] == "laminate"
+
+
+def test_a_tile_floor_answer_is_kept_against_a_wooden_starting_preset():
+    from app.services.design_presets import load_presets
+    tile = {"type": "tile", "pattern": None, "tint": None}
+    p = ad.validate_plan({**GOOD, "floor": tile}, BY_LABEL, WALLS, starting_preset=load_presets()["zamonaviy"])
+    assert p.floor == tile

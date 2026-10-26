@@ -2291,5 +2291,20 @@
     "shop_name_ph": "Например: Mebel Plus",
     "district": "Район",
     "district_ph": "Чиланзар"
+  },
+  "rooms": {
+    "type_label": "Тип комнаты",
+    "type_none": "Не указан",
+    "type": {
+      "mehmonxona": "Гостиная",
+      "yotoqxona": "Спальня",
+      "bolalar": "Детская",
+      "oshxona": "Кухня",
+      "kabinet": "Кабинет",
+      "hammom": "Ванная",
+      "balkon": "Балкон"
+    },
+    "type_guess": "Предположение: {{type}}",
+    "type_save_failed": "Не удалось сохранить тип комнаты"
   }
 }

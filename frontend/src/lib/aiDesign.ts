@@ -99,8 +99,17 @@ export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog:
     )
     if (plan.walls.accent) store.setWallCovering(plan.walls.accent.wall, { kind: 'paint', color: plan.walls.accent.color })
     if (plan.trim) {
-      const { ceiling, skirting, cornice } = plan.trim
-      store.setDesignState({ ceiling, skirting, cornice })
+      // Only the parts the plan names: an AI plan may leave out the ceiling or the skirting.
+      const { skirting, cornice } = plan.trim
+      let { ceiling } = plan.trim
+      // An AI plan keeping the room's ceiling design sends no settings: the user's own stay.
+      const current = useRoomStore.getState().designState.ceiling
+      if (ceiling && !ceiling.settings && current?.design === ceiling.design) ceiling = current
+      store.setDesignState({
+        ...(ceiling && { ceiling }),
+        ...(skirting && { skirting }),
+        ...(cornice !== undefined && { cornice }),
+      })
     }
     applied.walls = true
   }

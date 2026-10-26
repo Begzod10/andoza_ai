@@ -349,6 +349,7 @@ export interface RoomPayload {
   id?: string
   apartment_id?: string | null
   name?: string
+  room_type?: string | null
   /** Ceiling height in METRES. */
   ceiling_h?: number | null
   geometry?: RoomPayloadGeometry | null

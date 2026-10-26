@@ -9,6 +9,7 @@ import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
 import { WindowElevation } from "@/features/studio/WindowElevation";
 import NewWindowSheet from "./NewWindowSheet";
 import { hasAbcdWalls } from "@/lib/roomDims";
+import { RoomTypePicker } from "./RoomTypePicker";
 
 // Keeps Tab cycling inside the sheet instead of leaking out to the page
 // behind the backdrop while it's open.
@@ -302,6 +303,7 @@ export default function RoomSettingsSheet({
 }) {
   const { t } = useTranslation();
   const geometry     = useRoomStore((s) => s.geometry);
+  const roomId       = useRoomStore((s) => s.roomId);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const setWallLength = useRoomStore((s) => s.setWallLength);
   const setCeilingH   = useRoomStore((s) => s.setCeilingHeight);
@@ -391,6 +393,11 @@ export default function RoomSettingsSheet({
             >
               ✕
             </button>
+          </div>
+
+          {/* ── Room type ────────────────────────────────────── */}
+          <div className="mb-4">
+            <RoomTypePicker roomId={roomId} />
           </div>
 
           {/* ── Read-only room summary ───────────────────────── */}

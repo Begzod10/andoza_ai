@@ -15,6 +15,7 @@ import type { Room } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { useRoomStore, computeFloorArea } from "@/store/roomStore";
 import { hasAbcdWalls } from "@/lib/roomDims";
+import { effectiveRoomType } from "@/lib/roomType";
 import { useRestoreUserModels } from "@/hooks/useRestoreUserModels";
 import { WebOnly } from "@/lib/embedded";
 import { useCompactStudio } from "@/lib/compactStudio";
@@ -49,6 +50,7 @@ export default function StudioPage() {
   const geometry = useRoomStore((s) => s.geometry);
   const apartmentId = useRoomStore((s) => s.apartmentId);
   const name = useRoomStore((s) => s.name);
+  const roomType = useRoomStore((s) => s.roomType);
   const ceilingHeight = useRoomStore((s) => s.ceilingHeight);
   const draftId = useRoomStore((s) => s.draftId);
   const loadDraftState = useRoomStore((s) => s.loadDraftState);
@@ -281,6 +283,7 @@ export default function StudioPage() {
       }
       const newRoom = await createRoom(aptId, {
         name: s.name || defaultRoomName(),
+        room_type: s.roomType ?? effectiveRoomType(null, s.name) ?? undefined,
         ceiling_h: s.ceilingHeight / 1000,
         geometry: geometryPayload,
       });
@@ -364,7 +367,7 @@ export default function StudioPage() {
       id: roomId ?? "local",
       apartment_id: apartmentId ?? "local",
       name: name || defaultRoomName(),
-      room_type: "mehmonxona",
+      room_type: roomType,
       area: computeFloorArea(geometry) / 1e6,
       ceiling_height: ceilingHeight / 1000,
       width: widthM,
@@ -386,7 +389,7 @@ export default function StudioPage() {
     // A whole-store `storeState` object here previously recomputed on every
     // Zustand `set()` anywhere in the app (new top-level object per write),
     // not just when geometry/name/ceilingHeight/apartmentId changed.
-  }, [roomId, geometry, apartmentId, name, ceilingHeight]);
+  }, [roomId, geometry, apartmentId, name, ceilingHeight, roomType]);
 
   type FetchStatus = "ok" | "auth" | "notfound" | "offline";
 

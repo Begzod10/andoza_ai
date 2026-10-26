@@ -43,15 +43,20 @@ def _hls(hex_color: str) -> tuple[float, float, float]:
 
 # family -> (words that claim it, test a colour must pass to back the claim).
 # Only colours with a clear identity are policed; neutrals (white, grey, beige) are too fuzzy to say wrong.
+# Each band covers every colour ``colour_name`` gives that word to, so a summary written from the plan
+# always passes; a word for another hue altogether ("qizil" for a blue) is still caught.
 _COLOUR_CLAIMS: dict[str, tuple[re.Pattern[str], Any]] = {
-    "oltin/sariq": (re.compile(r"\b(oltin|tilla|gold|sariq)"), lambda h, l, s: 35 <= h <= 70 and s >= 0.5 and 0.2 <= l <= 0.88),
+    "oltin": (re.compile(r"\b(oltin|tilla|gold)"), lambda h, l, s: 35 <= h <= 70 and s >= 0.45 and 0.2 <= l <= 0.88),
+    "sariq": (re.compile(r"(?<!to'q )\bsariq"), lambda h, l, s: 35 <= h <= 70 and s >= 0.1),
+    # "to'q sariq" is orange, or a dark yellow: not the plain yellow above
+    "to'q sariq": (re.compile(r"\bto'q sariq"), lambda h, l, s: 15 <= h <= 70 and s >= 0.1),
     "qora": (re.compile(r"\bqora\b|\bqoraroq"), lambda h, l, s: l <= 0.2),
-    "qizil": (re.compile(r"\b(qizil|bordo)"), lambda h, l, s: (h <= 15 or h >= 340) and s >= 0.35),
-    "ko'k": (re.compile(r"\b(ko'k|havorang|moviy|zangori)"), lambda h, l, s: 185 <= h <= 260 and s >= 0.15),
-    "yashil": (re.compile(r"\b(yashil|zaytun|zumrad|moxor)"), lambda h, l, s: 70 <= h <= 170 and s >= 0.12),
-    "pushti": (re.compile(r"\bpushti"), lambda h, l, s: (300 <= h <= 350) and s >= 0.2 and l >= 0.45),
-    "binafsha": (re.compile(r"\b(binafsha|lavanda)"), lambda h, l, s: 255 <= h <= 310 and s >= 0.12),
-    "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 45 and l <= 0.6 and s >= 0.12),
+    "qizil": (re.compile(r"\b(qizil|bordo)"), lambda h, l, s: (h <= 15 or h >= 340) and s >= 0.1),
+    "ko'k": (re.compile(r"\b(ko'k|havorang|moviy|zangori)"), lambda h, l, s: 170 <= h <= 260 and s >= 0.1),
+    "yashil": (re.compile(r"\b(yashil|zaytun|zumrad|moxor)"), lambda h, l, s: 70 <= h <= 170 and s >= 0.1),
+    "pushti": (re.compile(r"\bpushti"), lambda h, l, s: (300 <= h <= 350) and s >= 0.1),
+    "binafsha": (re.compile(r"\b(binafsha|lavanda)"), lambda h, l, s: 255 <= h <= 310 and s >= 0.1),
+    "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 50 and l <= 0.6 and s >= 0.1),
 }
 _WOOD_FLOORS = ("parquet", "laminate")
 
@@ -143,11 +148,11 @@ def _furniture_problems(text: str, plan: Any) -> list[str]:
 _LIGHT_KINDS: dict[str, tuple[re.Pattern[str], frozenset[str]]] = {
     "qandil": (re.compile(r"\bqandil"), frozenset({"chandelier"})),
     "osma chiroq": (re.compile(r"\bosma chiroq"), frozenset({"pendant"})),
-    "bra": (re.compile(r"\bbra\b"), frozenset({"bra"})),
+    "bra": (re.compile(r"\bbra(?:si|lar|da)?\b"), frozenset({"bra"})),
     "torsher": (re.compile(r"\b(torsher|pol chirog)"), frozenset({"floor_lamp"})),
     "LED": (re.compile(r"\bled\b"), frozenset({"led_panel", "led_linear", "led_track"})),
     "spot": (re.compile(r"\b(spot|downlight)"), frozenset({"spotlight", "ies", "downlight"})),
-    "trek": (re.compile(r"\b(trek|shina)"), frozenset({"track", "led_track"})),
+    "trek": (re.compile(r"\btrek|\bshina(?!m)|\bшинн"), frozenset({"track", "led_track"})),
 }
 
 
@@ -191,23 +196,41 @@ _NAME_FILLER = frozenset({
     # the words any description of a room uses, whatever the shop calls its pieces
     "devor", "devorga", "xona", "mebel", "burchak", "markaz", "chiroq", "asosiy", "yordamchi",
 })
-_WORD = re.compile(r"[a-z']{4,}")
+_WORD = re.compile(r"[a-z']{5,}")
+
+# Words that name a material, a colour or a kind of furniture: many pieces share them, so naming one
+# proves nothing about a particular piece. A word starting with one of these is never "distinctive".
+COMMON_NAME_STEMS: tuple[str, ...] = (
+    # materials and finishes
+    "yog'och", "naqsh", "marmar", "metall", "shisha", "plastik", "rattan", "bambuk", "mato", "charm", "teri",
+    "eman", "yong'oq", "temir", "latun", "baxmal", "velvet", "lofer",
+    # colours
+    "kulrang", "oltin", "tilla", "sariq", "qora", "qizil", "bordo", "ko'k", "havorang", "yashil", "pushti",
+    "binafsha", "jigarrang", "qo'ng'ir", "bej", "krem", "oqish",
+    # kinds of furniture
+    "stul", "stol", "divan", "sofa", "karavot", "krovat", "kreslo", "shkaf", "tumba", "komod", "gilam", "javon",
+    "o'rindiq", "stellaj", "garderob",
+)
 
 
 def _catalog_problems(text: str, plan: Any, catalog_names: list[str]) -> list[str]:
     """A piece of the catalog that the plan did not choose, named in the text. The kinds of furniture
-    above are a fixed list; this reads the shop's own names, so a "pufik" or "peshtaxta" is caught too."""
+    above are a fixed list; this reads the shop's own names, so a "pufik" or "peshtaxta" is caught too.
+    Only a distinctive word counts: 5+ letters, in exactly one name of the catalog, and not a material,
+    colour or kind of furniture (COMMON_NAME_STEMS)."""
     chosen = _norm(" ".join(f.get("name", "") for f in plan.furniture))
     chosen_words = set(_WORD.findall(chosen))
+    names = {_norm(n) for n in catalog_names}
+    in_names: dict[str, int] = {}
+    for name in names:
+        for word in set(_WORD.findall(name)):
+            in_names[word] = in_names.get(word, 0) + 1
     problems: list[str] = []
-    seen: set[str] = set()
-    for name in catalog_names:
-        for word in _WORD.findall(_norm(name)):
-            if word in _NAME_FILLER or word in chosen_words or word in seen:
-                continue
-            seen.add(word)
-            if re.search(rf"\b{re.escape(word)}", text):
-                problems.append(f"'{word}' aytilgan, lekin rejada yo'q")
+    for word, count in in_names.items():
+        if count != 1 or word in _NAME_FILLER or word in chosen_words or word.startswith(COMMON_NAME_STEMS):
+            continue
+        if re.search(rf"\b{re.escape(word)}", text):
+            problems.append(f"'{word}' aytilgan, lekin rejada yo'q")
     return problems
 
 
@@ -230,6 +253,8 @@ def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = 
 def colour_name(hex_color: str) -> str:
     """A plain Uzbek name for a colour, with 'och' (light) or 'to'q' (dark) where it helps."""
     h, l, s = _hls(hex_color)
+    if 38 <= h <= 50 and s >= 0.45 and 0.35 <= l <= 0.65:
+        return "oltin"
     if l <= 0.2 and s < 0.35:
         return "qora"
     if l >= 0.93:
@@ -257,6 +282,22 @@ def colour_name(hex_color: str) -> str:
     if base in ("kulrang", "bej", "jigarrang"):
         return base
     return f"och {base}" if l >= 0.7 else f"to'q {base}" if l <= 0.3 else base
+
+
+def _lab(hex_color: str) -> tuple[float, float, float]:
+    digits = hex_color.lstrip("#")
+    chans = [int(digits[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in chans]
+    x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
+    y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
+    f = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    fx, fy, fz = f(x), f(y), f(z)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def _delta_e(a: str, b: str) -> float:
+    return sum((p - q) ** 2 for p, q in zip(_lab(a), _lab(b))) ** 0.5
 
 
 def _in_colour(hex_color: str) -> str:
@@ -287,6 +328,9 @@ def describe_plan(plan: Any) -> str:
     elif main:
         parts.append(f"Devorlar {_in_colour(main['color'])} bo'yaladi")
     accent = plan.walls.get("accent")
+    main_colour = (main or {}).get("base_color" if (main or {}).get("type") == "oboy" else "color")
+    if accent and main_colour and _delta_e(accent["color"], main_colour) < 10:
+        accent = None  # the same colour as the walls: nothing is set apart
     if accent:
         sentence = f"{accent['wall']} devor {_in_colour(accent['color'])} ajratiladi"
         if parts:

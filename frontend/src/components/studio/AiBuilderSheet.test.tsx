@@ -8,12 +8,14 @@ import { AiBuilderSheet, zoneLabel } from './AiBuilderSheet'
 const aiDesign = vi.fn()
 const aiDesignFromImage = vi.fn()
 const aiDesignFromPin = vi.fn()
+const updateRoom = vi.fn()
 vi.mock('@/lib/api', async () => {
   const { looksLikePinUrl, findPinUrl } = await vi.importActual<typeof import('@/lib/api/ai')>('@/lib/api/ai')
   return {
     aiDesign: (...args: unknown[]) => aiDesign(...args),
     aiDesignFromImage: (...args: unknown[]) => aiDesignFromImage(...args),
     aiDesignFromPin: (...args: unknown[]) => aiDesignFromPin(...args),
+    updateRoom: (...args: unknown[]) => updateRoom(...args),
     looksLikePinUrl,
     findPinUrl,
   }
@@ -42,6 +44,8 @@ beforeEach(() => {
   aiDesign.mockReset()
   aiDesignFromImage.mockReset()
   aiDesignFromPin.mockReset()
+  updateRoom.mockReset()
+  updateRoom.mockResolvedValue({})
   URL.createObjectURL = vi.fn(() => 'blob:preview') as typeof URL.createObjectURL
   URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL
   useRoomStore.getState().resetRoom()
@@ -57,7 +61,44 @@ async function generate(prompt = "qorong'i xona") {
   await screen.findByText("Qorong'i uslub")
 }
 
+describe('AiBuilderSheet room type from the studio store', () => {
+  it('sends the room\'s own type, never mehmonxona', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    useRoomStore.setState({ roomType: 'yotoqxona' })
+    renderSheet({ roomType: undefined })
+    await generate()
+    expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'yotoqxona')
+  })
+
+  it('NULL type falls back to the guess from the name', async () => {
+    aiDesign.mockResolvedValueOnce(PLAN)
+    useRoomStore.setState({ roomType: null, name: 'Oshxona' })
+    renderSheet({ roomType: undefined })
+    await generate()
+    expect(aiDesign).toHaveBeenCalledWith('room-1', "qorong'i xona", 'oshxona')
+    expect(screen.getByText('Taxmin: Oshxona')).toBeInTheDocument()
+  })
+})
+
 describe('AiBuilderSheet', () => {
+  it('picker PATCHes the room and the next request uses the new type, keeping the open design', async () => {
+    aiDesign.mockResolvedValue(PLAN)
+    renderSheet()
+    await generate()
+    await waitFor(() => expect(useRoomStore.getState().furniture).toHaveLength(1))
+    expect(aiDesign).toHaveBeenLastCalledWith('room-1', "qorong'i xona", 'mehmonxona')
+
+    fireEvent.change(screen.getByLabelText('Xona turi'), { target: { value: 'oshxona' } })
+    await waitFor(() => expect(updateRoom).toHaveBeenCalledWith('room-1', { room_type: 'oshxona' }))
+    // the design that is open stays
+    expect(screen.getByText("Qorong'i uslub")).toBeInTheDocument()
+    expect(useRoomStore.getState().furniture).toHaveLength(1)
+
+    fireEvent.click(screen.getByText('Boshqa variant'))
+    await waitFor(() => expect(aiDesign).toHaveBeenCalledTimes(2))
+    expect(aiDesign).toHaveBeenLastCalledWith('room-1', "qorong'i xona", 'oshxona')
+  })
+
   it('offers example prompts that fill the box, and will not send a near-empty one', () => {
     renderSheet()
     expect(screen.getByText('Dizayn yaratish').closest('button')).toBeDisabled()
