@@ -15,7 +15,9 @@ import presetData from '@/lib/data/design_presets.json'
  * A kind with no match is left out rather than guessed.
  */
 
-type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot' | 'tumbochka' | 'garderob' | 'yozuv_stoli'
+type Kind =
+  | 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot' | 'tumbochka' | 'garderob' | 'yozuv_stoli'
+  | 'ovqat_stoli' | 'stul' | 'oshxona_shkafi' | 'ish_stuli' | 'javon' | 'kichik_stol' | 'orindiq' | 'hammom_shkafi' | 'kabinet_kreslo'
 
 /**
  * The role a kind plays when the catalog piece itself says nothing more (its name and category
@@ -24,10 +26,24 @@ type Kind = 'divan' | 'stol' | 'kreslo' | 'tumba' | 'gilam' | 'shkaf' | 'karavot
 const KIND_ROLE: Record<Kind, FurnitureRole> = {
   divan: 'sofa', stol: 'coffee_table', kreslo: 'armchair', tumba: 'tv_unit', gilam: 'rug', shkaf: 'shelf',
   karavot: 'bed', tumbochka: 'nightstand', garderob: 'wardrobe', yozuv_stoli: 'desk',
+  ovqat_stoli: 'dining_table', stul: 'dining_chair', oshxona_shkafi: 'shelf', ish_stuli: 'desk_chair', javon: 'shelf',
+  kichik_stol: 'coffee_table', orindiq: 'armchair', hammom_shkafi: 'shelf', kabinet_kreslo: 'armchair',
 }
+
+/**
+ * Kinds whose own role always wins: a kitchen or bath cabinet is a shelf, never the wardrobe its
+ * "shkaf" reads as, or a layout too small for it would swap in a clothes wardrobe.
+ */
+const KIND_ROLE_WINS: ReadonlySet<Kind> = new Set<Kind>(['oshxona_shkafi', 'hammom_shkafi'])
 
 const text = (pattern: RegExp) => (c: CatalogFurniture) => pattern.test(`${c.category} ${c.name_uz}`)
 const roleIs = (role: FurnitureRole) => (c: CatalogFurniture) => inferRole(c.category, c.name_uz) === role
+/** A cupboard of any kind (`inferRole` reads a "shkaf" as a wardrobe, a "javon" as a shelf). */
+const storage = (c: CatalogFurniture) => ROLE_GROUP[inferRole(c.category, c.name_uz)] === 'storage'
+/** A bookcase named as a book cupboard, which `inferRole` reads as a wardrobe. */
+const BOOKCASE_NAME = /kitob|книжн|bookcase/i
+/** A side table: `inferRole` has no role for one (its category makes it a dining table). */
+const SIDE_TABLE_NAME = /yon stol|side table|приставн/i
 
 /**
  * What a kind looks like in the catalog (category and Uzbek name). The bedroom kinds are the roles
@@ -45,14 +61,51 @@ const KIND_MATCH: Record<Kind, (c: CatalogFurniture) => boolean> = {
   tumbochka: roleIs('nightstand'),
   garderob: (c) => WARDROBE_NAME.test(c.name_uz),
   yozuv_stoli: roleIs('desk'),
+  // A side table reads as a dining table to `inferRole` (its category), but seats no one.
+  ovqat_stoli: (c) => roleIs('dining_table')(c) && !SIDE_TABLE_NAME.test(c.name_uz),
+  stul: roleIs('dining_chair'),
+  // Only a cupboard the catalog made for a kitchen: a bookcase or a wardrobe is not one.
+  oshxona_shkafi: (c) => c.room_type === 'oshxona' && storage(c),
+  ish_stuli: roleIs('desk_chair'),
+  javon: (c) => roleIs('shelf')(c) || (BOOKCASE_NAME.test(c.name_uz) && !WARDROBE_NAME.test(c.name_uz) && storage(c)),
+  kichik_stol: (c) => roleIs('coffee_table')(c) || SIDE_TABLE_NAME.test(c.name_uz),
+  orindiq: (c) => roleIs('armchair')(c) || roleIs('dining_chair')(c),
+  // A bath or mirror cabinet: a cupboard the catalog made for a bathroom.
+  hammom_shkafi: (c) => c.room_type === 'hammom' && storage(c),
+  // A study's armchair: `kreslo` also matches an office chair ("Kreslo-kompyuter", "Office chair").
+  kabinet_kreslo: roleIs('armchair'),
 }
 
 /**
- * A preset's furniture is a living room's. A bedroom takes this set instead, in the preset's style;
- * a children's room a desk too. Kept here, not in the JSON the backend shares.
+ * A preset's furniture is a living room's. Another room takes its own set instead (`ROOM_SETS`), in
+ * the preset's style: a bedroom this one, a children's room a desk too. Kept here, not in the JSON
+ * the backend shares.
  */
 const BEDROOM_SET: Kind[] = ['karavot', 'tumbochka', 'garderob', 'gilam']
 const KIDS_SET: Kind[] = [...BEDROOM_SET, 'yozuv_stoli']
+/**
+ * A kitchen: a dining table and its chairs (one plan line: the layout seats as many as the table
+ * takes, and `sizeFit` puts a table for four first), and a kitchen cabinet when the catalog has one.
+ */
+const KITCHEN_SET: Kind[] = ['ovqat_stoli', 'stul', 'oshxona_shkafi']
+const STUDY_SET: Kind[] = ['yozuv_stoli', 'ish_stuli', 'javon', 'kabinet_kreslo']
+/**
+ * A balcony: a small table and two seats (two pieces: a seat is never taken twice). The catalog does
+ * have a balcony room (`room_type` 'balkon', as the backend's admin catalog allows), so a balcony's
+ * catalog room stays its own, as in the AI designer; a piece made for another room still fills it.
+ */
+const BALCONY_SET: Kind[] = ['kichik_stol', 'orindiq', 'orindiq']
+/** A bathroom: nothing but a bath cabinet, and only one made for a bathroom. */
+const BATHROOM_SET: Kind[] = ['hammom_shkafi']
+
+/** The set a room type takes instead of the preset's living room. A room type not here keeps the preset's. */
+const ROOM_SETS: Partial<Record<string, Kind[]>> = {
+  yotoqxona: BEDROOM_SET, bolalar: KIDS_SET, oshxona: KITCHEN_SET, kabinet: STUDY_SET, balkon: BALCONY_SET, hammom: BATHROOM_SET,
+}
+
+/** A kitchen and a bathroom get a tile floor whatever the style: the backend's wet-room rule. */
+const WET_ROOMS = new Set(['oshxona', 'hammom'])
+const WET_FLOOR: NonNullable<AiDesignPlan['floor']> = { type: 'tile', pattern: null, tint: null }
 
 /** A children's piece, by name: the backend's `_KIDS_NAME`. */
 const KIDS_NAME = /bolalar|детск|kids/i
@@ -64,6 +117,7 @@ const KIDS_NAME = /bolalar|детск|kids/i
 const KIND_PREFER: Partial<Record<Kind, RegExp>> = {
   tumba: /^(?!.*tumbochka).*(tumba|televizor|\btv\b)/i,
   stol: /kofe|jurnal|coffee/i,
+  javon: /kitob|книжн|bookcase|javon|stellaj/i,
 }
 
 interface Preset {
@@ -122,6 +176,8 @@ const SMALL_ROOM_SIDE = 2.6
 /** A double bed is this wide or wider, a single one this narrow or narrower, cm. */
 const DOUBLE_BED_W = 140
 const SINGLE_BED_W = 120
+/** A dining table this long or longer seats six (`chairCount`), cm: a kitchen set seats four. */
+const SIX_SEAT_TABLE = 160
 
 /**
  * How well a bed suits the room's size: 2 for a double bed in a normal room or a single one in a small
@@ -129,6 +185,11 @@ const SINGLE_BED_W = 120
  * bed of unknown width scores 2, so it is never put behind a bed that fits: the order is as before.
  */
 function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): number {
+  if (kind === 'ovqat_stoli') {
+    // Up to four chairs: a table seating six comes after one seating four or fewer.
+    const long = Math.max(c.footprint_w ?? 0, c.footprint_d ?? 0)
+    return long >= SIX_SEAT_TABLE ? 1 : 2
+  }
   if (kind !== 'karavot' || !size || c.footprint_w == null) return 2
   // A mattress is never wider than it is long, and the catalog stores some beds turned (200 x 90).
   const width = c.footprint_d == null ? c.footprint_w : Math.min(c.footprint_w, c.footprint_d)
@@ -142,10 +203,11 @@ function sizeFit(kind: Kind, c: CatalogFurniture, size: RoomSize | undefined): n
  * scores 2, an unstyled one (fits every style) 1, another style 0; the room scores the same way.
  * Style outranks room, but a piece made for another room (a kitchen cabinet in a living room) comes
  * after every piece for this room or any room: it is used only when nothing else fits. The kind's
- * preferred name (KIND_PREFER) comes before even that: a kitchen still takes the coffee table, not its
- * own dining table, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
+ * preferred name (KIND_PREFER) comes before even that: a living room takes a coffee table made for the
+ * kitchen over a dining table made for it, for a preset's coffee table. A tie keeps catalog order. `styles` may be missing on an old cached catalog.
  * A children's piece comes first in a children's room and last anywhere else. A bed that suits the room's
- * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom.
+ * size (`sizeFit`) comes before the style: a 90 cm bed of no style must not take a 4 x 3.5 m bedroom; a
+ * kitchen's table for four comes before a larger one.
  */
 function pick(
   kind: Kind, catalog: CatalogFurniture[], roomType: string | undefined, used: Set<string>, style: FurnitureStyle,
@@ -205,7 +267,7 @@ export function presetPlan(
   if (!preset) return undefined
   const used = new Set<string>()
   const furniture: AiDesignPlan['furniture'] = []
-  const kinds = roomType === 'bolalar' ? KIDS_SET : roomType === 'yotoqxona' ? BEDROOM_SET : preset.furniture.map((f) => f.kind)
+  const kinds = ROOM_SETS[roomType ?? ''] ?? preset.furniture.map((f) => f.kind)
   for (const kind of kinds) {
     const item = pick(kind, catalog, roomType, used, preset.furnitureStyle, roomSize)
     if (!item) continue
@@ -214,7 +276,7 @@ export function presetPlan(
     // The piece's own role wins only inside the kind's group: a bedside table picked as a TV unit,
     // or a dining table as a coffee table, would stand in a group with no anchor and be dropped.
     const kindRole = KIND_ROLE[kind]
-    const role = ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
+    const role = !KIND_ROLE_WINS.has(kind) && ROLE_GROUP[inferred] === ROLE_GROUP[kindRole] && inferred !== 'decor' ? inferred : kindRole
     furniture.push({ id: item.id, name: item.name_uz, role })
   }
   const accent = preset.walls.accent
@@ -224,7 +286,7 @@ export function presetPlan(
       ...preset.walls,
       ...(accent ? { accent: { ...accent, wall: resolveWalls(`wall_${accent.wall}`, wallIds).slice(5) } } : {}),
     },
-    floor: preset.floor,
+    floor: roomType && WET_ROOMS.has(roomType) ? WET_FLOOR : preset.floor,
     lights: preset.lights.map((l) => ({ ...l, zone: resolveWalls(l.zone, wallIds) })),
     furniture, trim: preset.trim, warnings: [],
   }

@@ -28,7 +28,7 @@ from typing import Any
 import structlog
 
 from app.config import settings
-from app.services.ai_design_text import describe_plan, reconcile_summary
+from app.services.ai_design_text import _ANY_COLOUR, describe_plan, reconcile_summary
 from app.services.design_presets import load_presets, trim_profiles
 from app.services.design_image import PreparedImage
 from app.services.llm import call_llm
@@ -418,20 +418,41 @@ def _starting_choice(prompt: str) -> tuple[str, dict] | None:
     return (MOOD_LABELS[key], preset) if preset else None
 
 
-def starting_preset(prompt: str) -> dict | None:
-    """The ready-made style the model starts from for *prompt*, or None when it names none."""
-    choice = _starting_choice(prompt)
+# The ready-made style a room type starts from when the request names no style or mood: only a
+# suggestion, the request's own colours and materials come first (_DEFAULT_PLAN_RULE).
+_ROOM_TYPE_PRESETS: dict[str, str] = {
+    "mehmonxona": "zamonaviy", "oshxona": "zamonaviy",
+    "yotoqxona": "skandinav", "bolalar": "skandinav", "balkon": "skandinav",
+    "kabinet": "minimalist", "hammom": "minimalist",
+}
+
+
+# Not the style's name: labelled "Zamonaviy", the plan has the model write "Zamonaviy uslubda" for a
+# request that named no style.
+_ROOM_TYPE_PLAN_LABEL = "xona turi uchun taklif"
+
+
+def _room_type_choice(room_type: str | None) -> tuple[str, dict] | None:
+    """The plan label and ready-made style *room_type* starts from; None for a room of no known type."""
+    preset = load_presets().get(_ROOM_TYPE_PRESETS.get(room_type or "", ""))
+    return (_ROOM_TYPE_PLAN_LABEL, preset) if preset else None
+
+
+def starting_preset(prompt: str, room_type: str | None = None) -> dict | None:
+    """The ready-made style the model starts from for *prompt*: the one it names, else the room
+    type's own, else None."""
+    choice = _starting_choice(prompt) or _room_type_choice(room_type)
     return choice[1] if choice else None
 
 
-def furniture_styles_for_prompt(prompt: str) -> set[str]:
+def furniture_styles_for_prompt(prompt: str, room_type: str | None = None) -> set[str]:
     """The furniture styles whose pieces the menu puts first: those the request names, or, when it
     names none, the furniture style of the ready-made style it starts from (a dark room is furnished
-    zamonaviy)."""
+    zamonaviy, a bedroom with no style skandinav)."""
     named = styles_in_prompt(prompt)
     if named:
         return named
-    preset = starting_preset(prompt)
+    preset = starting_preset(prompt, room_type)
     return {preset["furnitureStyle"]} if preset and preset.get("furnitureStyle") else set()
 
 
@@ -474,15 +495,16 @@ _PREFERRED_PIECES = {
 
 
 def furniture_menu(
-    items: list[dict], room_type: str | None, prompt: str = "",
+    items: list[dict], room_type: str | None, prompt: str = "", has_image: bool = False,
 ) -> tuple[list[str], dict[str, dict]]:
     """The catalog as short labelled lines for the prompt, and the label -> item map.
 
     Pieces made for this room type (and those for every room) come first, so a long catalog is
     cut where it matters least; among them, pieces of a style the request names come first, so
-    they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
+    they are not the ones cut. With a photo the room type's own style does not count: the photo is
+    the style. Each line names the piece's styles; an unstyled piece suits any.
     """
-    wanted = furniture_styles_for_prompt(prompt)
+    wanted = furniture_styles_for_prompt(prompt, None if has_image else room_type)
     # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
     # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
     # desk chair first.
@@ -594,7 +616,7 @@ def _is_small_bedroom(room: dict, area: float) -> bool:
 
 
 def build_user_message(
-    prompt: str, room: dict, light_menu: str, furniture_lines: list[str],
+    prompt: str, room: dict, light_menu: str, furniture_lines: list[str], has_image: bool = False,
 ) -> str:
     walls = "; ".join(
         f"{w['id']} {w['length']:g} m" + (f" ({', '.join(w['openings'])})" if w["openings"] else "")
@@ -622,7 +644,7 @@ def build_user_message(
         f"Plintus profillari: {', '.join(profiles['skirting'])}",
         f"Galtel profillari: {', '.join(profiles['cornice'])}",
         "",
-        *_style_guidance(prompt, [w["id"] for w in room["walls"]], room.get("room_type")),
+        *_style_guidance(prompt, [w["id"] for w in room["walls"]], room.get("room_type"), has_image),
         "Mebel katalogi:",
         *(furniture_lines or ["(katalogda mebel yo'q: furniture bo'sh qolsin)"]),
     ])
@@ -638,6 +660,13 @@ _NO_STYLE_GUIDANCE = (
     "Qandil faqat klassik va neoklassik ruhda.",
     "So'ralmagan accent devor qo'ymang.",
 )
+# A room type's plan is a suggestion, not the user's choice: the request's colours and materials
+# win over it, and none of it is held "without reason" as a named style's plan is.
+_DEFAULT_PLAN_RULE = (
+    "Uslub aytilmagan: quyidagi reja xona turiga qarab taklif qilingan boshlang'ich nuqta, xolos. "
+    "So'rovdagi rang, atmosfera va material istaklari (masalan iliq ranglar, yorqin, to'q, yog'och) undan ustun: "
+    "devor, pol va ranglarni shularga moslab o'zgartiring. So'rovda aytilmagan narsalarda shu rejaga tayaning."
+)
 _GOLD_WORDS = re.compile(r"oltin|zarhal|gold|золот", re.I)
 _GOLD_LINE = "Oltin talab qilingan: aksent yoki oboy accent_color uchun haqiqiy oltin tus (#C9A24B yoki #B8860B)"
 # Whole words only: "pochta", "ochiq oshxona" (an open kitchen) and "kam yorug'lik" (little light)
@@ -648,12 +677,45 @@ _LIGHT_WORDS = re.compile(
 _LIGHT_LINE = "Aksent ham och va asosiy rangga yaqin bo'lsin"
 # Kitchens and bathrooms are tiled whatever the style: a preset's wooden floor is not kept there.
 _TILE_ROOMS = ("oshxona", "hammom")
+# Words of colour or mood in a request with no style. The room type's plan then sends no wall colours:
+# the model, given a grey wall, keeps it for "iliq ranglar". Not "sokin": a calm room keeps the
+# plan's calm walls (left to choose, the model painted a calm study dark grey).
+_MOOD_COLOUR_WORDS = re.compile(r"\biliq\w*|\byorqin\w*|\bto'q(?:roq)?\b|\bquyuq\w*")
 
 
-def _style_guidance(prompt: str, wall_ids: list[str], room_type: str | None = None) -> list[str]:
-    """The starting plan of the style or mood the request names (or general guidance when it names none),
-    then the gold and light-colour lines when the request asks for them. Ends with a blank line."""
+def _asks_for_colours(prompt: str) -> bool:
+    """Whether *prompt* names a colour, a light or dark tone, or a mood ("iliq ranglar", "sokin")."""
+    text = re.sub(_APOS, "'", (prompt or "").lower())
+    return bool(
+        _MOOD_COLOUR_WORDS.search(text) or _ANY_COLOUR.search(text)
+        or _LIGHT_WORDS.search(text) or _GOLD_WORDS.search(text)
+    )
+
+
+def _room_type_plan(preset: dict, wall_ids: list[str], prompt: str, room_type: str | None) -> dict:
+    """The room type's starting plan as a suggestion: never an accent wall nobody asked for, and no
+    wall colours at all when the request has colours or a mood of its own. A wet room is tiled; a dry
+    one is not (the minimalist study's tile becomes laminate)."""
+    start = _starting_plan(preset, wall_ids)
+    if room_type in _TILE_ROOMS:
+        start["floor"] = {"type": "tile", "pattern": None, "tint": None}
+    elif start["floor"].get("type") == "tile":
+        start["floor"] = {"type": "laminate", "pattern": None, "tint": None}
+    start["walls"].pop("accent", None)
+    if _asks_for_colours(prompt):
+        del start["walls"]
+    return start
+
+
+def _style_guidance(
+    prompt: str, wall_ids: list[str], room_type: str | None = None, has_image: bool = False,
+) -> list[str]:
+    """The starting plan of the style or mood the request names; when it names none, the room type's
+    own as a suggestion, with the general guidance (only that guidance for a room of no known type,
+    or with a photo, which is the style itself); then the gold and light-colour lines when the request asks for them. Ends with
+    a blank line."""
     choice = _starting_choice(prompt)
+    default = None if choice or has_image else _room_type_choice(room_type)
     lines: list[str] = []
     if choice:
         label, preset = choice
@@ -664,6 +726,16 @@ def _style_guidance(prompt: str, wall_ids: list[str], room_type: str | None = No
             f"Boshlang'ich reja ({label}):",
             json.dumps(start, ensure_ascii=False),
             _STARTING_PLAN_RULE,
+        ]
+    elif default:
+        label, preset = default
+        start = _room_type_plan(preset, wall_ids, prompt, room_type)
+        # The rule first, so the model reads the plan as the suggestion it is.
+        lines += [
+            _DEFAULT_PLAN_RULE,
+            f"Boshlang'ich reja ({label}):",
+            json.dumps(start, ensure_ascii=False),
+            *_NO_STYLE_GUIDANCE,
         ]
     else:
         lines += list(_NO_STYLE_GUIDANCE)
@@ -684,13 +756,13 @@ async def design_room(
 
     With an image the daily limit is the router's own pool, so it is not counted
     against the text designer's here (user_id=None)."""
-    lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt)
+    lines, by_label = furniture_menu(furniture_items, room.get("room_type"), prompt, has_image=image is not None)
     light_menu = ", ".join(f"{k} ({v})" for k, v in LIGHT_TYPE_NAMES.items())
     message_prompt = prompt if image is None else (prompt or _IMAGE_DEFAULT_PROMPT)
     if image is None:
         content: str | list[dict] = build_user_message(message_prompt, room, light_menu, lines)
     else:
-        text = build_user_message(message_prompt, room, light_menu, lines)
+        text = build_user_message(message_prompt, room, light_menu, lines, has_image=True)
         content = [
             {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": image.data_b64}},
             {"type": "text", "text": text + "\n\n" + _IMAGE_INSTRUCTIONS},
@@ -711,7 +783,7 @@ async def design_room(
     area = room.get("area") or room["width"] * room["depth"]
     plan = validate_plan(
         extract_json(text), by_label, [w["id"] for w in room["walls"]], furniture_budget(area)[1],
-        starting_preset=starting_preset(message_prompt),
+        starting_preset=starting_preset(message_prompt, None if image else room.get("room_type")),
     )
     # The summary must say only what the plan holds: the model promises colours it cannot apply and
     # pieces that validation dropped. Where it does, those sentences go, or when nothing honest is
