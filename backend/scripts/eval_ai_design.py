@@ -13,6 +13,8 @@ Three scenario sets (`--only id,id` narrows one to those scenario ids):
   robust  odd requests: vague, contradictory, English, Russian, prompt injection, over the limit,
           kitchen, bathroom, an L-shaped and a scanned room
   phase2  four requests rechecking beds and wardrobes in the bedrooms and the dark style
+  template five requests naming no style, in a living room, bedroom, study and kitchen: each starts
+          from its room type's plan
 
 The app runs in this process (not over the network) so the run can see the model's own summary
 before `reconcile_summary` replaces it: each run records `raw_summary`, `summary_kept` and
@@ -150,6 +152,8 @@ ROOMS = {
                  "walls": [W("A", 2.4, [win(1.0, .5)]), W("B", 2, [door(.25)]), W("C", 2.4), W("D", 2)]},
     "kitchen": {"name": "Oshxona 3.5x3", "room_type": "oshxona",
                 "walls": [W("A", 3.5, [win(1.2, .5)]), W("B", 3, [door(.8)]), W("C", 3.5), W("D", 3)]},
+    "study": {"name": "Kabinet 3.5x3", "room_type": "kabinet",
+              "walls": [W("A", 3.5, [win(1.2, .5)]), W("B", 3, [door(.8)]), W("C", 3.5), W("D", 3)]},
     "bath": {"name": "Hammom 2.2x1.8", "room_type": "hammom",
              "walls": [W("A", 2.2), W("B", 1.8, [door(.5)]), W("C", 2.2, [win(.6, .5, 1.4, .6)]), W("D", 1.8)]},
     "lshape": {"name": "L shakl mehmonxona", "room_type": M,
@@ -198,6 +202,14 @@ SCENARIOS = {
         ("yotoq_kichik", "small", "Shinam yotoqxona"),
         ("qorongi", "living45", "Qorong'i, dramatik"),
         ("qorongi_kichik", "small", "Qorong'i, sokin yotoqxona"),
+    ],
+    # requests naming no style, which start from the room type's plan (#68)
+    "template": [
+        ("shinam_mehmon", "living45", "Shinam mehmonxona"),
+        ("iliq", "living45", "Iliq ranglar"),
+        ("shinam_yotoq", "bedroom43", "Shinam yotoqxona"),
+        ("sokin_kabinet", "study", "Sokin kabinet"),
+        ("yorqin_oshxona", "kitchen", "Yorqin oshxona"),
     ],
 }
 
