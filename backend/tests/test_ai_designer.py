@@ -579,6 +579,16 @@ def test_a_kitchen_without_a_style_starts_from_a_tile_floor():
     assert start["floor"] == {"type": "tile", "pattern": None, "tint": None}
 
 
+def test_a_room_type_s_style_puts_its_furniture_first():
+    items = [_styled("modern", ["zamonaviy"], "yotoqxona"), _styled("scandi", ["skandinav"], "yotoqxona")]
+    _, by_label = ad.furniture_menu(items, "yotoqxona", "Shinam yotoqxona")
+    assert by_label["F1"]["id"] == "scandi"
+    # a style the request names still comes first
+    _, by_label = ad.furniture_menu(items, "yotoqxona", "zamonaviy yotoqxona")
+    assert by_label["F1"]["id"] == "modern"
+    assert ad.furniture_styles_for_prompt("Shinam yotoqxona", None) == set()
+
+
 def test_gold_and_light_lines_hold_with_a_room_type_s_plan():
     message = _message("och ranglar, oltin detallar")
     assert GOLD_LINE in message and LIGHT_LINE in message

@@ -440,14 +440,14 @@ def starting_preset(prompt: str, room_type: str | None = None) -> dict | None:
     return choice[1] if choice else None
 
 
-def furniture_styles_for_prompt(prompt: str) -> set[str]:
+def furniture_styles_for_prompt(prompt: str, room_type: str | None = None) -> set[str]:
     """The furniture styles whose pieces the menu puts first: those the request names, or, when it
     names none, the furniture style of the ready-made style it starts from (a dark room is furnished
-    zamonaviy)."""
+    zamonaviy, a bedroom with no style skandinav)."""
     named = styles_in_prompt(prompt)
     if named:
         return named
-    preset = starting_preset(prompt)
+    preset = starting_preset(prompt, room_type)
     return {preset["furnitureStyle"]} if preset and preset.get("furnitureStyle") else set()
 
 
@@ -498,7 +498,7 @@ def furniture_menu(
     cut where it matters least; among them, pieces of a style the request names come first, so
     they are not the ones cut. Each line names the piece's styles; an unstyled piece suits any.
     """
-    wanted = furniture_styles_for_prompt(prompt)
+    wanted = furniture_styles_for_prompt(prompt, room_type)
     # The catalog has no children's room or study (schemas/admin_catalog.py ROOM_TYPES): a children's
     # room takes bedroom pieces, children's ones first; a study takes living-room pieces, desk and
     # desk chair first.
