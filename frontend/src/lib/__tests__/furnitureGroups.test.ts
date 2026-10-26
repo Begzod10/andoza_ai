@@ -307,19 +307,19 @@ describe('work', () => {
 })
 
 describe('storage', () => {
-  it('keeps a wardrobe\'s front clear of a door swing', () => {
-    // 3 x 3 m, door on B from z -0.7 to 0.2: a 1.8 m wardrobe in the middle of A would stand clear of
-    // the swing, but its 0.7 m front would not.
+  it('lets a wardrobe\'s front reach into a door swing, never the wardrobe itself', () => {
+    // 3 x 3 m, door on B from z -0.7 to 0.2: a 1.8 m wardrobe in the middle of A stands clear of the
+    // swing; its 0.7 m front reaches into it, which is allowed (the two doors are not open at once).
     const model = roomModel(box(3000, 3000, { B: [el('eshik', 900, 800)] }))
     const doors = model.clear.filter((z) => z.kind === 'door').map((z) => z.rect)
     const cands = groupCandidates('storage', [piece('wardrobe', 'wardrobe', 1.8, 0.6, true)], model, [])
-    expect(cands.length).toBeGreaterThan(0)
-    for (const c of cands) {
+    const strips = cands.map((c) => {
       const w = byRole(c, 'wardrobe')[0].rect
       const [x, z] = at(w, w.d / 2 + 0.35)
-      const strip: Rect = { x, z, w: w.w, d: 0.7, rotation: w.rotation }
-      for (const d of doors) expect(overlaps(strip, d, 0)).toBe(false)
-    }
+      return { w, strip: { x, z, w: w.w, d: 0.7, rotation: w.rotation } as Rect }
+    })
+    expect(strips.some(({ strip }) => doors.some((d) => overlaps(strip, d, 0)))).toBe(true)
+    for (const { w } of strips) for (const d of doors) expect(overlaps(w, d, 0)).toBe(false)
   })
 
 
@@ -333,6 +333,17 @@ describe('storage', () => {
       for (const k of [0.05, 0.69]) for (const side of [-w.w / 2 + 0.02, 0, w.w / 2 - 0.02]) expect(pointInside(model, at(w, w.d / 2 + k, side))).toBe(true)
       for (const z of doors) expect(overlaps(w, z, 0)).toBe(false)
     }
+  })
+})
+
+describe('door swings', () => {
+  it('stands no bed in a door swing, though its side floor may reach into one', () => {
+    // 3 x 2.6 m, door near one end of B: the bed's best spot has its side floor in the swing.
+    const model = roomModel(box(3000, 2600, { A: [el('deraza', 1200, 900)], B: [el('eshik', 900, 200)] }))
+    const doors = model.clear.filter((z) => z.kind === 'door').map((z) => z.rect)
+    const cands = groupCandidates('sleep', [piece('bed', 'bed', 0.9, 2.0)], model, [])
+    expect(cands.length).toBeGreaterThan(0)
+    for (const c of cands) for (const p of c.placed) for (const d of doors) expect(overlaps(p.rect, d, 0)).toBe(false)
   })
 })
 

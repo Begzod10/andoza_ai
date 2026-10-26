@@ -6,8 +6,8 @@ import i18n from "@/i18n"
 import { aiDesign, aiDesignFromImage, aiDesignFromPin, findPinUrl, looksLikePinUrl } from "@/lib/api"
 import type { AiDesignPlan } from "@/lib/api"
 import { useRoomStore } from "@/store/roomStore"
-import { ALL_PARTS, applyDesignPlan, droppedNotice, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
-import type { DesignParts, DesignSnapshot } from "@/lib/aiDesign"
+import { ALL_PARTS, applyDesignPlan, restoreDesign, snapshotDesign } from "@/lib/aiDesign"
+import type { AppliedCounts, DesignParts, DesignSnapshot } from "@/lib/aiDesign"
 import { lightType } from "@/lib/lightCatalog"
 import { DESIGN_PRESETS, presetPlan } from "@/lib/aiDesignPresets"
 import { ceilingDesign } from "@/lib/ceilingDesigns"
@@ -113,6 +113,9 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
   const [parts, setParts] = React.useState<DesignParts>(ALL_PARTS)
   const [error, setError] = React.useState("")
   const [notice, setNotice] = React.useState("")
+  // What the last design really put in the room: what did not fit, what stood in for what, and what was
+  // placed. It stays under the summary while the design does (the notice line moves on).
+  const [applied, setApplied] = React.useState<AppliedCounts | null>(null)
   // The room as it was before this session's AI design: what "Qaytarish" goes back to, and what a new
   // variant starts from, so variants replace one another instead of piling up.
   const [undo, setUndo] = React.useState<DesignSnapshot | null>(null)
@@ -142,13 +145,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     setUndo(base)
     setBarHidden(false)
     const applied = applyDesignPlan(next, nextParts, catalogFurniture, roomType)
-    const extra = applied.dropped.length > 0 ? ` ${droppedNotice(applied.dropped, t)}` : ""
+    setApplied(applied)
+    // What did not fit is named under the summary, where it stays: not in the status line too.
     if (!onSaveRef.current) {
-      setNotice(t("ai.qollandi_saqlang") + extra)
+      setNotice(t("ai.qollandi_saqlang"))
       return
     }
     setNotice(t("ai.saqlanmoqda"))
-    setNotice(((await persist()) ? t("ai.qollandi_saqlandi") : t("ai.qollandi_saqlanmadi")) + extra)
+    setNotice((await persist()) ? t("ai.qollandi_saqlandi") : t("ai.qollandi_saqlanmadi"))
   }
 
   React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
@@ -217,6 +221,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
           : await aiDesign(roomId, prompt.trim(), roomType)
     } catch (err) {
       setPlan(null)
+      setApplied(null)
       setError(errorText(err))
       return
     } finally {
@@ -254,6 +259,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     restoreDesign(undo)
     setUndo(null)
     setPlan(null)
+    setApplied(null)
     if (!onSaveRef.current) {
       setNotice(t("ai.qaytarildi"))
       return
@@ -266,6 +272,12 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
     onOpenChange(false)
   }
 
+  const countedNames = (list: Array<{ name: string; count: number }>) =>
+    list.map(({ name, count }) => t("ai.dropped_item", { name, count })).join(", ")
+  // The furniture as placed, once it is in the room; the plan's own list while it is switched off.
+  const furnitureLine = applied && parts.furniture
+    ? countedNames(applied.placed)
+    : plan?.furniture.map((f) => f.zone ? `${f.name} (${zoneLabel(f.zone)})` : f.name).join(", ")
   const lightNames = plan?.lights.map((l) => `${t(lightType(l.type).nameKey)} (${zoneLabel(l.zone)})`) ?? []
   const main = plan?.walls.main
   // The ceiling and the cornice the plan sets; an AI plan may name only some of them (or only the
@@ -412,6 +424,14 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
               <h3 className="text-base font-bold text-gray-900">{plan.title}</h3>
               <p className="mt-1 text-sm leading-snug text-gray-700">{plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
+              {applied && applied.dropped.length > 0 && (
+                <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(applied.dropped) })}</p>
+              )}
+              {applied?.swapped.map(({ from, to, count }) => (
+                <p key={`${from}|${to}`} className="mt-1 text-xs leading-snug text-gray-600">
+                  {t("ai.orniga_qoyildi", { from: t("ai.dropped_item", { name: from, count }), to })}
+                </p>
+              ))}
               {plan.pin_image_url && (
                 <img src={plan.pin_image_url} alt={t("ai.pin_asosida")} title={t("ai.pin_asosida")} className="mt-2 h-20 rounded-xl object-cover" />
               )}
@@ -448,7 +468,7 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, roomType: r
             </PartRow>
 
             <PartRow id="furniture" title={t("ai.qism_mebel")} enabled={plan.furniture.length > 0} checked={parts.furniture} onChange={(on) => changeParts({ ...parts, furniture: on })}>
-              {plan.furniture.map((f) => f.zone ? `${f.name} (${zoneLabel(f.zone)})` : f.name).join(", ")}
+              {furnitureLine}
             </PartRow>
 
             {plan.furniture.length === 0 && <p className="text-[11px] leading-snug text-gray-500">{t("ai.mebel_topilmadi")}</p>}

@@ -8,8 +8,8 @@
  *
  * `groupCandidates` gives every arrangement of one group that fits the room as it stands (inside
  * the walls, clear of what is already there, of door swings and, for tall pieces, of windows,
- * each piece keeping the floor it needs to be used, and off the floor earlier groups keep), best
- * first. It does not check the walkway from the door; the caller does that and takes the first
+ * each piece keeping the floor it needs to be used (a door may swing over that floor), and off the
+ * floor earlier groups keep), best first. It does not check the walkway from the door; the caller does that and takes the first
  * candidate that passes. A sofa's coffee table, its armchairs and TV, and a bed's nightstands are
  * optional: they drop one at a time (the coffee table last) when the room has no place for them.
  *
@@ -84,7 +84,6 @@ const PULL_OUT = [0.25, 0.5, 0.75, 1.0, 1.25]
 const PULL_PENALTY = 1
 
 const ALL_RULES = { doors: true, windows: true }
-const DOORS_ONLY = { doors: true, windows: false }
 
 /** Chairs a dining table seats, from its long side. */
 export function chairCount(tableLongSide: number): 2 | 4 | 6 {
@@ -226,11 +225,11 @@ function fits(ctx: Ctx, placed: Placed[], next: Placed): boolean {
     const c = clearancesOf(p)
     if (!c.allows(next) && c.zones.some((z) => hit(z, r, 0))) return false
   }
-  // ...and its own floor must be in the room and free.
+  // ...and its own floor must be in the room and free. A door may swing over it: the door is open
+  // while someone comes in, not while someone gets into bed, opens the wardrobe or pulls the chair out.
   const own = clearancesOf(next)
   for (const z of own.zones) {
     if (!model.inside(z) || taken.some((t) => hit(z, t, 0))) return false
-    if (blocksOpening(z, false, model, DOORS_ONLY)) return false // a door must not swing into it
     if (placed.some((p) => p.piece.role !== 'rug' && !own.allows(p) && hit(z, p.rect, 0))) return false
   }
   return true

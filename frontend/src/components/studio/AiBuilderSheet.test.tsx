@@ -116,7 +116,8 @@ describe('AiBuilderSheet', () => {
     expect(screen.getByText('#2c2c2c')).toBeInTheDocument()
     expect(screen.getByText(/parquet · herringbone/)).toBeInTheDocument()
     expect(screen.getByText(/Qandil.*markaz/)).toBeInTheDocument()
-    expect(screen.getByText(/Divan \(A devor\)/)).toBeInTheDocument()
+    // The furniture as it was placed (a piece placed has no zone to show).
+    expect(screen.getByLabelText(/Mebel/).closest('label')).toHaveTextContent(/Divan$/)
   })
 
   it('applies the design the moment it arrives, with no further tap', async () => {
@@ -171,6 +172,8 @@ describe('AiBuilderSheet', () => {
     fireEvent.click(screen.getByLabelText(/Mebel/))
     await waitFor(() => expect(useRoomStore.getState().furniture).toHaveLength(0))
     expect(useRoomStore.getState().lights).toHaveLength(1)
+    // Switched off, the row shows what the plan would place.
+    expect(screen.getByText(/Divan \(A devor\)/)).toBeInTheDocument()
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2))
   })
 
@@ -246,6 +249,75 @@ describe('AiBuilderSheet', () => {
     await waitFor(() => expect(useRoomStore.getState().furniture).toHaveLength(2))
     fireEvent.click(screen.getByText('Qaytarish'))
     expect(useRoomStore.getState().furniture.map((f) => f.id)).toEqual(['mine'])
+  })
+})
+
+describe('what the design really put in the room', () => {
+  const item = (id: string, name: string, w: number, d: number, category: string) => ({
+    id, name_uz: name, category, store_id: null, store_name: null, room_type: 'yotoqxona', placement: 'pol',
+    price_uzs: null, glb_url: 'x', thumbnail_url: null, footprint_w: w, footprint_d: d,
+  })
+  // A 4 x 3 m room: a 5 m sofa fits nowhere and has no smaller one; a 4.5 m wardrobe gives way to a 1.5 m one.
+  const CATALOG = [
+    item('sofa', 'Katta divan', 500, 100, 'divan'),
+    item('big', 'Kiyim shkafi Katta', 450, 60, 'shkaf'),
+    item('nord', 'Kiyim shkafi Nord', 150, 60, 'shkaf'),
+    item('table', 'Ovqat stoli', 120, 80, 'stol'),
+    item('chair', 'Stul', 45, 45, 'stul'),
+  ]
+  const TIGHT: AiDesignPlan = {
+    ...PLAN, lights: [],
+    furniture: [{ id: 'sofa', name: 'Katta divan', zone: 'wall_A' }, { id: 'big', name: 'Kiyim shkafi Katta', role: 'wardrobe', zone: 'wall_C' }],
+  }
+  const furnitureRow = () => screen.getByLabelText(/Mebel/).closest('label')!
+
+  beforeEach(() => useRoomStore.setState({ catalogFurniture: CATALOG as never }))
+
+  it('names what did not fit and what was swapped under the summary, and lists what was placed', async () => {
+    aiDesign.mockResolvedValueOnce(TIGHT)
+    renderSheet({ roomType: 'yotoqxona', onSave: savesOk() })
+    await generate()
+    expect(await screen.findByText('Joy yetmadi: Katta divan')).toBeInTheDocument()
+    expect(screen.getByText("Kiyim shkafi Katta o'rniga Kiyim shkafi Nord qo'yildi")).toBeInTheDocument()
+    // The line stays once the save is done and the status line has moved on.
+    expect(await screen.findByRole('status')).toHaveTextContent("qo'llandi va saqlandi")
+    expect(screen.getByText('Joy yetmadi: Katta divan')).toBeInTheDocument()
+    expect(furnitureRow()).toHaveTextContent('Kiyim shkafi Nord')
+    expect(furnitureRow()).not.toHaveTextContent('Katta divan')
+  })
+
+  it('names what did not fit once: under the summary, not in the status line too', async () => {
+    aiDesign.mockResolvedValueOnce(TIGHT)
+    renderSheet({ roomType: 'yotoqxona', onSave: savesOk() })
+    await generate()
+    expect(await screen.findByRole('status')).toHaveTextContent("qo'llandi va saqlandi")
+    expect(screen.getByRole('status')).not.toHaveTextContent('Joy yetmadi')
+    expect(screen.getAllByText(/Joy yetmadi/)).toHaveLength(1)
+  })
+
+  it('counts the pieces placed of one kind', async () => {
+    aiDesign.mockResolvedValueOnce({ ...PLAN, lights: [], furniture: [{ id: 'table', name: 'Ovqat stoli' }, { id: 'chair', name: 'Stul' }] })
+    renderSheet({ roomType: 'oshxona' })
+    await generate()
+    await waitFor(() => expect(furnitureRow()).toHaveTextContent('Ovqat stoli, 4 ta Stul'))
+  })
+
+  it('clears the lines on undo and on a new design', async () => {
+    aiDesign.mockResolvedValueOnce(TIGHT).mockResolvedValueOnce({ ...PLAN, title: "Qorong'i uslub", furniture: [{ id: 'nord', name: 'Kiyim shkafi Nord' }] })
+    renderSheet({ roomType: 'yotoqxona' })
+    await generate()
+    expect(await screen.findByText('Joy yetmadi: Katta divan')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Boshqa variant'))
+    await waitFor(() => expect(aiDesign).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText(/Joy yetmadi: Katta divan/)).toBeNull())
+    expect(screen.queryByText(/o'rniga/)).toBeNull()
+
+    aiDesign.mockResolvedValueOnce(TIGHT)
+    fireEvent.click(screen.getByText('Boshqa variant'))
+    expect(await screen.findByText('Joy yetmadi: Katta divan')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Qaytarish'))
+    expect(screen.queryByText('Joy yetmadi: Katta divan')).toBeNull()
+    expect(screen.queryByText(/o'rniga/)).toBeNull()
   })
 })
 

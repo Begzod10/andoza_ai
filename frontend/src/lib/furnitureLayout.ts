@@ -5,10 +5,14 @@
  * bedroom) goes first, then the others in a fixed order. Each later group takes the first of its
  * arrangements (best first, from `groupCandidates`) that still lets a person walk from the door to
  * every group placed so far; a group with no such arrangement is left out whole. The main group's
- * best few walkable arrangements are each tried this way, and the one that gets the most pieces in
- * wins. When none of the main group's arrangements leaves the way open, its best one is taken anyway;
- * when it has none at all, its last resort is tried (a bed with one long side on a wall, a sofa or
- * desk standing out from its wall past the door swings). A later group never stands on the floor an
+ * best few walkable arrangements are each tried this way, and the one whose placed pieces weigh the
+ * most wins: each piece weighs one, but the room's main piece (its bed, sofa...) outweighs the rest
+ * together, in a bedroom a wardrobe outweighs the desk with its chair, and
+ * the storage is also tried before the desk, so when only one of them fits it is the wardrobe. When
+ * none of the main group's arrangements leaves the way open, its best one is taken anyway; when it has
+ * none at all, its last resort is tried (a bed with one long side on a wall, a sofa or desk standing
+ * out from its wall past the door swings), and so is a bed's when the bedroom's head-on beds leave
+ * a group out (its wardrobe, its desk). A later group never stands on the floor an
  * earlier one needs (bed sides and foot, chair backs, storage fronts).
  * Rugs go last, under the middle of the main group. Whatever was not placed is named, with how
  * many, for the notice.
@@ -18,12 +22,24 @@
  */
 import { furnitureSpot, type Rect, type RoomModel } from './aiDesignLayout'
 import { chairCount, clearanceZones, groupCandidates, type Piece, type Placed } from './furnitureGroups'
-import { ROLE_GROUP, type FurnitureRole, type GroupId } from './furnitureRole'
+import { ROLE_GROUP, WARDROBE_NAME, type FurnitureRole, type GroupId } from './furnitureRole'
 import { doorEntries, walkable, type Pt } from './walkway'
 
 const ORDER: GroupId[] = ['lounge', 'dining', 'sleep', 'work', 'storage', 'extra']
 /** How many of the main group's walkable arrangements are tried, each with the rest of the room. */
 const PRIMARY_TRIES = 12
+/**
+ * What a placed piece is worth when arrangements are compared: one each, but in a bedroom a wardrobe
+ * is worth more than the desk and its chair together (3 + 1) with a few small pieces beside them, so a
+ * bedroom keeps its wardrobe. Only a wardrobe for clothes (`WARDROBE_NAME`): a bookcase read as a
+ * wardrobe weighs one.
+ */
+const BEDROOM_WEIGHT: Partial<Record<FurnitureRole, number>> = { wardrobe: 10, desk: 3 }
+/**
+ * The room's main piece (the bed of a bedroom, the sofa of a living room) outweighs everything else
+ * together: a layout without it never beats one with it.
+ */
+const ANCHOR_WEIGHT = 100
 
 const BY_ROOM_TYPE: Record<string, GroupId> = { mehmonxona: 'lounge', oshxona: 'dining', yotoqxona: 'sleep' }
 /** Without a known room type, the plan's main piece decides, in this order. */
@@ -70,7 +86,11 @@ function collapseDining(pieces: Piece[]): { pieces: Piece[]; unused: Piece[] } {
 
 export function layoutFurniture(
   pieces: Piece[], model: RoomModel, roomType: string | undefined, taken: Rect[],
-): { placed: Placed[]; dropped: Array<{ name: string; count: number }> } {
+): {
+  placed: Placed[]; dropped: Array<{ name: string; count: number }>
+  /** What the placed pieces are worth (see ANCHOR_WEIGHT, BEDROOM_WEIGHT): the heavier of two layouts is the better. */
+  weight: number
+} {
   if (model.walls.length === 0) return inTheMiddle(pieces, model, taken)
   const rugs = pieces.filter((p) => p.role === 'rug')
   const byGroup = new Map<GroupId, Piece[]>()
@@ -94,18 +114,28 @@ export function layoutFurniture(
 
   const doors = doorEntries(model)
   const others = ORDER.filter((g) => g !== primary && byGroup.has(g))
+  const bedroom = primary === 'sleep'
+  // A bedroom tries its storage before the desk too: the desk would otherwise take the wall the
+  // wardrobe needs.
+  const orders = bedroom && others.includes('work') && others.includes('storage')
+    ? [others, others.map((g) => (g === 'work' ? 'storage' : g === 'storage' ? 'work' : g))]
+    : [others]
+  const anchor = ANCHOR[primary]
+  const worth = (p: Piece) => p.role === anchor ? ANCHOR_WEIGHT
+    : (bedroom && (p.role !== 'wardrobe' || WARDROBE_NAME.test(p.name)) && BEDROOM_WEIGHT[p.role]) || 1
+  const weight = (ps: Placed[]) => ps.reduce((s, p) => s + worth(p.piece), 0)
   const rects = (ps: Placed[]) => ps.map((p) => p.rect)
 
   /**
-   * The other groups after `start`, each taking its first arrangement that keeps every use point
-   * reachable and stays off the floor the pieces before it need.
+   * The other groups after `start`, in `order`, each taking its first arrangement that keeps every use
+   * point reachable and stays off the floor the pieces before it need.
    */
-  const fill = (start: Placed[], startUse: Pt[]): Placed[] => {
+  const fillIn = (order: GroupId[], start: Placed[], startUse: Pt[]): Placed[] => {
     const placed = [...start]
     const solid = [...taken, ...rects(start)]
     const keepClear = clearanceZones(start)
     const usePoints = [...startUse]
-    for (const group of others) {
+    for (const group of order) {
       const chosen = groupCandidates(group, byGroup.get(group)!, model, solid, { keepClear })
         .find((c) => walkable(model, [...solid, ...rects(c.placed)], doors, [...usePoints, ...c.usePoints]))
       if (!chosen) continue
@@ -116,24 +146,44 @@ export function layoutFurniture(
     }
     return placed
   }
+  /** The heaviest of the orders' layouts after `start`, the first order on a tie. */
+  const fill = (start: Placed[], startUse: Pt[]): Placed[] => {
+    let out: Placed[] | null = null
+    for (const order of orders) {
+      const placed = fillIn(order, start, startUse)
+      if (!out || weight(placed) > weight(out)) out = placed
+    }
+    return out!
+  }
 
-  // Try the main group's best few walkable arrangements, each followed by the rest; keep the one that
-  // places the most pieces (each chair counts), the better main arrangement on a tie.
-  let best: { placed: Placed[]; primary: Placed[] } | null = null
+  // Try the main group's best few walkable arrangements, each followed by the rest; keep the one whose
+  // pieces weigh the most (each chair counts), the better main arrangement on a tie.
+  let best = null as { placed: Placed[]; primary: Placed[] } | null
   const primaryPieces = byGroup.get(primary)
   if (primaryPieces) {
     let candidates = groupCandidates(primary, primaryPieces, model, taken)
+    const lastResort = () => groupCandidates(primary, primaryPieces, model, taken, { lastResort: true })
+    /** The best few walkable ones, each with the rest of the room; the heaviest is kept. */
+    const tryAll = (cands: typeof candidates) => {
+      let tried = 0
+      for (const c of cands) {
+        if (tried >= PRIMARY_TRIES) break
+        if (!walkable(model, [...taken, ...rects(c.placed)], doors, c.usePoints)) continue
+        tried++
+        const placed = fill(c.placed, c.usePoints)
+        if (!best || weight(placed) > weight(best.placed)) best = { placed, primary: c.placed }
+      }
+    }
     // No arrangement at all: the main piece's last resort (a bed with one side on a wall, a sofa or
     // desk out from its wall past the door swings).
-    if (candidates.length === 0) candidates = groupCandidates(primary, primaryPieces, model, taken, { lastResort: true })
-    let tried = 0
-    for (const c of candidates) {
-      if (tried >= PRIMARY_TRIES) break
-      if (!walkable(model, [...taken, ...rects(c.placed)], doors, c.usePoints)) continue
-      tried++
-      const placed = fill(c.placed, c.usePoints)
-      if (!best || placed.length > best.placed.length) best = { placed, primary: c.placed }
-    }
+    if (candidates.length === 0) candidates = lastResort()
+    tryAll(candidates)
+    // A small bedroom whose bed, head-on, leaves a group out (the wardrobe, the desk) tries the bed
+    // side-on too: along a wall it may leave the floor that group needs. The heavier layout is kept.
+    const leavesGroupOut = (ps: Placed[]) => others.some((g) =>
+      (g === 'storage' || g === 'work') && !ps.some((p) => ROLE_GROUP[p.piece.role] === g))
+    const triedSideOn = candidates[0]?.placed[0]?.wallSide !== undefined
+    if (bedroom && !triedSideOn && best && leavesGroupOut(best.placed)) tryAll(lastResort())
     // None leaves the way open: the best one anyway, and only its use points that can still be reached
     // count for the groups after it (the others would shut every later group out).
     if (!best && candidates.length) {
@@ -147,7 +197,7 @@ export function layoutFurniture(
 
   for (const rug of rugs) placed.push({ piece: rug, rect: rugSpot(rug, primaryPlaced, model) })
 
-  return { placed, dropped: droppedOf([...byGroup.values()].flat(), placed, unusedChairs) }
+  return { placed, dropped: droppedOf([...byGroup.values()].flat(), placed, unusedChairs), weight: weight(placed) }
 }
 
 /** The step a rug is moved by toward the room's middle when it would cross a wall, metres. */
@@ -188,7 +238,7 @@ function inTheMiddle(pieces: Piece[], model: RoomModel, taken: Rect[]): ReturnTy
     if (!rug) solid.push(spot.rect)
     placed.push({ piece, rect: spot.rect })
   }
-  return { placed, dropped: [...out].map(([name, count]) => ({ name, count })) }
+  return { placed, dropped: [...out].map(([name, count]) => ({ name, count })), weight: placed.length }
 }
 
 /**

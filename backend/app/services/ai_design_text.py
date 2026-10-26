@@ -112,9 +112,24 @@ _ENGLISH = re.compile(r"\b(the|is|are|with|and|includes?|floor|walls?|furniture|
 _RAW_IDS = re.compile(r"\b(herringbone|wood_strip|brick_bond|stake_bond|double_herringbone)\b")
 
 
-def _language_problems(text: str) -> list[str]:
+# The trim words of the studio's menu ("ceiling trim border", "skirting"): the user reads shift, plintus, galtel.
+_TRIM_WORDS = re.compile(r"\b(ceiling|trim|border|skirting|cornice)\b")
+# Trim ids that are plain Uzbek words, so the prose may say them ("tekis" is flat).
+_UZBEK_TRIM_IDS = frozenset({"tekis"})
+
+
+def _plan_trim_ids(plan: Any) -> list[str]:
+    """The plan's own profile ids. Only these: a shop's names carry model codes of the same look (B054)."""
+    trim = getattr(plan, "trim", None) or {}
+    ids = [(trim.get(kind) or {}).get(key) for kind, key in (("ceiling", "design"), ("skirting", "id"), ("cornice", "id"))]
+    return [i.lower() for i in ids if isinstance(i, str) and i.lower() not in _UZBEK_TRIM_IDS]
+
+
+def _language_problems(text: str, plan: Any) -> list[str]:
     if _RAW_IDS.search(text):
         return ["matnda ichki nom bor (inglizcha naqsh nomi)"]
+    if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
+        return ["matnda ichki nom bor (shift yoki plintus profili)"]
     return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
 
 
@@ -234,17 +249,27 @@ def _catalog_problems(text: str, plan: Any, catalog_names: list[str]) -> list[st
     return problems
 
 
+# A word said twice running ("spot spot", "chiroq chiroqlar"): what is left when an id was put in Uzbek badly.
+_REPEAT = re.compile(r"\b(\w[\w']*)\s+\1\b|\bchiro(?:q|g'i)\w*\s+chiro(?:q|g'i)")
+
+
+def _repeat_problems(text: str) -> list[str]:
+    m = _REPEAT.search(text)
+    return [f"'{m.group(0)}': so'z takrorlangan"] if m else []
+
+
 def summary_problems(summary: str, plan: Any, catalog_names: list[str] | None = None) -> list[str]:
     """What the summary claims that the plan does not hold; empty when it can be trusted."""
     text = _norm(summary)
     return [
         *(_catalog_problems(text, plan, catalog_names) if catalog_names else []),
-        *_language_problems(text),
+        *_language_problems(text, plan),
         *_colour_of_things_problems(text),
         *_colour_problems(text, plan),
         *_furniture_problems(text, plan),
         *_light_problems(text, plan),
         *_surface_problems(text, plan),
+        *_repeat_problems(text),
     ]
 
 
@@ -356,10 +381,44 @@ def describe_plan(plan: Any) -> str:
     return ". ".join(parts) + "." if parts else ""
 
 
+def _id_pattern(raw: str) -> str:
+    """An id as prose writes it: "floor_lamp", "floor lamp", "floor-lamp"."""
+    return r"[ _-]".join(re.escape(part) for part in raw.split("_"))
+
+
+# A light's name as prose says it: the estimate's "Trek (shina)" has brackets that read badly in a sentence.
+_LIGHT_SAID = {**LIGHT_TYPE_NAMES, "track": "Trek chirog'i"}
+# Light ids said in Uzbek, the longest first so "led_track" is not read as "led" + "track". The ceiling
+# light is left out: "ceiling" in prose is the ceiling itself, a leak the language check catches. So is
+# an id that is already a word of its name ("bra", "ies" of "IES spot"): the prose's own spelling stays.
+_LIGHT_IDS = sorted(
+    (t for t, name in _LIGHT_SAID.items() if t != "ceiling" and t not in name.lower().split()), key=len, reverse=True
+)
+# "chiroq", "chirog'i", "chiroqlar" (any apostrophe), and "tizimi": the prose already says what the
+# name's own last word would, so the name drops it ("pendant chiroq" is "osma chiroq", not "osma chiroq chiroq").
+_CHIROQ = r"chiro(?:q|g['’‘ʻʼ`´]i)"
+_LIGHT_TAIL = re.compile(rf"\s+{_CHIROQ}$", re.I)
+_SAID_AFTER = re.compile(rf"\s+(?:{_CHIROQ}|tizim)", re.I)
+
+
+def _light_said(name: str, sentence_start: bool, tail_said: bool) -> str:
+    """*name* as it reads in the middle of a sentence: lower case but for an acronym (LED, IES), capital
+    only to start one, and without its "chiroq" when the prose says it next."""
+    if tail_said:
+        name = _LIGHT_TAIL.sub("", name)
+    said = " ".join(w if len(w) > 1 and w.isupper() else w.lower() for w in name.split())
+    return said[0].upper() + said[1:] if sentence_start else said
+
+
 def _localise(text: str) -> str:
     """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
     for raw, uz in {**_LAYING_NAMES, "parquet": "parket", "laminate": "laminat"}.items():
         text = re.sub(rf"\b{raw}\b", uz, text, flags=re.I)
+    for raw in _LIGHT_IDS:
+        def said(m: re.Match[str], raw: str = raw) -> str:
+            start = not m.string[: m.start()].strip() or m.string[: m.start()].rstrip()[-1] in ".!?"
+            return _light_said(_LIGHT_SAID[raw], start, bool(_SAID_AFTER.match(m.string, m.end())))
+        text = re.sub(rf"\b{_id_pattern(raw)}\b", said, text, flags=re.I)
     return text
 
 
