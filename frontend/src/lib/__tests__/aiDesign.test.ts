@@ -490,4 +490,16 @@ describe('a bedroom with a bed too big for it', () => {
     expect(ids).toEqual(expect.arrayContaining(['b160', 'wardrobe']))
     expect(counts.swapped).toEqual([{ from: 'Karavot huge', to: 'Karavot 160' }])
   })
+
+  it('fits a 160 bed with a desk and its chair', () => {
+    // A door may swing over the floor beside a bed, but the bed that leaves the door's swing alone
+    // is tried first: it leaves the room for the desk.
+    useRoomStore.setState({ geometry: room() })
+    const deskPlan: AiDesignPlan = { ...plan(), lights: [], furniture: [
+      { id: 'b160', name: 'Karavot 160', role: 'bed', zone: 'wall_A' },
+      { id: 'desk', name: 'Yozuv stoli', role: 'desk', zone: 'wall_D' }, { id: 'chair', name: 'Ish stuli', role: 'desk_chair', zone: 'wall_D' }] }
+    const counts = applyDesignPlan(deskPlan, ALL_PARTS, catalog, 'yotoqxona')
+    expect(useRoomStore.getState().furniture.map((f) => f.furniture_id).sort()).toEqual(['b160', 'chair', 'desk'])
+    expect(counts.dropped).toEqual([])
+  })
 })

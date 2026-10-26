@@ -12,7 +12,7 @@
  * none of the main group's arrangements leaves the way open, its best one is taken anyway; when it has
  * none at all, its last resort is tried (a bed with one long side on a wall, a sofa or desk standing
  * out from its wall past the door swings), and so is a bed's when the bedroom's head-on beds leave
- * its wardrobe out. A later group never stands on the floor an
+ * a group out (its wardrobe, its desk). A later group never stands on the floor an
  * earlier one needs (bed sides and foot, chair backs, storage fronts).
  * Rugs go last, under the middle of the main group. Whatever was not placed is named, with how
  * many, for the notice.
@@ -176,11 +176,12 @@ export function layoutFurniture(
     // desk out from its wall past the door swings).
     if (candidates.length === 0) candidates = lastResort()
     tryAll(candidates)
-    // A small bedroom whose bed, head-on, leaves the wardrobe out tries the bed side-on too: along a
-    // wall it may leave the wall the wardrobe needs.
-    const noWardrobe = (ps: Placed[]) => !ps.some((p) => p.piece.role === 'wardrobe')
+    // A small bedroom whose bed, head-on, leaves a group out (the wardrobe, the desk) tries the bed
+    // side-on too: along a wall it may leave the floor that group needs. The heavier layout is kept.
+    const leavesGroupOut = (ps: Placed[]) => others.some((g) =>
+      (g === 'storage' || g === 'work') && !ps.some((p) => ROLE_GROUP[p.piece.role] === g))
     const triedSideOn = candidates[0]?.placed[0]?.wallSide !== undefined
-    if (bedroom && !triedSideOn && best && noWardrobe(best.placed) && pieces.some((p) => p.role === 'wardrobe')) tryAll(lastResort())
+    if (bedroom && !triedSideOn && best && leavesGroupOut(best.placed)) tryAll(lastResort())
     // None leaves the way open: the best one anyway, and only its use points that can still be reached
     // count for the groups after it (the others would shut every later group out).
     if (!best && candidates.length) {
