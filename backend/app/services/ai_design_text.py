@@ -59,6 +59,11 @@ _COLOUR_CLAIMS: dict[str, tuple[re.Pattern[str], Any]] = {
     "jigarrang": (re.compile(r"\b(jigarrang|qo'ng'ir|shokolad)"), lambda h, l, s: 8 <= h <= 50 and l <= 0.6 and s >= 0.1),
 }
 _WOOD_FLOORS = ("parquet", "laminate")
+# Any colour word, policed or neutral, with its endings ("qoraroq", "ko'kish").
+_ANY_COLOUR = re.compile(
+    r"\b(?:oltin\w*|tilla\w*|sariq\w*|qora\w*|qizil\w*|bordo|ko'k\w*|havorang|moviy|zangori|yashil\w*|zaytun\w*|pushti\w*|"
+    r"binafsha\w*|jigarrang\w*|qo'ng'ir\w*|oq|kulrang\w*|bej|krem\w*)"
+)
 
 
 def _plan_colours(plan: Any) -> list[str]:
@@ -71,27 +76,42 @@ def _plan_colours(plan: Any) -> list[str]:
     return [c for c in out if isinstance(c, str) and re.fullmatch(r"#[0-9a-f]{6}", c)]
 
 
+# Materials a colour word may describe instead of the paint: "qora metall oyoqlar", "oq marmar".
+_MATERIALS = (
+    "metall", "marmar", "mramor", "beton", "yog'och", "shisha", "xrom", "charm",
+    "plastik", "rattan", "bambuk", "mato", "teri", "eman", "yong'oq", "temir", "latun", "baxmal", "velvet",
+)
+# The colour word itself, when a material follows it; the material stays for the other checks.
+_COLOUR_OF_MATERIAL = re.compile(_ANY_COLOUR.pattern + rf"(?=\s+(?:{'|'.join(_MATERIALS)}))")
+# Two colour words joined into one ("ko'k-yashil"): a shade between them, so either may back it.
+_COMPOUND = re.compile(r"\b([a-z']+)-([a-z']+)\b")
+
+
 def _colour_problems(text: str, plan: Any) -> list[str]:
     colours = [_hls(c) for c in _plan_colours(plan)]
     wood_floor = bool(plan.floor and plan.floor.get("type") in _WOOD_FLOORS)
-    problems = []
-    for family, (words, backs) in _COLOUR_CLAIMS.items():
-        if not words.search(text):
-            continue
-        if any(backs(*c) for c in colours):
-            continue
+
+    def backed(family: str) -> bool:
         if family == "jigarrang" and wood_floor:  # a wooden floor is brown, tint or not
-            continue
-        problems.append(f"'{family}' rang aytilgan, lekin rejada bunday rang yo'q")
-    return problems
+            return True
+        return any(_COLOUR_CLAIMS[family][1](*c) for c in colours)
+
+    def families(word: str) -> list[str]:
+        return [family for family, (words, _) in _COLOUR_CLAIMS.items() if words.search(word)]
+
+    # Neither a material's colour nor a compound with one fitting part claims anything about the paint,
+    # so they are taken out of the text before the claims are read.
+    text = _COLOUR_OF_MATERIAL.sub(" ", text)
+    text = _COMPOUND.sub(lambda m: " " if any(map(backed, families(m[1]) + families(m[2]))) else m[0], text)
+    return [
+        f"'{family}' rang aytilgan, lekin rejada bunday rang yo'q"
+        for family, (words, _) in _COLOUR_CLAIMS.items()
+        if words.search(text) and not backed(family)
+    ]
 
 
 # A colour word right before a piece of furniture or a light: "qora divan", "oltin chiroq". The studio
 # cannot colour either (they come from the catalog as they are), so the claim can never come true.
-_ANY_COLOUR = re.compile(
-    r"\b(?:oltin\w*|tilla\w*|sariq\w*|qora\w*|qizil\w*|bordo|ko'k\w*|havorang|moviy|zangori|yashil\w*|zaytun\w*|pushti\w*|"
-    r"binafsha\w*|jigarrang\w*|qo'ng'ir\w*|oq|kulrang\w*|bej|krem\w*)"
-)
 _COLOURED_THING = re.compile(
     _ANY_COLOUR.pattern
     + r"(?:\s+(?:(?:uch|ikki|bir)\s+(?:o'rinli|kishilik)|[\w']+))?\s+"

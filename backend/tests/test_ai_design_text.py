@@ -616,3 +616,71 @@ class TestAnEnglishTailDoesNotCostTheSummary:
         plan = make(text)
         assert txt.reconcile_summary(plan) == []
         assert plan.summary == text
+
+
+class TestColourWordsThatAreNotThePaint:
+    """Two eval summaries (2026-10-26) thrown away for a colour word that made no claim about the paint."""
+
+    YOTOQ = _eval_plan(
+        "Bu zamonaviy yotoqxona uchun devorlar engil ko'k-yashil rangda bo'yoq bilan qoplangan, bu xona atmosferasini "
+        "tinch va shinam qiladi. Pol herringbone naqshli parketdan tanlandi, iliqlik va tabiiylikni oshirish uchun. "
+        "Markaziy shift chirog'i va burchakda joylashgan torsher yordamida yumshoq va iliq yorug'lik ta'minlandi. Mebel "
+        "sifatida zamonaviy uslubdagi karavot Grafit, kiyim shkafi Grafit, tumbochka Grafit, pufik bezak, yozuv stoli "
+        "Nord va ish stuli tanlandi, ular bir-biri bilan uyg'un va funktsional.",
+        {"main": {"type": "paint", "color": "#c9d6d5"}},
+        {"type": "parquet", "pattern": "herringbone", "tint": "#8b6d5c"},
+        ["ceiling", "floor_lamp"],
+        ["ZZ Karavot Grafit 180", "ZZ Kiyim shkafi Grafit", "ZZ Tumbochka Grafit", "ZZ Pufik", "ZZ Ish stuli",
+         "ZZ Yozuv stoli Nord"],
+        {"ceiling": {"design": "floating"}, "skirting": {"id": "b054"}, "cornice": {"id": "t140"}},
+    )
+    LOFT = _eval_plan(
+        "Devorlar uchun to'q kulrang bo'yoq va C devori uchun g'isht rangida aksent tanlandi, bu loft uslubining "
+        "industriyal ko'rinishini ta'kidlaydi. Pol uchun beton qoldirildi, u qora metall va g'isht elementlari bilan "
+        "uyg'unlashadi. Asosiy yoritish uchun trek chiroqlari, burchaklarda esa torsher va devor uchun spot chiroqlar "
+        "ishlatildi. Mebel sifatida ZZ Divan Bruklin, ZZ Kreslo Indastrial, metall-yog'och jurnal stoli, ZZ TV tumba "
+        "Indastrial va ZZ Stellaj Loft tanlandi, ular loft uslubiga mos keladi va xona o'lchamiga mos keladi.",
+        {"main": {"type": "paint", "color": "#4a4a4a"}, "accent": {"wall": "C", "color": "#a0522d"}},
+        {"type": "concrete", "pattern": None, "tint": None},
+        ["track", "floor_lamp", "spotlight"],
+        ["ZZ Divan Bruklin", "ZZ Kreslo Indastrial", "ZZ Jurnal stoli metall-yog'och", "ZZ TV tumba Indastrial",
+         "ZZ Stellaj Loft"],
+        {"ceiling": {"design": "non_drop"}, "skirting": {"id": "tekis"}, "cornice": None},
+    )
+
+    def test_the_namer_calls_the_yotoq_wall_light_blue(self):
+        # Hue 175: just past the green band, so "ko'k-yashil" is the honest word for it.
+        assert txt.colour_name("#c9d6d5") == "och ko'k"
+
+    def test_yotoq_is_kept(self):
+        plan = SimpleNamespace(**vars(self.YOTOQ))
+        assert txt.reconcile_summary(plan) == []
+        assert "ko'k-yashil rangda" in plan.summary
+
+    def test_loft_is_kept_with_its_brick(self):
+        plan = SimpleNamespace(**vars(self.LOFT))
+        assert txt.reconcile_summary(plan) == []
+        assert "qora metall va g'isht elementlari" in plan.summary
+
+    @pytest.mark.parametrize("compound", ["ko'k-yashil", "yashil-ko'k", "ko‘k-yashil"])
+    def test_a_compound_is_backed_when_either_part_is(self, compound):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#c9d6d5"}}, floor=None)
+        assert txt._colour_problems(txt._norm(f"Devorlar {compound} rangda."), plan) == []
+
+    def test_a_compound_neither_part_of_which_fits_is_still_caught(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#c9d6d5"}}, floor=None)
+        assert txt._colour_problems("devorlar qizil-pushti rangda.", plan)
+
+    @pytest.mark.parametrize("text", [
+        "qora metall oyoqlar xonaga qat'iylik beradi.", "oq marmar yuzali stol.", "qora metall va g'isht.",
+        "kulrang beton pol.", "qora mramor, xrom va shisha.", "qora charm qoplamali.", "qora shisha eshikchalar.",
+        "qora xromli detallar.", "qora yog'ochdan yasalgan.", "qizil marmar.",
+    ])
+    def test_a_colour_of_a_material_is_not_the_paint(self, text):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor={"type": "concrete"})
+        assert txt._colour_problems(text, plan) == []
+
+    def test_a_wrong_colour_of_the_walls_is_still_caught(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#3a5fcd"}}, floor=None)
+        assert txt._colour_problems("qizil devor va qora metall.", plan)
+        assert txt._colour_problems("devorlar qora, metall oyoqli stol.", plan)
