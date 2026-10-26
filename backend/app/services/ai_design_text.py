@@ -83,6 +83,14 @@ _MATERIALS = (
 )
 # The colour word itself, when a material follows it; the material stays for the other checks.
 _COLOUR_OF_MATERIAL = re.compile(_ANY_COLOUR.pattern + rf"(?=\s+(?:{'|'.join(_MATERIALS)}))")
+# A clause about a wall: a material there ("qora metall panel", "aksent devor qora marmar") is the wall's colour.
+_WALL_WORDS = re.compile(r"\b(?:devor|panel|fon(?:i|da|ida)?\b|aksent|urg'u)")
+_CLAUSE = re.compile(r"[^.,;:!?]+")
+
+
+def _without_material_colours(text: str) -> str:
+    """*text* without the colour words of a material, except in a clause that speaks of a wall."""
+    return _CLAUSE.sub(lambda m: m[0] if _WALL_WORDS.search(m[0]) else _COLOUR_OF_MATERIAL.sub(" ", m[0]), text)
 # Two colour words joined into one ("ko'k-yashil"): a shade between them, so either may back it.
 _COMPOUND = re.compile(r"\b([a-z']+)-([a-z']+)\b")
 
@@ -99,9 +107,9 @@ def _colour_problems(text: str, plan: Any) -> list[str]:
     def families(word: str) -> list[str]:
         return [family for family, (words, _) in _COLOUR_CLAIMS.items() if words.search(word)]
 
-    # Neither a material's colour nor a compound with one fitting part claims anything about the paint,
-    # so they are taken out of the text before the claims are read.
-    text = _COLOUR_OF_MATERIAL.sub(" ", text)
+    # Neither a material's colour (away from a wall) nor a compound with one fitting part claims anything
+    # about the paint, so they are taken out of the text before the claims are read.
+    text = _without_material_colours(text)
     text = _COMPOUND.sub(lambda m: " " if any(map(backed, families(m[1]) + families(m[2]))) else m[0], text)
     return [
         f"'{family}' rang aytilgan, lekin rejada bunday rang yo'q"

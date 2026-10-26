@@ -686,6 +686,20 @@ class TestColourWordsThatAreNotThePaint:
         assert txt._colour_problems("devorlar qora, metall oyoqli stol.", plan)
 
 
+    @pytest.mark.parametrize("text", [
+        "Devorlar oq rangda. Bir devor qora metall panel bilan ajratiladi.",
+        "Devorlar oq, qizil yog'och panel.",
+        "Aksent devor qora marmar ko'rinishida.",
+    ])
+    def test_a_material_on_a_wall_is_still_the_wall_colour(self, text):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#ffffff"}}, floor=None)
+        assert txt._colour_problems(txt._norm(text), plan)
+
+    def test_a_material_beside_a_wall_in_another_clause_is_not(self):
+        plan = SimpleNamespace(walls={"main": {"type": "paint", "color": "#ffffff"}}, floor=None)
+        assert txt._colour_problems("devorlar oq rangda, qora metall oyoqli stol.", plan) == []
+
+
 class TestFloorIdsAreSaidInUzbek:
     """The eval (2026-10-26) kept "Pol tile turi tanlangan": the floor's id, read as it is in the studio."""
 
