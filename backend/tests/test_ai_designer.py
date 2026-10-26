@@ -742,3 +742,37 @@ async def test_a_dark_answer_keeping_the_border_ceiling_keeps_its_settings():
     with patch("app.services.ai_designer.call_llm", new=AsyncMock(return_value=reply)):
         p = await ad.design_room("qorong'i, sokin mehmonxona", ROOM, ITEMS, user_id="u")
     assert p.trim["ceiling"] == {"design": "border", "settings": {"color": "#2f2f2f", "strip": True, "stripK": 2700}}
+
+
+# --- small bedrooms ------------------------------------------------------------------------------
+
+SMALL_ROOM_LINE = ad._SMALL_BEDROOM_LINE
+
+
+def _sized(room_type, width, depth):
+    return {**ROOM, "room_type": room_type, "width": width, "depth": depth, "area": width * depth}
+
+
+@pytest.mark.parametrize(("room_type", "width", "depth", "small"), [
+    ("yotoqxona", 3.0, 3.0, True),     # 9 m2
+    ("bolalar", 3.2, 3.0, True),       # 9.6 m2
+    ("yotoqxona", 4.2, 2.5, True),     # 10.5 m2, but too narrow for a double bed and a passage
+    ("yotoqxona", 4.0, 4.0, False),    # 16 m2
+    ("mehmonxona", 3.0, 3.0, False),   # not a bedroom
+])
+def test_a_small_bedroom_is_told_to_take_a_single_bed(room_type, width, depth, small):
+    assert (SMALL_ROOM_LINE in _message("sokin xona", _sized(room_type, width, depth))) is small
+
+
+def test_the_small_bedroom_line_asks_for_a_single_bed_and_a_narrow_wardrobe():
+    assert "bir kishilik karavot" in SMALL_ROOM_LINE and "120 sm" in SMALL_ROOM_LINE
+    assert "shkaf" in SMALL_ROOM_LINE
+
+
+def test_the_message_shows_the_room_area():
+    assert "xona 9.0 m2" in _message("sokin xona", _sized("yotoqxona", 3.0, 3.0))
+
+
+def test_the_menu_shows_the_bed_s_size():
+    lines, _ = ad.furniture_menu(ITEMS, "yotoqxona")
+    assert any(line.startswith("F") and "Krovat (krovat, 2x1.6 m" in line for line in lines)

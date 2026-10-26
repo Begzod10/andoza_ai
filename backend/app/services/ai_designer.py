@@ -564,6 +564,23 @@ _IMAGE_INSTRUCTIONS = (
 )
 
 
+# A bedroom this small has no room for a double bed and a passage around it: the model, left alone,
+# still picks the 160-180 cm bed and a full wardrobe. Under 10 m2, or under 2.6 m across.
+_SMALL_BEDROOM_TYPES = ("yotoqxona", "bolalar")
+_SMALL_BEDROOM_AREA = 10.0
+_SMALL_BEDROOM_SIDE = 2.6
+_SMALL_BEDROOM_LINE = (
+    "Xona kichik: bir kishilik karavot (eni 120 sm gacha) va tor shkaf tanlang, "
+    "mebelni kamroq oling, o'tish joyi qolsin."
+)
+
+
+def _is_small_bedroom(room: dict, area: float) -> bool:
+    if room.get("room_type") not in _SMALL_BEDROOM_TYPES:
+        return False
+    return area < _SMALL_BEDROOM_AREA or min(room["width"], room["depth"]) < _SMALL_BEDROOM_SIDE
+
+
 def build_user_message(
     prompt: str, room: dict, light_menu: str, furniture_lines: list[str],
 ) -> str:
@@ -582,6 +599,7 @@ def build_user_message(
         f"o'lchami {room['width']:g} x {room['depth']:g} m, shift {room['ceiling_h']:g} m.",
         f"Devorlar (id va uzunligi): {walls}",
         f"Mebel soni: {lo}-{hi} ta (xona {area:.1f} m2).",
+        *([_SMALL_BEDROOM_LINE] if _is_small_bedroom(room, area) else []),
         f"Zonalar: {', '.join(zones_for([w['id'] for w in room['walls']]))}",
         "",
         f"Pol turlari: {', '.join(FLOOR_TYPES)}",
