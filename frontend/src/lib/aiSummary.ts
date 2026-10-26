@@ -31,6 +31,18 @@ export const SENTENCE_END = /(?<=[.!?…])\s+/u
 
 /** A furniture list: "Mebel: A, B va C." as the backend's `describe_plan` writes it, its body and its end. */
 const LIST = /^(\s*mebel\s*:\s*)?(.*?)([.!?…]*)$/isu
+/**
+ * The words before a dropped first item's piece that stay: all of them, but when the piece is named in
+ * brackets after its kind ("... uslubdagi divan (ZZ Divan Nova)"), the kind goes with it: the last word,
+ * and the one before it when the last ends in a compound's "-i" ("jurnal stoli").
+ */
+function leadIn(before: string): string {
+  if (!/\(\s*$/u.test(before)) return before
+  const words = before.replace(/\s*\(\s*$/u, '').trim().split(/\s+/u)
+  const kind = words.length > 1 && /i$/u.test(words[words.length - 1]) ? 2 : 1
+  const rest = words.slice(0, -kind).join(' ')
+  return rest ? `${rest} ` : ''
+}
 /** What joins a list's items, kept in the split: ", ", " va ", " hamda " ("3,5 m" is no list). */
 const ITEM_SEP = /(,(?!\d)\s*|\s+(?:va|hamda)\s+)/iu
 const isAnd = (sep: string) => sep.trim() !== ','
@@ -87,7 +99,7 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
       const inList = i >= first && i <= last
       const a = at[i]
       if (a === null) out.push({ text: item, sep, inList })
-      else if (i === first) out.push({ text: item.slice(0, a[0]), sep, inList: false, glued: 'next' })
+      else if (i === first) out.push({ text: leadIn(item.slice(0, a[0])), sep, inList: false, glued: 'next' })
       else if (i === last) out.push({ text: item.slice(a[1]).replace(/^\)/u, ''), sep: '', inList: false, glued: 'prev' })
     })
     // A list said "A, B va C" keeps its "va" before the last piece left when the "va" went with C.
@@ -100,7 +112,10 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
       const glue = k === 0 || o.glued === 'prev' || out[k - 1].glued === 'next'
       text += (glue ? '' : o.sep) + o.text
     })
-    return `${prefix}${text.trim()}${end}`
+    text = text.trim()
+    // The sentence lost its first word: the next one takes its capital.
+    if (prefix === '' && /^\p{Lu}/u.test(body) && !/^\p{Lu}/u.test(text)) text = text.charAt(0).toLocaleUpperCase() + text.slice(1)
+    return `${prefix}${text}${end}`
   }
   const sentences = summary.trim().split(SENTENCE_END)
   const out = sentences.map(without)

@@ -170,3 +170,21 @@ describe('summaryWithout: a piece said to be left out or replaced is not named',
     expect(summaryWithout('Devorlar oq. Polda och gilam yotadi.', [GILAM])).toBe('Devorlar oq.')
   })
 })
+
+describe('summaryWithout: "kind (Name)" is one item', () => {
+  const kept = ['ZZ Kreslo Soft', 'ZZ Gilam jun och', 'ZZ TV tumba Grafit', "ZZ Jurnal stoli metall-yog'och"]
+  const SOFA = { name: 'ZZ Divan Nova', role: 'sofa' }
+
+  it('a dropped first item goes with its kind, the words before it stay', () => {
+    expect(summaryWithout('Mebel sifatida zamonaviy uslubdagi divan (ZZ Divan Nova), kreslo (ZZ Kreslo Soft) va gilam (ZZ Gilam jun och) tanlandi.', [SOFA], kept))
+      .toBe('Mebel sifatida zamonaviy uslubdagi kreslo (ZZ Kreslo Soft) va gilam (ZZ Gilam jun och) tanlandi.')
+    expect(summaryWithout(ILIQ_FURNITURE, [SOFA], kept)).toBe(
+      'Mebel sifatida zamonaviy uslubdagi televizor tumba (ZZ TV tumba Grafit), kreslo (ZZ Kreslo Soft), '
+      + "metall-yog'och jurnal stoli (ZZ Jurnal stoli metall-yog'och) va och jigarrang gilam (ZZ Gilam jun och) tanlandi.",
+    )
+  })
+
+  it('at the start of the sentence, the next item takes its capital', () => {
+    expect(summaryWithout('Divan (ZZ Divan Nova) va kreslo (ZZ Kreslo Soft) tanlandi.', [SOFA], kept)).toBe('Kreslo (ZZ Kreslo Soft) tanlandi.')
+  })
+})
