@@ -23,16 +23,18 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** A sentence ends at . ! ? or … followed by a space: "3.5 m" and "yog'och" do not end one. */
 export const SENTENCE_END = /(?<=[.!?…])\s+/u
 
-/** A furniture list: "Mebel: A, B va C." as the backend's `describe_plan` writes it, its items and its end. */
+/** A furniture list: "Mebel: A, B va C." as the backend's `describe_plan` writes it, its body and its end. */
 const LIST = /^(\s*mebel\s*:\s*)?(.*?)([.!?…]*)$/isu
-const ITEM_SEP = /,\s*|\s+va\s+/iu
+/** What joins a list's items, kept in the split: ", ", " va ", " hamda " ("3,5 m" is no list). */
+const ITEM_SEP = /(,(?!\d)\s*|\s+(?:va|hamda)\s+)/iu
+const isAnd = (sep: string) => sep.trim() !== ','
 
 /**
  * `summary` with every sentence removed that names one of `dropped`: by its full catalog name, or by
- * its role's word outside a `kept` piece's name. A list of pieces ("Mebel: A, B, C.", or any sentence
- * whose items are all the plan's pieces, `dropped` and `kept`) loses only the dropped items, and goes
- * only when none is left. When every sentence would go, the summary stays whole: something is better
- * than nothing.
+ * its role's word outside a `kept` piece's name. A sentence listing two or more of the plan's pieces
+ * (`dropped` and `kept`, by name), whatever else it says, or a "Mebel: A, B, C." list, loses only the
+ * dropped items and goes only when no piece is left in it. When every sentence would go, the summary
+ * stays whole: something is better than nothing.
  */
 export function summaryWithout(summary: string, dropped: { name: string; role?: string }[], kept: string[] = []): string {
   if (dropped.length === 0) return summary
@@ -41,24 +43,55 @@ export function summaryWithout(summary: string, dropped: { name: string; role?: 
   const nameWord = names.length ? new RegExp(`${WORD_START}(?:${names.map(escape).join('|')})${WORD_END}`, 'iu') : null
   const roleWord = words.length ? new RegExp(`${WORD_START}(?:${words.join('|')})${WORD_END}`, 'iu') : null
   const keptNames = kept.map((n) => n.trim()).filter(Boolean)
-  const pieces = new Set([...names, ...keptNames.map((n) => n.toLowerCase())])
   // A role word inside a kept piece's own name ("Tuvalet stoli", "Kitob shkafi") is that piece's, not the dropped one's.
   const keptName = keptNames.length ? new RegExp(`${WORD_START}(?:${keptNames.map(escape).join('|')})${WORD_END}`, 'giu') : null
-  const namesDropped = (sentence: string) =>
-    (nameWord?.test(sentence) ?? false) || (roleWord?.test(keptName ? sentence.replace(keptName, ' ') : sentence) ?? false)
-  /** The sentence without its dropped items when it is a list, else whole or null when it names a dropped piece. */
+  const namesKept = (text: string) => keptName !== null && text.search(keptName) !== -1
+  /** Where `text` names a dropped piece, as [start, end], or null. */
+  const droppedAt = (text: string): [number, number] | null => {
+    const byName = nameWord?.exec(text)
+    if (byName) return [byName.index, byName.index + byName[0].length]
+    const bare = keptName ? text.replace(keptName, (m) => ' '.repeat(m.length)) : text
+    const byRole = roleWord?.exec(bare)
+    return byRole ? [byRole.index, byRole.index + byRole[0].length] : null
+  }
+  /** The sentence without its dropped items when it lists pieces, else whole or null when it names a dropped piece. */
   const without = (sentence: string): string | null => {
     const [, prefix = '', body, end] = sentence.match(LIST)!
-    const items = body.split(ITEM_SEP)
-    const isList = prefix !== '' || (items.length > 1 && items.every((i) => pieces.has(i.trim().toLowerCase())))
-    if (!isList) return namesDropped(sentence) ? null : sentence
-    const left = items.filter((i) => !namesDropped(i))
-    if (left.length === items.length) return sentence
-    if (left.length === 0) return null
-    // "A, B va C" keeps its "va" before the last item left.
-    const va = /\s+va\s+\S[^,]*$/iu.test(body)
-    const joined = va && left.length > 1 ? `${left.slice(0, -1).join(', ')} va ${left[left.length - 1]}` : left.join(', ')
-    return `${prefix}${joined}${end}`
+    const parts = body.split(ITEM_SEP)
+    const items = parts.filter((_, i) => i % 2 === 0)
+    const seps = parts.filter((_, i) => i % 2 === 1)
+    const at = items.map(droppedAt)
+    const pieceItems = items.map((item, i) => at[i] !== null || namesKept(item))
+    const first = pieceItems.indexOf(true), last = pieceItems.lastIndexOf(true)
+    const isList = prefix !== '' || pieceItems.filter(Boolean).length > 1
+    if (!isList) return at.some((a) => a !== null) ? null : sentence
+    if (at.every((a) => a === null)) return sentence
+    if (items.every((_, i) => !pieceItems[i] || at[i] !== null)) return null
+    // Each item as it stays, with the joiner before it: a dropped one goes, but the first keeps the words
+    // before its piece and the last the words after it ("... ZZ Stul mebellari tanlandi"), which belong to
+    // the whole sentence. A dropped item in the middle takes the joiner before it, so "A, B va C" without
+    // B is "A va C".
+    type Kept = { text: string; sep: string; inList: boolean; glued?: 'next' | 'prev' }
+    const out: Kept[] = []
+    items.forEach((item, i) => {
+      const sep = i > 0 ? seps[i - 1] : ''
+      const inList = i >= first && i <= last
+      const a = at[i]
+      if (a === null) out.push({ text: item, sep, inList })
+      else if (i === first) out.push({ text: item.slice(0, a[0]), sep, inList: false, glued: 'next' })
+      else if (i === last) out.push({ text: item.slice(a[1]).replace(/^\)/u, ''), sep: '', inList: false, glued: 'prev' })
+    })
+    // A list said "A, B va C" keeps its "va" before the last piece left when the "va" went with C.
+    const and = seps.slice(first, last).find(isAnd)
+    const listed = out.filter((o) => o.inList)
+    const tail = listed[listed.length - 1]
+    if (and && listed.length > 1 && !listed.slice(1).some((o) => isAnd(o.sep))) tail.sep = and
+    let text = ''
+    out.forEach((o, k) => {
+      const glue = k === 0 || o.glued === 'prev' || out[k - 1].glued === 'next'
+      text += (glue ? '' : o.sep) + o.text
+    })
+    return `${prefix}${text.trim()}${end}`
   }
   const sentences = summary.trim().split(SENTENCE_END)
   const out = sentences.map(without)
