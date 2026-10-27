@@ -173,6 +173,22 @@ class TestLanguage:
         assert not any("o'zbekcha emas" in p for p in txt.summary_problems(uz, make()))
 
 
+    def test_uzbek_words_with_an_apostrophe_are_not_english(self):
+        # "to'q", "to'liq" and "an'anaviy" are not English "to" and "an".
+        uz = "To'q kulrang devor, to'liq an'anaviy uslub va to'qroq pol."
+        assert txt._language_problems(txt._norm(uz), make()) == []
+
+
+class TestMutedWarmColours:
+    def test_a_greyish_beige_is_bej_and_a_tan_is_jigarrang_not_orange(self):
+        # From the eval: these were named "to'q sariq" (orange) in summaries.
+        assert txt.colour_name("#b2a89f") == "bej"
+        assert txt.colour_name("#a2886a") == "jigarrang"
+
+    def test_a_real_orange_is_still_orange(self):
+        assert txt.colour_name("#e07b39") == "to'q sariq"
+
+
 class TestHexCodes:
     def test_a_hex_code_in_brackets_is_dropped(self):
         assert txt._localise("Devorda to'q kulrang bo'yoq (#2c2c2c) ishlatilgan.") == "Devorda to'q kulrang bo'yoq ishlatilgan."
