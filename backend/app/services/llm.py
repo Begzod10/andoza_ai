@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -320,6 +321,9 @@ def _from_openai_response(resp: Any) -> LLMMessage:
 # Public API
 # ---------------------------------------------------------------------------
 
+_NEWER_MODEL = re.compile(r"^(gpt-[5-9]|o\d)")
+
+
 async def call_llm(
     *,
     model: str,
@@ -373,16 +377,17 @@ async def call_llm(
     if system:
         message_history.insert(0, {"role": "system", "content": system})
 
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "messages": message_history,
-        "max_tokens": max_tokens,
-    }
+    kwargs: dict[str, Any] = {"model": model, "messages": message_history}
+    # GPT-5 and later, and the o-series, refuse `max_tokens` and any temperature but their own.
+    if _NEWER_MODEL.match(model):
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            kwargs["temperature"] = temperature
 
     if tools:
         kwargs["tools"] = _to_openai_tools(tools)
-    if temperature is not None:
-        kwargs["temperature"] = temperature
 
     last_exc: Optional[Exception] = None
     for attempt in range(max_retries):

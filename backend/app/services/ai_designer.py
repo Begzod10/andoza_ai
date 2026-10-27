@@ -837,6 +837,7 @@ async def design_room(
     # left, the plan's own description is shown instead.
     wrong = reconcile_summary(
         plan, [item["name"] for item in by_label.values()], {item["name"]: item["styles"] for item in by_label.values()},
+        {label: item["name"] for label, item in by_label.items()},
     )
     if wrong:
         # Trimmed: only the false sentences went, the model's other words are kept.
