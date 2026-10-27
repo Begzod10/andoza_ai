@@ -221,9 +221,10 @@ _capture: contextvars.ContextVar[dict | None] = contextvars.ContextVar("eval_cap
 _reconcile = ai_designer.reconcile_summary
 
 
-def _recording_reconcile(plan, catalog_names=None, piece_styles=None):
+def _recording_reconcile(plan, *args, **kwargs):
+    # Everything reconcile_summary takes is passed on, so a new argument never breaks the harness.
     raw = plan.summary
-    problems = _reconcile(plan, catalog_names, piece_styles)
+    problems = _reconcile(plan, *args, **kwargs)
     rec = _capture.get()
     if rec is not None:
         rec.update(raw_summary=raw, summary_kept=not problems, summary_problems=problems)

@@ -1,6 +1,7 @@
 """The AI design eval harness: its summary recorder passes on everything reconcile_summary takes."""
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -23,3 +24,10 @@ def test_the_recorder_forwards_catalog_names_and_piece_styles(monkeypatch):
     reconcile.assert_called_once_with(plan, ["Divan"], {"Divan": ["loft"]})
     assert problems == ["a dropped piece"]
     assert rec == {"raw_summary": "Model summary.", "summary_kept": False, "summary_problems": ["a dropped piece"]}
+
+
+def test_the_recorder_forwards_any_later_argument(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(script, "_reconcile", lambda plan, *a, **kw: seen.update(args=a, kwargs=kw) or [])
+    script._recording_reconcile(SimpleNamespace(summary="s"), ["Divan"], {"Divan": []}, {"F1": "Divan"})
+    assert seen["args"] == (["Divan"], {"Divan": []}, {"F1": "Divan"})
