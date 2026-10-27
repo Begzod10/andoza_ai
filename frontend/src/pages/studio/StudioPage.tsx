@@ -371,7 +371,9 @@ export default function StudioPage() {
       id: roomId ?? "local",
       apartment_id: apartmentId ?? "local",
       name: name || defaultRoomName(),
-      room_type: roomType,
+      // The store's type is the store's room's: while it still holds another (a room switch
+      // loading, or a fetch that failed), this room's type is not known.
+      room_type: storeRoomId && storeRoomId !== roomId ? null : roomType,
       area: computeFloorArea(geometry) / 1e6,
       ceiling_height: ceilingHeight / 1000,
       width: widthM,
@@ -393,7 +395,7 @@ export default function StudioPage() {
     // A whole-store `storeState` object here previously recomputed on every
     // Zustand `set()` anywhere in the app (new top-level object per write),
     // not just when geometry/name/ceilingHeight/apartmentId changed.
-  }, [roomId, geometry, apartmentId, name, ceilingHeight, roomType]);
+  }, [roomId, geometry, apartmentId, name, ceilingHeight, roomType, storeRoomId]);
 
   type FetchStatus = "ok" | "auth" | "notfound" | "offline";
 
@@ -420,6 +422,10 @@ export default function StudioPage() {
     enabled: !!roomId,
     retry: false,
   });
+
+  // The header's type is the store's room's: hidden while the store holds another room, and
+  // while a page load (store holding none) is still fetching this one.
+  const typeNotKnownYet = storeRoomId ? storeRoomId !== roomId : !!roomId && apiRoom === undefined && !error;
 
   const fetchStatus: FetchStatus = !error
     ? "ok"
@@ -558,10 +564,11 @@ export default function StudioPage() {
                     <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
                   </svg>
                 </button>
-                {/* While the store still holds another room (switching rooms),
-                    show its type but do not offer to change it: the pick
-                    would be PATCHed to that other room. */}
-                <RoomTypeBadge roomId={storeRoomId} readOnly={!!storeRoomId && storeRoomId !== roomId} />
+                {/* Only once the store holds THIS room: while it still holds
+                    another (switching rooms, or the fetch failed) the type on
+                    show was that room's, and a pick was PATCHed to it; while
+                    this room is first being fetched its type is not known. */}
+                {!typeNotKnownYet && <RoomTypeBadge roomId={storeRoomId} />}
               </div>
             </div>
           </div>

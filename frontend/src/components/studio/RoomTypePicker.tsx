@@ -10,6 +10,11 @@ import { useRoomStore } from '@/store/roomStore'
  * (`roomId`), PATCHed to the server; a failed PATCH puts the previous kind back (unless the person
  * has picked again meanwhile) and says so. A room with no kind shows "not set" with the guess from
  * its name as a hint, so picking that very type saves it.
+ *
+ * The kind on show is the store's, so the picker is for the store's room only: given the id of a room
+ * the store does not hold (the URL has moved on to the next room while it loads), it is disabled, as a
+ * pick would PATCH that room with what was read off the other. A failed PATCH is reverted only while
+ * the store still holds the room it was for, never onto the room opened since.
  */
 export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onPicked }: {
   roomId?: string | null
@@ -23,11 +28,14 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
 }) {
   const { t } = useTranslation()
   const stored = useRoomStore((s) => s.roomType)
+  const storeRoomId = useRoomStore((s) => s.roomId)
   const name = useRoomStore((s) => s.name)
   const setRoomType = useRoomStore((s) => s.setRoomType)
   const guess = isRoomType(fallback) ? fallback : guessRoomType(name)
+  const otherRoom = !!roomId && roomId !== 'local' && !!storeRoomId && storeRoomId !== roomId
 
   async function change(raw: string) {
+    if (otherRoom) return
     const next: RoomType | null = isRoomType(raw) ? raw : null
     const previous = stored
     setRoomType(next)
@@ -36,7 +44,8 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
     try {
       await updateRoom(roomId, { room_type: next })
     } catch {
-      if (useRoomStore.getState().roomType === next) setRoomType(previous)
+      const now = useRoomStore.getState()
+      if (now.roomId === storeRoomId && now.roomType === next) setRoomType(previous)
       showToast({ variant: 'error', title: t('rooms.type_save_failed') })
     }
   }
@@ -47,7 +56,7 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
       label={t('rooms.type_label')}
       helperText={!stored && guess ? t('rooms.type_guess', { type: t(`rooms.type.${guess}`) }) : undefined}
       value={stored ?? ''}
-      disabled={disabled}
+      disabled={disabled || otherRoom}
       onChange={(e) => void change(e.target.value)}
     >
       <option value="">{t('rooms.type_none')}</option>

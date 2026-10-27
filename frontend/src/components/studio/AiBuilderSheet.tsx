@@ -133,7 +133,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
     staleTime: 5_000,
   })
   // The picker below changes the room's kind; the next request, preset or layout uses the new one.
-  const pickedType = useRoomStore((s) => s.roomType)
+  // Only while the store holds this room: during a room switch it still holds the one left behind.
+  const pickedType = useRoomStore((s) => (s.roomId && s.roomId !== roomId ? null : s.roomType))
   const roomName = useRoomStore((s) => s.name)
   // The room's own kind, else the one the studio guessed, else the guess from its name.
   const roomType = effectiveRoomType(pickedType ?? roomTypeProp, roomName)
