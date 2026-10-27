@@ -180,4 +180,17 @@ describe('each room of a flat keeps its own type', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(within(header).queryByText('Oshxona')).not.toBeInTheDocument()
   })
+
+  it("when the next room cannot be fetched, an edit never autosaves the previous room's design into it", async () => {
+    renderStudio('A')
+    await waitFor(() => expect(useRoomStore.getState().roomId).toBe('A'))
+    getRoom.mockImplementationOnce(() => Promise.reject(new Error('HTTP 502')))
+    act(() => openFromMenu('B'))
+    await waitFor(() => expect(getRoom).toHaveBeenCalledWith('B'))
+    updateRoom.mockClear()
+    // The store still holds room A; an edit now must not be written to room B's URL.
+    act(() => useRoomStore.getState().setDesignState({ floorType: 'tile' }))
+    await new Promise((r) => setTimeout(r, 2400))
+    expect(updateRoom.mock.calls.filter(([id]) => id === 'B')).toEqual([])
+  }, 10_000)
 })

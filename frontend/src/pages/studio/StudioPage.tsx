@@ -232,6 +232,10 @@ export default function StudioPage() {
     return p;
   }
   async function saveOnce(): Promise<boolean> {
+    // The store still holds the room left behind (the next one has not loaded, or failed to):
+    // writing it to this URL's room would overwrite that room with the other's design.
+    const held = useRoomStore.getState().roomId;
+    if (roomId && held && held !== roomId) return false;
     setSaveStatus('saving');
     try {
       const s = useRoomStore.getState();
