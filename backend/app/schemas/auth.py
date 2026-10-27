@@ -112,8 +112,19 @@ class GoogleLoginRequest(BaseModel):
     language: Literal["uz", "ru", "en"] | None = None
 
 
+class AppleLoginRequest(BaseModel):
+    """An Apple identity token (JWT) from Sign in with Apple."""
+
+    identity_token: str = Field(min_length=1, max_length=8192)
+    # Apple sends the user's name only on the very first authorization (never
+    # inside the token), so the app forwards it. Used for a new account only.
+    name: str | None = Field(default=None, max_length=100)
+    # Seeds a new account's language only; an existing account keeps its own.
+    language: Literal["uz", "ru", "en"] | None = None
+
+
 class DeleteAccountRequest(BaseModel):
-    """Password is required only when the account has one (phone/OTP-only
-    accounts have none)."""
+    """Password is required only when the account has one (phone/OTP, Google
+    and Apple accounts have none)."""
 
     password: str | None = None

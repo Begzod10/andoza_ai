@@ -44,6 +44,14 @@ class User(Base):
         nullable=True,
         index=True,
     )
+    # "Sign in with Apple": the identity token's `sub`, same rules as
+    # google_sub. Apple's email may be a private-relay address.
+    apple_sub: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
