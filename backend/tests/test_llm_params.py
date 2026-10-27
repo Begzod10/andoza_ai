@@ -22,7 +22,9 @@ def _client(sent: dict):
 
 async def _send(model: str) -> dict:
     sent: dict = {}
-    with patch.object(llm, "get_client", return_value=_client(sent)):
+    # CI runs with AI switched off; the parameters are what is under test here.
+    with patch.object(llm.settings, "AI_FEATURES_ENABLED", True), \
+         patch.object(llm, "get_client", return_value=_client(sent)):
         await llm.call_llm(model=model, system="s", messages=[{"role": "user", "content": "hi"}],
                            max_tokens=900, temperature=0.7)
     return sent
