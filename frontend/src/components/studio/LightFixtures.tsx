@@ -138,15 +138,13 @@ export function LightFixture({ light, on }: { light: PlacedLight; on: boolean })
     }
 
     case 'ceiling':
+      // One body only: a trim disc flush with its top shared the plane and flickered seen from
+      // above, and inside the body it was never visible from the room anyway.
       return (
         <group>
           <mesh position={[0, -h / 2, 0]}>
             <cylinderGeometry args={[w / 2, w / 2 * 0.92, h, 28]} />
             {emitterMaterial(hex, lit, 1.3)}
-          </mesh>
-          <mesh position={[0, -0.008, 0]}>
-            <cylinderGeometry args={[w / 2 * 0.98, w / 2 * 0.98, 0.016, 28]} />
-            {METAL}
           </mesh>
         </group>
       )
