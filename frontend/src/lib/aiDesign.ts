@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { AiDesignPlan } from '@/lib/api'
+import type { AiDesignPlan, Room } from '@/lib/api'
 import type { CatalogFurniture } from '@/lib/api'
 import { useRoomStore } from '@/store/roomStore'
 import type { DesignState, PlacedFurniture, PlacedLight, RoomGeometry } from '@/store/roomStore'
@@ -12,6 +12,7 @@ import type { Piece } from '@/lib/furnitureGroups'
 import { layoutFurniture } from '@/lib/furnitureLayout'
 import { WARDROBE_NAME, inferRole, isRole, type FurnitureRole } from '@/lib/furnitureRole'
 import { catalogRoomType } from '@/lib/roomType'
+import { withFlatOpenings } from '@/lib/layoutOpenings'
 
 /** Which parts of a plan to apply. Everything is on by default; the reader may switch parts off. */
 export interface DesignParts { walls: boolean; floor: boolean; lights: boolean; furniture: boolean }
@@ -312,11 +313,19 @@ function sameItems<T>(a: T[], b: T[]): boolean {
  * Puts the chosen parts of a plan into the open room (`designRoomState` on the store's room, written
  * back in one step, so it is one step to undo). Returns what was applied; `restoreDesign(snapshot)`
  * undoes it.
+ *
+ * `flat` is the apartment's rooms (the studio's `['apt-rooms']`) and the open room's id: a door its
+ * neighbour stores in the wall they share is laid out around too (`withFlatOpenings`). Only the
+ * layout sees it; the store's geometry is not changed.
  */
-export function applyDesignPlan(plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string): AppliedCounts {
+export function applyDesignPlan(
+  plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string,
+  flat?: { roomId: string; rooms: readonly Room[] },
+): AppliedCounts {
   const store = useRoomStore.getState()
   const prev: RoomDesign = { designState: store.designState, furniture: store.furniture, lights: store.lights }
-  const { applied, ...next } = designRoomState(prev, store.geometry, plan, parts, catalog, roomType)
+  const geometry = flat ? withFlatOpenings(store.geometry, flat.roomId, flat.rooms, store.layoutPos) : store.geometry
+  const { applied, ...next } = designRoomState(prev, geometry, plan, parts, catalog, roomType)
   const changed = next.designState !== prev.designState
     || !sameItems(next.furniture, prev.furniture) || !sameItems(next.lights, prev.lights)
   if (changed) useRoomStore.setState({ ...next, isDirty: true })

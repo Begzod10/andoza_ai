@@ -6,6 +6,8 @@ import { effectiveRoomType, isRoomType } from '@/lib/roomType'
 import { roomSizeOf } from '@/lib/aiDesignPresets'
 import { designRoomState, type DesignParts, type RoomDesign } from '@/lib/aiDesign'
 import { planForRoom, type DesignSource, type TargetRoom } from '@/lib/planForRoom'
+import { withFlatOpenings } from '@/lib/layoutOpenings'
+import { roomLayoutPos } from '@/pages/studio/three-d/helpers'
 
 /**
  * What became of one room: written (`applied`), refused because it was changed elsewhere after it was
@@ -109,7 +111,8 @@ export async function applyToOtherRooms(args: {
   aptId: string; currentRoomId: string; source: DesignSource; parts: DesignParts; catalog: CatalogFurniture[]
 }): Promise<{ outcomes: RoomOutcome[]; undo: RoomsUndo }> {
   const { aptId, currentRoomId, source, parts, catalog } = args
-  const rooms = (await getRooms(aptId)).filter((r) => r.id !== currentRoomId)
+  const flat = await getRooms(aptId)
+  const rooms = flat.filter((r) => r.id !== currentRoomId)
 
   // Every room is worked out before anything is written: a room that cannot be is that room's
   // failure alone, and never one that leaves rooms written with nothing to tell of them or undo them.
@@ -121,7 +124,9 @@ export async function applyToOtherRooms(args: {
     if (!room.updated_at) return [{ room, state: null, guard: null }]
     try {
       const plan = planForRoom(source, target, catalog)
-      const { designState, furniture, lights } = designRoomState(savedDesign(room), target.geometry, plan, parts, catalog, target.roomType)
+      // Laid out round the doors its neighbours store in the walls they share with it, too.
+      const layout = withFlatOpenings(target.geometry, room.id, flat, roomLayoutPos(room))
+      const { designState, furniture, lights } = designRoomState(savedDesign(room), layout, plan, parts, catalog, target.roomType)
       const state = { ...(isObject(room.state) ? room.state : {}), designState, furniture, lights }
       return [{ room, state, guard: room.updated_at }]
     } catch {
