@@ -230,4 +230,10 @@ describe('summaryWithout: a floor lamp left out', () => {
     expect(summaryWithout('Walls are white. A tall lamp stands in the corner.', [{ name: 'Floor lamp X', role: 'floor_lamp' }]))
       .toBe('Walls are white. A tall lamp stands in the corner.')
   })
+
+  it('a dropped dining or desk chair is named by "stul" too', () => {
+    const text = "Divan markazda. Oddiy stul joy olgan."
+    expect(summaryWithout(text, [{ name: 'ZZ Stul', role: 'dining_chair' }])).toBe('Divan markazda.')
+    expect(summaryWithout(text, [{ name: 'ZZ Ish stuli', role: 'desk_chair' }])).toBe('Divan markazda.')
+  })
 })

@@ -13,7 +13,8 @@ import { roomLayoutPos } from '@/pages/studio/three-d/helpers'
  * What became of one room: written (`applied`), refused because it was changed elsewhere after it was
  * read (`changed`, the PATCH's 409), or not saved for any other reason (`failed`).
  */
-export type RoomOutcome = { roomId: string; name: string; status: 'applied' | 'changed' | 'failed' }
+/** `dropped`: the pieces of the room's set the layout found no place for (only when there were some). */
+export type RoomOutcome = { roomId: string; name: string; status: 'applied' | 'changed' | 'failed'; dropped?: string[] }
 
 /** The rooms written, each with its `state` as it was and the `updated_at` our write gave it. */
 export type RoomsUndo = Array<{ roomId: string; name: string; prevState: unknown; writtenAt: string }>
@@ -116,7 +117,7 @@ export async function applyToOtherRooms(args: {
 
   // Every room is worked out before anything is written: a room that cannot be is that room's
   // failure alone, and never one that leaves rooms written with nothing to tell of them or undo them.
-  type Work = { room: Room; state: Record<string, unknown> | null; guard: string | null }
+  type Work = { room: Room; state: Record<string, unknown> | null; guard: string | null; dropped?: string[] }
   const work: Work[] = rooms.flatMap((room): Work[] => {
     const target = targetOf(room)
     if (!target) return []
@@ -126,9 +127,10 @@ export async function applyToOtherRooms(args: {
       const plan = planForRoom(source, target, catalog)
       // Laid out round the doors its neighbours store in the walls they share with it, too.
       const layout = withFlatOpenings(target.geometry, room.id, flat, roomLayoutPos(room))
-      const { designState, furniture, lights } = designRoomState(savedDesign(room), layout, plan, parts, catalog, target.roomType)
+      const { designState, furniture, lights, applied } = designRoomState(savedDesign(room), layout, plan, parts, catalog, target.roomType)
       const state = { ...(isObject(room.state) ? room.state : {}), designState, furniture, lights }
-      return [{ room, state, guard: room.updated_at }]
+      const dropped = applied.dropped.map((d) => d.name)
+      return [{ room, state, guard: room.updated_at, ...(dropped.length > 0 && { dropped }) }]
     } catch {
       return [{ room, state: null, guard: null }]
     }
@@ -140,8 +142,9 @@ export async function applyToOtherRooms(args: {
   const outcomes: RoomOutcome[] = []
   const undo: RoomsUndo = []
   results.forEach((r, i) => {
-    const { room } = work[i]
-    outcomes.push({ roomId: room.id, name: room.name, status: statusOf(r) })
+    const { room, dropped } = work[i]
+    const status = statusOf(r)
+    outcomes.push({ roomId: room.id, name: room.name, status, ...(status === 'applied' && dropped && { dropped }) })
     if (r.status === 'fulfilled') {
       undo.push({ roomId: room.id, name: room.name, prevState: room.state ?? null, writtenAt: r.value.updated_at ?? '' })
     }

@@ -108,6 +108,14 @@ function skippedList(outcomes: RoomOutcome[]): string {
     .join(", ")
 }
 
+/** "Yotoqxona (Kiyim shkafi), ...": the rooms written where some of their set found no place. */
+function droppedList(outcomes: RoomOutcome[]): string {
+  return outcomes
+    .filter((o) => o.dropped?.length)
+    .map((o) => i18n.t("ai.xona_sabab", { name: o.name, reason: o.dropped!.join(", ") }))
+    .join(", ")
+}
+
 /**
  * The other rooms' undo after one more apply: a room written before keeps the state it had before the
  * first apply, with the guard our latest write gave it; a room this apply skipped keeps its entry.
@@ -360,7 +368,12 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
       setRoomsUndo((before) => mergeRoomsUndo(before, written))
       const count = outcomes.filter((o) => o.status === "applied").length
       const skipped = skippedList(outcomes)
-      setRoomsNotice([count > 0 && t("ai.xonalarga_qollandi", { count }), skipped && t("ai.xonalar_otkazildi", { list: skipped })].filter(Boolean).join(" "))
+      const dropped = droppedList(outcomes)
+      setRoomsNotice([
+        count > 0 && t("ai.xonalarga_qollandi", { count }),
+        dropped && t("ai.joy_yetmadi_royxat", { list: dropped }),
+        skipped && t("ai.xonalar_otkazildi", { list: skipped }),
+      ].filter(Boolean).join(" "))
     } catch {
       if (roomIdRef.current === forRoom) setRoomsNotice(t("ai.xonalar_xato"))
     } finally {

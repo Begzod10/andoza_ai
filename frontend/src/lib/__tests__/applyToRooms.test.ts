@@ -82,6 +82,13 @@ beforeEach(() => {
 })
 
 describe('applyToOtherRooms', () => {
+  it('tells, per room, the pieces that did not fit', async () => {
+    const huge = { ...item('wardrobe', 'Kiyim shkafi', 'shkaf', 'yotoqxona'), footprint_w: 900, footprint_d: 300 }
+    const { outcomes } = await applyToOtherRooms({ ...args, catalog: CATALOG.map((c) => (c.id === 'wardrobe' ? huge : c)) })
+    expect(outcomes.find((o) => o.roomId === 'bed')?.dropped).toEqual(['Kiyim shkafi'])
+    expect(outcomes.find((o) => o.roomId === 'liv')?.dropped).toBeUndefined()
+  })
+
   it('PATCHes every other room with its merged state and the guard', async () => {
     const { outcomes } = await applyToOtherRooms(args)
     expect(api.getRooms).toHaveBeenCalledWith('apt')
