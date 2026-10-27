@@ -113,6 +113,7 @@ async def upload_room_scan(
     current_user: CurrentUser,
     room_json: str = Form(...),
     usdz: UploadFile = File(...),
+    scan_group: str | None = Form(None, max_length=64),
 ) -> RoomOut:
     """The server is the source of truth: `room_json` is re-converted here with
     the SAME algorithm as the mobile preview and the result OVERWRITES the room's
@@ -152,6 +153,9 @@ async def upload_room_scan(
         "source": "lidar",
         "roomplan_version": "roomplan-1",
         "scanned_at": datetime.now(timezone.utc).isoformat(),
+        # One multi-room scan session: its rooms are never each other's
+        # duplicates (room_scan_dedupe).
+        "scan_group": scan_group or None,
         "usdz_path": usdz_key,
         "glb_path": None,
         "object_count": len(conv.objects),

@@ -88,3 +88,26 @@ class TestRetire:
         other = _room(area=37.7, ceiling=3.17)
         assert asyncio.run(retire_earlier_scans(_db([other]), NEW, now=NOW)) == []
         assert other.deleted is False
+
+
+def _grouped(group, **kw):
+    room = _room(**kw)
+    if group is not None:
+        room.room_scan["scan_group"] = group
+    return room
+
+
+class TestScanGroup:
+    """Rooms of one multi-room scan session are different rooms, however alike."""
+
+    def test_same_group_rooms_are_not_retired(self):
+        assert not is_same_scan(_grouped("g1", area=12.0, ceiling=2.7, minutes_ago=0),
+                                _grouped("g1", area=12.0, ceiling=2.7), NOW)
+
+    def test_other_group_still_retired(self):
+        assert is_same_scan(_grouped("g2", area=12.0, ceiling=2.7, minutes_ago=0),
+                            _grouped("g1", area=12.0, ceiling=2.7), NOW)
+
+    def test_no_group_still_retired(self):
+        assert is_same_scan(_grouped(None, area=12.0, ceiling=2.7, minutes_ago=0),
+                            _grouped(None, area=12.0, ceiling=2.7), NOW)

@@ -425,3 +425,9 @@ Maydon qo'shilgach mobil'da: `is_demo == true` bo'lsa do'kon kartasi va mahsulot
 3. **Til:** `Accept-Language`, `PATCH /auth/me`, register va Google'da `language` (9.2).
 4. **AI dizayn:** native render bo'lsa `zone`dan voz kechib, `role`dan foydalaning (9.3).
 5. **Namuna belgisi:** avval backend'ga `is_demo` maydonini qo'shdiring (9.5).
+
+---
+
+## 10. `POST /rooms/{id}/room-scan`: `scan_group` (ko'p xonali skaner)
+
+Ixtiyoriy multipart maydon `scan_group` (≤ 64 belgi) qo'shildi va `room.room_scan.scan_group` da saqlanadi. Bir skaner sessiyasida skanerlangan xonalar bir xil `scan_group` bilan yuboriladi. 30 daqiqalik takroriy skanerni tozalash (`room_scan_dedupe`) bir guruhdagi xonalarni bir-birining nusxasi deb hisoblamaydi, ular bir xil o'lchamda bo'lsa ham (masalan, ikki teng yotoqxona). Maydon yuborilmasa, xatti-harakat avvalgidek qoladi.
