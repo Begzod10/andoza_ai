@@ -156,6 +156,12 @@ def _colour_of_things_problems(text: str, plan: Any) -> list[str]:
 
 # A reply that goes on in English (the model sometimes translates itself) is not what the user reads.
 _ENGLISH = re.compile(r"\b(the|is|are|with|and|includes?|floor|walls?|furniture|lighting)\b")
+# English words an Uzbek sentence never uses (it says dizayn, uslub, oboy...): a translated tail such
+# as "This design embraces a classic style with..." holds few of the words above but many of these.
+_ENGLISH_ONLY = re.compile(
+    r"\b(this|that|a|an|of|to|in|on|for|design|style|room|wallpaper|featuring|embraces?|accent|"
+    r"tone|golden|warm|cozy|cosy|modern|classic|elegant|space|creates?|adds?)\b"
+)
 
 
 # The studio's own ids for laying patterns: they are not words a person would read.
@@ -188,7 +194,8 @@ def _language_problems(text: str, plan: Any, catalog_names: list[str] | None = N
         return ["matnda ichki nom bor (mebel belgisi)"]
     if _TRIM_WORDS.search(text) or any(re.search(rf"\b{_id_pattern(i)}\b", text) for i in _plan_trim_ids(plan)):
         return ["matnda ichki nom bor (shift yoki plintus profili)"]
-    return ["matn o'zbekcha emas"] if len(_ENGLISH.findall(text)) >= 3 else []
+    english = len(_ENGLISH.findall(text)) + len(_ENGLISH_ONLY.findall(text))
+    return ["matn o'zbekcha emas"] if english >= 3 else []
 
 
 # ── Furniture ────────────────────────────────────────────────────────────────
@@ -562,8 +569,15 @@ def _starts_sentence(m: re.Match[str]) -> bool:
     return not before or before[-1] in ".!?"
 
 
+_HEX_IN_BRACKETS = re.compile(r"\s*\(#[0-9a-fA-F]{6}\)")
+_HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
+
+
 def _localise(text: str) -> str:
     """The studio's ids the model sometimes copies into its prose, said in Uzbek instead."""
+    # A colour code is for the studio, not the reader: dropped after a named colour, named when alone.
+    text = _HEX_IN_BRACKETS.sub("", text)
+    text = _HEX.sub(lambda m: colour_name(m.group()), text)
     for raw, uz in {**_LAYING_NAMES, **_FLOOR_SAID}.items():
         def floor_said(m: re.Match[str], uz: str = uz) -> str:
             return uz[0].upper() + uz[1:] if _starts_sentence(m) else uz

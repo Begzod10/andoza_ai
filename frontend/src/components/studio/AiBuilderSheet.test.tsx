@@ -881,6 +881,16 @@ describe('applying the design to every room of the apartment', () => {
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['room', 'liv'] })
   })
 
+  it('names, per room, the pieces that found no place', async () => {
+    bulk.apply.mockResolvedValue({
+      outcomes: [{ roomId: 'bed', name: 'Yotoqxona', status: 'applied', dropped: ['Kiyim shkafi'] }],
+      undo: UNDO,
+    })
+    await appliedWithRooms()
+    await confirmAll()
+    expect(await screen.findByText(/Joy yetmadi: Yotoqxona \(Kiyim shkafi\)/)).toBeInTheDocument()
+  })
+
   it('applies a ready-made style by its id', async () => {
     bulk.apply.mockResolvedValue({ outcomes: [], undo: [] })
     getRooms.mockResolvedValue(THREE_ROOMS)

@@ -163,6 +163,25 @@ class TestLanguage:
         assert not any("o'zbekcha emas" in p for p in txt.summary_problems("Devorlar iliq, floor emas, pol parket.", make()))
 
 
+    def test_an_english_sentence_with_few_of_the_old_markers_is_dropped(self):
+        # The eval's klassik reply: only "with" was on the old list, so the sentence was kept.
+        english = "This design embraces a classic style with damask wallpaper featuring a golden tone accent."
+        assert txt._language_problems(txt._norm(english), make()) == ["matn o'zbekcha emas"]
+
+    def test_an_uzbek_sentence_is_not_taken_for_english(self):
+        uz = "Mebel sifatida divan va TV tumba tanlandi, xona iliq va qulay bo'ldi."
+        assert not any("o'zbekcha emas" in p for p in txt.summary_problems(uz, make()))
+
+
+class TestHexCodes:
+    def test_a_hex_code_in_brackets_is_dropped(self):
+        assert txt._localise("Devorda to'q kulrang bo'yoq (#2c2c2c) ishlatilgan.") == "Devorda to'q kulrang bo'yoq ishlatilgan."
+
+    def test_a_bare_hex_code_is_said_as_a_colour(self):
+        out = txt._localise("Aksent sifatida #1a1a1a ishlatilgan.")
+        assert "#" not in out and txt.colour_name("#1a1a1a") in out
+
+
 class TestFurnitureAndLights:
     def test_a_piece_not_in_the_plan_is_caught(self):
         assert any("shkaf" in p for p in txt.summary_problems("Kitob shkafi devor oldida turadi.", make()))

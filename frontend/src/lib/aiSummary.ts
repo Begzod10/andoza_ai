@@ -10,7 +10,7 @@
  * desk only when the desk is what was left out, a nightstand or a chair has no word of its own.
  */
 const ROLE_WORD: Partial<Record<string, string>> = {
-  bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba', rug: 'gilam',
+  bed: 'karavot|krovat', wardrobe: 'shkaf|garderob', desk: 'stol', dining_chair: 'stul', desk_chair: 'stul', sofa: 'divan', armchair: 'kreslo', tv_unit: 'tumba', rug: 'gilam',
   // A floor lamp the layout left out (a light, not furniture): its word in the three languages a summary is in.
   floor_lamp: 'torsher|торшер\\p{L}*|floor\\s+lamps?',
 }

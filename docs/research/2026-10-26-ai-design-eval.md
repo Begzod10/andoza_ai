@@ -1212,3 +1212,218 @@ Ko'ndalang raqamlar (13 ta uslub so'rovi; qavsda 5 ta uslubsiz so'rov):
 Harness ZZ mebel, `evaltest_` foydalanuvchi va `ZZ apt` kvartirani o'chirdi (tekshiruvda 0/0/0). Konteynerdagi
 `/tmp/eval70_*.json` va vaqtinchalik vitest (`zzEvalTmp.test.ts`) o'chirildi. Harness'ga `Ish stoli` va
 `Kitob javoni` (yotoqxona) qo'shildi.
+
+## #77 dan keyingi baholash (2026-10-27)
+
+`master` (HEAD `803dba9b`, #71–#77 bilan) da qayta o'tkazildi. #71: izoh filtri faqat sof mebel ro'yxatini
+buyumma-buyum tahrirlaydi, tushgan buyumni aytgan boshqa jumla butunlay olib tashlanadi; "o'rniga", "yo'q",
+"emas", "o'xshash" da'vo emas. Bo'sh joy topilmagan torsher qo'yilmaydi va tushganlar ro'yxatida aytiladi. Tor
+balkonda (< 1.8 m) bitta o'rindiq va eng kichik stol. Tayyor uslub sig'adigan gilamni oladi, joylashuv gilamni
+90° buradi yoki kichigiga almashtiradi. #73: "Barcha xonalarga qo'llash". #74: qo'shni xona umumiy devorda
+saqlagan eshik ham bo'sh qoladi. #75–#77: UI tuzatishlari. Mahsulot kodi o'zgartirilmadi.
+
+### Usul
+
+- **Harness**: `eval_ai_design.py --set style` (13) va `--set template` (5), `andoza_ai-api-1` ichida. Harness
+  o'zgartirilmadi.
+- **OpenAI chaqiruvlari: 18 ta** (20 ta chegara ichida), hammasi 200, 3.1–5.6 s (median 3.9).
+- **Joylashuv va ko'rsatilgan izoh**: vaqtinchalik vitest. 18 ta AI rejasi va 9 ta tayyor uslub 8 ta xonada:
+  mehmonxona 4.5×3.2, yotoqxona 4×3.5, kichik 3×2.6, bolalar 3.5×3, oshxona 3.5×3, kabinet 3.5×3, balkon 3×1.4
+  (eshik C o'rtasida, `aiEvalAfter70.json` dan), hammom 2.2×1.8. Jami 90 reja. Har biri
+  `applyDesignPlan(plan, ALL_PARTS, catalog, roomType)` bilan xonaning haqiqiy turida qo'llandi. Tayyor uslub
+  `presetPlan(id, catalog, roomType, undefined, roomSizeOf(geometry))` bilan. Ko'rsatilgan izoh:
+  `summaryWithout(summary, [dropped + droppedLights], [placed + swapped.from])`, `AiBuilderSheet` dagidek.
+  Ustma-ust tushish `overlaps(a, b, -0.005)` bilan, torsher va eshik zonasi `overlaps(..., 0)` bilan.
+- **YANGI: 2 xonali kvartira** (OpenAI'siz). Ikkita 4×3.5 xona 20 mm oraliq bilan, A ning B devori B ning D
+  devoriga qaragan. Har xonada A devorida deraza, C devorida o'z eshigi bor. Umumiy devordagi eshik faqat A da
+  saqlangan, uch joyda tekshirildi: 0.2, 0.5, 0.8. A (mehmonxona) ga uchta manba qo'llandi: AI klassik
+  rejasi, `milliy` va `loft` tayyor uslublari (`applyDesignPlan(..., { roomId, rooms })`). Keyin
+  `applyToOtherRooms` B ni yozdi, B ning turi `yotoqxona`. B ning PATCH dagi `state` i tekshirildi: eshik
+  zonasi kodga bog'liq bo'lmagan to'rtburchak bilan o'lchandi, `borrowedDoorLayout.test.ts` dagidek. Izoh
+  `planForRoom` + `designRoomState` dan olindi, natija PATCH bilan bir xil. Jami 9 holat.
+- Ma'lumot: `/private/tmp/claude-501/-Users-mac-Projects-andoza-ai/3fd8fe5c-d9c1-4c28-815c-e1f7c8f83e8c/scratchpad/ai-eval/after77/`
+  (`style.json`, `tpl.json`, `layout.json`). Skrinshot yo'q.
+
+### Baholar
+
+U = uslubga moslik, R = rang uyg'unligi, M = mebel tanlovi, J = joylashuv, I = izoh halolligi (1–10).
+
+| Tur | #70 dan keyin | **Endi** | U R M J I |
+|---|---|---|---|
+| AI: Neoklassik, och ranglar | 8 (U8 R8 M9 J7 I8) | **8** | U8 R8 M9 J7 I8 |
+| AI: Hi-tech, qora-oq, metall | 7 (U8 R8 M6 J7 I7) | **7** | U8 R8 M6 J7 I7 |
+| AI: Milliy o'zbek uslubi | 7 (U8 R7 M7 J7 I8) | **7** | U8 R7 M7 J7 I6 |
+| AI: Skandinav, och yog'och | 8 (U9 R8 M9 J7 I7) | **8** | U9 R8 M9 J7 I8 |
+| AI: Loft, g'isht va qora metall | 8 (U8 R7 M9 J7 I8) | **8** | U8 R7 M9 J7 I8 |
+| AI: Minimalist | 6 (U7 R8 M4 J7 I6) | **6** | U7 R8 M5 J7 I5 |
+| AI: Klassik, oltin detallar | 8 (U9 R8 M9 J7 I8) | **8** | U9 R8 M9 J7 I6 |
+| AI: Zamonaviy, iliq ranglar | 6 (U6 R5 M7 J7 I5) | **6** | U6 R5 M7 J7 I6 |
+| AI: Qorong'i, dramatik | 7 (U8 R8 M7 J7 I7) | **7** | U8 R8 M7 J7 I5 |
+| AI: Shinam yotoqxona (`yotoqxona`) | 8 (U8 R8 M8 J8 I8) | **8** | U8 R8 M8 J8 I8 |
+| AI: Shinam yotoqxona, 2-namuna | 8 (U8 R8 M8 J8 I8) | **8** | U8 R8 M8 J8 I7 |
+| AI: Bolalar xonasi | 7 (U6 R7 M7 J7 I8) | **7** | U6 R7 M7 J7 I8 |
+| AI: Kichik xona, ko'p joy qolsin | 6 (U6 R7 M6 J5 I6) | **6** | U6 R7 M6 J5 I6 |
+| **AI o'rtacha (13 ta uslub so'rovi)** | **7.2** | **7.2** | |
+| AI uslubsiz: Shinam mehmonxona | 7 (U7 R8 M6 J7 I6) | **6** | U7 R7 M6 J7 I5 |
+| AI uslubsiz: Iliq ranglar (mehmonxona) | 7 (U7 R8 M6 J7 I5) | **7** | U7 R8 M7 J7 I7 |
+| AI uslubsiz: Shinam yotoqxona, 3-namuna | 8 (U8 R8 M8 J8 I7) | **8** | U8 R8 M8 J8 I6 |
+| AI uslubsiz: Sokin kabinet | 7 (U7 R6 M8 J7 I8) | **7** | U7 R6 M8 J7 I7 |
+| AI uslubsiz: Yorqin oshxona | 8 (U8 R8 M8 J6 I8) | **7** | U8 R8 M7 J6 I7 |
+| **AI uslubsiz o'rtacha (5 ta)** | **7.4** | **7.0** | |
+
+Har bir AI dizayn qisqacha (o'zgarganlari):
+
+- **Skandinav, Loft** (I 7 → 8): inglizcha oxirgi jumla kesildi. "spotlight" endi "spot chiroq" deb yoziladi.
+  Skandinav'da hamma mebel skandinav, gilam va torsher bor.
+- **Klassik** (I 8 → 6): uchta inglizcha jumladan bittasi qoldi: "This design embraces a classic style with
+  damask wallpaper…". Backend filtri inglizcha jumlani kamida 3 ta belgi so'z bilan taniydi, bu jumlada esa
+  bittasi bor (`with`). "parquetdan" ham qoldi.
+- **Milliy** (I 8 → 6): izoh `Oxford kitob shkafi` ni (klassik) "milliy uslubdagi" ro'yxatga qo'shadi.
+- **Minimalist** (M 4 → 5, I 6 → 5): jurnal stoli endi bitta, mebel jumlasi izohda qoldi. Lekin Kreslo
+  Bergen, TV tumba Nord va Javon Nord skandinav, izoh esa hammasini "minimalist uslubga mos" deydi.
+  Mehmonxonada hamon plitka pol.
+- **Qorong'i** (I 7 → 5): uchta hex (`#2c2c2c`, `#1a1a1a`, `#3d2b1f`) va "klassik ZZ Stul" (Stul uslubsiz).
+  "parkey" xatosi yo'q.
+- **Zamonaviy, iliq** (I 5 → 6): izoh endi "iliq krem" demaydi, "ochiq va to'q aksent" deydi. Devor hamon
+  shablon kulrangi `#d9d6d0`/`#8c8a86`. Mono (minimalist) "zamonaviy uslubdagi" ro'yxatda.
+- **Hi-tech**: mebel jumlasi endi saqlanadi va to'g'ri: "indastrial uslubda kreslo va loft shkafi". Backend
+  "Torsher mavjud emas" inkor jumlasini yolg'on da'vo deb kesdi (`kept` = yo'q). Pol "g'ishtli plitka" deyiladi,
+  rejada naqsh yo'q.
+- **Shinam yotoqxona, 2-namuna**: torsher "to'p lampasi" deb atalgan.
+- **Shinam mehmonxona** (7 → 6): `ZZ Stul` `dining_chair` sifatida tanlandi, stol yo'q, shuning uchun tushdi.
+  Izoh esa "va oddiy stul joy olgan" deydi: `dining_chair` ning `ROLE_WORD` da so'zi yo'q. Uslublar endi to'g'ri
+  ("Skandinav uslubidagi jurnal stoli").
+- **Iliq ranglar**: devor `#e6c9a8` (iliqroq), Kreslo Soft endi joylandi, izoh to'liq va uslublari to'g'ri.
+  Faqat `ZZ` nomlari bor.
+- **Shinam yotoqxona, 3-namuna**: backend "laminate parket" + hex jumlasini kesdi, izohda devor va pol qolmadi.
+- **Yorqin oshxona** (8 → 7): "bezak uchun muzlatgich va pufik", oshxonada torsher. 4 ta Velvet stuldan 2 tasi
+  joylandi.
+- **Kichik xona**: shkaf tushdi va ro'yxatda aytildi. Mebel jumlasi ("kichik o'lchamdagi bir kishilik karavot,
+  tor kiyim shkafi…") sof ro'yxat emas, shuning uchun butunlay olib tashlandi.
+
+Tayyor uslublar. Mehmonxona, yotoqxona 4×3.5, bolalar, oshxona, kabinet va hammomda reja va izoh #70 dagidek,
+shuning uchun baholar o'zgarmadi. Bolalarda milliy va klassik endi `Gilam kulrang` oladi, bu baho uchun neytral.
+O'zgarganlari kichik xona va balkon:
+
+| Tayyor | Kichik 3×2.6 (oldin → endi) | Balkon 3×1.4 (oldin → endi) |
+|---|---|---|
+| Neoklassika | 6 → **6** (U7 R8 M5 J5 I7) | 5 → **6** (U6 R7 M5 J7 I5) |
+| Zamonaviy | 6 → **6** (U6 R7 M5 J5 I6) | 6 → **6** (U6 R7 M5 J7 I5) |
+| Hi-Tech | 5 → **5** (U5 R7 M4 J5 I6) | 5 → **6** (U5 R7 M5 J7 I6) |
+| Milliy | 5 → **6** (U6 R7 M4 J5 I7) | 6 → **6** (U6 R7 M5 J7 I5) |
+| Qorong'i (dark) | 6 → **6** (U7 R6 M5 J5 I6) | 6 → **6** (U6 R6 M5 J7 I6) |
+| Skandinav | 6 → **6** (U8 R8 M5 J5 I7) | 7 → **7** (U7 R8 M5 J7 I7) |
+| Klassik | 5 → **6** (U7 R7 M4 J5 I7) | 5 → **6** (U6 R7 M5 J7 I5) |
+| Loft | 5 → **5** (U5 R6 M4 J5 I5) | 6 → **6** (U6 R6 M5 J7 I5) |
+| Minimalist | 6 → **6** (U6 R7 M5 J5 I7) | 5 → **6** (U6 R7 M5 J7 I6) |
+| **O'rtacha** | 5.6 → **5.8** | 5.7 → **6.1** |
+
+- **Kichik**: milliy va klassik 200×300 gilam o'rniga `Gilam kulrang` oladi va gilam xona ichida (J 3 → 5).
+  Shkaf hamon 9/9 da tushadi.
+- **Balkon**: har uslubda `Jurnal stoli Mono` + bitta `ZZ Stul`, hech narsa tushmaydi (oldin 4/9 da kreslo
+  tushardi). 5 ta torsherning 5 tasi ham mebel, eshik va devorlardan holi (oldin 4 tasida muammo bor edi).
+  Lekin balkon mebeli endi har uslubda bir xil va uslubsiz (M 5). Balkonda parket, oboy va qandil hamon bor.
+
+Guruh o'rtachalari:
+
+| Guruh | #70 dan keyin | Endi |
+|---|---|---|
+| AI, 13 ta uslub so'rovi | 7.2 | **7.2** |
+| AI, 5 ta uslubsiz so'rov | 7.4 | **7.0** |
+| AI, hammasi (18) | 7.3 | **7.2** |
+| Tayyor uslublar, 72 reja (8 xona o'rtachasi) | 6.5 | **6.6** |
+| — oshxona + hammom (18) | 6.8 | **6.8** |
+| — qolgan 6 xona (54) | 6.5 | **6.6** |
+
+Ko'ndalang raqamlar (13 ta uslub so'rovi; qavsda 5 ta uslubsiz so'rov):
+
+| Ko'rsatkich | #70 dan keyin | Endi |
+|---|---|---|
+| Model izohi ko'rsatildi (butun yoki jumla kesilib) | 13/13 (5/5) | **13/13 (5/5)** |
+| Harness `kept` | 12/13 (3/5) | **12/13 (4/5)**: hitech inkor jumlasi (shinam yotoq 3 pol jumlasi) |
+| Inglizcha jumla kesildi | loft, klassik (kabinet) | skandinav, minimalist, zamonaviy, klassik (3 tadan 2 tasi) |
+| Ko'rsatilgan izohda inglizcha / hex | 2 so'z / 2 | **1 jumla** (klassik) / **3** (qorong'i) |
+| Uslub da'vosi xatosi | 1/18 | **4/18**: milliy, minimalist, zamonaviy, qorong'i |
+| Oltin devorda | 1/13 (klassik) | 1/13 (klassik) (0/5) |
+| Qandil | 4/13 | 4/13: neoklassik, milliy, klassik, qorong'i (0/5) |
+| Yotoq turidagi xonada karavot | 4/4 (1/1); tayyor 27/27 | 4/4 (1/1); tayyor 27/27; kvartira B 9/9 |
+| Tashlab ketilgan buyum (AI) | 3 (5) | **1**: kichik Kiyim shkafi Nord (shinam mehmon Stul, oshxona 2 Velvet stul) |
+| Tashlab ketilgan buyum (tayyor, 72) | — | 12: kichikda 9 shkaf, mehmonxona dark Kreslo Soft, oshxona 2×2 Velvet; balkonda 0 |
+| Torsher: AI | 0/14 muammoli | **0/13** |
+| Torsher: tayyor | 4/35 muammoli (balkon) | **0/35** (balkon 5/5 toza) |
+| Eshikni to'sgan mebel yoki torsher | 0 | **0** (90 reja + 9 kvartira holati, o'z va qo'shni eshigi) |
+| Xonadan chiqqan buyum | 2 (3×2.6 da 200×300 gilam) | **0** |
+| Ustma-ust | faqat ataylab | faqat ataylab: stul stol ostida, ovqat stullari stol atrofida |
+
+2 xonali kvartira (B = yotoqxona, `applyToOtherRooms`):
+
+| Manba → B | Eshik 0.2 | Eshik 0.5 | Eshik 0.8 |
+|---|---|---|---|
+| AI klassik | Saroy + Tumbochka + Fors; **shkaf tushdi** | xuddi shunday, shkaf tushdi | xuddi shunday, shkaf tushdi |
+| Tayyor milliy | Verona 160 + Tumbochka + Grafit shkaf + Buxoro | **shkaf tushdi** | to'liq |
+| Tayyor loft | Verona 160 + Tumbochka + Grafit shkaf + kulrang gilam | **shkaf tushdi** | to'liq |
+
+- B ning layout'ida qo'shni eshik bor (D devorida 1 ta element), 9/9 da qo'shni eshik zonasi va o'z eshigi
+  (C) bo'sh, torsher ham. Xonadan chiqqan va ustma-ust buyum yo'q. PATCH dagi joylashuv `designRoomState`
+  bilan bir xil.
+- B o'z to'plamini oladi: 9/9 da karavot, tumbochka, gilam va yotoqxona shkafi. Mehmonxona mebeli yo'q.
+  AI manbasida uslub `klassik` (oltin aksentli damask), tayyorlarda o'z uslubi. Izoh — uslubning yotoqxona
+  izohi, tushgan buyumni aytmaydi.
+- Shkaf 5/9 da tushadi. Klassik'da `Karavot Saroy` 210×180 sabab: qo'shni eshiksiz ham tushadi. Milliy va
+  loft'da eshik 0.5 da bo'lsa, shkafni qo'shni eshik zonasi oladi. Tasdiqlash ro'yxati (`previewOtherRooms`)
+  rejadagi mebelni, shkafni ham, ko'rsatadi. Natijada esa faqat xonalar soni chiqadi, shuning uchun foydalanuvchi
+  shkaf qo'yilmaganini bilmaydi.
+- A (ikki eshikli 4×3.5 mehmonxona) da 9 holatning 8 tasida kreslo yoki TV tumba tushdi va ro'yxatda aytildi.
+
+### Kutilganlar tekshiruvi
+
+| Kutilgan | Natija | Izoh |
+|---|---|---|
+| Kamida 10/13 izoh saqlanadi | **O'tdi: 13/13** | Harness `kept` 12/13. Hitech'da faqat "Torsher mavjud emas" inkor jumlasi kesildi. |
+| Saqlangan izohda inglizcha / xom identifikator / hex yo'q | **O'tmadi** | Klassik'da bitta inglizcha jumla, qorong'i'da 3 ta hex. Xom id yo'q (`herringbone`/`wood_strip` tarjima qilinadi). `ZZ ...` katalog nomi. |
+| Ko'rsatilgan izoh tushgan buyumni aytmaydi | **O'tmadi** (1/18) | Shinam mehmonxona: `ZZ Stul` tushdi, izoh "oddiy stul joy olgan" deydi (`dining_chair` uchun rol so'zi yo'q). Kichik xona: shkaf jumlasi olib tashlandi. Tayyor va kvartira: 0. |
+| Tur/uslub da'vosi noto'g'ri emas | **O'tmadi** (4/18) | Milliy Oxford'ni "milliy", minimalist 3 ta skandinav buyumni "minimalist", zamonaviy Mono'ni "zamonaviy", qorong'i "klassik ZZ Stul" deydi. Tur xatosi 0. |
+| Har yotoqxona rejasida karavot | **O'tdi** | AI 5/5, tayyor 27/27, kvartira B 9/9. |
+| Kiyim shkafi joylanadi yoki aytiladi | **O'tdi** (bitta xona uchun) | 4×3.5: AI 3/3, tayyor 9/9 joylandi. 3×2.6: AI va 9/9 tayyor shkafi `dropped` da. Kvartira B: 5/9 da tushdi, foydalanuvchiga aytilmaydi (yuqorida). |
+| Oltin faqat so'ralganda | **O'tdi** | Faqat klassik `#c9a24b` (va klassik tayyor). |
+| Loft poli beton | **O'tdi** | `concrete`, `#4a4a4a` + `#a0522d`. |
+| Hi-tech'da qandil yo'q | **O'tdi** | `led_panel`, `led_track`, `spotlight`. |
+| Qorong'i `dark` tayyor uslubidan | **O'tdi** | `style: dark`, `#2c2c2c`/`#1a1a1a`, `border`, parket `#3d2b1f`, qandil + torsher + LED chiziq. |
+| Torsher mebel va eshikdan holi, xona ichida, balkon ham | **O'tdi** | AI 13/13, tayyor 35/35 (balkon 5/5), kvartira 0 muammo. Hech bir torsher tushmadi (`droppedLights` bo'sh). |
+| Eshik to'silmaydi, o'zi yoki qo'shnisiniki | **O'tdi** | 90 rejada 0. Kvartira 9/9: qo'shni eshik zonasi va o'z eshigi bo'sh. |
+| Tayyor karavot xonaga mos | **O'tdi** | 4×3.5: Verona 160, Grafit 180, Nord 160, Saroy. 3×2.6: 9/9 Bir kishilik. Bolalar: 9/9 Bolalar karavoti. |
+| Har xona turi o'z to'plamini oladi | **O'tdi** | Oshxona 9/9: stol + stullar + shkaf + plitka. Kabinet 9/9: stol + ish stuli + kreslo + javon/shkaf. Hammom 9/9: Hammom shkafi. Balkon 9/9: stol + bitta o'rindiq, hech narsa tushmaydi. |
+| Uslubsiz so'rov shablondan (aksentsiz) | **O'tdi** | 5/5 da aksent yo'q. Shinam mehmon `#c9c5be`, iliq `#e6c9a8`, yotoq `#ece8e1`, kabinet `#e6eaef`, oshxona oq + plitka. |
+| Kabinet AI rejasida yozuv stoli | **O'tdi** | Yozuv stoli Nord + Ish stuli (stol ostida) + Kitob javoni + Kreslo Bergen + gilam. |
+| Hammom tayyorida oboy, qandil va torsher yo'q | **O'tdi** | 9/9 bo'yoq, qandil/osma/torsher 0. |
+| Oshxona va hammom izohida plitka | **O'tdi** | 18/18 "Pol: namlikka chidamli kafel." |
+| Xonadan chiqqan gilam yo'q | **O'tdi** | 0/90 (oldin 2). Almashtirish kerak bo'lmadi: `presetPlan` sig'adiganini tanladi. |
+| YANGI: kvartira — B o'z to'plamini oladi, qo'shni eshik bo'sh | **O'tdi** | 9/9 yotoqxona to'plami, 9/9 qo'shni eshik bo'sh, izoh toza. Kamchilik: shkaf 5/9 da hech narsa demasdan tushadi. |
+
+### Qolgan kamchiliklar (foydalanuvchiga ta'siri bo'yicha)
+
+1. **"Barcha xonalarga qo'llash" tushgan mebelni aytmaydi**: kvartira B da shkaf 5/9 holatda qo'yilmaydi.
+   Klassik'da sabab Saroy 210×180, qolganlarida qo'shni eshik zonasi. Tasdiqlash ro'yxati shkafni va'da qiladi,
+   natija esa faqat xonalar sonini aytadi. `designRoomState` ning `applied.dropped` i `applyToOtherRooms` dan
+   chiqmaydi. Ikki eshikli A da ham 8/9 holatda kreslo/tumba tushadi (bu ochiq xonada aytiladi).
+2. **AI izohidagi uslub da'volari yomonlashdi** (1/18 → 4/18): uslubli ro'yxat oldidagi bitta sifat ("milliy
+   uslubdagi A, B, C") hamma buyumga yoyiladi va backend tekshiruvi buni ushlamaydi. Bunga AI'ning mebelni
+   aralashtirishi qo'shiladi: minimalist'da 3 ta skandinav buyum, hitech'da loft kreslo va stellaj. Hitech va
+   minimalist mehmonxonada plitka pol.
+3. **Izohda texnik qoldiqlar**: klassik'da inglizcha jumla qoladi, chunki unda 3 tadan kam belgi so'z bor.
+   Qorong'i'da 3 ta hex. `ZZ` katalog prefikslari (qorong'i, iliq, shinam mehmon). "parquetdan", "to'p lampasi",
+   "bezak uchun muzlatgich".
+4. **Tushgan stul izohda qoladi**: `dining_chair`/`desk_chair` uchun `ROLE_WORD` da "stul" yo'q. Shinam
+   mehmonxonada AI `ZZ Stul` ni stolsiz `dining_chair` qilib tanlaydi, u tushadi, izoh esa uni aytadi.
+5. **Kichik xona (3×2.6)**: shkaf AI'da ham, 9/9 tayyorda ham sig'maydi. AI'ning sifatli mebel jumlasi butunlay
+   o'chadi, izohda mebel qolmaydi. O'rtacha 5.8, eng past.
+6. **Balkon**: endi toza va to'liq (6.1), lekin har uslubda bir xil `Mono + Stul`. Uslub faqat devor va polda
+   qoladi, balkonda esa parket, oboy va qandil bor, izoh ham shularni aytadi.
+7. Kichik: "Zamonaviy, iliq" hamon kulrang. Oshxona tayyorlarida oboy, qandil, torsher. AI oshxonasida torsher
+   va "bezak" muzlatgich. Kabinet laminati kulrang-ko'k (`#d4d9dc`). Backend inkor jumlasini ("Torsher mavjud
+   emas") da'vo deb kesadi, #71 ning frontend qoidasiga zid, ammo zararsiz.
+
+### Tozalash
+
+Harness ZZ mebel, `evaltest_` foydalanuvchi va `ZZ apt` kvartirani o'chirdi (tekshiruvda 0/0/0). Konteynerdagi
+`/tmp/eval77_*.json` va vaqtinchalik vitest (`zzEvalTmp.test.ts`) o'chirildi. Harness o'zgartirilmadi.
