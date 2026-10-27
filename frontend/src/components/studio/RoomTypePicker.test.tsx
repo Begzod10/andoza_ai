@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useRoomStore } from '@/store/roomStore'
 import { RoomTypePicker } from './RoomTypePicker'
 
@@ -40,5 +41,15 @@ describe('RoomTypePicker and the room it belongs to', () => {
     await waitFor(() => expect(updateRoom).toHaveBeenCalledTimes(1))
     expect(useRoomStore.getState().roomId).toBe('B')
     expect(useRoomStore.getState().roomType).toBe('oshxona')
+  })
+
+  it("a saved pick refreshes the room's copy and the apartment's room list", async () => {
+    const qc = new QueryClient()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    useRoomStore.getState().loadRoom({ id: 'A', name: 'Mening xonam', room_type: 'mehmonxona' })
+    render(<QueryClientProvider client={qc}><RoomTypePicker roomId="A" /></QueryClientProvider>)
+    fireEvent.change(screen.getByLabelText('Xona turi'), { target: { value: 'oshxona' } })
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ['apt-rooms'] }))
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['room', 'A'] })
   })
 })

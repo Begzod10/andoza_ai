@@ -1,4 +1,6 @@
+import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
+import { QueryClientContext } from '@tanstack/react-query'
 import { Select } from '@/components/ui/Select'
 import { showToast } from '@/components/ui/Toast'
 import { updateRoom } from '@/lib/api'
@@ -27,6 +29,8 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
   onPicked?: () => void
 }) {
   const { t } = useTranslation()
+  // Optional: the picker also renders outside a query provider (tests, the wizard's draft).
+  const queryClient = useContext(QueryClientContext)
   const stored = useRoomStore((s) => s.roomType)
   const storeRoomId = useRoomStore((s) => s.roomId)
   const name = useRoomStore((s) => s.name)
@@ -43,6 +47,9 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
     if (!roomId || roomId === 'local') return
     try {
       await updateRoom(roomId, { room_type: next })
+      // The room's own copy and the apartment's room list (the AI "all rooms" list reads it).
+      void queryClient?.invalidateQueries({ queryKey: ['room', roomId] })
+      void queryClient?.invalidateQueries({ queryKey: ['apt-rooms'] })
     } catch {
       const now = useRoomStore.getState()
       if (now.roomId === storeRoomId && now.roomType === next) setRoomType(previous)
