@@ -611,6 +611,8 @@ Qoidalar:
 - title: 2-4 so'zli nom.
 - summary: 2-3 jumla, O'zbek tilida, nima uchun shunday tanlaganingizni tushuntiring. Uni ENG OXIRIDA, hamma narsani tanlab bo'lgach yozing.
   summary FAQAT siz yuqorida tanlagan narsalarni tasvirlasin: devor va pol rangini/materialini, tanlangan chiroq va mebel nomlarini.
+  Bitta jumlada tanlangan mebelni nomi bilan sanang (masalan "Chester divan, Barokko kreslo"). Ichki belgilarni
+  (F1, F2, wall_A, corner_C_D, led_panel) summary'da yozmang.
   Tanlamagan narsangizni (ro'yxatdagi boshqa mebel, boshqa rang, boshqa pol) tilga olmang va va'da bermang.
   Chiroq va mebelning RANGINI tanlab bo'lmaydi (faqat turini), shuning uchun ularga rang bermang ("oltin chiroq", "qora divan" demang).
   Agar so'rovdagi biror narsani bajarib bo'lmasa (masalan, "oltin detallar"), buni yashirmang: nima qilganingizni ayting

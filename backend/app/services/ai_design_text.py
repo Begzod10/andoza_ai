@@ -580,7 +580,7 @@ _HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
 
 
 # The menu's piece labels ("F2"), optionally followed by the kind the name already says ("F2 divan").
-_LABEL_REF = re.compile(r"\b(F\d+)\b(\s+[\w'ʻʼ‘’]+)?")
+_LABEL_REF = re.compile(r"\b(F\d+)\b((?:\s+(?!F\d+\b)[\w'ʻʼ‘’]+){0,3})")
 # A wall by the id the plan uses ("wall_A") and trade words the model leaves in English.
 _WALL_ID = re.compile(r"\bwall_([A-Za-z]\w*)\b")
 _CORNER_ID = re.compile(r"\bcorner_([A-Za-z]\w*?)_([A-Za-z]\w*)\b(?:\s+(dagi|da|ga|dan)\b)?")
@@ -594,12 +594,14 @@ def _label_said(m: re.Match[str], labels: dict[str, str]) -> str:
     name = labels.get(m.group(1))
     if not name:
         return m.group(0)
-    after = m.group(2) or ""
-    word = after.strip().lower()
-    # "F2 divan" for "Divan Nova" is said once: the kind word after the label is the name's own.
-    if word and any(w.lower().startswith(word[:4]) for w in name.split() if len(w) >= 4):
-        after = ""
-    return name + after
+    # "F3 TV tumba" for "ZZ TV tumba Paris" is said once: the words after the label that the name
+    # already holds (its kind, one or several words) go; the first word that is not the name's stays.
+    name_words = [w.lower() for w in name.split() if len(w) >= 2]
+    after = (m.group(2) or "").split()
+    while after and any(nw.startswith(after[0].lower()[:4]) for nw in name_words if len(after[0]) >= 2):
+        after.pop(0)
+    rest = (" " + " ".join(after)) if after else ""
+    return name + rest
 
 
 def _localise(text: str, labels: dict[str, str] | None = None) -> str:

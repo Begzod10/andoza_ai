@@ -1052,3 +1052,8 @@ async def test_design_plan_style_room_default():
 async def test_design_plan_style_none_with_image():
     image = SimpleNamespace(media_type="image/jpeg", data_b64="AAAA")
     assert (await _planned("", {**ROOM, "room_type": "yotoqxona"}, image=image)).style is None
+
+
+def test_the_summary_is_asked_to_name_the_furniture_by_name_and_never_by_label():
+    assert "mebelni nomi bilan" in ad._SYSTEM
+    assert "F1" in ad._SYSTEM and "yozmang" in ad._SYSTEM
