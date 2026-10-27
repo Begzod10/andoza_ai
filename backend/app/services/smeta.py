@@ -192,6 +192,30 @@ LIGHT_TYPE_NAMES: dict[str, str] = {
 
 NON_WALL_SURFACE_KEYS: frozenset[str] = frozenset({"floor", "ceiling"})
 
+# surfaces["smeta:<smeta_key>"]: a shop product the user picked in the studio for one of the
+# estimate's own lines (the ceiling's board, profile, strip, cornice). It prices that line in
+# place of the shop's cheapest product, and, the price being the user's own pick, exactly.
+PICKED_PRODUCT_PREFIX = "smeta:"
+PICKABLE_SMETA_KEYS: frozenset[str] = frozenset({"gipsokarton", "profil", "led_lenta", "galtel"})
+
+
+def _is_wall_surface_key(key: str) -> bool:
+    return key not in NON_WALL_SURFACE_KEYS and not key.startswith(PICKED_PRODUCT_PREFIX)
+
+
+def _picked_products(surfaces: dict[str, str], materials_map: "dict[str, Material]") -> "dict[str, Material]":
+    """{smeta_key: the product the user picked for it}. A pick whose product is gone, or is
+    a product for another line, is ignored: the line keeps its usual price."""
+    picked: dict = {}
+    for key, mid in surfaces.items():
+        if not key.startswith(PICKED_PRODUCT_PREFIX) or not mid:
+            continue
+        smeta_key = key[len(PICKED_PRODUCT_PREFIX):]
+        material = materials_map.get(str(mid))
+        if smeta_key in PICKABLE_SMETA_KEYS and material is not None and getattr(material, "smeta_key", None) == smeta_key:
+            picked[smeta_key] = material
+    return picked
+
 # Waste factors by wallpaper pattern type
 WASTE_FACTORS: dict[str, float] = {
     "tekstura": 1.05,
@@ -1457,6 +1481,7 @@ def _ceiling_construction_lines(
     room: "Room",
     norms_map: "dict[str, Norm]",
     catalog: "dict[str, Material] | None" = None,
+    picked: "frozenset[str] | set[str]" = frozenset(),
 ) -> list[ComputedLine]:
     """Suspended-ceiling construction: gips karton box + karkas profili, plus
     a hidden LED strip line when the design uses one.
@@ -1472,7 +1497,8 @@ def _ceiling_construction_lines(
     (``buildCeilingParts``) down to area/perimeter formulas — full vs.
     ring-only panel area depending on the design — good enough for a
     material estimate but never exact, so every line here is flagged
-    approximate.
+    approximate — unless the user picked the product (``picked``, keys of
+    ``catalog``): its price is then the shop's own, and the quantity note stays.
     """
     ceiling_cfg = _design_state(room).get("ceiling")
     if not isinstance(ceiling_cfg, dict):
@@ -1517,6 +1543,7 @@ def _ceiling_construction_lines(
         board_sheet_m2 = _pack_of(board, "m2") if str(getattr(board, "unit", "")) in _SOLD_BY_PACK_UNITS else None
         board_per_m2 = _price_per(board, "m2") if str(getattr(board, "unit", "")) == "m2" else None
         board_label, board_shop = "Shift gipsokartoni", {}
+        board_exact = "gipsokarton" in picked and bool(board_sheet_m2 or board_per_m2)
         if board_sheet_m2:
             sheet_m2, sheet_price = board_sheet_m2, int(board.price_uzs)
             board_label, board_shop = f"Shift: {board.name_uz}", _shop(board)
@@ -1539,7 +1566,7 @@ def _ceiling_construction_lines(
             price_uzs=sheet_price,
             category="shift",
             **board_shop,
-            is_approximate=True,
+            is_approximate=not board_exact,
             warning=(
                 "Taxminiy hisob — shift konstruksiyasi murakkab shakl, "
                 f"ustaga tasdiqlang.{norm_warning_suffix}"
@@ -1547,29 +1574,33 @@ def _ceiling_construction_lines(
         ))
 
         profile_m = math.ceil(perimeter * 2)
+        profile = catalog.get("profil")
+        profile_exact = "profil" in picked and bool(_price_per(profile, "m"))
         lines.append(_make_line(
-            label="Shift profili (karkas)",
+            label=f"Shift profili: {profile.name_uz}" if profile_exact else "Shift profili (karkas)",
             formula=f"Perimetr {perimeter:.2f} m × 2 (yuqori/pastki karkas) = {profile_m} m",
             qty=profile_m,
             unit="m",
             price_uzs=_price_per(catalog.get("profil"), "m") or PROFILE_PRICE_PER_M_UZS,
             category="shift",
             **(_shop(catalog.get("profil")) if _price_per(catalog.get("profil"), "m") else {}),
-            is_approximate=True,
+            is_approximate=not profile_exact,
             warning="Taxminiy hisob — karkas miqdorini ustaga tasdiqlang.",
         ))
 
     if has_strip and perimeter > 0:
         strip_m = math.ceil(perimeter)
+        strip = catalog.get("led_lenta")
+        strip_exact = "led_lenta" in picked and bool(_price_per(strip, "m"))
         lines.append(_make_line(
-            label="LED lenta (shift nishi)",
+            label=f"LED lenta: {strip.name_uz}" if strip_exact else "LED lenta (shift nishi)",
             formula=f"Perimetr {perimeter:.2f} m ≈ {strip_m} m lenta",
             qty=strip_m,
             unit="m",
             price_uzs=_price_per(catalog.get("led_lenta"), "m") or LED_STRIP_PRICE_PER_M_UZS,
             category="shift",
             **(_shop(catalog.get("led_lenta")) if _price_per(catalog.get("led_lenta"), "m") else {}),
-            is_approximate=True,
+            is_approximate=not strip_exact,
             warning="Taxminiy hisob — lenta uzunligi dizayn shakliga qarab farq qiladi.",
         ))
 
@@ -1676,7 +1707,7 @@ def compute_estimate(
     # Identify wall vs floor surfaces
     wall_mids = {
         v for k, v in surfaces.items()
-        if k not in NON_WALL_SURFACE_KEYS and v
+        if _is_wall_surface_key(k) and v
     }
     floor_mid: str | None = surfaces.get("floor")
 
@@ -1688,7 +1719,7 @@ def compute_estimate(
     # Wall surfaces map: wall_key -> material_id (includes 'ALL' key)
     wall_surfaces_map: dict[str, str] = {
         k: v for k, v in surfaces.items()
-        if k not in NON_WALL_SURFACE_KEYS and v
+        if _is_wall_surface_key(k) and v
     }
 
     wall_coverings_state: dict = _design_state(room).get("wallCoverings", {})
@@ -1813,13 +1844,15 @@ def compute_estimate(
     # 3b. Ceiling construction — skipped entirely when ceiling_state is   #
     #     finished, same reasoning as floor_already_done above.           #
     # ------------------------------------------------------------------ #
+    picked = _picked_products(surfaces, materials_map)
+    ceiling_catalog = {**catalog, **picked}
     ceiling_already_done = ceiling_state == "tayyor"
     if not ceiling_already_done:
-        lines.extend(_ceiling_construction_lines(room, norms_map, catalog))
+        lines.extend(_ceiling_construction_lines(room, norms_map, ceiling_catalog, set(picked)))
 
     # The cornice the studio draws (a choice of its own, made by the user or a ready-made
     # style), so it is listed whatever stage the ceiling itself is at.
-    galtel = _galtel_line(room, catalog.get("galtel"))
+    galtel = _galtel_line(room, ceiling_catalog.get("galtel"))
     if galtel is not None:
         lines.append(galtel)
 

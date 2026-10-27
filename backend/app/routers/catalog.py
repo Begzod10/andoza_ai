@@ -49,11 +49,12 @@ async def list_materials(
     category: str | None = Query(default=None),
     store: UUID | None = Query(default=None),
     q: str | None = Query(default=None, description="Search by name_uz substring"),
+    smeta_key: str | None = Query(default=None, max_length=40, description="Products that price this estimate line"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMaterials:
     # v2: entries cached before store_name was added would lack it for the TTL.
-    cache_key = f"materials:v2:{category}:{store}:{q}:{page}:{per_page}"
+    cache_key = f"materials:v2:{category}:{store}:{q}:{smeta_key}:{page}:{per_page}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PaginatedMaterials.model_validate(cached)
@@ -68,6 +69,9 @@ async def list_materials(
     if store:
         query = query.where(Material.store_id == store)
         count_query = count_query.where(Material.store_id == store)
+    if smeta_key:
+        query = query.where(Material.smeta_key == smeta_key)
+        count_query = count_query.where(Material.smeta_key == smeta_key)
     if q:
         query = query.where(Material.name_uz.ilike(f"%{q}%"))
         count_query = count_query.where(Material.name_uz.ilike(f"%{q}%"))

@@ -869,7 +869,11 @@
       "wallpaper_needed": "Wallpaper needed",
       "calculating": "Calculating...",
       "rolls_one": "{{count}} roll",
-      "rolls_other": "{{count}} rolls"
+      "rolls_other": "{{count}} rolls",
+      "shop_board": "Plasterboard",
+      "shop_profile": "Frame profile",
+      "shop_strip": "LED strip",
+      "shop_pick_note": "A product chosen from the shop goes into the estimate at its exact price."
     },
     "mebel": {
       "drop_here": "Drop the image",

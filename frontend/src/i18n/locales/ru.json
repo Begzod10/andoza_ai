@@ -895,7 +895,11 @@
       "rolls_one": "{{count}} рулон",
       "rolls_other": "{{count}} рулона",
       "rolls_few": "{{count}} рулона",
-      "rolls_many": "{{count}} рулонов"
+      "rolls_many": "{{count}} рулонов",
+      "shop_board": "Гипсокартон",
+      "shop_profile": "Профиль каркаса",
+      "shop_strip": "LED-лента",
+      "shop_pick_note": "Выбранный в магазине товар попадает в смету с точной ценой."
     },
     "mebel": {
       "drop_here": "Отпустите изображение",

@@ -869,7 +869,11 @@
       "wallpaper_needed": "Kerakli oboy",
       "calculating": "Hisoblanmoqda...",
       "rolls_one": "{{count}} rulon",
-      "rolls_other": "{{count}} rulon"
+      "rolls_other": "{{count}} rulon",
+      "shop_board": "Gipsokarton",
+      "shop_profile": "Karkas profili",
+      "shop_strip": "LED lenta",
+      "shop_pick_note": "Do'kondan tanlangan mahsulot smetaga aniq narx bilan kiradi."
     },
     "mebel": {
       "drop_here": "Rasmni qo'yib yuboring",
