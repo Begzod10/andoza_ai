@@ -213,7 +213,8 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
     if (undo) restoreDesign(undo)
     setUndo(base)
     setBarHidden(false)
-    const applied = applyDesignPlan(next, nextParts, catalogFurniture, roomType)
+    // The flat's rooms too, so a door a neighbour stores in the wall it shares with this room is kept clear.
+    const applied = applyDesignPlan(next, nextParts, catalogFurniture, roomType, aptRooms ? { roomId, rooms: aptRooms } : undefined)
     setApplied(applied)
     // What did not fit is named under the summary, where it stays: not in the status line too.
     if (!onSaveRef.current) {
