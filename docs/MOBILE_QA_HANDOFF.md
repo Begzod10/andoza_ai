@@ -425,3 +425,63 @@ Maydon qo'shilgach mobil'da: `is_demo == true` bo'lsa do'kon kartasi va mahsulot
 3. **Til:** `Accept-Language`, `PATCH /auth/me`, register va Google'da `language` (9.2).
 4. **AI dizayn:** native render bo'lsa `zone`dan voz kechib, `role`dan foydalaning (9.3).
 5. **Namuna belgisi:** avval backend'ga `is_demo` maydonini qo'shdiring (9.5).
+
+---
+
+## 10. 2026-10-27: Apple orqali kirish va kontentga shikoyat (App Store talablari)
+
+App Store ko'rigi uchun ikkita backend funksiyasi: **4.8** (Google bilan kirish bor ekan, "Sign in with Apple" ham bo'lishi kerak) va **1.2** (foydalanuvchilar e'lon qilgan kontentga shikoyat qilish imkoniyati).
+
+| # | Mavzu | Majburiymi |
+|---|---|---|
+| 10.1 | `POST /api/v1/auth/apple` | Ha, iOS'da (Google tugmasi yonida) |
+| 10.2 | `POST /api/v1/reports`, admin navbati | Ha (usta, portfolio, mahsulot, do'kon, oboy sahifalarida) |
+
+Migration'lar: `1786000044` (`users.apple_sub`, unique indeks) va `1786000045` (`content_reports` jadvali).
+
+### 10.1 Apple orqali kirish
+
+**So'rov:** `POST /api/v1/auth/apple`
+
+```json
+{"identity_token": "<Apple identityToken, JWT>", "name": "Ali Valiyev", "language": "uz"}
+```
+
+- `identity_token`: majburiy, 1..8192 belgi.
+- `name`: ixtiyoriy, ≤100 belgi. Apple ismni **faqat birinchi avtorizatsiyada** beradi (tokenda ism yo'q), shuning uchun ilova `givenName` + `familyName` ni shu yerga qo'shib yuboradi. Faqat yangi akkaunt yaratilganda yoziladi, keyingi kirishlarda e'tiborsiz qoldiriladi.
+- `language`: ixtiyoriy, `uz|ru|en`, faqat yangi akkaunt uchun (Google'dagi kabi).
+
+**Javob:** `200`, `/auth/google` bilan **aynan bir xil** `LoginResponse` (`user`, `access_token`, `refresh_token`, `token_type`). Tokenlar body'da faqat `X-Client-Type: mobile` bo'lsa keladi.
+
+**Qoidalar:**
+- Token imzosi Apple kalitlari (`https://appleid.apple.com/auth/keys`, 24 soat keshlanadi) bilan RS256 bo'yicha tekshiriladi; `iss == https://appleid.apple.com`, `aud` `APPLE_CLIENT_IDS` ro'yxatida, muddati o'tmagan.
+- Foydalanuvchi `sub` bo'yicha topiladi (`users.apple_sub`). Email bo'yicha boshqa akkauntga **hech qachon** bog'lanmaydi. Email (ko'pincha `@privaterelay.appleid.com`) faqat ko'rsatish uchun saqlanadi.
+- Apple akkauntida parol yo'q: `POST /auth/delete-account` parol so'ramaydi (Google akkaunti kabi).
+
+**Xatolar:** `401` "Apple orqali kirib bo'lmadi. Qayta urinib ko'ring." (token yaroqsiz, `aud`/`iss` noto'g'ri, akkaunt o'chirilgan); `503` "Apple bilan bog'lanib bo'lmadi..." (Apple kalitlari olinmadi) yoki "Apple orqali kirish hozircha mavjud emas." (`APPLE_CLIENT_IDS` bo'sh); `429` IP bo'yicha 15 daqiqada 20 urinishdan keyin; `422` noto'g'ri tana.
+
+**Sozlama:** `APPLE_CLIENT_IDS` (vergul bilan). Standart qiymat hozirgi iOS bundle id `com.tamiruy.tamirUyMobileFlutter`. Bundle id o'zgarganda serverda env orqali yangisini qo'shing (o'tish davrida ikkalasini ham: `eski,yangi`).
+
+### 10.2 Kontentga shikoyat
+
+**So'rov (kirgan foydalanuvchi):** `POST /api/v1/reports`
+
+```json
+{"target_type": "usta", "target_id": "<id>", "reason": "spam", "details": "ixtiyoriy izoh"}
+```
+
+- `target_type`: `usta | product | seller | portfolio_item | wallpaper`.
+- `target_id`: 1..64 belgi, ekrandagi obyekt id'si (backend uning mavjudligini tekshirmaydi).
+- `reason`: `spam | inappropriate | fraud | other`.
+- `details`: ixtiyoriy, ≤1000 belgi.
+
+**Javob:** `201 {"id": "<uuid>", "status": "open"}`. Bir foydalanuvchi bitta obyektga ikkinchi marta shikoyat qilsa ham `201` va **o'sha** shikoyat (`id` va joriy `status`) qaytadi, yangisi yaratilmaydi, 409 bo'lmaydi.
+
+**Xatolar:** `401` kirmagan; `422` noma'lum `target_type`/`reason` yoki uzunlik; `429` bir soatda 20 tadan ko'p shikoyat.
+
+**Admin:**
+- `GET /api/v1/admin/reports?status=open` (`status` ixtiyoriy: `open|resolved|dismissed`, bo'lmasa hammasi; `limit` 1..500, standart 200), yangilari birinchi. Har bir element: `id`, `reporter_id`, `target_type`, `target_id`, `reason`, `details`, `status`, `created_at`, `resolved_at`.
+- `PATCH /api/v1/admin/reports/{id}` tana `{"status": "resolved" | "dismissed"}`, javob yangilangan element (`resolved_at` to'ldiriladi). Topilmasa `404`.
+- Admin bo'lmagan foydalanuvchi: `403`. Kontentni yashirish hozircha qo'lda (`/admin/moderation` va boshqa admin bo'limlari orqali).
+
+**Mobil'da nima qilish kerak:** usta profili, portfolio elementi, mahsulot, do'kon va oboy sahifalarida "Shikoyat qilish" tugmasi: sabab tanlovi va ixtiyoriy izoh, yuborilgach "Shikoyatingiz qabul qilindi" xabari. Kirmagan foydalanuvchini avval kirishga yo'naltiring.

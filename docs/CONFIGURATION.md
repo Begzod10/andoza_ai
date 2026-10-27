@@ -21,6 +21,8 @@ kirmaydi. Kalitlarni hech qachon commit qilmang.
 | `API_DOCS_ENABLED` | `true` | `/docs`, `/redoc`, `/openapi.json`. Ochiq serverda `false` qiling. |
 | `CORS_ORIGINS_STR` | localhost portlari | Ruxsat etilgan originlar: vergul bilan yoki JSON ro'yxat. Capacitor originlari (`capacitor://localhost`, `http://localhost`) har doim qo'shiladi. |
 | `TRUST_PROXY_HEADERS` | `false` | `X-Forwarded-For` ga ishonish (OTP limitlari uchun mijoz IP'si). |
+| `GOOGLE_CLIENT_IDS` | prod web + iOS client ID'lari | "Google orqali kirish": qabul qilinadigan ID token `aud` qiymatlari (vergul bilan). Bo'sh = o'chiq (503). |
+| `APPLE_CLIENT_IDS` | `com.tamiruy.tamirUyMobileFlutter` | "Apple orqali kirish": qabul qilinadigan identity token `aud` qiymatlari, ya'ni iOS bundle id (vergul bilan). Bundle id o'zgarsa env orqali yangilang. Bo'sh = o'chiq (503). |
 | `SENTRY_DSN` | bo'sh | Xatolarni Sentry'ga yuborish. |
 
 ## Fayllar
