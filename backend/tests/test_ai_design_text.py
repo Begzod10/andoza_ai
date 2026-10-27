@@ -201,6 +201,15 @@ class TestTheModelsLabelsAndIds:
         assert "paint" not in out and "wall_A" not in out and "accent" not in out
         assert "bo'yoq" in out and "A devor" in out and "aksent" in out
 
+    def test_a_two_word_kind_after_the_label_is_not_said_twice(self):
+        # The A/B eval: "F3 TV tumba" became "ZZ TV tumba Paris TV tumba".
+        labels = {"F3": "ZZ TV tumba Paris", "F5": "Chester divan", "F2": "Kitob javoni Oxford"}
+        out = txt._localise("F3 TV tumba, F5 chester divan va F2 kitob javoni tanlandi.", labels)
+        assert out == "ZZ TV tumba Paris, Chester divan va Kitob javoni Oxford tanlandi."
+
+    def test_a_word_after_the_label_that_is_not_its_kind_stays(self):
+        assert txt._localise("F5 markazda turadi.", {"F5": "Chester divan"}) == "Chester divan markazda turadi."
+
     def test_corner_center_and_the_ceiling_light_are_said_in_uzbek(self):
         out = txt._localise("Yoritishda markaziy ceiling, centerdagi chiroq va corner_C_D dagi torsher bor.", {})
         assert out == "Yoritishda markaziy shift chirog'i, markazdagi chiroq va C-D burchakdagi torsher bor."

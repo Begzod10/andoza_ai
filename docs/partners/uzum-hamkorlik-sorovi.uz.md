@@ -8,7 +8,7 @@
 ## 1. Biz kimmiz
 
 andoza.ai — O'zbekistonda uy va kvartira ta'miri uchun onlayn platforma
-(https://andoza.jumaniyozov.uz, veb va iOS ilova). Foydalanuvchi:
+(https://andozaai.uz, veb va iOS ilova). Foydalanuvchi:
 
 1. xonasini o'lchaydi: qo'lda yoki telefon LiDAR skaneri bilan;
 2. 3D studiyada dizayn qiladi: devor, pol, shift qoplamalari, mebel, yoritish;
@@ -48,6 +48,8 @@ elektr va yoritish, mebel, uy jihozlari va dekor.
 | Asosiy rasm | ha | |
 | O'lchov birligi va o'ram | tavsiya | m², litr, kg, dona, rulon. Masalan "10 l chelak", "rulon 10,05 × 1,06 m". Smetada miqdorni to'g'ri hisoblash uchun juda muhim. |
 | Xususiyatlar (rang, o'lcham, material) | tavsiya | |
+| Mebel o'lchamlari: eni × chuqurligi × balandligi (sm) | mebel uchun ha | 3D studiya mebelni xonaga avtomatik joylashtiradi: o'lchamsiz tovarni joylab bo'lmaydi. Gilam va parda uchun: eni × uzunligi. |
+| 3D model (GLB/glTF) | ixtiyoriy | Bo'lsa, tovar studiyada o'z ko'rinishida chiqadi; bo'lmasa rasm va umumiy shakl ko'rsatiladi. |
 | Brend | tavsiya | |
 | Reyting va sharhlar soni | ixtiyoriy | |
 | Yetkazib berish muddati | ixtiyoriy | |
