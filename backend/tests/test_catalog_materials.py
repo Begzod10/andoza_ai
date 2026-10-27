@@ -241,3 +241,21 @@ class TestShopName:
             response = client.get("/api/v1/materials")
 
         assert response.json()["items"][0]["store_name"] == "Leroy Merlin Tashkent"
+
+
+class TestFilterBySmetaKey:
+    """The studio's ceiling pickers list the products that price one estimate line."""
+
+    def test_smeta_key_filters_both_queries_and_the_cache_key(self, client):
+        db = _FakeDb([_material(name_uz="Gipsokarton list", category="gips")])
+        _as_db(db)
+        cache = _FakeCache()
+
+        with patch("app.routers.catalog.cache_get", new=AsyncMock(side_effect=cache.get)), patch(
+            "app.routers.catalog.cache_set", new=AsyncMock(side_effect=cache.set)
+        ):
+            response = client.get("/api/v1/materials?smeta_key=gipsokarton")
+
+        assert response.status_code == 200
+        assert sum("materials.smeta_key = 'gipsokarton'" in sql for sql in db.executed_sql) == 2
+        assert any("gipsokarton" in key for key in cache.store)

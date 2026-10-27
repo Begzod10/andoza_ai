@@ -14,6 +14,7 @@ import {
 import { LightSymbol } from "@/lib/catalogIcons";
 import { lightType } from "@/lib/lightCatalog";
 import { CeilingPreview } from "@/lib/ceilingPreview";
+import { ShopPickList } from "./ShopPickList";
 
 /**
  * Ceiling profile + settings — shown from WallSection when the "Shift"
@@ -179,6 +180,18 @@ export function CeilingTargetPanel({ syncToApi }: {
         </section>
       )}
 
+      {/* The build itself, from a shop: only a dropped ceiling has one. The strip is
+          priced whenever its setting is on, the same rule the estimate follows. */}
+      {activeCeiling.id !== 'non_drop' && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900">{t("studio.dokondan_tanlang")}</h3>
+          <ShopPickList smetaKey="gipsokarton" title={t("studio.dp.shop_board")} />
+          <ShopPickList smetaKey="profil" title={t("studio.dp.shop_profile")} />
+          {ceilingSettings.strip && <ShopPickList smetaKey="led_lenta" title={t("studio.dp.shop_strip")} />}
+          <p className="text-[11px] text-gray-500">{t("studio.dp.shop_pick_note")}</p>
+        </section>
+      )}
+
       <CorniceGroup syncToApi={syncToApi} />
     </>
   );
@@ -262,6 +275,9 @@ export function CorniceGroup({ syncToApi }: { syncToApi: (ds: DesignState) => vo
               value={Math.round(active.widthM * 1000)}
               onChange={(v) => patch({ widthMm: v })}
             />
+          </div>
+          <div className="mt-3">
+            <ShopPickList smetaKey="galtel" title={t("studio.dokondan_tanlang")} />
           </div>
           <button
             onClick={() => apply(null)}

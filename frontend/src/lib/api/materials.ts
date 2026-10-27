@@ -38,6 +38,8 @@ export interface MaterialParams {
   store?: string;
   /** Case-insensitive substring match against the product's name_uz. */
   q?: string;
+  /** Only the products that price this estimate line (e.g. "gipsokarton"). */
+  smeta_key?: string;
   page?: number;
   per_page?: number;
 }

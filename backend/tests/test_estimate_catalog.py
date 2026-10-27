@@ -132,6 +132,62 @@ class TestCeiling:
         assert board.label == "Shift gipsokartoni" and board.unit_price_uzs == 95_000
 
 
+class TestPickedCeilingProducts:
+    """The user picks the ceiling's board, profile, strip and cornice in the studio; the
+    pick is kept in surfaces["smeta:<key>"] and beats the shop's cheapest product."""
+
+    def state(self):
+        return {"designState": {"ceiling": {"design": "flat", "settings": {"strip": True}},
+                                "cornice": {"id": "t140"}}}
+
+    def picks(self):
+        return {
+            "gipsokarton": mat("gipsokarton", 120_000, "dona", 3, "m2", "Volma list"),
+            "profil": mat("profil", 45_000, "dona", 3, "m", "Knauf CD"),
+            "led_lenta": mat("led_lenta", 300_000, "dona", 5, "m", "Lenta 24V"),
+            "galtel": mat("galtel", 30_000, "dona", 2, "m", "Galtel 2 m"),
+        }
+
+    def cheapest(self):
+        return {
+            "gipsokarton": mat("gipsokarton", 91_000, "dona", 3, "m2", "Arzon list"),
+            "profil": mat("profil", 29_000, "dona", 3, "m", "Arzon profil"),
+            "led_lenta": mat("led_lenta", 230_000, "dona", 5, "m", "Arzon lenta"),
+        }
+
+    def estimate(self, picks):
+        surfaces = {f"smeta:{k}": str(m.id) for k, m in picks.items()}
+        r = room(state=self.state(), surfaces=surfaces)
+        return compute_estimate(r, {str(m.id): m for m in picks.values()}, {}, catalog=self.cheapest())
+
+    def test_the_picked_products_price_the_ceiling_exactly(self):
+        lines = [ln for ln in self.estimate(self.picks()).lines if ln.category == "shift"]
+        by_name = {name: next(ln for ln in lines if name in ln.label)
+                   for name in ("Volma list", "Knauf CD", "Lenta 24V", "Galtel 2 m")}
+        assert by_name["Volma list"].unit_price_uzs == 120_000
+        assert by_name["Knauf CD"].unit_price_uzs == 15_000      # 45 000 per 3 m
+        assert by_name["Lenta 24V"].unit_price_uzs == 60_000     # 300 000 per 5 m
+        assert by_name["Galtel 2 m"].unit_price_uzs == 30_000
+        assert not any(ln.is_approximate for ln in lines)
+        assert all(ln.store_name for ln in lines)
+
+    def test_unpicked_keys_keep_the_cheapest_and_stay_approximate(self):
+        picks = {"profil": self.picks()["profil"]}
+        lines = [ln for ln in self.estimate(picks).lines if ln.category == "shift"]
+        board = next(ln for ln in lines if "Arzon list" in ln.label)
+        profile = next(ln for ln in lines if "Knauf CD" in ln.label)
+        assert board.is_approximate and not profile.is_approximate
+
+    def test_a_pick_is_not_a_wall_finish(self):
+        est = self.estimate(self.picks())
+        assert not any(ln.category in {"boyoq", "oboy"} for ln in est.lines)
+
+    def test_a_product_for_another_key_is_ignored(self):
+        wrong = mat("kabel", 9_500, "m", name="VVG kabel")
+        lines = [ln for ln in self.estimate({"profil": wrong}).lines if ln.category == "shift"]
+        assert not any("VVG" in ln.label for ln in lines)
+
+
 class TestLights:
     def test_a_light_type_is_priced_from_its_shop_product(self):
         r = room(state={"lights": [{"type": "pendant"}, {"type": "pendant"}]})
