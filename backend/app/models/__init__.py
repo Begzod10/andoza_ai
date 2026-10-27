@@ -30,6 +30,7 @@ from app.models.order import Order, OrderLine  # noqa: F401
 from app.models.media_job import MediaJob  # noqa: F401
 from app.models.room_render import RoomRender  # noqa: F401
 from app.models.device_token import DeviceToken  # noqa: F401
+from app.models.content_report import ContentReport  # noqa: F401
 from app.models.seed_marker import SeedMarker  # noqa: F401
 
 __all__ = [
@@ -59,5 +60,6 @@ __all__ = [
     "MediaJob",
     "RoomRender",
     "DeviceToken",
+    "ContentReport",
     "SeedMarker",
 ]
