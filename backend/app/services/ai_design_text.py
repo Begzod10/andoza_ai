@@ -155,12 +155,15 @@ def _colour_of_things_problems(text: str, plan: Any) -> list[str]:
 
 
 # A reply that goes on in English (the model sometimes translates itself) is not what the user reads.
-_ENGLISH = re.compile(r"\b(the|is|are|with|and|includes?|floor|walls?|furniture|lighting)\b")
+# Whole words only, an apostrophe being part of one: Uzbek "to'q" or "an'anaviy" is not English "to" or "an".
+_EN_START = r"(?<![\w'])"
+_EN_END = r"(?![\w'])"
+_ENGLISH = re.compile(_EN_START + r"(the|is|are|with|and|includes?|floor|walls?|furniture|lighting)" + _EN_END)
 # English words an Uzbek sentence never uses (it says dizayn, uslub, oboy...): a translated tail such
 # as "This design embraces a classic style with..." holds few of the words above but many of these.
 _ENGLISH_ONLY = re.compile(
-    r"\b(this|that|a|an|of|to|in|on|for|design|style|room|wallpaper|featuring|embraces?|accent|"
-    r"tone|golden|warm|cozy|cosy|modern|classic|elegant|space|creates?|adds?)\b"
+    _EN_START + r"(this|that|a|an|of|to|in|on|for|design|style|room|wallpaper|featuring|embraces?|accent|"
+    r"tone|golden|warm|cozy|cosy|modern|classic|elegant|space|creates?|adds?)" + _EN_END
 )
 
 
@@ -439,6 +442,9 @@ def colour_name(hex_color: str) -> str:
         base = "jigarrang"
     elif 15 <= h < 50 and s < 0.45 and l >= 0.7:
         base = "bej"
+    elif 8 <= h < 50 and s < 0.35:
+        # A muted warm tone (greyish beige, tan) is not orange.
+        base = "bej" if l >= 0.6 else "jigarrang"
     elif h < 15 or h >= 345:
         base = "qizil"
     elif h < 35:
