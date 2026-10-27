@@ -168,7 +168,10 @@ export const useRoomStore = create<RoomStore>()(
         ceilingHeight: state.ceilingHeight,
         wizardStep: state.wizardStep,
         name: state.name,
-        roomType: state.roomType,
+        // Only an unsaved room's (the wizard's draft): a saved room's type is its own row's
+        // `room_type`, loaded with it. Persisted, it was the type the NEXT page load showed for
+        // whichever room opened, until (or, offline, instead of) that room's own arrived.
+        roomType: state.roomId ? null : state.roomType,
         furniture: state.furniture,
         electricals: state.electricals,
         lights: state.lights,

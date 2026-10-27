@@ -1,4 +1,6 @@
+import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
+import { QueryClientContext } from '@tanstack/react-query'
 import { Select } from '@/components/ui/Select'
 import { showToast } from '@/components/ui/Toast'
 import { updateRoom } from '@/lib/api'
@@ -10,6 +12,11 @@ import { useRoomStore } from '@/store/roomStore'
  * (`roomId`), PATCHed to the server; a failed PATCH puts the previous kind back (unless the person
  * has picked again meanwhile) and says so. A room with no kind shows "not set" with the guess from
  * its name as a hint, so picking that very type saves it.
+ *
+ * The kind on show is the store's, so the picker is for the store's room only: given the id of a room
+ * the store does not hold (the URL has moved on to the next room while it loads), it is disabled, as a
+ * pick would PATCH that room with what was read off the other. A failed PATCH is reverted only while
+ * the store still holds the room it was for, never onto the room opened since.
  */
 export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onPicked }: {
   roomId?: string | null
@@ -22,12 +29,17 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
   onPicked?: () => void
 }) {
   const { t } = useTranslation()
+  // Optional: the picker also renders outside a query provider (tests, the wizard's draft).
+  const queryClient = useContext(QueryClientContext)
   const stored = useRoomStore((s) => s.roomType)
+  const storeRoomId = useRoomStore((s) => s.roomId)
   const name = useRoomStore((s) => s.name)
   const setRoomType = useRoomStore((s) => s.setRoomType)
   const guess = isRoomType(fallback) ? fallback : guessRoomType(name)
+  const otherRoom = !!roomId && roomId !== 'local' && !!storeRoomId && storeRoomId !== roomId
 
   async function change(raw: string) {
+    if (otherRoom) return
     const next: RoomType | null = isRoomType(raw) ? raw : null
     const previous = stored
     setRoomType(next)
@@ -35,8 +47,12 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
     if (!roomId || roomId === 'local') return
     try {
       await updateRoom(roomId, { room_type: next })
+      // The room's own copy and the apartment's room list (the AI "all rooms" list reads it).
+      void queryClient?.invalidateQueries({ queryKey: ['room', roomId] })
+      void queryClient?.invalidateQueries({ queryKey: ['apt-rooms'] })
     } catch {
-      if (useRoomStore.getState().roomType === next) setRoomType(previous)
+      const now = useRoomStore.getState()
+      if (now.roomId === storeRoomId && now.roomType === next) setRoomType(previous)
       showToast({ variant: 'error', title: t('rooms.type_save_failed') })
     }
   }
@@ -47,7 +63,7 @@ export function RoomTypePicker({ roomId, fallback, disabled, themed = false, onP
       label={t('rooms.type_label')}
       helperText={!stored && guess ? t('rooms.type_guess', { type: t(`rooms.type.${guess}`) }) : undefined}
       value={stored ?? ''}
-      disabled={disabled}
+      disabled={disabled || otherRoom}
       onChange={(e) => void change(e.target.value)}
     >
       <option value="">{t('rooms.type_none')}</option>
