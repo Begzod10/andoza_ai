@@ -56,7 +56,8 @@ def test_the_catalog_has_stores_with_furniture_and_materials():
     assert len(names) == len(set(names))
     for store in CATALOG["stores"]:
         assert store["items"], store["name"]
-        assert len(store["items"]) <= 30, store["name"]
+        # A sample of each shop — except Loftbek, whose whole range was asked for.
+        assert len(store["items"]) <= (80 if store["slug"] == "loftbek" else 30), store["name"]
         # A real store links its site; the market-average store has none (it is no shop).
         assert store.get("website", "").startswith("https://") or _is_market_average(store)
         assert len(store["name"]) <= 200
@@ -150,6 +151,31 @@ def test_carpets_come_from_divan_uz_as_version_3_rugs():
         assert 50 <= d <= w <= 400, item
         assert f"{d:g}×{w:g} sm" in item["name_uz"], item
         assert item["source_url"].startswith("https://divan.uz/product/kover-"), item
+        with Image.open(demo.DATA_DIR / item["image"]) as im:
+            assert max(im.size) <= 800
+
+
+LOFTBEK_VERSION = 4
+
+
+def test_loftbek_office_furniture_is_version_4():
+    from PIL import Image
+
+    store = next(s for s in CATALOG["stores"] if s["slug"] == "loftbek")
+    assert store["since"] == LOFTBEK_VERSION and store["website"] == "https://loftbek.uz"
+    assert demo.catalog_version(CATALOG) >= LOFTBEK_VERSION
+    # Only Loftbek is new in version 4.
+    assert [s["slug"] for s in CATALOG["stores"]
+            if any(demo.item_since(s, i) == LOFTBEK_VERSION for i in s["items"])] == ["loftbek"]
+    assert len(store["items"]) >= 60
+    categories = {item["category"] for item in store["items"]}
+    assert {"stol", "shkaf"} <= categories
+    for item in store["items"]:
+        assert item["kind"] == "furniture" and item["placement"] == "pol", item
+        assert isinstance(item["price_uzs"], int) and 100_000 <= item["price_uzs"] <= 20_000_000, item
+        assert item["source_url"].startswith("https://loftbek.uz/products/"), item
+        if "footprint_w" in item:  # "130x70x78h" on the page: width × depth × height
+            assert 30 <= item["footprint_w"] <= 400 and 20 <= item["footprint_d"] <= 200, item
         with Image.open(demo.DATA_DIR / item["image"]) as im:
             assert max(im.size) <= 800
 
@@ -488,7 +514,7 @@ async def test_a_database_seeded_before_versions_gets_exactly_the_new_rows(env):
     assert (result["wallpapers"], result["existing"]) == (0, 0)
     assert result["stores"] == len({s["name"] for s, _ in newer})
     added = set(session.of(Store)) - stores_before
-    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx", "Divan.uz"}
+    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx", "Divan.uz", "Loftbek"}
     window_store = next(st for st in added if st.name.startswith("Deraza"))
     assert window_store.is_demo is True and "o'rtacha narx" in window_store.moderation_note
     windows = [m for m in session.of(Material) if m.store_id == window_store.id]
@@ -553,6 +579,7 @@ async def _seed_at_version_2(session, monkeypatch):
 async def test_the_v2_to_v3_upgrade_adds_only_the_carpets(env, monkeypatch):
     session, uploads, _ = env
     await _seed_at_version_2(session, monkeypatch)
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(CARPET_VERSION))
     stores_before, rows_before, uploads_before = set(session.of(Store)), len(session.rows), len(uploads.keys)
 
     result = await demo.seed_demo_stores()
@@ -579,6 +606,7 @@ async def test_the_v2_to_v3_upgrade_adds_only_the_carpets(env, monkeypatch):
 async def test_after_the_v3_upgrade_the_next_deploy_adds_nothing(env, monkeypatch):
     session, uploads, _ = env
     await _seed_at_version_2(session, monkeypatch)
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(CARPET_VERSION))
     await demo.seed_demo_stores()
     rows, n_uploads = len(session.rows), len(uploads.keys)
 
@@ -586,6 +614,25 @@ async def test_after_the_v3_upgrade_the_next_deploy_adds_nothing(env, monkeypatc
 
     assert result == {"status": "already_seeded", "version": CARPET_VERSION}
     assert len(session.rows) == rows and len(uploads.keys) == n_uploads
+
+
+async def test_the_v3_to_v4_upgrade_adds_only_loftbek(env, monkeypatch):
+    """Production after the carpet deploy (marker demo_stores_v3) gets Loftbek and nothing else."""
+    session, uploads, _ = env
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(CARPET_VERSION))
+    await demo.seed_demo_stores()
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    stores_before, uploads_before = set(session.of(Store)), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    items = next(s for s in CATALOG["stores"] if s["slug"] == "loftbek")["items"]
+    assert (result["from_version"], result["version"]) == (CARPET_VERSION, LOFTBEK_VERSION)
+    assert (result["stores"], result["furniture"], result["materials"]) == (1, len(items), 0)
+    added = set(session.of(Store)) - stores_before
+    assert [st.name for st in added] == ["Loftbek"] and added.pop().is_demo is True
+    assert len(uploads.keys) - uploads_before == len(items)
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{LOFTBEK_VERSION}"]
 
 
 async def test_a_remove_at_version_2_keeps_the_carpets_out(env, monkeypatch):
