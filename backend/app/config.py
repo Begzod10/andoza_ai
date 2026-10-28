@@ -54,11 +54,10 @@ class Settings(BaseSettings):
         return [c.strip() for c in self.GOOGLE_CLIENT_IDS.split(",") if c.strip()]
 
     # "Sign in with Apple": accepted `aud` values of Apple identity tokens
-    # (comma-separated). For the native iOS app that is its bundle id; the
-    # default is the current one and moves to the new bundle id via env
-    # (APPLE_CLIENT_IDS). A web Services ID can be added here later. Empty =
+    # (comma-separated). For the native iOS app that is its bundle id
+    # (uz.andozaai.app). A web Services ID can be added here later. Empty =
     # Apple sign-in off (503).
-    APPLE_CLIENT_IDS: str = "com.tamiruy.tamirUyMobileFlutter"
+    APPLE_CLIENT_IDS: str = "uz.andozaai.app"
 
     @property
     def APPLE_CLIENT_ID_LIST(self) -> List[str]:

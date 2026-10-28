@@ -428,18 +428,18 @@ Maydon qo'shilgach mobil'da: `is_demo == true` bo'lsa do'kon kartasi va mahsulot
 
 ---
 
-## 10. 2026-10-27: Apple orqali kirish va kontentga shikoyat (App Store talablari)
+## 11. 2026-10-27: Apple orqali kirish va kontentga shikoyat (App Store talablari)
 
 App Store ko'rigi uchun ikkita backend funksiyasi: **4.8** (Google bilan kirish bor ekan, "Sign in with Apple" ham bo'lishi kerak) va **1.2** (foydalanuvchilar e'lon qilgan kontentga shikoyat qilish imkoniyati).
 
 | # | Mavzu | Majburiymi |
 |---|---|---|
-| 10.1 | `POST /api/v1/auth/apple` | Ha, iOS'da (Google tugmasi yonida) |
-| 10.2 | `POST /api/v1/reports`, admin navbati | Ha (usta, portfolio, mahsulot, do'kon, oboy sahifalarida) |
+| 11.1 | `POST /api/v1/auth/apple` | Ha, iOS'da (Google tugmasi yonida) |
+| 11.2 | `POST /api/v1/reports`, admin navbati | Ha (usta, portfolio, mahsulot, do'kon, oboy sahifalarida) |
 
 Migration'lar: `1786000044` (`users.apple_sub`, unique indeks) va `1786000045` (`content_reports` jadvali).
 
-### 10.1 Apple orqali kirish
+### 11.1 Apple orqali kirish
 
 **So'rov:** `POST /api/v1/auth/apple`
 
@@ -460,9 +460,9 @@ Migration'lar: `1786000044` (`users.apple_sub`, unique indeks) va `1786000045` (
 
 **Xatolar:** `401` "Apple orqali kirib bo'lmadi. Qayta urinib ko'ring." (token yaroqsiz, `aud`/`iss` noto'g'ri, akkaunt o'chirilgan); `503` "Apple bilan bog'lanib bo'lmadi..." (Apple kalitlari olinmadi) yoki "Apple orqali kirish hozircha mavjud emas." (`APPLE_CLIENT_IDS` bo'sh); `429` IP bo'yicha 15 daqiqada 20 urinishdan keyin; `422` noto'g'ri tana.
 
-**Sozlama:** `APPLE_CLIENT_IDS` (vergul bilan). Standart qiymat hozirgi iOS bundle id `com.tamiruy.tamirUyMobileFlutter`. Bundle id o'zgarganda serverda env orqali yangisini qo'shing (o'tish davrida ikkalasini ham: `eski,yangi`).
+**Sozlama:** `APPLE_CLIENT_IDS` (vergul bilan). Standart qiymat iOS bundle id `uz.andozaai.app` (eski `com.tamiruy.tamirUyMobileFlutter` hech qachon chiqarilmagan).
 
-### 10.2 Kontentga shikoyat
+### 11.2 Kontentga shikoyat
 
 **So'rov (kirgan foydalanuvchi):** `POST /api/v1/reports`
 

@@ -23,7 +23,7 @@ from app.main import app
 from app.models.user import User
 from app.routers import auth as auth_router
 
-BUNDLE_ID = "com.tamiruy.tamirUyMobileFlutter"
+BUNDLE_ID = "uz.andozaai.app"
 
 
 class _Result:
