@@ -42,12 +42,17 @@ function Sparkle({ className = "" }: { className?: string }) {
  * the studio's own overlays, including the ⋮ menu and the edge arrows.
  */
 export function RenderSheet({
-  open, onOpenChange, roomId,
+  open, onOpenChange, roomId, mode = "render", canRender = true,
 }: {
   open: boolean
   onOpenChange(open: boolean): void
   /** The room being rendered: its pictures are saved against it and listed back. */
   roomId?: string
+  /** "render" (the 360 camera's button) renders at once; "gallery" only shows
+   *  the saved pictures, newest first, so looking at one costs no new render. */
+  mode?: "render" | "gallery"
+  /** A new render needs the 360 camera; without it the gallery says so instead. */
+  canRender?: boolean
 }) {
   const { t } = useTranslation()
   const [prompt, setPrompt] = useState("")
@@ -74,9 +79,15 @@ export function RenderSheet({
   useEffect(() => {
     if (!open || !roomId || phase === "capturing" || phase === "rendering" || phase === "relighting" || phase === "upscaling") return
     let stale = false
-    listRenders(roomId).then((rows) => { if (!stale) setSaved(rows) }).catch(() => {})
+    listRenders(roomId).then((rows) => {
+      if (stale) return
+      setSaved(rows)
+      // The gallery opens on the newest picture rather than an empty frame.
+      if (mode === "gallery" && phase === "idle" && rows[0]) showSaved(rows[0])
+    }).catch(() => {})
     return () => { stale = true }
-  }, [open, roomId, phase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showSaved only sets state
+  }, [open, roomId, phase, mode])
 
   /** Show a picture from the saved list; it can be relit or made 4K like a fresh one. */
   function showSaved(row: SavedRender) {
@@ -92,9 +103,9 @@ export function RenderSheet({
   }
 
   // Opened from the 360 camera: the panorama is taken and sent at once, with
-  // no further button to press. Opening again renders again.
+  // no further button to press. Opening again renders again. The gallery does not.
   useEffect(() => {
-    if (open) void start()
+    if (open && mode === "render") void start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -422,12 +433,13 @@ export function RenderSheet({
               )}
               <button
                 onClick={start}
-                disabled={busy}
+                disabled={busy || !canRender}
                 className="min-h-[48px] flex-1 rounded-full bg-brand text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
               >
-                {phase === "capturing" || phase === "rendering" ? t("render.jarayonda") : done ? t("render.qayta") : t("render.boshlash")}
+                {phase === "capturing" || phase === "rendering" ? t("render.jarayonda") : mode === "gallery" ? t("render.yangi") : done ? t("render.qayta") : t("render.boshlash")}
               </button>
             </div>
+            {!canRender && <p className="-mt-1 text-center text-xs text-gray-400">{t("render.kamera_kerak")}</p>}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -1195,6 +1195,9 @@
     "xato": "The model could not be created"
   },
   "render": {
+    "yangi": "New render",
+    "kamera_kerak": "Pick the 360 camera — a new render is taken from it",
+    "renderlarim": "My renders",
     "nomi": "Render",
     "sarlavha": "Realistic render",
     "izoh": "Creates a realistic image from the current view of the room. Takes a few seconds.",

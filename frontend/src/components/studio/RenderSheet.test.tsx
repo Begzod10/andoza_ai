@@ -76,6 +76,33 @@ describe('RenderSheet', () => {
     expect(viewerSrc()).toBe('https://s3/old.jpg')
   })
 
+  describe('the gallery', () => {
+    const row = (id: string, url: string) => ({
+      id, kind: 'upscale', url, key: `renders/u/${id}.jpg`, lighting: null, prompt: null, panorama: true,
+      parent_key: null, room_id: 'room-7', created_at: '2026-10-01T10:00:00Z',
+    })
+
+    it('opens on the newest saved picture and renders nothing', async () => {
+      listRenders.mockResolvedValue([row('new', 'https://s3/new.jpg'), row('old', 'https://s3/old.jpg')])
+      render(<RenderSheet open onOpenChange={() => {}} roomId="room-7" mode="gallery" />)
+
+      await waitFor(() => expect(viewerSrc()).toBe('https://s3/new.jpg'))
+      expect(panoramaJpeg).not.toHaveBeenCalled()
+      expect(createRender).not.toHaveBeenCalled()
+      expect(createUpscale).not.toHaveBeenCalled()
+    })
+
+    it('renders again only from its button, and not without the 360 camera', async () => {
+      listRenders.mockResolvedValue([row('new', 'https://s3/new.jpg')])
+      render(<RenderSheet open onOpenChange={() => {}} roomId="room-7" mode="gallery" canRender={false} />)
+      await waitFor(() => expect(viewerSrc()).toBe('https://s3/new.jpg'))
+
+      const button = screen.getByRole('button', { name: 'Yangi render' })
+      expect(button).toBeDisabled()
+      expect(screen.getByText(/360 kamerani tanlang/)).toBeInTheDocument()
+    })
+  })
+
   it('does nothing while closed', () => {
     render(<RenderSheet open={false} onOpenChange={() => {}} />)
     expect(panoramaJpeg).not.toHaveBeenCalled()
