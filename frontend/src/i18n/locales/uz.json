@@ -1195,6 +1195,9 @@
     "xato": "Model yaratilmadi"
   },
   "render": {
+    "yangi": "Yangi render",
+    "kamera_kerak": "360 kamerani tanlang — yangi render shu kameradan olinadi",
+    "renderlarim": "Renderlarim",
     "nomi": "Render",
     "sarlavha": "Realistik render",
     "izoh": "Xonaning hozirgi ko'rinishidan realistik rasm yaratadi. Bir necha soniya davom etadi.",
