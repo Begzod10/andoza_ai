@@ -8,7 +8,7 @@
 ## 1. Biz kimmiz
 
 andoza.ai — O'zbekistonda uy va kvartira ta'miri uchun onlayn platforma
-(https://andoza.jumaniyozov.uz, veb va iOS ilova). Foydalanuvchi:
+(https://andozaai.uz, veb va iOS ilova). Foydalanuvchi:
 
 1. xonasini o'lchaydi: qo'lda yoki telefon LiDAR skaneri bilan;
 2. 3D studiyada dizayn qiladi: devor, pol, shift qoplamalari, mebel, yoritish;
@@ -48,9 +48,59 @@ elektr va yoritish, mebel, uy jihozlari va dekor.
 | Asosiy rasm | ha | |
 | O'lchov birligi va o'ram | tavsiya | m², litr, kg, dona, rulon. Masalan "10 l chelak", "rulon 10,05 × 1,06 m". Smetada miqdorni to'g'ri hisoblash uchun juda muhim. |
 | Xususiyatlar (rang, o'lcham, material) | tavsiya | |
+| Mebel o'lchamlari: eni × chuqurligi × balandligi (sm) | mebel uchun ha | 3D studiya mebelni xonaga avtomatik joylashtiradi: o'lchamsiz tovarni joylab bo'lmaydi. Gilam va parda uchun: eni × uzunligi. |
+| 3D model (GLB/glTF) | ixtiyoriy | Bo'lsa, tovar studiyada o'z ko'rinishida chiqadi; bo'lmasa rasm va umumiy shakl ko'rsatiladi. |
 | Brend | tavsiya | |
 | Reyting va sharhlar soni | ixtiyoriy | |
 | Yetkazib berish muddati | ixtiyoriy | |
+
+### 3D studiyada ko'rsatiladigan tovarlar
+
+Quyidagi tovarlar faqat smetada emas, foydalanuvchining 3D xonasida ham ko'rinadi: u ularni
+xonaga qo'yib, o'lchami va rangi bilan qanday turishini ko'radi. Buning uchun har biri bo'yicha
+o'lcham va rang ma'lumoti tizimli (alohida maydonlarda) kerak.
+
+**Yuqori ustuvorlik**
+
+| Guruh | Tovar | Studiyada qanday | Kerakli ma'lumot |
+|---|---|---|---|
+| Tekstil | Pardalar | deraza ustida mato | eni × balandligi (sm), rang, mato rasmi |
+| Tekstil | Jalyuzi, rulon pardalar | deraza ustida | eni × balandligi, turi (rulon, vertikal, gorizontal), rang |
+| Tekstil | Gilamlar | polda | eni × uzunligi, rang, naqsh rasmi |
+| Mebel | Divan, kreslo, karavot, shkaf, stol, stul, TV tumba, javon, tumbochka | polda | eni × chuqurligi × balandligi, rang, material |
+| Dekor | Devor oynalari | devorda | eni × balandligi, ramka rangi |
+| Oshxona | Oshxona garnituri (modullar) | devor bo'ylab | har modul: eni × chuqurligi × balandligi, rang |
+| Oshxona | Gaz plita, varochnaya panel | oshxona qatorida | eni × chuqurligi × balandligi, turi (gaz, elektr) |
+| Oshxona | Vytyajka | devorda | eni, rang |
+| Oshxona | Muzlatgich | polda | eni × chuqurligi × balandligi, rang |
+| Hammom | Vanna, dush kabinasi | polda | eni × chuqurligi × balandligi, turi |
+| Hammom | Unitaz | polda | eni × chuqurligi × balandligi, o'rnatilishi (pol, devor) |
+| Hammom | Rakovina va tumba | polda yoki devorda | eni × chuqurligi × balandligi, rang |
+| Texnika | Konditsioner | devorda | eni × balandligi × chuqurligi |
+| Texnika | Televizor | devorda yoki tumba ustida | diagonal, eni × balandligi × chuqurligi |
+| Texnika | Kir yuvish mashinasi | polda | eni × chuqurligi × balandligi |
+| Yoritish | Qandil, osma chiroq, shift chirog'i | shiftda | diametri yoki o'lchami, rang |
+| Ta'mir | Oboy, bo'yoq, laminat, parket, plitka | devor va pol qoplamasi | o'ram yoki m² dagi narx, rang, naqsh |
+| Ta'mir | Eshik, deraza, plintus, karniz | devorda | eni × balandligi yoki uzunligi, rang |
+
+**O'rta ustuvorlik**
+
+| Guruh | Tovar | Studiyada qanday | Kerakli ma'lumot |
+|---|---|---|---|
+| Tekstil | Yotoq jihozlari (choyshab, ko'rpa) | karavot ustida | rang yoki naqsh, karavot o'lchami |
+| Dekor | Devor soatlari | devorda | diametri, rang |
+| Dekor | Rasmlar, kartinalar, posterlar | devorda | eni × balandligi, rasm |
+| Dekor | Gullar va tuvaklar | polda yoki stolda | balandligi, tuvak rangi |
+| Oshxona | Moyka va smesitel | garnitur ichida | o'lchami, materiali |
+| Hammom | Hammom oynasi va shkafi | devorda | eni × balandligi |
+| Hammom | Sochiq quritgich | devorda | eni × balandligi, turi (suvli, elektr) |
+| Texnika | Radiator, isitgich | devorda | eni × balandligi, seksiyalar soni |
+| Yoritish | Bra, torsher, stol chiroqlari | devorda yoki polda | o'lchami, rang |
+| Saqlash | Komod, poyabzal javoni | polda | eni × chuqurligi × balandligi, rang |
+
+Tovarlarning o'z 3D modeli bo'lishi shart emas: biz o'lchami va rangiga qarab umumiy shakl
+quramiz va Uzum'dagi tovar rasmini uning ustida ko'rsatamiz. 3D model (GLB) bo'lsa, tovar
+studiyada o'z ko'rinishida chiqadi.
 
 ## 4. Format va texnik shartlar
 
