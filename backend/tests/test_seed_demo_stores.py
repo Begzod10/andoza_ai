@@ -191,7 +191,7 @@ MATERIAL_UNITS = {"litr", "rulon", "m2", "qop", "dona", "m", "komplekt"}
 def test_the_v5_stores_are_new_in_version_5_with_sane_rows():
     from PIL import Image
 
-    assert demo.catalog_version(CATALOG) == V5
+    assert demo.catalog_version(CATALOG) >= V5
     assert {s["slug"] for s in CATALOG["stores"]
             if any(demo.item_since(s, i) == V5 for i in s["items"])} == set(V5_STORES)
     for slug, name in V5_STORES.items():
@@ -207,6 +207,22 @@ def test_the_v5_stores_are_new_in_version_5_with_sane_rows():
                     assert item["unit"] == "m2" and 30_000 <= item["price_uzs"] <= 5_000_000, item
             with Image.open(demo.DATA_DIR / item["image"]) as im:
                 assert max(im.size) <= 800
+
+
+V6 = 6
+
+
+def test_estimate_keys_are_ones_the_engine_can_price():
+    from app.services.smeta_keys import smeta_key_problem
+
+    keyed = [(s, i) for s, i in _items("material") if i.get("smeta_key")]
+    assert {i["smeta_key"] for _, i in keyed} == {"gipsokarton", "suvoq", "shpatlyovka", "kabel"}
+    for store, item in keyed:
+        assert demo.item_since(store, item) <= V5, item  # keys only, on rows production has
+        assert smeta_key_problem(item["smeta_key"], item["unit"], item.get("pack_qty"),
+                                 item.get("pack_unit")) is None, item
+        assert "фасад" not in item["name_uz"].lower() and "fasad" not in item["name_uz"].lower(), item
+    assert demo.catalog_version(CATALOG) == V6
 
 
 def test_no_photo_on_disk_is_unreferenced():
@@ -670,7 +686,7 @@ async def test_the_v4_to_v5_upgrade_adds_only_the_v5_stores(env, monkeypatch):
     session, uploads, _ = env
     monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(LOFTBEK_VERSION))
     await demo.seed_demo_stores()
-    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(V5))
     stores_before, uploads_before = set(session.of(Store)), len(uploads.keys)
 
     result = await demo.seed_demo_stores()
@@ -685,6 +701,49 @@ async def test_the_v4_to_v5_upgrade_adds_only_the_v5_stores(env, monkeypatch):
     assert all(st.is_demo for st in added)
     assert len(uploads.keys) - uploads_before == n_mat + n_fur
     assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{V5}"]
+
+
+def _without_keys(catalog: dict) -> dict:
+    """The catalog as version 5 shipped it: no estimate keys on any row."""
+    drop = ("smeta_key", "pack_qty", "pack_unit")
+    return {**catalog, "stores": [
+        {**s, "items": [{k: v for k, v in i.items() if k not in drop} for i in s["items"]]}
+        for s in catalog["stores"]]}
+
+
+async def test_the_v5_to_v6_upgrade_only_keys_the_materials_already_there(env, monkeypatch):
+    session, uploads, _ = env
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _without_keys(_catalog_upto(V5)))
+    await demo.seed_demo_stores()
+    assert not any(m.smeta_key for m in session.of(Material))
+    # An admin already keyed one of them by hand: that key stays.
+    keyed = {i["name_uz"]: i for _, i in _items("material") if i.get("smeta_key")}
+    hand = next(m for m in session.of(Material) if m.name_uz in keyed)
+    hand.smeta_key = "grunt"
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    rows, n_uploads = len(session.rows), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    assert (result["from_version"], result["version"]) == (V5, V6)
+    assert (result["stores"], result["materials"], result["furniture"]) == (0, 0, 0)
+    assert result["keyed"] == len(keyed) - 1
+    assert len(session.rows) == rows and len(uploads.keys) == n_uploads
+    for m in session.of(Material):
+        if m is hand:
+            assert m.smeta_key == "grunt"
+        elif m.name_uz in keyed:
+            item = keyed[m.name_uz]
+            assert (m.smeta_key, m.pack_qty, m.pack_unit) == (
+                item["smeta_key"], item.get("pack_qty"), item.get("pack_unit"))
+
+
+async def test_a_fresh_seed_inserts_the_estimate_keys(env):
+    session, _, _ = env
+    result = await demo.seed_demo_stores()
+    keyed = {i["name_uz"]: i["smeta_key"] for _, i in _items("material") if i.get("smeta_key")}
+    assert result["keyed"] == 0
+    assert {m.name_uz: m.smeta_key for m in session.of(Material) if m.smeta_key} == keyed
 
 
 async def test_a_remove_at_version_2_keeps_the_carpets_out(env, monkeypatch):
