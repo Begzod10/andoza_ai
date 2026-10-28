@@ -10,7 +10,8 @@ What this seeds
 ---------------
 Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Lumen LUX, Aura Lighting,
 Bestart, MAFF, the wallpaper shop Модные Стены, Divan.uz for carpets, added in catalog
-version 3, and Loftbek's loft office furniture, its whole range, added in version 4) with products (furniture, floor and door materials, wallpapers sold by the roll,
+version 3, Loftbek's loft office furniture, its whole range, added in version 4, and in
+version 5 Home Interior, Jaquar, Foondament, Quramiz, KS Lux and Europol) with products (furniture, floor and door materials, wallpapers sold by the roll,
 carpets as "boshqa" furniture named "Gilam ...") and photos taken from their public websites by
 ``scripts/demo_catalog/fetch.py`` into ``app/seed_data/demo_stores/``. There is no
 contract with these stores yet, so every store row has ``is_demo = true`` (and a

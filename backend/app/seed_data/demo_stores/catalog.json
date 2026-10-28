@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "stores": [
   {
    "slug": "dafna",
@@ -3092,6 +3092,2809 @@
      "height_cm": 80.0,
      "image": "images/loftbek/74.webp",
      "source_url": "https://loftbek.uz/products/monarch/"
+    }
+   ]
+  },
+  {
+   "slug": "home-interior",
+   "name": "Home Interior",
+   "website": "https://homeinterior.uz",
+   "since": 5,
+   "phone": "+998993690004",
+   "telegram": "@Homeinterior0004",
+   "items": [
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра LOFT IT Voa",
+     "category": "lampa",
+     "price_uzs": 17000000,
+     "placement": "shift",
+     "footprint_w": 130.0,
+     "height_cm": 41.0,
+     "image": "images/home-interior/1.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-loft-it-voa"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра потолочная",
+     "category": "lampa",
+     "price_uzs": 3920000,
+     "placement": "shift",
+     "footprint_w": 60.0,
+     "footprint_d": 60.0,
+     "image": "images/home-interior/2.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-potolochnaya"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра",
+     "category": "lampa",
+     "price_uzs": 4900000,
+     "placement": "shift",
+     "image": "images/home-interior/3.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "LED люстра",
+     "category": "lampa",
+     "price_uzs": 5285000,
+     "placement": "shift",
+     "footprint_w": 103.0,
+     "image": "images/home-interior/4.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/led-lyustra"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра HI 31017",
+     "category": "lampa",
+     "price_uzs": 3630000,
+     "placement": "shift",
+     "image": "images/home-interior/5.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-hi-31017"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра TILDA",
+     "category": "lampa",
+     "price_uzs": 10950000,
+     "placement": "shift",
+     "image": "images/home-interior/6.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-tilda"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра HI 6986",
+     "category": "lampa",
+     "price_uzs": 3140000,
+     "placement": "shift",
+     "image": "images/home-interior/7.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-hi-6986"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра HI 6563B",
+     "category": "lampa",
+     "price_uzs": 1815000,
+     "placement": "shift",
+     "image": "images/home-interior/8.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-hi-6563b"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра 7244",
+     "category": "lampa",
+     "price_uzs": 3210000,
+     "placement": "shift",
+     "image": "images/home-interior/9.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-7244"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра HI 4721",
+     "category": "lampa",
+     "price_uzs": 2515000,
+     "placement": "shift",
+     "footprint_w": 125.0,
+     "height_cm": 10.0,
+     "image": "images/home-interior/10.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/lyustra-hi-4721"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Бра Roxanne",
+     "category": "lampa",
+     "price_uzs": 5175000,
+     "placement": "devor",
+     "image": "images/home-interior/11.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/bra-roxanne"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Бра Maria Teresa",
+     "category": "lampa",
+     "price_uzs": 4540000,
+     "placement": "devor",
+     "image": "images/home-interior/12.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/bra-maria-teresa"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Бра OPERA",
+     "category": "lampa",
+     "price_uzs": 5880000,
+     "placement": "devor",
+     "image": "images/home-interior/13.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/bra-opera"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Бра 1306/1",
+     "category": "lampa",
+     "price_uzs": 3600000,
+     "placement": "devor",
+     "image": "images/home-interior/14.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/bra-1306-1"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Напольный торшер LEAF",
+     "category": "lampa",
+     "price_uzs": 1900000,
+     "placement": "pol",
+     "height_cm": 170.0,
+     "image": "images/home-interior/15.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/napolnyj-torsher-leaf"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Напольный торшер Crystal Cascade Gold",
+     "category": "lampa",
+     "price_uzs": 8000000,
+     "placement": "pol",
+     "image": "images/home-interior/16.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/napolnyj-torsher-crystal-cascade-gold"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Напольный торшер TEBE",
+     "category": "lampa",
+     "price_uzs": 13100000,
+     "placement": "pol",
+     "image": "images/home-interior/17.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/napolnyj-torsher-tebe"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Напольный торшер LIVIA",
+     "category": "lampa",
+     "price_uzs": 13740000,
+     "placement": "pol",
+     "footprint_w": 40.0,
+     "footprint_d": 40.0,
+     "image": "images/home-interior/18.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/napolnyj-torsher-livia"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Настольный торшер",
+     "category": "lampa",
+     "price_uzs": 1555000,
+     "placement": "pol",
+     "image": "images/home-interior/19.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/nastolnyj-torsher-10"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Настольный торшер, 114366",
+     "category": "lampa",
+     "price_uzs": 4330000,
+     "placement": "pol",
+     "footprint_w": 39.0,
+     "footprint_d": 39.0,
+     "height_cm": 63.0,
+     "image": "images/home-interior/20.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/nastolnyj-torsher-9"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Настольный торшер LEAF",
+     "category": "lampa",
+     "price_uzs": 840000,
+     "placement": "pol",
+     "image": "images/home-interior/21.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/nastolnyj-torsher-leaf"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Настольный торшер, HI-T4293",
+     "category": "lampa",
+     "price_uzs": 910000,
+     "placement": "pol",
+     "footprint_w": 20.0,
+     "footprint_d": 20.0,
+     "height_cm": 30.0,
+     "image": "images/home-interior/22.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/nastolnyj-torsher-7"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Capri",
+     "category": "divan",
+     "price_uzs": 19500000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/23.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/capri"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Valencia",
+     "category": "divan",
+     "price_uzs": 15000000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/24.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/valencia"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Софа в стиле TERMINAL",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/25.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/sofa-v-stile-terminal"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Roma",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/26.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/roma"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Saros",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/27.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/saros"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Bobby",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/28.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/bobby"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Frido",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/29.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/frido"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Диван Puffy 2",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/30.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/puffy-2"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Дизайнерский пуф",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/31.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/dizajnerskij-puf"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кресло дизайнерское",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/32.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/kreslo-dizajnerskoe-3"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кресло дизайнерское, HI-A80",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/33.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/kreslo-dizajnerskoe-2"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кресло дизайнерское, HI-A71",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/34.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/kreslo-dizajnerskoe-1"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кресло Vero",
+     "category": "divan",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/35.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/vero"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Пуфик (пони)",
+     "category": "divan",
+     "price_uzs": 8500000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/36.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/pufik-poni"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Арт-Кресло",
+     "category": "divan",
+     "price_uzs": 31435000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/37.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/art-kreslo"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Пуф 101050",
+     "category": "divan",
+     "price_uzs": 7200000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/38.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/puf-101050"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Пуф HTYG8493 14",
+     "category": "divan",
+     "price_uzs": 2700000,
+     "placement": "pol",
+     "room_type": "mehmonxona",
+     "image": "images/home-interior/39.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/puf-htyg8493-14"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Обеденный стол",
+     "category": "stol",
+     "price_uzs": 19500000,
+     "placement": "pol",
+     "image": "images/home-interior/40.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/dta-05"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Обеденный стол, DTA-04",
+     "category": "stol",
+     "price_uzs": 19500000,
+     "placement": "pol",
+     "image": "images/home-interior/41.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/dta-04"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Раскладной обеденный стол",
+     "category": "stol",
+     "price_uzs": 19500000,
+     "placement": "pol",
+     "image": "images/home-interior/42.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/dta-01"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стол обеденный Maria",
+     "category": "stol",
+     "price_uzs": null,
+     "placement": "pol",
+     "image": "images/home-interior/43.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/maria-1"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стол обеденный Braga",
+     "category": "stol",
+     "price_uzs": null,
+     "placement": "pol",
+     "image": "images/home-interior/44.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/braga"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стол обеденный Mozart",
+     "category": "stol",
+     "price_uzs": null,
+     "placement": "pol",
+     "image": "images/home-interior/45.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/mozart"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул COMO",
+     "category": "stul",
+     "price_uzs": 3185000,
+     "placement": "pol",
+     "image": "images/home-interior/46.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/stul-como"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул MADAME RED",
+     "category": "stul",
+     "price_uzs": 4550000,
+     "placement": "pol",
+     "image": "images/home-interior/47.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/stul-madame-red"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул MADAME II BLUE",
+     "category": "stul",
+     "price_uzs": 4550000,
+     "placement": "pol",
+     "image": "images/home-interior/48.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/stul-madame-ii-blue"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул LINAR",
+     "category": "stul",
+     "price_uzs": 3328000,
+     "placement": "pol",
+     "image": "images/home-interior/49.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/stul-linar"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул VELVET",
+     "category": "stul",
+     "price_uzs": 6604000,
+     "placement": "pol",
+     "image": "images/home-interior/50.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/stul-velvet"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Стул",
+     "category": "stul",
+     "price_uzs": 3770000,
+     "placement": "pol",
+     "image": "images/home-interior/51.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/dta-12"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кровать María",
+     "category": "karavot",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "yotoqxona",
+     "image": "images/home-interior/52.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/maria"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Кровать Emoción",
+     "category": "karavot",
+     "price_uzs": null,
+     "placement": "pol",
+     "room_type": "yotoqxona",
+     "image": "images/home-interior/53.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/emocion"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Зеркало",
+     "category": "boshqa",
+     "price_uzs": 5325000,
+     "placement": "devor",
+     "image": "images/home-interior/54.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/zerkalo"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Настенное зеркало Bubble",
+     "category": "boshqa",
+     "price_uzs": 7600000,
+     "placement": "devor",
+     "image": "images/home-interior/55.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/nastennoe-zerkalo-bubble"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Зеркало, 139917",
+     "category": "boshqa",
+     "price_uzs": 5590000,
+     "placement": "devor",
+     "image": "images/home-interior/56.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/zerkalo-41"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Зеркало, 106812",
+     "category": "boshqa",
+     "price_uzs": 3860000,
+     "placement": "devor",
+     "image": "images/home-interior/57.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/zerkalo-40"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Зеркало, 114999",
+     "category": "boshqa",
+     "price_uzs": 4368000,
+     "placement": "devor",
+     "image": "images/home-interior/58.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/zerkalo-38"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Зеркало, 118742",
+     "category": "boshqa",
+     "price_uzs": 4134000,
+     "placement": "devor",
+     "image": "images/home-interior/59.webp",
+     "source_url": "https://homeinterior.uz/magazin/product/zerkalo-33"
+    }
+   ]
+  },
+  {
+   "slug": "jaquar",
+   "name": "Jaquar",
+   "website": "https://jaquar.uz",
+   "since": 5,
+   "phone": "+998555555520",
+   "telegram": "@Jaquaruz",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный смеситель для ванны и душа ALI 85119",
+     "category": "santexnika",
+     "price_uzs": 3375000,
+     "unit": "dona",
+     "image": "images/jaquar/1.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/ali-85119"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный моноблочный смеситель для мойки с поворотным изливом ARI 39173B",
+     "category": "santexnika",
+     "price_uzs": 2000000,
+     "unit": "dona",
+     "image": "images/jaquar/2.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/ari-39173b"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный моноблочный смеситель для мойки с боковым рычагом COP 179B10PM",
+     "category": "santexnika",
+     "price_uzs": 1625000,
+     "unit": "dona",
+     "image": "images/jaquar/3.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/cop-179b10pm"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный смеситель для ванны и душа EKO 33119",
+     "category": "santexnika",
+     "price_uzs": 2000000,
+     "unit": "dona",
+     "image": "images/jaquar/4.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/eko-33119"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный смеситель для мойки с поворотным изливом в верхней части FLP 5165PM",
+     "category": "santexnika",
+     "price_uzs": 2125000,
+     "unit": "dona",
+     "image": "images/jaquar/5.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/flp-5165pm"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный смеситель для мойки с поворотным изливом FUS 29163",
+     "category": "santexnika",
+     "price_uzs": 2125000,
+     "unit": "dona",
+     "image": "images/jaquar/6.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/fus-29163"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Однорычажный смеситель для раковины без донного клапана FUP 29011B10PM",
+     "category": "santexnika",
+     "price_uzs": 1875000,
+     "unit": "dona",
+     "image": "images/jaquar/7.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/fup-29011b10pm"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Накладная раковина на столешницу ALS 85601",
+     "category": "santexnika",
+     "price_uzs": 4000000,
+     "unit": "dona",
+     "image": "images/jaquar/8.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/als-85601"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Безободковый подвесной унитаз скрытого монтажа с сиденьем UF ACS 87953NBIUF",
+     "category": "santexnika",
+     "price_uzs": 14500000,
+     "unit": "dona",
+     "image": "images/jaquar/9.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/acs-87953nbiuf"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Безободковый подвесной унитаз скрытого монтажа с узким сиденьем UF ARS 39953BIUFSM",
+     "category": "santexnika",
+     "price_uzs": 5875000,
+     "unit": "dona",
+     "image": "images/jaquar/10.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/ars-39953biufsm"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Безободковая чаша с бачком для компакт-унитаза с узким сиденьем UF CNS 759P180UFSMZ",
+     "category": "santexnika",
+     "price_uzs": 5625000,
+     "unit": "dona",
+     "image": "images/jaquar/11.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/cns-759p180ufsmz"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Накладная раковина на столешницу DRS 37601",
+     "category": "santexnika",
+     "price_uzs": 1875000,
+     "unit": "dona",
+     "image": "images/jaquar/12.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/drs-37601"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Безободковая чаша с бачком для удлинённого подвесного унитаза FLS 5353PPZ",
+     "category": "santexnika",
+     "price_uzs": 4875000,
+     "unit": "dona",
+     "image": "images/jaquar/13.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/fls-5353ppz"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Накладная раковина FNS 40931",
+     "category": "santexnika",
+     "price_uzs": 2125000,
+     "unit": "dona",
+     "image": "images/jaquar/14.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/fns-40931"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ручной душ ALD 565LP",
+     "category": "santexnika",
+     "price_uzs": 625000,
+     "unit": "dona",
+     "image": "images/jaquar/15.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/ald-565lp"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Верхний душ ALIVE MAZE OHS 85859M",
+     "category": "santexnika",
+     "price_uzs": 3000000,
+     "unit": "dona",
+     "image": "images/jaquar/16.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/ohs-85859m"
+    },
+    {
+     "kind": "material",
+     "name_uz": "BLACK: душевая панель 1500x200 мм с термостатическим смесителем SHP JA011",
+     "category": "santexnika",
+     "price_uzs": 17750000,
+     "unit": "dona",
+     "image": "images/jaquar/17.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/shp-ja011"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Многорежимный ручной душ HSH 1721",
+     "category": "santexnika",
+     "price_uzs": 1625000,
+     "unit": "dona",
+     "image": "images/jaquar/18.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/hsh-1721"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ALASKA: отдельностоящая ванна 1712x760x440/580 мм JBT FSBT177542X",
+     "category": "santexnika",
+     "price_uzs": 38000000,
+     "unit": "dona",
+     "image": "images/jaquar/19.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/jbt-fsbt177542x"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ALIVE 180x80x47: встраиваемая ванна JBT ALIVE180X",
+     "category": "santexnika",
+     "price_uzs": 12500000,
+     "unit": "dona",
+     "image": "images/jaquar/20.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/jbt-alive180x"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ARC 190x90x47: встраиваемая ванна JBT ARC190X",
+     "category": "santexnika",
+     "price_uzs": 18125000,
+     "unit": "dona",
+     "image": "images/jaquar/21.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/jbt-arc190x"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ARC 190x90x47: встраиваемая ванна с рамой из стали с порошковым JBT ARC190FX",
+     "category": "santexnika",
+     "price_uzs": 21875000,
+     "unit": "dona",
+     "image": "images/jaquar/22.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/jbt-arc190fx"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Угловое душевое ограждение с дверями BKE 0542033X",
+     "category": "santexnika",
+     "price_uzs": 16250000,
+     "unit": "dona",
+     "image": "images/jaquar/23.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/bke-0542033x"
+    },
+    {
+     "kind": "material",
+     "name_uz": "RITZ: ограждение из 3 элементов с петлями стекло-стекло JSE R830G2428L",
+     "category": "santexnika",
+     "price_uzs": 29375000,
+     "unit": "dona",
+     "image": "images/jaquar/24.webp",
+     "source_url": "https://www.jaquar.uz/ru/product/jse-r830g2428l"
+    }
+   ]
+  },
+  {
+   "slug": "foondament",
+   "name": "Foondament",
+   "website": "https://foondament.uz",
+   "since": 5,
+   "phone": "+998705031111",
+   "telegram": "@Foondamen",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "VERO Гипсокартон 1200x2500x9.5mm",
+     "category": "gips",
+     "price_uzs": 40000,
+     "unit": "dona",
+     "image": "images/foondament/1.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/vero-гипсокартон-1200x2500x9-5mm-173897"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VENTUM 710 Универсальная штукатурка для внутренних и наружных работ ROTTO FASAD AVTOMAT 25 кг",
+     "category": "gips",
+     "price_uzs": 37000,
+     "unit": "qop",
+     "image": "images/foondament/2.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-710-универсальная-штукатурка-для-внутренних-и-наружных-работ-rotto-fasad-avtomat-25-кг-140466"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон GLORY2500*1200*12,5",
+     "category": "gips",
+     "price_uzs": 43500,
+     "unit": "dona",
+     "image": "images/foondament/3.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-glory2500-1200-12-5-142451"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Megamix 51 Штукатурка для машинного нанесения \"MG 20\" (уп 25 кг)",
+     "category": "gips",
+     "price_uzs": 34000,
+     "unit": "qop",
+     "image": "images/foondament/4.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-51-штукатурка-для-машинного-нанесения-mg-20-уп-25-кг-139698"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Megamix 56 Шпаклевка универсальная \"FUGEGYPS\" (упак.25кг)",
+     "category": "gips",
+     "price_uzs": 42000,
+     "unit": "qop",
+     "image": "images/foondament/5.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-56-шпаклевка-универсальная-fugegyps-упак-25кг-139702"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VENTUM 508 Клей супер усиленный морозостойкий для плит мрамора и гранита плит-GRANIT 25 кг",
+     "category": "sement",
+     "price_uzs": 85000,
+     "unit": "qop",
+     "image": "images/foondament/6.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-508-клеи-супер-усиленныи-морозостоикии-для-плит-мрамора-и-гранита-плит-granit-25-кг-140456"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VENTUM 903 Заполнитель швов для гипсокартонных листов FIBERJOINT-10 кг",
+     "category": "gips",
+     "price_uzs": 20000,
+     "unit": "qop",
+     "image": "images/foondament/7.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-903-заполнитель-швов-для-гипсокартонных-листов-fiberjoint-10-кг-140467"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VENTUM START-609 Гипсовая штукатурка START- 23 кг",
+     "category": "gips",
+     "price_uzs": 27000,
+     "unit": "qop",
+     "image": "images/foondament/8.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-start-609-гипсовая-штукатурка-start-23-кг-140487"
+    },
+    {
+     "kind": "material",
+     "name_uz": "(Megamix 22) Клей для керамических изд. и т.п. плиток \"EXTRA\" (упак.25кг)",
+     "category": "sement",
+     "price_uzs": 44000,
+     "unit": "qop",
+     "image": "images/foondament/9.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-22-клеи-для-керамических-изд-и-т-п-плиток-extra-упак-25кг-137867"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон KNAUF 2500*1200*9,5мм",
+     "category": "gips",
+     "price_uzs": 53500,
+     "unit": "dona",
+     "image": "images/foondament/10.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-2500-1200-9-5мм-142454"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон KNAUF ГКЛ 2500*1200*12,5мм влага",
+     "category": "gips",
+     "price_uzs": 75500,
+     "unit": "dona",
+     "image": "images/foondament/11.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-гкл-2500-1200-12-5мм-влага-142455"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон SINOGIPS 2500*1200*12.5 влага",
+     "category": "gips",
+     "price_uzs": 65000,
+     "unit": "dona",
+     "image": "images/foondament/12.webp",
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-sinogips-2500-1200-12-5-влага-142458"
+    },
+    {
+     "kind": "material",
+     "name_uz": "(FORTEX) Клей для керамических изд. и т.п. плиток (упак.25кг)",
+     "category": "sement",
+     "price_uzs": 28500,
+     "unit": "qop",
+     "image": "images/foondament/13.webp",
+     "source_url": "https://foondament.uz/en/shop/fortex-клеи-для-керамических-изд-и-т-п-плиток-упак-25кг-173166"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VENTUM 507 Клей усиленный морозостойкий для объемных и тяжелых мраморных и гранитных плит-TITAN 25 кг",
+     "category": "sement",
+     "price_uzs": 48000,
+     "unit": "qop",
+     "image": "images/foondament/14.webp",
+     "source_url": "https://foondament.uz/en/shop/ventum-507-клеи-усиленныи-морозостоикии-для-объемных-и-тяжелых-мраморных-и-гранитных-плит-titan-25-кг-140455"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Смеситель ГУЛНИХАЛ для кухни 204",
+     "category": "santexnika",
+     "price_uzs": 325000,
+     "unit": "dona",
+     "image": "images/foondament/15.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-смеситель-гулнихал-для-кухни-204-137754"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Смеситель ГУЛНИХАЛ для кухни 206",
+     "category": "santexnika",
+     "price_uzs": 276000,
+     "unit": "dona",
+     "image": "images/foondament/16.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-смеситель-гулнихал-для-кухни-206-137755"
+    },
+    {
+     "kind": "material",
+     "name_uz": "D263 СМЕСИТЕЛЬ ДЛЯ КУХНИ BOOU ЛАЙЛЕ 8156PB-10F КОРА",
+     "category": "santexnika",
+     "price_uzs": 280000,
+     "unit": "dona",
+     "image": "images/foondament/17.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/d263-смеситель-для-кухни-boou-лаиле-8156pb-10f-кора-138824"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Лейка САФИР двойная",
+     "category": "santexnika",
+     "price_uzs": 569000,
+     "unit": "dona",
+     "image": "images/foondament/18.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-леика-сафир-двоиная-137560"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Лейка САФИР простая",
+     "category": "santexnika",
+     "price_uzs": 107000,
+     "unit": "dona",
+     "image": "images/foondament/19.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-леика-сафир-простая-137561"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Лейка САФИР тахорат",
+     "category": "santexnika",
+     "price_uzs": 162000,
+     "unit": "dona",
+     "image": "images/foondament/20.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-леика-сафир-тахорат-137563"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Смеситель НЕРГИЗ для ванны",
+     "category": "santexnika",
+     "price_uzs": 406000,
+     "unit": "dona",
+     "image": "images/foondament/21.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-смеситель-нергиз-для-ванны-137737"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Смеситель ХИЛАЛ для кухни 216",
+     "category": "santexnika",
+     "price_uzs": 406000,
+     "unit": "dona",
+     "image": "images/foondament/22.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-faucets-showers-51/kas-смеситель-хилал-для-кухни-216-137744"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Сифон прямой 7013",
+     "category": "santexnika",
+     "price_uzs": 28000,
+     "unit": "dona",
+     "image": "images/foondament/23.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/сифон-прямои-7013-174161"
+    },
+    {
+     "kind": "material",
+     "name_uz": "PRO AQUA Труба для внутренней канализации 50*1000",
+     "category": "santexnika",
+     "price_uzs": 22500,
+     "unit": "dona",
+     "image": "images/foondament/24.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/pro-aqua-труба-для-внутреннеи-канализации-50-1000-139848"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Рокавина сифон пимой 6316",
+     "category": "santexnika",
+     "price_uzs": 25000,
+     "unit": "dona",
+     "image": "images/foondament/25.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/рокавина-сифон-пимои-6316-174153"
+    },
+    {
+     "kind": "material",
+     "name_uz": "9731 Трап кафел 300 мм 5001 никел",
+     "category": "santexnika",
+     "price_uzs": 210000,
+     "unit": "dona",
+     "image": "images/foondament/26.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/9731-трап-кафел-300-мм-5001-никел-173598"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Vero Канализационная труба пвх 3,2мм 160/ 2 м",
+     "category": "santexnika",
+     "price_uzs": 79860,
+     "unit": "dona",
+     "image": "images/foondament/27.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/vero-канализационная-труба-пвх-3-2мм-160-2-м-140626"
+    },
+    {
+     "kind": "material",
+     "name_uz": "D5803 ТРАП КАФЕЛЬ КОРА 30 СМ 1999BLACK",
+     "category": "santexnika",
+     "price_uzs": 270000,
+     "unit": "dona",
+     "image": "images/foondament/28.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-drains-traps-sewer-52/d5803-трап-кафель-кора-30-см-1999black-139070"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" Мини шаровый кран в/р.ф25",
+     "category": "santexnika",
+     "price_uzs": 19563,
+     "unit": "dona",
+     "image": "images/foondament/29.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-valves-ball-valves-50/kas-мини-шаровыи-кран-в-р-ф25-1-174486"
+    },
+    {
+     "kind": "material",
+     "name_uz": "\"KAS\" ППР Шаровой кран ф50",
+     "category": "santexnika",
+     "price_uzs": 196504,
+     "unit": "dona",
+     "image": "images/foondament/30.webp",
+     "source_url": "https://foondament.uz/en/shop/plumbing-valves-ball-valves-50/kas-ппр-шаровои-кран-ф50-137127"
+    },
+    {
+     "kind": "material",
+     "name_uz": "TESS odea розетка з/й 1 белый",
+     "category": "elektr_mat",
+     "price_uzs": 20500,
+     "unit": "dona",
+     "image": "images/foondament/31.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-sockets-switches-62/tess-odea-розетка-з-и-1-белыи-140222"
+    },
+    {
+     "kind": "material",
+     "name_uz": "TESS odea розетка 1 золото",
+     "category": "elektr_mat",
+     "price_uzs": 18000,
+     "unit": "dona",
+     "image": "images/foondament/32.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-sockets-switches-62/tess-odea-розетка-1-золото-140214"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Авт. выкл. NEXT NXB-63 6kA 2P х-ка C 16A",
+     "category": "elektr_mat",
+     "price_uzs": 32000,
+     "unit": "dona",
+     "image": "images/foondament/33.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-circuit-breakers-panels-63/авт-выкл-next-nxb-63-6ka-2p-х-ка-c-16a-141264"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Авт. выкл. NEXT NXB-63 6kA 2P х-ка C 6A",
+     "category": "elektr_mat",
+     "price_uzs": 38000,
+     "unit": "dona",
+     "image": "images/foondament/34.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-circuit-breakers-panels-63/авт-выкл-next-nxb-63-6ka-2p-х-ка-c-6a-141274"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Авт. выкл. DZ158-125 4P 80A 6kA",
+     "category": "elektr_mat",
+     "price_uzs": 210500,
+     "unit": "dona",
+     "image": "images/foondament/35.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-circuit-breakers-panels-63/авт-выкл-dz158-125-4p-80a-6ka-141244"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Avtomat c16amperli Hager",
+     "category": "elektr_mat",
+     "price_uzs": 100000,
+     "unit": "dona",
+     "image": "images/foondament/36.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-circuit-breakers-panels-63/avtomat-c16amperli-hager-174354"
+    },
+    {
+     "kind": "material",
+     "name_uz": "VIKO щит S/A Sigorta kutusu х24",
+     "category": "elektr_mat",
+     "price_uzs": 190000,
+     "unit": "dona",
+     "image": "images/foondament/37.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-circuit-breakers-panels-63/viko-щит-s-a-sigorta-kutusu-х24-140562"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ПВС 2х2,5 Турон кабел",
+     "category": "elektr_mat",
+     "price_uzs": 11600,
+     "unit": "m",
+     "image": "images/foondament/38.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-cables-wires-65/пвс-2х2-5-турон-кабел-169418"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Пвс 2/075",
+     "category": "elektr_mat",
+     "price_uzs": 5200,
+     "unit": "m",
+     "image": "images/foondament/39.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-cables-wires-65/пвс-2-075-144364"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Пвс 3*075",
+     "category": "elektr_mat",
+     "price_uzs": 11000,
+     "unit": "m",
+     "image": "images/foondament/40.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-cables-wires-65/пвс-3-075-173490"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Lucem кругли акриловый датчик 18W",
+     "category": "lampa",
+     "price_uzs": 75000,
+     "placement": "shift",
+     "image": "images/foondament/41.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/lucem-кругли-акриловыи-датчик-18w-139614"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "\"UNILED\" LED PANEL 48 Вт (R) 4000K",
+     "category": "lampa",
+     "price_uzs": 113000,
+     "placement": "shift",
+     "image": "images/foondament/42.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/uniled-led-panel-48-вт-r-4000k-137862"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Nura Plafon Sauna Oval 12W",
+     "category": "lampa",
+     "price_uzs": 36300,
+     "placement": "shift",
+     "image": "images/foondament/43.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/nura-plafon-sauna-oval-12w-139747"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Nura Plafon Sauna Oval 18W",
+     "category": "lampa",
+     "price_uzs": 44900,
+     "placement": "shift",
+     "image": "images/foondament/44.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/nura-plafon-sauna-oval-18w-139748"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Nura Plafon Sauna круг 12W",
+     "category": "lampa",
+     "price_uzs": 36300,
+     "placement": "shift",
+     "image": "images/foondament/45.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/nura-plafon-sauna-круг-12w-139749"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "СТАЛКЕР Akril LED 24W квадрат внутренний",
+     "category": "lampa",
+     "price_uzs": 28000,
+     "placement": "shift",
+     "image": "images/foondament/46.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/7505255803831-сталкер-akril-led-24w-квадрат-внутреннии-137410"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "СТАЛКЕР Akril LED 24W круг внутренний",
+     "category": "lampa",
+     "price_uzs": 25000,
+     "placement": "shift",
+     "image": "images/foondament/47.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/сталкер-akril-led-24w-круг-внутреннии-137412"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "СТАЛКЕР Akril LED 48W квадрат внутренний",
+     "category": "lampa",
+     "price_uzs": 72000,
+     "placement": "shift",
+     "image": "images/foondament/48.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/сталкер-akril-led-48w-квадрат-внутреннии-137418"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "СТАЛКЕР Akril LED 48W круг внутренний",
+     "category": "lampa",
+     "price_uzs": 65000,
+     "placement": "shift",
+     "image": "images/foondament/49.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/сталкер-akril-led-48w-круг-внутреннии-137420"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Nura Plafon Sauna круг 24W",
+     "category": "lampa",
+     "price_uzs": 65000,
+     "placement": "shift",
+     "image": "images/foondament/50.webp",
+     "source_url": "https://foondament.uz/en/shop/electrical-lighting-64/nura-plafon-sauna-круг-24w-174408"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Inoria LUX ALKYD ENAMEL PORLOQ (инория ) 0,75 LT",
+     "category": "boyoq",
+     "price_uzs": 76000,
+     "unit": "litr",
+     "image": "images/foondament/51.webp",
+     "source_url": "https://foondament.uz/en/shop/paints-finishing-paints-emulsions-74/inoria-lux-alkyd-enamel-porloq-инория-0-75-lt-137277"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Inoria LUX ALKYD ENAMEL PORLOQ (инория ) 2,5 LT",
+     "category": "boyoq",
+     "price_uzs": 68400,
+     "unit": "litr",
+     "image": "images/foondament/52.webp",
+     "source_url": "https://foondament.uz/en/shop/paints-finishing-paints-emulsions-74/m2406-2469-inoria-lux-alkyd-enamel-porloq-инория-2-5-lt-137278"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Inoria MATT ALKYD ENAMEL (инория ) 1,13 LT",
+     "category": "boyoq",
+     "price_uzs": 44248,
+     "unit": "litr",
+     "image": "images/foondament/53.webp",
+     "source_url": "https://foondament.uz/en/shop/paints-finishing-paints-emulsions-74/inoria-matt-alkyd-enamel-инория-1-13-lt-137279"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Inoria MATT ALKYD ENAMEL (инория ) 3,75 LT",
+     "category": "boyoq",
+     "price_uzs": 36000,
+     "unit": "litr",
+     "image": "images/foondament/54.webp",
+     "source_url": "https://foondament.uz/en/shop/paints-finishing-paints-emulsions-74/inoria-matt-alkyd-enamel-инория-3-75-lt-137280"
+    }
+   ]
+  },
+  {
+   "slug": "quramiz",
+   "name": "Quramiz",
+   "website": "https://quramiz.uz",
+   "since": 5,
+   "phone": "+998555885080",
+   "telegram": "@quramiz_support",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Elegans Extra полуматовая/глубокоматовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 96026,
+     "unit": "litr",
+     "image": "images/quramiz/1.webp",
+     "source_url": "https://quramiz.uz/cl/product/8809"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Elegans Extra матовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 96026,
+     "unit": "litr",
+     "image": "images/quramiz/2.webp",
+     "source_url": "https://quramiz.uz/cl/product/8813"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Perla Siliconlu полуматовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 43753,
+     "unit": "litr",
+     "image": "images/quramiz/3.webp",
+     "source_url": "https://quramiz.uz/cl/product/8826"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Primera Silicone матовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 61904,
+     "unit": "litr",
+     "image": "images/quramiz/4.webp",
+     "source_url": "https://quramiz.uz/cl/product/8842"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Perla Silicone матовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 56047,
+     "unit": "litr",
+     "image": "images/quramiz/5.webp",
+     "source_url": "https://quramiz.uz/cl/product/8846"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Perla матовая 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 48013,
+     "unit": "litr",
+     "image": "images/quramiz/6.webp",
+     "source_url": "https://quramiz.uz/cl/product/8850"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan Exelans Turbo 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 90701,
+     "unit": "litr",
+     "image": "images/quramiz/7.webp",
+     "source_url": "https://quramiz.uz/cl/product/8902"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Краска Polisan A1 Silicone Duz 2,5 л",
+     "category": "boyoq",
+     "price_uzs": 64033,
+     "unit": "litr",
+     "image": "images/quramiz/8.webp",
+     "source_url": "https://quramiz.uz/cl/product/8913"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Шпатлевка гипсовая Ventum, Satenser 600",
+     "category": "gips",
+     "price_uzs": 33500,
+     "unit": "qop",
+     "image": "images/quramiz/9.webp",
+     "source_url": "https://quramiz.uz/cl/product/13842"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Шпаклёвка гипсовая Ventum, Finish-602",
+     "category": "gips",
+     "price_uzs": 33500,
+     "unit": "qop",
+     "image": "images/quramiz/10.webp",
+     "source_url": "https://quramiz.uz/cl/product/13843"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Шпатлевка гипсовая Ventum, Gipsli Shpatlevka 604",
+     "category": "gips",
+     "price_uzs": 32000,
+     "unit": "qop",
+     "image": "images/quramiz/11.webp",
+     "source_url": "https://quramiz.uz/cl/product/13844"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Шпатлевка фасадная Ventum, Fasafer 700",
+     "category": "gips",
+     "price_uzs": 38500,
+     "unit": "qop",
+     "image": "images/quramiz/12.webp",
+     "source_url": "https://quramiz.uz/cl/product/13848"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсовая штукатурка Ventum, Rotto-610",
+     "category": "gips",
+     "price_uzs": 35000,
+     "unit": "qop",
+     "image": "images/quramiz/13.webp",
+     "source_url": "https://quramiz.uz/cl/product/13846"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Универсальная штукатурка Ventum, Fasad-710",
+     "category": "gips",
+     "price_uzs": 34500,
+     "unit": "qop",
+     "image": "images/quramiz/14.webp",
+     "source_url": "https://quramiz.uz/cl/product/13850"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Штукатурка гипсовая универсальная Knauf ротбанд, 25 кг",
+     "category": "gips",
+     "price_uzs": 48500,
+     "unit": "qop",
+     "image": "images/quramiz/15.webp",
+     "source_url": "https://quramiz.uz/cl/product/28866"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон Потолочный Knauf 1200x2500x9,5mm",
+     "category": "gips",
+     "price_uzs": 53500,
+     "unit": "dona",
+     "image": "images/quramiz/16.webp",
+     "source_url": "https://quramiz.uz/cl/product/28862"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Гипсокартон Потолочный Vero 2500х1200х9,0мм",
+     "category": "gips",
+     "price_uzs": 38000,
+     "unit": "dona",
+     "image": "images/quramiz/17.webp",
+     "source_url": "https://quramiz.uz/cl/product/28871"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Цемент M500 Heidelberg Materials Kazakhstan, 50 кг",
+     "category": "sement",
+     "price_uzs": 46000,
+     "unit": "qop",
+     "image": "images/quramiz/18.webp",
+     "source_url": "https://quramiz.uz/cl/product/30817"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Цемент HuaXin M500 Euro 50 кг",
+     "category": "sement",
+     "price_uzs": 41000,
+     "unit": "qop",
+     "image": "images/quramiz/19.webp",
+     "source_url": "https://quramiz.uz/cl/product/30931"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Клей водостойкий Ventum, Graniter 501",
+     "category": "sement",
+     "price_uzs": 44500,
+     "unit": "qop",
+     "image": "images/quramiz/20.webp",
+     "source_url": "https://quramiz.uz/cl/product/13830"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Клей для керамических плито Ventum 25 кг Baza 503",
+     "category": "sement",
+     "price_uzs": 32200,
+     "unit": "qop",
+     "image": "images/quramiz/21.webp",
+     "source_url": "https://quramiz.uz/cl/product/13831"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Клей для керамических плиток Ventum, Ekoter 504",
+     "category": "sement",
+     "price_uzs": 38000,
+     "unit": "qop",
+     "image": "images/quramiz/22.webp",
+     "source_url": "https://quramiz.uz/cl/product/13832"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Клей водостойкий морозостойкий усиленный Ventum, Konfor 505",
+     "category": "sement",
+     "price_uzs": 42500,
+     "unit": "qop",
+     "image": "images/quramiz/23.webp",
+     "source_url": "https://quramiz.uz/cl/product/13833"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, R CASTELLO B, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/24.webp",
+     "source_url": "https://quramiz.uz/cl/product/23769"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, R HERMES G, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/25.webp",
+     "source_url": "https://quramiz.uz/cl/product/23770"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, RC ALPICA BR, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/26.webp",
+     "source_url": "https://quramiz.uz/cl/product/23771"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, RC DAMAR BL, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/27.webp",
+     "source_url": "https://quramiz.uz/cl/product/23772"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, RC GREYS G, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/28.webp",
+     "source_url": "https://quramiz.uz/cl/product/23773"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит (кафель) Lux ceramics group, RC XIVA LB, 600x600 мм",
+     "category": "plitka",
+     "price_uzs": 120750,
+     "unit": "m2",
+     "image": "images/quramiz/29.webp",
+     "source_url": "https://quramiz.uz/cl/product/23774"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Выключатель Lezard MIRA белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 9317,
+     "unit": "dona",
+     "image": "images/quramiz/30.webp",
+     "source_url": "https://quramiz.uz/cl/product/23104"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Выключатель Lezard MIRA двойной белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 10648,
+     "unit": "dona",
+     "image": "images/quramiz/31.webp",
+     "source_url": "https://quramiz.uz/cl/product/23105"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Выключатель Lezard MIRA тройной белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 18634,
+     "unit": "dona",
+     "image": "images/quramiz/32.webp",
+     "source_url": "https://quramiz.uz/cl/product/23106"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Розетка Lezard MIRA 1-ная б/з керамика белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 13310,
+     "unit": "dona",
+     "image": "images/quramiz/33.webp",
+     "source_url": "https://quramiz.uz/cl/product/23125"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Розетка Lezard MIRA 1-ная с/з керамика белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 15972,
+     "unit": "dona",
+     "image": "images/quramiz/34.webp",
+     "source_url": "https://quramiz.uz/cl/product/23128"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Розетка Lezard MIRA 2-ная с/з керамика белый с белой вставкой",
+     "category": "elektr_mat",
+     "price_uzs": 18634,
+     "unit": "dona",
+     "image": "images/quramiz/35.webp",
+     "source_url": "https://quramiz.uz/cl/product/23129"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Автоматический выключатель IEK,BA 47-29 1P 10А 4,5кА",
+     "category": "elektr_mat",
+     "price_uzs": 17303,
+     "unit": "dona",
+     "image": "images/quramiz/36.webp",
+     "source_url": "https://quramiz.uz/cl/product/19944"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Автоматический выключатель IEK,BA 47-29 1P 16А 4,5кА",
+     "category": "elektr_mat",
+     "price_uzs": 17303,
+     "unit": "dona",
+     "image": "images/quramiz/37.webp",
+     "source_url": "https://quramiz.uz/cl/product/19945"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Автоматический выключатель IEK,BA 47-29 1P 20А 4,5кА",
+     "category": "elektr_mat",
+     "price_uzs": 17303,
+     "unit": "dona",
+     "image": "images/quramiz/38.webp",
+     "source_url": "https://quramiz.uz/cl/product/19946"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Провода установочные с медной жило Uzkabel,ПуВ-3 1х1,50",
+     "category": "elektr_mat",
+     "price_uzs": 2927,
+     "unit": "m",
+     "image": "images/quramiz/39.webp",
+     "source_url": "https://quramiz.uz/cl/product/31"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Провода установочные с медной жило Uzkabel,ПуВ-3 1х2,50",
+     "category": "elektr_mat",
+     "price_uzs": 4921,
+     "unit": "m",
+     "image": "images/quramiz/40.webp",
+     "source_url": "https://quramiz.uz/cl/product/32"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Провода установочные с медной жило Uzkabel,ПуВ-3 1х4,00",
+     "category": "elektr_mat",
+     "price_uzs": 7688,
+     "unit": "m",
+     "image": "images/quramiz/41.webp",
+     "source_url": "https://quramiz.uz/cl/product/34"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина над столешницей Duravit, capecod, прямоугольная 460x460 мм",
+     "category": "santexnika",
+     "price_uzs": 7420000,
+     "unit": "dona",
+     "image": "images/quramiz/42.webp",
+     "source_url": "https://quramiz.uz/cl/product/30412"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина над столешницей Duravit, capecod, круглая 480x480 мм",
+     "category": "santexnika",
+     "price_uzs": 7420000,
+     "unit": "dona",
+     "image": "images/quramiz/43.webp",
+     "source_url": "https://quramiz.uz/cl/product/30413"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина мебельная Duravit, d-neo, 1230x490 мм",
+     "category": "santexnika",
+     "price_uzs": 11900000,
+     "unit": "dona",
+     "image": "images/quramiz/44.webp",
+     "source_url": "https://quramiz.uz/cl/product/30414"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Клапан анти-запахный к роговому сифону Akvo, для ванной, 95 мм",
+     "category": "santexnika",
+     "price_uzs": 21000,
+     "unit": "dona",
+     "image": "images/quramiz/45.webp",
+     "source_url": "https://quramiz.uz/cl/product/30522"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Сифон прямой Akvo, G2100, 100 мм",
+     "category": "santexnika",
+     "price_uzs": 107800,
+     "unit": "dona",
+     "image": "images/quramiz/46.webp",
+     "source_url": "https://quramiz.uz/cl/product/30531"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Канализационный трап Akvo, сатин, боковой выход, 600 мм",
+     "category": "santexnika",
+     "price_uzs": 1232000,
+     "unit": "dona",
+     "image": "images/quramiz/47.webp",
+     "source_url": "https://quramiz.uz/cl/product/30472"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Канализационный трап Akvo, сатин, вертикальный выход, 700 мм",
+     "category": "santexnika",
+     "price_uzs": 1316000,
+     "unit": "dona",
+     "image": "images/quramiz/48.webp",
+     "source_url": "https://quramiz.uz/cl/product/30473"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Полотенцесушитель Terminus, люкс версаль, бронза П6 500x1100 мм",
+     "category": "santexnika",
+     "price_uzs": 14000000,
+     "unit": "dona",
+     "image": "images/quramiz/49.webp",
+     "source_url": "https://quramiz.uz/cl/product/30217"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Полотенцесушитель Terminus, люкс, ватра с полкой, П7+К 500x696 мм",
+     "category": "santexnika",
+     "price_uzs": 6160000,
+     "unit": "dona",
+     "image": "images/quramiz/50.webp",
+     "source_url": "https://quramiz.uz/cl/product/30218"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра потолочная 158-17830 Tekled SY1170-8+4 12XE14",
+     "category": "lampa",
+     "price_uzs": 1793219,
+     "placement": "shift",
+     "image": "images/quramiz/51.webp",
+     "source_url": "https://quramiz.uz/cl/product/32985"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра потолочная 158-17868 Tekled SY1156-D4 4XE27",
+     "category": "lampa",
+     "price_uzs": 990264,
+     "placement": "shift",
+     "image": "images/quramiz/52.webp",
+     "source_url": "https://quramiz.uz/cl/product/32995"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра потолочная 158-17872 Tekled ГИТАРА 3288-6 6xE27",
+     "category": "lampa",
+     "price_uzs": 1452000,
+     "placement": "shift",
+     "image": "images/quramiz/53.webp",
+     "source_url": "https://quramiz.uz/cl/product/32997"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Люстра потолочная 159-17512 Tekled 5004D 24xG9 КОФЕ Д950хШ360хВ280",
+     "category": "lampa",
+     "price_uzs": 4068020,
+     "placement": "shift",
+     "image": "images/quramiz/54.webp",
+     "source_url": "https://quramiz.uz/cl/product/33361"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник настенный бра 151-17637 Tekled MB21016-1 E14 40W БРОНЗОВЫЙ",
+     "category": "lampa",
+     "price_uzs": 103212,
+     "placement": "devor",
+     "image": "images/quramiz/55.webp",
+     "source_url": "https://quramiz.uz/cl/product/32689"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник настенный бра 151-17672 Tekled 12341-3 E14 60W ХРОМ",
+     "category": "lampa",
+     "price_uzs": 193479,
+     "placement": "devor",
+     "image": "images/quramiz/56.webp",
+     "source_url": "https://quramiz.uz/cl/product/32690"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник настенный бра 151-17673 Tekled 12341-4 E14 60W CHROME",
+     "category": "lampa",
+     "price_uzs": 257972,
+     "placement": "devor",
+     "image": "images/quramiz/57.webp",
+     "source_url": "https://quramiz.uz/cl/product/32691"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник 254-15090 Tekled RH 1876C M черный E27",
+     "category": "lampa",
+     "price_uzs": 144353,
+     "placement": "shift",
+     "image": "images/quramiz/58.webp",
+     "source_url": "https://quramiz.uz/cl/product/34304"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник ELT Шар PMMA D200 Opal",
+     "category": "lampa",
+     "price_uzs": 33275,
+     "placement": "shift",
+     "image": "images/quramiz/59.webp",
+     "source_url": "https://quramiz.uz/cl/product/23021"
+    },
+    {
+     "kind": "furniture",
+     "name_uz": "Светильник ELT Шар PMMA D250 прозрачный",
+     "category": "lampa",
+     "price_uzs": 53240,
+     "placement": "shift",
+     "image": "images/quramiz/60.webp",
+     "source_url": "https://quramiz.uz/cl/product/23023"
+    }
+   ]
+  },
+  {
+   "slug": "ks-lux",
+   "name": "KS Lux",
+   "website": "https://kslux.uz",
+   "since": 5,
+   "phone": "+998781138896",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Magno Oak",
+     "category": "laminat",
+     "price_uzs": 293997,
+     "unit": "m2",
+     "image": "images/ks-lux/1.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-magno-oak/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Albar Kalas Oak",
+     "category": "laminat",
+     "price_uzs": 293985,
+     "unit": "m2",
+     "image": "images/ks-lux/2.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-albar-kalas-oak/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu Floorpan Green FP104 Дуб Ливерпуль (без фаски)",
+     "category": "laminat",
+     "price_uzs": 72018,
+     "unit": "m2",
+     "image": "images/ks-lux/3.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-kastamonu-floorpan-green-fp104-dub-liverpul/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu SunFloor Дуб Бремен SF61",
+     "category": "laminat",
+     "price_uzs": 106939,
+     "unit": "m2",
+     "image": "images/ks-lux/4.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-kastamonu-dub-bremen-sf61/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu Floorpan Cherry FP460 Дуб Валенсия",
+     "category": "laminat",
+     "price_uzs": 106939,
+     "unit": "m2",
+     "image": "images/ks-lux/5.webp",
+     "source_url": "https://kslux.uz/catalog/kastamonu-floorpan-cherry-fp460-dub-valensiya/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu Nanoclick Дуб Арчер",
+     "category": "laminat",
+     "price_uzs": 100573,
+     "unit": "m2",
+     "image": "images/ks-lux/6.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-kastamonu-nanoclick-dub-archer/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Дуб Хани Эйр",
+     "category": "laminat",
+     "price_uzs": 371986,
+     "unit": "m2",
+     "image": "images/ks-lux/7.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-dub-khani-eyr/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Bruno Kalas Oak",
+     "category": "laminat",
+     "price_uzs": 293985,
+     "unit": "m2",
+     "image": "images/ks-lux/8.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-bruno-kalas-oak/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu Floorpan Green FP103 Дуб Джакарта (без фаски)",
+     "category": "laminat",
+     "price_uzs": 72018,
+     "unit": "m2",
+     "image": "images/ks-lux/9.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-kastamonu-floorpan-green-fp103-dub-dzhakarta/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Orleans Chevron",
+     "category": "laminat",
+     "price_uzs": 233955,
+     "unit": "m2",
+     "image": "images/ks-lux/10.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-orleans-chevron/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Roble Eyre Miel",
+     "category": "laminat",
+     "price_uzs": 432233,
+     "unit": "m2",
+     "image": "images/ks-lux/11.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-roble-eyre-miel/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Artic Sovereign Oak",
+     "category": "laminat",
+     "price_uzs": 293997,
+     "unit": "m2",
+     "image": "images/ks-lux/12.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-artic-sovereign-oak/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kastamonu SunFloor Дуб Маори SF111",
+     "category": "laminat",
+     "price_uzs": 132376,
+     "unit": "m2",
+     "image": "images/ks-lux/13.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-kastamonu-dub-maori-sf111/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Finfloor Belle Epoque Winter",
+     "category": "laminat",
+     "price_uzs": 293985,
+     "unit": "m2",
+     "image": "images/ks-lux/14.webp",
+     "source_url": "https://kslux.uz/catalog/laminat-finfloor-belle-epoque-winter/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Sanvitalia Ёлочка",
+     "category": "laminat",
+     "price_uzs": 275983,
+     "unit": "m2",
+     "image": "images/ks-lux/15.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-sanvitalia-yelochka/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Narcissus Ёлочка",
+     "category": "laminat",
+     "price_uzs": 275983,
+     "unit": "m2",
+     "image": "images/ks-lux/16.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-narcissus-yelochka/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Magnolia Ёлочка",
+     "category": "laminat",
+     "price_uzs": 275983,
+     "unit": "m2",
+     "image": "images/ks-lux/17.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-magnolia-yelochka/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Lantana Ёлочка",
+     "category": "laminat",
+     "price_uzs": 275983,
+     "unit": "m2",
+     "image": "images/ks-lux/18.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-lantana-yelochka/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Jacaranda цвет дуба",
+     "category": "laminat",
+     "price_uzs": 263989,
+     "unit": "m2",
+     "image": "images/ks-lux/19.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-jacaranda-tsvet-duba/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "SPC ламинат Gardenia цвет дуба",
+     "category": "laminat",
+     "price_uzs": 263989,
+     "unit": "m2",
+     "image": "images/ks-lux/20.webp",
+     "source_url": "https://kslux.uz/catalog/spc-laminat-gardenia-tsvet-duba/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см White fusion (Глянцевый)",
+     "category": "plitka",
+     "price_uzs": 216000,
+     "unit": "m2",
+     "image": "images/ks-lux/21.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-white-fusion-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Thunder black (Глянцевый)",
+     "category": "plitka",
+     "price_uzs": 216000,
+     "unit": "m2",
+     "image": "images/ks-lux/22.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-thunder-black-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Tegal nero (Маттовый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/23.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-tegal-nero-mattovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Tegal grey (Маттовый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/24.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-tegal-grey-mattovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Plain white (Маттовый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/25.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-plain-white-mattovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Oyster grey (Маттовый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/26.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-oyster-grey-mattovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Nero marqiano (Глянцевый)",
+     "category": "plitka",
+     "price_uzs": 216000,
+     "unit": "m2",
+     "image": "images/ks-lux/27.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-nero-marqiano-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Naos Brillo Lienzo (Маттовый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/28.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-naos-brillo-lienzo-mattovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Marazzi grey (Глянцевый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/29.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-marazzi-grey-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Керамогранит Geolam стекловидная плитка 60х120см Ice onice (Глянцевый)",
+     "category": "plitka",
+     "price_uzs": 204000,
+     "unit": "m2",
+     "image": "images/ks-lux/30.webp",
+     "source_url": "https://kslux.uz/catalog/keramogranit-geolam-steklovidnaya-plitka-60kh120sm-ice-onice-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ванна из стали эмалированные BETTESTARLET AS",
+     "category": "santexnika",
+     "price_uzs": 19500000,
+     "unit": "dona",
+     "image": "images/ks-lux/31.webp",
+     "source_url": "https://kslux.uz/catalog/vanna-iz-stali-emalirovannye-bettestarlet-as/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ванна из стали эмалированные BETTESTARLET (52 кг)",
+     "category": "santexnika",
+     "price_uzs": 23880000,
+     "unit": "dona",
+     "image": "images/ks-lux/32.webp",
+     "source_url": "https://kslux.uz/catalog/vanna-iz-stali-emalirovannye-bettestarlet-52-kg/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ванна из стали эмалированные BETTESTARLET AR, PLUS",
+     "category": "santexnika",
+     "price_uzs": 30720000,
+     "unit": "dona",
+     "image": "images/ks-lux/33.webp",
+     "source_url": "https://kslux.uz/catalog/vanna-iz-stali-emalirovannye-bettestarlet-ar-plus/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ванна из стали эмалированные BETTESTARLET PLUS",
+     "category": "santexnika",
+     "price_uzs": 18180000,
+     "unit": "dona",
+     "image": "images/ks-lux/34.webp",
+     "source_url": "https://kslux.uz/catalog/vanna-iz-stali-emalirovannye-bettestarlet/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ванна из стали эмалированные BETTESTARLET AR",
+     "category": "santexnika",
+     "price_uzs": 19500000,
+     "unit": "dona",
+     "image": "images/ks-lux/35.webp",
+     "source_url": "https://kslux.uz/catalog/vanna-iz-stali-emalirovannye-bettestarlet-ar/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина GEBERIT VariForm накладная эллиптическая",
+     "category": "santexnika",
+     "price_uzs": 3444000,
+     "unit": "dona",
+     "image": "images/ks-lux/36.webp",
+     "source_url": "https://kslux.uz/catalog/rakovina-geberit-variform-nakladnaya-ellipticheskaya/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина GEBERIT VariForm круглая с полкой",
+     "category": "santexnika",
+     "price_uzs": 2940000,
+     "unit": "dona",
+     "image": "images/ks-lux/37.webp",
+     "source_url": "https://kslux.uz/catalog/rakovina-geberit-variform-kruglaya-s-polkoy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина GEBERIT VariForm накладная прямоугольная",
+     "category": "santexnika",
+     "price_uzs": 2064000,
+     "unit": "dona",
+     "image": "images/ks-lux/38.webp",
+     "source_url": "https://kslux.uz/catalog/rakovina-geberit-variform-nakladnaya-pryamougolnaya/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина GEBERIT VariForm прямоугольная",
+     "category": "santexnika",
+     "price_uzs": 3540000,
+     "unit": "dona",
+     "image": "images/ks-lux/39.webp",
+     "source_url": "https://kslux.uz/catalog/rakovina-geberit-variform-pryamougolnaya/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Раковина GEBERIT VariForm эллиптическая",
+     "category": "santexnika",
+     "price_uzs": 3360000,
+     "unit": "dona",
+     "image": "images/ks-lux/40.webp",
+     "source_url": "https://kslux.uz/catalog/rakovina-geberit-variform-ellipticheskaya/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель для раковины Nobili Velis Inox",
+     "category": "santexnika",
+     "price_uzs": 7608000,
+     "unit": "dona",
+     "image": "images/ks-lux/41.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-dlya-rakoviny-nobili-velis-inox/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Энергосберегающий однорычажный смеситель, Seven, Mora матовый",
+     "category": "santexnika",
+     "price_uzs": 6624000,
+     "unit": "dona",
+     "image": "images/ks-lux/42.webp",
+     "source_url": "https://kslux.uz/catalog/energosberegayushchiy-odnorychazhnyy-smesitel-seven-mora-matovyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель для раковины Nobili, Live Cromo глянцевый",
+     "category": "santexnika",
+     "price_uzs": 6024000,
+     "unit": "dona",
+     "image": "images/ks-lux/43.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-dlya-rakoviny-nobili-live-sromo-glyantsevyy/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель для раковины Nobili Velis Nickel PVD",
+     "category": "santexnika",
+     "price_uzs": 3312000,
+     "unit": "dona",
+     "image": "images/ks-lux/44.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-dlya-rakoviny-nobili-velis-nickel-pvd/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель скрытого монтажа на 2 выхода Nobili Velis Chrome",
+     "category": "santexnika",
+     "price_uzs": 9072000,
+     "unit": "dona",
+     "image": "images/ks-lux/45.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-skrytogo-montazha-na-2-vykhoda-nobili-velis-chrome/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель скрытого монтажа на 2 положения Nobili Blues Chrome",
+     "category": "santexnika",
+     "price_uzs": 948000,
+     "unit": "dona",
+     "image": "images/ks-lux/46.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-skrytogo-montazha-na-2-polozheniya-nobili-blues-chrome/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Смеситель скрытого монтажа Nobili Seven на 2 положения Chrome",
+     "category": "santexnika",
+     "price_uzs": 936000,
+     "unit": "dona",
+     "image": "images/ks-lux/47.webp",
+     "source_url": "https://kslux.uz/catalog/smesitel-skrytogo-montazha-nobili-seven-na-2-polozheniya-chrome3591/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Подвесной унитаз Geberit Smyle Square с функцией биде",
+     "category": "santexnika",
+     "price_uzs": 7800000,
+     "unit": "dona",
+     "image": "images/ks-lux/48.webp",
+     "source_url": "https://kslux.uz/catalog/podvesnoy-unitaz-geberit-smyle-square-s-funktsiey-bide/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Подвесной унитаз GEBERIT AquaClean с функцией биде",
+     "category": "santexnika",
+     "price_uzs": 43464000,
+     "unit": "dona",
+     "image": "images/ks-lux/49.webp",
+     "source_url": "https://kslux.uz/catalog/podvesnoy-unitaz-geberit-aquaclean-s-funktsiey-bide/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Подвесной унитаз GEBERIT Acanto с функцией биде",
+     "category": "santexnika",
+     "price_uzs": 7440000,
+     "unit": "dona",
+     "image": "images/ks-lux/50.webp",
+     "source_url": "https://kslux.uz/catalog/podvesnoy-unitaz-geberit-acanto-s-funktsiey-bide/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Унитаз Geberit iCon с TurboFlush и кожухом",
+     "category": "santexnika",
+     "price_uzs": 8640000,
+     "unit": "dona",
+     "image": "images/ks-lux/51.webp",
+     "source_url": "https://kslux.uz/catalog/unitaz-geberit-icon-s-turboflush-i-kozhukhom/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Радиатор Гармония А40",
+     "category": "santexnika",
+     "price_uzs": 7658496,
+     "unit": "dona",
+     "image": "images/ks-lux/52.webp",
+     "source_url": "https://kslux.uz/catalog/radiator-garmoniya-a40/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Радиатор КЗТО Параллели В",
+     "category": "santexnika",
+     "price_uzs": 8343360,
+     "unit": "dona",
+     "image": "images/ks-lux/53.webp",
+     "source_url": "https://kslux.uz/catalog/radiator-kzto-paralleli-v/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Радиатор Соло В",
+     "category": "santexnika",
+     "price_uzs": 4266000,
+     "unit": "dona",
+     "image": "images/ks-lux/54.webp",
+     "source_url": "https://kslux.uz/catalog/radiator-solo-v/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Радиатор KZTO QUADRUM 40 V",
+     "category": "santexnika",
+     "price_uzs": 6768960,
+     "unit": "dona",
+     "image": "images/ks-lux/55.webp",
+     "source_url": "https://kslux.uz/catalog/radiator-quadrum-40-v/"
+    }
+   ]
+  },
+  {
+   "slug": "europol",
+   "name": "Europol",
+   "website": "https://europol.uz",
+   "since": 5,
+   "phone": "+998555100102",
+   "telegram": "@europol_uzbekistan",
+   "items": [
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Quick Step IM 4663 — 8×190×1380 мм",
+     "category": "laminat",
+     "price_uzs": 228000,
+     "unit": "m2",
+     "image": "images/europol/1.webp",
+     "source_url": "https://europol.uz/ru/product/im-4663-8-190-1380"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher Peaks Cheget — 12×132×694 мм",
+     "category": "laminat",
+     "price_uzs": 312000,
+     "unit": "m2",
+     "image": "images/europol/2.webp",
+     "source_url": "https://europol.uz/ru/product/peaks-cheget-694-132-12-gruziya"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Alsapan Strong 466 — 12 мм",
+     "category": "laminat",
+     "price_uzs": 396000,
+     "unit": "m2",
+     "image": "images/europol/3.webp",
+     "source_url": "https://europol.uz/ru/product/strong-12mm-466"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Laminelli Primore Dub Sitsiliya — 8×193×1382 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 96000,
+     "unit": "m2",
+     "image": "images/europol/4.webp",
+     "source_url": "https://europol.uz/ru/product/primore-dub-sitsiliya-8-193-1382-33-laminelli"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат HARO 540239 — 8×193×1282 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 396000,
+     "unit": "m2",
+     "image": "images/europol/5.webp",
+     "source_url": "https://europol.uz/ru/product/haro-540239-8-193-1282-33"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher CXI 145 — 8×190×1261 мм",
+     "category": "laminat",
+     "price_uzs": 156000,
+     "unit": "m2",
+     "image": "images/europol/6.webp",
+     "source_url": "https://europol.uz/ru/product/cxi-145-8-190-1261"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Quick Step IMU 1851 — 12×190×1380 мм",
+     "category": "laminat",
+     "price_uzs": 300000,
+     "unit": "m2",
+     "image": "images/europol/7.webp",
+     "source_url": "https://europol.uz/ru/product/imu-1851-12-190-1380"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher Rivers Amazone — 10×132×1390 мм",
+     "category": "laminat",
+     "price_uzs": 252000,
+     "unit": "m2",
+     "image": "images/europol/8.webp",
+     "source_url": "https://europol.uz/ru/product/rivers-amazone-1390-132-10-gruziya"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Alsapan Strong 465 — 12 мм",
+     "category": "laminat",
+     "price_uzs": 396000,
+     "unit": "m2",
+     "image": "images/europol/9.webp",
+     "source_url": "https://europol.uz/ru/product/strong-12mm-465"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Laminelli Elite Dub Parri — 12×193×1382 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 132000,
+     "unit": "m2",
+     "image": "images/europol/10.webp",
+     "source_url": "https://europol.uz/ru/product/elite-dub-parri-12-193-1382-33-laminelli"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат HARO 526678 — 8×193×1282 мм, 32 класс",
+     "category": "laminat",
+     "price_uzs": 336000,
+     "unit": "m2",
+     "image": "images/europol/11.webp",
+     "source_url": "https://europol.uz/ru/product/haro-526678-8-193-1282-32"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher CXI 149 — 8×190×1261 мм",
+     "category": "laminat",
+     "price_uzs": 156000,
+     "unit": "m2",
+     "image": "images/europol/12.webp",
+     "source_url": "https://europol.uz/ru/product/cxi-149-8-190-1261"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Quick Step IMU 4663 — 12×190×1380 мм",
+     "category": "laminat",
+     "price_uzs": 300000,
+     "unit": "m2",
+     "image": "images/europol/13.webp",
+     "source_url": "https://europol.uz/ru/product/imu-4663-12-190-1380"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher Peaks Elbrus — 12×132×694 мм",
+     "category": "laminat",
+     "price_uzs": 312000,
+     "unit": "m2",
+     "image": "images/europol/14.webp",
+     "source_url": "https://europol.uz/ru/product/peaks-elbrus-694-132-12-gruziya"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Alsapan Liberte 608 — 10 мм",
+     "category": "laminat",
+     "price_uzs": 396000,
+     "unit": "m2",
+     "image": "images/europol/15.webp",
+     "source_url": "https://europol.uz/ru/product/liberte-10mm-608"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Laminelli Elegante Dub Rodos — 8×193×1382 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 96000,
+     "unit": "m2",
+     "image": "images/europol/16.webp",
+     "source_url": "https://europol.uz/ru/product/elegante-dub-rodos-8-193-1382-33-laminelli"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат HARO 541558 — 8×193×1282 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 396000,
+     "unit": "m2",
+     "image": "images/europol/17.webp",
+     "source_url": "https://europol.uz/ru/product/haro-541558-8-193-1282-33"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher CXI 148 — 8×190×1261 мм",
+     "category": "laminat",
+     "price_uzs": 156000,
+     "unit": "m2",
+     "image": "images/europol/18.webp",
+     "source_url": "https://europol.uz/ru/product/cxi-148-8-190-1261"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Quick Step CLH 5798 — 8×190×1200 мм",
+     "category": "laminat",
+     "price_uzs": 180000,
+     "unit": "m2",
+     "image": "images/europol/19.webp",
+     "source_url": "https://europol.uz/ru/product/quick-step-classic-clh5798-tashkent"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher Rivers Tiger — 10×132×1390 мм",
+     "category": "laminat",
+     "price_uzs": 252000,
+     "unit": "m2",
+     "image": "images/europol/20.webp",
+     "source_url": "https://europol.uz/ru/product/rivers-tiger-1390-132-10-gruziya"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Alsapan Creativ 518 — 12 мм",
+     "category": "laminat",
+     "price_uzs": 468000,
+     "unit": "m2",
+     "image": "images/europol/21.webp",
+     "source_url": "https://europol.uz/ru/product/creativ-12mm-518"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Laminelli Elegante Dub Elba — 8×193×1382 мм, 33 класс",
+     "category": "laminat",
+     "price_uzs": 96000,
+     "unit": "m2",
+     "image": "images/europol/22.webp",
+     "source_url": "https://europol.uz/ru/product/elegante-dub-elba-8-193-1382-33-laminelliv"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат HARO 530335 — 8×193×1282 мм, 32 класс",
+     "category": "laminat",
+     "price_uzs": 336000,
+     "unit": "m2",
+     "image": "images/europol/23.webp",
+     "source_url": "https://europol.uz/ru/product/haro-530335-8-193-1282-32"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Kaisher CXI 151 — 8×190×1261 мм",
+     "category": "laminat",
+     "price_uzs": 156000,
+     "unit": "m2",
+     "image": "images/europol/24.webp",
+     "source_url": "https://europol.uz/ru/product/cxi-151-8-190-1261"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Ламинат Quick Step Capture SIU 4762",
+     "category": "laminat",
+     "price_uzs": 444000,
+     "unit": "m2",
+     "image": "images/europol/25.webp",
+     "source_url": "https://europol.uz/ru/product/quick-step-signature-siu4762-tashkent"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 30119081682732",
+     "category": "parket",
+     "price_uzs": 672000,
+     "unit": "m2",
+     "image": "images/europol/26.webp",
+     "source_url": "https://europol.uz/ru/product/30119081682732-14-14-188-2266"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 547518",
+     "category": "parket",
+     "price_uzs": 1620000,
+     "unit": "m2",
+     "image": "images/europol/27.webp",
+     "source_url": "https://europol.uz/ru/product/haro-547518-13-5-173-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Foglie D'Oro Listoni Ca Dona",
+     "category": "parket",
+     "price_uzs": 2880000,
+     "unit": "m2",
+     "image": "images/europol/28.webp",
+     "source_url": "https://europol.uz/ru/product/listoni-ca-dona-16-180-1200-2500"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10110719A6155124",
+     "category": "parket",
+     "price_uzs": 1068000,
+     "unit": "m2",
+     "image": "images/europol/29.webp",
+     "source_url": "https://europol.uz/ru/product/10110719a6155124-oak-premium-natur-noble-brown"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 547501",
+     "category": "parket",
+     "price_uzs": 1380000,
+     "unit": "m2",
+     "image": "images/europol/30.webp",
+     "source_url": "https://europol.uz/ru/product/haro-547501-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 30111281620212",
+     "category": "parket",
+     "price_uzs": 480000,
+     "unit": "m2",
+     "image": "images/europol/31.webp",
+     "source_url": "https://europol.uz/ru/product/30111281620212-14mm-14-188-2266"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 547505",
+     "category": "parket",
+     "price_uzs": 1380000,
+     "unit": "m2",
+     "image": "images/europol/32.webp",
+     "source_url": "https://europol.uz/ru/product/haro-547505-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10112036640002",
+     "category": "parket",
+     "price_uzs": 600000,
+     "unit": "m2",
+     "image": "images/europol/33.webp",
+     "source_url": "https://europol.uz/ru/product/10112036640002-138-14h138h2000mm"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 541859",
+     "category": "parket",
+     "price_uzs": 1476000,
+     "unit": "m2",
+     "image": "images/europol/34.webp",
+     "source_url": "https://europol.uz/ru/product/haro-541859-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10110736681012",
+     "category": "parket",
+     "price_uzs": 1344000,
+     "unit": "m2",
+     "image": "images/europol/35.webp",
+     "source_url": "https://europol.uz/ru/product/10110736681012-14-138-2000"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 00519",
+     "category": "parket",
+     "price_uzs": 660000,
+     "unit": "m2",
+     "image": "images/europol/36.webp",
+     "source_url": "https://europol.uz/ru/product/539698-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10313148A5254111",
+     "category": "parket",
+     "price_uzs": 876000,
+     "unit": "m2",
+     "image": "images/europol/37.webp",
+     "source_url": "https://europol.uz/ru/product/10313148a5254111-ash-4-story-138-slate-grey"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 00435",
+     "category": "parket",
+     "price_uzs": 540000,
+     "unit": "m2",
+     "image": "images/europol/38.webp",
+     "source_url": "https://europol.uz/ru/product/541320-1-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10110747A5242111",
+     "category": "parket",
+     "price_uzs": 1320000,
+     "unit": "m2",
+     "image": "images/europol/39.webp",
+     "source_url": "https://europol.uz/ru/product/10110747a5242111"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 528682",
+     "category": "parket",
+     "price_uzs": 1380000,
+     "unit": "m2",
+     "image": "images/europol/40.webp",
+     "source_url": "https://europol.uz/ru/product/haro-528682-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 535582",
+     "category": "parket",
+     "price_uzs": 1020000,
+     "unit": "m2",
+     "image": "images/europol/41.webp",
+     "source_url": "https://europol.uz/ru/product/haro-535582-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 10111115660732",
+     "category": "parket",
+     "price_uzs": 672000,
+     "unit": "m2",
+     "image": "images/europol/42.webp",
+     "source_url": "https://europol.uz/ru/product/10111115660732-14-14-138-1800"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 538946",
+     "category": "parket",
+     "price_uzs": 1380000,
+     "unit": "m2",
+     "image": "images/europol/43.webp",
+     "source_url": "https://europol.uz/ru/product/haro-538946-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 3011168168006110",
+     "category": "parket",
+     "price_uzs": 540000,
+     "unit": "m2",
+     "image": "images/europol/44.webp",
+     "source_url": "https://europol.uz/ru/product/3011168168006110-14mm-14-188-2266"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 547608",
+     "category": "parket",
+     "price_uzs": 1320000,
+     "unit": "m2",
+     "image": "images/europol/45.webp",
+     "source_url": "https://europol.uz/ru/product/haro-547608-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 30111181677032",
+     "category": "parket",
+     "price_uzs": 600000,
+     "unit": "m2",
+     "image": "images/europol/46.webp",
+     "source_url": "https://europol.uz/ru/product/30111181677032-14mm-14-188-2266"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 01082",
+     "category": "parket",
+     "price_uzs": 600000,
+     "unit": "m2",
+     "image": "images/europol/47.webp",
+     "source_url": "https://europol.uz/ru/product/539277-13-5-180-2200"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска Avazzo 1171334650100111",
+     "category": "parket",
+     "price_uzs": 1476000,
+     "unit": "m2",
+     "image": "images/europol/48.webp",
+     "source_url": "https://europol.uz/ru/product/1171334650100111-orex-14-138-2000"
+    },
+    {
+     "kind": "material",
+     "name_uz": "Паркетная доска HARO 00826",
+     "category": "parket",
+     "price_uzs": 1068000,
+     "unit": "m2",
+     "image": "images/europol/49.webp",
+     "source_url": "https://europol.uz/ru/product/533060-13-5-160-2200"
     }
    ]
   },
