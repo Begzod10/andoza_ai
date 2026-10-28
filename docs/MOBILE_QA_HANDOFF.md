@@ -425,3 +425,39 @@ Maydon qo'shilgach mobil'da: `is_demo == true` bo'lsa do'kon kartasi va mahsulot
 3. **Til:** `Accept-Language`, `PATCH /auth/me`, register va Google'da `language` (9.2).
 4. **AI dizayn:** native render bo'lsa `zone`dan voz kechib, `role`dan foydalaning (9.3).
 5. **Namuna belgisi:** avval backend'ga `is_demo` maydonini qo'shdiring (9.5).
+
+---
+
+## 10. 2026-10-28: Bundle ID va shift mahsulotlari
+
+| # | Mavzu | Majburiymi |
+|---|---|---|
+| 10.1 | Bundle ID tanlash | Ha, App Store Connect'da ilova yaratishdan **oldin** |
+| 10.2 | Shift mahsulotlari do'kondan (#84) | Faqat native studio bo'lsa |
+
+### 10.1 Bundle ID
+
+Bu repoda ikki xil eski ("uytamir") identifikator bor:
+
+| Fayl | Qiymat |
+|---|---|
+| `capacitor.config.ts` | `appId: 'uz.uytamir.app'` |
+| `app.json` | `bundleIdentifier: "com.uytamir.mobile"` |
+
+Flutter loyihasidagi `PRODUCT_BUNDLE_IDENTIFIER` ni ham tekshiring. Bundle ID App Store Connect'da ilova yaratilgach **o'zgartirib bo'lmaydi**. Shuning uchun brend nomiga mos bittasini tanlang (masalan `uz.andozaai.app`), hamma joyda bir xil qiling, keyin App ID yarating.
+
+### 10.2 Shift mahsulotlari do'kondan (#84)
+
+**Nima o'zgardi.**
+- Studio'dagi "Shift" bo'limida gipsokarton, karkas profili va LED lentani do'kondan tanlash mumkin. "Galtel" bo'limida galtelni ham.
+- Tanlov `room.surfaces["smeta:<smeta_key>"] = <material_id>` ko'rinishida saqlanadi. Kalitlar: `smeta:gipsokarton`, `smeta:profil`, `smeta:led_lenta`, `smeta:galtel`.
+- Bo'sh qiymat (`""`) tanlov yo'q degani.
+- Smeta shu qatorni tanlangan mahsulot narxi bilan hisoblaydi va `is_approximate: false` qiladi. Miqdor bo'yicha izoh (`warning`) qoladi.
+- `GET /api/v1/materials?smeta_key=gipsokarton`: yangi filtr, shu smeta qatoriga narx beradigan mahsulotlarni qaytaradi.
+
+**Mobil'da nima qilish kerak:**
+- WebView Studio va Smeta'da o'zgarish o'zi o'tadi.
+- Native studio bo'lsa, `surfaces` ni PATCH qilayotganda `smeta:*` kalitlarini **o'chirib yubormang**. Butun obyektni qayta yozganda serverdagi qiymatlarni saqlang.
+- `smeta:*` kalitlarini devor deb o'qimang. Ular devor bo'yog'i yoki oboy emas.
+
+**Qanday sinash:** osma shiftli xonada Studio → Bo'yoq/Oboi → Shift → "Do'kondan tanlang" ro'yxatidan gipsokarton tanlang. Smetada "Shift: <mahsulot nomi>" qatori "taxminiy" belgisisiz chiqishi kerak.
