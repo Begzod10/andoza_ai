@@ -67,6 +67,7 @@ import { useTranslation } from "react-i18next";
 import { RenderSheet } from "@/components/studio/RenderSheet";
 import { ThreeDCanvasScene } from "./three-d/ThreeDCanvasScene";
 import { effectiveRoomType } from "@/lib/roomType";
+import { usePlaceFromLink } from "./three-d/usePlaceFromLink";
 export { RoomScene, SceneLighting, BrandedSky, PlacedLights };
 
 /**
@@ -116,6 +117,9 @@ export interface StudioContext {
   /** Lets the header float over the viewport without a background (inside the
    *  native app only; StudioPage decides). On while the live 3D view shows. */
   setOverlayHeader?: (on: boolean) => void;
+  /** The server's copy of this room is in the store (see StudioPage); edits
+   *  made before then would be lost or would stop it loading. */
+  roomReady?: boolean;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -124,7 +128,7 @@ export type { PhaseKey } from "@/lib/phases"
 
 export default function ThreeDPage() {
   const { t } = useTranslation()
-  const { room, onSave, tabSlot, menuSlot, closeMenu, setOverlayHeader } = useOutletContext<StudioContext>();
+  const { room, onSave, tabSlot, menuSlot, closeMenu, setOverlayHeader, roomReady = false } = useOutletContext<StudioContext>();
   const compact = useCompactStudio();
   const geometry = useRoomStore((s) => s.geometry);
   const designState = useRoomStore((s) => s.designState);
@@ -682,6 +686,16 @@ export default function ThreeDPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const confirm = useConfirm();
+  // A shop model the room was opened to place (?place=, from the mobile app).
+  usePlaceFromLink({
+    roomReady,
+    onPlaced: useCallback((item) => {
+      toast({ variant: 'success', title: t('studio.mebel.placed_from_link', { name: item.name_uz }) });
+    }, [toast, t]),
+    onFailed: useCallback(() => {
+      toast({ variant: 'error', title: t('studio.mebel.place_link_failed') });
+    }, [toast, t]),
+  });
   // The flat's rooms, refreshed on every room switch — see useFlatRooms for
   // why the plain query left a neighbour drawn from a stale list.
   const aptRooms = useFlatRooms(aptId, room.id);

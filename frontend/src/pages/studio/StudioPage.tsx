@@ -462,9 +462,15 @@ export default function StudioPage() {
     return t('studio.page.olchamlar_koppburchak', { area: formatDecimal(room.area, 1), count: geometry.walls.length, height: h });
   }, [room.ceiling_height, room.length, room.width, room.area, geometry.walls, t]);
 
+  // Which room the effect below has settled: the server's copy is in the store,
+  // or was deliberately kept out (unsaved edits). Pages wait for it before
+  // editing the room on their own, e.g. placing a model from a link.
+  const [settledRoomId, setSettledRoomId] = useState<string | null>(null);
+
   // When a saved room loads from API and has a full state blob, restore it into the store.
   useEffect(() => {
     if (!apiRoom) return;
+    setSettledRoomId(apiRoom.id);
     // Keep the store's apartment linkage in sync — localRoom.apartment_id
     // (and the "+ add room" flow) read it from the store, not the API response.
     setApartmentId(apiRoom.apartment_id ?? null);
@@ -737,7 +743,7 @@ export default function StudioPage() {
             </div>
           }
         >
-          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl, closeMenu: () => setMenuOpen(false), setOverlayHeader }} />
+          <Outlet context={{ room, onSave: handleSave, tabSlot: tabSlotEl, menuSlot: menuSlotEl, closeMenu: () => setMenuOpen(false), setOverlayHeader, roomReady: settledRoomId === roomId }} />
         </Suspense>
       </main>
     </div>

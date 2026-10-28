@@ -901,6 +901,8 @@
       "texture_failed": "The texture could not be applied",
       "all": "All",
       "mine": "Mine",
+      "placed_from_link": "{{name}} placed in the room",
+      "place_link_failed": "Couldn't place the product: it is no longer for sale",
       "models": "3D models",
       "parts_count_one": "{{count}} part.",
       "parts_count_other": "{{count}} parts.",

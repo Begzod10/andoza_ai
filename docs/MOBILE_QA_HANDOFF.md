@@ -521,3 +521,27 @@ Migration'lar: `1786000044` (`users.apple_sub`, unique indeks) va `1786000045` (
 - Admin bo'lmagan foydalanuvchi: `403`. Kontentni yashirish hozircha qo'lda (`/admin/moderation` va boshqa admin bo'limlari orqali).
 
 **Mobil'da nima qilish kerak:** usta profili, portfolio elementi, mahsulot, do'kon va oboy sahifalarida "Shikoyat qilish" tugmasi: sabab tanlovi va ixtiyoriy izoh, yuborilgach "Shikoyatingiz qabul qilindi" xabari. Kirmagan foydalanuvchini avval kirishga yo'naltiring.
+
+## 12. 2026-10-28: Do'konning ochiq sahifasi va mebelni xonaga qo'yish
+
+Xaridor do'konning o'z sahifasini (ma'lumot, kontaktlar, mahsulotlari) ko'radi va do'kon mebelini bitta tugma bilan o'z xonasiga qo'yadi. Migration yo'q.
+
+| # | Mavzu | Majburiymi |
+|---|---|---|
+| 12.1 | `GET /api/v1/stores/{id}` | Ha (do'kon sahifasi) |
+| 12.2 | `GET /api/v1/furniture?store={id}`, `GET /api/v1/furniture/{id}` | Ha (do'kon mebeli, mebel sahifasi) |
+| 12.3 | Studio `?place=<furniture id>` | Ha ("Xonamga qo'yish") |
+
+### 12.1 Bitta do'kon
+
+`GET /api/v1/stores/{id}`, login shart emas. Javob `/stores` ro'yxatidagi element bilan bir xil: `id`, `name`, `district`, `phone`, `telegram`, `logo_color`, `partner_tier`. Do'kon yopiq bo'lsa (`is_active=false`, ya'ni kutilayotgan, rad etilgan yoki o'chirilgan), `404` "Do'kon topilmadi" qaytadi. Noto'g'ri UUID bo'lsa `422`.
+
+### 12.2 Do'kon mebeli va bitta mebel
+
+- `GET /api/v1/furniture?store={id}`: faqat shu do'konning tirik mebeli. Boshqa filtrlar (`category`, `q`, `has_model`, sahifalash) avvalgidek ishlaydi. Kesh kaliti `store` bo'yicha ham farqlanadi.
+- `GET /api/v1/furniture/{id}`: bitta tirik mebel, `/furniture` ro'yxatidagi `FurnitureOut` bilan bir xil. Mebel o'chirilgan yoki do'koni yopilgan bo'lsa `404` "Mahsulot topilmadi".
+- `glb_url` null bo'lsa, mahsulotning faqat rasmi bor (masalan demo do'konlar). Uni xonaga qo'yib bo'lmaydi.
+
+### 12.3 Studio: `?place=`
+
+`/studio/{roomId}?place=<furniture id>` ochilganda Studio shu mebelni `GET /furniture/{id}` orqali oladi va xona serverdan yuklangach uni xonaning bo'sh joyiga **bir marta** qo'yadi. Nomi va narxi smeta uchun yoziladi. Keyin parametr URL'dan olib tashlanadi, shuning uchun sahifa yangilansa mebel qayta qo'shilmaydi. Natija toast bilan bildiriladi: "… xonaga qo'yildi". Mebel sotuvda bo'lmasa yoki 3D modeli yo'q bo'lsa, xato toast chiqadi. Saqlash odatdagi avtosaqlash orqali bo'ladi.
