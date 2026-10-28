@@ -997,6 +997,57 @@ def fetch_divan(http: Http) -> list[Item]:
     return out
 
 
+_LOFTBEK_SIZE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*[xх×]\s*(\d+(?:[.,]\d+)?)\s*[xх×]\s*(\d+(?:[.,]\d+)?)", re.I)
+
+
+def _loftbek_dims(value: str) -> dict:
+    """'130x70x78h' (width × depth × height, cm) -> footprint_w/footprint_d/height_cm."""
+    m = _LOFTBEK_SIZE_RE.search(value or "")
+    if not m:
+        return {}
+    w, d, h = (cm(g) for g in m.groups())
+    return {k: v for k, v in (("footprint_w", w), ("footprint_d", d), ("height_cm", h)) if v}
+
+
+def fetch_loftbek(http: Http) -> list[Item]:
+    """Loft-style office furniture (WordPress, no shop API): every product in the
+    products sitemap, not just PER_STORE — the user asked for the whole range."""
+    r = http.get("https://loftbek.uz/products-sitemap.xml")
+    if r is None:
+        return []
+    links = [u for u in re.findall(r"<loc>([^<]+)</loc>", r.text) if "/products/" in u]
+    out: list[Item] = []
+    for url in links:
+        soup = http.soup(url)
+        if soup is None:
+            continue
+        h1 = soup.find("h1")
+        image = meta(soup, "og:image")
+        if not (h1 and image):
+            continue
+        # A discounted product shows the old price struck through and the current one below it.
+        price_el = soup.select_one(".product__head-price-current") or soup.select_one(
+            ".product__head-price .product__item-price")
+        price = to_int(price_el.get_text()) if price_el else None
+        specs = {}
+        for row in soup.select(".product__card-item"):
+            key, value = row.select_one(".product__item-key"), row.select_one(".product__item-value")
+            if key and value:
+                specs[key.get_text(strip=True)] = value.get_text(" ", strip=True)
+        # The page's JSON-LD breadcrumb skips the category; the visible one has it
+        # ("Столы в стиле лофт › Столы с тумбой"). Most specific first.
+        crumbs = [el.get_text(strip=True) for el in soup.select("[class*=breadcrumbs] [property=name]")][::-1]
+        name = h1.get_text(strip=True)
+        # classify() wants "стол" in the singular; Loftbek's sections are plural
+        # ("Столы руководителя", "Журнальные столы") or "Бенч-системы" (desk rows).
+        category = next((c for c in map(classify, [name, *crumbs]) if c), None) or (
+            "stol" if re.search(r"\bстолы\b|бенч", " ".join(crumbs), re.I) else "boshqa")
+        colours = specs.get("Цвета", "").split()
+        out.append(furniture(name, category, url, image, price, _loftbek_dims(specs.get("Размеры", "")),
+                             variants=[specs.get("Размеры"), *colours[:1]]))
+    return out
+
+
 @dataclass
 class Store:
     slug: str
@@ -1027,6 +1078,8 @@ STORES = [
     Store("modnie-steni", "Модные Стены", "https://www.modnie-steni.uz", fetch_modnie_steni, "+998712350708"),
     # Carpets, added in catalog version 3 (its "since" is kept across refetches).
     Store("divan-uz", "Divan.uz", "https://divan.uz", fetch_divan, "+998712050975", "@official_divan_uz"),
+    # Loft office furniture, added in catalog version 4.
+    Store("loftbek", "Loftbek", "https://loftbek.uz", fetch_loftbek, "+998947772272", "@loftbekk"),
 ]
 
 
