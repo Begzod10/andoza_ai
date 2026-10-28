@@ -1729,6 +1729,31 @@ def unique_name(it: Item, rows: list[dict]) -> str | None:
     return None
 
 
+_BAG_KG_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*кг", re.I)
+_BOARD_RE = re.compile(r"(2500|1200)\s*[xх×*]\s*(1200|2500)", re.I)
+
+
+def estimate_key(name: str, category: str, unit: str) -> dict:
+    """The estimate line a material prices (Material.smeta_key, see
+    app/services/smeta_keys.py) and what one pack of it holds, or {} for none.
+
+    Only what the name states for certain: a bag's kg, a 1.2 × 2.5 m board (3 m²), a
+    two- or three-core 2.5 mm² cable sold by the metre. Facade mixes are left out."""
+    n = name.lower()
+    kg = _BAG_KG_RE.search(n)
+    kg = float(kg.group(1).replace(",", ".")) if kg else None
+    if category == "gips" and unit == "dona" and "гипсокартон" in n and _BOARD_RE.search(n):
+        return {"smeta_key": "gipsokarton", "pack_qty": 3, "pack_unit": "m2"}
+    if category == "gips" and unit == "qop" and kg and not re.search(r"фасад|fasad", n):
+        if re.search(r"штукатур|ротбанд|rotband", n):
+            return {"smeta_key": "suvoq", "pack_qty": kg, "pack_unit": "kg"}
+        if re.search(r"шпа[кт]л", n):
+            return {"smeta_key": "shpatlyovka", "pack_qty": kg, "pack_unit": "kg"}
+    if category == "elektr_mat" and unit == "m" and re.search(r"(пвс|ввг)\s*[23]\s*[xх*]\s*2[.,]5", n):
+        return {"smeta_key": "kabel"}
+    return {}
+
+
 def run(out_dir: Path, only: set[str] | None) -> None:
     http = Http()
     catalog_path = out_dir / "catalog.json"
@@ -1778,6 +1803,7 @@ def run(out_dir: Path, only: set[str] | None) -> None:
             row = {"kind": it.kind, "name_uz": it.name, "category": it.category, "price_uzs": it.price_uzs}
             if it.kind == "material":
                 row["unit"] = it.unit
+                row.update(estimate_key(it.name, it.category, it.unit))
             elif it.kind == "wallpaper":
                 row.update(it.dims)
             else:

@@ -11,7 +11,8 @@ What this seeds
 Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Lumen LUX, Aura Lighting,
 Bestart, MAFF, the wallpaper shop Модные Стены, Divan.uz for carpets, added in catalog
 version 3, Loftbek's loft office furniture, its whole range, added in version 4, and in
-version 5 Home Interior, Jaquar, Foondament, Quramiz, KS Lux and Europol) with products (furniture, floor and door materials, wallpapers sold by the roll,
+version 5 Home Interior, Jaquar, Foondament, Quramiz, KS Lux and Europol; version 6 adds no
+rows but gives their plaster, putty, plasterboard and cable an estimate ``smeta_key``) with products (furniture, floor and door materials, wallpapers sold by the roll,
 carpets as "boshqa" furniture named "Gilam ...") and photos taken from their public websites by
 ``scripts/demo_catalog/fetch.py`` into ``app/seed_data/demo_stores/``. There is no
 contract with these stores yet, so every store row has ``is_demo = true`` (and a
@@ -219,6 +220,9 @@ async def _apply(session, catalog: dict, data_dir: Path = DATA_DIR,
                     name_uz=item["name_uz"],
                     unit=item["unit"],
                     price_uzs=item["price_uzs"],
+                    smeta_key=item.get("smeta_key"),
+                    pack_qty=item.get("pack_qty"),
+                    pack_unit=item.get("pack_unit"),
                     image_url=stored,  # a URL, like every other material's image_url
                     pbr_roughness=0.5,
                     is_active=True,
@@ -331,6 +335,31 @@ async def _delete_files(keys: list[str]) -> int:
     return len(keys) - failed
 
 
+async def _fill_estimate_keys(session, catalog: dict) -> int:
+    """Give demo materials already in the database the estimate key (smeta_key and pack
+    size) their catalog row now carries (catalog version 6 added them to rows seeded in
+    version 5). Only a product with no key yet is touched, so an admin's own key stays."""
+    filled = 0
+    for data in catalog["stores"]:
+        keyed = [i for i in data["items"] if i["kind"] == "material" and i.get("smeta_key")]
+        if not keyed:
+            continue
+        store = await session.scalar(select(Store).where(Store.name == data["name"]))
+        if store is None or not store.is_demo:
+            continue
+        for item in keyed:
+            material = await session.scalar(
+                select(Material).where(Material.store_id == store.id, Material.name_uz == item["name_uz"])
+            )
+            if material is None or material.smeta_key is not None:
+                continue
+            material.smeta_key = item["smeta_key"]
+            if material.pack_qty is None and item.get("pack_qty") is not None:
+                material.pack_qty, material.pack_unit = item["pack_qty"], item["pack_unit"]
+            filled += 1
+    return filled
+
+
 async def seed_demo_stores(force: bool = False) -> dict:
     """Seed the catalog versions this database has not had yet (see the module
     docstring); the result's "status" says what happened."""
@@ -355,6 +384,7 @@ async def seed_demo_stores(force: bool = False) -> dict:
                         return {"status": "already_seeded", "version": applied}
                 counts = await _apply(session, catalog, upload=upload_file, uploaded=uploaded,
                                       after_version=applied)
+                counts["keyed"] = await _fill_estimate_keys(session, catalog)
                 await _set_applied_version(session, version)
     except BaseException:
         # Nothing was committed, so no row points at these files: take them back out.
@@ -401,7 +431,7 @@ async def main(argv: list[str] | None = None) -> None:
             f"Demo stores seed (catalog v{c['from_version']} -> v{c['version']}):"
             f" {c['stores']} stores, {c['furniture']} furniture,"
             f" {c['materials']} materials, {c['wallpapers']} wallpapers inserted;"
-            f" {c['existing']} already there;"
+            f" {c['existing']} already there; {c.get('keyed', 0)} given an estimate key;"
             f" {c['skipped_real_store']} non-demo stores with a demo name left alone."
         )
 

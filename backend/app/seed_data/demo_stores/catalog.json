@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "stores": [
   {
    "slug": "dafna",
@@ -3912,7 +3912,10 @@
      "price_uzs": 40000,
      "unit": "dona",
      "image": "images/foondament/1.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/vero-гипсокартон-1200x2500x9-5mm-173897"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/vero-гипсокартон-1200x2500x9-5mm-173897",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -3930,7 +3933,10 @@
      "price_uzs": 43500,
      "unit": "dona",
      "image": "images/foondament/3.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-glory2500-1200-12-5-142451"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-glory2500-1200-12-5-142451",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -3939,7 +3945,10 @@
      "price_uzs": 34000,
      "unit": "qop",
      "image": "images/foondament/4.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-51-штукатурка-для-машинного-нанесения-mg-20-уп-25-кг-139698"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-51-штукатурка-для-машинного-нанесения-mg-20-уп-25-кг-139698",
+     "smeta_key": "suvoq",
+     "pack_qty": 25.0,
+     "pack_unit": "kg"
     },
     {
      "kind": "material",
@@ -3948,7 +3957,10 @@
      "price_uzs": 42000,
      "unit": "qop",
      "image": "images/foondament/5.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-56-шпаклевка-универсальная-fugegyps-упак-25кг-139702"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/megamix-56-шпаклевка-универсальная-fugegyps-упак-25кг-139702",
+     "smeta_key": "shpatlyovka",
+     "pack_qty": 25.0,
+     "pack_unit": "kg"
     },
     {
      "kind": "material",
@@ -3975,7 +3987,10 @@
      "price_uzs": 27000,
      "unit": "qop",
      "image": "images/foondament/8.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-start-609-гипсовая-штукатурка-start-23-кг-140487"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/ventum-start-609-гипсовая-штукатурка-start-23-кг-140487",
+     "smeta_key": "suvoq",
+     "pack_qty": 23.0,
+     "pack_unit": "kg"
     },
     {
      "kind": "material",
@@ -3993,7 +4008,10 @@
      "price_uzs": 53500,
      "unit": "dona",
      "image": "images/foondament/10.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-2500-1200-9-5мм-142454"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-2500-1200-9-5мм-142454",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -4002,7 +4020,10 @@
      "price_uzs": 75500,
      "unit": "dona",
      "image": "images/foondament/11.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-гкл-2500-1200-12-5мм-влага-142455"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-knauf-гкл-2500-1200-12-5мм-влага-142455",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -4011,7 +4032,10 @@
      "price_uzs": 65000,
      "unit": "dona",
      "image": "images/foondament/12.webp",
-     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-sinogips-2500-1200-12-5-влага-142458"
+     "source_url": "https://foondament.uz/en/shop/building-materials-dry-mixes-putty-tile-adhesive-80/гипсокартон-sinogips-2500-1200-12-5-влага-142458",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -4245,7 +4269,8 @@
      "price_uzs": 11600,
      "unit": "m",
      "image": "images/foondament/38.webp",
-     "source_url": "https://foondament.uz/en/shop/electrical-cables-wires-65/пвс-2х2-5-турон-кабел-169418"
+     "source_url": "https://foondament.uz/en/shop/electrical-cables-wires-65/пвс-2х2-5-турон-кабел-169418",
+     "smeta_key": "kabel"
     },
     {
      "kind": "material",
@@ -4534,7 +4559,10 @@
      "price_uzs": 48500,
      "unit": "qop",
      "image": "images/quramiz/15.webp",
-     "source_url": "https://quramiz.uz/cl/product/28866"
+     "source_url": "https://quramiz.uz/cl/product/28866",
+     "smeta_key": "suvoq",
+     "pack_qty": 25.0,
+     "pack_unit": "kg"
     },
     {
      "kind": "material",
@@ -4543,7 +4571,10 @@
      "price_uzs": 53500,
      "unit": "dona",
      "image": "images/quramiz/16.webp",
-     "source_url": "https://quramiz.uz/cl/product/28862"
+     "source_url": "https://quramiz.uz/cl/product/28862",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
@@ -4552,7 +4583,10 @@
      "price_uzs": 38000,
      "unit": "dona",
      "image": "images/quramiz/17.webp",
-     "source_url": "https://quramiz.uz/cl/product/28871"
+     "source_url": "https://quramiz.uz/cl/product/28871",
+     "smeta_key": "gipsokarton",
+     "pack_qty": 3,
+     "pack_unit": "m2"
     },
     {
      "kind": "material",
