@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import threading
+import time
 from datetime import date
 from typing import Annotated
 
+import httpx
 import structlog
+from jose import JWTError
+from jose import jwt as jose_jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
@@ -18,7 +23,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.sms import generate_otp, send_otp, store_otp, verify_otp
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, MeUpdate, OTPRequest, OTPVerify, RegisterRequest, UserOut
+from app.schemas.auth import AppleLoginRequest, DeleteAccountRequest, GoogleLoginRequest, LoginRequest, LoginResponse, MeUpdate, OTPRequest, OTPVerify, RegisterRequest, UserOut
 
 def _hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
@@ -477,7 +482,7 @@ async def login_with_password(
 def _login_response(user: User, request: Request, response: Response) -> LoginResponse:
     """Sign *user* in: set the auth cookies and build the LoginResponse
     (tokens echoed in the body for native clients only). Shared by the
-    password and Google logins so both answer identically."""
+    password, Google and Apple logins so all answer identically."""
     subject = str(user.id)
     access_token = create_access_token(subject)
     refresh_token = create_refresh_token(subject)
@@ -610,6 +615,162 @@ async def login_with_google(
     return _login_response(user, request, response)
 
 
+_APPLE_ISSUER = "https://appleid.apple.com"
+_APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+_APPLE_KEYS_TTL = 24 * 3600        # Apple rotates its keys rarely
+_APPLE_KEYS_MIN_REFETCH = 60       # an unknown `kid` refetches at most once a minute
+_APPLE_IP_RATE_LIMIT = 20          # max Apple sign-in attempts per IP per window
+_APPLE_IP_RATE_WINDOW = 900        # 15 minutes
+_APPLE_INVALID_DETAIL = "Apple orqali kirib bo'lmadi. Qayta urinib ko'ring."
+
+# In-process cache of Apple's public signing keys, by `kid`.
+_apple_keys: dict[str, dict] = {}
+_apple_keys_fetched_at = 0.0
+_apple_keys_lock = threading.Lock()
+
+
+class _AppleUnavailable(Exception):
+    """Apple's signing keys could not be fetched (network/outage)."""
+
+
+def _fetch_apple_keys() -> None:
+    global _apple_keys, _apple_keys_fetched_at
+    try:
+        res = httpx.get(_APPLE_KEYS_URL, timeout=10)
+        res.raise_for_status()
+        keys = res.json()["keys"]
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        raise _AppleUnavailable(str(exc)) from exc
+    _apple_keys = {k["kid"]: k for k in keys if isinstance(k, dict) and "kid" in k}
+    _apple_keys_fetched_at = time.monotonic()
+
+
+def _apple_key(kid: str) -> dict | None:
+    """Apple's public key *kid*, from the cache while it is fresh. A kid we
+    have not seen refetches once (Apple may have rotated), but not more than
+    once a minute, so random kids cannot turn into a stream of fetches."""
+    with _apple_keys_lock:
+        age = time.monotonic() - _apple_keys_fetched_at
+        if not _apple_keys or age > _APPLE_KEYS_TTL or (
+            kid not in _apple_keys and age > _APPLE_KEYS_MIN_REFETCH
+        ):
+            _fetch_apple_keys()
+        return _apple_keys.get(kid)
+
+
+def _verify_apple_identity_token(token: str, client_ids: list[str]) -> dict:
+    """Check the identity token's RS256 signature (against Apple's published
+    keys), issuer, audience and expiry, and return its claims. Raises
+    ValueError if it is not a valid token for one of *client_ids*,
+    _AppleUnavailable if the keys could not be fetched. Blocking (may fetch
+    keys): call it off the event loop. Tests replace this function so no
+    network is used."""
+    try:
+        header = jose_jwt.get_unverified_header(token)
+    except JWTError as exc:
+        raise ValueError(f"malformed token: {exc}") from exc
+    if header.get("alg") != "RS256" or not header.get("kid"):
+        raise ValueError("unexpected token header")
+    key = _apple_key(header["kid"])
+    if key is None:
+        raise ValueError("unknown signing key")
+    try:
+        # aud is checked below against the whole list; jose takes one value.
+        claims = jose_jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            issuer=_APPLE_ISSUER,
+            options={"verify_aud": False, "require_exp": True},
+        )
+    except JWTError as exc:
+        raise ValueError(str(exc)) from exc
+    if claims.get("aud") not in client_ids:
+        raise ValueError("wrong audience")
+    return claims
+
+
+@router.post(
+    "/apple",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Sign in with an Apple identity token",
+)
+async def login_with_apple(
+    body: AppleLoginRequest,
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> LoginResponse:
+    """Exchange a Sign in with Apple identity token for our own session.
+
+    Same rules as the Google login: the user is found by the token's `sub`
+    (Apple's stable account id), a first sign-in creates a new account, and
+    it is NEVER linked to another account by email. Apple puts no name in
+    the token; the app forwards the one Apple gave it on the first
+    authorization, and it is used only when the account is created."""
+    client_ids = settings.APPLE_CLIENT_ID_LIST
+    if not client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Apple orqali kirish hozircha mavjud emas.",
+        )
+
+    redis = get_redis()
+    await _enforce_rate_limit(
+        redis,
+        f"apple_ip_rate:{_get_client_ip(request)}",
+        _APPLE_IP_RATE_LIMIT,
+        _APPLE_IP_RATE_WINDOW,
+        "Bu IP manzildan juda ko'p kirish urinishi bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+    )
+
+    try:
+        claims = await run_in_threadpool(
+            _verify_apple_identity_token, body.identity_token, client_ids
+        )
+    except _AppleUnavailable as exc:
+        logger.warning("apple_keys_unavailable", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Apple bilan bog'lanib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
+        ) from exc
+    except ValueError as exc:
+        logger.info("apple_login_rejected", reason=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_APPLE_INVALID_DETAIL
+        ) from exc
+
+    # Checked again here, as for Google: the audience/issuer rules are ours.
+    sub = claims.get("sub")
+    if not sub or claims.get("aud") not in client_ids or claims.get("iss") != _APPLE_ISSUER:
+        logger.info("apple_login_rejected", reason="claims", aud=claims.get("aud"))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_APPLE_INVALID_DETAIL
+        )
+
+    result = await db.execute(select(User).where(User.apple_sub == sub))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        name = (body.name or "").strip()[:100] or None
+        # May be an @privaterelay.appleid.com address: kept for display only.
+        email = (claims.get("email") or "").strip()[:255] or None
+        user = User(apple_sub=sub, email=email, name=name, language=body.language or "uz")
+        db.add(user)
+        await db.flush()
+        # Load server defaults (created_at) so UserOut serialises fully.
+        await db.refresh(user)
+        logger.info("user_registered_apple", user_id=str(user.id))
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_APPLE_INVALID_DETAIL
+        )
+
+    logger.info("user_logged_in_apple", user_id=str(user.id))
+    return _login_response(user, request, response)
+
+
 @router.post(
     "/delete-account",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -623,8 +784,8 @@ async def delete_my_account(
     current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Irreversible. Accounts with a password must confirm it; phone/OTP-only
-    accounts have none. Admins cannot delete themselves here. Rate-limited per
+    """Irreversible. Accounts with a password must confirm it; phone/OTP,
+    Google and Apple accounts have none. Admins cannot delete themselves here. Rate-limited per
     user so the password prompt cannot be brute-forced."""
     if current_user.is_admin:
         raise HTTPException(

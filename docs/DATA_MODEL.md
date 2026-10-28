@@ -26,7 +26,7 @@ users ─┬─< apartments ─< rooms ─┬─< estimates
 ### Foydalanuvchi va loyiha
 | Jadval | Nima saqlaydi | Muhim ustunlar |
 |---|---|---|
-| `users` | Hisob | `phone`, `username`, `password_hash`, `is_admin`, `is_active` |
+| `users` | Hisob | `phone`, `username`, `password_hash`, `google_sub`, `apple_sub` (Google/Apple orqali kirish, unique), `email` (faqat ko'rsatish uchun), `language`, `is_admin`, `is_active` |
 | `apartments` | Kvartira (loyiha) | `user_id`, `name`, `address`, `renovation_stage` |
 | `rooms` | Xona | `apartment_id`, `geometry` (JSON: devorlar, eshik/derazalar, ixtiyoriy `vertices`), `ceiling_h`, `state` (JSON: studiyadagi butun holat — dizayn, mebel, chiroqlar, `layoutPos`), `room_scan` (JSON: LiDAR skaner ma'lumoti), `floor_area`, `net_wall_area`, `perimeter`, `share_token`, `deleted` (yumshoq o'chirish) |
 | `draft_rooms` | Wizard qoralamasi (egasi — `user_id`) | `state`, `user_id` |
@@ -79,6 +79,7 @@ Studiyaning asosiy manbai `rooms.state`.
 | `room_renders` | Render natijalari (MyArchitectAI) |
 | `media_jobs` | Fon ishlari hisobi |
 | `norms` | Smeta me'yorlari: sarf, qatlam, chiqindi foizi |
+| `content_reports` | Foydalanuvchilarning kontentga shikoyatlari: `reporter_id`, `target_type` + `target_id` (FK emas), `reason`, `details`, `status` (`open`/`resolved`/`dismissed`). Bir foydalanuvchi bitta obyektga bitta shikoyat |
 
 ## Hozircha yo'q narsalar (integratsiya uchun kerak bo'ladi)
 

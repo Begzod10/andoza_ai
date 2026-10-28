@@ -19,7 +19,7 @@ from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
     orders, admin_orders, currency, admin_catalog, admin_materials, room_share, render, photo_model, seller, admin_moderation, usta_profile, usta_portfolio, account,
-    shop_inquiries, devices,
+    shop_inquiries, devices, reports,
 )
 
 
@@ -95,6 +95,8 @@ def create_app() -> FastAPI:
     app.include_router(usta_portfolio.public_router, prefix="/api/v1", tags=["ustalar"])
     app.include_router(account.router, prefix="/api/v1", tags=["account"])
     app.include_router(devices.router, prefix="/api/v1", tags=["devices"])
+    app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
+    app.include_router(reports.admin_router, prefix="/api/v1", tags=["admin-reports"])
     app.include_router(shop_inquiries.router, prefix="/api/v1", tags=["shops"])
     app.include_router(shop_inquiries.seller_router, prefix="/api/v1", tags=["seller"])
     app.include_router(wallpapers.router, prefix="/api/v1", tags=["wallpapers"])

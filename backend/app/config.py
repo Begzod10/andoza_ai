@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     def GOOGLE_CLIENT_ID_LIST(self) -> List[str]:
         return [c.strip() for c in self.GOOGLE_CLIENT_IDS.split(",") if c.strip()]
 
+    # "Sign in with Apple": accepted `aud` values of Apple identity tokens
+    # (comma-separated). For the native iOS app that is its bundle id
+    # (uz.andozaai.app). A web Services ID can be added here later. Empty =
+    # Apple sign-in off (503).
+    APPLE_CLIENT_IDS: str = "uz.andozaai.app"
+
+    @property
+    def APPLE_CLIENT_ID_LIST(self) -> List[str]:
+        return [c.strip() for c in self.APPLE_CLIENT_IDS.split(",") if c.strip()]
+
     # Push notifications: path to the Firebase service-account JSON (mounted
     # as a file, never committed). Empty or missing file = pushes are off.
     FIREBASE_CREDENTIALS_FILE: str = ""
