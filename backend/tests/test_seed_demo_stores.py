@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from sqlalchemy.sql.elements import BinaryExpression, BooleanClauseList, False_, True_
@@ -57,7 +58,8 @@ def test_the_catalog_has_stores_with_furniture_and_materials():
     for store in CATALOG["stores"]:
         assert store["items"], store["name"]
         # A sample of each shop — except Loftbek, whose whole range was asked for.
-        assert len(store["items"]) <= (80 if store["slug"] == "loftbek" else 30), store["name"]
+        # A sample of each shop; from Loftbek (v4) on, the whole range or up to 60 of it.
+        assert len(store["items"]) <= (30 if demo.item_since(store, {}) < LOFTBEK_VERSION else 80), store["name"]
         # A real store links its site; the market-average store has none (it is no shop).
         assert store.get("website", "").startswith("https://") or _is_market_average(store)
         assert len(store["name"]) <= 200
@@ -180,6 +182,33 @@ def test_loftbek_office_furniture_is_version_4():
             assert max(im.size) <= 800
 
 
+V5 = 5
+V5_STORES = {"home-interior": "Home Interior", "jaquar": "Jaquar", "foondament": "Foondament",
+             "quramiz": "Quramiz", "ks-lux": "KS Lux", "europol": "Europol"}
+MATERIAL_UNITS = {"litr", "rulon", "m2", "qop", "dona", "m", "komplekt"}
+
+
+def test_the_v5_stores_are_new_in_version_5_with_sane_rows():
+    from PIL import Image
+
+    assert demo.catalog_version(CATALOG) == V5
+    assert {s["slug"] for s in CATALOG["stores"]
+            if any(demo.item_since(s, i) == V5 for i in s["items"])} == set(V5_STORES)
+    for slug, name in V5_STORES.items():
+        store = next(s for s in CATALOG["stores"] if s["slug"] == slug)
+        assert store["name"] == name and store["since"] == V5 and 10 <= len(store["items"]) <= 60, slug
+        for item in store["items"]:
+            assert urlsplit(item["source_url"]).hostname.endswith(urlsplit(store["website"]).hostname.removeprefix("www.")), item
+            if item["kind"] == "material":
+                # The seed's Material needs a price and one of the enum's units.
+                assert isinstance(item["price_uzs"], int) and item["price_uzs"] >= 1000, item
+                assert item["unit"] in MATERIAL_UNITS, item
+                if item["category"] in ("laminat", "parket", "plitka"):
+                    assert item["unit"] == "m2" and 30_000 <= item["price_uzs"] <= 5_000_000, item
+            with Image.open(demo.DATA_DIR / item["image"]) as im:
+                assert max(im.size) <= 800
+
+
 def test_no_photo_on_disk_is_unreferenced():
     referenced = {item["image"] for _, item in _items()}
     on_disk = {p.relative_to(demo.DATA_DIR).as_posix() for p in (demo.DATA_DIR / "images").rglob("*.webp")}
@@ -188,7 +217,7 @@ def test_no_photo_on_disk_is_unreferenced():
 
 def test_the_photos_stay_small():
     total = sum(p.stat().st_size for p in (demo.DATA_DIR / "images").rglob("*.webp"))
-    assert total <= 12 * 1024 * 1024
+    assert total <= 16 * 1024 * 1024
 
 
 def test_names_fit_and_are_unique_per_store():
@@ -205,7 +234,8 @@ def test_names_read_like_product_names():
         assert not name.endswith("."), name
         assert not re.match(r"(Люстры|Торшеры|Одинарные светильники)\b|\w+ \[", name), name
         assert name[0] == name[0].upper(), name
-        for word in name.split():  # no Latin look-alikes inside a Cyrillic word ("Cтильный")
+        # No Latin look-alikes inside a Cyrillic word ("Cтильный"); "плит-GRANIT" is two words.
+        for word in re.split(r"[\s,/-]+", name):
             assert not (re.search(r"[а-яё]", word, re.I) and re.search(r"[A-Za-z]", word)), name
 
 
@@ -514,11 +544,12 @@ async def test_a_database_seeded_before_versions_gets_exactly_the_new_rows(env):
     assert (result["wallpapers"], result["existing"]) == (0, 0)
     assert result["stores"] == len({s["name"] for s, _ in newer})
     added = set(session.of(Store)) - stores_before
-    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx", "Divan.uz", "Loftbek"}
+    assert {st.name for st in added} == {"Deraza bozori — o'rtacha narx", "Divan.uz", "Loftbek", *V5_STORES.values()}
     window_store = next(st for st in added if st.name.startswith("Deraza"))
     assert window_store.is_demo is True and "o'rtacha narx" in window_store.moderation_note
     windows = [m for m in session.of(Material) if m.store_id == window_store.id]
-    assert sorted(m.name_uz for m in windows) == sorted(i["name_uz"] for i in new_materials)
+    assert sorted(m.name_uz for m in windows) == sorted(
+        i["name_uz"] for s, i in newer if i["kind"] == "material" and s["slug"] == "deraza-bozori")
     assert len(uploads.keys) - uploads_before == len(newer)
     assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{demo.catalog_version(CATALOG)}"]
 
@@ -621,7 +652,7 @@ async def test_the_v3_to_v4_upgrade_adds_only_loftbek(env, monkeypatch):
     session, uploads, _ = env
     monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(CARPET_VERSION))
     await demo.seed_demo_stores()
-    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(LOFTBEK_VERSION))
     stores_before, uploads_before = set(session.of(Store)), len(uploads.keys)
 
     result = await demo.seed_demo_stores()
@@ -633,6 +664,27 @@ async def test_the_v3_to_v4_upgrade_adds_only_loftbek(env, monkeypatch):
     assert [st.name for st in added] == ["Loftbek"] and added.pop().is_demo is True
     assert len(uploads.keys) - uploads_before == len(items)
     assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{LOFTBEK_VERSION}"]
+
+
+async def test_the_v4_to_v5_upgrade_adds_only_the_v5_stores(env, monkeypatch):
+    session, uploads, _ = env
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(LOFTBEK_VERSION))
+    await demo.seed_demo_stores()
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    stores_before, uploads_before = set(session.of(Store)), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    new = [s for s in CATALOG["stores"] if s["slug"] in V5_STORES]
+    n_mat = sum(1 for s in new for i in s["items"] if i["kind"] == "material")
+    n_fur = sum(1 for s in new for i in s["items"] if i["kind"] == "furniture")
+    assert (result["from_version"], result["version"]) == (LOFTBEK_VERSION, V5)
+    assert (result["stores"], result["materials"], result["furniture"]) == (len(V5_STORES), n_mat, n_fur)
+    added = set(session.of(Store)) - stores_before
+    assert {st.name for st in added} == set(V5_STORES.values())
+    assert all(st.is_demo for st in added)
+    assert len(uploads.keys) - uploads_before == n_mat + n_fur
+    assert [m.key for m in session.of(SeedMarker)] == [f"demo_stores_v{V5}"]
 
 
 async def test_a_remove_at_version_2_keeps_the_carpets_out(env, monkeypatch):

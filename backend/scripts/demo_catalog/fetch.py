@@ -386,7 +386,9 @@ def _fix_word(word: str) -> str:
     cyr = len(re.findall(r"[а-яё]", word, re.I))
     lat = len(re.findall(r"[A-Za-z]", word))
     if cyr and lat:
-        return word.translate(_LOOKALIKE if cyr >= lat else _LOOKALIKE_BACK)
+        # A Cyrillic letter with no Latin twin ("П" in "ПyB") settles it: the word is Russian.
+        only_cyr = re.search(r"[^АВСЕНКМОРТХасеорху\W\d_A-Za-z]", word)
+        return word.translate(_LOOKALIKE if cyr >= lat or only_cyr else _LOOKALIKE_BACK)
     return word
 
 
@@ -395,9 +397,12 @@ def clean_name(name: str) -> str:
     m = _PREFIX_RE.match(name)
     if m:
         name = f"{_PLURAL_PREFIX[m.group(1)]} {m.group(2).strip()}"
-    name = " ".join(_fix_word(w) for w in name.split(" "))
+    # Parts joined by a hyphen or comma are words of their own ("плит-GRANIT", "Uzkabel,ПуВ").
+    name = re.sub(r"[^\s,\-/]+", lambda m: _fix_word(m.group(0)), name)
     if name[:1].islower():
         name = name[0].upper() + name[1:]
+    # A store's own copy counter ("кран в/р.ф25 (1)") is not part of the product name.
+    name = re.sub(r"\s*\(\d{1,2}\)$", "", name)
     return name.rstrip(".")[:200]
 
 
@@ -1048,6 +1053,599 @@ def fetch_loftbek(http: Http) -> list[Item]:
     return out
 
 
+# Home Interior (Megagroup shop2 site): folder -> (category, word to prefix a bare model
+# name with, how many). No carpets on the site; mirrors stand in for decor.
+_HOME_INTERIOR_FOLDERS = [
+    ("podvesnye-lyustry", "lampa", "Люстра", 10),
+    ("bra", "lampa", "Бра", 4),
+    ("torshery", "lampa", "Торшер", 4),
+    ("nastolnaya-lampa", "lampa", "Настольная лампа", 4),
+    ("divany", "divan", "Диван", 8),
+    ("kresla", "divan", "Кресло", 5),
+    ("kresla-1", "divan", "Кресло", 2),
+    ("pufiki", "divan", "Пуф", 2),
+    ("stoly-stolovye", "stol", "Стол обеденный", 6),
+    ("stulya", "stul", "Стул", 6),
+    ("krovati", "karavot", "Кровать", 2),
+    ("zerkala", "boshqa", "Зеркало", 6),
+]
+
+
+def _home_interior_cards(soup: BeautifulSoup) -> list:
+    """(url, name, price, in_stock, article) of every product card on a folder page;
+    many show "Цена по запросу" (price on request) and get price None."""
+    out = []
+    for form in soup.select("form.shop2-product-item"):
+        a = form.select_one(".gr-product-name a[href]")
+        if not a:
+            continue
+        price_el = form.select_one(".price-current strong")
+        price = to_int(price_el.get_text().split(".")[0]) if price_el else None
+        text = form.get_text(" ")
+        art = form.select_one(".product-article")
+        art = art.get_text(" ", strip=True).replace("Артикул:", "").strip() if art else ""
+        # The article tells same-named pieces apart ("Зеркало", HI-A80); "нет" means none.
+        art = art if re.fullmatch(r"[\w-]{2,20}", art) and art.lower() != "нет" else None
+        out.append((urljoin("https://homeinterior.uz/", a["href"]), a.get_text(" ", strip=True), price,
+                    "Нет в наличии" not in text, art))
+    return out
+
+
+def fetch_home_interior(http: Http) -> list[Item]:
+    base = "https://homeinterior.uz"
+    out: list[Item] = []
+    seen: set[str] = set()
+    for folder, category, word, n in _HOME_INTERIOR_FOLDERS:
+        cards = []
+        soup = http.soup(f"{base}/magazin/folder/{folder}")
+        if soup is None:
+            continue
+        cards += _home_interior_cards(soup)
+        if len(cards) < 2 * n and soup.find("a", href=f"/magazin/folder/{folder}/p/1"):
+            soup = http.soup(f"{base}/magazin/folder/{folder}/p/1")
+            cards += _home_interior_cards(soup) if soup is not None else []
+        cards.sort(key=lambda c: (not c[3], not c[2]))  # in stock, then priced, first
+        got = 0
+        for url, name, price, _, article in cards:
+            if got >= n:
+                break
+            if url in seen or is_bundle(name) or re.search(r"\sс\s+(пуф|стул|зеркал)", name, re.I):
+                continue
+            psoup = http.soup(url)
+            if psoup is None:
+                continue
+            img = psoup.find("img", src=re.compile(r"/thumb/2/[^/]+/900r900/d/"))
+            if not img:
+                continue
+            options = {}
+            for row in psoup.select(".shop2-product-options .option-item"):
+                key, value = row.select_one(".option-title"), row.select_one(".option-body")
+                if key and value:
+                    options[key.get_text(" ", strip=True)] = value.get_text(" ", strip=True)
+            dims = dims_from_text(options.get("Размер", ""), "мм")
+            # A sofa "260 mm across" is a typo on the site: drop footprints too small for the piece.
+            if category != "lampa" and (dims.get("footprint_w") or 99) < 30:
+                dims = {}
+            if not classify(name) and word.split()[0].lower() not in name.lower():
+                name = f"{word} {name.title() if name.isupper() else name}"
+            seen.add(url)
+            out.append(furniture(name, category, url, urljoin(base, img["src"]), price, dims,
+                                 placement="devor" if folder == "zerkala" else None,
+                                 variants=[article, options.get("Цвет"), options.get("Страна производитель")]))
+            got += 1
+    return out
+
+
+_JAQUAR = "https://www.jaquar.uz"
+# Jaquar section -> how many to take and which product names make a good demo
+# (whole fixtures, not trim kits, spare parts or panels).
+_JAQUAR_QUOTAS = [
+    ("smesiteli", 7, r"^Однорычажн\w* (?:моноблочн\w* )?смеситель для (?:раковины|мойки|ванны)|сенсорный смеситель"),
+    ("sanfayans", 7, r"раковин|унитаз"),
+    ("dushevye-sistemy", 6, r"^(?:\w+: )?(?:верхний душ|ручной душ|душевая панель|однорежимный (?:верхний|ручной) душ|многорежимный)"),
+    ("vanny", 4, r"ванна"),
+    ("dushevye-ograzhdeniya", 2, r"ограждение"),
+]
+
+
+def _jaquar_name(p: dict) -> str:
+    """'Накладная раковина ALIVE ALS 85601'; a name the site cut with '…' takes the
+    description's first clause instead."""
+    name = p.get("name") or ""
+    if name.endswith("…"):
+        name = re.split(r",", p.get("desc") or name)[0]
+    name = name.rstrip("…").strip()
+    if len(name) > 70:
+        name = name[:70].rsplit(" ", 1)[0]
+        name = re.sub(r"(?:\s+(?:с|и|в|для|из|на|по|под|без))+$", "", name)
+    return f"{name} {p['codePrefix']} {p['codeNumber']}"
+
+
+def fetch_jaquar(http: Http) -> list[Item]:
+    """Jaquar Uzbekistan (Odoo-backed SPA). The whole Jaquar range ships as JSON in
+    /jaquar-site/ru/catalog-N.js; prices there are the site's own UZS prices
+    (the company prices in $ at 12 500 сум and shows the result in сум)."""
+    shop = http.get(f"{_JAQUAR}/ru/shop")
+    parts = sorted(set(re.findall(r"/jaquar-site/ru/catalog-\d+\.js", shop.text))) if shop is not None else []
+    products: list[dict] = []
+    for part in parts:
+        r = http.get(_JAQUAR + part)
+        if r is None:
+            continue
+        text = r.content.decode("utf-8")
+        m = re.search(r"\]\s*=\s*(\[.*\])\s*;?\s*$", text, re.S)
+        if not m:
+            continue
+        try:
+            products += json.loads(m.group(1))
+        except json.JSONDecodeError:
+            continue
+    out: list[Item] = []
+    for section, n, pattern in _JAQUAR_QUOTAS:
+        rx = re.compile(pattern, re.I)
+        got, seen_series, kinds = 0, set(), {}
+        for p in products:
+            if got >= n:
+                break
+            if p.get("categorySlug") != section or not rx.search(p.get("name") or ""):
+                continue
+            # A varied range: one per series (baths all share one), at most two of a kind.
+            kind = re.sub(r"^\w+: ", "", p["name"])[:30]
+            if (section != "vanny" and p.get("seriesSlug") in seen_series) or kinds.get(kind, 0) >= 2:
+                continue
+            # Chrome is the standard finish; else the product's default photo and price.
+            finish = "CHR" if "CHR" in (p.get("ids") or {}) and "CHR" not in (p.get("noFoto") or []) else None
+            foto = (p.get("ids") or {}).get(finish) if finish else p.get("foto")
+            price = to_int(((p.get("prices") or {}).get(finish) if finish else None) or p.get("price"))
+            if not (foto and price):
+                continue
+            out.append(Item("material", clean_name(_jaquar_name(p)), "santexnika",
+                            f"{_JAQUAR}/ru/product/{p['slug']}", f"{_JAQUAR}/jaquar-site/img/{foto}",
+                            price, "dona"))
+            seen_series.add(p.get("seriesSlug"))
+            kinds[kind] = kinds.get(kind, 0) + 1
+            got += 1
+    return out
+
+
+_FOONDAMENT = "https://foondament.uz"
+_FOONDAMENT_KG_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:кг|kg)\b", re.I)
+_FOONDAMENT_LITRE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:л|l|lt|литр)\b", re.I)
+_FOONDAMENT_CABLE_RE = re.compile(r"^(?:uz\s*kabel\s*)?(?:кабел\w*\s*)?(?:пвс|ввг|аввг|avvg|провод\s+кг|кабел\w*\s+кг)", re.I)
+
+
+def _foondament_cards(http: Http, url: str) -> list[tuple]:
+    """(name, product url, price, image url) for each product card on a shop listing page."""
+    soup = http.soup(url)
+    if soup is None:
+        return []
+    out = []
+    for card in soup.select("form.oe_product_cart"):
+        a, img = card.select_one("h2 a[href]"), card.select_one("img.oe_product_image_img")
+        price = card.select_one(".product_price .oe_currency_value")
+        if a and img and img.get("src"):
+            out.append((a.get_text(" ", strip=True), urljoin(_FOONDAMENT, a["href"]),
+                        to_int(price.get_text()) if price else None, urljoin(_FOONDAMENT, img["src"])))
+    return out
+
+
+def _foondament_material(name: str, category: str):
+    """(category, unit, divisor for the price) for a listing name, or None to skip it."""
+    n = name.lower()
+    kg = _FOONDAMENT_KG_RE.search(n)
+    kg = float(kg.group(1).replace(",", ".")) if kg else 0
+    if category == "gips":
+        if re.search(r"гипсокартон", n) and not re.search(r"профил|арра|аграф|заполнит|крепл", n):
+            return "gips", "dona", 1
+        if re.search(r"шпатл|шпакл|штукатур|гипс|fugegyps", n) and kg >= 5:
+            return "gips", "qop", 1
+        if re.search(r"клей\b.*(плит|керам|гранит|мрамор|мозаик)|graniter|\bцемент", n) \
+                and not re.search(r"анти|хризотил|теплоизол|пенополист|газобет", n) and kg >= 5:
+            return "sement", "qop", 1
+        return None
+    if category == "santexnika":
+        if re.search(r"смесит|симистет|лейк|сифон|трап|канализац\w* труб|труба для внутренней канал"
+                     r"|шаров\w* кран|шар\.\s*кран|вентил|винтел", n) and not re.search(r"газ", n):
+            return "santexnika", "dona", 1
+        return None
+    if category == "elektr_mat":
+        if _FOONDAMENT_CABLE_RE.search(n.strip()):
+            return "elektr_mat", "m", 1
+        if re.search(r"розетк|выкл|преключ|переключ|авт\.|автомат|avtomat|\bщит|\bshit", n) \
+                and not re.search(r"бокс|гринка|машин", n):
+            return "elektr_mat", "dona", 1
+        return None
+    if category == "boyoq":
+        litres = _FOONDAMENT_LITRE_RE.search(n)
+        if litres and re.search(r"краск|эмал|enamel|эмульс", n):
+            return "boyoq", "litr", float(litres.group(1).replace(",", "."))
+        return None
+    return None
+
+
+def fetch_foondament(http: Http) -> list[Item]:
+    """Odoo shop. Listing cards carry name, price and photo; a product without a photo
+    gets Odoo's placeholder (served as placeholder_thumbnail.png), which is skipped, and
+    so are the 1-sum placeholder prices. Paint is mostly sold by the kilogram here: only
+    the cans labelled in litres (found with the shop's own search) are kept."""
+    cat = _FOONDAMENT + "/shop/category/"
+    # (listing url, our category, how many to keep, pages to scan)
+    sources = [
+        (cat + "qurilish-materiallari-quruq-aralashmalar-shpatlyovka-va-kafel-yelimi-80", "gips", 16, 10),
+        (cat + "qurilish-materiallari-gipsokarton-va-profillar-81", "gips", 2, 2),
+        # Tile adhesive (sement) is thin in the category above once photo-less ones go.
+        (_FOONDAMENT + "/shop?search=клей", "gips", 6, 3),
+        (cat + "santexnika-smesitellar-va-dush-51", "santexnika", 8, 3),
+        (cat + "santexnika-traplar-sifonlar-va-kanalizatsiya-52", "santexnika", 6, 3),
+        (cat + "santexnika-kranlar-va-berkituvchi-armatura-50", "santexnika", 4, 2),
+        (cat + "elektrika-rozetkalar-va-vyklyuchatellar-62", "elektr_mat", 6, 3),
+        (cat + "elektrika-avtomatlar-va-shchitlar-63", "elektr_mat", 5, 3),
+        (cat + "elektrika-kabellar-va-simlar-65", "elektr_mat", 5, 3),
+        (cat + "elektrika-yoritish-64", "lampa", 10, 3),
+        (cat + "bo-yoqlar-va-pardozlash-bo-yoqlar-va-emulsiyalar-74?search=LT", "boyoq", 6, 1),
+    ]
+    caps = {"gips": 10, "sement": 6, "santexnika": 16, "elektr_mat": 14, "lampa": 10, "boyoq": 6}
+    out: list[Item] = []
+    used: dict[str, int] = {}
+    seen: set[str] = set()
+    # Sizes of one model ("Авт. выкл. NEXT ... 16A", "... 6A"): at most two of each.
+    models: dict[str, int] = {}
+    for base, category, n, pages in sources:
+        got = 0
+        for page in range(1, pages + 1):
+            if got >= n:
+                break
+            if page == 1:
+                url = base
+            else:
+                path, _, query = base.partition("?")
+                url = f"{path}/page/{page}" + (f"?{query}" if query else "")
+            cards = _foondament_cards(http, url)
+            if not cards:
+                break
+            for name, url, price, image in cards:
+                model = re.sub(r"[\d\W_]+", " ", name.lower()).strip()
+                # One product shows up under its category path and under plain /shop/.
+                key = url.rsplit("-", 1)[-1]
+                if got >= n or key in seen or not price or price < 1000 or models.get(model, 0) >= 2:
+                    continue
+                if category == "lampa":
+                    if not re.search(r"plafon|плафон|akril|акрил|panel|панел|светильн|люстр|\bбра\b", name, re.I) \
+                            or re.search(r"движени|ламп(а|очк)|bulb", name, re.I):
+                        continue
+                    kind = None
+                else:
+                    kind = _foondament_material(name, category)
+                    if kind is None:
+                        continue
+                    if used.get(kind[0], 0) >= caps[kind[0]]:
+                        continue
+                if category == "lampa" and used.get("lampa", 0) >= caps["lampa"]:
+                    continue
+                # Odoo serves a grey placeholder for a product without a photo.
+                r = http.get(image, binary=True)
+                if r is None:
+                    continue
+                placeholder = "placeholder" in r.headers.get("content-disposition", "")
+                r.close()
+                if placeholder or not r.headers.get("content-type", "").startswith("image/"):
+                    continue
+                seen.add(key)
+                models[model] = models.get(model, 0) + 1
+                if kind is None:
+                    out.append(furniture(name, "lampa", url, image, price))
+                    used["lampa"] = used.get("lampa", 0) + 1
+                else:
+                    cat_, unit, per = kind
+                    unit_price = round(price / per)
+                    out.append(Item("material", clean_name(name), cat_, url, image, unit_price, unit))
+                    used[cat_] = used.get(cat_, 0) + 1
+                got += 1
+    return out[:60]
+
+
+_QURAMIZ_API = "https://quramiz.uz/api/product2/filter"
+_QURAMIZ_PHOTO = "https://e-pos.uz/uploads/products/medium/"
+
+
+def _quramiz_page(http: Http, catalog: int, page: int = 1) -> list[dict]:
+    """One page (12 products) of a catalogue, from the JSON API the site's own catalogue
+    page calls. It only answers POST (a GET fails with a server error), so this goes
+    through Http's session with the same robots.txt check and pacing as Http.get."""
+    url = _QURAMIZ_API + (f"?page={page}" if page > 1 else "")
+    if not http.allowed(url):
+        log(f"  robots.txt disallows {url}, skipped")
+        return []
+    http._wait()
+    http.requests += 1
+    try:
+        r = http.s.post(url, json={"catalog": catalog}, timeout=30)
+        data = r.json()
+    except (requests.RequestException, ValueError) as exc:
+        log(f"  {url} catalog {catalog}: {exc}")
+        return []
+    if r.status_code != 200 or not data.get("status"):
+        log(f"  {url} catalog {catalog}: HTTP {r.status_code}")
+        return []
+    return ((data.get("result") or {}).get("products") or {}).get("data") or []
+
+
+def _quramiz_material(p: dict, category: str):
+    """(category, unit, price) for a product, or None to skip it. The API's `type` is the
+    sale unit ("1" piece, "11" metre); `kv_m` + `type_kv_m` say how much one unit holds
+    (2.5 "л." of paint, 0.36 "кв.м." of tile)."""
+    name = f"{p.get('name', '')} {p.get('title', '')}".lower()
+    price = to_int(p.get("price"))
+    if not price:
+        return None
+    try:
+        amount = float(p.get("kv_m") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    holds = str(p.get("type_kv_m") or "")
+    if category == "boyoq":
+        if holds.startswith("л") and amount > 0 and re.search(r"краск|эмал|эмульс", name):
+            return "boyoq", "litr", round(price / amount)
+        return None
+    if category == "plitka":
+        if holds.startswith("кв") and amount > 0:
+            return "plitka", "m2", round(price / amount)
+        return None
+    if category == "gips":
+        if "гипсокартон" in name:
+            return "gips", "dona", price
+        if re.search(r"\d\s*кг", name) or holds.startswith("кг"):
+            return "gips", "qop", price
+        return None
+    if category == "sement":
+        if re.search(r"\d\s*кг", name) or holds.startswith("кг"):
+            return "sement", "qop", price
+        return None
+    if category == "elektr_mat":
+        if str(p.get("type")) == "11":
+            return "elektr_mat", "m", price
+        return "elektr_mat", "dona", price
+    if category == "santexnika":
+        return "santexnika", "dona", price
+    return None
+
+
+def fetch_quramiz(http: Http) -> list[Item]:
+    """Quramiz (SQB's building-materials marketplace; Vue front end). Catalogue pages are
+    filled in by a JSON API; products live at /cl/product/<id>, photos on e-pos.uz."""
+    # (catalogue id, our category, pages to read, how many to keep). Catalogue ids come
+    # from /api/product2/header. Pages deep into "Люстры" (230) skip its office panels.
+    sources = [
+        (348, "boyoq", [1, 2, 3], 8),         # Краска водно-дисперсионная
+        (112, "gips", [1, 2], 4),             # Шпаклевки
+        (113, "gips", [1], 3),                # Штукатурки
+        (117, "gips", [1], 2),                # Листовые материалы (гипсокартон)
+        (514, "sement", [1], 2),              # Цемент
+        (413, "sement", [1, 2], 4),           # Клей для плитки
+        (354, "plitka", [1], 6),              # Изделия из керамогранита
+        (318, "elektr_mat", [1, 2], 6),       # Розетки и выключатели скрытой установки
+        (242, "elektr_mat", [1, 2], 3),      # Автоматические выключатели
+        (304, "elektr_mat", [1], 3),          # Силовой кабель, провод
+        (410, "santexnika", [1], 3),          # Раковины
+        (347, "santexnika", [1], 2),          # Канализация (сифоны)
+        (407, "santexnika", [1], 2),          # Трапы
+        (406, "santexnika", [1], 2),          # Полотенцесушители
+        (230, "lampa", [50, 80], 4),          # Люстры
+        (231, "lampa", [1, 5], 3),            # Бра
+        (232, "lampa", [1], 1),               # Подвесные светильники
+        (235, "lampa", [1], 2),               # Освещение жилых помещений
+        (233, "lampa", [1], 2),               # Встраиваемые
+    ]
+    out: list[Item] = []
+    seen: set = set()
+    models: dict = {}
+    for catalog, category, pages, n in sources:
+        got = 0
+        for page in pages:
+            if got >= n:
+                break
+            products = _quramiz_page(http, catalog, page)
+            # In stock first.
+            products.sort(key=lambda p: not (to_int(p.get("count")) or 0) > 0)
+            for p in products:
+                if got >= n:
+                    break
+                pid, photo = p.get("id"), p.get("photo")
+                if not pid or not photo or pid in seen or not (to_int(p.get("count")) or 0) > 0:
+                    continue
+                name = clean_name(f"{(p.get('name') or '').strip().rstrip(',')} {p.get('title') or ''}")
+                # Colour/size variants of one model: one each; cables and breakers come in
+                # sizes of one series, so three of those (household cross-sections only).
+                model = re.sub(r"[\d\W_]+", " ", (p.get("title") or "").lower()).strip()[:25]
+                if catalog == 318:  # sockets and switches: three of each kind
+                    model = (p.get("name") or "").split(" ")[0]
+                if models.get((catalog, model), 0) >= (3 if catalog in (242, 304, 318) else 1):
+                    continue
+                if catalog == 304 and not re.search(r"[xх]\s*(1,5|2,5|4,0)", p.get("title") or ""):
+                    continue
+                if catalog == 242 and not re.search(r"\b(10|16|20|25|32)\s*А", p.get("title") or ""):
+                    continue
+                url, image = f"https://quramiz.uz/cl/product/{pid}", _QURAMIZ_PHOTO + photo
+                if category == "lampa":
+                    price = to_int(p.get("price"))
+                    text = name.lower()
+                    if not price or price < 10000 or not re.search(r"светильник|люстр|\bбра\b", text) \
+                            or re.search(r"лент|уличн|lrv|lrn", text):
+                        continue
+                    item = furniture(name, "lampa", url, image, price)
+                else:
+                    kind = _quramiz_material(p, category)
+                    if kind is None or kind[2] < 1000:
+                        continue
+                    item = Item("material", name, kind[0], url, image, kind[2], kind[1])
+                seen.add(pid)
+                models[(catalog, model)] = models.get((catalog, model), 0) + 1
+                out.append(item)
+                got += 1
+    return out[:60]
+
+
+_KS_LUX_PER_M2_RE = re.compile(r"Стоимость 1 м²\s*-\s*([\d\s ]+)\s*UZS")
+
+
+def _ks_lux_links(http: Http, section: str, pages: int) -> list[str]:
+    """Product URLs from a section's product cards (not the sidebar), in-stock first."""
+    found: list[tuple[str, bool]] = []
+    for page in range(1, pages + 1):
+        url = f"https://kslux.uz/catalog/{section}/" + (f"pagen{page}/" if page > 1 else "")
+        soup = http.soup(url)
+        if soup is None:
+            break
+        cards = soup.select(".product-items [data-entity=item]")
+        if not cards:
+            break
+        for card in cards:
+            a = card.select_one("a.name[href]")
+            if not a:
+                continue
+            link = urljoin("https://kslux.uz/", a["href"])
+            if link not in (u for u, _ in found):
+                found.append((link, card.select_one(".in-stock") is not None))
+    found.sort(key=lambda x: not x[1])
+    return [u for u, _ in found]
+
+
+def fetch_ks_lux(http: Http) -> list[Item]:
+    """KS Lux (Bitrix): laminate and SPC with the page's "Стоимость 1 м²" (the card price
+    is per pack), porcelain stoneware priced "за м2", and sanitary ware / radiators per piece.
+    Paint is left out: its cans carry no volume, so no per-litre price."""
+    # (section, pages, category, unit, how many, price kind)
+    sections = [
+        ("laminat", 3, "laminat", "m2", 14, "m2_calc"),
+        ("laminat/spc-laminat", 1, "laminat", "m2", 6, "m2_calc"),
+        ("keramogranit/keramogranit-geolam", 3, "plitka", "m2", 10, "m2_listed"),
+        ("santekhnika/vanny", 2, "santexnika", "dona", 5, "piece"),
+        ("santekhnika/rakoviny", 2, "santexnika", "dona", 5, "piece"),
+        ("santekhnika/smesitel-dlya-rakoviny", 1, "santexnika", "dona", 4, "piece"),
+        ("santekhnika/smesitel-dlya-dusha", 1, "santexnika", "dona", 3, "piece"),
+        ("santekhnika/unitazy", 1, "santexnika", "dona", 4, "piece"),
+        ("radiatory-otopleniya/nastennye", 1, "santexnika", "dona", 4, "piece"),
+    ]
+    out: list[Item] = []
+    seen: set[str] = set()
+    for section, pages, category, unit, n, kind in sections:
+        got = 0
+        for url in _ks_lux_links(http, section, pages):
+            if got >= n:
+                break
+            if url in seen:
+                continue
+            soup = http.soup(url)
+            if soup is None:
+                continue
+            h1 = soup.find("h1")
+            image = meta(soup, "og:image")
+            if not (h1 and image) or "/upload/" not in image:
+                continue
+            image = re.sub(r"(?<!:)//+", "/", image)
+            name = h1.get_text(" ", strip=True)
+            text = text_of(soup)
+            price_el = soup.select_one(".price[id$=_price_header_fixed]")
+            price = to_int(price_el.get_text()) if price_el else None
+            if kind == "m2_calc":
+                m = _KS_LUX_PER_M2_RE.search(text)
+                price = to_int(m.group(1)) if m else None
+                if section == "laminat" and re.search(r"подложк|плинтус|укладк", name, re.I):
+                    continue
+            elif kind == "m2_listed":
+                if "(цена за м2)" not in text:
+                    continue
+            elif "(цена за шт)" not in text or re.search(
+                    r"пульт|кнопк|сидень|крышк|аксессуар|комплект|набор|каркас", name, re.I):
+                continue  # accessories, not the fixture itself
+            if not price:
+                continue
+            seen.add(url)
+            out.append(Item("material", clean_name(name), category, url, image, price, unit))
+            got += 1
+    return out[:60]
+
+
+def _europol_cards(http: Http, section: str) -> list[dict]:
+    """Every product card of a catalog section (all its pages): url, name, brand, stock,
+    and the card's per-m² price ("228 000 сум за 1 м2")."""
+    cards: list[dict] = []
+    seen: set[str] = set()
+    page, last = 1, 1
+    while page <= last:
+        url = f"https://europol.uz/ru/catalog/{section}" + (f"/page/{page}" if page > 1 else "")
+        soup = http.soup(url)
+        if soup is None:
+            break
+        if page == 1:
+            nums = [int(n) for n in re.findall(rf"/ru/catalog/{section}/page/(\d+)", str(soup))]
+            last = min(max(nums, default=1), 15)
+        for card in soup.select(".product-card"):
+            a = card.select_one("a[href^='/ru/product/']")
+            h2 = card.find("h2")
+            if not (a and h2) or a["href"] in seen:
+                continue
+            seen.add(a["href"])
+            text = re.sub(r"\s+", " ", card.get_text(" "))
+            m = re.search(r"([\d  ]+)\s*сум\s*за 1 м(?:2|²)", text)
+            brand = card.select_one(".text-gray-600 span")
+            cards.append({
+                "url": urljoin("https://europol.uz/", a["href"]),
+                "name": h2.get_text(" ", strip=True),
+                "brand": brand.get_text(strip=True) if brand else "",
+                "in_stock": "В наличии" in text,
+                "price": to_int(m.group(1)) if m else None,
+            })
+        page += 1
+    return cards
+
+
+def _europol_spread(cards: list[dict], n: int) -> list[dict]:
+    """In-stock first, then round-robin across brands so one brand doesn't fill the quota."""
+    by_brand: dict[str, list[dict]] = {}
+    for c in sorted(cards, key=lambda c: not c["in_stock"]):
+        by_brand.setdefault(c["brand"], []).append(c)
+    out: list[dict] = []
+    while len(out) < n and any(by_brand.values()):
+        for queue in by_brand.values():
+            if queue and len(out) < n:
+                out.append(queue.pop(0))
+    return out
+
+
+def fetch_europol(http: Http) -> list[Item]:
+    """Europol (Nuxt over WooCommerce): laminate and parquet, every card priced "за 1 м2".
+    Linoleum and carpet (kovrolin) sections are left out. The photo is the page's og:image
+    (dashboard.europol.uz/wp-content/uploads/, which that host's robots.txt allows)."""
+    sections = {s: _europol_cards(http, s) for s in ("parket", "laminat")}
+    parquet_urls = {c["url"] for c in sections["parket"]}
+    out: list[Item] = []
+    for section, category in (("laminat", "laminat"), ("parket", "parket")):
+        cards = [c for c in sections[section]
+                 if c["price"] and not re.search(r"линолеум|ковролин|плинтус|подложк|порог|клей",
+                                                 c["name"], re.I)]
+        if section == "laminat":
+            # HARO's 13.5 mm boards are listed under both; they are parquet construction.
+            cards = [c for c in cards if c["url"] not in parquet_urls and "-13-5-" not in c["url"]]
+        got = 0
+        for c in _europol_spread(cards, 45):
+            if got >= 25:
+                break
+            soup = http.soup(c["url"])
+            if soup is None:
+                continue
+            image = meta(soup, "og:image")
+            # The price the page shows, "336 000 сум за 1 м2" (its JSON-LD price is
+            # sometimes a few per cent off the displayed one).
+            m = re.search(r"([\d  ]+)\s*сум\s*за 1 м(?:2|²)", text_of(soup))
+            price = to_int(m.group(1)) if m else None
+            if not (image and price and ld_products(soup)) or "/wp-content/uploads/" not in image:
+                continue
+            out.append(Item("material", clean_name(c["name"]), category, c["url"], image, price, "m2"))
+            got += 1
+    return out[:60]
+
+
 @dataclass
 class Store:
     slug: str
@@ -1080,6 +1678,16 @@ STORES = [
     Store("divan-uz", "Divan.uz", "https://divan.uz", fetch_divan, "+998712050975", "@official_divan_uz"),
     # Loft office furniture, added in catalog version 4.
     Store("loftbek", "Loftbek", "https://loftbek.uz", fetch_loftbek, "+998947772272", "@loftbekk"),
+    # Added in catalog version 5. Domus Regia (no prices: "Цена по запросу"), Woodline
+    # (no site behind the domain) and DOMPLAN (a design portal, not a shop) are left out.
+    Store("home-interior", "Home Interior", "https://homeinterior.uz", fetch_home_interior,
+          "+998993690004", "@Homeinterior0004"),
+    Store("jaquar", "Jaquar", "https://jaquar.uz", fetch_jaquar, "+998555555520", "@Jaquaruz"),
+    Store("foondament", "Foondament", "https://foondament.uz", fetch_foondament, "+998705031111", "@Foondamen"),
+    Store("quramiz", "Quramiz", "https://quramiz.uz", fetch_quramiz, "+998555885080", "@quramiz_support"),
+    # KS Lux links only a support bot on Telegram, so no handle.
+    Store("ks-lux", "KS Lux", "https://kslux.uz", fetch_ks_lux, "+998781138896"),
+    Store("europol", "Europol", "https://europol.uz", fetch_europol, "+998555100102", "@europol_uzbekistan"),
 ]
 
 
