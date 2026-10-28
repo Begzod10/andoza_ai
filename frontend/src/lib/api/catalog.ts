@@ -40,6 +40,8 @@ export interface CatalogFurnitureParams {
   room_type?: string;
   /** Name search, done on the server so it covers every page. */
   q?: string;
+  /** Only this shop's models. */
+  store?: string;
   /** Only pieces with a 3-D model — what the studio can place. */
   has_model?: boolean;
   page?: number;
@@ -57,4 +59,9 @@ export async function listCatalogFurniture(
     )
   ).toString();
   return apiClient<PaginatedCatalogFurniture>(`/furniture${query ? `?${query}` : ""}`);
+}
+
+/** One live catalog model, e.g. the one the studio was opened to place (`?place=`). */
+export async function getCatalogFurniture(id: string): Promise<CatalogFurniture> {
+  return apiClient<CatalogFurniture>(`/furniture/${encodeURIComponent(id)}`);
 }

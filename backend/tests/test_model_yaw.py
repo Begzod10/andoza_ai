@@ -110,7 +110,7 @@ def test_catalog_and_admin_out_carry_model_yaw(client):
             patch("app.routers.catalog.cache_set", AsyncMock()):
         body = client.get("/api/v1/furniture").json()
     assert body["items"][0]["model_yaw"] == 180
-    assert get.call_args.args[0].startswith("furniture:v2:")
+    assert get.call_args.args[0].startswith("furniture:v3:")
 
 
 # ---- upload --------------------------------------------------------------- #

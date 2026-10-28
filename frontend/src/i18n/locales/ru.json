@@ -927,6 +927,8 @@
       "texture_failed": "Не удалось применить текстуру",
       "all": "Все",
       "mine": "Мои",
+      "placed_from_link": "{{name}} добавлен в комнату",
+      "place_link_failed": "Не удалось добавить товар в комнату: его больше нет в продаже",
       "models": "3D-модели",
       "parts_count_one": "{{count}} часть.",
       "parts_count_other": "{{count}} частей.",

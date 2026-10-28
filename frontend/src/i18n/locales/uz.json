@@ -901,6 +901,8 @@
       "texture_failed": "Teksturani qo'yib bo'lmadi",
       "all": "Barchasi",
       "mine": "Mening",
+      "placed_from_link": "{{name}} xonaga qo'yildi",
+      "place_link_failed": "Mahsulotni xonaga qo'yib bo'lmadi: u endi sotuvda yo'q",
       "models": "3D Modellar",
       "parts_count_one": "{{count}} ta qism.",
       "parts_count_other": "{{count}} ta qism.",
