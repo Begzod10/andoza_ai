@@ -13,7 +13,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.furniture_project import FurnitureProject
 from app.models.price_book import PriceBook
-from app.schemas.mebel import PriceBookIn, ProjectIn, ProjectOut, ProjectSummary
+from app.config import settings
+from app.schemas.mebel import PriceBookIn, ProjectIn, ProjectOut, ProjectSummary, SuggestIn
 
 router = APIRouter(prefix="/mebel", tags=["mebel"])
 
@@ -101,3 +102,19 @@ async def put_price_book(body: PriceBookIn, current_user: CurrentUser, db: DbSes
         index_elements=[PriceBook.user_id], set_={"data": stmt.excluded.data, "updated_at": func.now()},
     ))
     return data
+
+
+@router.post("/ai/suggest", response_model=dict, summary="Cabinets proposed from the user's description")
+async def ai_suggest(body: SuggestIn, current_user: CurrentUser) -> dict:
+    """The model proposes; nothing is saved. The user accepts it in the page."""
+    from app.services.llm import BudgetExceededError
+    from app.services.mebel_ai import suggest_cabinets
+
+    if not settings.AI_FEATURES_ENABLED:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI xususiyatlari hozircha yoqilmagan.")
+    try:
+        return await suggest_cabinets(body.text, str(current_user.id))
+    except BudgetExceededError:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi AI limiti tugadi")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI javob bermadi, qayta urinib ko'ring")

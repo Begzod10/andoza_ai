@@ -150,6 +150,8 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     ("Pin topilmadi yoki u yopiq", "Пин не найден или закрыт", "Pin not found or it is private"),
     # --- AI and Pinterest ----------------------------------------------
     ("AI xususiyatlari hozircha yoqilmagan.", "Функции ИИ пока не включены.", "AI features are not enabled yet."),
+    ("Bugungi AI limiti tugadi", "Дневной лимит ИИ исчерпан", "Today's AI limit is used up"),
+    ("AI javob bermadi, qayta urinib ko'ring", "ИИ не ответил, попробуйте ещё раз", "The AI did not answer, try again"),
     ("AI hozir o'chirilgan", "ИИ сейчас отключён", "AI is switched off right now"),
     ("AI hozir javob bermadi. Birozdan keyin qayta urinib ko'ring.", "ИИ сейчас не ответил. Повторите попытку чуть позже.", "The AI did not respond. Please try again in a little while."),
     ("AI uslub qo'yish allaqachon ishlayapti, birozdan keyin qayta urinib ko'ring", "Подбор стилей ИИ уже выполняется, повторите попытку чуть позже", "AI style tagging is already running, please try again in a little while"),
