@@ -289,3 +289,36 @@ describe('MebelProjectPage old saved project', () => {
     expect(await screen.findByLabelText(t('mebel.doors'))).toHaveValue('auto')
   })
 })
+
+describe('MebelProjectPage drawers', () => {
+  it('three drawers: drawer parts, no door, shelves off', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.drawers')), { target: { value: '3' } })
+    expect(rowOf(t('mebel.part.drawer_side'))).toBeDefined()
+    // no row is named "door" (the drawer fronts' material column also says "Fasad")
+    expect(within(partsTable()).queryByRole('cell', { name: t('mebel.part.door') })).toBeNull()
+    expect(screen.getByLabelText(t('mebel.shelves'))).toBeDisabled()
+    expect(screen.getByLabelText(t('mebel.doors'))).toBeDisabled()
+  })
+})
+
+describe('MebelProjectPage drawer fixes', () => {
+  it('a drawer error is shown on the drawers field', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.height')), { target: { value: '300' } })
+    fireEvent.change(screen.getByLabelText(t('mebel.drawers')), { target: { value: '4' } })
+    expect(screen.getByText(t('mebel.error.drawer_low', { min: 80 }))).toBeInTheDocument()
+    expect(screen.getByLabelText(t('mebel.drawers'))).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('the price book takes a price for a pair of slides', async () => {
+    vi.mocked(api.savePriceBook).mockImplementation(async (pb) => pb)
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.price_book') }))
+    fireEvent.change(await screen.findByLabelText(t('mebel.pb.slide')), { target: { value: '45000' } })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.save') }))
+    await act(async () => {})
+    expect(vi.mocked(api.savePriceBook).mock.calls[0][0].hardware.slide).toBe(45000)
+  })
+})

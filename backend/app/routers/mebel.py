@@ -23,8 +23,9 @@ def _stored(data) -> dict:
     frontend reads a stored null as a door count, not as auto."""
     out = data.model_dump(mode="json")
     for cab in out.get("cabinets", []):
-        if cab.get("doors") is None:
-            cab.pop("doors", None)
+        for key in ("doors", "drawers"):
+            if cab.get(key) is None:
+                cab.pop(key, None)
     return out
 
 

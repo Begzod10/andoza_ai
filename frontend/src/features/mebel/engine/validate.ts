@@ -1,3 +1,4 @@
+import { frontHeights, innerDepth, MIN_BOX_HEIGHT, slideLength } from './rules/drawers'
 import type { ConstructionDefaults, FurnitureProject, Part, Warning } from './model'
 
 export const LIMITS = {
@@ -50,6 +51,17 @@ export function validateCabinets(
     range('depth_range', c.depth, lim.depth)
     if (!Number.isInteger(c.shelves)) errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: lim.shelves[0], max: lim.shelves[1] } })
     else range('shelves_range', c.shelves, lim.shelves)
+    const nDrawers = c.drawers ?? 0
+    if (!Number.isInteger(nDrawers) || nDrawers < 0 || nDrawers > 4) {
+      errors.push({ code: 'drawers_range', cabinetId: c.id, params: { min: 0, max: 4 } })
+    } else if (nDrawers > 0) {
+      if ((c.type ?? 'base') !== 'base') errors.push({ code: 'drawers_type', cabinetId: c.id })
+      else {
+        const Ls = slideLength(innerDepth(c, d))
+        if (Ls == null) errors.push({ code: 'drawer_shallow', cabinetId: c.id, params: { min: 250 } })
+        if (Math.min(...frontHeights(c, d, nDrawers)) - 40 < MIN_BOX_HEIGHT) errors.push({ code: 'drawer_low', cabinetId: c.id, params: { min: MIN_BOX_HEIGHT } })
+      }
+    }
     // a saved "auto" may come back as null
     if (c.doors != null && ![0, 1, 2].includes(c.doors)) errors.push({ code: 'doors_range', cabinetId: c.id, params: { min: 0, max: 2 } })
     // the server stores whole millimetres

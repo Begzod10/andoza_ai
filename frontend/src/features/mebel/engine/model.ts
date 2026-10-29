@@ -56,6 +56,8 @@ export interface CabinetSpec {
   shelves: number
   /** Doors on the front; unset: two above 600 mm wide, else one. */
   doors?: 0 | 1 | 2
+  /** Drawers on a base cabinet (0–4); with drawers it has no door and no shelf. */
+  drawers?: 0 | 1 | 2 | 3 | 4
   overrides?: Partial<ConstructionDefaults>
   position: { x: number; z: number }
 }
@@ -70,7 +72,7 @@ export interface FurnitureProject {
 /** null: this side is not banded. */
 export type EdgeSide = { band: 'visible' | 'hidden'; thickness: number } | null
 
-export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'top' | 'rail_front' | 'rail_back' | 'shelf' | 'back' | 'door'
+export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'top' | 'rail_front' | 'rail_back' | 'shelf' | 'back' | 'door' | 'drawer_front' | 'drawer_side' | 'drawer_end' | 'drawer_bottom'
 
 export interface Part {
   id: string
@@ -160,6 +162,8 @@ export interface PriceBook {
   hardware: {
     leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null
     hinge: number | null; handle: number | null; hanger: number | null
+    /** One pair of ball-bearing slides. */
+    slide?: number | null
   }
   markupPercent: number
 }
