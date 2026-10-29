@@ -2383,7 +2383,11 @@
       "shelf": "Polka",
       "back": "Orqa devor",
       "top": "Tepa panel",
-      "door": "Fasad"
+      "door": "Fasad",
+      "drawer_front": "Tortma fasadi",
+      "drawer_side": "Tortma yoni",
+      "drawer_end": "Tortma old/orqa",
+      "drawer_bottom": "Tortma tagi"
     },
     "material": {
       "board": "LDSP",
@@ -2406,7 +2410,8 @@
       "facade_mdf": "MDF fasad",
       "hinge": "Petlya",
       "handle": "Ruchka",
-      "hanger": "Osish ilgagi"
+      "hanger": "Osish ilgagi",
+      "slide": "Yo'naltiruvchi {{l}} mm (juft)"
     },
     "unit": {
       "sheet": "list",
@@ -2445,7 +2450,11 @@
       "whole_mm": "O'lchamlar butun millimetrda bo'lishi kerak",
       "sheet_size": "List o'lchami kamida {{min}} mm bo'lishi kerak",
       "settings_invalid": "Konstruksiya sozlamalarida bo'sh yoki manfiy qiymat bor",
-      "doors_range": "Eshiklar {{min}}–{{max}} ta bo'lishi kerak"
+      "doors_range": "Eshiklar {{min}}–{{max}} ta bo'lishi kerak",
+      "drawers_range": "Tortmalar {{min}}–{{max}} ta bo'lishi kerak",
+      "drawers_type": "Tortma faqat pastki shkafda bo'ladi",
+      "drawer_low": "Tortma juda past: qutisi kamida {{min}} mm bo'lishi kerak",
+      "drawer_shallow": "Shkaf tortma uchun juda sayoz (yo'naltiruvchi kamida {{min}} mm)"
     },
     "warning": {
       "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",

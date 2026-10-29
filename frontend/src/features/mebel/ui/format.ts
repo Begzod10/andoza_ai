@@ -39,6 +39,7 @@ export function bomLabel(line: BomLine, materialName: (id: string | null) => str
     const [t, w] = line.label.replace("edge_", "").split("x");
     return named ?? i18n.t("mebel.bom.edge", { t: formatBand(Number(t)), w });
   }
+  if (line.label.startsWith("slide_")) return i18n.t("mebel.bom.slide", { l: line.label.slice(6) });
   if (line.label === "markup") return i18n.t("mebel.bom.markup", { p: line.qty });
   if (line.label.startsWith("banding_")) return i18n.t("mebel.bom.banding", { t: formatBand(Number(line.label.slice(8))) });
   return i18n.t(`mebel.bom.${line.label}` as TKey);

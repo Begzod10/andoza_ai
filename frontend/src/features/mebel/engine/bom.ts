@@ -1,4 +1,5 @@
 import { doorCount, type FacadeOrderLine } from './rules/doors'
+import { drawerCount } from './rules/drawers'
 import type { BomLine, CabinetSpec, ConstructionDefaults, EdgeTotal, NestResult, PriceBook } from './model'
 
 /** materialId → the shop catalogue's price for it. */
@@ -21,17 +22,19 @@ export function hardwareCounts(
   d: ConstructionDefaults,
 ): HardwareCounts {
   const type = cab.type ?? 'base'
-  const doors = d.facade && d.facade.kind !== 'none' ? doorCount(cab) : 0
+  const drawers = drawerCount({ type, drawers: (cab as CabinetSpec).drawers })
+  const doors = drawers > 0 ? 0 : d.facade && d.facade.kind !== 'none' ? doorCount(cab) : 0
   const hingesPerDoor = cab.height <= 900 ? 2 : cab.height <= 1600 ? 3 : 4
   return {
     // a wall cabinet hangs; the others stand on legs
     leg: type === 'wall' ? 0 : cab.width > 800 ? 6 : 4,
     // base: bottom 2 joints × 3 + each top rail 2 joints × 2; wall/tall: bottom and top panel 2 joints × 3
-    confirmat: type === 'base' ? 2 * 3 + 2 * 2 * 2 : 2 * 2 * 3,
+    // a drawer box: front and back, two at each end
+    confirmat: (type === 'base' ? 2 * 3 + 2 * 2 * 2 : 2 * 2 * 3) + 4 * drawers,
     hinge: doors * hingesPerDoor,
-    handle: doors,
+    handle: doors + (d.facade && d.facade.kind !== 'none' ? drawers : 0),
     hanger: type === 'wall' ? 2 : 0,
-    shelfPin: 4 * cab.shelves,
+    shelfPin: drawers > 0 ? 0 : 4 * cab.shelves,
     // only a nailed back is nailed; a grooved one sits in its grooves
     nail: d.back.kind === 'hdf_nailed' ? Math.ceil((2 * (cab.width + cab.height)) / 100) : 0,
   }
@@ -51,12 +54,13 @@ function line(
 export function buildBom(input: {
   nesting: NestResult[]
   facadeOrder?: FacadeOrderLine[]
+  slides?: { length: number; pairs: number }[]
   edges: EdgeTotal[]
   hardware: HardwareCounts
   prices: PriceBook
   catalog: CatalogPrices
 }): { lines: BomLine[]; total: number | null; hasUnpriced: boolean } {
-  const { nesting, edges, hardware, prices, catalog, facadeOrder = [] } = input
+  const { nesting, edges, hardware, prices, catalog, facadeOrder = [], slides = [] } = input
   const priceOf = (id: string | null) => (id == null ? null : prices.materials[id] ?? catalog[id]?.price ?? null)
 
   const lines: BomLine[] = []
@@ -78,6 +82,12 @@ export function buildBom(input: {
   }
   for (const key of HARDWARE_KEYS) {
     if (hardware[key] > 0) lines.push(line('hardware', key, null, hardware[key], 'dona', prices.hardware[key]))
+  }
+  // Slide pairs, by length.
+  const byLength = new Map<number, number>()
+  for (const s of slides) byLength.set(s.length, (byLength.get(s.length) ?? 0) + s.pairs)
+  for (const [length, pairs] of [...byLength].sort((a, b) => b[0] - a[0])) {
+    lines.push(line('hardware', `slide_${length}`, null, pairs, 'dona', prices.hardware.slide ?? null))
   }
   const sheetCount = nesting.reduce((n, x) => n + x.sheets.length, 0)
   if (sheetCount > 0) lines.push(line('service', 'cut', null, sheetCount, 'sheet', prices.cutPerSheet))

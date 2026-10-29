@@ -4,6 +4,7 @@ import { nestSheets } from './nest'
 import { resolveDefaults } from './rules/baseCabinet'
 import { cabinetParts } from './rules'
 import { doorParts, facadeOrderLines } from './rules/doors'
+import { drawerCount, drawerFacadeOrder, drawerParts, drawerSlides } from './rules/drawers'
 import { partWarnings, validateCabinets } from './validate'
 import { DEFAULTS } from './model'
 import type { ConstructionDefaults, FurnitureProject, PriceBook, Result, Warning } from './model'
@@ -52,10 +53,17 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   if (errors.length > 0) return { ...EMPTY, errors }
 
   const parts = p.cabinets.flatMap((c) => {
+    // A drawer cabinet has drawers where the shelves and the door would be.
+    if (drawerCount(c) > 0) {
+      const box = cabinetParts({ ...c, shelves: 0 }, settings(c.id))
+      return [...box, ...drawerParts(c, settings(c.id), box.length)]
+    }
     const box = cabinetParts(c, settings(c.id))
     return [...box, ...doorParts(c, settings(c.id), box.length)]
   })
-  const facadeOrder = p.cabinets.flatMap((c) => facadeOrderLines(c, settings(c.id)))
+  const facadeOrder = p.cabinets.flatMap((c) =>
+    drawerCount(c) > 0 ? drawerFacadeOrder(c, settings(c.id)) : facadeOrderLines(c, settings(c.id)))
+  const slides = p.cabinets.map((c) => drawerSlides(c, settings(c.id))).filter((s): s is { length: number; pairs: number } => s != null)
   const groups = groupParts(parts)
   const edges = edgeTotals(
     parts,
@@ -67,7 +75,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
     const h = hardwareCounts(c, settings(c.id))
     return Object.fromEntries(HARDWARE_KEYS.map((k) => [k, sum[k] + h[k]])) as HardwareCounts
   }, Object.fromEntries(HARDWARE_KEYS.map((k) => [k, 0])) as HardwareCounts)
-  const bom = buildBom({ nesting, facadeOrder, edges, hardware, prices, catalog })
+  const bom = buildBom({ nesting, facadeOrder, slides, edges, hardware, prices, catalog })
 
   const warnings: Warning[] = partWarnings(parts)
   const byPart = new Map(parts.map((x) => [x.id, x]))

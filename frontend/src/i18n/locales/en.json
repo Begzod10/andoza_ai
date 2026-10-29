@@ -2383,7 +2383,11 @@
       "shelf": "Shelf",
       "back": "Back panel",
       "top": "Top panel",
-      "door": "Door"
+      "door": "Door",
+      "drawer_front": "Drawer front",
+      "drawer_side": "Drawer side",
+      "drawer_end": "Drawer front/back",
+      "drawer_bottom": "Drawer bottom"
     },
     "material": {
       "board": "Board",
@@ -2406,7 +2410,8 @@
       "facade_mdf": "MDF doors",
       "hinge": "Hinge",
       "handle": "Handle",
-      "hanger": "Hanger"
+      "hanger": "Hanger",
+      "slide": "Slides {{l}} mm (pair)"
     },
     "unit": {
       "sheet": "sheet",
@@ -2445,7 +2450,11 @@
       "whole_mm": "Sizes must be whole millimetres",
       "sheet_size": "The sheet size must be at least {{min}} mm",
       "settings_invalid": "A construction setting is empty or negative",
-      "doors_range": "Doors must be {{min}}–{{max}}"
+      "doors_range": "Doors must be {{min}}–{{max}}",
+      "drawers_range": "Drawers must be {{min}}–{{max}}",
+      "drawers_type": "Only base cabinets have drawers",
+      "drawer_low": "Drawer too low: its box needs at least {{min}} mm",
+      "drawer_shallow": "Too shallow for a drawer (slides start at {{min}} mm)"
     },
     "warning": {
       "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
