@@ -46,7 +46,7 @@ function nestSheets(groups: CutGroup[], sheet: { length: number; width: number }
 - `ConstructionDefaults`: `kerf` (sukut 4), `trim` (sukut 10); eski loyihada yo'q bo'lsa sukut ishlatiladi (`resolve`da to'ldiriladi). `sheetWaste` qoladi (eski loyihalar), lekin hisobda ishlatilmaydi.
 - `Result.sheets: SheetEstimate[]` o'rniga `Result.nesting: NestResult[]`. BOM: list qatori `qty = sheets.length` har material uchun; kesish xizmati jami listlar soni.
 - Ogohlantirish `part_exceeds_sheet` endi `unplaced` dan olinadi (har sig'magan detal uchun bitta).
-- Validatsiya: `kerf` 0–10, `trim` 0–50, butun yoki 0.5 qadamli emas — sonli va chekli (`settings_invalid`); ishchi maydon musbat bo'lishi kerak (`sheet_size`).
+- Validatsiya: `kerf` chekli son 0–10, `trim` chekli son 0–50, aks holda `settings_invalid`; ishchi maydon (`L − 2·trim`, `W − 2·trim`) musbat bo'lmasa `sheet_size`.
 
 ### 3. UI va PDF
 - "Raskroy" tabi (`mebel.tab.nesting`): material bo'yicha xulosa (`LDSP 18 mm: 3 list, 87%`); har list kartasida SVG (`viewBox` = list mm), list konturi, trim chizig'i, detallar (ID, `uzunlik×eni`, teksturali ↔, burilgan ⟳), kesish chiziqlari va tartib raqamlari (yoqib/o'chirish), qoldiqlar shtrixlangan va o'lchami bilan. Detal bosilsa `selectedPartId` (jadval va 3D bilan bir xil). Sig'magan detallar qizil ro'yxatda.
