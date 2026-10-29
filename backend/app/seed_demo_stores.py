@@ -12,7 +12,8 @@ Real Tashkent stores (Dafna, ARCA Mebel, Ergo, Comfort Mebel, Lumen LUX, Aura Li
 Bestart, MAFF, the wallpaper shop Модные Стены, Divan.uz for carpets, added in catalog
 version 3, Loftbek's loft office furniture, its whole range, added in version 4, and in
 version 5 Home Interior, Jaquar, Foondament, Quramiz, KS Lux and Europol; version 6 adds no
-rows but gives their plaster, putty, plasterboard and cable an estimate ``smeta_key``) with products (furniture, floor and door materials, wallpapers sold by the roll,
+rows but gives their plaster, putty, plasterboard and cable an estimate ``smeta_key``; version 7
+adds KS Lux's LDSP, HDF, MDF and edge band for the /mebel tool) with products (furniture, floor and door materials, wallpapers sold by the roll,
 carpets as "boshqa" furniture named "Gilam ...") and photos taken from their public websites by
 ``scripts/demo_catalog/fetch.py`` into ``app/seed_data/demo_stores/``. There is no
 contract with these stores yet, so every store row has ``is_demo = true`` (and a

@@ -1510,12 +1510,23 @@ def _ks_lux_links(http: Http, section: str, pages: int) -> list[str]:
     return [u for u, _ in found]
 
 
-def fetch_ks_lux(http: Http) -> list[Item]:
+# (section, pages, category, unit, how many, price kind)
+_KS_LUX_SHEET_GOODS = [
+    # Cabinet sheet goods for the /mebel tool (catalog version 7): a board by the sheet,
+    # edge band by the metre.
+    ("mdf-hdf-fanera/ldsp", 3, "ldsp", "dona", 20, "piece"),
+    ("mdf-hdf-fanera/hdf", 1, "hdf", "dona", 5, "piece"),
+    ("mdf-hdf-fanera/mdf-laminirovannyy", 1, "mdf", "dona", 5, "piece"),
+    ("mdf-hdf-fanera/kromka", 2, "kromka", "m", 15, "per_m"),
+]
+
+
+def fetch_ks_lux(http: Http, sections: list | None = None) -> list[Item]:
     """KS Lux (Bitrix): laminate and SPC with the page's "Стоимость 1 м²" (the card price
-    is per pack), porcelain stoneware priced "за м2", and sanitary ware / radiators per piece.
+    is per pack), porcelain stoneware priced "за м2", sanitary ware / radiators per piece,
+    and the cabinet sheet goods (LDSP, HDF, MDF per sheet, edge band per metre).
     Paint is left out: its cans carry no volume, so no per-litre price."""
-    # (section, pages, category, unit, how many, price kind)
-    sections = [
+    sections = sections or [
         ("laminat", 3, "laminat", "m2", 14, "m2_calc"),
         ("laminat/spc-laminat", 1, "laminat", "m2", 6, "m2_calc"),
         ("keramogranit/keramogranit-geolam", 3, "plitka", "m2", 10, "m2_listed"),
@@ -1525,6 +1536,7 @@ def fetch_ks_lux(http: Http) -> list[Item]:
         ("santekhnika/smesitel-dlya-dusha", 1, "santexnika", "dona", 3, "piece"),
         ("santekhnika/unitazy", 1, "santexnika", "dona", 4, "piece"),
         ("radiatory-otopleniya/nastennye", 1, "santexnika", "dona", 4, "piece"),
+        *_KS_LUX_SHEET_GOODS,
     ]
     out: list[Item] = []
     seen: set[str] = set()
@@ -1555,6 +1567,14 @@ def fetch_ks_lux(http: Http) -> list[Item]:
             elif kind == "m2_listed":
                 if "(цена за м2)" not in text:
                     continue
+            elif kind == "per_m":
+                if "(цена за м)" not in text:
+                    continue
+                # The price is the selected size's ("… 2x22 мм 4 235 UZS"); name it.
+                m = re.search(r"(\d+(?:[.,]\d+)?)\s*[xх]\s*(\d+)\s*мм\s+[\d\s\u00a0]+UZS", text)
+                if not m:
+                    continue
+                name = f"{name} {m.group(1).replace(',', '.')}x{m.group(2)} мм"
             elif "(цена за шт)" not in text or re.search(
                     r"пульт|кнопк|сидень|крышк|аксессуар|комплект|набор|каркас", name, re.I):
                 continue  # accessories, not the fixture itself
@@ -1563,7 +1583,7 @@ def fetch_ks_lux(http: Http) -> list[Item]:
             seen.add(url)
             out.append(Item("material", clean_name(name), category, url, image, price, unit))
             got += 1
-    return out[:60]
+    return out[:100]
 
 
 def _europol_cards(http: Http, section: str) -> list[dict]:

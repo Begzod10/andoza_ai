@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 7,
  "stores": [
   {
    "slug": "dafna",
@@ -5478,6 +5478,456 @@
      "unit": "dona",
      "image": "images/ks-lux/55.webp",
      "source_url": "https://kslux.uz/catalog/radiator-quadrum-40-v/"
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Фиолетовый зимний M.706.S01",
+     "category": "ldsp",
+     "price_uzs": 641300,
+     "unit": "dona",
+     "image": "images/ks-lux/56.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-fioletovyy-zimniy-m-706-s01/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Ясень Тверской ржаной 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/57.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-yasen-tverskoy-rzhanoy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Лён Тверской молочный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 750200,
+     "unit": "dona",
+     "image": "images/ks-lux/58.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-lyen-tverskoy-molochnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Вяз Ирбитский дымчатый 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 713900,
+     "unit": "dona",
+     "image": "images/ks-lux/59.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-vyaz-irbitskiy-dymchatyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Бежевый галечный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 641300,
+     "unit": "dona",
+     "image": "images/ks-lux/60.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-bezhevyy-galechnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Голубой пыльный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 641300,
+     "unit": "dona",
+     "image": "images/ks-lux/61.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-goluboy-pylnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Серый кварцевый 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 641300,
+     "unit": "dona",
+     "image": "images/ks-lux/62.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-seryy-kvartsevyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Бук Калининградский мокко 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 629200,
+     "unit": "dona",
+     "image": "images/ks-lux/63.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-buk-kaliningradskiy-mokko-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Дуб Коломенский пряный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 629200,
+     "unit": "dona",
+     "image": "images/ks-lux/64.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-dub-kolomenskiy-pryanyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Бук Калининградский гречишный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 629200,
+     "unit": "dona",
+     "image": "images/ks-lux/65.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-buk-kaliningradskiy-grechishnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Серый доломитовый 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 629200,
+     "unit": "dona",
+     "image": "images/ks-lux/66.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-seryy-dolomitovyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Белый воздушный \"Шагрень\" 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 556600,
+     "unit": "dona",
+     "image": "images/ks-lux/67.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-belyy-vozdushnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Черный шунгитовый (линейные поры) 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 713900,
+     "unit": "dona",
+     "image": "images/ks-lux/68.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-chernyy-shungitovyy-lineynye-pory-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Бежевый кашемировый (текстиль) 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 713900,
+     "unit": "dona",
+     "image": "images/ks-lux/69.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-bezhevyy-kashemirovyy-tekstil-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Каштан Поволжский шоколадный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/70.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-kashtan-povolzhskiy-shokoladnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Дуб Ладожский ржаной 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/71.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-dub-ladozhskiy-rzhanoy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Сплав Белгородский темный 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/72.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-splav-belgorodskiy-temnyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Сплав Белгородский светлый 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/73.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-splav-belgorodskiy-svetlyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Серебро Чукотское дымчатое 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 834900,
+     "unit": "dona",
+     "image": "images/ks-lux/74.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-serebro-chukotskoe-dymchatoe-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ЛДСП EXTRAVERT Дуб Орский никелевый 16x2070x2800",
+     "category": "ldsp",
+     "price_uzs": 713900,
+     "unit": "dona",
+     "image": "images/ks-lux/75.webp",
+     "source_url": "https://kslux.uz/catalog/ldsp-extravert-dub-orskiy-nikelevyy-16x2070x2800/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ХДФ Нешлифованная Kastamonu 2800х2070х3мм",
+     "category": "hdf",
+     "price_uzs": 139150,
+     "unit": "dona",
+     "image": "images/ks-lux/76.webp",
+     "source_url": "https://kslux.uz/catalog/hdf-ne-shlifovannaya-2800x2070x3mm/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ХДФ Белый Шлифованный Kastamonu 3Х2800Х2070",
+     "category": "hdf",
+     "price_uzs": 169400,
+     "unit": "dona",
+     "image": "images/ks-lux/77.webp",
+     "source_url": "https://kslux.uz/catalog/khdf-belyy-shlifovannyy-kastamonu-3kh2800kh2070/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ХДФ Белый Шлифованный Kastamonu 2,5Х2800Х2070",
+     "category": "hdf",
+     "price_uzs": 133100,
+     "unit": "dona",
+     "image": "images/ks-lux/78.webp",
+     "source_url": "https://kslux.uz/catalog/khdf-belyy-shlifovannyy-kastamonu-3kh2500kh2070/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ХДФ Шлифованный Kastamonu 2800Х2070Х3мм",
+     "category": "hdf",
+     "price_uzs": 145200,
+     "unit": "dona",
+     "image": "images/ks-lux/79.webp",
+     "source_url": "https://kslux.uz/catalog/khdf-shlifovannyy-kastamonu-3kh2800kh2070-/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "ХДФ лакированная 2500х2070х3мм Белый",
+     "category": "hdf",
+     "price_uzs": 145200,
+     "unit": "dona",
+     "image": "images/ks-lux/80.webp",
+     "source_url": "https://kslux.uz/catalog/hdf-lakirovannaya-1-storonnyaya-2800x2070x3-mm/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "МДФ ЛАМ (F)16X2070X2800 ДС Б МАТ DUZ FSC (1лист=5,796м2) Kastamonu",
+     "category": "mdf",
+     "price_uzs": 738100,
+     "unit": "dona",
+     "image": "images/ks-lux/81.webp",
+     "source_url": "https://kslux.uz/catalog/mdf-laminirovannyy-f-16x2070x2800-ds-b-mat-duz-fsc-1list-5-796m2/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "МДФ ЛАМ (2BM) 16X2070X2800 ОС БМ DUZ E1 (1лист=5,796м2) Kastamonu",
+     "category": "mdf",
+     "price_uzs": 641300,
+     "unit": "dona",
+     "image": "images/ks-lux/82.webp",
+     "source_url": "https://kslux.uz/catalog/mdf-lam-2bm-16x2070x2800-os-bm-duz-e1-1list-5-796m2/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "МДФ ЛАМ (FM) 19X2070X2800 ОС БМ DUZ E1 Kastamonu",
+     "category": "mdf",
+     "price_uzs": 822800,
+     "unit": "dona",
+     "image": "images/ks-lux/83.webp",
+     "source_url": "https://kslux.uz/catalog/mdf-laminirovannyy-stm-16-1220-kh-2440-os-bm-duz-fsc-e1-f02-1list-2-977m2/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "МДФ ЛАМ (FM) 18X2070X2800 ОС БМ DUZ E1 Kastamonu",
+     "category": "mdf",
+     "price_uzs": 786500,
+     "unit": "dona",
+     "image": "images/ks-lux/84.webp",
+     "source_url": "https://kslux.uz/catalog/mdf-laminirovannyy-kastamonu-stm-16-1220-kh-2440-os-bm-duz-e1-1list-2-977m2/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "МДФ ЛАМ 16 х 2070 х 2800 ДС БМ DUZ E1 F02 (1лист=5,796м2) Kastamonu",
+     "category": "mdf",
+     "price_uzs": 586850,
+     "unit": "dona",
+     "image": "images/ks-lux/85.webp",
+     "source_url": "https://kslux.uz/catalog/mdf-laminirovannyy-kastamonu-16-kh-2070-kh-2800-ds-bm/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P105 (Сливовый) Дэмсон ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/86.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-glyanets-fioletovyy-p105-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P100 БЕЛЫЙ ГЛЯНЦЕВЫЙ ( EVOGLOSS) 2x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/87.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-glyanets-belyy-p100-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P107 БОРДОВЫЙ ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/88.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-glyanets-bordovyy-p107-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P209 ГАЛАКСИ КРЕМОВЫЙ ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/89.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-galaktika-kremovaya-p209-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P230 ГАЛАКТИКА ЗОЛОТАЯ ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/90.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-galaktika-zolotaya-p210-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P208 ГАЛАКТИКА БЕЛАЯ ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/91.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-galaktika-belaya-p208-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P313 Немецкий дуб ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/92.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-nemetskiy-dub-p313-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P254 МАТОВЫЙ ОКСИД ТЕМНО-СЕРЫЙ (EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/93.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-matovyy-oksid-temno-seryy-p254-dlya-plity-evogloss-evosoft/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P308 ДУБ БЕЛЫЙ ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/94.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-belyy-dub-p308-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P305 БЕЛЫЙ КЛЕН ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/95.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-belyy-klen-p305-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P729 МАТОВЫЙ НОВЫЙ СЕРЫЙ (EVOGLOSS) 2x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/96.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-matovyy-novyy-seryy-p729-dlya-plity-evogloss-evosoft-acrymatt-/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P733 МАТОВЫЙ МОККО ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/97.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-matovyy-mokko-p733-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P310 Империя ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/98.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-imperiya-p310-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P211 АНТРАЦИТОВЫЙ МЕТАЛЛИК ( EVOGLOSS) 0.80x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/99.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-galaktika-metallik-antratsit-p211-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
+    },
+    {
+     "kind": "material",
+     "name_uz": "Кромка мебельная P013 МАТОВЫЙ СВЕТЛО-СЕРЫЙ (EVOGLOSS) 2x22 мм",
+     "category": "kromka",
+     "price_uzs": 4235,
+     "unit": "m",
+     "image": "images/ks-lux/100.webp",
+     "source_url": "https://kslux.uz/catalog/kromka-matovyy-svetlo-seryy-p013-dlya-plity-evogloss-evosoft-acrymatt/",
+     "since": 7
     }
    ]
   },
