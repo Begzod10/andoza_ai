@@ -30,3 +30,13 @@ describe('PrintView sheets', () => {
     }))
   })
 })
+
+describe('PrintView drilling', () => {
+  it('prints a drilling page per drilled part and an assembly drawing per cabinet', () => {
+    const result = fourCabinets()
+    render(<PrintView name="Oshxona" result={result} snapshot={null} trim={10} materialName={() => null} cabinets={[0, 1, 2, 3].map(i => ({ id: `c${i}`, label: `M${i + 1}` }))} />)
+    const drilled = result.parts.filter(p => (p.holes ?? []).length > 0)
+    expect(screen.getAllByTestId('print-part')).toHaveLength(drilled.length)
+    expect(screen.getAllByTestId('print-assembly')).toHaveLength(4)
+  })
+})

@@ -12,6 +12,7 @@ import { WarningsList } from "@/features/mebel/ui/WarningsList";
 import { PriceBookDialog } from "@/features/mebel/ui/PriceBookDialog";
 import { CabinetView } from "@/features/mebel/three/CabinetView";
 import { NestingPanel } from "@/features/mebel/ui/NestingPanel";
+import { DrillingPanel } from "@/features/mebel/ui/DrillingPanel";
 import { FacadeOrder } from "@/features/mebel/ui/FacadeOrder";
 import { facadeOrderCsv } from "@/features/mebel/export/facadeCsv";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
@@ -19,8 +20,8 @@ import { PrintView } from "@/features/mebel/export/PrintView";
 import { groupName } from "@/features/mebel/ui/format";
 import { ERROR_FIELD } from "@/features/mebel/ui/ParamsPanel";
 
-type Tab = "parts" | "nesting" | "edges" | "bom" | "warnings";
-const TABS: Tab[] = ["parts", "nesting", "edges", "bom", "warnings"];
+type Tab = "parts" | "nesting" | "drilling" | "edges" | "bom" | "warnings";
+const TABS: Tab[] = ["parts", "nesting", "drilling", "edges", "bom", "warnings"];
 
 /** /mebel/:id — one cabinet project: parameters, 3D, cut list, banding, price. */
 export default function MebelProjectPage() {
@@ -146,6 +147,7 @@ export default function MebelProjectPage() {
                   <NestingPanel nesting={result.nesting} trim={project.defaults.trim ?? 10} selectedPartId={m.selectedPartId}
                     onSelect={m.setSelectedPartId} materialName={materialName} />
                 )}
+                {tab === "drilling" && <DrillingPanel parts={result.parts} cabinets={project.cabinets} />}
                 {tab === "edges" && <EdgeTable totals={result.edgeTotals} materialName={materialName} />}
                 {tab === "bom" && (
                   <div className="flex flex-col gap-6">
@@ -172,7 +174,7 @@ export default function MebelProjectPage() {
       <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook} ready={m.priceBookReady}
         usedMaterials={used} catalog={m.catalog} />
     </div>
-    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} labelOf={(id) => labelOf(id) ?? id} />}
+    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} labelOf={(id) => labelOf(id) ?? id} cabinets={project.cabinets} />}
     </>
   );
 }

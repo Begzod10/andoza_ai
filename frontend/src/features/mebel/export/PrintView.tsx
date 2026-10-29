@@ -5,6 +5,10 @@ import { EdgeTable } from "@/features/mebel/ui/EdgeTable";
 import { BomPanel } from "@/features/mebel/ui/BomPanel";
 import { SheetDrawing } from "@/features/mebel/ui/SheetDrawing";
 import { FacadeOrder } from "@/features/mebel/ui/FacadeOrder";
+import { PartDrawing } from "@/features/mebel/ui/PartDrawing";
+import { HoleTable } from "@/features/mebel/ui/HoleTable";
+import { AssemblyDrawing } from "@/features/mebel/ui/AssemblyDrawing";
+import { partName } from "@/features/mebel/ui/format";
 
 /** The printout is landscape: a sheet is wider than tall. */
 const PRINT_PAGE_CSS = "@page { size: A4 landscape; margin: 10mm }";
@@ -14,7 +18,7 @@ const PRINT_PAGE_CSS = "@page { size: A4 landscape; margin: 10mm }";
  * on screen, the only thing shown when printing (the page hides the rest).
  */
 export function PrintView({
-  name, result, snapshot, trim, materialName, labelOf = (id: string) => id,
+  name, result, snapshot, trim, materialName, labelOf = (id: string) => id, cabinets = [],
 }: {
   name: string
   result: Result
@@ -25,6 +29,8 @@ export function PrintView({
   materialName(id: string | null): string | null
   /** A cabinet's label (M1) for the door order. */
   labelOf?: (cabinetId: string) => string
+  /** For the assembly drawings, one per cabinet. */
+  cabinets?: { id: string; label: string }[]
 }) {
   const { t } = useTranslation();
   return (
@@ -90,6 +96,19 @@ export function PrintView({
           );
         });
       })}
+      {/* Drilling: a page per drilled part, then each cabinet's assembly drawing. */}
+      {result.parts.filter((p) => (p.holes ?? []).length > 0).map((p) => (
+        <section key={p.id} data-testid="print-part" style={{ breakBefore: "page" }} className="flex flex-col gap-3">
+          <h2 className="text-lg font-bold">{`${p.id} — ${partName(p.role)}`}</h2>
+          <PartDrawing part={p} print />
+          <HoleTable part={p} print />
+        </section>
+      ))}
+      {cabinets.map((c) => (
+        <section key={c.id} data-testid="print-assembly" style={{ breakBefore: "page" }}>
+          <AssemblyDrawing label={c.label} parts={result.parts.filter((p) => p.cabinetId === c.id)} />
+        </section>
+      ))}
     </div>
   );
 }

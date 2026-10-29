@@ -2349,7 +2349,8 @@
       "edges": "Kromka",
       "bom": "Materiallar va narx",
       "warnings": "Ogohlantirishlar",
-      "nesting": "Raskroy"
+      "nesting": "Raskroy",
+      "drilling": "Teshiklar"
     },
     "show_cut": "Kesish o'lchami",
     "show_finished": "Yakuniy o'lcham",
@@ -2508,6 +2509,27 @@
     "facade_order": "MDF fasad buyurtmasi",
     "facade_total": "Jami: {{m2}} m²",
     "export_facade_csv": "Fasad buyurtmasi (CSV)",
-    "drawers": "Tortmalar"
+    "drawers": "Tortmalar",
+    "drill": {
+      "holes": "Teshiklar",
+      "empty": "Teshik ochiladigan detal yo'q",
+      "count": "{{n}} teshik",
+      "front_edge": "↓ old (pastki) qirra",
+      "kind": "Turi",
+      "face": "Yuza",
+      "depth": "Chuqurlik",
+      "through": "o'tadi",
+      "assembly": "{{label}}: yig'ish chizmasi",
+      "view_front": "Old ko'rinish",
+      "view_side": "Yon ko'rinish",
+      "kinds": {
+        "confirmat": "Konfirmat",
+        "confirmat_edge": "Konfirmat (qirra)",
+        "shelf_pin": "Polkoderjatel",
+        "hinge_cup": "Petlya kosasi",
+        "hinge_plate": "Petlya plankasi",
+        "slide": "Yo'naltiruvchi"
+      }
+    }
   }
 }
