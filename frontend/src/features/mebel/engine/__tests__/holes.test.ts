@@ -63,7 +63,7 @@ describe('drilling', () => {
     expect(us[0]).toBe(100)
     expect(us[3]).toBe(2098 - 100)
     // positions are given to 0.1 mm
-    expect(Math.abs((us[1] - us[0]) - (us[2] - us[1]))).toBeLessThanOrEqual(0.1)
+    expect(Math.abs((us[1] - us[0]) - (us[2] - us[1]))).toBeLessThanOrEqual(0.1 + 1e-9)
   })
 
   it('drawer slides: three pilot holes on each side', () => {
