@@ -59,7 +59,7 @@ def test_the_catalog_has_stores_with_furniture_and_materials():
         assert store["items"], store["name"]
         # A sample of each shop — except Loftbek, whose whole range was asked for.
         # A sample of each shop; from Loftbek (v4) on, the whole range or up to 60 of it.
-        assert len(store["items"]) <= (30 if demo.item_since(store, {}) < LOFTBEK_VERSION else 80), store["name"]
+        assert len(store["items"]) <= (30 if demo.item_since(store, {}) < LOFTBEK_VERSION else 100), store["name"]
         # A real store links its site; the market-average store has none (it is no shop).
         assert store.get("website", "").startswith("https://") or _is_market_average(store)
         assert len(store["name"]) <= 200
@@ -196,7 +196,7 @@ def test_the_v5_stores_are_new_in_version_5_with_sane_rows():
             if any(demo.item_since(s, i) == V5 for i in s["items"])} == set(V5_STORES)
     for slug, name in V5_STORES.items():
         store = next(s for s in CATALOG["stores"] if s["slug"] == slug)
-        assert store["name"] == name and store["since"] == V5 and 10 <= len(store["items"]) <= 60, slug
+        assert store["name"] == name and store["since"] == V5 and 10 <= len(store["items"]) <= 100, slug
         for item in store["items"]:
             assert urlsplit(item["source_url"]).hostname.endswith(urlsplit(store["website"]).hostname.removeprefix("www.")), item
             if item["kind"] == "material":
@@ -222,7 +222,7 @@ def test_estimate_keys_are_ones_the_engine_can_price():
         assert smeta_key_problem(item["smeta_key"], item["unit"], item.get("pack_qty"),
                                  item.get("pack_unit")) is None, item
         assert "фасад" not in item["name_uz"].lower() and "fasad" not in item["name_uz"].lower(), item
-    assert demo.catalog_version(CATALOG) == V6
+    assert demo.catalog_version(CATALOG) >= V6
 
 
 def test_no_photo_on_disk_is_unreferenced():
@@ -692,8 +692,8 @@ async def test_the_v4_to_v5_upgrade_adds_only_the_v5_stores(env, monkeypatch):
     result = await demo.seed_demo_stores()
 
     new = [s for s in CATALOG["stores"] if s["slug"] in V5_STORES]
-    n_mat = sum(1 for s in new for i in s["items"] if i["kind"] == "material")
-    n_fur = sum(1 for s in new for i in s["items"] if i["kind"] == "furniture")
+    n_mat = sum(1 for s in new for i in s["items"] if i["kind"] == "material" and demo.item_since(s, i) == V5)
+    n_fur = sum(1 for s in new for i in s["items"] if i["kind"] == "furniture" and demo.item_since(s, i) == V5)
     assert (result["from_version"], result["version"]) == (LOFTBEK_VERSION, V5)
     assert (result["stores"], result["materials"], result["furniture"]) == (len(V5_STORES), n_mat, n_fur)
     added = set(session.of(Store)) - stores_before
@@ -720,7 +720,7 @@ async def test_the_v5_to_v6_upgrade_only_keys_the_materials_already_there(env, m
     keyed = {i["name_uz"]: i for _, i in _items("material") if i.get("smeta_key")}
     hand = next(m for m in session.of(Material) if m.name_uz in keyed)
     hand.smeta_key = "grunt"
-    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(V6))
     rows, n_uploads = len(session.rows), len(uploads.keys)
 
     result = await demo.seed_demo_stores()
@@ -736,6 +736,49 @@ async def test_the_v5_to_v6_upgrade_only_keys_the_materials_already_there(env, m
             item = keyed[m.name_uz]
             assert (m.smeta_key, m.pack_qty, m.pack_unit) == (
                 item["smeta_key"], item.get("pack_qty"), item.get("pack_unit"))
+
+
+V7 = 7
+
+
+def test_version_7_adds_ks_lux_sheet_goods_for_the_mebel_tool():
+    from PIL import Image
+
+    assert demo.catalog_version(CATALOG) == V7
+    new = [(s, i) for s, i in _items() if demo.item_since(s, i) == V7]
+    assert {s["slug"] for s, _ in new} == {"ks-lux"}
+    by_cat = {}
+    for _, i in new:
+        by_cat.setdefault(i["category"], []).append(i)
+    assert set(by_cat) == {"ldsp", "hdf", "mdf", "kromka"}
+    for cat, items in by_cat.items():
+        for i in items:
+            # a board is priced by the sheet, edge band by the metre: what the /mebel BOM reads
+            assert i["kind"] == "material" and i["unit"] == ("m" if cat == "kromka" else "dona"), i
+            assert i["source_url"].startswith("https://kslux.uz/catalog/"), i
+            with Image.open(demo.DATA_DIR / i["image"]) as im:
+                assert max(im.size) <= 800
+    assert all(50_000 <= i["price_uzs"] <= 2_000_000 for i in by_cat["ldsp"] + by_cat["hdf"] + by_cat["mdf"])
+    assert all(1_000 <= i["price_uzs"] <= 50_000 for i in by_cat["kromka"])
+    assert all("x22 мм" in i["name_uz"] for i in by_cat["kromka"])
+
+
+async def test_the_v6_to_v7_upgrade_adds_only_the_sheet_goods(env, monkeypatch):
+    session, uploads, _ = env
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: _catalog_upto(V6))
+    await demo.seed_demo_stores()
+    monkeypatch.setattr(demo, "load_catalog", lambda *a, **k: CATALOG)
+    stores_before, uploads_before = set(session.of(Store)), len(uploads.keys)
+
+    result = await demo.seed_demo_stores()
+
+    new = [i for s, i in _items() if demo.item_since(s, i) == V7]
+    assert (result["from_version"], result["version"]) == (V6, V7)
+    assert (result["stores"], result["materials"], result["furniture"]) == (0, len(new), 0)
+    assert set(session.of(Store)) == stores_before
+    assert len(uploads.keys) - uploads_before == len(new)
+    ks = next(st for st in session.of(Store) if st.name == "KS Lux")
+    assert {m.category for m in session.of(Material) if m.store_id == ks.id} >= {"ldsp", "hdf", "mdf", "kromka"}
 
 
 async def test_a_fresh_seed_inserts_the_estimate_keys(env):

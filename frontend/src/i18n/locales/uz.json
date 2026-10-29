@@ -1289,7 +1289,9 @@
     "ochirib_bolmadi": "Hisobni o'chirib bo'lmadi. Qayta urinib ko'ring.",
     "qaytarib_bolmaydi": "Bu amalni qaytarib bo'lmaydi",
     "ochirish_matn": "Hisobingiz va barcha ma'lumotlaringiz butunlay o'chiriladi: loyihalar, rasmlar, buyurtmalar hamda do'kon yoki usta profili (agar bo'lsa). Ularni qayta tiklab bo'lmaydi.",
-    "parol_placeholder": "Hisobingiz parolini kiriting"
+    "parol_placeholder": "Hisobingiz parolini kiriting",
+    "mebel": "Mebel ishlab chiqarish",
+    "mebel_izoh": "Ustaxonalar uchun: shkaf detallari, kromka va narx"
   },
   "layout": {
     "uy": "Uy",

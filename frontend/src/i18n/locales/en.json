@@ -1289,7 +1289,9 @@
     "ochirib_bolmadi": "Could not delete the account. Please try again.",
     "qaytarib_bolmaydi": "This cannot be undone",
     "ochirish_matn": "Your account and all your data will be deleted permanently: projects, images, orders, and your shop or craftsman profile (if any). They cannot be restored.",
-    "parol_placeholder": "Enter your account password"
+    "parol_placeholder": "Enter your account password",
+    "mebel": "Furniture manufacturing",
+    "mebel_izoh": "For workshops: cabinet parts, edge banding and price"
   },
   "layout": {
     "uy": "Home",
