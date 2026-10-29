@@ -204,3 +204,28 @@ describe('MebelProjectPage save status', () => {
     expect(screen.getByRole('status')).toHaveTextContent(t('mebel.saved'))
   })
 })
+
+describe('MebelProjectPage nesting', () => {
+  it('the cutting layout tab draws the sheets', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.nesting') }))
+    expect(screen.getAllByRole('img').length).toBeGreaterThan(0)
+  })
+
+  it('kerf and trim are project settings', async () => {
+    mount()
+    const kerf = await screen.findByLabelText(t('mebel.kerf'))
+    expect(kerf).toHaveValue(4)
+    expect(screen.getByLabelText(t('mebel.trim'))).toHaveValue(10)
+    fireEvent.change(kerf, { target: { value: '6' } })
+    expect(screen.getByRole('status')).not.toHaveTextContent(t('mebel.not_saved_invalid'))
+  })
+
+  it('the BOM no longer calls the sheet count an estimate', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
+    expect(screen.queryByText(/≈/)).not.toBeInTheDocument()
+  })
+})

@@ -11,13 +11,14 @@ import { BomPanel } from "@/features/mebel/ui/BomPanel";
 import { WarningsList } from "@/features/mebel/ui/WarningsList";
 import { PriceBookDialog } from "@/features/mebel/ui/PriceBookDialog";
 import { CabinetView } from "@/features/mebel/three/CabinetView";
+import { NestingPanel } from "@/features/mebel/ui/NestingPanel";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
 import { PrintView } from "@/features/mebel/export/PrintView";
 import { groupName } from "@/features/mebel/ui/format";
 import { ERROR_FIELD } from "@/features/mebel/ui/ParamsPanel";
 
-type Tab = "parts" | "edges" | "bom" | "warnings";
-const TABS: Tab[] = ["parts", "edges", "bom", "warnings"];
+type Tab = "parts" | "nesting" | "edges" | "bom" | "warnings";
+const TABS: Tab[] = ["parts", "nesting", "edges", "bom", "warnings"];
 
 /** /mebel/:id — one cabinet project: parameters, 3D, cut list, banding, price. */
 export default function MebelProjectPage() {
@@ -130,6 +131,10 @@ export default function MebelProjectPage() {
                       onSelect={m.setSelectedPartId}
                       materialName={(g) => materialName(g.materialId) ?? t(`mebel.material.${g.material}`)} />
                   </>
+                )}
+                {tab === "nesting" && (
+                  <NestingPanel nesting={result.nesting} trim={project.defaults.trim ?? 10} selectedPartId={m.selectedPartId}
+                    onSelect={m.setSelectedPartId} materialName={materialName} />
                 )}
                 {tab === "edges" && <EdgeTable totals={result.edgeTotals} materialName={materialName} />}
                 {tab === "bom" && (

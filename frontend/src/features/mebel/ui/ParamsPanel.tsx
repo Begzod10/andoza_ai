@@ -136,6 +136,10 @@ export function ParamsPanel({
             onChange={(v) => setDefaults((x) => ({ ...x, sheet: { ...x.sheet, length: v } }))} />
           <NumField id="mebel-sheet-w" label={`${t("mebel.sheet_size")}, W`} value={d.sheet.width}
             onChange={(v) => setDefaults((x) => ({ ...x, sheet: { ...x.sheet, width: v } }))} />
+          <NumField id="mebel-kerf" label={t("mebel.kerf")} value={d.kerf ?? 4}
+            onChange={(v) => setDefaults((x) => ({ ...x, kerf: v }))} />
+          <NumField id="mebel-trim" label={t("mebel.trim")} value={d.trim ?? 10}
+            onChange={(v) => setDefaults((x) => ({ ...x, trim: v }))} />
         </div>
         <label className="flex items-center gap-2 text-sm text-neutral-700">
           <input type="checkbox" checked={d.edge.premilled}

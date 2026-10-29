@@ -2348,7 +2348,8 @@
       "parts": "Detallar",
       "edges": "Kromka",
       "bom": "Materiallar va narx",
-      "warnings": "Ogohlantirishlar"
+      "warnings": "Ogohlantirishlar",
+      "nesting": "Raskroy"
     },
     "show_cut": "Kesish o'lchami",
     "show_finished": "Yakuniy o'lcham",
@@ -2447,7 +2448,16 @@
     "mm": "mm",
     "not_saved_invalid": "Saqlanmadi: xatolarni tuzating",
     "nest": {
-      "sheets_used": "{{n}} list, foydalanish {{p}}%"
-    }
+      "sheets_used": "{{n}} list, foydalanish {{p}}%",
+      "summary": "{{name}} {{t}} mm: {{n}} list, foydalanish {{p}}%",
+      "sheet_label": "List {{i}} / {{n}} · {{p}}%",
+      "show_cuts": "Kesish tartibini ko'rsatish",
+      "unplaced_title": "Listga sig'magan detallar",
+      "unplaced_reason": "listga sig'maydi",
+      "offcut": "qoldiq {{l}}×{{w}}",
+      "empty": "Raskroy uchun detal yo'q"
+    },
+    "kerf": "Arra kesimi, mm",
+    "trim": "Chekka qoldiq, mm"
   }
 }
