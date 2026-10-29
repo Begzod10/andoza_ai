@@ -32,6 +32,8 @@ from app.models.room_render import RoomRender  # noqa: F401
 from app.models.device_token import DeviceToken  # noqa: F401
 from app.models.content_report import ContentReport  # noqa: F401
 from app.models.seed_marker import SeedMarker  # noqa: F401
+from app.models.furniture_project import FurnitureProject  # noqa: F401
+from app.models.price_book import PriceBook  # noqa: F401
 
 __all__ = [
     "User",

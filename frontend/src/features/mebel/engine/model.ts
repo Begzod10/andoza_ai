@@ -1,0 +1,194 @@
+/**
+ * The furniture project model (spec: docs/superpowers/specs/2026-10-29-mebel-ishlab-chiqarish-design.md).
+ *
+ * Only `FurnitureProject` is stored. Everything else is what `computeProject`
+ * derives from it, so the 3D view, the cut list and the price can never drift
+ * apart. Lengths are whole millimetres; only an edge band's thickness is
+ * fractional (0.4).
+ */
+
+export interface EdgeBandRef {
+  materialId: string | null
+  thickness: 0 | 0.4 | 1 | 2
+  width: 19 | 22 | 28
+}
+
+export interface ConstructionDefaults {
+  board: { materialId: string | null; thickness: 16 | 18 }
+  back: {
+    kind: 'hdf_nailed' | 'hdf_groove' | 'none'
+    materialId?: string | null
+    thickness: 3 | 4
+    grooveDepth: number
+    grooveOffset: number
+  }
+  bottomJoint: 'between_sides' | 'under_sides'
+  /** `premilled`: the edgebander mills the edge first, so the band is not taken off the cut size. */
+  edge: { visible: EdgeBandRef; hidden: EdgeBandRef; premilled: boolean }
+  sheet: { length: number; width: number }
+  railDepth: number
+  shelfSetback: number
+  /** Clearance on each side of a shelf. */
+  shelfGap: number
+  /** Clearance on each side of the back panel. */
+  backGap: number
+  /** Band added to each banded edge: it overhangs both ends and is trimmed off. */
+  edgeAllowance: number
+  edgeWaste: number
+  sheetWaste: number
+}
+
+export interface CabinetSpec {
+  id: string
+  type: 'base'
+  label: string
+  /** Outer size, mm. */
+  width: number
+  height: number
+  depth: number
+  shelves: number
+  overrides?: Partial<ConstructionDefaults>
+  position: { x: number; z: number }
+}
+
+export interface FurnitureProject {
+  schemaVersion: 1
+  name: string
+  defaults: ConstructionDefaults
+  cabinets: CabinetSpec[]
+}
+
+/** null: this side is not banded. */
+export type EdgeSide = { band: 'visible' | 'hidden'; thickness: number } | null
+
+export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'rail_front' | 'rail_back' | 'shelf' | 'back'
+
+export interface Part {
+  id: string
+  cabinetId: string
+  role: PartRole
+  material: 'board' | 'back'
+  materialId: string | null
+  thickness: number
+  /** Size in the assembled cabinet, band included. */
+  finished: { length: number; width: number }
+  /** Size the saw cuts. */
+  cut: { length: number; width: number }
+  grain: 'length' | 'width' | 'none'
+  /** L1/L2 run along the length (L1 = front), W1/W2 along the width (W1 = top). */
+  edges: { L1: EdgeSide; L2: EdgeSide; W1: EdgeSide; W2: EdgeSide }
+  qty: number
+  /** Centre and size of the part in the room, mm: x = width, y = height, z = depth (front is +z). */
+  placement: { x: number; y: number; z: number; sx: number; sy: number; sz: number }
+}
+
+export interface CutGroup {
+  key: string
+  role: PartRole
+  material: 'board' | 'back'
+  materialId: string | null
+  thickness: number
+  cut: { length: number; width: number }
+  finished: { length: number; width: number }
+  grain: Part['grain']
+  edges: Part['edges']
+  qty: number
+  partIds: string[]
+}
+
+export interface EdgeTotal {
+  bandKey: string
+  band: 'visible' | 'hidden'
+  thickness: number
+  width: number
+  materialId: string | null
+  meters: number
+  metersWithWaste: number
+}
+
+export interface SheetEstimate {
+  material: 'board' | 'back'
+  materialId: string | null
+  thickness: number
+  areaM2: number
+  sheets: number
+}
+
+export interface BomLine {
+  kind: 'board' | 'back' | 'edge' | 'hardware' | 'service'
+  materialId: string | null
+  label: string
+  qty: number
+  unit: 'sheet' | 'm' | 'dona' | 'm2' | 'percent'
+  /** null: no price known — shown as "unpriced", never counted as zero. */
+  unitPrice: number | null
+  total: number | null
+}
+
+export interface PriceBook {
+  /** materialId → the workshop's own price; wins over the catalogue's. */
+  materials: Record<string, number>
+  cutPerSheet: number | null
+  bandingPerMeter: { '0.4': number | null; '1': number | null; '2': number | null }
+  hardware: { leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null }
+  markupPercent: number
+}
+
+export interface Warning {
+  code: string
+  cabinetId?: string
+  params?: Record<string, number>
+}
+
+export interface Result {
+  parts: Part[]
+  groups: CutGroup[]
+  edgeTotals: EdgeTotal[]
+  sheets: SheetEstimate[]
+  bom: BomLine[]
+  total: number | null
+  hasUnpriced: boolean
+  warnings: Warning[]
+  errors: Warning[]
+}
+
+export const DEFAULTS: ConstructionDefaults = {
+  board: { materialId: null, thickness: 18 },
+  back: { kind: 'hdf_nailed', materialId: null, thickness: 4, grooveDepth: 8, grooveOffset: 16 },
+  bottomJoint: 'between_sides',
+  edge: {
+    visible: { materialId: null, thickness: 2, width: 22 },
+    hidden: { materialId: null, thickness: 0.4, width: 19 },
+    premilled: false,
+  },
+  sheet: { length: 2800, width: 2070 },
+  railDepth: 100,
+  shelfSetback: 20,
+  shelfGap: 1,
+  backGap: 1,
+  edgeAllowance: 50,
+  edgeWaste: 0.1,
+  sheetWaste: 0.15,
+}
+
+export function newCabinet(label: string, x: number): CabinetSpec {
+  return {
+    id: crypto.randomUUID(),
+    type: 'base',
+    label,
+    width: 600,
+    height: 720,
+    depth: 560,
+    shelves: 1,
+    position: { x, z: 0 },
+  }
+}
+
+export function newProject(name: string): FurnitureProject {
+  return {
+    schemaVersion: 1,
+    name,
+    defaults: structuredClone(DEFAULTS),
+    cabinets: [newCabinet('M1', 0)],
+  }
+}

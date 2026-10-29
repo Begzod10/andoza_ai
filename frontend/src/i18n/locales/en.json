@@ -1890,7 +1890,12 @@
         "gips": "Gypsum",
         "sement": "Cement",
         "santexnika": "Plumbing",
-        "elektr_mat": "Electrical"
+        "elektr_mat": "Electrical",
+        "ldsp": "Particleboard (LDSP)",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Edge banding",
+        "furnitura": "Furniture fittings"
       },
       "unit": {
         "litr": "liter",
@@ -2162,7 +2167,12 @@
         "eshik": "Door",
         "deraza": "Window",
         "dekorativ": "Decorative",
-        "gips": "Gypsum and plaster"
+        "gips": "Gypsum and plaster",
+        "ldsp": "Particleboard (LDSP)",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Edge banding",
+        "furnitura": "Furniture fittings"
       },
       "subtitle": "Furniture and materials: prices by shop.",
       "search_ph": "Search…",
@@ -2286,5 +2296,154 @@
     "front_auto": "Front: detected automatically ({{deg}}°)",
     "front_none": "Front not detected: pick it yourself if needed",
     "front_option": "Turn {{deg}}°"
+  },
+  "mebel": {
+    "title": "Furniture manufacturing",
+    "subtitle": "Parts, edge banding and price from cabinet sizes",
+    "new_project": "New project",
+    "default_name": "Kitchen",
+    "empty": "No projects yet. Create the first one.",
+    "load_failed": "Could not load the projects. Check your connection and try again.",
+    "retry": "Retry",
+    "updated": "Updated: {{date}}",
+    "delete": "Delete",
+    "delete_confirm": "Delete the project \"{{name}}\"?",
+    "back_to_list": "Projects",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "save_failed": "Not saved",
+    "project_name": "Project name",
+    "settings": "Construction",
+    "board_thickness": "Board thickness",
+    "board_material": "Board",
+    "back_material": "Back panel (HDF)",
+    "back_kind": "Back panel",
+    "back": {
+      "hdf_nailed": "HDF, nailed",
+      "hdf_groove": "HDF, in a groove",
+      "none": "None"
+    },
+    "bottom_joint": "Bottom",
+    "joint": {
+      "between_sides": "Between the sides",
+      "under_sides": "Under the sides"
+    },
+    "edge_visible": "Visible edge band",
+    "edge_hidden": "Hidden edge band",
+    "edge_material": "Edge band material",
+    "premilled": "Pre-milled (don't subtract at cutting)",
+    "sheet_size": "Sheet size",
+    "no_material": "Not chosen",
+    "cabinets": "Cabinets",
+    "add_cabinet": "Add cabinet",
+    "duplicate": "Duplicate",
+    "remove": "Remove",
+    "width": "Width, mm",
+    "height": "Height, mm",
+    "depth": "Depth, mm",
+    "shelves": "Shelves",
+    "tab": {
+      "parts": "Parts",
+      "edges": "Edge banding",
+      "bom": "Materials and price",
+      "warnings": "Warnings"
+    },
+    "show_cut": "Cut size",
+    "show_finished": "Finished size",
+    "col": {
+      "id": "ID",
+      "part": "Part",
+      "material": "Material",
+      "thickness": "Thickness",
+      "length": "Length",
+      "width": "Width",
+      "qty": "Qty",
+      "grain": "Grain",
+      "edges": "Edges (L1 L2 W1 W2)",
+      "band": "Band",
+      "meters": "Metres",
+      "with_waste": "With waste",
+      "unit_price": "Price",
+      "total": "Total"
+    },
+    "grain": {
+      "length": "Along length",
+      "width": "Along width",
+      "none": "None"
+    },
+    "part": {
+      "side_left": "Left side",
+      "side_right": "Right side",
+      "bottom": "Bottom",
+      "rail_front": "Front rail",
+      "rail_back": "Back rail",
+      "shelf": "Shelf",
+      "back": "Back panel"
+    },
+    "material": {
+      "board": "Board",
+      "back": "HDF"
+    },
+    "sheets_estimate": "≈ {{n}} sheets (estimate, exact after nesting)",
+    "area": "{{m2}} m²",
+    "bom": {
+      "board": "Board {{t}} mm",
+      "back": "HDF {{t}} mm",
+      "edge": "Edge band {{t}}×{{w}} mm",
+      "leg": "Leg",
+      "confirmat": "Confirmat screw",
+      "shelfPin": "Shelf pin",
+      "nail": "HDF nail",
+      "cut": "Cutting",
+      "banding": "Edge banding {{t}} mm",
+      "markup": "Markup {{p}}%"
+    },
+    "unit": {
+      "sheet": "sheet",
+      "m": "m",
+      "dona": "pcs",
+      "m2": "m²",
+      "percent": "%"
+    },
+    "unpriced": "unpriced",
+    "total": "Total",
+    "total_unpriced": "Total (unpriced lines left out)",
+    "price_book": "Price book",
+    "price_book_hint": "These prices apply to all your projects. A blank price comes from the shop catalogue.",
+    "pb": {
+      "materials": "Materials (per sheet / m)",
+      "cut_per_sheet": "Cutting, per sheet",
+      "banding": "Edge banding, per m ({{t}} mm)",
+      "hardware": "Hardware, per piece",
+      "markup": "Markup, %"
+    },
+    "save": "Save",
+    "cancel": "Cancel",
+    "export": "Export",
+    "export_csv": "Cut list (CSV, Excel)",
+    "export_pdf": "PDF (print)",
+    "no_warnings": "No warnings",
+    "errors_title": "Cannot calculate: fix the sizes",
+    "error": {
+      "width_range": "Width must be {{min}}–{{max}} mm",
+      "height_range": "Height must be {{min}}–{{max}} mm",
+      "depth_range": "Depth must be {{min}}–{{max}} mm",
+      "shelves_range": "Shelves must be {{min}}–{{max}}",
+      "inner_width": "Too narrow: no inner width left",
+      "shelf_depth": "No depth left for the shelf",
+      "too_many_cabinets": "At most {{max}} cabinets per project",
+      "whole_mm": "Sizes must be whole millimetres",
+      "sheet_size": "The sheet size must be at least {{min}} mm",
+      "settings_invalid": "A construction setting is empty or negative"
+    },
+    "warning": {
+      "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
+      "part_exceeds_sheet": "A {{length}}×{{width}} mm part does not fit the sheet",
+      "unpriced": "Some lines have no price: add it to the price book or the catalogue"
+    },
+    "view3d": "3D view",
+    "print_title": "Cut list: {{name}}",
+    "mm": "mm",
+    "not_saved_invalid": "Not saved: fix the errors"
   }
 }

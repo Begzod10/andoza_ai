@@ -26,6 +26,12 @@ MaterialCategory = Enum(
     "sement",
     "santexnika",
     "elektr_mat",
+    # Sheet goods and fittings a cabinet is made of (the /mebel mini-app).
+    "ldsp",
+    "mdf",
+    "hdf",
+    "kromka",
+    "furnitura",
     name="material_category",
 )
 

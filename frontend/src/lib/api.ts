@@ -26,5 +26,6 @@ export * from "./api/photoModel";
 export * from "./api/seller";
 export * from "./api/wallpapers";
 export * from "./api/userModels";
+export * from "./api/mebel";
 export * from "./api/admin";
 export * from "./api/adminMaterials";
