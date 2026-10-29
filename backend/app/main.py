@@ -18,7 +18,7 @@ from app.i18n import localized, request_language, translate
 from app.routers import (
     auth, apartments, rooms, catalog, leads, media, estimate, draft_rooms, ai,
     wallpapers, user_models, electrical, decoration, finishes, furniture_placements, room_state,
-    orders, admin_orders, currency, admin_catalog, admin_materials, room_share, render, photo_model, seller, admin_moderation, usta_profile, usta_portfolio, account,
+    orders, admin_orders, currency, admin_catalog, admin_materials, room_share, mebel, render, photo_model, seller, admin_moderation, usta_profile, usta_portfolio, account,
     shop_inquiries, devices, reports,
 )
 
@@ -113,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_materials.router, prefix="/api/v1", tags=["admin-materials"])
     app.include_router(room_share.router, prefix="/api/v1", tags=["room-share"])
     app.include_router(room_share.public_router, prefix="/api/v1", tags=["room-share"])
+    app.include_router(mebel.router, prefix="/api/v1", tags=["mebel"])
 
     # ------------------------------------------------------------------
     # Uploaded media (wallpapers, photos) when object storage is not set up.

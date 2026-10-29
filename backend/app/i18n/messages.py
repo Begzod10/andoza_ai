@@ -136,6 +136,7 @@ MESSAGES: dict[str, dict[str, str]] = _table(
     ("Opening not found", "Проём не найден", "Opening not found", "Teshik topilmadi"),
     ("Do'kon topilmadi", "Магазин не найден", "Shop not found"),
     ("Model topilmadi", "Модель не найдена", "Model not found"),
+    ("Loyiha topilmadi", "Проект не найден", "Project not found"),
     ("Usta topilmadi", "Мастер не найден", "Craftsman not found"),
     ("Material topilmadi", "Материал не найден", "Material not found"),
     ("Buyurtma topilmadi", "Заказ не найден", "Order not found"),
