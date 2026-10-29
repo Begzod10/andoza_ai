@@ -11,19 +11,39 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_CABINETS = 30
+
+
+# Size and shelf limits per cabinet type: the same as LIMITS_BY_TYPE in
+# frontend/src/features/mebel/engine/validate.ts.
+LIMITS_BY_TYPE: dict[str, dict[str, tuple[int, int]]] = {
+    "base": {"width": (150, 1200), "height": (300, 1000), "depth": (250, 700), "shelves": (0, 4)},
+    "wall": {"width": (150, 1200), "height": (300, 1000), "depth": (200, 400), "shelves": (0, 4)},
+    "tall": {"width": (150, 1200), "height": (1200, 2400), "depth": (300, 650), "shelves": (0, 8)},
+}
 
 
 class CabinetIn(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str = Field(min_length=1, max_length=64)
-    width: int = Field(ge=150, le=1200)
-    height: int = Field(ge=300, le=1000)
-    depth: int = Field(ge=250, le=700)
-    shelves: int = Field(ge=0, le=4)
+    # A cabinet saved before types existed is a base cabinet.
+    type: Literal["base", "wall", "tall"] = "base"
+    width: int
+    height: int
+    depth: int
+    shelves: int
+    doors: int | None = Field(default=None, ge=0, le=2)
+
+    @model_validator(mode="after")
+    def _fits_its_type(self) -> "CabinetIn":
+        for field, (lo, hi) in LIMITS_BY_TYPE[self.type].items():
+            value = getattr(self, field)
+            if not lo <= value <= hi:
+                raise ValueError(f"{field} {value} is outside {lo}-{hi} for a {self.type} cabinet")
+        return self
 
 
 class SheetIn(BaseModel):
