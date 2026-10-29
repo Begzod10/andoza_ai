@@ -4,11 +4,11 @@ import type { CutGroup, EdgeSide } from "@/features/mebel/engine";
 const HEADER = ["ID", "Detal", "Material", "Qalinlik", "Uzunlik", "Eni", "Soni", "Tekstura", "Kromka L1", "Kromka L2", "Kromka W1", "Kromka W2"];
 
 /** Excel in ru/uz reads a decimal comma. */
-const num = (n: number) => String(n).replace(".", ",");
+export const num = (n: number) => String(n).replace(".", ",");
 const band = (s: EdgeSide) => (s && s.thickness > 0 ? num(s.thickness) : "");
 // A cell starting like a formula would run in Excel: a shop-entered name must stay text.
 const safe = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
-const cell = (raw: string) => {
+export const cell = (raw: string) => {
   const v = safe(raw);
   return /[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 };

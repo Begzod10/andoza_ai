@@ -6,7 +6,7 @@ import type { CatalogPrices, FurnitureProject, Result } from "@/features/mebel/e
 import type { CatalogOptions } from "./ui/ParamsPanel";
 
 const SAVE_DELAY_MS = 1000;
-const CATALOG_CATEGORIES = ["ldsp", "hdf", "kromka"] as const;
+const CATALOG_CATEGORIES = ["ldsp", "hdf", "kromka", "mdf"] as const;
 
 /** "invalid": there are edits, but they do not validate, so they are not saved. */
 export type SaveState = "saved" | "saving" | "error" | "invalid";

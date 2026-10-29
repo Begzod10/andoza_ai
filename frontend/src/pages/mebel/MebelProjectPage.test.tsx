@@ -119,7 +119,7 @@ describe('MebelProjectPage', () => {
 
   it('adds a cabinet next to the last one', async () => {
     mount()
-    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add_cabinet') }))
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.base') }))
     expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '16')
     expect(screen.getByText('M2')).toBeInTheDocument()
   })
@@ -227,5 +227,39 @@ describe('MebelProjectPage nesting', () => {
     await screen.findByRole('table', { name: t('mebel.tab.parts') })
     fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
     expect(screen.queryByText(/≈/)).not.toBeInTheDocument()
+  })
+})
+
+describe('MebelProjectPage cabinet types and doors', () => {
+  it('adds a wall cabinet with its own size', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.wall') }))
+    const depths = screen.getAllByLabelText(t('mebel.depth')) as HTMLInputElement[]
+    expect(depths.map(d => d.value)).toEqual(['560', '300'])
+    expect(screen.getByText('M2')).toBeInTheDocument()
+  })
+
+  it('no doors: the cut list has no door', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect(rowOf(t('mebel.part.door'))).toBeDefined()
+    fireEvent.change(screen.getByLabelText(t('mebel.doors')), { target: { value: '0' } })
+    expect(rowOf(t('mebel.part.door'))).toBeUndefined()
+  })
+
+  it('MDF doors make an order with its own CSV', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.facade_kind')), { target: { value: 'mdf' } })
+    fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
+    expect(screen.getByRole('table', { name: t('mebel.facade_order') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: t('mebel.export_facade_csv') })).toBeInTheDocument()
+  })
+
+  it('a tall cabinet 720 high is a height error', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.tall') }))
+    const heights = screen.getAllByLabelText(t('mebel.height'))
+    fireEvent.change(heights[1], { target: { value: '720' } })
+    expect(screen.getByText(t('mebel.error.height_range', { min: 1200, max: 2400 }))).toBeInTheDocument()
   })
 })

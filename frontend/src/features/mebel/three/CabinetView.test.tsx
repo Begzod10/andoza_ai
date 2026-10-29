@@ -27,4 +27,18 @@ describe('meshSpecs', () => {
     expect(Math.min(...xs)).toBeCloseTo(-0.6, 6)
     expect(Math.max(...xs)).toBeCloseTo(0.6, 6)
   })
+  it('lifts wall cabinets to their hanging height', () => {
+    const wallCab = { ...cab, id: 'w1', label: 'W1', type: 'wall' as const, depth: 300 }
+    const wallParts = baseCabinetParts(wallCab, DEFAULTS)
+    const specs = meshSpecs([...parts, ...wallParts], null, { wallLift: (id) => (id === 'w1' ? 1400 : 0) })
+    const lowest = Math.min(...specs.filter(s => s.id.startsWith('W1')).map(s => s.position[1] - s.size[1] / 2))
+    expect(lowest).toBeCloseTo(1.4, 6)
+    const highestBase = Math.max(...specs.filter(s => s.id.startsWith('M1')).map(s => s.position[1] + s.size[1] / 2))
+    expect(highestBase).toBeLessThanOrEqual(lowest)
+  })
+
+  it('doors have their own colour', () => {
+    const door = { ...parts[0], id: 'M1-08', role: 'door' as const, material: 'facade' as const }
+    expect(meshSpecs([door], null)[0].color).toBe(COLORS.facade)
+  })
 })

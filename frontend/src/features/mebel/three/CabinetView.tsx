@@ -2,7 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { Part } from "@/features/mebel/engine";
 
-export const COLORS = { board: "#d9c3a0", back: "#f2efe9", selected: "#3b82f6" } as const;
+export const COLORS = { board: "#d9c3a0", back: "#f2efe9", facade: "#b9a07a", selected: "#3b82f6" } as const;
 
 export interface MeshSpec {
   id: string
@@ -17,7 +17,13 @@ export interface MeshSpec {
  * list lists: it never works a size out for itself. `center` moves the row so
  * it stands around the origin, where the camera looks.
  */
-export function meshSpecs(parts: Part[], selectedPartId: string | null, opts: { center?: boolean } = {}): MeshSpec[] {
+export function meshSpecs(
+  parts: Part[],
+  selectedPartId: string | null,
+  /** `wallLift`: how high (mm) a cabinet hangs — a wall cabinet above the worktop. */
+  opts: { center?: boolean; wallLift?: (cabinetId: string) => number } = {},
+): MeshSpec[] {
+  const lift = opts.wallLift ?? (() => 0);
   let cx = 0;
   let cz = 0;
   if (opts.center && parts.length > 0) {
@@ -28,17 +34,17 @@ export function meshSpecs(parts: Part[], selectedPartId: string | null, opts: { 
   }
   return parts.map((p) => ({
     id: p.id,
-    position: [(p.placement.x - cx) / 1000, p.placement.y / 1000, (p.placement.z - cz) / 1000],
+    position: [(p.placement.x - cx) / 1000, (p.placement.y + lift(p.cabinetId)) / 1000, (p.placement.z - cz) / 1000],
     size: [p.placement.sx / 1000, p.placement.sy / 1000, p.placement.sz / 1000],
-    color: p.id === selectedPartId ? COLORS.selected : p.material === "back" ? COLORS.back : COLORS.board,
+    color: p.id === selectedPartId ? COLORS.selected : COLORS[p.material],
   }));
 }
 
 /** The cabinets in 3D; clicking a part selects it, as clicking its cut-list row does. */
 export function CabinetView({
-  parts, selectedPartId, onSelect,
-}: { parts: Part[]; selectedPartId: string | null; onSelect(id: string): void }) {
-  const specs = meshSpecs(parts, selectedPartId, { center: true });
+  parts, selectedPartId, onSelect, wallLift,
+}: { parts: Part[]; selectedPartId: string | null; onSelect(id: string): void; wallLift?: (cabinetId: string) => number }) {
+  const specs = meshSpecs(parts, selectedPartId, { center: true, wallLift });
   const span = Math.max(1, ...specs.map((s) => Math.abs(s.position[0]) + s.size[0] / 2));
   return (
     <Canvas camera={{ position: [span * 1.2, 1.2, span * 1.6 + 0.8], fov: 40 }} dpr={[1, 2]} gl={{ preserveDrawingBuffer: true }}>

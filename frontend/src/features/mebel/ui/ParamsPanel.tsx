@@ -4,7 +4,7 @@ import { newCabinet } from "@/features/mebel/engine";
 import type { CabinetSpec, ConstructionDefaults, EdgeBandRef, FurnitureProject, Warning } from "@/features/mebel/engine";
 
 export interface CatalogOption { id: string; name: string }
-export interface CatalogOptions { ldsp: CatalogOption[]; hdf: CatalogOption[]; kromka: CatalogOption[] }
+export interface CatalogOptions { ldsp: CatalogOption[]; hdf: CatalogOption[]; kromka: CatalogOption[]; mdf: CatalogOption[] }
 
 type Update = (fn: (p: FurnitureProject) => FurnitureProject) => void
 
@@ -86,10 +86,14 @@ export function ParamsPanel({
 
   // A new cabinet stands to the right of the row; labels keep counting up.
   const nextLabel = () => `M${Math.max(0, ...project.cabinets.map((c) => Number(c.label.replace(/\D/g, "")) || 0)) + 1}`;
-  const rowEnd = () => Math.max(0, ...project.cabinets.map((c) => c.position.x + (Number.isFinite(c.width) ? c.width : 0)));
-  const addCabinet = () => update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), rowEnd())] }));
+  // Wall cabinets make their own row above the floor row (base and tall).
+  const rowEnd = (wall: boolean) => Math.max(0, ...project.cabinets
+    .filter((c) => (c.type === 'wall') === wall)
+    .map((c) => c.position.x + (Number.isFinite(c.width) ? c.width : 0)));
+  const addCabinet = (type: CabinetSpec['type']) =>
+    update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), rowEnd(type === 'wall'), type)] }));
   const duplicate = (c: CabinetSpec) =>
-    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: rowEnd(), z: 0 } }] }));
+    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: rowEnd(c.type === 'wall'), z: 0 } }] }));
   const remove = (id: string) => update((p) => ({ ...p, cabinets: p.cabinets.filter((c) => c.id !== id) }));
 
   const errorFor = (cabId: string, key: keyof CabinetSpec) => {
@@ -141,6 +145,26 @@ export function ParamsPanel({
           <NumField id="mebel-trim" label={t("mebel.trim")} value={d.trim ?? 10}
             onChange={(v) => setDefaults((x) => ({ ...x, trim: v }))} />
         </div>
+        <h3 className="mt-1 text-xs font-bold uppercase tracking-wide text-neutral-500">{t("mebel.facade")}</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Select id="mebel-facade-kind" label={t("mebel.facade_kind")} value={d.facade?.kind ?? "none"}
+            options={(["ldsp", "mdf", "none"] as const).map((v) => ({ value: v, label: t(`mebel.facade_kinds.${v}`) }))}
+            onChange={(v) => setDefaults((x) => ({ ...x, facade: { ...x.facade, kind: v, materialId: null } }))} />
+          {d.facade?.kind !== "none" && (
+            <MaterialSelect id="mebel-facade-mat" label={t("mebel.facade_material")} value={d.facade.materialId}
+              options={d.facade.kind === "mdf" ? catalog.mdf : catalog.ldsp}
+              onChange={(v) => setDefaults((x) => ({ ...x, facade: { ...x.facade, materialId: v } }))} />
+          )}
+          {d.facade?.kind !== "none" && (
+            <Select id="mebel-facade-t" label={t("mebel.facade_thickness")} value={d.facade.thickness}
+              options={([16, 18, 19] as const).map((v) => ({ value: v, label: `${v} ${t("mebel.mm")}` }))}
+              onChange={(v) => setDefaults((x) => ({ ...x, facade: { ...x.facade, thickness: v } }))} />
+          )}
+          {d.facade?.kind !== "none" && (
+            <NumField id="mebel-facade-gap" label={t("mebel.facade_gap")} value={d.facade.gap}
+              onChange={(v) => setDefaults((x) => ({ ...x, facade: { ...x.facade, gap: v } }))} />
+          )}
+        </div>
         <label className="flex items-center gap-2 text-sm text-neutral-700">
           <input type="checkbox" checked={d.edge.premilled}
             onChange={(e) => setDefaults((x) => ({ ...x, edge: { ...x.edge, premilled: e.target.checked } }))} />
@@ -151,14 +175,20 @@ export function ParamsPanel({
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-neutral-900">{t("mebel.cabinets")}</h2>
-          <button type="button" onClick={addCabinet}
-            className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
-            {t("mebel.add_cabinet")}
-          </button>
+          <div className="flex gap-1" role="group" aria-label={t("mebel.add_cabinet")}>
+            {(["base", "wall", "tall"] as const).map((type) => (
+              <button key={type} type="button" onClick={() => addCabinet(type)}
+                className="rounded-full bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                {t(`mebel.add.${type}`)}
+              </button>
+            ))}
+          </div>
         </div>
         {project.cabinets.map((c) => (
           <fieldset key={c.id} className="rounded-2xl border border-neutral-200 p-3">
-            <legend className="px-1 text-sm font-bold text-neutral-900">{c.label}</legend>
+            <legend className="px-1 text-sm font-bold text-neutral-900">
+              {c.label} <span className="font-normal text-neutral-500">· {t(`mebel.type.${c.type ?? "base"}`)}</span>
+            </legend>
             <div className="grid grid-cols-2 gap-3">
               <NumField id={`${c.id}-w`} label={t("mebel.width")} value={c.width} error={errorFor(c.id, "width")}
                 onChange={(v) => setCabinet(c.id, { width: v })} />
@@ -168,6 +198,9 @@ export function ParamsPanel({
                 onChange={(v) => setCabinet(c.id, { depth: v })} />
               <NumField id={`${c.id}-s`} label={t("mebel.shelves")} value={c.shelves} error={errorFor(c.id, "shelves")}
                 onChange={(v) => setCabinet(c.id, { shelves: v })} />
+              <Select id={`${c.id}-doors`} label={t("mebel.doors")} value={c.doors === undefined ? "auto" : String(c.doors)}
+                options={["auto", "0", "1", "2"].map((v) => ({ value: v, label: v === "auto" ? t("mebel.doors_auto") : v }))}
+                onChange={(v) => setCabinet(c.id, { doors: v === "auto" ? undefined : (Number(v) as 0 | 1 | 2) })} />
             </div>
             <div className="mt-2 flex gap-2">
               <button type="button" onClick={() => duplicate(c)} className="text-xs font-semibold text-neutral-600 hover:text-neutral-900">

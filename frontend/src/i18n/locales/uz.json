@@ -2472,6 +2472,31 @@
       "dir_across": "ko'ndalang"
     },
     "kerf": "Arra kesimi, mm",
-    "trim": "Chekka qoldiq, mm"
+    "trim": "Chekka qoldiq, mm",
+    "add": {
+      "base": "+ Pastki",
+      "wall": "+ Devor",
+      "tall": "+ Baland"
+    },
+    "type": {
+      "base": "pastki",
+      "wall": "devor",
+      "tall": "baland"
+    },
+    "doors": "Eshiklar",
+    "doors_auto": "Avto",
+    "facade": "Fasad",
+    "facade_kind": "Fasad turi",
+    "facade_kinds": {
+      "ldsp": "LDSP (o'zimiz kesamiz)",
+      "mdf": "MDF (buyurtma)",
+      "none": "Yo'q"
+    },
+    "facade_material": "Fasad materiali",
+    "facade_thickness": "Fasad qalinligi",
+    "facade_gap": "Tirqish, mm",
+    "facade_order": "MDF fasad buyurtmasi",
+    "facade_total": "Jami: {{m2}} m²",
+    "export_facade_csv": "Fasad buyurtmasi (CSV)"
   }
 }

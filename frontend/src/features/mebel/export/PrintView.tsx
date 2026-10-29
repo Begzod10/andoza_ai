@@ -4,6 +4,7 @@ import { CutListTable } from "@/features/mebel/ui/CutListTable";
 import { EdgeTable } from "@/features/mebel/ui/EdgeTable";
 import { BomPanel } from "@/features/mebel/ui/BomPanel";
 import { SheetDrawing } from "@/features/mebel/ui/SheetDrawing";
+import { FacadeOrder } from "@/features/mebel/ui/FacadeOrder";
 
 /** The printout is landscape: a sheet is wider than tall. */
 const PRINT_PAGE_CSS = "@page { size: A4 landscape; margin: 10mm }";
@@ -13,7 +14,7 @@ const PRINT_PAGE_CSS = "@page { size: A4 landscape; margin: 10mm }";
  * on screen, the only thing shown when printing (the page hides the rest).
  */
 export function PrintView({
-  name, result, snapshot, trim, materialName,
+  name, result, snapshot, trim, materialName, labelOf = (id: string) => id,
 }: {
   name: string
   result: Result
@@ -22,6 +23,8 @@ export function PrintView({
   /** The sheet edge trim, drawn on each sheet. */
   trim: number
   materialName(id: string | null): string | null
+  /** A cabinet's label (M1) for the door order. */
+  labelOf?: (cabinetId: string) => string
 }) {
   const { t } = useTranslation();
   return (
@@ -34,6 +37,10 @@ export function PrintView({
       <EdgeTable totals={result.edgeTotals} materialName={materialName} />
       <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced} nesting={result.nesting}
         materialName={materialName} />
+
+      {result.facadeOrder.length > 0 && (
+        <FacadeOrder lines={result.facadeOrder} labelOf={labelOf} materialName={materialName} />
+      )}
 
       {/* One page per sheet, for the saw: the drawing, its parts and the cuts in order. */}
       {result.nesting.flatMap((n) => {

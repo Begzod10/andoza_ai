@@ -2472,6 +2472,31 @@
       "dir_across": "across"
     },
     "kerf": "Saw kerf, mm",
-    "trim": "Sheet edge trim, mm"
+    "trim": "Sheet edge trim, mm",
+    "add": {
+      "base": "+ Base",
+      "wall": "+ Wall",
+      "tall": "+ Tall"
+    },
+    "type": {
+      "base": "base",
+      "wall": "wall",
+      "tall": "tall"
+    },
+    "doors": "Doors",
+    "doors_auto": "Auto",
+    "facade": "Doors",
+    "facade_kind": "Door type",
+    "facade_kinds": {
+      "ldsp": "LDSP (cut in-house)",
+      "mdf": "MDF (ordered)",
+      "none": "None"
+    },
+    "facade_material": "Door material",
+    "facade_thickness": "Door thickness",
+    "facade_gap": "Gap, mm",
+    "facade_order": "MDF door order",
+    "facade_total": "Total: {{m2}} m²",
+    "export_facade_csv": "Door order (CSV)"
   }
 }
