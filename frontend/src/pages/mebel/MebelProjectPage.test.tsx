@@ -1,0 +1,120 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, fireEvent, act } from '@testing-library/react'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import MebelProjectPage from './MebelProjectPage'
+import * as api from '@/lib/api'
+import i18n from '@/i18n'
+import { formatMm } from '@/features/mebel/ui/format'
+import { EMPTY_PRICE_BOOK, newProject } from '@/features/mebel/engine'
+
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof api>('@/lib/api')
+  return {
+    ...actual,
+    getMebelProject: vi.fn(),
+    saveMebelProject: vi.fn(),
+    getPriceBook: vi.fn(),
+    savePriceBook: vi.fn(),
+    getMaterials: vi.fn(),
+  }
+})
+// The 3D view needs WebGL; the page only has to hand it the parts.
+vi.mock('@/features/mebel/three/CabinetView', () => ({
+  CabinetView: ({ parts }: { parts: unknown[] }) => <div data-testid="cabinet-view" data-parts={parts.length} />,
+}))
+
+const t = (k: string, o?: Record<string, unknown>) => i18n.t(k, o)
+
+function mount() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/mebel/p1']}>
+        <Routes>
+          <Route path="/mebel/:id" element={<MebelProjectPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+const partsTable = () => screen.getByRole('table', { name: t('mebel.tab.parts') })
+const rowOf = (name: string) => within(partsTable()).getAllByRole('row').find(r => within(r).queryByText(name))!
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  const project = newProject('Oshxona')
+  project.cabinets[0].id = 'c1'
+  vi.mocked(api.getMebelProject).mockResolvedValue({ id: 'p1', name: 'Oshxona', data: project })
+  vi.mocked(api.saveMebelProject).mockResolvedValue({ id: 'p1', name: 'Oshxona', data: project })
+  vi.mocked(api.getPriceBook).mockResolvedValue(EMPTY_PRICE_BOOK)
+  vi.mocked(api.getMaterials).mockResolvedValue([])
+})
+afterEach(() => vi.useRealTimers())
+
+describe('MebelProjectPage', () => {
+  it('shows the cut list of the saved project', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    const side = rowOf(t('mebel.part.side_left'))
+    expect(side).toHaveTextContent(formatMm(719.6))
+    expect(side).toHaveTextContent('554')
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '7')
+  })
+
+  it('recomputes the parts when a size changes', async () => {
+    mount()
+    const width = await screen.findByLabelText(t('mebel.width'))
+    fireEvent.change(width, { target: { value: '800' } })
+    const bottom = rowOf(t('mebel.part.bottom'))
+    expect(bottom).toHaveTextContent('764')
+    expect(bottom).toHaveTextContent('554')
+  })
+
+  it('switches between cut and finished sizes', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.show_finished') }))
+    const side = rowOf(t('mebel.part.side_left'))
+    expect(side).toHaveTextContent('720')
+    expect(side).toHaveTextContent('556')
+  })
+
+  it('an out-of-range size shows the error and no parts', async () => {
+    mount()
+    const width = await screen.findByLabelText(t('mebel.width'))
+    fireEvent.change(width, { target: { value: '100' } })
+    expect(screen.getByText(t('mebel.error.width_range', { min: 150, max: 1200 }))).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: t('mebel.tab.parts') })).not.toBeInTheDocument()
+    expect(width).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('saves once, a second after the last change', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    mount()
+    const width = await screen.findByLabelText(t('mebel.width'))
+    fireEvent.change(width, { target: { value: '700' } })
+    fireEvent.change(width, { target: { value: '800' } })
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(api.saveMebelProject).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1100) })
+    expect(api.saveMebelProject).toHaveBeenCalledTimes(1)
+    const [, , data] = vi.mocked(api.saveMebelProject).mock.calls[0]
+    expect(data.cabinets[0].width).toBe(800)
+  })
+
+  it('marks lines without a price as unpriced', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
+    expect(screen.getAllByText(t('mebel.unpriced')).length).toBeGreaterThan(0)
+  })
+
+  it('adds a cabinet next to the last one', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add_cabinet') }))
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '14')
+    expect(screen.getByText('M2')).toBeInTheDocument()
+  })
+})

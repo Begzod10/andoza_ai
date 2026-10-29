@@ -91,6 +91,7 @@ const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const DeleteAccountPage = lazy(() => import("@/pages/DeleteAccountPage"));
 const MebelListPage = lazy(() => import("@/pages/mebel/MebelListPage"));
+const MebelProjectPage = lazy(() => import("@/pages/mebel/MebelProjectPage"));
 
 // ---------- Routes ----------
 
@@ -157,6 +158,10 @@ const routes: RouteObject[] = [
   },
 
   // ── Full-screen flows (no bottom nav) ──
+  {
+    path: "/mebel/:id",
+    element: withSuspense(<RequireAuth><MebelProjectPage /></RequireAuth>),
+  },
   {
     path: "/scan/lidar",
     element: withSuspense(<LidarPage />),
