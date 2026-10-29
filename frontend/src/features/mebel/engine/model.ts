@@ -157,7 +157,10 @@ export interface PriceBook {
   materials: Record<string, number>
   cutPerSheet: number | null
   bandingPerMeter: { '0.4': number | null; '1': number | null; '2': number | null }
-  hardware: { leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null }
+  hardware: {
+    leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null
+    hinge: number | null; handle: number | null; hanger: number | null
+  }
   markupPercent: number
 }
 
@@ -172,6 +175,8 @@ export interface Result {
   groups: CutGroup[]
   edgeTotals: EdgeTotal[]
   nesting: NestResult[]
+  /** MDF doors to order from a facade shop. */
+  facadeOrder: { id: string; cabinetId: string; length: number; width: number; qty: number; materialId: string | null }[]
   bom: BomLine[]
   total: number | null
   hasUnpriced: boolean

@@ -8,6 +8,7 @@ const codes = (ws: { code: string }[]) => ws.map(w => w.code)
 describe('computeProject', () => {
   it('prices the sample from the price book and the catalogue', () => {
     const p = newProject('x')
+    p.defaults.facade.kind = 'none' // the open sample cabinet of the parent spec
     p.defaults.board.materialId = 'ldsp1'
     p.defaults.edge.visible.materialId = 'k2'
     const prices: PriceBook = {
@@ -103,7 +104,7 @@ describe('validateProject', () => {
 describe('hardwareCounts', () => {
   it('counts legs, confirmats, shelf pins and back nails', () => {
     const cab = { width: 900, height: 720, shelves: 2 } as CabinetSpec
-    expect(hardwareCounts(cab, DEFAULTS)).toEqual({ leg: 6, confirmat: 14, shelfPin: 8, nail: 33 })
+    expect(hardwareCounts(cab, DEFAULTS)).toEqual({ leg: 6, confirmat: 14, shelfPin: 8, nail: 33, hinge: 0, handle: 0, hanger: 0 })
     expect(hardwareCounts({ ...cab, width: 600 }, DEFAULTS).leg).toBe(4)
   })
 

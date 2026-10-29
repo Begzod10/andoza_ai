@@ -32,7 +32,9 @@ export function validateCabinets(
   if (!finite(s?.length, 100) || !finite(s?.width, 100) || (trimOk && (s.length - 2 * d0.trim <= 0 || s.width - 2 * d0.trim <= 0))) {
     errors.push({ code: 'sheet_size', params: { min: 100 } })
   }
-  if (!trimOk || !finite(d0.kerf) || d0.kerf > 10) errors.push({ code: 'settings_invalid' })
+  const f = d0.facade
+  const facadeOk = !f || (finite(f.gap) && f.gap <= 5 && [16, 18, 19].includes(f.thickness))
+  if (!trimOk || !finite(d0.kerf) || d0.kerf > 10 || !facadeOk) errors.push({ code: 'settings_invalid' })
   if (![d0.railDepth, d0.shelfSetback, d0.shelfGap, d0.backGap, d0.edgeAllowance, d0.edgeWaste, d0.sheetWaste].every(v => finite(v))) {
     errors.push({ code: 'settings_invalid' })
   }
@@ -48,6 +50,7 @@ export function validateCabinets(
     range('depth_range', c.depth, lim.depth)
     if (!Number.isInteger(c.shelves)) errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: lim.shelves[0], max: lim.shelves[1] } })
     else range('shelves_range', c.shelves, lim.shelves)
+    if (c.doors !== undefined && ![0, 1, 2].includes(c.doors)) errors.push({ code: 'doors_range', cabinetId: c.id, params: { min: 0, max: 2 } })
     // the server stores whole millimetres
     if ([c.width, c.height, c.depth].some(v => Number.isFinite(v) && !Number.isInteger(v))) {
       errors.push({ code: 'whole_mm', cabinetId: c.id })

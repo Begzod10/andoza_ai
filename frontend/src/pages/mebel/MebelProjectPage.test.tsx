@@ -66,7 +66,7 @@ describe('MebelProjectPage', () => {
     const side = rowOf(t('mebel.part.side_left'))
     expect(side).toHaveTextContent(formatMm(719.6))
     expect(side).toHaveTextContent('554')
-    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '7')
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '8')
   })
 
   it('recomputes the parts when a size changes', async () => {
@@ -120,7 +120,7 @@ describe('MebelProjectPage', () => {
   it('adds a cabinet next to the last one', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: t('mebel.add_cabinet') }))
-    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '14')
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '16')
     expect(screen.getByText('M2')).toBeInTheDocument()
   })
 })

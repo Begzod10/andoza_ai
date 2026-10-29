@@ -2401,7 +2401,12 @@
       "nail": "HDF nail",
       "cut": "Cutting",
       "banding": "Edge banding {{t}} mm",
-      "markup": "Markup {{p}}%"
+      "markup": "Markup {{p}}%",
+      "facade": "Door board {{t}} mm",
+      "facade_mdf": "MDF doors",
+      "hinge": "Hinge",
+      "handle": "Handle",
+      "hanger": "Hanger"
     },
     "unit": {
       "sheet": "sheet",
@@ -2439,7 +2444,8 @@
       "too_many_cabinets": "At most {{max}} cabinets per project",
       "whole_mm": "Sizes must be whole millimetres",
       "sheet_size": "The sheet size must be at least {{min}} mm",
-      "settings_invalid": "A construction setting is empty or negative"
+      "settings_invalid": "A construction setting is empty or negative",
+      "doors_range": "Doors must be {{min}}–{{max}}"
     },
     "warning": {
       "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
