@@ -26,10 +26,23 @@ class CabinetIn(BaseModel):
     shelves: int = Field(ge=0, le=4)
 
 
+class SheetIn(BaseModel):
+    length: int = Field(ge=100, le=10000)
+    width: int = Field(ge=100, le=10000)
+
+
+class DefaultsIn(BaseModel):
+    """Only the sheet size is checked: the engine divides by it."""
+    model_config = ConfigDict(extra="allow")
+
+    sheet: SheetIn | None = None
+
+
 class ProjectData(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     schemaVersion: Literal[1]
+    defaults: DefaultsIn
     cabinets: list[CabinetIn] = Field(max_length=MAX_CABINETS)
 
 

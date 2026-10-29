@@ -6,7 +6,12 @@ const HEADER = ["ID", "Detal", "Material", "Qalinlik", "Uzunlik", "Eni", "Soni",
 /** Excel in ru/uz reads a decimal comma. */
 const num = (n: number) => String(n).replace(".", ",");
 const band = (s: EdgeSide) => (s && s.thickness > 0 ? num(s.thickness) : "");
-const cell = (v: string) => (/[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+// A cell starting like a formula would run in Excel: a shop-entered name must stay text.
+const safe = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
+const cell = (raw: string) => {
+  const v = safe(raw);
+  return /[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+};
 
 /**
  * The cut list as the CSV a cutting service imports: `;`-separated, CRLF

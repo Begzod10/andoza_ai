@@ -2431,7 +2431,10 @@
       "shelves_range": "Polkalar {{min}}–{{max}} ta bo'lishi kerak",
       "inner_width": "Shkaf juda tor: ichki eni qolmaydi",
       "shelf_depth": "Polka uchun chuqurlik qolmaydi",
-      "too_many_cabinets": "Bir loyihada ko'pi bilan {{max}} ta shkaf"
+      "too_many_cabinets": "Bir loyihada ko'pi bilan {{max}} ta shkaf",
+      "whole_mm": "O'lchamlar butun millimetrda bo'lishi kerak",
+      "sheet_size": "List o'lchami kamida {{min}} mm bo'lishi kerak",
+      "settings_invalid": "Konstruksiya sozlamalarida bo'sh yoki manfiy qiymat bor"
     },
     "warning": {
       "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",
@@ -2440,6 +2443,7 @@
     },
     "view3d": "3D ko'rinish",
     "print_title": "Cut list: {{name}}",
-    "mm": "mm"
+    "mm": "mm",
+    "not_saved_invalid": "Saqlanmadi: xatolarni tuzating"
   }
 }

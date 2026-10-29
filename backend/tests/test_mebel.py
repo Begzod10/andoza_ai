@@ -200,3 +200,16 @@ def test_requires_login(client):
 
 def test_material_category_has_sheet_goods():
     assert set(MaterialCategory.enums) >= {"ldsp", "mdf", "hdf", "kromka", "furnitura"}
+
+
+@pytest.mark.parametrize("sheet", [{"length": None, "width": 2070}, {"length": 0, "width": 2070}, {"length": 2800}])
+def test_rejects_a_sheet_size_the_engine_cannot_use(client, sheet):
+    _as(_user(), _db())
+    data = _data()
+    data["defaults"]["sheet"] = sheet
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": data}).status_code == 422
+
+
+def test_rejects_a_fractional_size(client):
+    _as(_user(), _db())
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(width=600.5)}).status_code == 422

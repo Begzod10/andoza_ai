@@ -43,8 +43,9 @@ export function baseCabinetParts(cab: CabinetSpec, d: ConstructionDefaults): Par
   const zc0 = cab.position.z + (nailed ? tb : 0)
   const zFront = zc0 + Dc
 
-  const visible: EdgeSide = { band: 'visible', thickness: d.edge.visible.thickness }
-  const hidden: EdgeSide = { band: 'hidden', thickness: d.edge.hidden.thickness }
+  // A band of thickness 0 ("—" in the settings) is no band at all.
+  const visible: EdgeSide = d.edge.visible.thickness > 0 ? { band: 'visible', thickness: d.edge.visible.thickness } : null
+  const hidden: EdgeSide = d.edge.hidden.thickness > 0 ? { band: 'hidden', thickness: d.edge.hidden.thickness } : null
 
   const parts: Part[] = []
   const add = (
@@ -84,8 +85,10 @@ export function baseCabinetParts(cab: CabinetSpec, d: ConstructionDefaults): Par
   const inner = W - 2 * t
   add('rail_front', { length: inner, width: d.railDepth }, { ...NO_EDGES, L1: visible },
     [x0 + t, x0 + W - t, H - t, H, zFront - d.railDepth, zFront])
+  // A grooved back runs up to the top, so the rear rail stands in front of it.
+  const railBackZ = groove ? zc0 + d.back.grooveOffset + tb : zc0
   add('rail_back', { length: inner, width: d.railDepth }, NO_EDGES,
-    [x0 + t, x0 + W - t, H - t, H, zc0, zc0 + d.railDepth])
+    [x0 + t, x0 + W - t, H - t, H, railBackZ, railBackZ + d.railDepth])
 
   const shelfL = inner - 2 * d.shelfGap
   const shelfD = Di - d.shelfSetback

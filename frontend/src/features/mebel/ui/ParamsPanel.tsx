@@ -9,7 +9,7 @@ export interface CatalogOptions { ldsp: CatalogOption[]; hdf: CatalogOption[]; k
 type Update = (fn: (p: FurnitureProject) => FurnitureProject) => void
 
 /** The field each validation error belongs to, so that field is marked. */
-const ERROR_FIELD: Record<string, keyof CabinetSpec> = {
+export const ERROR_FIELD: Record<string, keyof CabinetSpec> = {
   width_range: "width", inner_width: "width", height_range: "height",
   depth_range: "depth", shelf_depth: "depth", shelves_range: "shelves",
 };

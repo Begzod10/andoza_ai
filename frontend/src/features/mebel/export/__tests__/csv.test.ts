@@ -30,4 +30,8 @@ describe('cutListCsv', () => {
     const odd = cutListCsv(groups.slice(0, 1), { ...labels, material: () => 'Dub "Sonoma"; oq' })
     expect(odd.slice(1).split('\r\n')[1]).toContain(';"Dub ""Sonoma""; oq";')
   })
+  it('neutralises a cell Excel would run as a formula', () => {
+    const evil = cutListCsv(groups.slice(0, 1), { ...labels, material: () => '=HYPERLINK("x")' })
+    expect(evil.slice(1).split('\r\n')[1]).toContain(`;"'=HYPERLINK(""x"")";`)
+  })
 })

@@ -14,6 +14,7 @@ import { CabinetView } from "@/features/mebel/three/CabinetView";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
 import { PrintView } from "@/features/mebel/export/PrintView";
 import { partName } from "@/features/mebel/ui/format";
+import { ERROR_FIELD } from "@/features/mebel/ui/ParamsPanel";
 
 type Tab = "parts" | "edges" | "bom" | "warnings";
 const TABS: Tab[] = ["parts", "edges", "bom", "warnings"];
@@ -68,8 +69,8 @@ export default function MebelProjectPage() {
       <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
         <Link to="/mebel" className="text-sm font-semibold text-blue-700">← {t("mebel.back_to_list")}</Link>
         <h1 className="min-w-0 flex-1 truncate text-base font-bold text-neutral-900">{project.name}</h1>
-        <span className={`text-xs ${m.saveState === "error" ? "text-red-600" : "text-neutral-500"}`} role="status">
-          {t(`mebel.${m.saveState === "saving" ? "saving" : m.saveState === "error" ? "save_failed" : "saved"}`)}
+        <span className={`text-xs ${m.saveState === "error" || m.saveState === "invalid" ? "text-red-600" : "text-neutral-500"}`} role="status">
+          {t(({ saving: "mebel.saving", error: "mebel.save_failed", invalid: "mebel.not_saved_invalid", saved: "mebel.saved" } as const)[m.saveState])}
         </span>
         <button type="button" onClick={() => setPriceBookOpen(true)}
           className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200">
@@ -99,8 +100,8 @@ export default function MebelProjectPage() {
             {failed ? (
               <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
                 <p className="font-semibold">{t("mebel.errors_title")}</p>
-                {result.errors.filter((e) => !e.cabinetId).map((e) => (
-                  <p key={e.code}>{t(`mebel.error.${e.code}` as TKey, e.params)}</p>
+                {result.errors.filter((e) => !e.cabinetId || !ERROR_FIELD[e.code]).map((e) => (
+                  <p key={`${e.code}|${e.cabinetId ?? ""}`}>{t(`mebel.error.${e.code}` as TKey, e.params)}</p>
                 ))}
               </div>
             ) : (
@@ -142,7 +143,7 @@ export default function MebelProjectPage() {
         </main>
       </div>
 
-      <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook}
+      <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook} ready={m.priceBookReady}
         usedMaterials={used} catalog={m.catalog} />
     </div>
     {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} materialName={materialName} />}

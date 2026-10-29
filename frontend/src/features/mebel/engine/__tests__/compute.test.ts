@@ -112,3 +112,37 @@ describe('hardwareCounts', () => {
     expect(hardwareCounts(cab, { ...DEFAULTS, back: { ...DEFAULTS.back, kind: 'none' } }).nail).toBe(0)
   })
 })
+
+describe('review fixes', () => {
+  it('a band of thickness 0 is no band: no edge, no metres, no BOM line', () => {
+    const p = newProject('x')
+    p.defaults.edge.hidden = { ...p.defaults.edge.hidden, thickness: 0, materialId: 'k04' }
+    const r = computeProject(p, EMPTY_PRICE_BOOK, { k04: { name: 'k', price: 1000 } })
+    expect(r.parts.find(x => x.role === 'side_left')!.edges.W1).toBeNull()
+    expect(r.edgeTotals.some(e => e.thickness === 0)).toBe(false)
+    expect(r.bom.some(b => b.kind === 'edge' && b.materialId === 'k04')).toBe(false)
+  })
+
+  it('a fractional size is an error (the server stores whole mm)', () => {
+    const p = newProject('x')
+    p.cabinets[0].width = 600.5
+    expect(codes(validateProject(p).errors)).toContain('whole_mm')
+  })
+
+  it.each([
+    ['sheet length cleared', (p: ReturnType<typeof newProject>) => { p.defaults.sheet.length = Number.NaN }],
+    ['sheet width zero', (p: ReturnType<typeof newProject>) => { p.defaults.sheet.width = 0 }],
+    ['sheet from a saved null', (p: ReturnType<typeof newProject>) => { (p.defaults.sheet as { length: unknown }).length = null }],
+  ])('%s is an error, not an Infinity sheet count', (_name, mutate) => {
+    const p = newProject('x')
+    mutate(p)
+    const r = computeProject(p, EMPTY_PRICE_BOOK, {})
+    expect(codes(r.errors)).toContain('sheet_size')
+    expect(r.parts).toEqual([])
+  })
+
+  it('a grooved back is not nailed', () => {
+    const cab = { width: 600, height: 720, shelves: 0 } as CabinetSpec
+    expect(hardwareCounts(cab, { ...DEFAULTS, back: { ...DEFAULTS.back, kind: 'hdf_groove' } }).nail).toBe(0)
+  })
+})

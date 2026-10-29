@@ -20,7 +20,8 @@ export function hardwareCounts(cab: Pick<CabinetSpec, 'width' | 'height' | 'shel
     // bottom: 2 joints × 3, each top rail: 2 joints × 2
     confirmat: 2 * 3 + 2 * 2 * 2,
     shelfPin: 4 * cab.shelves,
-    nail: d.back.kind === 'none' ? 0 : Math.ceil((2 * (cab.width + cab.height)) / 100),
+    // only a nailed back is nailed; a grooved one sits in its grooves
+    nail: d.back.kind === 'hdf_nailed' ? Math.ceil((2 * (cab.width + cab.height)) / 100) : 0,
   }
 }
 

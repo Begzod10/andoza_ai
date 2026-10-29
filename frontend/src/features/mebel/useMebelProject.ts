@@ -8,7 +8,8 @@ import type { CatalogOptions } from "./ui/ParamsPanel";
 const SAVE_DELAY_MS = 1000;
 const CATALOG_CATEGORIES = ["ldsp", "hdf", "kromka"] as const;
 
-export type SaveState = "saved" | "saving" | "error";
+/** "invalid": there are edits, but they do not validate, so they are not saved. */
+export type SaveState = "saved" | "saving" | "error" | "invalid";
 
 /**
  * One /mebel project being edited: the saved project, the workshop's price
@@ -32,6 +33,8 @@ export function useMebelProject(id: string) {
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const dirty = useRef(false);
+  // The edit waiting for its save, so leaving the page can save it at once.
+  const pending = useRef<FurnitureProject | null>(null);
 
   // The saved project seeds the editor once; later refetches do not overwrite an edit.
   useEffect(() => {
@@ -65,23 +68,46 @@ export function useMebelProject(id: string) {
     [project, priceBook, catalog],
   );
 
+  const flush = useRef(() => {});
+  flush.current = () => {
+    const p = pending.current;
+    if (!p) return;
+    pending.current = null;
+    dirty.current = false;
+    saveMebelProject(id, p.name.trim() || "—", p)
+      .then(() => { if (!pending.current) setSaveState("saved"); })
+      .catch(() => setSaveState("error"));
+  };
+
   useEffect(() => {
-    if (!project || !dirty.current || !result || result.errors.length > 0) return;
+    if (!project || !dirty.current || !result) return;
+    if (result.errors.length > 0) {
+      pending.current = null;
+      setSaveState("invalid");
+      return;
+    }
+    pending.current = project;
     setSaveState("saving");
-    const timer = setTimeout(() => {
-      dirty.current = false;
-      saveMebelProject(id, project.name.trim() || "—", project)
-        .then(() => setSaveState("saved"))
-        .catch(() => setSaveState("error"));
-    }, SAVE_DELAY_MS);
+    const timer = setTimeout(() => flush.current(), SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [id, project, result]);
+
+  // Leaving the page (in the app or closing the tab) saves the pending edit now.
+  useEffect(() => {
+    const onHide = () => flush.current();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flush.current();
+    };
+  }, []);
 
   return {
     project,
     setProject,
     result,
     priceBook,
+    priceBookReady: priceBookQuery.isSuccess,
     catalog,
     options,
     saveState,

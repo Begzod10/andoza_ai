@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,9 +11,11 @@ const num = (v: string): number | null => (v.trim() === "" ? null : Math.max(0, 
 
 /** The workshop's own prices, used in all its projects. A blank price falls back to the catalogue. */
 export function PriceBookDialog({
-  open, onOpenChange, priceBook, usedMaterials, catalog,
+  open, onOpenChange, priceBook, ready, usedMaterials, catalog,
 }: {
   open: boolean
+  /** The saved price book has loaded; until then saving would overwrite it with blanks. */
+  ready: boolean
   onOpenChange(open: boolean): void
   priceBook: PriceBook
   /** The materials this project uses, so their price can be set here. */
@@ -23,6 +25,11 @@ export function PriceBookDialog({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<PriceBook>(priceBook);
+  // Each opening starts from the saved prices: not the ones from when the page
+  // loaded, nor an edit that was cancelled.
+  useEffect(() => {
+    if (open) setDraft(priceBook);
+  }, [open, priceBook]);
   const save = useMutation({
     mutationFn: savePriceBook,
     onSuccess: (pb) => {
@@ -40,7 +47,7 @@ export function PriceBookDialog({
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => { if (o) setDraft(priceBook); onOpenChange(o); }}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/40" />
         <Dialog.Content className="fixed inset-x-0 bottom-0 z-[80] max-h-[90vh] overflow-y-auto rounded-t-3xl bg-white p-6 sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(92vw,520px)] sm:rounded-3xl">
@@ -75,7 +82,7 @@ export function PriceBookDialog({
 
           <div className="mt-6 flex justify-end gap-2">
             <Dialog.Close className="rounded-full px-4 py-2 text-sm font-semibold text-neutral-600">{t("mebel.cancel")}</Dialog.Close>
-            <button type="button" onClick={() => save.mutate(draft)} disabled={save.isPending}
+            <button type="button" onClick={() => save.mutate(draft)} disabled={save.isPending || !ready}
               className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60">
               {t("mebel.save")}
             </button>

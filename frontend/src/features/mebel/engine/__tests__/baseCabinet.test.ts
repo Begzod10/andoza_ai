@@ -87,8 +87,9 @@ describe('baseCabinetParts', () => {
             const a = parts[i].placement, c = parts[j].placement
             const ov = (p: number, sp: number, q: number, sq: number) => Math.min(p + sp / 2, q + sq / 2) - Math.max(p - sp / 2, q - sq / 2)
             const inter = [ov(a.x, a.sx, c.x, c.sx), ov(a.y, a.sy, c.y, c.sy), ov(a.z, a.sz, c.z, c.sz)]
-            // A groove back sits inside its grooves on purpose; anything else touching is fine, crossing is not.
-            const groove = kind === 'hdf_groove' && [parts[i].role, parts[j].role].includes('back')
+            // A groove back sits in the grooves of the sides and the bottom on purpose; it must not cross the rails.
+            const roles = [parts[i].role, parts[j].role]
+            const groove = kind === 'hdf_groove' && roles.includes('back') && roles.some(r => r === 'side_left' || r === 'side_right' || r === 'bottom')
             if (!groove) expect(inter.some(v => v <= 0), `${parts[i].id} × ${parts[j].id}`).toBe(true)
           }
         }

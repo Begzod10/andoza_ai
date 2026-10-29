@@ -145,3 +145,41 @@ describe('MebelProjectPage export', () => {
     expect(screen.getByTestId('mebel-print')).toHaveTextContent(t('mebel.print_title', { name: 'Oshxona' }))
   })
 })
+
+describe('MebelProjectPage review fixes', () => {
+  it('the price book dialog shows the saved prices even when they arrive after the page', async () => {
+    let resolvePb: (pb: typeof EMPTY_PRICE_BOOK) => void = () => {}
+    vi.mocked(api.getPriceBook).mockReturnValue(new Promise(r => { resolvePb = r }))
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    await act(async () => { resolvePb({ ...EMPTY_PRICE_BOOK, cutPerSheet: 40000, markupPercent: 30 }) })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.price_book') }))
+    expect(await screen.findByDisplayValue('40000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('30')).toBeInTheDocument()
+  })
+
+  it('reopening the dialog after Cancel shows the saved prices, not the cancelled edit', async () => {
+    vi.mocked(api.getPriceBook).mockResolvedValue({ ...EMPTY_PRICE_BOOK, cutPerSheet: 40000 })
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.price_book') }))
+    fireEvent.change(await screen.findByDisplayValue('40000'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.cancel') }))
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.price_book') }))
+    expect(await screen.findByDisplayValue('40000')).toBeInTheDocument()
+  })
+
+  it('leaving the page saves the pending edit at once', async () => {
+    const view = mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.width')), { target: { value: '900' } })
+    view.unmount()
+    expect(api.saveMebelProject).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(api.saveMebelProject).mock.calls[0][2].cabinets[0].width).toBe(900)
+  })
+
+  it('an edit that does not validate says it is not saved', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.width')), { target: { value: '100' } })
+    expect(screen.getByRole('status')).toHaveTextContent(t('mebel.not_saved_invalid'))
+  })
+})

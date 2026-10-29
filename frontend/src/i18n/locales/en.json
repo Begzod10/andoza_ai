@@ -2431,7 +2431,10 @@
       "shelves_range": "Shelves must be {{min}}–{{max}}",
       "inner_width": "Too narrow: no inner width left",
       "shelf_depth": "No depth left for the shelf",
-      "too_many_cabinets": "At most {{max}} cabinets per project"
+      "too_many_cabinets": "At most {{max}} cabinets per project",
+      "whole_mm": "Sizes must be whole millimetres",
+      "sheet_size": "The sheet size must be at least {{min}} mm",
+      "settings_invalid": "A construction setting is empty or negative"
     },
     "warning": {
       "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
@@ -2440,6 +2443,7 @@
     },
     "view3d": "3D view",
     "print_title": "Cut list: {{name}}",
-    "mm": "mm"
+    "mm": "mm",
+    "not_saved_invalid": "Not saved: fix the errors"
   }
 }
