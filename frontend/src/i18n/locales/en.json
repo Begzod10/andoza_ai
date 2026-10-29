@@ -2529,7 +2529,10 @@
         "hinge_cup": "Hinge cup",
         "hinge_plate": "Hinge plate",
         "slide": "Slide"
-      }
+      },
+      "end_bottom": "↓ bottom",
+      "end_top": "↑ top",
+      "mdf_hinge_note": "The facade shop drills the hinge cups (Ø35): 22.5 mm from the edge, 100 mm from the ends."
     }
   }
 }

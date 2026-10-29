@@ -15,4 +15,9 @@ describe('FacadeOrder', () => {
     expect(table).toHaveTextContent('398')
     expect(screen.getByText(i18n.t('mebel.facade_total', { m2: '1.001' }), { exact: false })).toBeInTheDocument()
   })
+  it('tells the facade shop where to drill the hinge cups', () => {
+    render(<FacadeOrder lines={[{ id: 'M1-F1', cabinetId: 'c1', length: 718, width: 598, qty: 1, materialId: 'm1' }]}
+      labelOf={() => 'M1'} materialName={() => null} />)
+    expect(screen.getByText(i18n.t('mebel.drill.mdf_hinge_note'))).toBeInTheDocument()
+  })
 })

@@ -65,7 +65,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   const facadeOrder = p.cabinets.flatMap((c) =>
     drawerCount(c) > 0 ? drawerFacadeOrder(c, settings(c.id)) : facadeOrderLines(c, settings(c.id)))
   const slides = p.cabinets.map((c) => drawerSlides(c, settings(c.id))).filter((s): s is { length: number; pairs: number } => s != null)
-  const parts = drillParts(boxParts, p.cabinets)
+  const parts = drillParts(boxParts, p.cabinets, settings)
   const groups = groupParts(parts)
   const edges = edgeTotals(
     parts,

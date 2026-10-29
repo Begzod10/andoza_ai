@@ -1,4 +1,6 @@
-import type { CabinetSpec, Hole, Part } from './model'
+import { doorCount } from './rules/doors'
+import { drawerCount } from './rules/drawers'
+import type { CabinetSpec, ConstructionDefaults, Hole, Part } from './model'
 
 /** The 32 mm system the drilling follows (spec: 2026-10-29-mebel-teshik-design.md). */
 const CONFIRMAT = { diameter: 7, depth: 0 }
@@ -24,7 +26,7 @@ function hingesPerDoor(height: number): number {
 }
 
 /** The parts of every cabinet with their holes added; MDF doors are not parts, so not drilled. */
-export function drillParts(parts: Part[], cabinets: CabinetSpec[]): Part[] {
+export function drillParts(parts: Part[], cabinets: CabinetSpec[], settings: (cabinetId: string) => ConstructionDefaults): Part[] {
   const holes = new Map<string, Hole[]>(parts.map((p) => [p.id, []]))
   const add = (p: Part, h: Hole) => holes.get(p.id)!.push({ ...h, u: r1(h.u), v: r1(h.v) })
 
@@ -55,34 +57,51 @@ export function drillParts(parts: Part[], cabinets: CabinetSpec[]): Part[] {
           const u = side.placement.x - lo(panel, 'x')
           for (const v of spots) {
             add(panel, { kind: 'confirmat', face: 'B', u, v: v - pf, ...CONFIRMAT })
-            add(side, { kind: 'confirmat_edge', face: 'W2', u: v, v: side.thickness / 2, ...CONFIRMAT_EDGE })
+            // into the side's lower end (W1: u runs up from the bottom)
+            add(side, { kind: 'confirmat_edge', face: 'W1', u: v, v: side.thickness / 2, ...CONFIRMAT_EDGE })
           }
         }
       }
     }
 
-    // Shelf pins under each shelf, front and back, on both sides.
+    // Shelf pins under each shelf, 37 mm in from the side's edges but never outside the shelf.
+    const pinUs: number[] = []
     for (const shelf of own.filter((p) => p.role === 'shelf')) {
+      const sFront = vOf(hi(shelf, 'z'))
+      const sBack = vOf(lo(shelf, 'z'))
+      const u = lo(shelf, 'y') - SHELF_PIN.below - sideY1
+      pinUs.push(u)
       for (const side of sides) {
-        const u = lo(shelf, 'y') - SHELF_PIN.below - sideY1
-        for (const v of [SHELF_PIN.setback, side.finished.width - SHELF_PIN.setback]) {
-          add(side, { kind: 'shelf_pin', face: 'A', u, v, diameter: SHELF_PIN.diameter, depth: SHELF_PIN.depth })
-        }
+        const vs = [Math.max(SHELF_PIN.setback, sFront + 17), Math.min(side.finished.width - SHELF_PIN.setback, sBack - 17)]
+        for (const v of vs) add(side, { kind: 'shelf_pin', face: 'A', u, v, diameter: SHELF_PIN.diameter, depth: SHELF_PIN.depth })
       }
     }
 
-    // Hinges: one door hinges on the left; of two, each on its outer side.
-    const doors = own.filter((p) => p.role === 'door').sort((a, b) => a.placement.x - b.placement.x)
+    // Hinges: one door hinges on the left; of two, each on its outer side. An MDF door is
+    // not a part (the facade shop drills its cups), but the sides still carry its plates.
+    const d = settings(cab.id)
+    const ldspDoors = own.filter((p) => p.role === 'door').sort((a, b) => a.placement.x - b.placement.x)
+    const nMdf = d.facade?.kind === 'mdf' && drawerCount(cab) === 0 ? doorCount(cab) : 0
+    const doors: { part?: Part; y1: number; length: number; width: number }[] = ldspDoors.length
+      ? ldspDoors.map((p) => ({ part: p, y1: lo(p, 'y'), length: p.finished.length, width: p.finished.width }))
+      : Array.from({ length: nMdf }, () => ({ y1: d.facade.gap / 2, length: cab.height - d.facade.gap, width: 0 }))
+    // a plate hole must clear a shelf pin row (both Ø5 at 37 mm from the front)
+    const clear = (sideU: number) => pinUs.every((p) => [sideU - HINGE_PLATE.spread, sideU + HINGE_PLATE.spread].every((h) => Math.abs(h - p) >= 9))
     doors.forEach((door, i) => {
       const onLeft = doors.length === 1 || i === 0
-      const L = door.finished.length
+      const L = door.length
       const n = hingesPerDoor(cab.height)
-      const us = Array.from({ length: n }, (_, k) => HINGE_CUP.fromEnd + ((L - 2 * HINGE_CUP.fromEnd) * k) / (n - 1))
       const side = onLeft ? left : right
-      for (const u of us) {
-        add(door, { kind: 'hinge_cup', face: 'A', u, v: onLeft ? HINGE_CUP.fromEdge : door.finished.width - HINGE_CUP.fromEdge, diameter: HINGE_CUP.diameter, depth: HINGE_CUP.depth })
+      for (let k = 0; k < n; k++) {
+        const even = HINGE_CUP.fromEnd + ((L - 2 * HINGE_CUP.fromEnd) * k) / (n - 1)
+        // nudge a middle hinge off a shelf row; the end ones stay 100 mm in
+        const u = [0, 40, -40, 80, -80].map((o) => even + o)
+          .find((c) => (k === 0 || k === n - 1 ? c === even : true) && clear(door.y1 + c - sideY1)) ?? even
+        if (door.part) {
+          add(door.part, { kind: 'hinge_cup', face: 'A', u, v: onLeft ? HINGE_CUP.fromEdge : door.width - HINGE_CUP.fromEdge, diameter: HINGE_CUP.diameter, depth: HINGE_CUP.depth })
+        }
         for (const du of [-HINGE_PLATE.spread, HINGE_PLATE.spread]) {
-          add(side, { kind: 'hinge_plate', face: 'A', u: lo(door, 'y') + u - sideY1 + du, v: HINGE_PLATE.setback, diameter: HINGE_PLATE.diameter, depth: HINGE_PLATE.depth })
+          add(side, { kind: 'hinge_plate', face: 'A', u: door.y1 + u - sideY1 + du, v: HINGE_PLATE.setback, diameter: HINGE_PLATE.diameter, depth: HINGE_PLATE.depth })
         }
       }
     })

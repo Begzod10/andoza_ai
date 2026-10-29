@@ -16,8 +16,10 @@ Har detalning teshiklari (32 mm tizimi, qo'lda teshish uchun): "Teshiklar" tabid
   - Qirra teshigi: `face` = `W1` (chap/past uch) yoki `W2` (o'ng/yuqori uch); `u` — qirra bo'ylab (old qirradan), `v` — qalinlik o'rtasi.
 
 ## Qoidalar (sozlanadigan sukutlar: `drill` sozlamasi)
-- **Konfirmat:** yon panel bilan tutashgan har gorizontal panel (taglik, tepa panel, planka) uchun: yon panel `B` yuzasida Ø7 teshib o'tadigan, panel o'qida; gorizontal panel uchida (`W1`/`W2` qirra) Ø5 × 60. Chuqurlik bo'ylab joylar: panel chuqurligi `≤ 150` → `25%` va `75%`; aks holda old va orqadan 50 mm, `> 400` bo'lsa o'rtada ham bitta. `under_sides` taglik: yon panel taglik ustida turadi — Ø7 taglikning `B` yuzasida (uchlaridan `t/2`), Ø5 × 60 yon panelning pastki uchida (`W2` qirra).
-- **Polkoderjatel:** har polka ostida ikkala yon panelning `A` yuzasida Ø5 × 10, polka ostidan 5 mm pastda, old va orqa qirradan 37 mm.
+- **Konfirmat:** yon panel bilan tutashgan har gorizontal panel (taglik, tepa panel, planka) uchun: yon panel `B` yuzasida Ø7 teshib o'tadigan, panel o'qida; gorizontal panel uchida (`W1`/`W2` qirra) Ø5 × 60. Chuqurlik bo'ylab joylar: panel chuqurligi `≤ 150` → `25%` va `75%`; aks holda old va orqadan 50 mm, `> 400` bo'lsa o'rtada ham bitta. `under_sides` taglik: yon panel taglik ustida turadi — Ø7 taglikning `B` yuzasida (uchlaridan `t/2`), Ø5 × 60 yon panelning pastki uchida (`W1` qirra: yon panelda `u` pastdan o'sadi).
+- **Polkoderjatel:** har polka ostida ikkala yon panelning `A` yuzasida Ø5 × 10, polka ostidan 5 mm pastda, yon panelning old va orqa qirrasidan 37 mm, lekin polka chetidan kamida 17 mm ichkarida.
+- Petlya plankasi polkoderjatel qatoriga tushsa (orasi < 9 mm), o'rtadagi petlya 40/80 mm suriladi; chetki petlyalar uchdan 100 mm'da qoladi. MDF fasadda ham yon panelga planka teshiklari ochiladi.
+- Chizmada chap yon panel ichki (A) tomondan ko'rinishda — pastki uchi o'ngda; ikkala uch "past/yuqori" deb belgilanadi.
 - **Petlya:** eshik `A` yuzasida kosa Ø35 × 12, petlya qirrasidan 22.5 mm; balandlik bo'yicha pastdan va yuqoridan 100 mm, qolganlari orasida teng. Bitta eshik — petlya chapda; ikkita eshik — chap eshik chapda, o'ng eshik o'ngda. Mos yon panelning `A` yuzasida planka uchun 2 × Ø5 × 12, old qirradan 37 mm, kosa balandligida ±16 mm.
 - **Yo'naltiruvchi:** tortma qutisi yonining pastidan 8 mm yuqorida, yon panel `A` yuzasida Ø2.5 × 10, old qirradan `2 + 37`, `2 + Ls/2`, `2 + Ls − 37`.
 - MDF fasadlar (detal emas) — teshik xaritasi yo'q; ro'yxatda "petlya kosasi fasad sexida" eslatmasi.

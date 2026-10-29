@@ -77,7 +77,9 @@ describe('drilling', () => {
     const us = parts(project({}, { bottomJoint: 'under_sides' }))
     const l = part(us, 'side_left')
     expect(pick(l, 'confirmat', 'B').some(([u]) => u < 20)).toBe(false)
-    expect(sorted(pick(l, 'confirmat_edge', 'W2'))).toEqual([[50, 9], [278, 9], [506, 9]])
+    // the side's lower end is W1 (u runs up from the bottom)
+    expect(sorted(pick(l, 'confirmat_edge', 'W1'))).toEqual([[50, 9], [278, 9], [506, 9]])
+    expect(pick(l, 'confirmat_edge', 'W2')).toEqual([])
     expect(sorted(pick(part(us, 'bottom'), 'confirmat', 'B'))).toEqual(sorted([[9, 50], [9, 278], [9, 506], [591, 50], [591, 278], [591, 506]]))
   })
 
@@ -97,6 +99,41 @@ describe('drilling', () => {
         expect(h.v).toBeGreaterThanOrEqual(0)
         expect(h.v).toBeLessThanOrEqual(edge ? p.thickness : p.finished.width)
       }
+    }
+  })
+  it('no two holes on one face overlap (hinge plate vs shelf pin)', () => {
+    const cases = [
+      project({ ...newCabinet('M1', 0, 'wall'), id: 'c1', label: 'M1', height: 960 }),
+      project({ ...newCabinet('M1', 0, 'tall'), id: 'c1', label: 'M1', height: 1200, shelves: 1 }),
+      project({ ...newCabinet('M1', 0, 'tall'), id: 'c1', label: 'M1', shelves: 3 }),
+    ]
+    for (const p of cases) {
+      for (const pt of parts(p)) {
+        const hs = pt.holes ?? []
+        for (let i = 0; i < hs.length; i++) {
+          for (let j = i + 1; j < hs.length; j++) {
+            const a = hs[i], b = hs[j]
+            if (a.face !== b.face) continue
+            const gap = Math.hypot(a.u - b.u, a.v - b.v) - (a.diameter + b.diameter) / 2
+            expect(gap, `${pt.id} ${a.kind}@${a.u},${a.v} × ${b.kind}@${b.u},${b.v}`).toBeGreaterThanOrEqual(3)
+          }
+        }
+      }
+    }
+  })
+
+  it('MDF doors: the sides still get their hinge plates', () => {
+    const mdf = parts(project({}, { facade: { kind: 'mdf', materialId: 'm', thickness: 19, gap: 2 } }))
+    expect(pick(part(mdf, 'side_left'), 'hinge_plate')).toHaveLength(4)
+  })
+
+  it('shelf pins stay under the shelf whatever its setback', () => {
+    const deep = parts(project({}, { shelfSetback: 40 }))
+    const shelf = part(deep, 'shelf')
+    const front = 40, back = front + shelf.finished.width
+    for (const [, v] of pick(part(deep, 'side_left'), 'shelf_pin')) {
+      expect(v).toBeGreaterThanOrEqual(front + 5)
+      expect(v).toBeLessThanOrEqual(back - 5)
     }
   })
 })
