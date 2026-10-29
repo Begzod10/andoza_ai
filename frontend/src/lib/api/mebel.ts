@@ -68,3 +68,26 @@ export async function getPriceBook(): Promise<PriceBook> {
 export function savePriceBook(pb: PriceBook): Promise<PriceBook> {
   return apiClient<PriceBook>("/mebel/price-book", { method: "PUT", body: JSON.stringify({ data: pb }) });
 }
+
+/** A cabinet the AI proposes; sizes already checked by the server. */
+export interface MebelSuggestedCabinet {
+  type: "base" | "wall" | "tall";
+  width: number;
+  height: number;
+  depth: number;
+  shelves: number;
+  doors: 0 | 1 | 2 | null;
+  drawers: number;
+}
+
+export interface MebelSuggestion {
+  cabinets: MebelSuggestedCabinet[];
+  facade: "ldsp" | "mdf" | "none" | null;
+  questions: string[];
+  /** Proposed cabinets the server left out, with why. */
+  dropped: string[];
+}
+
+export function suggestMebelCabinets(text: string): Promise<MebelSuggestion> {
+  return apiClient<MebelSuggestion>("/mebel/ai/suggest", { method: "POST", body: JSON.stringify({ text }) });
+}

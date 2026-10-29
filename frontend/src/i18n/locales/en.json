@@ -2533,6 +2533,15 @@
       "end_bottom": "↓ bottom",
       "end_top": "↑ top",
       "mdf_hinge_note": "The facade shop drills the hinge cups (Ø35): 22.5 mm from the edge, 100 mm from the ends."
+    },
+    "ai": {
+      "label": "Add with AI",
+      "placeholder": "E.g.: a 2400 mm kitchen, two 600 base cabinets, an 800 with 3 drawers in the middle, wall cabinets above, a tall one at the end",
+      "ask": "Get a proposal",
+      "thinking": "Thinking…",
+      "add": "Add",
+      "replace": "Replace",
+      "dropped": "Left out"
     }
   }
 }
