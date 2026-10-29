@@ -2381,11 +2381,14 @@
       "rail_front": "Old planka",
       "rail_back": "Orqa planka",
       "shelf": "Polka",
-      "back": "Orqa devor"
+      "back": "Orqa devor",
+      "top": "Tepa panel",
+      "door": "Fasad"
     },
     "material": {
       "board": "LDSP",
-      "back": "HDF"
+      "back": "HDF",
+      "facade": "Fasad LDSP"
     },
     "area": "{{m2}} m²",
     "bom": {
@@ -2398,7 +2401,12 @@
       "nail": "HDF mixi",
       "cut": "Kesish xizmati",
       "banding": "Kromkalash {{t}} mm",
-      "markup": "Ustama {{p}}%"
+      "markup": "Ustama {{p}}%",
+      "facade": "Fasad LDSP {{t}} mm",
+      "facade_mdf": "MDF fasad",
+      "hinge": "Petlya",
+      "handle": "Ruchka",
+      "hanger": "Osish ilgagi"
     },
     "unit": {
       "sheet": "list",
@@ -2436,7 +2444,8 @@
       "too_many_cabinets": "Bir loyihada ko'pi bilan {{max}} ta shkaf",
       "whole_mm": "O'lchamlar butun millimetrda bo'lishi kerak",
       "sheet_size": "List o'lchami kamida {{min}} mm bo'lishi kerak",
-      "settings_invalid": "Konstruksiya sozlamalarida bo'sh yoki manfiy qiymat bor"
+      "settings_invalid": "Konstruksiya sozlamalarida bo'sh yoki manfiy qiymat bor",
+      "doors_range": "Eshiklar {{min}}–{{max}} ta bo'lishi kerak"
     },
     "warning": {
       "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",
@@ -2463,6 +2472,31 @@
       "dir_across": "ko'ndalang"
     },
     "kerf": "Arra kesimi, mm",
-    "trim": "Chekka qoldiq, mm"
+    "trim": "Chekka qoldiq, mm",
+    "add": {
+      "base": "+ Pastki",
+      "wall": "+ Devor",
+      "tall": "+ Baland"
+    },
+    "type": {
+      "base": "pastki",
+      "wall": "devor",
+      "tall": "baland"
+    },
+    "doors": "Eshiklar",
+    "doors_auto": "Avto",
+    "facade": "Fasad",
+    "facade_kind": "Fasad turi",
+    "facade_kinds": {
+      "ldsp": "LDSP (o'zimiz kesamiz)",
+      "mdf": "MDF (buyurtma)",
+      "none": "Yo'q"
+    },
+    "facade_material": "Fasad materiali",
+    "facade_thickness": "Fasad qalinligi",
+    "facade_gap": "Tirqish, mm",
+    "facade_order": "MDF fasad buyurtmasi",
+    "facade_total": "Jami: {{m2}} m²",
+    "export_facade_csv": "Fasad buyurtmasi (CSV)"
   }
 }

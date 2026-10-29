@@ -226,3 +226,51 @@ def test_rejects_a_sheet_size_the_engine_cannot_use(client, sheet):
 def test_rejects_a_fractional_size(client):
     _as(_user(), _db())
     assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(width=600.5)}).status_code == 422
+
+
+def _typed(type_, width, height, depth, shelves=1, **extra):
+    data = _data(width=width, height=height, depth=depth, shelves=shelves, **extra)
+    data["cabinets"][0]["type"] = type_
+    return data
+
+
+def test_accepts_wall_and_tall_cabinets(client):
+    _as(_user(), _db())
+    for data in (_typed("wall", 600, 720, 300), _typed("tall", 600, 2100, 560, shelves=8)):
+        r = client.post("/api/v1/mebel/projects", json={"name": "x", "data": data})
+        assert r.status_code == 201, r.text
+
+
+@pytest.mark.parametrize("data", [
+    lambda: _typed("wall", 600, 720, 450),
+    lambda: _typed("tall", 600, 720, 560),
+    lambda: _typed("base", 600, 2100, 560),
+    lambda: _typed("tall", 600, 2100, 560, shelves=9),
+    lambda: _typed("corner", 600, 720, 560),
+])
+def test_rejects_out_of_range_for_the_type(client, data):
+    _as(_user(), _db())
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": data()}).status_code == 422
+
+
+def test_rejects_doors_3(client):
+    _as(_user(), _db())
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(doors=3)}).status_code == 422
+
+
+def test_old_cabinet_without_type_is_base(client):
+    _as(_user(), _db())
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(height=720)}).status_code == 201
+    assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(height=2100)}).status_code == 422
+
+
+def test_auto_doors_are_not_stored_as_null(client):
+    """A cabinet on "auto" doors sends no `doors`; storing `"doors": null` made the
+    frontend read it as an invalid door count on the next visit."""
+    user = _user()
+    db = _db()
+    _as(user, db)
+    client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data()})
+    stored = db.add.call_args.args[0].data
+    assert "doors" not in stored["cabinets"][0]
+    assert stored["cabinets"][0]["type"] == "base"

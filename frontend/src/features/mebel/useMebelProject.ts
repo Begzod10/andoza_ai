@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { getCatalogMaterials, getMebelProject, getPriceBook, saveMebelProject } from "@/lib/api";
-import { computeProject, EMPTY_PRICE_BOOK } from "@/features/mebel/engine";
+import { computeProject, EMPTY_PRICE_BOOK, normalizeProject } from "@/features/mebel/engine";
 import type { CatalogPrices, FurnitureProject, Result } from "@/features/mebel/engine";
 import type { CatalogOptions } from "./ui/ParamsPanel";
 
 const SAVE_DELAY_MS = 1000;
-const CATALOG_CATEGORIES = ["ldsp", "hdf", "kromka"] as const;
+const CATALOG_CATEGORIES = ["ldsp", "hdf", "kromka", "mdf"] as const;
 
 /** "invalid": there are edits, but they do not validate, so they are not saved. */
 export type SaveState = "saved" | "saving" | "error" | "invalid";
@@ -39,7 +39,8 @@ export function useMebelProject(id: string) {
 
   // The saved project seeds the editor once; later refetches do not overwrite an edit.
   useEffect(() => {
-    if (projectQuery.data && project == null) setProjectState({ ...projectQuery.data.data, name: projectQuery.data.name });
+    // Settings added since the project was saved (doors, cabinet types) get their defaults here, so the panel sees them too.
+    if (projectQuery.data && project == null) setProjectState(normalizeProject({ ...projectQuery.data.data, name: projectQuery.data.name }));
   }, [projectQuery.data, project]);
 
   const setProject = (fn: (p: FurnitureProject) => FurnitureProject) => {

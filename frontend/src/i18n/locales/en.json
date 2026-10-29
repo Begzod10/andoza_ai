@@ -2381,11 +2381,14 @@
       "rail_front": "Front rail",
       "rail_back": "Back rail",
       "shelf": "Shelf",
-      "back": "Back panel"
+      "back": "Back panel",
+      "top": "Top panel",
+      "door": "Door"
     },
     "material": {
       "board": "Board",
-      "back": "HDF"
+      "back": "HDF",
+      "facade": "Door board"
     },
     "area": "{{m2}} m²",
     "bom": {
@@ -2398,7 +2401,12 @@
       "nail": "HDF nail",
       "cut": "Cutting",
       "banding": "Edge banding {{t}} mm",
-      "markup": "Markup {{p}}%"
+      "markup": "Markup {{p}}%",
+      "facade": "Door board {{t}} mm",
+      "facade_mdf": "MDF doors",
+      "hinge": "Hinge",
+      "handle": "Handle",
+      "hanger": "Hanger"
     },
     "unit": {
       "sheet": "sheet",
@@ -2436,7 +2444,8 @@
       "too_many_cabinets": "At most {{max}} cabinets per project",
       "whole_mm": "Sizes must be whole millimetres",
       "sheet_size": "The sheet size must be at least {{min}} mm",
-      "settings_invalid": "A construction setting is empty or negative"
+      "settings_invalid": "A construction setting is empty or negative",
+      "doors_range": "Doors must be {{min}}–{{max}}"
     },
     "warning": {
       "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
@@ -2463,6 +2472,31 @@
       "dir_across": "across"
     },
     "kerf": "Saw kerf, mm",
-    "trim": "Sheet edge trim, mm"
+    "trim": "Sheet edge trim, mm",
+    "add": {
+      "base": "+ Base",
+      "wall": "+ Wall",
+      "tall": "+ Tall"
+    },
+    "type": {
+      "base": "base",
+      "wall": "wall",
+      "tall": "tall"
+    },
+    "doors": "Doors",
+    "doors_auto": "Auto",
+    "facade": "Doors",
+    "facade_kind": "Door type",
+    "facade_kinds": {
+      "ldsp": "LDSP (cut in-house)",
+      "mdf": "MDF (ordered)",
+      "none": "None"
+    },
+    "facade_material": "Door material",
+    "facade_thickness": "Door thickness",
+    "facade_gap": "Gap, mm",
+    "facade_order": "MDF door order",
+    "facade_total": "Total: {{m2}} m²",
+    "export_facade_csv": "Door order (CSV)"
   }
 }

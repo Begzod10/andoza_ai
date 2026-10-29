@@ -8,6 +8,13 @@ export const LIMITS = {
   cabinets: 30,
 } as const
 
+/** Size and shelf limits per cabinet type. */
+export const LIMITS_BY_TYPE = {
+  base: { width: [150, 1200], height: [300, 1000], depth: [250, 700], shelves: [0, 4] },
+  wall: { width: [150, 1200], height: [300, 1000], depth: [200, 400], shelves: [0, 4] },
+  tall: { width: [150, 1200], height: [1200, 2400], depth: [300, 650], shelves: [0, 8] },
+} as const
+
 const outside = (v: number, [lo, hi]: readonly [number, number]) => !(v >= lo && v <= hi)
 const finite = (v: unknown, min = 0) => typeof v === 'number' && Number.isFinite(v) && v >= min
 
@@ -25,19 +32,26 @@ export function validateCabinets(
   if (!finite(s?.length, 100) || !finite(s?.width, 100) || (trimOk && (s.length - 2 * d0.trim <= 0 || s.width - 2 * d0.trim <= 0))) {
     errors.push({ code: 'sheet_size', params: { min: 100 } })
   }
-  if (!trimOk || !finite(d0.kerf) || d0.kerf > 10) errors.push({ code: 'settings_invalid' })
+  const f = d0.facade
+  const facadeOk = !f || (finite(f.gap) && f.gap <= 5 && [16, 18, 19].includes(f.thickness))
+  if (!trimOk || !finite(d0.kerf) || d0.kerf > 10 || !facadeOk) errors.push({ code: 'settings_invalid' })
   if (![d0.railDepth, d0.shelfSetback, d0.shelfGap, d0.backGap, d0.edgeAllowance, d0.edgeWaste, d0.sheetWaste].every(v => finite(v))) {
     errors.push({ code: 'settings_invalid' })
   }
   for (const c of p.cabinets) {
     const d = resolve(c.id)
     const t = d.board.thickness
-    if (outside(c.width, LIMITS.width)) errors.push({ code: 'width_range', cabinetId: c.id, params: { min: 150, max: 1200 } })
-    if (outside(c.height, LIMITS.height)) errors.push({ code: 'height_range', cabinetId: c.id, params: { min: 300, max: 1000 } })
-    if (outside(c.depth, LIMITS.depth)) errors.push({ code: 'depth_range', cabinetId: c.id, params: { min: 250, max: 700 } })
-    if (!Number.isInteger(c.shelves) || outside(c.shelves, LIMITS.shelves)) {
-      errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: 0, max: 4 } })
+    const lim = LIMITS_BY_TYPE[c.type ?? 'base'] ?? LIMITS_BY_TYPE.base
+    const range = (code: string, v: number, [min, max]: readonly [number, number]) => {
+      if (outside(v, [min, max])) errors.push({ code, cabinetId: c.id, params: { min, max } })
     }
+    range('width_range', c.width, lim.width)
+    range('height_range', c.height, lim.height)
+    range('depth_range', c.depth, lim.depth)
+    if (!Number.isInteger(c.shelves)) errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: lim.shelves[0], max: lim.shelves[1] } })
+    else range('shelves_range', c.shelves, lim.shelves)
+    // a saved "auto" may come back as null
+    if (c.doors != null && ![0, 1, 2].includes(c.doors)) errors.push({ code: 'doors_range', cabinetId: c.id, params: { min: 0, max: 2 } })
     // the server stores whole millimetres
     if ([c.width, c.height, c.depth].some(v => Number.isFinite(v) && !Number.isInteger(v))) {
       errors.push({ code: 'whole_mm', cabinetId: c.id })

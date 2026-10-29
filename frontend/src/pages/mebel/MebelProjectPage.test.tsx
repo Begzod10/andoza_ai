@@ -66,7 +66,7 @@ describe('MebelProjectPage', () => {
     const side = rowOf(t('mebel.part.side_left'))
     expect(side).toHaveTextContent(formatMm(719.6))
     expect(side).toHaveTextContent('554')
-    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '7')
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '8')
   })
 
   it('recomputes the parts when a size changes', async () => {
@@ -119,8 +119,8 @@ describe('MebelProjectPage', () => {
 
   it('adds a cabinet next to the last one', async () => {
     mount()
-    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add_cabinet') }))
-    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '14')
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.base') }))
+    expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '16')
     expect(screen.getByText('M2')).toBeInTheDocument()
   })
 })
@@ -227,5 +227,65 @@ describe('MebelProjectPage nesting', () => {
     await screen.findByRole('table', { name: t('mebel.tab.parts') })
     fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
     expect(screen.queryByText(/≈/)).not.toBeInTheDocument()
+  })
+})
+
+describe('MebelProjectPage cabinet types and doors', () => {
+  it('adds a wall cabinet with its own size', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.wall') }))
+    const depths = screen.getAllByLabelText(t('mebel.depth')) as HTMLInputElement[]
+    expect(depths.map(d => d.value)).toEqual(['560', '300'])
+    expect(screen.getByText('M2')).toBeInTheDocument()
+  })
+
+  it('no doors: the cut list has no door', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect(rowOf(t('mebel.part.door'))).toBeDefined()
+    fireEvent.change(screen.getByLabelText(t('mebel.doors')), { target: { value: '0' } })
+    expect(rowOf(t('mebel.part.door'))).toBeUndefined()
+  })
+
+  it('MDF doors make an order with its own CSV', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.facade_kind')), { target: { value: 'mdf' } })
+    fireEvent.click(screen.getByRole('tab', { name: t('mebel.tab.bom') }))
+    expect(screen.getByRole('table', { name: t('mebel.facade_order') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: t('mebel.export_facade_csv') })).toBeInTheDocument()
+  })
+
+  it('a tall cabinet 720 high is a height error', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.tall') }))
+    const heights = screen.getAllByLabelText(t('mebel.height'))
+    fireEvent.change(heights[1], { target: { value: '720' } })
+    expect(screen.getByText(t('mebel.error.height_range', { min: 1200, max: 2400 }))).toBeInTheDocument()
+  })
+})
+
+describe('MebelProjectPage old saved project', () => {
+  it('a project saved before doors and types opens, with no doors', async () => {
+    const old = newProject('Eski')
+    old.cabinets[0].id = 'c1'
+    delete (old.defaults as Partial<typeof old.defaults>).facade
+    delete (old.cabinets[0] as Partial<typeof old.cabinets[0]>).type
+    vi.mocked(api.getMebelProject).mockResolvedValue({ id: 'p1', name: 'Eski', data: old })
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect(screen.getByLabelText(t('mebel.facade_kind'))).toHaveValue('none')
+    expect(rowOf(t('mebel.part.door'))).toBeUndefined()
+    fireEvent.change(screen.getByLabelText(t('mebel.facade_kind')), { target: { value: 'ldsp' } })
+    expect(rowOf(t('mebel.part.door'))).toBeDefined()
+    expect(screen.getByRole('status')).not.toHaveTextContent(t('mebel.not_saved_invalid'))
+  })
+
+  it('doors saved as null show as auto', async () => {
+    const p = newProject('x')
+    p.cabinets[0].id = 'c1'
+    ;(p.cabinets[0] as { doors: unknown }).doors = null
+    vi.mocked(api.getMebelProject).mockResolvedValue({ id: 'p1', name: 'x', data: p })
+    mount()
+    expect(await screen.findByLabelText(t('mebel.doors'))).toHaveValue('auto')
   })
 })

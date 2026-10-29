@@ -41,17 +41,21 @@ export interface ConstructionDefaults {
   kerf: number
   /** Factory edge cut off each side of a sheet, mm. */
   trim: number
+  /** Doors: LDSP cut in the workshop, MDF ordered from a facade shop, or none. */
+  facade: { kind: 'ldsp' | 'mdf' | 'none'; materialId: string | null; thickness: 16 | 18 | 19; gap: number }
 }
 
 export interface CabinetSpec {
   id: string
-  type: 'base'
+  type: 'base' | 'wall' | 'tall'
   label: string
   /** Outer size, mm. */
   width: number
   height: number
   depth: number
   shelves: number
+  /** Doors on the front; unset: two above 600 mm wide, else one. */
+  doors?: 0 | 1 | 2
   overrides?: Partial<ConstructionDefaults>
   position: { x: number; z: number }
 }
@@ -66,13 +70,13 @@ export interface FurnitureProject {
 /** null: this side is not banded. */
 export type EdgeSide = { band: 'visible' | 'hidden'; thickness: number } | null
 
-export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'rail_front' | 'rail_back' | 'shelf' | 'back'
+export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'top' | 'rail_front' | 'rail_back' | 'shelf' | 'back' | 'door'
 
 export interface Part {
   id: string
   cabinetId: string
   role: PartRole
-  material: 'board' | 'back'
+  material: 'board' | 'back' | 'facade'
   materialId: string | null
   thickness: number
   /** Size in the assembled cabinet, band included. */
@@ -92,7 +96,7 @@ export interface CutGroup {
   /** The first part's role; `roles` lists every role cut on this line. */
   role: PartRole
   roles: PartRole[]
-  material: 'board' | 'back'
+  material: 'board' | 'back' | 'facade'
   materialId: string | null
   thickness: number
   cut: { length: number; width: number }
@@ -127,7 +131,7 @@ export interface NestRect { x: number; y: number; length: number; width: number 
 export interface NestedSheet { placements: NestPlacement[]; cuts: NestCut[]; offcuts: NestRect[]; utilization: number }
 /** The cutting layout of one board (material + materialId + thickness). */
 export interface NestResult {
-  material: 'board' | 'back'
+  material: 'board' | 'back' | 'facade'
   materialId: string | null
   thickness: number
   sheet: { length: number; width: number }
@@ -138,7 +142,7 @@ export interface NestResult {
 }
 
 export interface BomLine {
-  kind: 'board' | 'back' | 'edge' | 'hardware' | 'service'
+  kind: 'board' | 'back' | 'facade' | 'edge' | 'hardware' | 'service'
   materialId: string | null
   label: string
   qty: number
@@ -153,7 +157,10 @@ export interface PriceBook {
   materials: Record<string, number>
   cutPerSheet: number | null
   bandingPerMeter: { '0.4': number | null; '1': number | null; '2': number | null }
-  hardware: { leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null }
+  hardware: {
+    leg: number | null; confirmat: number | null; shelfPin: number | null; nail: number | null
+    hinge: number | null; handle: number | null; hanger: number | null
+  }
   markupPercent: number
 }
 
@@ -168,6 +175,8 @@ export interface Result {
   groups: CutGroup[]
   edgeTotals: EdgeTotal[]
   nesting: NestResult[]
+  /** MDF doors to order from a facade shop. */
+  facadeOrder: { id: string; cabinetId: string; length: number; width: number; qty: number; materialId: string | null }[]
   bom: BomLine[]
   total: number | null
   hasUnpriced: boolean
@@ -194,26 +203,26 @@ export const DEFAULTS: ConstructionDefaults = {
   sheetWaste: 0.15,
   kerf: 4,
   trim: 10,
+  // A project saved before doors existed has none; a new one gets LDSP doors (newProject).
+  facade: { kind: 'none', materialId: null, thickness: 18, gap: 2 },
 }
 
-export function newCabinet(label: string, x: number): CabinetSpec {
-  return {
-    id: crypto.randomUUID(),
-    type: 'base',
-    label,
-    width: 600,
-    height: 720,
-    depth: 560,
-    shelves: 1,
-    position: { x, z: 0 },
-  }
+/** Each type's usual size: a base cabinet under the worktop, a wall one above it, a tall one (penal). */
+const NEW_SIZE: Record<CabinetSpec['type'], Pick<CabinetSpec, 'width' | 'height' | 'depth' | 'shelves'>> = {
+  base: { width: 600, height: 720, depth: 560, shelves: 1 },
+  wall: { width: 600, height: 720, depth: 300, shelves: 1 },
+  tall: { width: 600, height: 2100, depth: 560, shelves: 4 },
+}
+
+export function newCabinet(label: string, x: number, type: CabinetSpec['type'] = 'base'): CabinetSpec {
+  return { id: crypto.randomUUID(), type, label, ...NEW_SIZE[type], position: { x, z: 0 } }
 }
 
 export function newProject(name: string): FurnitureProject {
   return {
     schemaVersion: 1,
     name,
-    defaults: structuredClone(DEFAULTS),
+    defaults: { ...structuredClone(DEFAULTS), facade: { kind: 'ldsp', materialId: null, thickness: 18, gap: 2 } },
     cabinets: [newCabinet('M1', 0)],
   }
 }

@@ -12,6 +12,8 @@ import { WarningsList } from "@/features/mebel/ui/WarningsList";
 import { PriceBookDialog } from "@/features/mebel/ui/PriceBookDialog";
 import { CabinetView } from "@/features/mebel/three/CabinetView";
 import { NestingPanel } from "@/features/mebel/ui/NestingPanel";
+import { FacadeOrder } from "@/features/mebel/ui/FacadeOrder";
+import { facadeOrderCsv } from "@/features/mebel/export/facadeCsv";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
 import { PrintView } from "@/features/mebel/export/PrintView";
 import { groupName } from "@/features/mebel/ui/format";
@@ -46,9 +48,17 @@ export default function MebelProjectPage() {
   const used = [
     project.defaults.board.materialId, project.defaults.back.materialId ?? null,
     project.defaults.edge.visible.materialId, project.defaults.edge.hidden.materialId,
+    project.defaults.facade?.materialId ?? null,
   ].filter((x): x is string => !!x);
   const failed = result.errors.length > 0;
 
+  // A wall cabinet hangs with its bottom at 1400 mm, above the worktop.
+  const wallLift = (cabId: string) => (project.cabinets.find((c) => c.id === cabId)?.type === "wall" ? 1400 : 0);
+  const exportFacadeCsv = () =>
+    downloadCsv(`${project.name} — ${t("mebel.facade")}`, facadeOrderCsv(result.facadeOrder, {
+      cabinet: (id) => labelOf(id) ?? id,
+      material: (id) => materialName(id) ?? t("mebel.bom.facade_mdf"),
+    }));
   const exportCsv = () =>
     downloadCsv(project.name, cutListCsv(result.groups, {
       part: (g) => groupName(g),
@@ -94,7 +104,7 @@ export default function MebelProjectPage() {
 
         <main className="flex min-w-0 flex-col gap-4">
           <div ref={viewRef} className="h-[38vh] min-h-[240px] overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
-            <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} />
+            <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} wallLift={wallLift} />
           </div>
 
           <section className="rounded-2xl bg-white p-4 shadow-sm">
@@ -138,8 +148,19 @@ export default function MebelProjectPage() {
                 )}
                 {tab === "edges" && <EdgeTable totals={result.edgeTotals} materialName={materialName} />}
                 {tab === "bom" && (
-                  <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced}
-                    nesting={result.nesting} materialName={materialName} />
+                  <div className="flex flex-col gap-6">
+                    <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced}
+                      nesting={result.nesting} materialName={materialName} />
+                    {result.facadeOrder.length > 0 && (
+                      <>
+                        <FacadeOrder lines={result.facadeOrder} labelOf={(id) => labelOf(id) ?? id} materialName={materialName} />
+                        <button type="button" onClick={exportFacadeCsv}
+                          className="self-start rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200">
+                          {t("mebel.export_facade_csv")}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
                 {tab === "warnings" && <WarningsList warnings={result.warnings} labelOf={labelOf} />}
               </>
@@ -151,7 +172,7 @@ export default function MebelProjectPage() {
       <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook} ready={m.priceBookReady}
         usedMaterials={used} catalog={m.catalog} />
     </div>
-    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} />}
+    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} labelOf={(id) => labelOf(id) ?? id} />}
     </>
   );
 }

@@ -1,24 +1,36 @@
+import { doorCount, type FacadeOrderLine } from './rules/doors'
 import type { BomLine, CabinetSpec, ConstructionDefaults, EdgeTotal, NestResult, PriceBook } from './model'
 
 /** materialId → the shop catalogue's price for it. */
 export type CatalogPrices = Record<string, { name: string; price: number }>
 
-export type HardwareCounts = { leg: number; confirmat: number; shelfPin: number; nail: number }
+export type HardwareCounts = { leg: number; confirmat: number; shelfPin: number; nail: number; hinge: number; handle: number; hanger: number }
+export const HARDWARE_KEYS = ['leg', 'confirmat', 'shelfPin', 'nail', 'hinge', 'handle', 'hanger'] as const
 
 export const EMPTY_PRICE_BOOK: PriceBook = {
   materials: {},
   cutPerSheet: null,
   bandingPerMeter: { '0.4': null, '1': null, '2': null },
-  hardware: { leg: null, confirmat: null, shelfPin: null, nail: null },
+  hardware: { leg: null, confirmat: null, shelfPin: null, nail: null, hinge: null, handle: null, hanger: null },
   markupPercent: 0,
 }
 
 /** Counts only; hole positions come in stage 3. */
-export function hardwareCounts(cab: Pick<CabinetSpec, 'width' | 'height' | 'shelves'>, d: ConstructionDefaults): HardwareCounts {
+export function hardwareCounts(
+  cab: Pick<CabinetSpec, 'width' | 'height' | 'shelves' | 'doors'> & { type?: CabinetSpec['type'] },
+  d: ConstructionDefaults,
+): HardwareCounts {
+  const type = cab.type ?? 'base'
+  const doors = d.facade && d.facade.kind !== 'none' ? doorCount(cab) : 0
+  const hingesPerDoor = cab.height <= 900 ? 2 : cab.height <= 1600 ? 3 : 4
   return {
-    leg: cab.width > 800 ? 6 : 4,
-    // bottom: 2 joints × 3, each top rail: 2 joints × 2
-    confirmat: 2 * 3 + 2 * 2 * 2,
+    // a wall cabinet hangs; the others stand on legs
+    leg: type === 'wall' ? 0 : cab.width > 800 ? 6 : 4,
+    // base: bottom 2 joints × 3 + each top rail 2 joints × 2; wall/tall: bottom and top panel 2 joints × 3
+    confirmat: type === 'base' ? 2 * 3 + 2 * 2 * 2 : 2 * 2 * 3,
+    hinge: doors * hingesPerDoor,
+    handle: doors,
+    hanger: type === 'wall' ? 2 : 0,
     shelfPin: 4 * cab.shelves,
     // only a nailed back is nailed; a grooved one sits in its grooves
     nail: d.back.kind === 'hdf_nailed' ? Math.ceil((2 * (cab.width + cab.height)) / 100) : 0,
@@ -38,12 +50,13 @@ function line(
  */
 export function buildBom(input: {
   nesting: NestResult[]
+  facadeOrder?: FacadeOrderLine[]
   edges: EdgeTotal[]
   hardware: HardwareCounts
   prices: PriceBook
   catalog: CatalogPrices
 }): { lines: BomLine[]; total: number | null; hasUnpriced: boolean } {
-  const { nesting, edges, hardware, prices, catalog } = input
+  const { nesting, edges, hardware, prices, catalog, facadeOrder = [] } = input
   const priceOf = (id: string | null) => (id == null ? null : prices.materials[id] ?? catalog[id]?.price ?? null)
 
   const lines: BomLine[] = []
@@ -51,10 +64,19 @@ export function buildBom(input: {
   for (const n of nesting) {
     lines.push(line(n.material, `${n.material}_${n.thickness}`, n.materialId, n.sheets.length, 'sheet', priceOf(n.materialId)))
   }
+  // MDF doors: the facade shop prices them by the square metre.
+  const mdf = new Map<string | null, number>()
+  for (const f of facadeOrder) mdf.set(f.materialId, (mdf.get(f.materialId) ?? 0) + f.length * f.width * f.qty)
+  for (const [id, mm2] of mdf) {
+    // A catalogue MDF item is a whole sheet, priced per sheet: a finished door's price
+    // per m² comes only from the workshop's price book.
+    const perM2 = id == null ? null : prices.materials[id] ?? null
+    lines.push(line('facade', 'facade_mdf', id, Math.round(mm2 / 1000) / 1000, 'm2', perM2))
+  }
   for (const e of edges) {
     lines.push(line('edge', `edge_${e.thickness}x${e.width}`, e.materialId, e.metersWithWaste, 'm', priceOf(e.materialId)))
   }
-  for (const key of ['leg', 'confirmat', 'shelfPin', 'nail'] as const) {
+  for (const key of HARDWARE_KEYS) {
     if (hardware[key] > 0) lines.push(line('hardware', key, null, hardware[key], 'dona', prices.hardware[key]))
   }
   const sheetCount = nesting.reduce((n, x) => n + x.sheets.length, 0)

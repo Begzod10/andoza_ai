@@ -18,6 +18,16 @@ from app.schemas.mebel import PriceBookIn, ProjectIn, ProjectOut, ProjectSummary
 router = APIRouter(prefix="/mebel", tags=["mebel"])
 
 
+def _stored(data) -> dict:
+    """The project JSON as saved. A cabinet on "auto" doors keeps no `doors` key: the
+    frontend reads a stored null as a door count, not as auto."""
+    out = data.model_dump(mode="json")
+    for cab in out.get("cabinets", []):
+        if cab.get("doors") is None:
+            cab.pop("doors", None)
+    return out
+
+
 async def _own_project(db, user, project_id: uuid_module.UUID) -> FurnitureProject:
     row = (await db.execute(select(FurnitureProject).where(FurnitureProject.id == project_id))).scalar_one_or_none()
     # Someone else's project is "not found", so ids cannot be probed.
@@ -41,7 +51,7 @@ async def create_project(body: ProjectIn, current_user: CurrentUser, db: DbSessi
     now = datetime.now(timezone.utc)
     row = FurnitureProject(
         id=uuid_module.uuid4(), user_id=current_user.id, name=body.name,
-        data=body.data.model_dump(mode="json"), schema_version=body.data.schemaVersion,
+        data=_stored(body.data), schema_version=body.data.schemaVersion,
         created_at=now, updated_at=now,
     )
     db.add(row)
@@ -61,7 +71,7 @@ async def update_project(
 ) -> FurnitureProject:
     row = await _own_project(db, current_user, project_id)
     row.name = body.name
-    row.data = body.data.model_dump(mode="json")
+    row.data = _stored(body.data)
     row.schema_version = body.data.schemaVersion
     row.updated_at = datetime.now(timezone.utc)
     await db.flush()

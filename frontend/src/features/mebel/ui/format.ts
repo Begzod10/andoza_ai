@@ -30,7 +30,8 @@ export function groupName(g: { roles: Part["role"][] }): string {
 /** A BOM line's label in the interface language (the engine keeps keys). */
 export function bomLabel(line: BomLine, materialName: (id: string | null) => string | null): string {
   const named = materialName(line.materialId);
-  if (line.kind === "board" || line.kind === "back") {
+  if (line.kind === "facade" && line.unit === "m2") return named ?? i18n.t("mebel.bom.facade_mdf");
+  if (line.kind === "board" || line.kind === "back" || line.kind === "facade") {
     const t = line.label.split("_")[1];
     return named ? `${named} (${t} ${i18n.t("mebel.mm")})` : i18n.t(`mebel.bom.${line.kind}`, { t });
   }
