@@ -13,6 +13,7 @@ export function FacadeOrder({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-bold text-neutral-900">{t("mebel.facade_order")}</h3>
+      <p className="text-xs text-neutral-500">{t("mebel.drill.mdf_hinge_note")}</p>
       <table aria-label={t("mebel.facade_order")} className="w-full text-left text-sm">
         <thead className="text-xs text-neutral-500">
           <tr>

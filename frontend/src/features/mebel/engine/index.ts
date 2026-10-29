@@ -1,6 +1,7 @@
 import { buildBom, HARDWARE_KEYS, hardwareCounts, type CatalogPrices, type HardwareCounts } from './bom'
 import { edgeTotals, groupParts } from './cutlist'
 import { nestSheets } from './nest'
+import { drillParts } from './holes'
 import { resolveDefaults } from './rules/baseCabinet'
 import { cabinetParts } from './rules'
 import { doorParts, facadeOrderLines } from './rules/doors'
@@ -52,7 +53,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   const { errors } = validateCabinets(p, settings)
   if (errors.length > 0) return { ...EMPTY, errors }
 
-  const parts = p.cabinets.flatMap((c) => {
+  const boxParts = p.cabinets.flatMap((c) => {
     // A drawer cabinet has drawers where the shelves and the door would be.
     if (drawerCount(c) > 0) {
       const box = cabinetParts({ ...c, shelves: 0 }, settings(c.id))
@@ -64,6 +65,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   const facadeOrder = p.cabinets.flatMap((c) =>
     drawerCount(c) > 0 ? drawerFacadeOrder(c, settings(c.id)) : facadeOrderLines(c, settings(c.id)))
   const slides = p.cabinets.map((c) => drawerSlides(c, settings(c.id))).filter((s): s is { length: number; pairs: number } => s != null)
+  const parts = drillParts(boxParts, p.cabinets, settings)
   const groups = groupParts(parts)
   const edges = edgeTotals(
     parts,

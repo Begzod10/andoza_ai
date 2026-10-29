@@ -2349,7 +2349,8 @@
       "edges": "Edge banding",
       "bom": "Materials and price",
       "warnings": "Warnings",
-      "nesting": "Cutting layout"
+      "nesting": "Cutting layout",
+      "drilling": "Drilling"
     },
     "show_cut": "Cut size",
     "show_finished": "Finished size",
@@ -2508,6 +2509,30 @@
     "facade_order": "MDF door order",
     "facade_total": "Total: {{m2}} m²",
     "export_facade_csv": "Door order (CSV)",
-    "drawers": "Drawers"
+    "drawers": "Drawers",
+    "drill": {
+      "holes": "Holes",
+      "empty": "No parts to drill",
+      "count": "{{n}} holes",
+      "front_edge": "↓ front (lower) edge",
+      "kind": "Kind",
+      "face": "Face",
+      "depth": "Depth",
+      "through": "through",
+      "assembly": "{{label}}: assembly",
+      "view_front": "Front view",
+      "view_side": "Side view",
+      "kinds": {
+        "confirmat": "Confirmat",
+        "confirmat_edge": "Confirmat (edge)",
+        "shelf_pin": "Shelf pin",
+        "hinge_cup": "Hinge cup",
+        "hinge_plate": "Hinge plate",
+        "slide": "Slide"
+      },
+      "end_bottom": "↓ bottom",
+      "end_top": "↑ top",
+      "mdf_hinge_note": "The facade shop drills the hinge cups (Ø35): 22.5 mm from the edge, 100 mm from the ends."
+    }
   }
 }
