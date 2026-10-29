@@ -59,14 +59,24 @@ function place(sheet: Sheet, item: Item, spot: { rect: number; l: number; w: num
   const restW = r.width - w - kerf
   // Which full-length cut comes first: across the rectangle (horizontal) or along it.
   const horizontal = split === 'sas' ? r.length - l < r.width - w : r.length - l >= r.width - w
-  const cut = (x1: number, y1: number, x2: number, y2: number) =>
-    sheet.cuts.push({ x1, y1, x2, y2, order: sheet.cuts.length + 1 })
+  const along = (y: number, x1: number, x2: number) =>
+    sheet.cuts.push({ x1, y1: y, x2, y2: y, order: sheet.cuts.length + 1, direction: 'along', offset: w })
+  const across = (x: number, y1: number, y2: number) =>
+    sheet.cuts.push({ x1: x, y1, x2: x, y2, order: sheet.cuts.length + 1, direction: 'across', offset: l })
+  // A part short of its rectangle's edge is cut there even when the strip left over is
+  // no wider than the kerf (it turns to dust); only a strip wider than that is kept.
+  const roomL = r.length - l > 0
+  const roomW = r.width - w > 0
   if (horizontal) {
-    if (restW > 0) { cut(r.x, r.y + w, r.x + r.length, r.y + w); sheet.free.push({ x: r.x, y: r.y + w + kerf, length: r.length, width: restW }) }
-    if (restL > 0) { cut(r.x + l, r.y, r.x + l, r.y + w); sheet.free.push({ x: r.x + l + kerf, y: r.y, length: restL, width: w }) }
+    if (roomW) along(r.y + w, r.x, r.x + r.length)
+    if (restW > 0) sheet.free.push({ x: r.x, y: r.y + w + kerf, length: r.length, width: restW })
+    if (roomL) across(r.x + l, r.y, r.y + w)
+    if (restL > 0) sheet.free.push({ x: r.x + l + kerf, y: r.y, length: restL, width: w })
   } else {
-    if (restL > 0) { cut(r.x + l, r.y, r.x + l, r.y + r.width); sheet.free.push({ x: r.x + l + kerf, y: r.y, length: restL, width: r.width }) }
-    if (restW > 0) { cut(r.x, r.y + w, r.x + l, r.y + w); sheet.free.push({ x: r.x, y: r.y + w + kerf, length: l, width: restW }) }
+    if (roomL) across(r.x + l, r.y, r.y + r.width)
+    if (restL > 0) sheet.free.push({ x: r.x + l + kerf, y: r.y, length: restL, width: r.width })
+    if (roomW) along(r.y + w, r.x, r.x + l)
+    if (restW > 0) sheet.free.push({ x: r.x, y: r.y + w + kerf, length: l, width: restW })
   }
 }
 
@@ -107,8 +117,12 @@ export function nestSheets(
   const sheetArea = sheet.length * sheet.width
   return [...boards.values()].map(({ head, items }) => {
     let best: ReturnType<typeof packOnce> | null = null
+    // Every attempt also runs with turning off: turning a plain part can only be offered,
+    // never cost a sheet.
+    const upright = items.map((i) => ({ ...i, canRotate: false }))
+    for (const pool of items.some((i) => i.canRotate) ? [items, upright] : [items])
     for (const order of ORDERS) {
-      const sorted = [...items].sort((a, b) => order(a, b) || a.index - b.index)
+      const sorted = [...pool].sort((a, b) => order(a, b) || a.index - b.index)
       for (const fit of FITS) {
         for (const split of SPLITS) {
           const run = packOnce(sorted, sheet, opts.kerf, opts.trim, fit, split)

@@ -2457,7 +2457,10 @@
       "offcut": "offcut {{l}}×{{w}}",
       "empty": "No parts to lay out",
       "parts_on_sheet": "Parts on the sheet",
-      "cut_order": "Cut order"
+      "cut_order": "Cut order",
+      "cut_line": "{{n}}. {{dir}}, {{len}} mm, {{off}} mm from the piece edge",
+      "dir_along": "along",
+      "dir_across": "across"
     },
     "kerf": "Saw kerf, mm",
     "trim": "Sheet edge trim, mm"

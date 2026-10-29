@@ -116,8 +116,13 @@ export interface EdgeTotal {
 
 /** A part's place on a sheet, mm from the sheet's corner; `length` runs along the sheet's length. */
 export interface NestPlacement { partId: string; x: number; y: number; length: number; width: number; rotated: boolean }
-/** One saw cut, numbered in the order it is made. */
-export interface NestCut { x1: number; y1: number; x2: number; y2: number; order: number }
+/** One saw cut, numbered in the order it is made. `along` runs with the sheet's length,
+ *  `across` with its width; `offset` is the fence setting: the distance from the edge of
+ *  the piece being cut to the cut. */
+export interface NestCut {
+  x1: number; y1: number; x2: number; y2: number; order: number
+  direction: 'along' | 'across'; offset: number
+}
 export interface NestRect { x: number; y: number; length: number; width: number }
 export interface NestedSheet { placements: NestPlacement[]; cuts: NestCut[]; offcuts: NestRect[]; utilization: number }
 /** The cutting layout of one board (material + materialId + thickness). */

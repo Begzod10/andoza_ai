@@ -62,6 +62,13 @@ function checkInvariants(groups: CutGroup[], result: NestResult[], sheet: { leng
         }
       }
       expect(isGuillotine(s.placements.map(p => ({ ...p, length: p.length + opts.kerf, width: p.width + opts.kerf })))).toBe(true)
+      // every part edge that is not the trim line has a saw cut along it
+      const maxX = sheet.length - opts.trim, maxY = sheet.width - opts.trim
+      for (const p of s.placements) {
+        const right = p.x + p.length, top = p.y + p.width
+        if (right < maxX) expect(s.cuts.some(c => c.x1 === right && c.x2 === right && Math.min(c.y1, c.y2) <= p.y && Math.max(c.y1, c.y2) >= top), `${p.partId} right`).toBe(true)
+        if (top < maxY) expect(s.cuts.some(c => c.y1 === top && c.y2 === top && Math.min(c.x1, c.x2) <= p.x && Math.max(c.x1, c.x2) >= right), `${p.partId} top`).toBe(true)
+      }
     }
   }
   expect(seen.sort()).toEqual(groups.flatMap(gr => gr.partIds).sort())
@@ -163,5 +170,30 @@ describe('nestSheets', () => {
     const r = nestSheets(groups, SHEET, OPTS)
     expect(performance.now() - t0).toBeLessThan(300)
     expect(board(r).unplaced).toEqual([])
+  })
+  it('a part less than a kerf short of the edge still gets its cut', () => {
+    const r = nestSheets([g('P1', 2780, 2046)], SHEET, OPTS)
+    expect(r[0].sheets[0].cuts.some(c => c.y1 === 10 + 2046 && c.y2 === 10 + 2046)).toBe(true)
+  })
+
+  it('allowing rotation never costs a sheet', () => {
+    const r = nestSheets([g('H', 1134, 918, 'none', 4, 'back')], SHEET, OPTS)
+    expect(r[0].sheets).toHaveLength(1)
+    const rand = lcg(7)
+    for (let n = 0; n < 300; n++) {
+      const dims = Array.from({ length: 1 + Math.floor(rand() * 6) }, (_, i) => [i, 100 + Math.floor(rand() * 1500), 100 + Math.floor(rand() * 1200), 1 + Math.floor(rand() * 4)])
+      const plain = nestSheets(dims.map(([i, l, w, q]) => g(`N${n}-${i}`, l, w, 'none', q, 'back')), SHEET, OPTS)
+      const fixed = nestSheets(dims.map(([i, l, w, q]) => g(`N${n}-${i}`, l, w, 'length', q, 'back')), SHEET, OPTS)
+      expect(plain[0].sheets.length, `case ${n}`).toBeLessThanOrEqual(fixed[0].sheets.length)
+    }
+  })
+
+  it('each cut says which way it runs and how far it is from its piece edge', () => {
+    const r = nestSheets([g('P1', 1000, 600)], SHEET, OPTS)
+    const cuts = r[0].sheets[0].cuts
+    const across = cuts.find(c => c.x1 === c.x2)!   // the cut at the part's right end
+    const along = cuts.find(c => c.y1 === c.y2)!    // the cut along the part's top
+    expect(across).toMatchObject({ direction: 'across', offset: 1000 })
+    expect(along).toMatchObject({ direction: 'along', offset: 600 })
   })
 })

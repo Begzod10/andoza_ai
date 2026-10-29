@@ -70,7 +70,10 @@ export function PrintView({
                   <ol className="columns-2 gap-6">
                     {s.cuts.map((c) => (
                       <li key={c.order} className="tabular-nums">
-                        {`${c.order}. ${Math.round(Math.abs(c.x2 - c.x1) + Math.abs(c.y2 - c.y1))} ${t("mebel.mm")}`}
+                        {t("mebel.nest.cut_line", {
+                          n: c.order, dir: t(`mebel.nest.dir_${c.direction}`),
+                          len: Math.round(Math.abs(c.x2 - c.x1) + Math.abs(c.y2 - c.y1)), off: c.offset,
+                        })}
                       </li>
                     ))}
                   </ol>

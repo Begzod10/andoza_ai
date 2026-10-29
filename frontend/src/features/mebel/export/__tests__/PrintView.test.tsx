@@ -24,5 +24,9 @@ describe('PrintView sheets', () => {
     const parts = within(first).getByRole('table', { name: i18n.t('mebel.nest.parts_on_sheet'), hidden: true })
     expect(within(parts).getAllByRole('row', { hidden: true })).toHaveLength(sheet.placements.length + 1)
     expect(first).toHaveTextContent(i18n.t('mebel.nest.cut_order'))
+    const c = sheet.cuts[0]
+    expect(first).toHaveTextContent(i18n.t('mebel.nest.cut_line', {
+      n: c.order, dir: i18n.t(`mebel.nest.dir_${c.direction}`), len: Math.round(Math.abs(c.x2 - c.x1) + Math.abs(c.y2 - c.y1)), off: c.offset,
+    }))
   })
 })

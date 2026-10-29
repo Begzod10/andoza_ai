@@ -2457,7 +2457,10 @@
       "offcut": "qoldiq {{l}}×{{w}}",
       "empty": "Raskroy uchun detal yo'q",
       "parts_on_sheet": "Listdagi detallar",
-      "cut_order": "Kesish tartibi"
+      "cut_order": "Kesish tartibi",
+      "cut_line": "{{n}}. {{dir}}, {{len}} mm, bo'lak qirrasidan {{off}} mm",
+      "dir_along": "bo'ylama",
+      "dir_across": "ko'ndalang"
     },
     "kerf": "Arra kesimi, mm",
     "trim": "Chekka qoldiq, mm"
