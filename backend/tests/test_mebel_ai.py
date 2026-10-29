@@ -126,3 +126,37 @@ def test_the_prompt_knows_both_languages():
     from app.services.mebel_ai import SYSTEM_PROMPT
     for word in ("pastki", "devor", "penal", "нижний", "навесной", "пенал", "tortma", "ящик"):
         assert word in SYSTEM_PROMPT
+
+
+def _run(client, cabinets, facade=None):
+    tool = {"cabinets": cabinets, "questions": []}
+    if facade:
+        tool["facade"] = facade
+    with patch("app.services.mebel_ai.call_llm", new=AsyncMock(return_value=_reply(tool))):
+        return _post(client).json()
+
+
+def test_numbers_as_whole_floats_or_strings_are_read(client, budget):
+    body = _run(client, [{"type": "base", "width": 600.0, "height": "900", "doors": 1.0}])
+    assert body["cabinets"] == [{"type": "base", "width": 600, "height": 900, "depth": 560, "shelves": 1, "doors": 1, "drawers": 0}]
+
+
+def test_an_unreadable_size_is_dropped_not_defaulted(client, budget):
+    body = _run(client, [{"type": "base", "width": 600, "height": "baland"}, {"type": "base", "width": 600.5}])
+    assert body["cabinets"] == []
+    assert any("height" in d for d in body["dropped"]) and any("width" in d for d in body["dropped"])
+
+
+def test_drawer_cabinets_the_engine_would_refuse_are_dropped(client, budget):
+    body = _run(client, [{"type": "base", "width": 600, "depth": 250, "drawers": 3},
+                         {"type": "base", "width": 600, "height": 300, "drawers": 4},
+                         {"type": "base", "width": 600, "drawers": 3, "doors": 2}])
+    assert len(body["cabinets"]) == 1 and len(body["dropped"]) == 2
+    # a drawer cabinet has no door
+    assert body["cabinets"][0]["doors"] is None
+
+
+def test_cabinets_after_the_cap_are_counted_in_dropped(client, budget):
+    body = _run(client, [{"type": "base", "width": 600, "count": 30}, {"type": "tall", "width": 600}])
+    assert len(body["cabinets"]) == 30
+    assert any("tall" in d for d in body["dropped"])

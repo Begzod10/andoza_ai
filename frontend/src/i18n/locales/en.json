@@ -2541,7 +2541,8 @@
       "thinking": "Thinking…",
       "add": "Add",
       "replace": "Replace",
-      "dropped": "Left out"
+      "dropped": "Left out",
+      "over_limit": "That would be more than {{max}} cabinets: replace, or remove some first"
     }
   }
 }

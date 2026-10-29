@@ -34,7 +34,14 @@ describe('applySuggestion', () => {
     expect(next.cabinets[2]).toMatchObject({ drawers: 3, shelves: 0 })
     expect(next.cabinets[4]).toMatchObject({ doors: 1 })
     expect(next.cabinets[1].doors).toBeUndefined()
-    expect(next.defaults.facade.kind).toBe('mdf')
+  })
+
+  it('a facade from the AI is used only when replacing, and keeps the chosen material if the kind is the same', () => {
+    const p = newProject('x')
+    p.defaults.facade = { ...p.defaults.facade, kind: 'ldsp', materialId: 'oak' }
+    expect(applySuggestion(p, { ...SUGGESTION, facade: 'none' }, 'add').defaults.facade).toEqual(p.defaults.facade)
+    expect(applySuggestion(p, { ...SUGGESTION, facade: 'ldsp' }, 'replace').defaults.facade.materialId).toBe('oak')
+    expect(applySuggestion(p, { ...SUGGESTION, facade: 'mdf' }, 'replace').defaults.facade).toMatchObject({ kind: 'mdf', materialId: null })
   })
 
   it('replaces the cabinets', () => {
@@ -78,5 +85,17 @@ describe('AiSuggest', () => {
     fireEvent.change(screen.getByLabelText(t('mebel.ai.label')), { target: { value: 'oshxona' } })
     fireEvent.click(screen.getByRole('button', { name: t('mebel.ai.ask') }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('AI javob bermadi'))
+  })
+  it('adding cannot take the project past 30 cabinets', async () => {
+    const big = newProject('x')
+    big.cabinets = Array.from({ length: 28 }, (_, i) => ({ ...big.cabinets[0], id: `c${i}`, label: `M${i + 1}` }))
+    vi.mocked(api.suggestMebelCabinets).mockResolvedValue(SUGGESTION)
+    render(<AiSuggest update={vi.fn()} cabinetCount={big.cabinets.length} />)
+    fireEvent.change(screen.getByLabelText(t('mebel.ai.label')), { target: { value: 'x' } })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.ai.ask') }))
+    await screen.findByText('Devor shkaflari balandligi 720 mi?')
+    expect(screen.getByRole('button', { name: t('mebel.ai.add') })).toBeDisabled()
+    expect(screen.getByText(t('mebel.ai.over_limit', { max: 30 }))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: t('mebel.ai.replace') })).not.toBeDisabled()
   })
 })

@@ -23,11 +23,21 @@ export function applySuggestion(project: FurnitureProject, s: MebelSuggestion, m
     if (sc.drawers > 0) cab.drawers = sc.drawers as CabinetSpec["drawers"];
     cabinets.push(cab);
   }
-  const defaults = s.facade ? { ...project.defaults, facade: { ...project.defaults.facade, kind: s.facade, materialId: null } } : project.defaults;
+  // The AI's door type only sets up a project it replaces, and a door material the
+  // workshop already chose stays when the type is the same.
+  const facade = project.defaults.facade;
+  const defaults = mode === "replace" && s.facade && s.facade !== facade.kind
+    ? { ...project.defaults, facade: { ...facade, kind: s.facade, materialId: null } }
+    : project.defaults;
   return { ...project, defaults, cabinets };
 }
 
-export function AiSuggest({ update }: { update: (fn: (p: FurnitureProject) => FurnitureProject) => void }) {
+/** A project holds at most this many cabinets (engine validation). */
+const MAX_CABINETS = 30;
+
+export function AiSuggest({
+  update, cabinetCount = 0,
+}: { update: (fn: (p: FurnitureProject) => FurnitureProject) => void; cabinetCount?: number }) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,6 +62,7 @@ export function AiSuggest({ update }: { update: (fn: (p: FurnitureProject) => Fu
     setText("");
   };
   const empty = !proposal || proposal.cabinets.length === 0;
+  const tooMany = !!proposal && cabinetCount + proposal.cabinets.length > MAX_CABINETS;
 
   return (
     <section className="flex flex-col gap-2 rounded-2xl bg-blue-50/60 p-3">
@@ -72,17 +83,18 @@ export function AiSuggest({ update }: { update: (fn: (p: FurnitureProject) => Fu
                 <li key={i} className="tabular-nums">
                   {`${t(`mebel.type.${c.type}`)} ${c.width}×${c.height}×${c.depth}`}
                   {c.drawers > 0 ? ` · ${t("mebel.drawers")}: ${c.drawers}` : ` · ${t("mebel.shelves")}: ${c.shelves}`}
-                  {c.doors != null ? ` · ${t("mebel.doors")}: ${c.doors}` : ""}
+                  {c.doors != null && c.drawers === 0 ? ` · ${t("mebel.doors")}: ${c.doors}` : ""}
                 </li>
               ))}
             </ul>
           )}
-          {proposal.questions.map((q) => <p key={q} className="text-xs text-amber-800">{q}</p>)}
+          {proposal.questions.map((q, i) => <p key={i} className="text-xs text-amber-800">{q}</p>)}
+          {tooMany && <p className="text-xs text-red-600">{t("mebel.ai.over_limit", { max: MAX_CABINETS })}</p>}
           {proposal.dropped.length > 0 && (
             <p className="text-xs text-neutral-500">{`${t("mebel.ai.dropped")}: ${proposal.dropped.join("; ")}`}</p>
           )}
           <div className="flex gap-2">
-            <button type="button" onClick={() => apply("add")} disabled={empty}
+            <button type="button" onClick={() => apply("add")} disabled={empty || tooMany}
               className="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">{t("mebel.ai.add")}</button>
             <button type="button" onClick={() => apply("replace")} disabled={empty}
               className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 disabled:opacity-40">{t("mebel.ai.replace")}</button>

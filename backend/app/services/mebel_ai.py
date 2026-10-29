@@ -56,12 +56,12 @@ TOOL = {
                         "shelves": {"type": "integer"},
                         "doors": {"type": "integer"},
                         "drawers": {"type": "integer"},
-                        "count": {"type": "integer"},
+                        "count": {"type": "integer", "minimum": 1, "maximum": 10},
                     },
                     "required": ["type", "width"],
                 },
             },
-            "facade": {"type": "string", "enum": ["ldsp", "mdf", "none"]},
+            "facade": {"type": "string", "enum": ["ldsp", "mdf"], "description": "Only when the user names the door material."},
             "questions": {"type": "array", "items": {"type": "string"}},
         },
         "required": ["cabinets", "questions"],
@@ -69,8 +69,35 @@ TOOL = {
 }
 
 
+_UNREADABLE = object()
+
+
 def _int(v):
-    return v if isinstance(v, int) and not isinstance(v, bool) else None
+    """A whole number from the model: 600, 600.0 or "600"; None when left out;
+    _UNREADABLE for anything else (a fraction, a word, a boolean)."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return _UNREADABLE
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v) if v.is_integer() else _UNREADABLE
+    if isinstance(v, str):
+        try:
+            f = float(v.strip())
+        except ValueError:
+            return _UNREADABLE
+        return int(f) if f.is_integer() else _UNREADABLE
+    return _UNREADABLE
+
+
+# What the engine needs for a drawer (frontend engine/rules/drawers.ts): a 250 mm slide
+# behind the shelves' depth (nailed 4 mm back, 10 mm clearance) and boxes at least 80 high.
+DRAWER_MIN_DEPTH = 250 + 10 + 4
+DRAWER_GAP = 2
+DRAWER_BELOW_FRONT = 40
+DRAWER_MIN_BOX = 80
 
 
 def _check(raw: dict) -> tuple[dict | None, str | None]:
@@ -78,15 +105,17 @@ def _check(raw: dict) -> tuple[dict | None, str | None]:
     kind = raw.get("type")
     if kind not in LIMITS_BY_TYPE:
         return None, f"type {kind!r}: base, wall or tall"
-    cab = {"type": kind, "width": _int(raw.get("width"))}
-    for key, default in TYPE_DEFAULTS[kind].items():
-        value = _int(raw.get(key))
-        cab[key] = default if value is None else value
-    doors = raw.get("doors")
-    cab["doors"] = _int(doors) if doors is not None else None
-    cab["drawers"] = _int(raw.get("drawers")) or 0
-    if cab["width"] is None:
+    values = {key: _int(raw.get(key)) for key in ("width", "height", "depth", "shelves", "doors", "drawers")}
+    bad = [key for key, value in values.items() if value is _UNREADABLE]
+    if bad:
+        return None, f"{kind}: {', '.join(bad)} not a whole number"
+    if values["width"] is None:
         return None, f"{kind}: width missing"
+    cab = {"type": kind, "width": values["width"]}
+    for key, default in TYPE_DEFAULTS[kind].items():
+        cab[key] = default if values[key] is None else values[key]
+    cab["doors"] = values["doors"]
+    cab["drawers"] = values["drawers"] or 0
     for key, (lo, hi) in LIMITS_BY_TYPE[kind].items():
         if not lo <= cab[key] <= hi:
             return None, f"{kind} {key} {cab[key]}: {lo}–{hi}"
@@ -95,7 +124,14 @@ def _check(raw: dict) -> tuple[dict | None, str | None]:
     if not 0 <= cab["drawers"] <= 4 or (cab["drawers"] and kind != "base"):
         return None, f"{kind} drawers {cab['drawers']}: 0–4, base only"
     if cab["drawers"]:
+        n = cab["drawers"]
+        if cab["depth"] < DRAWER_MIN_DEPTH:
+            return None, f"{kind} {n} drawers: depth {cab['depth']} below {DRAWER_MIN_DEPTH}"
+        if (cab["height"] - (n + 1) * DRAWER_GAP) // n - DRAWER_BELOW_FRONT < DRAWER_MIN_BOX:
+            return None, f"{kind} {n} drawers: height {cab['height']} too low"
+        # a drawer cabinet has neither shelves nor a door
         cab["shelves"] = 0
+        cab["doors"] = None
     return cab, None
 
 
@@ -122,12 +158,12 @@ async def suggest_cabinets(text: str, user_id: str) -> dict:
         if cab is None:
             dropped.append(why or "invalid")
             continue
-        count = max(1, _int(raw.get("count")) or 1)
+        n = _int(raw.get("count"))
+        count = max(1, n if isinstance(n, int) else 1)
         room = MAX_CABINETS - len(cabinets)
         cabinets.extend(dict(cab) for _ in range(min(count, room)))
         if count > room:
             dropped.append(f"{count - room} × {cab['type']} {cab['width']}: at most {MAX_CABINETS} cabinets")
-            break
     facade = call.input.get("facade")
     questions = [q for q in call.input.get("questions") or [] if isinstance(q, str) and q.strip()][:5]
     return {

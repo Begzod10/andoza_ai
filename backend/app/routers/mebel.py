@@ -6,6 +6,7 @@ from __future__ import annotations
 import uuid as uuid_module
 from datetime import datetime, timezone
 
+import structlog
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -16,6 +17,7 @@ from app.models.price_book import PriceBook
 from app.config import settings
 from app.schemas.mebel import PriceBookIn, ProjectIn, ProjectOut, ProjectSummary, SuggestIn
 
+log = structlog.get_logger(__name__)
 router = APIRouter(prefix="/mebel", tags=["mebel"])
 
 
@@ -116,5 +118,6 @@ async def ai_suggest(body: SuggestIn, current_user: CurrentUser) -> dict:
         return await suggest_cabinets(body.text, str(current_user.id))
     except BudgetExceededError:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Bugungi AI limiti tugadi")
-    except Exception:
+    except Exception as exc:
+        log.warning("mebel_ai.failed", error=str(exc), error_type=type(exc).__name__)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI javob bermadi, qayta urinib ko'ring")

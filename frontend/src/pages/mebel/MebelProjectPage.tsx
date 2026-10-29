@@ -101,7 +101,7 @@ export default function MebelProjectPage() {
 
       <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[340px_1fr]">
         <aside className="rounded-2xl bg-white p-4 shadow-sm lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
-          <AiSuggest update={m.setProject} />
+          <AiSuggest update={m.setProject} cabinetCount={project.cabinets.length} />
           <div className="h-4" />
           <ParamsPanel project={project} update={m.setProject} errors={result.errors} catalog={m.options} />
         </aside>
