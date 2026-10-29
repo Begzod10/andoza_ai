@@ -2455,7 +2455,9 @@
       "unplaced_title": "Listga sig'magan detallar",
       "unplaced_reason": "listga sig'maydi",
       "offcut": "qoldiq {{l}}×{{w}}",
-      "empty": "Raskroy uchun detal yo'q"
+      "empty": "Raskroy uchun detal yo'q",
+      "parts_on_sheet": "Listdagi detallar",
+      "cut_order": "Kesish tartibi"
     },
     "kerf": "Arra kesimi, mm",
     "trim": "Chekka qoldiq, mm"

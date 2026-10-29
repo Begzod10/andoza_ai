@@ -2455,7 +2455,9 @@
       "unplaced_title": "Parts that fit no sheet",
       "unplaced_reason": "does not fit the sheet",
       "offcut": "offcut {{l}}×{{w}}",
-      "empty": "No parts to lay out"
+      "empty": "No parts to lay out",
+      "parts_on_sheet": "Parts on the sheet",
+      "cut_order": "Cut order"
     },
     "kerf": "Saw kerf, mm",
     "trim": "Sheet edge trim, mm"

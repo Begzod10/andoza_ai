@@ -151,7 +151,7 @@ export default function MebelProjectPage() {
       <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook} ready={m.priceBookReady}
         usedMaterials={used} catalog={m.catalog} />
     </div>
-    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} materialName={materialName} />}
+    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} />}
     </>
   );
 }
