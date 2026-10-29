@@ -2386,7 +2386,6 @@
       "board": "LDSP",
       "back": "HDF"
     },
-    "sheets_estimate": "≈ {{n}} list (taxminiy, raskroydan keyin aniqlanadi)",
     "area": "{{m2}} m²",
     "bom": {
       "board": "LDSP {{t}} mm",
@@ -2446,6 +2445,9 @@
     "view3d": "3D ko'rinish",
     "print_title": "Cut list: {{name}}",
     "mm": "mm",
-    "not_saved_invalid": "Saqlanmadi: xatolarni tuzating"
+    "not_saved_invalid": "Saqlanmadi: xatolarni tuzating",
+    "nest": {
+      "sheets_used": "{{n}} list, foydalanish {{p}}%"
+    }
   }
 }

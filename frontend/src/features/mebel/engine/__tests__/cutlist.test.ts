@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { edgeTotals, estimateSheets, groupParts } from '../cutlist'
+import { edgeTotals, groupParts } from '../cutlist'
 import { baseCabinetParts } from '../rules/baseCabinet'
 import { DEFAULTS } from '../model'
 import type { CabinetSpec, ConstructionDefaults, EdgeSide, Part } from '../model'
@@ -64,23 +64,6 @@ describe('edgeTotals', () => {
     const parts = [...baseCabinetParts(cabM1, DEFAULTS), ...baseCabinetParts(cabM2, d2)]
     const t = edgeTotals(parts, (p, s) => bandOf(p.cabinetId === 'c2' ? d2 : DEFAULTS)(p, s), DEFAULTS)
     expect(t.filter(x => x.thickness === 2).map(x => x.materialId).sort()).toEqual([null, 'oak'].sort())
-  })
-})
-
-describe('estimateSheets', () => {
-  it('rounds up to whole sheets, board and back apart', () => {
-    const s = estimateSheets(groupParts(baseCabinetParts(cabM1, DEFAULTS)), { length: 2800, width: 2070 }, 0.15)
-    const board = s.find(x => x.material === 'board')!
-    expect(board).toMatchObject({ thickness: 18, sheets: 1 })
-    expect(board.areaM2).toBeCloseTo(1.522, 3)
-    expect(s.find(x => x.material === 'back')!.sheets).toBe(1)
-  })
-
-  it('needs a second sheet once the area with waste passes one sheet', () => {
-    const cabs = [0, 1, 2, 3].map(i => ({ ...cabM1, id: `c${i}`, label: `M${i}`, position: { x: i * 600, z: 0 } }))
-    const s = estimateSheets(groupParts(cabs.flatMap(c => baseCabinetParts(c, DEFAULTS))), { length: 2800, width: 2070 }, 0.15)
-    // 4 × 1.522 m² × 1.15 = 7.0 m² over 5.796 m² sheets
-    expect(s.find(x => x.material === 'board')!.sheets).toBe(2)
   })
 })
 

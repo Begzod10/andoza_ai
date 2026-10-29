@@ -2386,7 +2386,6 @@
       "board": "Board",
       "back": "HDF"
     },
-    "sheets_estimate": "≈ {{n}} sheets (estimate, exact after nesting)",
     "area": "{{m2}} m²",
     "bom": {
       "board": "Board {{t}} mm",
@@ -2446,6 +2445,9 @@
     "view3d": "3D view",
     "print_title": "Cut list: {{name}}",
     "mm": "mm",
-    "not_saved_invalid": "Not saved: fix the errors"
+    "not_saved_invalid": "Not saved: fix the errors",
+    "nest": {
+      "sheets_used": "{{n}} sheets, {{p}}% used"
+    }
   }
 }

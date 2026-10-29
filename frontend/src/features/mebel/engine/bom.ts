@@ -1,4 +1,4 @@
-import type { BomLine, CabinetSpec, ConstructionDefaults, EdgeTotal, PriceBook, SheetEstimate } from './model'
+import type { BomLine, CabinetSpec, ConstructionDefaults, EdgeTotal, NestResult, PriceBook } from './model'
 
 /** materialId → the shop catalogue's price for it. */
 export type CatalogPrices = Record<string, { name: string; price: number }>
@@ -37,18 +37,19 @@ function line(
  * (null) and is left out of the total rather than counted as zero.
  */
 export function buildBom(input: {
-  sheets: SheetEstimate[]
+  nesting: NestResult[]
   edges: EdgeTotal[]
   hardware: HardwareCounts
   prices: PriceBook
   catalog: CatalogPrices
 }): { lines: BomLine[]; total: number | null; hasUnpriced: boolean } {
-  const { sheets, edges, hardware, prices, catalog } = input
+  const { nesting, edges, hardware, prices, catalog } = input
   const priceOf = (id: string | null) => (id == null ? null : prices.materials[id] ?? catalog[id]?.price ?? null)
 
   const lines: BomLine[] = []
-  for (const s of sheets) {
-    lines.push(line(s.material, `${s.material}_${s.thickness}`, s.materialId, s.sheets, 'sheet', priceOf(s.materialId)))
+  // Whole sheets, as the nesting lays them out.
+  for (const n of nesting) {
+    lines.push(line(n.material, `${n.material}_${n.thickness}`, n.materialId, n.sheets.length, 'sheet', priceOf(n.materialId)))
   }
   for (const e of edges) {
     lines.push(line('edge', `edge_${e.thickness}x${e.width}`, e.materialId, e.metersWithWaste, 'm', priceOf(e.materialId)))
@@ -56,7 +57,7 @@ export function buildBom(input: {
   for (const key of ['leg', 'confirmat', 'shelfPin', 'nail'] as const) {
     if (hardware[key] > 0) lines.push(line('hardware', key, null, hardware[key], 'dona', prices.hardware[key]))
   }
-  const sheetCount = sheets.reduce((n, s) => n + s.sheets, 0)
+  const sheetCount = nesting.reduce((n, x) => n + x.sheets.length, 0)
   if (sheetCount > 0) lines.push(line('service', 'cut', null, sheetCount, 'sheet', prices.cutPerSheet))
   const bandMeters = new Map<number, number>()
   for (const e of edges) {

@@ -134,7 +134,7 @@ export default function MebelProjectPage() {
                 {tab === "edges" && <EdgeTable totals={result.edgeTotals} materialName={materialName} />}
                 {tab === "bom" && (
                   <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced}
-                    sheets={result.sheets} materialName={materialName} />
+                    nesting={result.nesting} materialName={materialName} />
                 )}
                 {tab === "warnings" && <WarningsList warnings={result.warnings} labelOf={labelOf} />}
               </>

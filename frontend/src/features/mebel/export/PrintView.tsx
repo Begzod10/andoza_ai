@@ -25,7 +25,7 @@ export function PrintView({
       <CutListTable groups={result.groups} showCut selectedPartId={null} onSelect={() => {}}
         materialName={(g) => materialName(g.materialId) ?? t(`mebel.material.${g.material}`)} />
       <EdgeTable totals={result.edgeTotals} materialName={materialName} />
-      <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced} sheets={result.sheets}
+      <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced} nesting={result.nesting}
         materialName={materialName} />
     </div>
   );
