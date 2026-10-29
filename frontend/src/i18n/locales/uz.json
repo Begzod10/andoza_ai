@@ -2286,5 +2286,149 @@
     "front_auto": "Old tomon: avtomatik aniqlandi ({{deg}}°)",
     "front_none": "Old tomon aniqlanmadi: kerak bo'lsa o'zingiz tanlang",
     "front_option": "{{deg}}° burish"
+  },
+  "mebel": {
+    "title": "Mebel ishlab chiqarish",
+    "subtitle": "Shkaf o'lchamidan detallar, kromka va narx",
+    "new_project": "Yangi loyiha",
+    "default_name": "Oshxona",
+    "empty": "Hali loyiha yo'q. Birinchisini yarating.",
+    "load_failed": "Loyihalarni yuklab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+    "retry": "Qayta urinish",
+    "updated": "O'zgartirilgan: {{date}}",
+    "delete": "O'chirish",
+    "delete_confirm": "\"{{name}}\" loyihasini o'chirasizmi?",
+    "back_to_list": "Loyihalar",
+    "saving": "Saqlanmoqda…",
+    "saved": "Saqlandi",
+    "save_failed": "Saqlanmadi",
+    "project_name": "Loyiha nomi",
+    "settings": "Konstruksiya",
+    "board_thickness": "LDSP qalinligi",
+    "board_material": "LDSP",
+    "back_material": "Orqa devor (HDF)",
+    "back_kind": "Orqa devor",
+    "back": {
+      "hdf_nailed": "HDF, mixlanadi",
+      "hdf_groove": "HDF, pazda",
+      "none": "Yo'q"
+    },
+    "bottom_joint": "Taglik",
+    "joint": {
+      "between_sides": "Yonlar orasida",
+      "under_sides": "Yonlar ostida"
+    },
+    "edge_visible": "Ko'rinadigan kromka",
+    "edge_hidden": "Ko'rinmas kromka",
+    "edge_material": "Kromka materiali",
+    "premilled": "Kromkadan oldin frezalanadi (kesishda ayirmaslik)",
+    "sheet_size": "List o'lchami",
+    "no_material": "Tanlanmagan",
+    "cabinets": "Shkaflar",
+    "add_cabinet": "Shkaf qo'shish",
+    "duplicate": "Nusxa",
+    "remove": "Olib tashlash",
+    "width": "Eni, mm",
+    "height": "Balandligi, mm",
+    "depth": "Chuqurligi, mm",
+    "shelves": "Polkalar",
+    "tab": {
+      "parts": "Detallar",
+      "edges": "Kromka",
+      "bom": "Materiallar va narx",
+      "warnings": "Ogohlantirishlar"
+    },
+    "show_cut": "Kesish o'lchami",
+    "show_finished": "Yakuniy o'lcham",
+    "col": {
+      "id": "ID",
+      "part": "Detal",
+      "material": "Material",
+      "thickness": "Qalinlik",
+      "length": "Uzunlik",
+      "width": "Eni",
+      "qty": "Soni",
+      "grain": "Tekstura",
+      "edges": "Kromka (L1 L2 W1 W2)",
+      "band": "Kromka",
+      "meters": "Metr",
+      "with_waste": "Zapas bilan",
+      "unit_price": "Narxi",
+      "total": "Summa"
+    },
+    "grain": {
+      "length": "Uzunlik bo'ylab",
+      "width": "Eni bo'ylab",
+      "none": "Yo'q"
+    },
+    "part": {
+      "side_left": "Chap yon",
+      "side_right": "O'ng yon",
+      "bottom": "Taglik",
+      "rail_front": "Old planka",
+      "rail_back": "Orqa planka",
+      "shelf": "Polka",
+      "back": "Orqa devor"
+    },
+    "material": {
+      "board": "LDSP",
+      "back": "HDF"
+    },
+    "sheets_estimate": "≈ {{n}} list (taxminiy, raskroydan keyin aniqlanadi)",
+    "area": "{{m2}} m²",
+    "bom": {
+      "board": "LDSP {{t}} mm",
+      "back": "HDF {{t}} mm",
+      "edge": "Kromka {{t}}×{{w}} mm",
+      "leg": "Oyoqcha",
+      "confirmat": "Konfirmat",
+      "shelfPin": "Polkoderjatel",
+      "nail": "HDF mixi",
+      "cut": "Kesish xizmati",
+      "banding": "Kromkalash {{t}} mm",
+      "markup": "Ustama {{p}}%"
+    },
+    "unit": {
+      "sheet": "list",
+      "m": "m",
+      "dona": "dona",
+      "m2": "m²",
+      "percent": "%"
+    },
+    "unpriced": "narxsiz",
+    "total": "Jami",
+    "total_unpriced": "Jami (narxsiz qatorlarsiz)",
+    "price_book": "Narx daftari",
+    "price_book_hint": "Bu narxlar barcha loyihalaringizda ishlatiladi. Bo'sh qoldirilgan narx do'kon katalogidan olinadi.",
+    "pb": {
+      "materials": "Materiallar (1 list / 1 m uchun)",
+      "cut_per_sheet": "Kesish, 1 list",
+      "banding": "Kromkalash, 1 m ({{t}} mm)",
+      "hardware": "Furnitura, 1 dona",
+      "markup": "Ustama, %"
+    },
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "export": "Eksport",
+    "export_csv": "Cut list (CSV, Excel)",
+    "export_pdf": "PDF (chop etish)",
+    "no_warnings": "Ogohlantirish yo'q",
+    "errors_title": "Hisoblab bo'lmadi: o'lchamlarni tuzating",
+    "error": {
+      "width_range": "Eni {{min}}–{{max}} mm bo'lishi kerak",
+      "height_range": "Balandligi {{min}}–{{max}} mm bo'lishi kerak",
+      "depth_range": "Chuqurligi {{min}}–{{max}} mm bo'lishi kerak",
+      "shelves_range": "Polkalar {{min}}–{{max}} ta bo'lishi kerak",
+      "inner_width": "Shkaf juda tor: ichki eni qolmaydi",
+      "shelf_depth": "Polka uchun chuqurlik qolmaydi",
+      "too_many_cabinets": "Bir loyihada ko'pi bilan {{max}} ta shkaf"
+    },
+    "warning": {
+      "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",
+      "part_exceeds_sheet": "{{length}}×{{width}} mm detal listga sig'maydi",
+      "unpriced": "Ba'zi qatorlarning narxi yo'q: narx daftariga yoki katalogga qo'shing"
+    },
+    "view3d": "3D ko'rinish",
+    "print_title": "Cut list: {{name}}"
   }
 }
