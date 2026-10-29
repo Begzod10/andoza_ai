@@ -93,3 +93,23 @@ describe('ProfilePage language section', () => {
     expect(window.localStorage.getItem('andoza.lang')).toBe('en')
   })
 })
+
+describe('ProfilePage menu', () => {
+  it('opens the furniture workshop tool', async () => {
+    useAuthStore.setState({ user: USER, isAuthenticated: true })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { MemoryRouter: Router, Routes, Route } = await import('react-router-dom')
+    render(
+      <QueryClientProvider client={client}>
+        <Router initialEntries={['/profile']}>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/mebel" element={<p>mebel page</p>} />
+          </Routes>
+        </Router>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Mebel ishlab chiqarish/ }))
+    expect(await screen.findByText('mebel page')).toBeInTheDocument()
+  })
+})
