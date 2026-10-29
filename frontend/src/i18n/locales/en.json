@@ -1890,7 +1890,12 @@
         "gips": "Gypsum",
         "sement": "Cement",
         "santexnika": "Plumbing",
-        "elektr_mat": "Electrical"
+        "elektr_mat": "Electrical",
+        "ldsp": "Particleboard (LDSP)",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Edge banding",
+        "furnitura": "Furniture fittings"
       },
       "unit": {
         "litr": "liter",
@@ -2162,7 +2167,12 @@
         "eshik": "Door",
         "deraza": "Window",
         "dekorativ": "Decorative",
-        "gips": "Gypsum and plaster"
+        "gips": "Gypsum and plaster",
+        "ldsp": "Particleboard (LDSP)",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Edge banding",
+        "furnitura": "Furniture fittings"
       },
       "subtitle": "Furniture and materials: prices by shop.",
       "search_ph": "Search…",
@@ -2429,6 +2439,7 @@
       "unpriced": "Some lines have no price: add it to the price book or the catalogue"
     },
     "view3d": "3D view",
-    "print_title": "Cut list: {{name}}"
+    "print_title": "Cut list: {{name}}",
+    "mm": "mm"
   }
 }

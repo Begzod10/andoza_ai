@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { TKey } from "@/i18n";
 import { Link, useParams } from "react-router-dom";
@@ -10,6 +11,9 @@ import { BomPanel } from "@/features/mebel/ui/BomPanel";
 import { WarningsList } from "@/features/mebel/ui/WarningsList";
 import { PriceBookDialog } from "@/features/mebel/ui/PriceBookDialog";
 import { CabinetView } from "@/features/mebel/three/CabinetView";
+import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
+import { PrintView } from "@/features/mebel/export/PrintView";
+import { partName } from "@/features/mebel/ui/format";
 
 type Tab = "parts" | "edges" | "bom" | "warnings";
 const TABS: Tab[] = ["parts", "edges", "bom", "warnings"];
@@ -22,6 +26,8 @@ export default function MebelProjectPage() {
   const [tab, setTab] = useState<Tab>("parts");
   const [showCut, setShowCut] = useState(true);
   const [priceBookOpen, setPriceBookOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
 
   if (m.isError) {
     return (
@@ -41,9 +47,25 @@ export default function MebelProjectPage() {
   ].filter((x): x is string => !!x);
   const failed = result.errors.length > 0;
 
+  const exportCsv = () =>
+    downloadCsv(project.name, cutListCsv(result.groups, {
+      part: (g) => partName(g.role),
+      material: (g) => materialName(g.materialId) ?? t(`mebel.material.${g.material}`),
+      grain: (gr) => (gr === "none" ? "" : t(`mebel.grain.${gr}`)),
+    }));
+  const exportPdf = () => {
+    // The 3D picture goes into the printout; the canvas keeps its buffer for this.
+    const canvas = viewRef.current?.querySelector("canvas");
+    let image: string | null = null;
+    try { image = canvas?.toDataURL("image/png") ?? null; } catch { image = null; }
+    flushSync(() => setSnapshot(image));
+    window.print();
+  };
+
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50">
-      <header className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
+    <>
+    <div className="flex min-h-screen flex-col bg-neutral-50 print:hidden">
+      <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
         <Link to="/mebel" className="text-sm font-semibold text-blue-700">← {t("mebel.back_to_list")}</Link>
         <h1 className="min-w-0 flex-1 truncate text-base font-bold text-neutral-900">{project.name}</h1>
         <span className={`text-xs ${m.saveState === "error" ? "text-red-600" : "text-neutral-500"}`} role="status">
@@ -53,6 +75,14 @@ export default function MebelProjectPage() {
           className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200">
           {t("mebel.price_book")}
         </button>
+        <button type="button" onClick={exportCsv} disabled={failed}
+          className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200 disabled:opacity-50">
+          {t("mebel.export_csv")}
+        </button>
+        <button type="button" onClick={exportPdf} disabled={failed}
+          className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+          {t("mebel.export_pdf")}
+        </button>
       </header>
 
       <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[340px_1fr]">
@@ -61,7 +91,7 @@ export default function MebelProjectPage() {
         </aside>
 
         <main className="flex min-w-0 flex-col gap-4">
-          <div className="h-[38vh] min-h-[240px] overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
+          <div ref={viewRef} className="h-[38vh] min-h-[240px] overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
             <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} />
           </div>
 
@@ -115,5 +145,7 @@ export default function MebelProjectPage() {
       <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook}
         usedMaterials={used} catalog={m.catalog} />
     </div>
+    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} materialName={materialName} />}
+    </>
   );
 }

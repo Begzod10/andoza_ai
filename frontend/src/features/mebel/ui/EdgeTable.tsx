@@ -19,7 +19,7 @@ export function EdgeTable({ totals, materialName }: { totals: EdgeTotal[]; mater
             <td className="px-2 py-2">
               <span className="font-medium">{t(e.band === "visible" ? "mebel.edge_visible" : "mebel.edge_hidden")}</span>{" "}
               <span className="text-neutral-500">
-                {formatBand(e.thickness)}×{e.width} mm{materialName(e.materialId) ? ` · ${materialName(e.materialId)}` : ""}
+                {formatBand(e.thickness)}×{e.width} {t("mebel.mm")}{materialName(e.materialId) ? ` · ${materialName(e.materialId)}` : ""}
               </span>
             </td>
             <td className="px-2 py-2 text-right tabular-nums">{formatMm(e.meters)}</td>

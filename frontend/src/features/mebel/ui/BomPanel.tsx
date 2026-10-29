@@ -19,7 +19,7 @@ export function BomPanel({
       <ul className="flex flex-wrap gap-2 text-xs text-neutral-600">
         {sheets.map((s) => (
           <li key={`${s.material}|${s.materialId}|${s.thickness}`} className="rounded-full bg-neutral-100 px-3 py-1">
-            {t(`mebel.material.${s.material}`)} {s.thickness} mm: {t("mebel.area", { m2: formatMm(Math.round(s.areaM2 * 10) / 10) })},{" "}
+            {t(`mebel.material.${s.material}`)} {s.thickness} {t("mebel.mm")}: {t("mebel.area", { m2: formatMm(Math.round(s.areaM2 * 10) / 10) })},{" "}
             {t("mebel.sheets_estimate", { n: s.sheets })}
           </li>
         ))}

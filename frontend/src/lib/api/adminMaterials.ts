@@ -104,6 +104,11 @@ export const MATERIAL_CATEGORIES: LabelledOption[] = [
   { id: "sement", labelKey: "dokon.admin.category.sement" },
   { id: "santexnika", labelKey: "dokon.admin.category.santexnika" },
   { id: "elektr_mat", labelKey: "dokon.admin.category.elektr_mat" },
+  { id: "ldsp", labelKey: "dokon.admin.category.ldsp" },
+  { id: "mdf", labelKey: "dokon.admin.category.mdf" },
+  { id: "hdf", labelKey: "dokon.admin.category.hdf" },
+  { id: "kromka", labelKey: "dokon.admin.category.kromka" },
+  { id: "furnitura", labelKey: "dokon.admin.category.furnitura" },
 ];
 
 export const MATERIAL_UNITS: LabelledOption[] = [

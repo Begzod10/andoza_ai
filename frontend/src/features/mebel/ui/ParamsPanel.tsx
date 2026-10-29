@@ -110,7 +110,7 @@ export function ParamsPanel({
         <h2 className="text-sm font-bold text-neutral-900">{t("mebel.settings")}</h2>
         <div className="grid grid-cols-2 gap-3">
           <Select id="mebel-t" label={t("mebel.board_thickness")} value={d.board.thickness}
-            options={[16, 18].map((v) => ({ value: v as 16 | 18, label: `${v} mm` }))}
+            options={[16, 18].map((v) => ({ value: v as 16 | 18, label: `${v} ${t("mebel.mm")}` }))}
             onChange={(v) => setDefaults((x) => ({ ...x, board: { ...x.board, thickness: v } }))} />
           <MaterialSelect id="mebel-board" label={t("mebel.board_material")} value={d.board.materialId} options={catalog.ldsp}
             onChange={(v) => setDefaults((x) => ({ ...x, board: { ...x.board, materialId: v } }))} />
@@ -126,7 +126,7 @@ export function ParamsPanel({
           {(["visible", "hidden"] as const).map((which) => (
             <div key={which} className="contents">
               <Select id={`mebel-edge-${which}`} label={t(`mebel.edge_${which}`)} value={d.edge[which].thickness}
-                options={bandThickness.map((v) => ({ value: v, label: v === 0 ? "—" : `${v} mm` }))}
+                options={bandThickness.map((v) => ({ value: v, label: v === 0 ? "—" : `${v} ${t("mebel.mm")}` }))}
                 onChange={(v) => setBand(which, { thickness: v })} />
               <MaterialSelect id={`mebel-edge-${which}-mat`} label={t("mebel.edge_material")} value={d.edge[which].materialId}
                 options={catalog.kromka} onChange={(v) => setBand(which, { materialId: v })} />

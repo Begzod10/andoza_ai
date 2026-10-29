@@ -27,7 +27,7 @@ export function bomLabel(line: BomLine, materialName: (id: string | null) => str
   const named = materialName(line.materialId);
   if (line.kind === "board" || line.kind === "back") {
     const t = line.label.split("_")[1];
-    return named ? `${named} (${t} mm)` : i18n.t(`mebel.bom.${line.kind}`, { t });
+    return named ? `${named} (${t} ${i18n.t("mebel.mm")})` : i18n.t(`mebel.bom.${line.kind}`, { t });
   }
   if (line.kind === "edge") {
     const [t, w] = line.label.replace("edge_", "").split("x");

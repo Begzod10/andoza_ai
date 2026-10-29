@@ -1890,7 +1890,12 @@
         "gips": "Gips",
         "sement": "Sement",
         "santexnika": "Santexnika",
-        "elektr_mat": "Elektr"
+        "elektr_mat": "Elektr",
+        "ldsp": "LDSP",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Kromka",
+        "furnitura": "Mebel furniturasi"
       },
       "unit": {
         "litr": "litr",
@@ -2162,7 +2167,12 @@
         "eshik": "Eshik",
         "deraza": "Deraza",
         "dekorativ": "Dekorativ",
-        "gips": "Gips va suvoq"
+        "gips": "Gips va suvoq",
+        "ldsp": "LDSP",
+        "mdf": "MDF",
+        "hdf": "HDF",
+        "kromka": "Kromka",
+        "furnitura": "Mebel furniturasi"
       },
       "subtitle": "Mebel va materiallar: narxlar do'konlar bo'yicha.",
       "search_ph": "Qidirish…",
@@ -2429,6 +2439,7 @@
       "unpriced": "Ba'zi qatorlarning narxi yo'q: narx daftariga yoki katalogga qo'shing"
     },
     "view3d": "3D ko'rinish",
-    "print_title": "Cut list: {{name}}"
+    "print_title": "Cut list: {{name}}",
+    "mm": "mm"
   }
 }

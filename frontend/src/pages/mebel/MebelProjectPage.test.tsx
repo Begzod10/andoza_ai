@@ -19,6 +19,10 @@ vi.mock('@/lib/api', async () => {
     getMaterials: vi.fn(),
   }
 })
+vi.mock('@/features/mebel/export/csv', async () => {
+  const actual = await vi.importActual<typeof import('@/features/mebel/export/csv')>('@/features/mebel/export/csv')
+  return { ...actual, downloadCsv: vi.fn() }
+})
 // The 3D view needs WebGL; the page only has to hand it the parts.
 vi.mock('@/features/mebel/three/CabinetView', () => ({
   CabinetView: ({ parts }: { parts: unknown[] }) => <div data-testid="cabinet-view" data-parts={parts.length} />,
@@ -116,5 +120,28 @@ describe('MebelProjectPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: t('mebel.add_cabinet') }))
     expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '14')
     expect(screen.getByText('M2')).toBeInTheDocument()
+  })
+})
+
+describe('MebelProjectPage export', () => {
+  it('downloads the cut list as CSV named after the project', async () => {
+    const csv = await import('@/features/mebel/export/csv')
+    const spy = vi.mocked(csv.downloadCsv)
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.export_csv') }))
+    expect(spy).toHaveBeenCalledTimes(1)
+    const [name, body] = spy.mock.calls[0]
+    expect(name).toBe('Oshxona')
+    expect(body).toContain('ID;Detal;Material')
+    expect(body).toContain(t('mebel.part.side_left'))
+  })
+
+  it('PDF opens the print dialog with the printable cut list', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.export_pdf') }))
+    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+    expect(print).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('mebel-print')).toHaveTextContent(t('mebel.print_title', { name: 'Oshxona' }))
   })
 })

@@ -41,7 +41,7 @@ export function CabinetView({
   const specs = meshSpecs(parts, selectedPartId, { center: true });
   const span = Math.max(1, ...specs.map((s) => Math.abs(s.position[0]) + s.size[0] / 2));
   return (
-    <Canvas camera={{ position: [span * 1.2, 1.2, span * 1.6 + 0.8], fov: 40 }} dpr={[1, 2]}>
+    <Canvas camera={{ position: [span * 1.2, 1.2, span * 1.6 + 0.8], fov: 40 }} dpr={[1, 2]} gl={{ preserveDrawingBuffer: true }}>
       <ambientLight intensity={0.7} />
       <directionalLight position={[2, 4, 3]} intensity={0.9} />
       {specs.map((s) => (
