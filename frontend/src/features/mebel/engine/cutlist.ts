@@ -19,9 +19,10 @@ export function groupParts(parts: Part[]): CutGroup[] {
     if (g) {
       g.qty += p.qty
       g.partIds.push(p.id)
+      if (!g.roles.includes(p.role)) g.roles.push(p.role)
     } else {
       groups.set(key, {
-        key, role: p.role, material: p.material, materialId: p.materialId, thickness: p.thickness,
+        key, role: p.role, roles: [p.role], material: p.material, materialId: p.materialId, thickness: p.thickness,
         cut: { ...p.cut }, finished: { ...p.finished }, grain: p.grain, edges: p.edges, qty: p.qty, partIds: [p.id],
       })
     }

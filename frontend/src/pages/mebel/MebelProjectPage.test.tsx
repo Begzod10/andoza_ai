@@ -17,6 +17,7 @@ vi.mock('@/lib/api', async () => {
     getPriceBook: vi.fn(),
     savePriceBook: vi.fn(),
     getMaterials: vi.fn(),
+    getCatalogMaterials: vi.fn(),
   }
 })
 vi.mock('@/features/mebel/export/csv', async () => {
@@ -44,7 +45,7 @@ function mount() {
 }
 
 const partsTable = () => screen.getByRole('table', { name: t('mebel.tab.parts') })
-const rowOf = (name: string) => within(partsTable()).getAllByRole('row').find(r => within(r).queryByText(name))!
+const rowOf = (name: string) => within(partsTable()).getAllByRole('row').find(r => r.textContent?.includes(name))!
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -54,6 +55,7 @@ beforeEach(() => {
   vi.mocked(api.saveMebelProject).mockResolvedValue({ id: 'p1', name: 'Oshxona', data: project })
   vi.mocked(api.getPriceBook).mockResolvedValue(EMPTY_PRICE_BOOK)
   vi.mocked(api.getMaterials).mockResolvedValue([])
+  vi.mocked(api.getCatalogMaterials).mockResolvedValue([])
 })
 afterEach(() => vi.useRealTimers())
 
@@ -181,5 +183,24 @@ describe('MebelProjectPage review fixes', () => {
     mount()
     fireEvent.change(await screen.findByLabelText(t('mebel.width')), { target: { value: '100' } })
     expect(screen.getByRole('status')).toHaveTextContent(t('mebel.not_saved_invalid'))
+  })
+})
+
+describe('MebelProjectPage save status', () => {
+  it('says saved only when the latest save has landed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const done: Array<() => void> = []
+    vi.mocked(api.saveMebelProject).mockImplementation(() => new Promise(r => done.push(() => r({} as never))))
+    mount()
+    const width = await screen.findByLabelText(t('mebel.width'))
+    fireEvent.change(width, { target: { value: '700' } })
+    await act(async () => { vi.advanceTimersByTime(1100) })
+    fireEvent.change(width, { target: { value: '800' } })
+    await act(async () => { vi.advanceTimersByTime(1100) })
+    expect(done).toHaveLength(2)
+    await act(async () => { done[0]() })
+    expect(screen.getByRole('status')).toHaveTextContent(t('mebel.saving'))
+    await act(async () => { done[1]() })
+    expect(screen.getByRole('status')).toHaveTextContent(t('mebel.saved'))
   })
 })

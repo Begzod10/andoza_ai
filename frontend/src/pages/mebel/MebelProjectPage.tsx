@@ -13,7 +13,7 @@ import { PriceBookDialog } from "@/features/mebel/ui/PriceBookDialog";
 import { CabinetView } from "@/features/mebel/three/CabinetView";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
 import { PrintView } from "@/features/mebel/export/PrintView";
-import { partName } from "@/features/mebel/ui/format";
+import { groupName } from "@/features/mebel/ui/format";
 import { ERROR_FIELD } from "@/features/mebel/ui/ParamsPanel";
 
 type Tab = "parts" | "edges" | "bom" | "warnings";
@@ -50,7 +50,7 @@ export default function MebelProjectPage() {
 
   const exportCsv = () =>
     downloadCsv(project.name, cutListCsv(result.groups, {
-      part: (g) => partName(g.role),
+      part: (g) => groupName(g),
       material: (g) => materialName(g.materialId) ?? t(`mebel.material.${g.material}`),
       grain: (gr) => (gr === "none" ? "" : t(`mebel.grain.${gr}`)),
     }));

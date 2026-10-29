@@ -18,7 +18,6 @@ from app.database import get_db
 from app.main import app
 from app.models.furniture_project import FurnitureProject
 from app.models.material import MaterialCategory
-from app.models.price_book import PriceBook
 
 
 def _user():
@@ -174,18 +173,32 @@ def test_price_book_get_empty_then_put(client):
     r = client.get("/api/v1/mebel/price-book")
     assert r.status_code == 200 and r.json() == {}
 
-    db = _db(_Result(one=None))
+    db = _db(_Result())
     _as(user, db)
     body = {"materials": {"m1": 520000}, "cutPerSheet": 40000, "markupPercent": 30}
     r = client.put("/api/v1/mebel/price-book", json={"data": body})
     assert r.status_code == 200, r.text
-    added = db.add.call_args.args[0]
-    assert isinstance(added, PriceBook) and added.user_id == user.id and added.data["cutPerSheet"] == 40000
+    assert r.json()["cutPerSheet"] == 40000
 
-    existing = PriceBook(user_id=user.id, data={"markupPercent": 10})
-    _as(user, _db(_Result(one=existing)))
-    client.put("/api/v1/mebel/price-book", json={"data": body})
-    assert existing.data["markupPercent"] == 30
+
+def test_price_book_put_is_one_upsert(client):
+    """Two first saves at once must not race into a primary-key error: the
+    write is a single INSERT … ON CONFLICT (user_id) DO UPDATE."""
+    from sqlalchemy.dialects import postgresql
+
+    user = _user()
+    db = _db(_Result())
+    _as(user, db)
+    client.put("/api/v1/mebel/price-book", json={"data": {"markupPercent": 30}})
+
+    db.add.assert_not_called()
+    assert db.execute.await_count == 1
+    stmt = db.execute.await_args.args[0]
+    sql = str(stmt.compile(dialect=postgresql.dialect()))
+    assert sql.startswith("INSERT INTO price_books")
+    assert "ON CONFLICT (user_id) DO UPDATE" in sql
+    params = stmt.compile(dialect=postgresql.dialect()).params
+    assert params["user_id"] == user.id and params["data"]["markupPercent"] == 30
 
 
 def test_price_book_rejects_markup_over_300(client):

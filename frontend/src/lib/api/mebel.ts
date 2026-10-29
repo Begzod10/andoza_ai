@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { getMaterials, type Material } from "./materials";
 import { EMPTY_PRICE_BOOK } from "@/features/mebel/engine";
 import type { FurnitureProject, PriceBook } from "@/features/mebel/engine";
 
@@ -13,6 +14,21 @@ export interface MebelProject {
   id: string;
   name: string;
   data: FurnitureProject;
+}
+
+const CATALOG_PAGE = 100; // the server's largest page
+const CATALOG_MAX_PAGES = 5;
+
+/** Every shop product of one category, page by page (up to 500), for the
+ *  material pickers and their prices. */
+export async function getCatalogMaterials(category: string): Promise<Material[]> {
+  const all: Material[] = [];
+  for (let page = 1; page <= CATALOG_MAX_PAGES; page++) {
+    const items = await getMaterials({ category, per_page: CATALOG_PAGE, page });
+    all.push(...items);
+    if (items.length < CATALOG_PAGE) break;
+  }
+  return all;
 }
 
 export function listMebelProjects(): Promise<MebelProjectSummary[]> {

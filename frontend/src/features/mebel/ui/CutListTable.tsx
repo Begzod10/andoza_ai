@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { CutGroup } from "@/features/mebel/engine";
-import { edgesSummary, formatMm, partName } from "./format";
+import { edgesSummary, formatMm, groupName } from "./format";
 
 /**
  * The grouped cut list: one row per set of identically cut parts. `showCut`
@@ -45,7 +45,7 @@ export function CutListTable({
                 className={`cursor-pointer border-t border-neutral-100 ${selected ? "bg-blue-50" : "hover:bg-neutral-50"}`}
               >
                 <td className="px-2 py-2 text-xs text-neutral-500">{g.partIds.join(", ")}</td>
-                <td className="px-2 py-2 font-medium text-neutral-900">{partName(g.role)}</td>
+                <td className="px-2 py-2 font-medium text-neutral-900">{groupName(g)}</td>
                 <td className="px-2 py-2">{materialName ? materialName(g) : t(`mebel.material.${g.material}`)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{g.thickness}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.length)}</td>

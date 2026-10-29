@@ -83,3 +83,20 @@ describe('estimateSheets', () => {
     expect(s.find(x => x.material === 'board')!.sheets).toBe(2)
   })
 })
+
+describe('groupParts roles', () => {
+  it('keeps every role that shares one cut', () => {
+    // no visible band: the front and back rails are cut and banded alike
+    const d = { ...DEFAULTS, edge: { ...DEFAULTS.edge, visible: { ...DEFAULTS.edge.visible, thickness: 0 as const } } }
+    const rails = groupParts(baseCabinetParts(cabM1, d)).find(g => g.partIds.includes('M1-04'))!
+    expect(rails.partIds).toEqual(['M1-04', 'M1-05'])
+    expect(rails.roles).toEqual(['rail_front', 'rail_back'])
+  })
+
+  it('lists a role once when several parts share it', () => {
+    const sides = groupParts(baseCabinetParts(cabM1, DEFAULTS)).find(g => g.partIds.includes('M1-01'))!
+    expect(sides.roles).toEqual(['side_left', 'side_right'])
+    const two = groupParts([...baseCabinetParts(cabM1, DEFAULTS), ...baseCabinetParts(cabM2, DEFAULTS)])
+    expect(two.find(g => g.partIds.includes('M1-03'))!.roles).toEqual(['bottom'])
+  })
+})

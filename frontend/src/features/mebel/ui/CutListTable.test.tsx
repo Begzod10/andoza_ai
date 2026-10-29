@@ -28,3 +28,11 @@ describe('CutListTable', () => {
     expect(screen.getByText(i18n.t('mebel.part.bottom')).closest('tr')).toHaveAttribute('aria-selected', 'true')
   })
 })
+
+describe('CutListTable names', () => {
+  it('names every role a row holds', () => {
+    const d = { ...DEFAULTS, edge: { ...DEFAULTS.edge, visible: { ...DEFAULTS.edge.visible, thickness: 0 as const } } }
+    render(<CutListTable groups={groupParts(baseCabinetParts(cab, d))} showCut selectedPartId={null} onSelect={() => {}} />)
+    expect(screen.getByText(`${i18n.t('mebel.part.rail_front')}, ${i18n.t('mebel.part.rail_back')}`)).toBeInTheDocument()
+  })
+})
