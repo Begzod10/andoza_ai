@@ -2430,7 +2430,8 @@
       "cut_per_sheet": "Kesish, 1 list",
       "banding": "Kromkalash, 1 m ({{t}} mm)",
       "hardware": "Furnitura, 1 dona",
-      "markup": "Ustama, %"
+      "markup": "Ustama, %",
+      "slide": "Yo'naltiruvchi, 1 juft"
     },
     "save": "Saqlash",
     "cancel": "Bekor qilish",

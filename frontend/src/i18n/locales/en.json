@@ -2430,7 +2430,8 @@
       "cut_per_sheet": "Cutting, per sheet",
       "banding": "Edge banding, per m ({{t}} mm)",
       "hardware": "Hardware, per piece",
-      "markup": "Markup, %"
+      "markup": "Markup, %",
+      "slide": "Slides, per pair"
     },
     "save": "Save",
     "cancel": "Cancel",

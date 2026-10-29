@@ -42,8 +42,8 @@ function NumField({
 }
 
 function Select<T extends string | number>({
-  id, label, value, options, onChange, disabled,
-}: { id: string; label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void; disabled?: boolean }) {
+  id, label, value, options, onChange, disabled, error,
+}: { id: string; label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void; disabled?: boolean; error?: string }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-xs text-neutral-500">{label}</label>
@@ -51,11 +51,14 @@ function Select<T extends string | number>({
         id={id}
         value={String(value)}
         disabled={disabled}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-err` : undefined}
         onChange={(e) => onChange(options.find((o) => String(o.value) === e.target.value)!.value)}
-        className={field}
+        className={`${field} ${error ? invalidField : ""}`}
       >
         {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
       </select>
+      {error && <p id={`${id}-err`} className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }
@@ -199,7 +202,7 @@ export function ParamsPanel({
               <NumField id={`${c.id}-s`} label={t("mebel.shelves")} value={c.shelves} error={errorFor(c.id, "shelves")}
                 disabled={(c.drawers ?? 0) > 0} onChange={(v) => setCabinet(c.id, { shelves: v })} />
               {(c.type ?? "base") === "base" && (
-                <Select id={`${c.id}-drawers`} label={t("mebel.drawers")} value={String(c.drawers ?? 0)}
+                <Select id={`${c.id}-drawers`} label={t("mebel.drawers")} value={String(c.drawers ?? 0)} error={errorFor(c.id, "drawers")}
                   options={["0", "1", "2", "3", "4"].map((v) => ({ value: v, label: v }))}
                   onChange={(v) => setCabinet(c.id, { drawers: Number(v) as 0 | 1 | 2 | 3 | 4 })} />
               )}

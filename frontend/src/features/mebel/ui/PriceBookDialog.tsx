@@ -73,6 +73,7 @@ export function PriceBookDialog({
             <h3 className="mt-3 text-xs font-semibold text-neutral-500">{t("mebel.pb.hardware")}</h3>
             {(["leg", "confirmat", "shelfPin", "nail", "hinge", "handle", "hanger"] as const).map((k) =>
               row(t(`mebel.bom.${k}`), draft.hardware[k], (v) => setDraft((d) => ({ ...d, hardware: { ...d.hardware, [k]: v } }))))}
+            {row(t("mebel.pb.slide"), draft.hardware.slide ?? null, (v) => setDraft((d) => ({ ...d, hardware: { ...d.hardware, slide: v } })))}
 
             <div className="mt-3">
               {row(t("mebel.pb.markup"), draft.markupPercent, (v) =>
