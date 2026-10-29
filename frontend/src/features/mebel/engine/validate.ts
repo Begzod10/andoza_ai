@@ -19,9 +19,13 @@ export function validateCabinets(
 ): { errors: Warning[] } {
   const errors: Warning[] = []
   if (p.cabinets.length > LIMITS.cabinets) errors.push({ code: 'too_many_cabinets', params: { max: LIMITS.cabinets } })
-  const s = p.defaults.sheet
-  if (!finite(s?.length, 100) || !finite(s?.width, 100)) errors.push({ code: 'sheet_size', params: { min: 100 } })
   const d0 = p.defaults
+  const s = d0.sheet
+  const trimOk = finite(d0.trim) && d0.trim <= 50
+  if (!finite(s?.length, 100) || !finite(s?.width, 100) || (trimOk && (s.length - 2 * d0.trim <= 0 || s.width - 2 * d0.trim <= 0))) {
+    errors.push({ code: 'sheet_size', params: { min: 100 } })
+  }
+  if (!trimOk || !finite(d0.kerf) || d0.kerf > 10) errors.push({ code: 'settings_invalid' })
   if (![d0.railDepth, d0.shelfSetback, d0.shelfGap, d0.backGap, d0.edgeAllowance, d0.edgeWaste, d0.sheetWaste].every(v => finite(v))) {
     errors.push({ code: 'settings_invalid' })
   }
@@ -47,18 +51,11 @@ export function validateCabinets(
 }
 
 /** Warnings about computed parts: the calculation still stands. */
-export function partWarnings(parts: Part[], sheetOf: (p: Part) => { length: number; width: number }): Warning[] {
+export function partWarnings(parts: Part[]): Warning[] {
   const warnings: Warning[] = []
   for (const p of parts) {
     if (p.role === 'shelf' && p.thickness === 16 && p.finished.length > 800) {
       warnings.push({ code: 'shelf_sag', cabinetId: p.cabinetId, params: { length: p.finished.length } })
-    }
-    const s = sheetOf(p)
-    const fits = p.cut.length <= s.length && p.cut.width <= s.width
-    // A grained part runs along the sheet's grain; only a plain one may be turned.
-    const fitsTurned = p.grain === 'none' && p.cut.length <= s.width && p.cut.width <= s.length
-    if (!fits && !fitsTurned) {
-      warnings.push({ code: 'part_exceeds_sheet', cabinetId: p.cabinetId, params: { length: p.cut.length, width: p.cut.width } })
     }
   }
   return warnings

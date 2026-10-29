@@ -35,7 +35,12 @@ export interface ConstructionDefaults {
   /** Band added to each banded edge: it overhangs both ends and is trimmed off. */
   edgeAllowance: number
   edgeWaste: number
+  /** Kept for projects saved before nesting; no longer used. */
   sheetWaste: number
+  /** Saw kerf between parts, mm. */
+  kerf: number
+  /** Factory edge cut off each side of a sheet, mm. */
+  trim: number
 }
 
 export interface CabinetSpec {
@@ -108,12 +113,28 @@ export interface EdgeTotal {
   metersWithWaste: number
 }
 
-export interface SheetEstimate {
+
+/** A part's place on a sheet, mm from the sheet's corner; `length` runs along the sheet's length. */
+export interface NestPlacement { partId: string; x: number; y: number; length: number; width: number; rotated: boolean }
+/** One saw cut, numbered in the order it is made. `along` runs with the sheet's length,
+ *  `across` with its width; `offset` is the fence setting: the distance from the edge of
+ *  the piece being cut to the cut. */
+export interface NestCut {
+  x1: number; y1: number; x2: number; y2: number; order: number
+  direction: 'along' | 'across'; offset: number
+}
+export interface NestRect { x: number; y: number; length: number; width: number }
+export interface NestedSheet { placements: NestPlacement[]; cuts: NestCut[]; offcuts: NestRect[]; utilization: number }
+/** The cutting layout of one board (material + materialId + thickness). */
+export interface NestResult {
   material: 'board' | 'back'
   materialId: string | null
   thickness: number
-  areaM2: number
-  sheets: number
+  sheet: { length: number; width: number }
+  sheets: NestedSheet[]
+  utilization: number
+  /** Parts that fit no sheet. */
+  unplaced: string[]
 }
 
 export interface BomLine {
@@ -146,7 +167,7 @@ export interface Result {
   parts: Part[]
   groups: CutGroup[]
   edgeTotals: EdgeTotal[]
-  sheets: SheetEstimate[]
+  nesting: NestResult[]
   bom: BomLine[]
   total: number | null
   hasUnpriced: boolean
@@ -171,6 +192,8 @@ export const DEFAULTS: ConstructionDefaults = {
   edgeAllowance: 50,
   edgeWaste: 0.1,
   sheetWaste: 0.15,
+  kerf: 4,
+  trim: 10,
 }
 
 export function newCabinet(label: string, x: number): CabinetSpec {

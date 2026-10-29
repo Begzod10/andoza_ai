@@ -1,5 +1,5 @@
 import { round01 } from './edges'
-import type { CutGroup, EdgeBandRef, EdgeSide, EdgeTotal, Part, SheetEstimate } from './model'
+import type { CutGroup, EdgeBandRef, EdgeSide, EdgeTotal, Part } from './model'
 
 const sideKey = (s: EdgeSide) => (s ? `${s.band}${s.thickness}` : '-')
 
@@ -62,22 +62,5 @@ export function edgeTotals(
       bandKey, band, thickness: ref.thickness, width: ref.width, materialId: ref.materialId,
       meters, metersWithWaste: Math.ceil(meters * (1 + d.edgeWaste)),
     }
-  })
-}
-
-/** Whole sheets of each board, from the cut area plus waste. An estimate until
- *  nesting lands (stage 4); the UI says so. */
-export function estimateSheets(groups: CutGroup[], sheet: { length: number; width: number }, waste: number): SheetEstimate[] {
-  const byBoard = new Map<string, SheetEstimate>()
-  for (const g of groups) {
-    const key = `${g.material}|${g.materialId ?? '-'}|${g.thickness}`
-    const s = byBoard.get(key) ?? { material: g.material, materialId: g.materialId, thickness: g.thickness, areaM2: 0, sheets: 0 }
-    s.areaM2 += (g.cut.length * g.cut.width * g.qty) / 1e6
-    byBoard.set(key, s)
-  }
-  const sheetM2 = (sheet.length * sheet.width) / 1e6
-  return [...byBoard.values()].map(s => {
-    const areaM2 = Math.round(s.areaM2 * 1000) / 1000
-    return { ...s, areaM2, sheets: Math.ceil((areaM2 * (1 + waste)) / sheetM2) }
   })
 }

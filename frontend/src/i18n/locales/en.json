@@ -2348,7 +2348,8 @@
       "parts": "Parts",
       "edges": "Edge banding",
       "bom": "Materials and price",
-      "warnings": "Warnings"
+      "warnings": "Warnings",
+      "nesting": "Cutting layout"
     },
     "show_cut": "Cut size",
     "show_finished": "Finished size",
@@ -2386,7 +2387,6 @@
       "board": "Board",
       "back": "HDF"
     },
-    "sheets_estimate": "≈ {{n}} sheets (estimate, exact after nesting)",
     "area": "{{m2}} m²",
     "bom": {
       "board": "Board {{t}} mm",
@@ -2446,6 +2446,23 @@
     "view3d": "3D view",
     "print_title": "Cut list: {{name}}",
     "mm": "mm",
-    "not_saved_invalid": "Not saved: fix the errors"
+    "not_saved_invalid": "Not saved: fix the errors",
+    "nest": {
+      "sheets_used": "{{n}} sheets, {{p}}% used",
+      "summary": "{{name}} {{t}} mm: {{n}} sheets, {{p}}% used",
+      "sheet_label": "Sheet {{i}} / {{n}} · {{p}}%",
+      "show_cuts": "Show the cut order",
+      "unplaced_title": "Parts that fit no sheet",
+      "unplaced_reason": "does not fit the sheet",
+      "offcut": "offcut {{l}}×{{w}}",
+      "empty": "No parts to lay out",
+      "parts_on_sheet": "Parts on the sheet",
+      "cut_order": "Cut order",
+      "cut_line": "{{n}}. {{dir}}, {{len}} mm, {{off}} mm from the piece edge",
+      "dir_along": "along",
+      "dir_across": "across"
+    },
+    "kerf": "Saw kerf, mm",
+    "trim": "Sheet edge trim, mm"
   }
 }

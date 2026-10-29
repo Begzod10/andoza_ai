@@ -2348,7 +2348,8 @@
       "parts": "Detallar",
       "edges": "Kromka",
       "bom": "Materiallar va narx",
-      "warnings": "Ogohlantirishlar"
+      "warnings": "Ogohlantirishlar",
+      "nesting": "Raskroy"
     },
     "show_cut": "Kesish o'lchami",
     "show_finished": "Yakuniy o'lcham",
@@ -2386,7 +2387,6 @@
       "board": "LDSP",
       "back": "HDF"
     },
-    "sheets_estimate": "≈ {{n}} list (taxminiy, raskroydan keyin aniqlanadi)",
     "area": "{{m2}} m²",
     "bom": {
       "board": "LDSP {{t}} mm",
@@ -2446,6 +2446,23 @@
     "view3d": "3D ko'rinish",
     "print_title": "Cut list: {{name}}",
     "mm": "mm",
-    "not_saved_invalid": "Saqlanmadi: xatolarni tuzating"
+    "not_saved_invalid": "Saqlanmadi: xatolarni tuzating",
+    "nest": {
+      "sheets_used": "{{n}} list, foydalanish {{p}}%",
+      "summary": "{{name}} {{t}} mm: {{n}} list, foydalanish {{p}}%",
+      "sheet_label": "List {{i}} / {{n}} · {{p}}%",
+      "show_cuts": "Kesish tartibini ko'rsatish",
+      "unplaced_title": "Listga sig'magan detallar",
+      "unplaced_reason": "listga sig'maydi",
+      "offcut": "qoldiq {{l}}×{{w}}",
+      "empty": "Raskroy uchun detal yo'q",
+      "parts_on_sheet": "Listdagi detallar",
+      "cut_order": "Kesish tartibi",
+      "cut_line": "{{n}}. {{dir}}, {{len}} mm, bo'lak qirrasidan {{off}} mm",
+      "dir_along": "bo'ylama",
+      "dir_across": "ko'ndalang"
+    },
+    "kerf": "Arra kesimi, mm",
+    "trim": "Chekka qoldiq, mm"
   }
 }

@@ -1,26 +1,26 @@
 import { useTranslation } from "react-i18next";
-import type { BomLine, SheetEstimate } from "@/features/mebel/engine";
-import { bomLabel, formatMm, formatMoney } from "./format";
+import type { BomLine, NestResult } from "@/features/mebel/engine";
+import { bomLabel, formatMoney } from "./format";
 
 /** Materials, hardware and services with their price; a line nobody priced
  *  says "unpriced" and stays out of the total. */
 export function BomPanel({
-  bom, total, hasUnpriced, sheets, materialName,
+  bom, total, hasUnpriced, nesting, materialName,
 }: {
   bom: BomLine[]
   total: number | null
   hasUnpriced: boolean
-  sheets: SheetEstimate[]
+  nesting: NestResult[]
   materialName(id: string | null): string | null
 }) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-wrap gap-2 text-xs text-neutral-600">
-        {sheets.map((s) => (
-          <li key={`${s.material}|${s.materialId}|${s.thickness}`} className="rounded-full bg-neutral-100 px-3 py-1">
-            {t(`mebel.material.${s.material}`)} {s.thickness} {t("mebel.mm")}: {t("mebel.area", { m2: formatMm(Math.round(s.areaM2 * 10) / 10) })},{" "}
-            {t("mebel.sheets_estimate", { n: s.sheets })}
+        {nesting.map((n) => (
+          <li key={`${n.material}|${n.materialId}|${n.thickness}`} className="rounded-full bg-neutral-100 px-3 py-1">
+            {materialName(n.materialId) ?? t(`mebel.material.${n.material}`)} {n.thickness} {t("mebel.mm")}:{" "}
+            {t("mebel.nest.sheets_used", { n: n.sheets.length, p: Math.round(n.utilization * 100) })}
           </li>
         ))}
       </ul>

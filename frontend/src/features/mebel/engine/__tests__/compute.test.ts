@@ -75,7 +75,7 @@ describe('computeProject', () => {
     p.cabinets.push({ ...p.cabinets[0], id: 'c2', label: 'M2', position: { x: 600, z: 0 }, overrides: { board: { materialId: null, thickness: 16 } } })
     const r = computeProject(p, EMPTY_PRICE_BOOK, {})
     expect(new Set(r.groups.filter(g => g.material === 'board').map(g => g.thickness))).toEqual(new Set([18, 16]))
-    expect(r.sheets.filter(s => s.material === 'board')).toHaveLength(2)
+    expect(r.nesting.filter(s => s.material === 'board')).toHaveLength(2)
   })
 })
 
@@ -144,5 +144,53 @@ describe('review fixes', () => {
   it('a grooved back is not nailed', () => {
     const cab = { width: 600, height: 720, shelves: 0 } as CabinetSpec
     expect(hardwareCounts(cab, { ...DEFAULTS, back: { ...DEFAULTS.back, kind: 'hdf_groove' } }).nail).toBe(0)
+  })
+})
+
+describe('nesting in the result', () => {
+  it('BOM sheet count comes from the nesting', () => {
+    const p = newProject('x')
+    p.cabinets = [0, 1, 2, 3].map(i => ({ ...p.cabinets[0], id: `c${i}`, label: `M${i + 1}`, position: { x: i * 600, z: 0 } }))
+    const r = computeProject(p, EMPTY_PRICE_BOOK, {})
+    const board = r.nesting.find(n => n.material === 'board')!
+    expect(board.sheets).toHaveLength(2)
+    expect(r.bom.find(b => b.kind === 'board')).toMatchObject({ qty: 2, unit: 'sheet' })
+    expect(r.bom.find(b => b.label === 'cut')!.qty).toBe(r.nesting.reduce((n, x) => n + x.sheets.length, 0))
+  })
+
+  it('an old project without kerf/trim uses the defaults', () => {
+    const p = newProject('x')
+    delete (p.defaults as Partial<typeof p.defaults>).kerf
+    delete (p.defaults as Partial<typeof p.defaults>).trim
+    const r = computeProject(p, EMPTY_PRICE_BOOK, {})
+    expect(r.errors).toEqual([])
+    expect(r.nesting.length).toBeGreaterThan(0)
+  })
+
+  it.each([['kerf', 11], ['trim', -1], ['kerf', Number.NaN]] as const)('%s = %s is settings_invalid', (k, v) => {
+    const p = newProject('x')
+    ;(p.defaults as Record<string, number>)[k] = v
+    expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).errors)).toContain('settings_invalid')
+  })
+
+  it('a working area of zero is sheet_size', () => {
+    const p = newProject('x')
+    p.defaults.sheet = { length: 100, width: 2070 }
+    p.defaults.trim = 50
+    expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).errors)).toContain('sheet_size')
+  })
+
+  it('when nothing fits, the board line is 0 sheets and the parts are unplaced', () => {
+    const p = newProject('x')
+    // working area 480 × 380: every part of the sample cabinet is longer
+    p.defaults.sheet = { length: 500, width: 400 }
+    const r = computeProject(p, EMPTY_PRICE_BOOK, {})
+    expect(r.parts.length).toBeGreaterThan(0)
+    const board = r.nesting.find(n => n.material === 'board')!
+    expect(board.sheets).toEqual([])
+    expect(board.unplaced.length).toBeGreaterThan(0)
+    expect(r.bom.find(b => b.kind === 'board')).toMatchObject({ qty: 0 })
+    // one warning per part that fits no sheet, board and back alike
+    expect(codes(r.warnings).filter(c => c === 'part_exceeds_sheet').length).toBe(r.nesting.reduce((n, x) => n + x.unplaced.length, 0))
   })
 })

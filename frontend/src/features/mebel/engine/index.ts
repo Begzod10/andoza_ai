@@ -1,24 +1,33 @@
 import { buildBom, hardwareCounts, type CatalogPrices, type HardwareCounts } from './bom'
-import { edgeTotals, estimateSheets, groupParts } from './cutlist'
+import { edgeTotals, groupParts } from './cutlist'
+import { nestSheets } from './nest'
 import { baseCabinetParts, resolveDefaults } from './rules/baseCabinet'
 import { partWarnings, validateCabinets } from './validate'
-import type { ConstructionDefaults, FurnitureProject, PriceBook, Result } from './model'
+import { DEFAULTS } from './model'
+import type { ConstructionDefaults, FurnitureProject, PriceBook, Result, Warning } from './model'
 
 export * from './model'
 export { buildBom, EMPTY_PRICE_BOOK, hardwareCounts, type CatalogPrices } from './bom'
 export { cutSize, round01 } from './edges'
-export { edgeTotals, estimateSheets, groupParts } from './cutlist'
+export { edgeTotals, groupParts } from './cutlist'
+export { nestSheets } from './nest'
 export { baseCabinetParts, resolveDefaults } from './rules/baseCabinet'
 export { LIMITS, partWarnings } from './validate'
 
+/** A project saved before a setting existed gets that setting's default. */
+function withDefaults(p: FurnitureProject): FurnitureProject {
+  return { ...p, defaults: { ...DEFAULTS, ...p.defaults } }
+}
+
 /** The project's errors, each cabinet checked with its own overrides. */
-export function validateProject(p: FurnitureProject) {
+export function validateProject(project: FurnitureProject) {
+  const p = withDefaults(project)
   const byId = new Map(p.cabinets.map(c => [c.id, resolveDefaults(p, c)]))
   return validateCabinets(p, id => byId.get(id) ?? p.defaults)
 }
 
 const EMPTY: Omit<Result, 'errors'> = {
-  parts: [], groups: [], edgeTotals: [], sheets: [], bom: [], total: null, hasUnpriced: false, warnings: [],
+  parts: [], groups: [], edgeTotals: [], nesting: [], bom: [], total: null, hasUnpriced: false, warnings: [],
 }
 
 /**
@@ -26,7 +35,8 @@ const EMPTY: Omit<Result, 'errors'> = {
  * placement, the grouped cut list, band metres, the sheet estimate and the
  * priced BOM. Pure: no I/O, the same input always gives the same result.
  */
-export function computeProject(p: FurnitureProject, prices: PriceBook, catalog: CatalogPrices): Result {
+export function computeProject(project: FurnitureProject, prices: PriceBook, catalog: CatalogPrices): Result {
+  const p = withDefaults(project)
   const byId = new Map<string, ConstructionDefaults>(p.cabinets.map(c => [c.id, resolveDefaults(p, c)]))
   const settings = (id: string) => byId.get(id) ?? p.defaults
   const { errors } = validateCabinets(p, settings)
@@ -39,14 +49,21 @@ export function computeProject(p: FurnitureProject, prices: PriceBook, catalog: 
     (part, side) => (side.band === 'visible' ? settings(part.cabinetId).edge.visible : settings(part.cabinetId).edge.hidden),
     p.defaults,
   )
-  const sheets = estimateSheets(groups, p.defaults.sheet, p.defaults.sheetWaste)
+  const nesting = nestSheets(groups, p.defaults.sheet, { kerf: p.defaults.kerf, trim: p.defaults.trim })
   const hardware = p.cabinets.reduce<HardwareCounts>((sum, c) => {
     const h = hardwareCounts(c, settings(c.id))
     return { leg: sum.leg + h.leg, confirmat: sum.confirmat + h.confirmat, shelfPin: sum.shelfPin + h.shelfPin, nail: sum.nail + h.nail }
   }, { leg: 0, confirmat: 0, shelfPin: 0, nail: 0 })
-  const bom = buildBom({ sheets, edges, hardware, prices, catalog })
+  const bom = buildBom({ nesting, edges, hardware, prices, catalog })
 
-  const warnings = partWarnings(parts, part => settings(part.cabinetId).sheet)
+  const warnings: Warning[] = partWarnings(parts)
+  const byPart = new Map(parts.map((x) => [x.id, x]))
+  for (const n of nesting) {
+    for (const id of n.unplaced) {
+      const part = byPart.get(id)!
+      warnings.push({ code: 'part_exceeds_sheet', cabinetId: part.cabinetId, params: { length: part.cut.length, width: part.cut.width } })
+    }
+  }
   if (bom.hasUnpriced) warnings.push({ code: 'unpriced' })
-  return { parts, groups, edgeTotals: edges, sheets, bom: bom.lines, total: bom.total, hasUnpriced: bom.hasUnpriced, warnings, errors: [] }
+  return { parts, groups, edgeTotals: edges, nesting, bom: bom.lines, total: bom.total, hasUnpriced: bom.hasUnpriced, warnings, errors: [] }
 }
