@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { NestedSheet, NestResult } from "@/features/mebel/engine";
 
-const FILL = { board: "#e8d5b5", back: "#f2efe9", selected: "#93c5fd" } as const;
+const FILL = { board: "#e8d5b5", back: "#f2efe9", facade: "#d6c4a8", selected: "#93c5fd" } as const;
 
 /**
  * One sheet of the cutting layout, drawn to scale in mm: the sheet, its trim,

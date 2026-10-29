@@ -2381,11 +2381,14 @@
       "rail_front": "Old planka",
       "rail_back": "Orqa planka",
       "shelf": "Polka",
-      "back": "Orqa devor"
+      "back": "Orqa devor",
+      "top": "Tepa panel",
+      "door": "Fasad"
     },
     "material": {
       "board": "LDSP",
-      "back": "HDF"
+      "back": "HDF",
+      "facade": "Fasad LDSP"
     },
     "area": "{{m2}} m²",
     "bom": {

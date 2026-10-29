@@ -1,7 +1,8 @@
 import { buildBom, hardwareCounts, type CatalogPrices, type HardwareCounts } from './bom'
 import { edgeTotals, groupParts } from './cutlist'
 import { nestSheets } from './nest'
-import { baseCabinetParts, resolveDefaults } from './rules/baseCabinet'
+import { resolveDefaults } from './rules/baseCabinet'
+import { cabinetParts } from './rules'
 import { partWarnings, validateCabinets } from './validate'
 import { DEFAULTS } from './model'
 import type { ConstructionDefaults, FurnitureProject, PriceBook, Result, Warning } from './model'
@@ -12,11 +13,16 @@ export { cutSize, round01 } from './edges'
 export { edgeTotals, groupParts } from './cutlist'
 export { nestSheets } from './nest'
 export { baseCabinetParts, resolveDefaults } from './rules/baseCabinet'
-export { LIMITS, partWarnings } from './validate'
+export { LIMITS, LIMITS_BY_TYPE, partWarnings } from './validate'
+export { cabinetParts } from './rules'
 
 /** A project saved before a setting existed gets that setting's default. */
 function withDefaults(p: FurnitureProject): FurnitureProject {
-  return { ...p, defaults: { ...DEFAULTS, ...p.defaults } }
+  return {
+    ...p,
+    defaults: { ...DEFAULTS, ...p.defaults },
+    cabinets: p.cabinets.map((c) => (c.type ? c : { ...c, type: 'base' })),
+  }
 }
 
 /** The project's errors, each cabinet checked with its own overrides. */
@@ -42,7 +48,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   const { errors } = validateCabinets(p, settings)
   if (errors.length > 0) return { ...EMPTY, errors }
 
-  const parts = p.cabinets.flatMap(c => baseCabinetParts(c, settings(c.id)))
+  const parts = p.cabinets.flatMap(c => cabinetParts(c, settings(c.id)))
   const groups = groupParts(parts)
   const edges = edgeTotals(
     parts,

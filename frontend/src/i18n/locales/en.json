@@ -2381,11 +2381,14 @@
       "rail_front": "Front rail",
       "rail_back": "Back rail",
       "shelf": "Shelf",
-      "back": "Back panel"
+      "back": "Back panel",
+      "top": "Top panel",
+      "door": "Door"
     },
     "material": {
       "board": "Board",
-      "back": "HDF"
+      "back": "HDF",
+      "facade": "Door board"
     },
     "area": "{{m2}} m²",
     "bom": {

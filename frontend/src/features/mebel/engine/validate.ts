@@ -8,6 +8,13 @@ export const LIMITS = {
   cabinets: 30,
 } as const
 
+/** Size and shelf limits per cabinet type. */
+export const LIMITS_BY_TYPE = {
+  base: { width: [150, 1200], height: [300, 1000], depth: [250, 700], shelves: [0, 4] },
+  wall: { width: [150, 1200], height: [300, 1000], depth: [200, 400], shelves: [0, 4] },
+  tall: { width: [150, 1200], height: [1200, 2400], depth: [300, 650], shelves: [0, 8] },
+} as const
+
 const outside = (v: number, [lo, hi]: readonly [number, number]) => !(v >= lo && v <= hi)
 const finite = (v: unknown, min = 0) => typeof v === 'number' && Number.isFinite(v) && v >= min
 
@@ -32,12 +39,15 @@ export function validateCabinets(
   for (const c of p.cabinets) {
     const d = resolve(c.id)
     const t = d.board.thickness
-    if (outside(c.width, LIMITS.width)) errors.push({ code: 'width_range', cabinetId: c.id, params: { min: 150, max: 1200 } })
-    if (outside(c.height, LIMITS.height)) errors.push({ code: 'height_range', cabinetId: c.id, params: { min: 300, max: 1000 } })
-    if (outside(c.depth, LIMITS.depth)) errors.push({ code: 'depth_range', cabinetId: c.id, params: { min: 250, max: 700 } })
-    if (!Number.isInteger(c.shelves) || outside(c.shelves, LIMITS.shelves)) {
-      errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: 0, max: 4 } })
+    const lim = LIMITS_BY_TYPE[c.type ?? 'base'] ?? LIMITS_BY_TYPE.base
+    const range = (code: string, v: number, [min, max]: readonly [number, number]) => {
+      if (outside(v, [min, max])) errors.push({ code, cabinetId: c.id, params: { min, max } })
     }
+    range('width_range', c.width, lim.width)
+    range('height_range', c.height, lim.height)
+    range('depth_range', c.depth, lim.depth)
+    if (!Number.isInteger(c.shelves)) errors.push({ code: 'shelves_range', cabinetId: c.id, params: { min: lim.shelves[0], max: lim.shelves[1] } })
+    else range('shelves_range', c.shelves, lim.shelves)
     // the server stores whole millimetres
     if ([c.width, c.height, c.depth].some(v => Number.isFinite(v) && !Number.isInteger(v))) {
       errors.push({ code: 'whole_mm', cabinetId: c.id })
