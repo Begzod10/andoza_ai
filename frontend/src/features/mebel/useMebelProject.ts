@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { getMaterials, getMebelProject, getPriceBook, saveMebelProject } from "@/lib/api";
+import { getCatalogMaterials, getMebelProject, getPriceBook, saveMebelProject } from "@/lib/api";
 import { computeProject, EMPTY_PRICE_BOOK } from "@/features/mebel/engine";
 import type { CatalogPrices, FurnitureProject, Result } from "@/features/mebel/engine";
 import type { CatalogOptions } from "./ui/ParamsPanel";
@@ -23,8 +23,8 @@ export function useMebelProject(id: string) {
   const priceBookQuery = useQuery({ queryKey: ["mebel", "price-book"], queryFn: getPriceBook });
   const catalogQueries = useQueries({
     queries: CATALOG_CATEGORIES.map((category) => ({
-      queryKey: ["materials", { category, per_page: 100 }],
-      queryFn: () => getMaterials({ category, per_page: 100 }),
+      queryKey: ["mebel", "catalog", category],
+      queryFn: () => getCatalogMaterials(category),
       staleTime: 10 * 60_000,
     })),
   });
@@ -35,6 +35,7 @@ export function useMebelProject(id: string) {
   const dirty = useRef(false);
   // The edit waiting for its save, so leaving the page can save it at once.
   const pending = useRef<FurnitureProject | null>(null);
+  const saveSeq = useRef(0);
 
   // The saved project seeds the editor once; later refetches do not overwrite an edit.
   useEffect(() => {
@@ -74,9 +75,11 @@ export function useMebelProject(id: string) {
     if (!p) return;
     pending.current = null;
     dirty.current = false;
+    // Only the latest save may report: an earlier one landing late says nothing.
+    const seq = ++saveSeq.current;
     saveMebelProject(id, p.name.trim() || "—", p)
-      .then(() => { if (!pending.current) setSaveState("saved"); })
-      .catch(() => setSaveState("error"));
+      .then(() => { if (seq === saveSeq.current && !pending.current) setSaveState("saved"); })
+      .catch(() => { if (seq === saveSeq.current) setSaveState("error"); });
   };
 
   useEffect(() => {

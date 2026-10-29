@@ -84,7 +84,9 @@ export interface Part {
 
 export interface CutGroup {
   key: string
+  /** The first part's role; `roles` lists every role cut on this line. */
   role: PartRole
+  roles: PartRole[]
   material: 'board' | 'back'
   materialId: string | null
   thickness: number

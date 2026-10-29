@@ -7,7 +7,8 @@ import uuid as uuid_module
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.models.furniture_project import FurnitureProject
@@ -83,10 +84,9 @@ async def get_price_book(current_user: CurrentUser, db: DbSession) -> dict:
 @router.put("/price-book", response_model=dict, summary="Replace the caller's price book")
 async def put_price_book(body: PriceBookIn, current_user: CurrentUser, db: DbSession) -> dict:
     data = body.data.model_dump(mode="json")
-    row = (await db.execute(select(PriceBook).where(PriceBook.user_id == current_user.id))).scalar_one_or_none()
-    if row is None:
-        db.add(PriceBook(user_id=current_user.id, data=data))
-    else:
-        row.data = data
-    await db.flush()
+    # One statement, so two first saves at once cannot both try to insert.
+    stmt = pg_insert(PriceBook).values(user_id=current_user.id, data=data)
+    await db.execute(stmt.on_conflict_do_update(
+        index_elements=[PriceBook.user_id], set_={"data": stmt.excluded.data, "updated_at": func.now()},
+    ))
     return data

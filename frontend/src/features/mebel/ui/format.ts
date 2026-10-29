@@ -22,6 +22,11 @@ export function partName(role: Part["role"]): string {
   return i18n.t(`mebel.part.${role}`);
 }
 
+/** A cut-list line's name: every part it holds ("Old planka, Orqa planka"). */
+export function groupName(g: { roles: Part["role"][] }): string {
+  return g.roles.map(partName).join(", ");
+}
+
 /** A BOM line's label in the interface language (the engine keeps keys). */
 export function bomLabel(line: BomLine, materialName: (id: string | null) => string | null): string {
   const named = materialName(line.materialId);
