@@ -289,3 +289,15 @@ describe('MebelProjectPage old saved project', () => {
     expect(await screen.findByLabelText(t('mebel.doors'))).toHaveValue('auto')
   })
 })
+
+describe('MebelProjectPage drawers', () => {
+  it('three drawers: drawer parts, no door, shelves off', async () => {
+    mount()
+    fireEvent.change(await screen.findByLabelText(t('mebel.drawers')), { target: { value: '3' } })
+    expect(rowOf(t('mebel.part.drawer_side'))).toBeDefined()
+    // no row is named "door" (the drawer fronts' material column also says "Fasad")
+    expect(within(partsTable()).queryByRole('cell', { name: t('mebel.part.door') })).toBeNull()
+    expect(screen.getByLabelText(t('mebel.shelves'))).toBeDisabled()
+    expect(screen.getByLabelText(t('mebel.doors'))).toBeDisabled()
+  })
+})

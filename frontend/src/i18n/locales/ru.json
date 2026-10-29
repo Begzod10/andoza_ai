@@ -2570,6 +2570,7 @@
     "facade_gap": "Зазор, мм",
     "facade_order": "Заказ МДФ фасадов",
     "facade_total": "Итого: {{m2}} м²",
-    "export_facade_csv": "Заказ фасадов (CSV)"
+    "export_facade_csv": "Заказ фасадов (CSV)",
+    "drawers": "Ящики"
   }
 }

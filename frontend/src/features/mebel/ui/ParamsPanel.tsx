@@ -13,14 +13,15 @@ type Update = (fn: (p: FurnitureProject) => FurnitureProject) => void
 export const ERROR_FIELD: Record<string, keyof CabinetSpec> = {
   width_range: "width", inner_width: "width", height_range: "height",
   depth_range: "depth", shelf_depth: "depth", shelves_range: "shelves",
+  drawers_range: "drawers", drawers_type: "drawers", drawer_low: "drawers", drawer_shallow: "drawers",
 };
 
 const field = "w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none";
 const invalidField = "border-red-400 bg-red-50";
 
 function NumField({
-  id, label, value, onChange, error,
-}: { id: string; label: string; value: number; onChange(v: number): void; error?: string }) {
+  id, label, value, onChange, error, disabled,
+}: { id: string; label: string; value: number; onChange(v: number): void; error?: string; disabled?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-xs text-neutral-500">{label}</label>
@@ -30,6 +31,7 @@ function NumField({
         inputMode="numeric"
         value={Number.isFinite(value) ? value : ""}
         aria-invalid={error ? true : undefined}
+        disabled={disabled}
         aria-describedby={error ? `${id}-err` : undefined}
         onChange={(e) => onChange(e.target.value === "" ? Number.NaN : Number(e.target.value))}
         className={`${field} ${error ? invalidField : ""}`}
@@ -40,14 +42,15 @@ function NumField({
 }
 
 function Select<T extends string | number>({
-  id, label, value, options, onChange,
-}: { id: string; label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void }) {
+  id, label, value, options, onChange, disabled,
+}: { id: string; label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void; disabled?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-xs text-neutral-500">{label}</label>
       <select
         id={id}
         value={String(value)}
+        disabled={disabled}
         onChange={(e) => onChange(options.find((o) => String(o.value) === e.target.value)!.value)}
         className={field}
       >
@@ -194,8 +197,14 @@ export function ParamsPanel({
               <NumField id={`${c.id}-d`} label={t("mebel.depth")} value={c.depth} error={errorFor(c.id, "depth")}
                 onChange={(v) => setCabinet(c.id, { depth: v })} />
               <NumField id={`${c.id}-s`} label={t("mebel.shelves")} value={c.shelves} error={errorFor(c.id, "shelves")}
-                onChange={(v) => setCabinet(c.id, { shelves: v })} />
-              <Select id={`${c.id}-doors`} label={t("mebel.doors")} value={c.doors == null ? "auto" : String(c.doors)}
+                disabled={(c.drawers ?? 0) > 0} onChange={(v) => setCabinet(c.id, { shelves: v })} />
+              {(c.type ?? "base") === "base" && (
+                <Select id={`${c.id}-drawers`} label={t("mebel.drawers")} value={String(c.drawers ?? 0)}
+                  options={["0", "1", "2", "3", "4"].map((v) => ({ value: v, label: v }))}
+                  onChange={(v) => setCabinet(c.id, { drawers: Number(v) as 0 | 1 | 2 | 3 | 4 })} />
+              )}
+              <Select id={`${c.id}-doors`} label={t("mebel.doors")} disabled={(c.drawers ?? 0) > 0}
+                value={c.doors == null ? "auto" : String(c.doors)}
                 options={["auto", "0", "1", "2"].map((v) => ({ value: v, label: v === "auto" ? t("mebel.doors_auto") : v }))}
                 onChange={(v) => setCabinet(c.id, { doors: v === "auto" ? undefined : (Number(v) as 0 | 1 | 2) })} />
             </div>

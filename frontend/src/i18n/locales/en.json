@@ -2506,6 +2506,7 @@
     "facade_gap": "Gap, mm",
     "facade_order": "MDF door order",
     "facade_total": "Total: {{m2}} m²",
-    "export_facade_csv": "Door order (CSV)"
+    "export_facade_csv": "Door order (CSV)",
+    "drawers": "Drawers"
   }
 }

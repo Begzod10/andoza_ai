@@ -36,9 +36,12 @@ class CabinetIn(BaseModel):
     depth: int
     shelves: int
     doors: int | None = Field(default=None, ge=0, le=2)
+    drawers: int | None = Field(default=None, ge=0, le=4)
 
     @model_validator(mode="after")
     def _fits_its_type(self) -> "CabinetIn":
+        if self.drawers and self.type != "base":
+            raise ValueError("only a base cabinet has drawers")
         for field, (lo, hi) in LIMITS_BY_TYPE[self.type].items():
             value = getattr(self, field)
             if not lo <= value <= hi:

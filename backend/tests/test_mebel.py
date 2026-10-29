@@ -274,3 +274,19 @@ def test_auto_doors_are_not_stored_as_null(client):
     stored = db.add.call_args.args[0].data
     assert "doors" not in stored["cabinets"][0]
     assert stored["cabinets"][0]["type"] == "base"
+
+
+def test_drawers_limits(client):
+    _as(_user(), _db())
+    post = lambda data: client.post("/api/v1/mebel/projects", json={"name": "x", "data": data}).status_code
+    assert post(_data(drawers=3)) == 201
+    assert post(_data(drawers=5)) == 422
+    assert post(_typed("wall", 600, 720, 300, drawers=1)) == 422
+
+
+def test_no_drawers_is_not_stored_as_null(client):
+    user = _user()
+    db = _db()
+    _as(user, db)
+    client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data()})
+    assert "drawers" not in db.add.call_args.args[0].data["cabinets"][0]
