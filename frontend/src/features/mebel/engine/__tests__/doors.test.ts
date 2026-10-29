@@ -68,8 +68,8 @@ describe('doors', () => {
     expect(r.hasUnpriced).toBe(true)
   })
 
-  it('MDF doors are priced by the square metre', () => {
-    const r = computeProject(project({ width: 800 }, MDF), EMPTY_PRICE_BOOK, { mdf1: { name: 'MDF', price: 500000 } })
+  it('MDF doors are priced by the square metre from the price book', () => {
+    const r = computeProject(project({ width: 800 }, MDF), { ...EMPTY_PRICE_BOOK, materials: { mdf1: 500000 } }, {})
     expect(r.facadeOrder).toEqual([{ id: 'M1-F1', cabinetId: 'c1', length: 718, width: 398, qty: 2, materialId: 'mdf1' }])
     expect(r.bom.find(b => b.kind === 'facade')).toMatchObject({ qty: 0.572, total: 286000 })
   })
@@ -99,5 +99,16 @@ describe('doors', () => {
   it('doors 3 is doors_range; facade gap 6 is settings_invalid', () => {
     expect(codes(validateProject(project({ doors: 3 as 2 })).errors)).toContain('doors_range')
     expect(codes(validateProject(project({}, { ...LDSP, gap: 6 })).errors)).toContain('settings_invalid')
+  })
+  it('a catalogue MDF price is per sheet, so it never prices a door per m²', () => {
+    const r = computeProject(project({}, MDF), EMPTY_PRICE_BOOK, { mdf1: { name: 'МДФ ЛАМ 16x2070x2800', price: 738100 } })
+    expect(r.bom.find(b => b.kind === 'facade')).toMatchObject({ unit: 'm2', unitPrice: null, total: null })
+  })
+
+  it('doors saved as null (auto) are auto, not an error', () => {
+    const p = project({ doors: null as unknown as undefined, width: 800 })
+    const r = computeProject(p, EMPTY_PRICE_BOOK, {})
+    expect(r.errors).toEqual([])
+    expect(r.parts.filter(x => x.role === 'door')).toHaveLength(2)
   })
 })

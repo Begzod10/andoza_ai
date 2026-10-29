@@ -18,8 +18,9 @@ export { baseCabinetParts, resolveDefaults } from './rules/baseCabinet'
 export { LIMITS, LIMITS_BY_TYPE, partWarnings } from './validate'
 export { cabinetParts } from './rules'
 
-/** A project saved before a setting existed gets that setting's default. */
-function withDefaults(p: FurnitureProject): FurnitureProject {
+/** A project saved before a setting existed gets that setting's default; a cabinet
+ *  saved before types existed is a base cabinet. */
+export function normalizeProject(p: FurnitureProject): FurnitureProject {
   return {
     ...p,
     defaults: { ...DEFAULTS, ...p.defaults },
@@ -29,7 +30,7 @@ function withDefaults(p: FurnitureProject): FurnitureProject {
 
 /** The project's errors, each cabinet checked with its own overrides. */
 export function validateProject(project: FurnitureProject) {
-  const p = withDefaults(project)
+  const p = normalizeProject(project)
   const byId = new Map(p.cabinets.map(c => [c.id, resolveDefaults(p, c)]))
   return validateCabinets(p, id => byId.get(id) ?? p.defaults)
 }
@@ -44,7 +45,7 @@ const EMPTY: Omit<Result, 'errors'> = {
  * priced BOM. Pure: no I/O, the same input always gives the same result.
  */
 export function computeProject(project: FurnitureProject, prices: PriceBook, catalog: CatalogPrices): Result {
-  const p = withDefaults(project)
+  const p = normalizeProject(project)
   const byId = new Map<string, ConstructionDefaults>(p.cabinets.map(c => [c.id, resolveDefaults(p, c)]))
   const settings = (id: string) => byId.get(id) ?? p.defaults
   const { errors } = validateCabinets(p, settings)

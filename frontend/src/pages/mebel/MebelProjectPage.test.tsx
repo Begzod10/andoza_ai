@@ -263,3 +263,29 @@ describe('MebelProjectPage cabinet types and doors', () => {
     expect(screen.getByText(t('mebel.error.height_range', { min: 1200, max: 2400 }))).toBeInTheDocument()
   })
 })
+
+describe('MebelProjectPage old saved project', () => {
+  it('a project saved before doors and types opens, with no doors', async () => {
+    const old = newProject('Eski')
+    old.cabinets[0].id = 'c1'
+    delete (old.defaults as Partial<typeof old.defaults>).facade
+    delete (old.cabinets[0] as Partial<typeof old.cabinets[0]>).type
+    vi.mocked(api.getMebelProject).mockResolvedValue({ id: 'p1', name: 'Eski', data: old })
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect(screen.getByLabelText(t('mebel.facade_kind'))).toHaveValue('none')
+    expect(rowOf(t('mebel.part.door'))).toBeUndefined()
+    fireEvent.change(screen.getByLabelText(t('mebel.facade_kind')), { target: { value: 'ldsp' } })
+    expect(rowOf(t('mebel.part.door'))).toBeDefined()
+    expect(screen.getByRole('status')).not.toHaveTextContent(t('mebel.not_saved_invalid'))
+  })
+
+  it('doors saved as null show as auto', async () => {
+    const p = newProject('x')
+    p.cabinets[0].id = 'c1'
+    ;(p.cabinets[0] as { doors: unknown }).doors = null
+    vi.mocked(api.getMebelProject).mockResolvedValue({ id: 'p1', name: 'x', data: p })
+    mount()
+    expect(await screen.findByLabelText(t('mebel.doors'))).toHaveValue('auto')
+  })
+})

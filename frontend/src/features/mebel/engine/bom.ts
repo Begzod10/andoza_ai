@@ -68,7 +68,10 @@ export function buildBom(input: {
   const mdf = new Map<string | null, number>()
   for (const f of facadeOrder) mdf.set(f.materialId, (mdf.get(f.materialId) ?? 0) + f.length * f.width * f.qty)
   for (const [id, mm2] of mdf) {
-    lines.push(line('facade', 'facade_mdf', id, Math.round(mm2 / 1000) / 1000, 'm2', priceOf(id)))
+    // A catalogue MDF item is a whole sheet, priced per sheet: a finished door's price
+    // per m² comes only from the workshop's price book.
+    const perM2 = id == null ? null : prices.materials[id] ?? null
+    lines.push(line('facade', 'facade_mdf', id, Math.round(mm2 / 1000) / 1000, 'm2', perM2))
   }
   for (const e of edges) {
     lines.push(line('edge', `edge_${e.thickness}x${e.width}`, e.materialId, e.metersWithWaste, 'm', priceOf(e.materialId)))

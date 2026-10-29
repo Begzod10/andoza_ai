@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { TKey } from "@/i18n";
 import { newCabinet } from "@/features/mebel/engine";
+import { nextX } from "./layout";
 import type { CabinetSpec, ConstructionDefaults, EdgeBandRef, FurnitureProject, Warning } from "@/features/mebel/engine";
 
 export interface CatalogOption { id: string; name: string }
@@ -86,14 +87,10 @@ export function ParamsPanel({
 
   // A new cabinet stands to the right of the row; labels keep counting up.
   const nextLabel = () => `M${Math.max(0, ...project.cabinets.map((c) => Number(c.label.replace(/\D/g, "")) || 0)) + 1}`;
-  // Wall cabinets make their own row above the floor row (base and tall).
-  const rowEnd = (wall: boolean) => Math.max(0, ...project.cabinets
-    .filter((c) => (c.type === 'wall') === wall)
-    .map((c) => c.position.x + (Number.isFinite(c.width) ? c.width : 0)));
   const addCabinet = (type: CabinetSpec['type']) =>
-    update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), rowEnd(type === 'wall'), type)] }));
+    update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), nextX(p.cabinets, type), type)] }));
   const duplicate = (c: CabinetSpec) =>
-    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: rowEnd(c.type === 'wall'), z: 0 } }] }));
+    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: nextX(project.cabinets, c.type), z: 0 } }] }));
   const remove = (id: string) => update((p) => ({ ...p, cabinets: p.cabinets.filter((c) => c.id !== id) }));
 
   const errorFor = (cabId: string, key: keyof CabinetSpec) => {
@@ -198,7 +195,7 @@ export function ParamsPanel({
                 onChange={(v) => setCabinet(c.id, { depth: v })} />
               <NumField id={`${c.id}-s`} label={t("mebel.shelves")} value={c.shelves} error={errorFor(c.id, "shelves")}
                 onChange={(v) => setCabinet(c.id, { shelves: v })} />
-              <Select id={`${c.id}-doors`} label={t("mebel.doors")} value={c.doors === undefined ? "auto" : String(c.doors)}
+              <Select id={`${c.id}-doors`} label={t("mebel.doors")} value={c.doors == null ? "auto" : String(c.doors)}
                 options={["auto", "0", "1", "2"].map((v) => ({ value: v, label: v === "auto" ? t("mebel.doors_auto") : v }))}
                 onChange={(v) => setCabinet(c.id, { doors: v === "auto" ? undefined : (Number(v) as 0 | 1 | 2) })} />
             </div>

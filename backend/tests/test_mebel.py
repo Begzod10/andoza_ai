@@ -262,3 +262,15 @@ def test_old_cabinet_without_type_is_base(client):
     _as(_user(), _db())
     assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(height=720)}).status_code == 201
     assert client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data(height=2100)}).status_code == 422
+
+
+def test_auto_doors_are_not_stored_as_null(client):
+    """A cabinet on "auto" doors sends no `doors`; storing `"doors": null` made the
+    frontend read it as an invalid door count on the next visit."""
+    user = _user()
+    db = _db()
+    _as(user, db)
+    client.post("/api/v1/mebel/projects", json={"name": "x", "data": _data()})
+    stored = db.add.call_args.args[0].data
+    assert "doors" not in stored["cabinets"][0]
+    assert stored["cabinets"][0]["type"] == "base"
