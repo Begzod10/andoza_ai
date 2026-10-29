@@ -116,6 +116,24 @@ export interface SheetEstimate {
   sheets: number
 }
 
+/** A part's place on a sheet, mm from the sheet's corner; `length` runs along the sheet's length. */
+export interface NestPlacement { partId: string; x: number; y: number; length: number; width: number; rotated: boolean }
+/** One saw cut, numbered in the order it is made. */
+export interface NestCut { x1: number; y1: number; x2: number; y2: number; order: number }
+export interface NestRect { x: number; y: number; length: number; width: number }
+export interface NestedSheet { placements: NestPlacement[]; cuts: NestCut[]; offcuts: NestRect[]; utilization: number }
+/** The cutting layout of one board (material + materialId + thickness). */
+export interface NestResult {
+  material: 'board' | 'back'
+  materialId: string | null
+  thickness: number
+  sheet: { length: number; width: number }
+  sheets: NestedSheet[]
+  utilization: number
+  /** Parts that fit no sheet. */
+  unplaced: string[]
+}
+
 export interface BomLine {
   kind: 'board' | 'back' | 'edge' | 'hardware' | 'service'
   materialId: string | null
