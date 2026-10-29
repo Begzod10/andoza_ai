@@ -74,6 +74,19 @@ export type EdgeSide = { band: 'visible' | 'hidden'; thickness: number } | null
 
 export type PartRole = 'side_left' | 'side_right' | 'bottom' | 'top' | 'rail_front' | 'rail_back' | 'shelf' | 'back' | 'door' | 'drawer_front' | 'drawer_side' | 'drawer_end' | 'drawer_bottom'
 
+/** A hole on a part, mm on its finished size: `u` along its length, `v` along its width
+ *  (on an end edge, `u` along the edge from the front and `v` across the thickness).
+ *  Face A is the inner (sides, doors) or upper (panels) face; W1/W2 are the end edges.
+ *  `depth` 0 goes right through. */
+export interface Hole {
+  kind: 'confirmat' | 'confirmat_edge' | 'shelf_pin' | 'hinge_cup' | 'hinge_plate' | 'slide'
+  face: 'A' | 'B' | 'W1' | 'W2'
+  u: number
+  v: number
+  diameter: number
+  depth: number
+}
+
 export interface Part {
   id: string
   cabinetId: string
@@ -91,6 +104,7 @@ export interface Part {
   qty: number
   /** Centre and size of the part in the room, mm: x = width, y = height, z = depth (front is +z). */
   placement: { x: number; y: number; z: number; sx: number; sy: number; sz: number }
+  holes?: Hole[]
 }
 
 export interface CutGroup {
