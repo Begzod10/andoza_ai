@@ -321,4 +321,18 @@ describe('MebelProjectPage drawer fixes', () => {
     await act(async () => {})
     expect(vi.mocked(api.savePriceBook).mock.calls[0][0].hardware.slide).toBe(45000)
   })
+
+  it('the price book takes LDSP, HDF and MDF prices, and the sheets use them', async () => {
+    vi.mocked(api.savePriceBook).mockImplementation(async (pb) => pb)
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.price_book') }))
+    fireEvent.change(await screen.findByLabelText(t('mebel.pb.board', { t: 18 })), { target: { value: '556000' } })
+    fireEvent.change(screen.getByLabelText(t('mebel.pb.board', { t: 16 })), { target: { value: '480000' } })
+    fireEvent.change(screen.getByLabelText(t('mebel.pb.back')), { target: { value: '120000' } })
+    fireEvent.change(screen.getByLabelText(t('mebel.pb.mdf_m2')), { target: { value: '350000' } })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.save') }))
+    await act(async () => {})
+    expect(vi.mocked(api.savePriceBook).mock.calls[0][0].sheets).toEqual({ board16: 480000, board18: 556000, back: 120000, mdfM2: 350000 })
+  })
 })

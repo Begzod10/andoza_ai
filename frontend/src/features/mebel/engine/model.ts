@@ -180,6 +180,9 @@ export interface PriceBook {
     slide?: number | null
   }
   markupPercent: number
+  /** The workshop's sheet prices, used when no catalogue material is chosen (or it has no price).
+   *  LDSP doors are cut from the LDSP sheets. */
+  sheets?: { board16: number | null; board18: number | null; back: number | null; mdfM2: number | null }
 }
 
 export interface Warning {
