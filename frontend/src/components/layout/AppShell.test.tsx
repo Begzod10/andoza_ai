@@ -24,6 +24,22 @@ describe('AppShell phone bottom bar', () => {
   })
 })
 
+describe('AppShell desktop sidebar', () => {
+  it('links the furniture workshop after the four tabs', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/projects']}>
+          <AppShell />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    const rail = screen.getByRole('complementary', { name: 'Asosiy navigatsiya' })
+    const links = within(rail).getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(links).toEqual(['/projects', '/dokon', '/ustalar', '/profile', '/mebel'])
+    expect(within(rail).getByRole('link', { name: 'Mebel ishlab chiqarish' })).toBeTruthy()
+  })
+})
+
 function mountShell() {
   render(
     <QueryClientProvider client={new QueryClient()}>

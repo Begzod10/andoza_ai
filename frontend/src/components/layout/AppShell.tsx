@@ -155,6 +155,15 @@ function IconProfile() {
   )
 }
 
+function IconRuler() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21.3 15.3a2.4 2.4 0 010 3.4l-2.6 2.6a2.4 2.4 0 01-3.4 0L2.7 8.7a2.4 2.4 0 010-3.4l2.6-2.6a2.4 2.4 0 013.4 0z"/>
+      <path d="M14.5 12.5l2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/>
+    </svg>
+  )
+}
+
 function IconLogout() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -167,13 +176,16 @@ function IconLogout() {
 
 const SIDEBAR_NAV: Array<{
   to: string
-  label: 'layout.uy' | 'layout.dokon' | 'layout.ustalar' | 'nav.profil'
+  label: 'layout.uy' | 'layout.dokon' | 'layout.ustalar' | 'nav.profil' | 'profile.mebel'
   icon: (active: boolean) => React.ReactNode
 }> = [
   { to: '/projects', label: 'layout.uy',      icon: (a) => <IconHome filled={a} /> },
   { to: '/dokon',    label: 'layout.dokon',   icon: (a) => <IconShop filled={a} /> },
   { to: '/ustalar',  label: 'layout.ustalar', icon: () => <IconWorkers /> },
   { to: '/profile',  label: 'nav.profil',     icon: () => <IconProfile /> },
+  // Desktop only: the phone bar has no room, and the workshop tool is used at a desk.
+  // On a phone it stays under Profil.
+  { to: '/mebel',    label: 'profile.mebel',  icon: () => <IconRuler /> },
 ]
 
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
