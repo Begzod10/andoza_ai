@@ -2533,6 +2533,16 @@
       "end_bottom": "↓ past",
       "end_top": "↑ yuqori",
       "mdf_hinge_note": "Petlya kosalari (Ø35) fasad sexida ochiladi: qirradan 22.5 mm, uchlaridan 100 mm."
+    },
+    "ai": {
+      "label": "AI bilan qo'shish",
+      "placeholder": "Masalan: 2400 mm oshxona, 600 lik 2 ta pastki, o'rtada 3 tortmali 800 lik, ustida devor shkaflari, chetida penal",
+      "ask": "Taklif olish",
+      "thinking": "O'ylayapti…",
+      "add": "Qo'shish",
+      "replace": "Almashtirish",
+      "dropped": "Qo'shilmadi",
+      "over_limit": "Qo'shsangiz {{max}} tadan oshadi: almashtiring yoki bir qismini o'chiring"
     }
   }
 }

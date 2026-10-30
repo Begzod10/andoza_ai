@@ -94,5 +94,9 @@ class PriceBookData(BaseModel):
     markupPercent: float = Field(default=0, ge=0, le=300)
 
 
+class SuggestIn(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+
+
 class PriceBookIn(BaseModel):
     data: PriceBookData

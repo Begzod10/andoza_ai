@@ -5,6 +5,7 @@ import type { TKey } from "@/i18n";
 import { Link, useParams } from "react-router-dom";
 import { useMebelProject } from "@/features/mebel/useMebelProject";
 import { ParamsPanel } from "@/features/mebel/ui/ParamsPanel";
+import { AiSuggest } from "@/features/mebel/ui/AiSuggest";
 import { CutListTable } from "@/features/mebel/ui/CutListTable";
 import { EdgeTable } from "@/features/mebel/ui/EdgeTable";
 import { BomPanel } from "@/features/mebel/ui/BomPanel";
@@ -100,6 +101,8 @@ export default function MebelProjectPage() {
 
       <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[340px_1fr]">
         <aside className="rounded-2xl bg-white p-4 shadow-sm lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
+          <AiSuggest update={m.setProject} cabinetCount={project.cabinets.length} />
+          <div className="h-4" />
           <ParamsPanel project={project} update={m.setProject} errors={result.errors} catalog={m.options} />
         </aside>
 
