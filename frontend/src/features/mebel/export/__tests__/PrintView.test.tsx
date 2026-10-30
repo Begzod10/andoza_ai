@@ -40,3 +40,19 @@ describe('PrintView drilling', () => {
     expect(screen.getAllByTestId('print-assembly')).toHaveLength(4)
   })
 })
+
+describe('PrintView parts that fit no sheet', () => {
+  it('lists them, so a shop working from the PDF does not miss them', () => {
+    const result = fourCabinets()
+    result.nesting[0].unplaced = ['M1-01']
+    render(<PrintView name="Oshxona" result={result} snapshot={null} trim={10} materialName={() => null} />)
+    const box = screen.getByTestId('print-unplaced')
+    expect(within(box).getByText(i18n.t('mebel.nest.unplaced_title'))).toBeInTheDocument()
+    expect(within(box).getByText(`M1-01 — ${i18n.t('mebel.nest.unplaced_reason')}`)).toBeInTheDocument()
+  })
+
+  it('says nothing when every part is placed', () => {
+    render(<PrintView name="Oshxona" result={fourCabinets()} snapshot={null} trim={10} materialName={() => null} />)
+    expect(screen.queryByTestId('print-unplaced')).toBeNull()
+  })
+})

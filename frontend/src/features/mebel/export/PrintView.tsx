@@ -44,6 +44,18 @@ export function PrintView({
       <BomPanel bom={result.bom} total={result.total} hasUnpriced={result.hasUnpriced} nesting={result.nesting}
         materialName={materialName} />
 
+      {/* A part no sheet holds is on no sheet page below: say so up front. */}
+      {result.nesting.some((n) => n.unplaced.length > 0) && (
+        <section data-testid="print-unplaced" className="border-2 border-black p-3">
+          <h2 className="text-lg font-bold">{t("mebel.nest.unplaced_title")}</h2>
+          <ul>
+            {result.nesting.flatMap((n) => n.unplaced).map((id) => (
+              <li key={id}>{`${id} — ${t("mebel.nest.unplaced_reason")}`}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {result.facadeOrder.length > 0 && (
         <FacadeOrder lines={result.facadeOrder} labelOf={labelOf} materialName={materialName} />
       )}
