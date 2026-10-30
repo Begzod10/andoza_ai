@@ -45,6 +45,15 @@ describe('MebelListPage', () => {
     expect(screen.getByText('Oshxona Yunusobod')).toBeInTheDocument()
   })
 
+  it('draws in the app theme tokens, so the text stays readable at night', async () => {
+    vi.mocked(api.listMebelProjects).mockResolvedValue([{ id: 'p1', name: 'Oshxona', updated_at: '2026-10-29T10:00:00Z' }])
+    const { container } = mount()
+    await screen.findByText('Oshxona')
+    expect(screen.getByRole('heading', { name: i18n.t('mebel.title') }).className).toContain('text-ink')
+    expect(screen.getByText('Oshxona').closest('li')!.className).toContain('bg-card')
+    expect(container.innerHTML).not.toMatch(/text-neutral-|bg-white|bg-neutral-/)
+  })
+
   it('says when there are no projects yet', async () => {
     vi.mocked(api.listMebelProjects).mockResolvedValue([])
     mount()

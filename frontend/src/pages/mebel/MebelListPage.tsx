@@ -43,8 +43,8 @@ export default function MebelListPage() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">{t("mebel.title")}</h1>
-          <p className="mt-1 text-sm text-neutral-500">{t("mebel.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-ink">{t("mebel.title")}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{t("mebel.subtitle")}</p>
         </div>
         <Button onClick={() => create.mutate()} loading={create.isPending}>
           {t("mebel.new_project")}
@@ -52,30 +52,30 @@ export default function MebelListPage() {
       </div>
 
       {isLoading ? (
-        <div className="h-24 animate-pulse rounded-2xl bg-neutral-100" />
+        <div className="h-24 animate-pulse rounded-2xl bg-card-soft" />
       ) : isError ? (
-        <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-2xl bg-red-500/10 p-4 text-sm text-red-500">
           <p>{t("mebel.load_failed")}</p>
           <button type="button" className="mt-2 font-semibold underline" onClick={() => void refetch()}>
             {t("mebel.retry")}
           </button>
         </div>
       ) : !projects?.length ? (
-        <p className="rounded-2xl bg-neutral-50 p-6 text-center text-sm text-neutral-500">{t("mebel.empty")}</p>
+        <p className="rounded-2xl bg-card p-6 text-center text-sm text-ink-muted">{t("mebel.empty")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {projects.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-200">
+            <li key={p.id} className="flex items-center gap-3 rounded-2xl bg-card p-4 shadow-sm ring-1 ring-line">
               <Link to={`/mebel/${p.id}`} className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-neutral-900">{p.name}</p>
-                <p className="text-xs text-neutral-500">
+                <p className="truncate font-semibold text-ink">{p.name}</p>
+                <p className="text-xs text-ink-muted">
                   {t("mebel.updated", { date: new Date(p.updated_at).toLocaleString(intlLocale()) })}
                 </p>
               </Link>
               <button
                 type="button"
                 onClick={() => void onDelete(p.id, p.name)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/10"
               >
                 {t("mebel.delete")}
               </button>
