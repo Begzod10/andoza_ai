@@ -551,3 +551,82 @@ Xaridor do'konning o'z sahifasini (ma'lumot, kontaktlar, mahsulotlari) ko'radi v
 Har qanday veb sahifa (Studio, Smeta, wizard) `?lang=uz|ru|en` bilan ochilsa, o'sha tilda ochiladi. Bu til akkauntdagi tildan ham, telefon tilidan ham ustun turadi. Til "kutilayotgan" deb belgilanadi, shuning uchun sessiya tekshiruvi uni akkauntga saqlaydi (`PATCH /auth/me {language}`) va akkauntning eski tiliga qaytarmaydi. Boshqa qiymat bo'lsa, parametr e'tiborsiz qoladi.
 
 Mobil ilova WebView'ni `?app=1&lang=<ilova tili>` bilan ochadi. Natijada Studio ilova bilan bir tilda bo'ladi va akkaunt tili ilovada tanlangan tilga moslashadi.
+
+## 14. 2026-10-30: Mebel ustaxonasi (`/mebel`) WebView orqali
+
+Web'da mebel ustaxonalari uchun yangi bo'lim ishga tushdi. Usta shkaf o'lchamlarini kiritadi, sayt esa quyidagilarni hisoblaydi:
+- detallar ro'yxati va kromka;
+- list bo'yicha raskroy;
+- teshiklar xaritasi va yig'ish chizmasi;
+- smeta;
+- AI yordamchi: matndan shkaflar taklifi.
+
+Hisob-kitob to'liq brauzerda TypeScript'da bajariladi (`frontend/src/features/mebel/engine`). **Uni Flutter'da qayta yozmang.** Ilova bu bo'limni Studio kabi WebView'da ochadi. Web'dagi har bir tuzatish shunda ilovaga o'zi o'tadi va hisob-kitob ikki joyda bir-biridan farq qilib qolmaydi.
+
+| # | Ish | Majburiymi |
+|---|---|---|
+| 14.1 | Kirish nuqtasi va WebView URL | Ha |
+| 14.2 | Orqaga tugmasi | Ha |
+| 14.3 | PDF (`window.print()`) | Ha |
+| 14.4 | CSV yuklab olish | Ha |
+| 14.5 | AI va limitlar | Faqat sinash |
+
+### 14.1 Kirish nuqtasi va URL
+
+- **Qayerda:** Profil ekranida "Sotuvchi paneli" ostiga karta qo'ying. Web'dagi matn bilan bir xil bo'lsin: sarlavha **"Mebel ishlab chiqarish"**, izoh *"Ustaxonalar uchun: shkaf detallari, kromka va narx"*. Kalitlar: `profile.mebel` va `profile.mebel_izoh` (`frontend/src/i18n/locales/*.json`). Pastki menyuga qo'shish shart emas: web'da ham telefonda bo'lim faqat Profil orqali ochiladi.
+- **URL:** `https://andozaai.uz/mebel?app=1&lang=<ilova tili>`. Login Studio WebView'dagi kabi ishlaydi: sessiya o'sha usulda uzatiladi. Kirmagan foydalanuvchi web'ning login sahifasiga tushadi.
+- **`?app=1` bo'lganda web nima qiladi:** web'ning pastki menyusi va chap paneli chizilmaydi, chunki ilovaning o'z AppBar'i bor. `?app=1` belgisi WebView sessiyasi davomida eslab qolinadi (`sessionStorage`), shuning uchun ro'yxat va loyiha sahifalari orasida o'tganda menyu qaytib chiqmaydi. Loyiha sahifasidagi "← Ro'yxatga" havolasi qoladi: u WebView ichidagi o'tish.
+
+### 14.2 Orqaga tugmasi
+
+AppBar'dagi orqaga tugmasi va Android'ning tizim orqaga tugmasi shunday ishlasin:
+- WebView'da `canGoBack()` bo'lsa, `goBack()` bajarilsin (loyiha → ro'yxat);
+- bo'lmasa, ekran yopilsin.
+
+Loyiha o'zgarishlari avtomatik saqlanadi (taxminan 1 soniyada). Shuning uchun ekranni yopishda "saqlaysizmi?" deb so'rash kerak emas.
+
+### 14.3 PDF: `window.print()`
+
+"PDF" tugmasi `window.print()` ni chaqiradi. Chop etish varag'ida quyidagilar bor:
+- detallar ro'yxati;
+- raskroy listlari;
+- teshiklar xaritasi;
+- yig'ish chizmasi.
+
+Flutter WebView `window.print()` ni o'zi bajarmaydi, shuning uchun tugma hech narsa qilmaydi. Variantlar:
+- **Android (`webview_flutter`):** JS kanal orqali print chaqiruvini ushlang (masalan, `window.print` ni sahifa yuklangach JS kanalga yo'naltiring). Keyin `WebView` kontentidan `PrintManager` bilan chop eting yoki `printing` paketi bilan PDF yarating.
+- **iOS (`WKWebView`):** `UIPrintInteractionController` va `webView.viewPrintFormatter()`.
+- **Eng oddiy yo'l:** print chaqiruvi kelganda shu URL'ni tizim brauzerida oching. U yerda chop etish va PDF saqlash ishlaydi.
+
+### 14.4 CSV yuklab olish
+
+"CSV" tugmasi cut list'ni `blob:` URL va `<a download="<loyiha nomi>.csv">` orqali yuklaydi (`frontend/src/features/mebel/export/csv.ts`). WebView'da buni shunday ulang:
+1. Yuklab olish so'rovini ushlang: Android'da `DownloadListener` yoki `onDownloadStart`, iOS'da `WKDownloadDelegate`, iOS 14.5 dan oldingi versiyalarda JS kanal.
+2. `blob:` URL'ni JS orqali o'qing (`fetch(blobUrl).then(r => r.text())`) va matnni kanal bilan Flutter'ga yuboring. Web `blob:` URL'ni 1 soniyadan keyin bekor qiladi (`revokeObjectURL`), shuning uchun uni darhol o'qing. Ishonchliroq yo'l: sahifa yuklangach `HTMLAnchorElement.prototype.click` ni ushlab, `download` atributli `blob:` havolani bosilish paytida o'qish.
+3. Faylni vaqtinchalik papkaga `.csv` qilib yozing va tizimning "Ulashish" oynasini oching (`share_plus`).
+
+Fayl UTF-8 va BOM bilan yoziladi, shuning uchun Excel o'zbek va rus harflarini to'g'ri ochadi.
+
+### 14.5 AI va limitlar (native ish yo'q, faqat sinash)
+
+- Loyiha sahifasidagi "AI bilan qo'shish" maydoni `POST /api/v1/mebel/ai/suggest` ni chaqiradi. Tana: `{"text": "..."}`, 1–1000 belgi.
+- Javob: `cabinets`, `facade`, `questions`, `dropped`, `warnings`.
+- Limit: bitta foydalanuvchiga kuniga **30** ta so'rov. Limit tugasa `429` "Bugungi AI limiti tugadi" qaytadi, web uni qizil matnda ko'rsatadi.
+- Klaviatura matn maydonini to'sib qo'ymasligini tekshiring: WebView `resizeToAvoidBottomInset` yoki shunga o'xshash sozlama bilan ochilsin.
+
+### API (ma'lumot uchun, native ekran kerak emas)
+
+Hamma endpoint login talab qiladi. Har foydalanuvchi faqat o'z ma'lumotini ko'radi:
+- `GET/POST /api/v1/mebel/projects`
+- `GET/PUT/DELETE /api/v1/mebel/projects/{id}`
+- `GET/PUT /api/v1/mebel/price-book`
+- `POST /api/v1/mebel/ai/suggest`
+
+### Qanday sinash
+
+1. Profil → "Mebel ishlab chiqarish". Sahifa ilova tilida ochilishi va pastida web menyusi bo'lmasligi kerak.
+2. "Yangi loyiha" → shkaf qo'shing → detallar, raskroy va teshiklar varaqlari hisoblanadi.
+3. Loyihadan orqaga qayting: ro'yxatga tushadi. Yana bir marta orqaga: ekran yopiladi. Qayta ochganda o'zgarishlar saqlangan bo'ladi.
+4. "PDF" tugmasi chop etish yoki PDF oynasini ochadi. "CSV" tugmasi "Ulashish" oynasini ochadi va fayl Excel yoki Google Sheets'da to'g'ri ko'rinadi.
+5. AI maydoniga quyidagini yozing: *"60 lik 3 ta osma shkaf, 2 eshikli"*. Taklif chiqadi, "Qo'shish" bosilganda loyihaga 3 ta devor shkafi qo'shiladi.
+6. Telefonni yotqizib qo'ying: raskroy va chizmalar kengroq ko'rinishi kerak (ekran burilishi bloklanmasin).

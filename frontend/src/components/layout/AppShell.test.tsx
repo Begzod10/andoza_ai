@@ -80,3 +80,20 @@ describe('AppShell new-project sheet', () => {
     expect(screen.getByText('LiDAR skaner')).toBeTruthy()
   })
 })
+
+describe('AppShell inside the native app (?app=1)', () => {
+  afterEach(() => sessionStorage.clear())
+
+  it('draws no web navigation: the app has its own', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/mebel?app=1']}>
+          <AppShell />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    expect(screen.queryByRole('navigation', { name: 'Asosiy navigatsiya' })).toBeNull()
+    expect(screen.queryByRole('complementary', { name: 'Asosiy navigatsiya' })).toBeNull()
+    expect(screen.getByRole('main').className).not.toContain('pb-[94px]')
+  })
+})
