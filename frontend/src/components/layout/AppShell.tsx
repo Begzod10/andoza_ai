@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useEmbeddedApp } from '@/lib/embedded'
 import { logoutApi } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { isNativeScanAvailable } from '@/lib/native/roomScan'
@@ -339,21 +340,24 @@ export function AppShell() {
 
   // Drive the CSS var (global.css) that recolors ONLY the app background.
   useAppThemeAttribute()
+  // Inside the native app's WebView (e.g. /mebel?app=1) the app draws its own
+  // navigation; a web bar under it would be a second one.
+  const embedded = useEmbeddedApp()
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: 'var(--color-app-bg)' }}>
       {/* Desktop: fixed sidebar */}
-      <DesktopSidebar onNew={() => setSheetOpen(true)} />
+      {!embedded && <DesktopSidebar onNew={() => setSheetOpen(true)} />}
 
       {/* Content shifts right on desktop */}
-      <div className="flex-1 lg:ml-[92px] flex flex-col min-h-screen">
-        <main className="flex-1 pb-[94px] lg:pb-0">
+      <div className={`flex-1 flex flex-col min-h-screen ${embedded ? '' : 'lg:ml-[92px]'}`}>
+        <main className={`flex-1 ${embedded ? '' : 'pb-[94px] lg:pb-0'}`}>
           <Outlet />
         </main>
       </div>
 
       {/* Mobile: bottom nav */}
-      <BottomNav onFab={() => setSheetOpen(true)} />
+      {!embedded && <BottomNav onFab={() => setSheetOpen(true)} />}
 
       {sheetOpen && (
         <NewProjectSheet onClose={() => setSheetOpen(false)} />
