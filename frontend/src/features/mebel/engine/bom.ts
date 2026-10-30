@@ -14,6 +14,7 @@ export const EMPTY_PRICE_BOOK: PriceBook = {
   bandingPerMeter: { '0.4': null, '1': null, '2': null },
   hardware: { leg: null, confirmat: null, shelfPin: null, nail: null, hinge: null, handle: null, hanger: null },
   markupPercent: 0,
+  sheets: { board16: null, board18: null, back: null, mdfM2: null },
 }
 
 /** Counts only; hole positions come in stage 3. */
@@ -62,11 +63,16 @@ export function buildBom(input: {
 }): { lines: BomLine[]; total: number | null; hasUnpriced: boolean } {
   const { nesting, edges, hardware, prices, catalog, facadeOrder = [], slides = [] } = input
   const priceOf = (id: string | null) => (id == null ? null : prices.materials[id] ?? catalog[id]?.price ?? null)
+  const sheets = prices.sheets
+  const sheetPrice = (n: NestResult) =>
+    n.material === 'back' ? sheets?.back ?? null
+      : n.thickness === 16 ? sheets?.board16 ?? null
+        : n.thickness === 18 ? sheets?.board18 ?? null : null
 
   const lines: BomLine[] = []
   // Whole sheets, as the nesting lays them out.
   for (const n of nesting) {
-    lines.push(line(n.material, `${n.material}_${n.thickness}`, n.materialId, n.sheets.length, 'sheet', priceOf(n.materialId)))
+    lines.push(line(n.material, `${n.material}_${n.thickness}`, n.materialId, n.sheets.length, 'sheet', priceOf(n.materialId) ?? sheetPrice(n)))
   }
   // MDF doors: the facade shop prices them by the square metre.
   const mdf = new Map<string | null, number>()
@@ -74,7 +80,7 @@ export function buildBom(input: {
   for (const [id, mm2] of mdf) {
     // A catalogue MDF item is a whole sheet, priced per sheet: a finished door's price
     // per m² comes only from the workshop's price book.
-    const perM2 = id == null ? null : prices.materials[id] ?? null
+    const perM2 = (id == null ? null : prices.materials[id] ?? null) ?? sheets?.mdfM2 ?? null
     lines.push(line('facade', 'facade_mdf', id, Math.round(mm2 / 1000) / 1000, 'm2', perM2))
   }
   for (const e of edges) {

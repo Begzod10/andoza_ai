@@ -7,6 +7,7 @@ import type { CatalogPrices, PriceBook } from "@/features/mebel/engine";
 import { formatUZS } from "@/lib/utils";
 
 const field = "w-32 rounded-xl border border-neutral-200 px-3 py-1.5 text-right text-sm tabular-nums";
+const EMPTY_SHEETS: NonNullable<PriceBook["sheets"]> = { board16: null, board18: null, back: null, mdfM2: null };
 const num = (v: string): number | null => (v.trim() === "" ? null : Math.max(0, Number(v) || 0));
 
 /** The workshop's own prices, used in all its projects. A blank price falls back to the catalogue. */
@@ -63,6 +64,13 @@ export function PriceBookDialog({
                   if (v == null) delete materials[id]; else materials[id] = v;
                   return { ...d, materials };
                 }), catalog[id] ? formatUZS(catalog[id].price) : undefined))}
+
+            {/* Used when no catalogue material is chosen, or it has no price. */}
+            <h3 className="mt-3 text-xs font-semibold text-neutral-500">{t("mebel.pb.sheets")}</h3>
+            {([["board16", t("mebel.pb.board", { t: 16 })], ["board18", t("mebel.pb.board", { t: 18 })],
+              ["back", t("mebel.pb.back")], ["mdfM2", t("mebel.pb.mdf_m2")]] as const).map(([k, label]) =>
+              row(label, draft.sheets?.[k] ?? null, (v) =>
+                setDraft((d) => ({ ...d, sheets: { ...(d.sheets ?? EMPTY_SHEETS), [k]: v } }))))}
 
             <h3 className="mt-3 text-xs font-semibold text-neutral-500">{t("mebel.tab.bom")}</h3>
             {row(t("mebel.pb.cut_per_sheet"), draft.cutPerSheet, (v) => setDraft((d) => ({ ...d, cutPerSheet: v })))}

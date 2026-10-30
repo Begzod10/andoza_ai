@@ -7,6 +7,7 @@ import { cabinetParts } from './rules'
 import { doorParts, facadeOrderLines } from './rules/doors'
 import { drawerCount, drawerFacadeOrder, drawerParts, drawerSlides } from './rules/drawers'
 import { partWarnings, validateCabinets } from './validate'
+import { thicknessWarnings } from './materials'
 import { DEFAULTS } from './model'
 import type { ConstructionDefaults, FurnitureProject, PriceBook, Result, Warning } from './model'
 
@@ -79,7 +80,7 @@ export function computeProject(project: FurnitureProject, prices: PriceBook, cat
   }, Object.fromEntries(HARDWARE_KEYS.map((k) => [k, 0])) as HardwareCounts)
   const bom = buildBom({ nesting, facadeOrder, slides, edges, hardware, prices, catalog })
 
-  const warnings: Warning[] = partWarnings(parts)
+  const warnings: Warning[] = [...thicknessWarnings(p, catalog), ...partWarnings(parts)]
   const byPart = new Map(parts.map((x) => [x.id, x]))
   for (const n of nesting) {
     for (const id of n.unplaced) {

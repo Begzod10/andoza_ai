@@ -2432,7 +2432,11 @@
       "banding": "Kromkalash, 1 m ({{t}} mm)",
       "hardware": "Furnitura, 1 dona",
       "markup": "Ustama, %",
-      "slide": "Yo'naltiruvchi, 1 juft"
+      "slide": "Yo'naltiruvchi, 1 juft",
+      "sheets": "Listlar (material tanlanmaganda)",
+      "board": "LDSP {{t}} mm, 1 list",
+      "back": "HDF, 1 list",
+      "mdf_m2": "MDF fasad, 1 m²"
     },
     "save": "Saqlash",
     "cancel": "Bekor qilish",
@@ -2461,7 +2465,10 @@
     "warning": {
       "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",
       "part_exceeds_sheet": "{{length}}×{{width}} mm detal listga sig'maydi",
-      "unpriced": "Ba'zi qatorlarning narxi yo'q: narx daftariga yoki katalogga qo'shing"
+      "unpriced": "Ba'zi qatorlarning narxi yo'q: narx daftariga yoki katalogga qo'shing",
+      "thickness_board": "LDSP: tanlangan list {{actual}} mm, sozlamada {{expected}} mm",
+      "thickness_back": "Orqa devor: tanlangan HDF {{actual}} mm, sozlamada {{expected}} mm",
+      "thickness_facade": "Fasad: tanlangan list {{actual}} mm, sozlamada {{expected}} mm"
     },
     "view3d": "3D ko'rinish",
     "print_title": "Cut list: {{name}}",

@@ -2432,7 +2432,11 @@
       "banding": "Edge banding, per m ({{t}} mm)",
       "hardware": "Hardware, per piece",
       "markup": "Markup, %",
-      "slide": "Slides, per pair"
+      "slide": "Slides, per pair",
+      "sheets": "Sheets (when no material is chosen)",
+      "board": "Chipboard {{t}} mm, per sheet",
+      "back": "HDF, per sheet",
+      "mdf_m2": "MDF door, per m²"
     },
     "save": "Save",
     "cancel": "Cancel",
@@ -2461,7 +2465,10 @@
     "warning": {
       "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
       "part_exceeds_sheet": "A {{length}}×{{width}} mm part does not fit the sheet",
-      "unpriced": "Some lines have no price: add it to the price book or the catalogue"
+      "unpriced": "Some lines have no price: add it to the price book or the catalogue",
+      "thickness_board": "Chipboard: the chosen sheet is {{actual}} mm, the setting {{expected}} mm",
+      "thickness_back": "Back panel: the chosen HDF is {{actual}} mm, the setting {{expected}} mm",
+      "thickness_facade": "Doors: the chosen sheet is {{actual}} mm, the setting {{expected}} mm"
     },
     "view3d": "3D view",
     "print_title": "Cut list: {{name}}",
