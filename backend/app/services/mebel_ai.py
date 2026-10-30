@@ -32,10 +32,14 @@ Qoidalar:
 - "tortmali", "tortma", "ящик", "ящики" → drawers (1–4; aniq aytilmasa 3), faqat base.
 - Eshik soni aytilmasa `doors` bermang (avtomatik).
 - Bir xil shkaflar uchun `count` ishlating.
-- Umumiy uzunlik berilsa (masalan 2400 mm), shkaflar enlari yig'indisi unga teng bo'lsin.
+- Bitta shkaf eni 150–1200 mm. Uzun qatorni (masalan 2400 mm devor shkaflari) 600–900 lik
+  bir nechta shkafga bo'ling, hech qachon 1200 dan keng bitta shkaf bermang.
+- Umumiy uzunlik berilsa (masalan 2400 mm), pastki qatordagi shkaflar enlari yig'indisi unga
+  teng bo'lsin; shu devordagi penal ham kiradi. Devor shkaflari qatori ham shu uzunlikdan oshmasin.
 - Fasad turi aytilsa: LDSP → "ldsp", MDF/bo'yalgan/плёнка → "mdf".
-- Noaniq narsalar (balandlik, chuqurlik, soni) uchun `questions` ga qisqa savol yozing,
-  foydalanuvchi tilida. Taxmin qilgan o'lchamni ham shkafda bering.
+- Noaniq narsalar (balandlik, chuqurlik, soni) uchun `questions` ga qisqa savol yozing.
+  Savollar foydalanuvchi yozgan tilda bo'lsin: ruscha yozsa, savollar ham ruscha.
+  Taxmin qilgan o'lchamni ham shkafda bering.
 """
 
 TOOL = {
@@ -100,17 +104,26 @@ DRAWER_BELOW_FRONT = 40
 DRAWER_MIN_BOX = 80
 
 
+KIND_NAMES = {"base": "pastki shkaf", "wall": "devor shkafi", "tall": "penal"}
+FIELD_NAMES = {
+    "width": "eni", "height": "balandligi", "depth": "chuqurligi",
+    "shelves": "tokchalar", "doors": "eshiklar", "drawers": "tortmalar",
+}
+
+
 def _check(raw: dict) -> tuple[dict | None, str | None]:
-    """One proposed cabinet with defaults filled in, or why it was dropped."""
+    """One proposed cabinet with defaults filled in, or why it was dropped (in Uzbek:
+    the user reads it)."""
     kind = raw.get("type")
     if kind not in LIMITS_BY_TYPE:
-        return None, f"type {kind!r}: base, wall or tall"
+        return None, f"{kind!r} turi: pastki, devor yoki penal bo'lishi kerak"
+    name = KIND_NAMES[kind]
     values = {key: _int(raw.get(key)) for key in ("width", "height", "depth", "shelves", "doors", "drawers")}
-    bad = [key for key, value in values.items() if value is _UNREADABLE]
+    bad = [FIELD_NAMES[key] for key, value in values.items() if value is _UNREADABLE]
     if bad:
-        return None, f"{kind}: {', '.join(bad)} not a whole number"
+        return None, f"{name}: {', '.join(bad)} butun son emas"
     if values["width"] is None:
-        return None, f"{kind}: width missing"
+        return None, f"{name}: eni berilmagan"
     cab = {"type": kind, "width": values["width"]}
     for key, default in TYPE_DEFAULTS[kind].items():
         cab[key] = default if values[key] is None else values[key]
@@ -118,17 +131,18 @@ def _check(raw: dict) -> tuple[dict | None, str | None]:
     cab["drawers"] = values["drawers"] or 0
     for key, (lo, hi) in LIMITS_BY_TYPE[kind].items():
         if not lo <= cab[key] <= hi:
-            return None, f"{kind} {key} {cab[key]}: {lo}–{hi}"
+            unit = " mm" if key in ("width", "height", "depth") else ""
+            return None, f"{name}: {FIELD_NAMES[key]} {cab[key]}{unit}, {lo}–{hi} bo'lishi kerak"
     if cab["doors"] is not None and not 0 <= cab["doors"] <= 2:
-        return None, f"{kind} doors {cab['doors']}: 0–2"
+        return None, f"{name}: eshiklar {cab['doors']}, 0–2 bo'lishi kerak"
     if not 0 <= cab["drawers"] <= 4 or (cab["drawers"] and kind != "base"):
-        return None, f"{kind} drawers {cab['drawers']}: 0–4, base only"
+        return None, f"{name}: tortmalar {cab['drawers']}, 0–4 va faqat pastki shkafda"
     if cab["drawers"]:
         n = cab["drawers"]
         if cab["depth"] < DRAWER_MIN_DEPTH:
-            return None, f"{kind} {n} drawers: depth {cab['depth']} below {DRAWER_MIN_DEPTH}"
+            return None, f"{name}, {n} tortma: chuqurligi {cab['depth']} mm, kamida {DRAWER_MIN_DEPTH} kerak"
         if (cab["height"] - (n + 1) * DRAWER_GAP) // n - DRAWER_BELOW_FRONT < DRAWER_MIN_BOX:
-            return None, f"{kind} {n} drawers: height {cab['height']} too low"
+            return None, f"{name}, {n} tortma: balandligi {cab['height']} mm, tortmalar uchun past"
         # a drawer cabinet has neither shelves nor a door
         cab["shelves"] = 0
         cab["doors"] = None
@@ -156,14 +170,14 @@ async def suggest_cabinets(text: str, user_id: str) -> dict:
     for raw in call.input.get("cabinets") or []:
         cab, why = _check(raw if isinstance(raw, dict) else {})
         if cab is None:
-            dropped.append(why or "invalid")
+            dropped.append(why or "noto'g'ri shkaf")
             continue
         n = _int(raw.get("count"))
         count = max(1, n if isinstance(n, int) else 1)
         room = MAX_CABINETS - len(cabinets)
         cabinets.extend(dict(cab) for _ in range(min(count, room)))
         if count > room:
-            dropped.append(f"{count - room} × {cab['type']} {cab['width']}: at most {MAX_CABINETS} cabinets")
+            dropped.append(f"{count - room} × {KIND_NAMES[cab['type']]} {cab['width']}: loyihada ko'pi bilan {MAX_CABINETS} ta shkaf")
     facade = call.input.get("facade")
     questions = [q for q in call.input.get("questions") or [] if isinstance(q, str) and q.strip()][:5]
     return {
