@@ -16,7 +16,7 @@ export function applySuggestion(project: FurnitureProject, s: MebelSuggestion, m
   let n = Math.max(0, ...cabinets.map((c) => Number(c.label.replace(/\D/g, "")) || 0));
   for (const sc of s.cabinets) {
     const cab: CabinetSpec = {
-      ...newCabinet(`M${++n}`, nextX(cabinets, sc.type), sc.type),
+      ...newCabinet(`M${++n}`, nextX(cabinets, sc.type, sc.width), sc.type),
       width: sc.width, height: sc.height, depth: sc.depth, shelves: sc.shelves,
     };
     if (sc.doors != null) cab.doors = sc.doors;

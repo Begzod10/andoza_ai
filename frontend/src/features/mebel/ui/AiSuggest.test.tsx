@@ -25,11 +25,11 @@ const SUGGESTION: MebelSuggestion = {
 }
 
 describe('applySuggestion', () => {
-  it('adds the cabinets after the existing ones, walls in their own row after the tall one', () => {
+  it('adds the cabinets after the existing ones, walls hanging over the base cabinets', () => {
     const p = newProject('x')
     const next = applySuggestion(p, SUGGESTION, 'add')
     expect(next.cabinets.map(c => [c.label, c.type, c.position.x])).toEqual([
-      ['M1', 'base', 0], ['M2', 'base', 600], ['M3', 'base', 1200], ['M4', 'tall', 2000], ['M5', 'wall', 2600],
+      ['M1', 'base', 0], ['M2', 'base', 600], ['M3', 'base', 1200], ['M4', 'tall', 2000], ['M5', 'wall', 0],
     ])
     expect(next.cabinets[2]).toMatchObject({ drawers: 3, shelves: 0 })
     expect(next.cabinets[4]).toMatchObject({ doors: 1 })

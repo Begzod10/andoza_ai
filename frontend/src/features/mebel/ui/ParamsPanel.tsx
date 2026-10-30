@@ -95,9 +95,12 @@ export function ParamsPanel({
   // A new cabinet stands to the right of the row; labels keep counting up.
   const nextLabel = () => `M${Math.max(0, ...project.cabinets.map((c) => Number(c.label.replace(/\D/g, "")) || 0)) + 1}`;
   const addCabinet = (type: CabinetSpec['type']) =>
-    update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), nextX(p.cabinets, type), type)] }));
+    update((p) => {
+      const cab = newCabinet(nextLabel(), 0, type);
+      return { ...p, cabinets: [...p.cabinets, { ...cab, position: { x: nextX(p.cabinets, type, cab.width), z: 0 } }] };
+    });
   const duplicate = (c: CabinetSpec) =>
-    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: nextX(project.cabinets, c.type), z: 0 } }] }));
+    update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: nextX(project.cabinets, c.type, c.width), z: 0 } }] }));
   const confirm = useConfirm();
   // A removed cabinet is saved away at once, with all its settings: ask first.
   const remove = async (id: string, label: string) => {
