@@ -545,3 +545,9 @@ Xaridor do'konning o'z sahifasini (ma'lumot, kontaktlar, mahsulotlari) ko'radi v
 ### 12.3 Studio: `?place=`
 
 `/studio/{roomId}?place=<furniture id>` ochilganda Studio shu mebelni `GET /furniture/{id}` orqali oladi va xona serverdan yuklangach uni xonaning bo'sh joyiga **bir marta** qo'yadi. Nomi va narxi smeta uchun yoziladi. Keyin parametr URL'dan olib tashlanadi, shuning uchun sahifa yangilansa mebel qayta qo'shilmaydi. Natija toast bilan bildiriladi: "… xonaga qo'yildi". Mebel sotuvda bo'lmasa yoki 3D modeli yo'q bo'lsa, xato toast chiqadi. Saqlash odatdagi avtosaqlash orqali bo'ladi.
+
+## 13. 2026-10-30: WebView tili, `?lang=`
+
+Har qanday veb sahifa (Studio, Smeta, wizard) `?lang=uz|ru|en` bilan ochilsa, o'sha tilda ochiladi. Bu til akkauntdagi tildan ham, telefon tilidan ham ustun turadi. Til "kutilayotgan" deb belgilanadi, shuning uchun sessiya tekshiruvi uni akkauntga saqlaydi (`PATCH /auth/me {language}`) va akkauntning eski tiliga qaytarmaydi. Boshqa qiymat bo'lsa, parametr e'tiborsiz qoladi.
+
+Mobil ilova WebView'ni `?app=1&lang=<ilova tili>` bilan ochadi. Natijada Studio ilova bilan bir tilda bo'ladi va akkaunt tili ilovada tanlangan tilga moslashadi.

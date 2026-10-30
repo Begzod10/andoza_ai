@@ -107,7 +107,29 @@ export function currentLanguage(): Language {
   return isLanguage(language) ? language : "uz";
 }
 
-const startLanguage = initialLanguage();
+/** The language the page was opened with (`?lang=ru`). The mobile app passes
+ *  its own, so the Studio in its WebView matches the app. */
+export function languageFromUrl(): Language | null {
+  try {
+    const value = new URLSearchParams(window.location.search).get("lang");
+    return isLanguage(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+const urlLanguage = languageFromUrl();
+// Kept as pending, so the session check saves it on the account instead of
+// switching back to the account's own language.
+if (urlLanguage) {
+  setPendingLanguage(urlLanguage);
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, urlLanguage);
+  } catch {
+    // Storage can be blocked: the page still opens in that language.
+  }
+}
+const startLanguage = urlLanguage ?? initialLanguage();
 
 void i18n.use(initReactI18next).init({
   resources: { uz: { translation: uz }, ru: { translation: ru }, en: { translation: en } },

@@ -48,9 +48,11 @@ export const useAuthStore = create<AuthStore>()(
       name: 'uy-tamir-auth',
       storage: createJSONStorage(() => localStorage),
       // Only persist the flag and user profile — the JWT stays in the HttpOnly cookie
-      // A page load starts in the language of the remembered account.
+      // A page load starts in the language of the remembered account, unless a
+      // language picked but not saved yet (or passed in the URL) is pending.
       onRehydrateStorage: () => (state) => {
-        if (isLanguage(state?.user?.language)) applyLanguage(state.user.language)
+        const language = pendingLanguage() ?? state?.user?.language
+        if (isLanguage(language)) applyLanguage(language)
       },
       partialize: (state) => ({
         user: state.user,
