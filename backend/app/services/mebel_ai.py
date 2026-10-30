@@ -42,6 +42,9 @@ Qoidalar:
 - Noaniq narsalar (balandlik, chuqurlik, soni) uchun `questions` ga qisqa savol yozing.
   Savollar foydalanuvchi yozgan tilda bo'lsin: ruscha yozsa, savollar ham ruscha.
   Taxmin qilgan o'lchamni ham shkafda bering.
+- Foydalanuvchi aytgan har bir shkaf turini o'lchami aytilmasa ham `cabinets` ga qo'shing,
+  faqat savol bilan qoldirmang. Devor shkaflari o'lchami aytilmasa: 720×300, 600 lik
+  shkaflar bilan pastki qator (penalsiz) ustini egallang; penal: 2100×560.
 """
 
 TOOL = {
