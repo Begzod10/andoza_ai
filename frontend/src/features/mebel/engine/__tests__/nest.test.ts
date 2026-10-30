@@ -125,6 +125,14 @@ describe('nestSheets', () => {
     expect(grained[0].sheets.flatMap(s => s.placements).every(p => !p.rotated)).toBe(true)
   })
 
+  it('a plain part that fits only turned is placed, not left out (tall cabinet back)', () => {
+    // 598 × 2098: wider than the sheet's working width (2050) unless turned
+    const r = nestSheets([g('H', 598, 2098, 'none', 1, 'back')], SHEET, OPTS)
+    expect(r[0].unplaced).toEqual([])
+    expect(r[0].sheets).toHaveLength(1)
+    expect(r[0].sheets[0].placements[0]).toMatchObject({ partId: 'H', length: 2098, width: 598, rotated: true })
+  })
+
   it('keeps materials apart, in the order they first appear', () => {
     const r = nestSheets([g('B1', 500, 400), g('H1', 500, 400, 'none', 1, 'back'), g('B2', 300, 300)], SHEET, OPTS)
     expect(r.map(x => x.material)).toEqual(['board', 'back'])

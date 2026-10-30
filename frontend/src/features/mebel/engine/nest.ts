@@ -126,8 +126,11 @@ export function nestSheets(
       for (const fit of FITS) {
         for (const split of SPLITS) {
           const run = packOnce(sorted, sheet, opts.kerf, opts.trim, fit, split)
-          if (!best || run.sheets.length < best.sheets.length
-            || (run.sheets.length === best.sheets.length && run.sheets.length > 0
+          // Placing every part comes first: a run that leaves a part out can look
+          // a sheet cheaper only because that part is missing.
+          if (!best || run.unplaced.length < best.unplaced.length
+            || (run.unplaced.length === best.unplaced.length && run.sheets.length < best.sheets.length)
+            || (run.unplaced.length === best.unplaced.length && run.sheets.length === best.sheets.length && run.sheets.length > 0
               && run.sheets[run.sheets.length - 1].area < best.sheets[best.sheets.length - 1].area)) {
             best = run
           }
