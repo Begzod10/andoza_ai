@@ -69,6 +69,14 @@ describe('AiSuggest', () => {
     expect(next.cabinets).toHaveLength(5)
   })
 
+  it('shows the length warnings from the server', async () => {
+    vi.mocked(api.suggestMebelCabinets).mockResolvedValue({ ...SUGGESTION, warnings: ['Pastki qator va penal: 2600 mm, matnda 2400 mm'] })
+    render(<AiSuggest update={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(t('mebel.ai.label')), { target: { value: '2400 oshxona' } })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.ai.ask') }))
+    expect(await screen.findByText('Pastki qator va penal: 2600 mm, matnda 2400 mm')).toBeInTheDocument()
+  })
+
   it('an empty proposal cannot replace the cabinets', async () => {
     vi.mocked(api.suggestMebelCabinets).mockResolvedValue({ cabinets: [], facade: null, questions: ['Oshxona eni qancha?'], dropped: [] })
     render(<AiSuggest update={vi.fn()} />)

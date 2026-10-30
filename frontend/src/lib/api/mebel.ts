@@ -86,6 +86,8 @@ export interface MebelSuggestion {
   questions: string[];
   /** Proposed cabinets the server left out, with why. */
   dropped: string[];
+  /** Rows whose widths miss the length the user gave. */
+  warnings?: string[];
 }
 
 export function suggestMebelCabinets(text: string): Promise<MebelSuggestion> {

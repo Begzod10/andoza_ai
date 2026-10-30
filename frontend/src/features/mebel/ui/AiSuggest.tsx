@@ -89,6 +89,7 @@ export function AiSuggest({
             </ul>
           )}
           {proposal.questions.map((q, i) => <p key={i} className="text-xs text-amber-800">{q}</p>)}
+          {(proposal.warnings ?? []).map((w, i) => <p key={`w${i}`} className="text-xs font-semibold text-red-600">{w}</p>)}
           {tooMany && <p className="text-xs text-red-600">{t("mebel.ai.over_limit", { max: MAX_CABINETS })}</p>}
           {proposal.dropped.length > 0 && (
             <p className="text-xs text-neutral-500">{`${t("mebel.ai.dropped")}: ${proposal.dropped.join("; ")}`}</p>
