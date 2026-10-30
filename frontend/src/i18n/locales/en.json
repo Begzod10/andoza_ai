@@ -2550,6 +2550,7 @@
       "replace": "Replace",
       "dropped": "Left out",
       "over_limit": "That would be more than {{max}} cabinets: replace, or remove some first"
-    }
+    },
+    "remove_confirm": "Remove cabinet {{label}}?"
   }
 }

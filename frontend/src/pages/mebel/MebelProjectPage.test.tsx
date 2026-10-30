@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within, fireEvent, act } from '@testing-library/react'
+import { render, screen, within, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MebelProjectPage from './MebelProjectPage'
 import * as api from '@/lib/api'
@@ -35,11 +36,13 @@ function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <ConfirmProvider>
       <MemoryRouter initialEntries={['/mebel/p1']}>
         <Routes>
           <Route path="/mebel/:id" element={<MebelProjectPage />} />
         </Routes>
       </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   )
 }
@@ -122,6 +125,22 @@ describe('MebelProjectPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.base') }))
     expect(screen.getByTestId('cabinet-view')).toHaveAttribute('data-parts', '16')
     expect(screen.getByText('M2')).toBeInTheDocument()
+  })
+
+  it('removing a cabinet asks first; cancel keeps it', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: t('mebel.add.base') }))
+    const removeM2 = () => screen.getAllByRole('button', { name: t('mebel.remove') })[1]
+    fireEvent.click(removeM2())
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(t('mebel.remove_confirm', { label: 'M2' }))).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: t('common.bekor') }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByText('M2')).toBeInTheDocument()
+
+    fireEvent.click(removeM2())
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: t('mebel.remove') }))
+    await waitFor(() => expect(screen.queryByText('M2')).toBeNull())
   })
 })
 

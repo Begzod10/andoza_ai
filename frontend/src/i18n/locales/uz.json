@@ -2550,6 +2550,7 @@
       "replace": "Almashtirish",
       "dropped": "Qo'shilmadi",
       "over_limit": "Qo'shsangiz {{max}} tadan oshadi: almashtiring yoki bir qismini o'chiring"
-    }
+    },
+    "remove_confirm": "{{label}} shkafini olib tashlaysizmi?"
   }
 }

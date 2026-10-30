@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import type { TKey } from "@/i18n";
 import { newCabinet } from "@/features/mebel/engine";
 import { nextX } from "./layout";
@@ -97,7 +98,12 @@ export function ParamsPanel({
     update((p) => ({ ...p, cabinets: [...p.cabinets, newCabinet(nextLabel(), nextX(p.cabinets, type), type)] }));
   const duplicate = (c: CabinetSpec) =>
     update((p) => ({ ...p, cabinets: [...p.cabinets, { ...structuredClone(c), id: crypto.randomUUID(), label: nextLabel(), position: { x: nextX(project.cabinets, c.type), z: 0 } }] }));
-  const remove = (id: string) => update((p) => ({ ...p, cabinets: p.cabinets.filter((c) => c.id !== id) }));
+  const confirm = useConfirm();
+  // A removed cabinet is saved away at once, with all its settings: ask first.
+  const remove = async (id: string, label: string) => {
+    if (!(await confirm({ title: t("mebel.remove_confirm", { label }), destructive: true, confirmLabel: t("mebel.remove") }))) return;
+    update((p) => ({ ...p, cabinets: p.cabinets.filter((c) => c.id !== id) }));
+  };
 
   const errorFor = (cabId: string, key: keyof CabinetSpec) => {
     const e = errors.find((x) => x.cabinetId === cabId && ERROR_FIELD[x.code] === key);
@@ -216,7 +222,7 @@ export function ParamsPanel({
                 {t("mebel.duplicate")}
               </button>
               {project.cabinets.length > 1 && (
-                <button type="button" onClick={() => remove(c.id)} className="text-xs font-semibold text-red-600">
+                <button type="button" onClick={() => void remove(c.id, c.label)} className="text-xs font-semibold text-red-600">
                   {t("mebel.remove")}
                 </button>
               )}
