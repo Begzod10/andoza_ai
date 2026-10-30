@@ -177,3 +177,16 @@ def test_the_prompt_splits_long_runs_and_answers_in_the_users_language():
     assert "1200" in SYSTEM_PROMPT
     assert "penal ham kiradi" in SYSTEM_PROMPT
     assert "ruscha yozsa, savollar ham ruscha" in SYSTEM_PROMPT
+
+
+def test_the_model_runs_at_temperature_zero(client, budget):
+    llm = AsyncMock(return_value=_reply({"cabinets": [], "questions": []}))
+    with patch("app.services.mebel_ai.call_llm", new=llm):
+        _post(client)
+    assert llm.call_args.kwargs["temperature"] == 0
+
+
+def test_the_prompt_puts_drawers_only_where_they_were_asked_for():
+    from app.services.mebel_ai import SYSTEM_PROMPT
+    assert "один с 3 ящиками" in SYSTEM_PROMPT
+    assert "faqat aytilgan shkaflarga" in SYSTEM_PROMPT

@@ -30,6 +30,8 @@ Qoidalar:
 - Turlar: "pastki", "нижний", "напольный" → base; "devor", "osma", "навесной", "верхний" → wall;
   "baland", "penal", "пенал", "колонна" → tall.
 - "tortmali", "tortma", "ящик", "ящики" → drawers (1–4; aniq aytilmasa 3), faqat base.
+  Tortmalarni faqat aytilgan shkaflarga qo'ying: "один с 3 ящиками" yoki "bittasi 3 tortmali"
+  — bitta tortmali shkaf (count 1) va qolganlari tortmasiz alohida yoziladi.
 - Eshik soni aytilmasa `doors` bermang (avtomatik).
 - Bir xil shkaflar uchun `count` ishlating.
 - Bitta shkaf eni 150–1200 mm. Uzun qatorni (masalan 2400 mm devor shkaflari) 600–900 lik
@@ -157,6 +159,8 @@ async def suggest_cabinets(text: str, user_id: str) -> dict:
         messages=[{"role": "user", "content": text}],
         tools=[TOOL],
         max_tokens=1500,
+        # the same description gives the same proposal
+        temperature=0,
         user_id=user_id,
         model_type="builder",
     )
