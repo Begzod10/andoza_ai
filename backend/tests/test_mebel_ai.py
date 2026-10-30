@@ -190,3 +190,9 @@ def test_the_prompt_puts_drawers_only_where_they_were_asked_for():
     from app.services.mebel_ai import SYSTEM_PROMPT
     assert "один с 3 ящиками" in SYSTEM_PROMPT
     assert "faqat aytilgan shkaflarga" in SYSTEM_PROMPT
+
+
+def test_the_prompt_proposes_named_cabinets_even_without_a_size():
+    from app.services.mebel_ai import SYSTEM_PROMPT
+    assert "o'lchami aytilmasa ham" in SYSTEM_PROMPT
+    assert "720×300" in SYSTEM_PROMPT
