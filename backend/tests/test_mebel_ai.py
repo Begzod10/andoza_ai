@@ -196,3 +196,35 @@ def test_the_prompt_proposes_named_cabinets_even_without_a_size():
     from app.services.mebel_ai import SYSTEM_PROMPT
     assert "o'lchami aytilmasa ham" in SYSTEM_PROMPT
     assert "720×300" in SYSTEM_PROMPT
+
+
+def _run_tool(client, tool):
+    with patch("app.services.mebel_ai.call_llm", new=AsyncMock(return_value=_reply({"questions": [], **tool}))):
+        return _post(client).json()
+
+
+def test_a_row_that_misses_the_given_length_is_warned_about(client, budget):
+    body = _run_tool(client, {"total_length": 2400, "cabinets": [
+        {"type": "base", "width": 600, "count": 2}, {"type": "base", "width": 800, "drawers": 3},
+        {"type": "tall", "width": 600}, {"type": "wall", "width": 600, "count": 4}]})
+    assert body["warnings"] == [
+        "Pastki qator va penal: 2600 mm, matnda 2400 mm",
+        "Devor shkaflari: 2400 mm, penaldan bo'sh joy 1800 mm",
+    ]
+
+
+def test_rows_that_fit_the_length_have_no_warning(client, budget):
+    body = _run_tool(client, {"total_length": 2400, "cabinets": [
+        {"type": "base", "width": 600, "count": 2}, {"type": "base", "width": 800}, {"type": "tall", "width": 400},
+        {"type": "wall", "width": 600, "count": 3}]})
+    assert body["warnings"] == []
+
+
+def test_no_length_no_check(client, budget):
+    assert _run_tool(client, {"cabinets": [{"type": "base", "width": 600, "count": 7}]})["warnings"] == []
+    assert _run_tool(client, {"total_length": "uzun", "cabinets": [{"type": "base", "width": 600}]})["warnings"] == []
+
+
+def test_the_tool_asks_for_the_total_length():
+    from app.services.mebel_ai import TOOL
+    assert TOOL["input_schema"]["properties"]["total_length"]["type"] == "integer"

@@ -36,7 +36,7 @@ Qoidalar:
 - Bir xil shkaflar uchun `count` ishlating.
 - Bitta shkaf eni 150–1200 mm. Uzun qatorni (masalan 2400 mm devor shkaflari) 600–900 lik
   bir nechta shkafga bo'ling, hech qachon 1200 dan keng bitta shkaf bermang.
-- Umumiy uzunlik berilsa (masalan 2400 mm), pastki qatordagi shkaflar enlari yig'indisi unga
+- Umumiy uzunlik berilsa (masalan 2400 mm), uni `total_length` ga yozing; pastki qatordagi shkaflar enlari yig'indisi unga
   teng bo'lsin; shu devordagi penal ham kiradi. Devor shkaflari qatori ham shu uzunlikdan oshmasin.
 - Fasad turi aytilsa: LDSP → "ldsp", MDF/bo'yalgan/плёнка → "mdf".
 - Noaniq narsalar (balandlik, chuqurlik, soni) uchun `questions` ga qisqa savol yozing.
@@ -71,6 +71,7 @@ TOOL = {
                 },
             },
             "facade": {"type": "string", "enum": ["ldsp", "mdf"], "description": "Only when the user names the door material."},
+            "total_length": {"type": "integer", "description": "The wall's total length in mm, only when the user gives it."},
             "questions": {"type": "array", "items": {"type": "string"}},
         },
         "required": ["cabinets", "questions"],
@@ -154,6 +155,23 @@ def _check(raw: dict) -> tuple[dict | None, str | None]:
     return cab, None
 
 
+def _length_warnings(cabinets: list[dict], total) -> list[str]:
+    """The model is unreliable at adding up widths, so the sums are checked here: the
+    floor row (base and tall cabinets) should fill the length the user gave, and the
+    wall row should fit beside the tall cabinets."""
+    if not isinstance(total, int) or total <= 0:
+        return []
+    width = lambda *kinds: sum(c["width"] for c in cabinets if c["type"] in kinds)
+    warnings = []
+    floor = width("base", "tall")
+    if floor and floor != total:
+        warnings.append(f"Pastki qator va penal: {floor} mm, matnda {total} mm")
+    wall, free = width("wall"), total - width("tall")
+    if wall > free:
+        warnings.append(f"Devor shkaflari: {wall} mm, penaldan bo'sh joy {free} mm")
+    return warnings
+
+
 async def suggest_cabinets(text: str, user_id: str) -> dict:
     await check_and_increment_budget_for(user_id, "mebel_ai", DAILY_LIMIT)
     response = await call_llm(
@@ -170,7 +188,7 @@ async def suggest_cabinets(text: str, user_id: str) -> dict:
     call = next((b for b in response.content if isinstance(b, ToolUseBlock) and b.name == TOOL["name"]), None)
     if call is None:
         said = " ".join(getattr(b, "text", "") for b in response.content).strip()
-        return {"cabinets": [], "facade": None, "questions": [said] if said else [], "dropped": []}
+        return {"cabinets": [], "facade": None, "questions": [said] if said else [], "dropped": [], "warnings": []}
 
     cabinets: list[dict] = []
     dropped: list[str] = []
@@ -192,4 +210,5 @@ async def suggest_cabinets(text: str, user_id: str) -> dict:
         "facade": facade if facade in ("ldsp", "mdf", "none") else None,
         "questions": questions,
         "dropped": dropped,
+        "warnings": _length_warnings(cabinets, _int(call.input.get("total_length"))),
     }
