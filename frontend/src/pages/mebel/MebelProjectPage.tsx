@@ -31,6 +31,7 @@ export default function MebelProjectPage() {
   const m = useMebelProject(id);
   const [tab, setTab] = useState<Tab>("parts");
   const [pane, setPane] = useState<"params" | "result">("params");
+  const [show3d, setShow3d] = useState(true);
   const [showCut, setShowCut] = useState(true);
   const [priceBookOpen, setPriceBookOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
@@ -79,7 +80,9 @@ export default function MebelProjectPage() {
 
   return (
     <>
-    <div className="flex min-h-screen flex-col bg-neutral-50 print:hidden">
+    // On a wide screen the page itself does not scroll: the settings and the result
+    // each scroll in their own column, under a header that stays put.
+    <div className="flex min-h-screen flex-col bg-neutral-50 print:hidden lg:h-screen lg:overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
         <Link to="/mebel" className="text-sm font-semibold text-blue-700">← {t("mebel.back_to_list")}</Link>
         <h1 className="min-w-0 flex-1 truncate text-base font-bold text-neutral-900">{project.name}</h1>
@@ -110,20 +113,23 @@ export default function MebelProjectPage() {
         ))}
       </div>
 
-      <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[340px_1fr]">
+      <div className="grid flex-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[360px_1fr]">
         <aside data-testid="mebel-params"
-          className={`${pane === "params" ? "" : "hidden "}rounded-2xl bg-white p-4 shadow-sm lg:block lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto`}>
+          className={`${pane === "params" ? "" : "hidden "}scroll-visible rounded-2xl bg-white p-4 shadow-sm lg:block lg:min-h-0 lg:overflow-y-auto`}>
           <AiSuggest update={m.setProject} cabinetCount={project.cabinets.length} />
-          <div className="h-4" />
-          <ParamsPanel project={project} update={m.setProject} errors={result.errors} catalog={m.options} />
+          <div className="h-3" />
+          <ParamsPanel project={project} update={m.setProject} errors={result.errors} catalog={m.options}
+            focusCabinetId={result.parts.find((p) => p.id === m.selectedPartId)?.cabinetId ?? null} />
         </aside>
 
-        <main data-testid="mebel-result" className={`${pane === "result" ? "flex" : "hidden"} min-w-0 flex-col gap-4 lg:flex`}>
-          <div ref={viewRef} className="h-[38vh] min-h-[240px] overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
-            <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} wallLift={wallLift} />
-          </div>
+        <main data-testid="mebel-result" className={`${pane === "result" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:flex lg:min-h-0`}>
+          {show3d && (
+            <div ref={viewRef} className="relative h-[34vh] min-h-[220px] shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
+              <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} wallLift={wallLift} />
+            </div>
+          )}
 
-          <section className="rounded-2xl bg-white p-4 shadow-sm">
+          <section className="flex flex-col rounded-2xl bg-white p-4 shadow-sm lg:min-h-0 lg:flex-1">
             {failed ? (
               <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
                 <p className="font-semibold">{t("mebel.errors_title")}</p>
@@ -133,7 +139,8 @@ export default function MebelProjectPage() {
               </div>
             ) : (
               <>
-                <div role="tablist" className="mb-3 flex gap-1 overflow-x-auto">
+                <div className="mb-3 flex items-center gap-2">
+                <div role="tablist" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                   {TABS.map((k) => (
                     <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
                       className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${tab === k ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}>
@@ -141,6 +148,13 @@ export default function MebelProjectPage() {
                     </button>
                   ))}
                 </div>
+                <button type="button" onClick={() => setShow3d((v) => !v)}
+                  className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200">
+                  {t(show3d ? "mebel.view_hide" : "mebel.view_show")}
+                </button>
+                </div>
+                {/* the tab's content scrolls under the tabs; table headers stick to its top */}
+                <div className="scroll-visible lg:min-h-0 lg:flex-1 lg:overflow-auto">
                 {tab === "parts" && (
                   <>
                     <div className="mb-2 flex gap-1">
@@ -180,6 +194,7 @@ export default function MebelProjectPage() {
                   </div>
                 )}
                 {tab === "warnings" && <WarningsList warnings={result.warnings} labelOf={labelOf} />}
+                </div>
               </>
             )}
           </section>

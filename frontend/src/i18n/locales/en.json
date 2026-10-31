@@ -2561,6 +2561,9 @@
     },
     "position_x": "Position (from left), mm",
     "relayout": "Re-arrange",
-    "relayout_hint": "Base and tall cabinets in a row, wall cabinets over the base ones"
+    "relayout_hint": "Base and tall cabinets in a row, wall cabinets over the base ones",
+    "position_short": "at {{x}}",
+    "view_hide": "Hide 3D",
+    "view_show": "Show 3D"
   }
 }
