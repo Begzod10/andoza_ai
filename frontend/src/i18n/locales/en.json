@@ -2564,6 +2564,11 @@
     "relayout_hint": "Base and tall cabinets in a row, wall cabinets over the base ones",
     "position_short": "at {{x}}",
     "view_hide": "Hide 3D",
-    "view_show": "Show 3D"
+    "view_show": "Show 3D",
+    "labels": {
+      "button": "Labels",
+      "a4": "A4 sheet (3×8, 70×37 mm)",
+      "roll": "Roll 58×40 mm"
+    }
   }
 }

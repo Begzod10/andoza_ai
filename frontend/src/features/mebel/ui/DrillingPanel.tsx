@@ -7,12 +7,15 @@ import { PartDrawing } from "./PartDrawing";
 import { partName } from "./format";
 
 /** The drilling map: the drilled parts, the chosen one drawn with its holes, and each cabinet's assembly drawing. */
-export function DrillingPanel({ parts, cabinets }: { parts: Part[]; cabinets: { id: string; label: string }[] }) {
+export function DrillingPanel({
+  parts, cabinets, selectedPartId = null,
+}: { parts: Part[]; cabinets: { id: string; label: string }[]; selectedPartId?: string | null }) {
   const { t } = useTranslation();
   const drilled = parts.filter((p) => (p.holes ?? []).length > 0);
   const [chosen, setChosen] = useState<string | null>(null);
   if (drilled.length === 0) return <p className="text-sm text-neutral-500">{t("mebel.drill.empty")}</p>;
-  const part = drilled.find((p) => p.id === chosen) ?? drilled[0];
+  // the part chosen here, else the one selected elsewhere (3D, a table, a label's QR code)
+  const part = drilled.find((p) => p.id === (chosen ?? selectedPartId)) ?? drilled[0];
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row">
