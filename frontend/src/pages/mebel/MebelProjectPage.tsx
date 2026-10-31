@@ -123,10 +123,20 @@ export default function MebelProjectPage() {
         </aside>
 
         <main data-testid="mebel-result" className={`${pane === "result" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:flex lg:min-h-0`}>
-          {show3d && (
+          {show3d ? (
             <div ref={viewRef} className="relative h-[34vh] min-h-[220px] shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
               <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} wallLift={wallLift} />
+              {/* on the view itself, so the tabs keep the whole row */}
+              <button type="button" onClick={() => setShow3d(false)}
+                className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm hover:bg-white">
+                {t("mebel.view_hide")}
+              </button>
             </div>
+          ) : (
+            <button type="button" onClick={() => setShow3d(true)}
+              className="self-end rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm hover:bg-neutral-100">
+              {t("mebel.view_show")}
+            </button>
           )}
 
           <section className="flex flex-col rounded-2xl bg-white p-4 shadow-sm lg:min-h-0 lg:flex-1">
@@ -139,19 +149,13 @@ export default function MebelProjectPage() {
               </div>
             ) : (
               <>
-                <div className="mb-3 flex items-center gap-2">
-                <div role="tablist" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                <div role="tablist" className="mb-3 flex gap-1 overflow-x-auto">
                   {TABS.map((k) => (
                     <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
                       className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${tab === k ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}>
                       {t(`mebel.tab.${k}`)}{k === "warnings" && result.warnings.length > 0 ? ` (${result.warnings.length})` : ""}
                     </button>
                   ))}
-                </div>
-                <button type="button" onClick={() => setShow3d((v) => !v)}
-                  className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200">
-                  {t(show3d ? "mebel.view_hide" : "mebel.view_show")}
-                </button>
                 </div>
                 {/* the tab's content scrolls under the tabs; table headers stick to its top */}
                 <div className="scroll-visible lg:min-h-0 lg:flex-1 lg:overflow-auto">

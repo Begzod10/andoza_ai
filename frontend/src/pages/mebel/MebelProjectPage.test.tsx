@@ -455,7 +455,11 @@ describe('MebelProjectPage layout', () => {
   it('the 3D view can be hidden to give the tables the room', async () => {
     mount()
     await screen.findByRole('table', { name: t('mebel.tab.parts') })
-    fireEvent.click(screen.getByRole('button', { name: t('mebel.view_hide') }))
+    // the button sits on the view itself, leaving the tabs the whole row
+    const hide = screen.getByRole('button', { name: t('mebel.view_hide') })
+    expect(hide.closest('[aria-label="' + t('mebel.view3d') + '"]')).not.toBeNull()
+    expect(within(screen.getByRole('tablist').parentElement!).queryByRole('button', { name: t('mebel.view_hide') })).toBeNull()
+    fireEvent.click(hide)
     expect(screen.queryByTestId('cabinet-view')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: t('mebel.view_show') }))
     expect(screen.getByTestId('cabinet-view')).toBeInTheDocument()
