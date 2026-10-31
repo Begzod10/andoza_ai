@@ -2539,7 +2539,9 @@
       },
       "end_bottom": "↓ past",
       "end_top": "↑ yuqori",
-      "mdf_hinge_note": "Petlya kosalari (Ø35) fasad sexida ochiladi: qirradan 22.5 mm, uchlaridan 100 mm."
+      "mdf_hinge_note": "Petlya kosalari (Ø35) fasad sexida ochiladi: qirradan 22.5 mm, uchlaridan 100 mm.",
+      "from_left": "Chap qirradan, mm",
+      "from_front": "Old qirradan, mm"
     },
     "ai": {
       "label": "AI bilan qo'shish",
