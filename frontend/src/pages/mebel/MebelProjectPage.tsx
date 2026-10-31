@@ -80,8 +80,8 @@ export default function MebelProjectPage() {
 
   return (
     <>
-    // On a wide screen the page itself does not scroll: the settings and the result
-    // each scroll in their own column, under a header that stays put.
+    {/* On a wide screen the page itself does not scroll: the settings and the result
+        each scroll in their own column, under a header that stays put. */}
     <div className="flex min-h-screen flex-col bg-neutral-50 print:hidden lg:h-screen lg:overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
         <Link to="/mebel" className="text-sm font-semibold text-blue-700">← {t("mebel.back_to_list")}</Link>
