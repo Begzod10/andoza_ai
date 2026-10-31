@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { TKey } from "@/i18n";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMebelProject } from "@/features/mebel/useMebelProject";
 import { ParamsPanel } from "@/features/mebel/ui/ParamsPanel";
 import { AiSuggest } from "@/features/mebel/ui/AiSuggest";
@@ -18,6 +18,8 @@ import { FacadeOrder } from "@/features/mebel/ui/FacadeOrder";
 import { facadeOrderCsv } from "@/features/mebel/export/facadeCsv";
 import { cutListCsv, downloadCsv } from "@/features/mebel/export/csv";
 import { PrintView } from "@/features/mebel/export/PrintView";
+import { LabelsPrintView } from "@/features/mebel/export/LabelsPrintView";
+import { partLabels, type LabelFormat } from "@/features/mebel/export/labels";
 import { groupName } from "@/features/mebel/ui/format";
 import { ERROR_FIELD } from "@/features/mebel/ui/ParamsPanel";
 
@@ -36,6 +38,21 @@ export default function MebelProjectPage() {
   const [priceBookOpen, setPriceBookOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const viewRef = useRef<HTMLDivElement>(null);
+  // What the next print holds: the PDF, or a sheet of part labels.
+  const [printing, setPrinting] = useState<"pdf" | LabelFormat>("pdf");
+  const [labelsMenu, setLabelsMenu] = useState(false);
+  // A label's QR code opens ?part=<id>: show that part's drilling map.
+  const [search] = useSearchParams();
+  const linkedPart = search.get("part");
+  const { result: loaded, setSelectedPartId } = m;
+  useEffect(() => {
+    if (!linkedPart || !loaded?.parts.some((p) => p.id === linkedPart)) return;
+    setSelectedPartId(linkedPart);
+    setTab("drilling");
+    setPane("result");
+    // once, when the project has loaded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedPart, !!loaded]);
 
   if (m.isError) {
     return (
@@ -74,7 +91,12 @@ export default function MebelProjectPage() {
     const canvas = viewRef.current?.querySelector("canvas");
     let image: string | null = null;
     try { image = canvas?.toDataURL("image/png") ?? null; } catch { image = null; }
-    flushSync(() => setSnapshot(image));
+    flushSync(() => { setSnapshot(image); setPrinting("pdf"); });
+    window.print();
+  };
+  const printLabels = (format: LabelFormat) => {
+    setLabelsMenu(false);
+    flushSync(() => setPrinting(format));
     window.print();
   };
 
@@ -97,6 +119,22 @@ export default function MebelProjectPage() {
           className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200 disabled:opacity-50">
           {t("mebel.export_csv")}
         </button>
+        <div className="relative">
+          <button type="button" onClick={() => setLabelsMenu((v) => !v)} disabled={failed} aria-expanded={labelsMenu}
+            className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200 disabled:opacity-50">
+            {t("mebel.labels.button")}
+          </button>
+          {labelsMenu && (
+            <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col rounded-xl bg-white p-1 shadow-lg ring-1 ring-neutral-200">
+              {(["a4", "roll"] as const).map((f) => (
+                <button key={f} type="button" onClick={() => printLabels(f)}
+                  className="rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100">
+                  {t(`mebel.labels.${f}`)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button type="button" onClick={exportPdf} disabled={failed}
           className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
           {t("mebel.export_pdf")}
@@ -180,7 +218,7 @@ export default function MebelProjectPage() {
                   <NestingPanel nesting={result.nesting} trim={project.defaults.trim ?? 10} selectedPartId={m.selectedPartId}
                     onSelect={m.setSelectedPartId} materialName={materialName} />
                 )}
-                {tab === "drilling" && <DrillingPanel parts={result.parts} cabinets={project.cabinets} />}
+                {tab === "drilling" && <DrillingPanel parts={result.parts} cabinets={project.cabinets} selectedPartId={m.selectedPartId} />}
                 {tab === "edges" && <EdgeTable totals={result.edgeTotals} materialName={materialName} />}
                 {tab === "bom" && (
                   <div className="flex flex-col gap-6">
@@ -208,7 +246,14 @@ export default function MebelProjectPage() {
       <PriceBookDialog open={priceBookOpen} onOpenChange={setPriceBookOpen} priceBook={m.priceBook} ready={m.priceBookReady}
         usedMaterials={used} catalog={m.catalog} />
     </div>
-    {!failed && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} labelOf={(id) => labelOf(id) ?? id} cabinets={project.cabinets} />}
+    {!failed && printing !== "pdf" && (
+      <LabelsPrintView projectName={project.name} format={printing}
+        labels={partLabels(result.parts, {
+          projectId: id, origin: window.location.origin, labelOf: (cid) => labelOf(cid) ?? "",
+          materialName: (p) => materialName(p.materialId) ?? t(`mebel.material.${p.material}`),
+        })} />
+    )}
+    {!failed && printing === "pdf" && <PrintView name={project.name} result={result} snapshot={snapshot} trim={project.defaults.trim ?? 10} materialName={materialName} labelOf={(id) => labelOf(id) ?? id} cabinets={project.cabinets} />}
     </>
   );
 }

@@ -473,4 +473,37 @@ describe('MebelProjectPage layout', () => {
     fireEvent.click(rowOf(i18n.t('mebel.part.bottom')))
     expect(rowOfCab('M1').open).toBe(true)
   })
+
+})
+
+describe('MebelProjectPage labels', () => {
+  it('Yorliqlar prints the A4 sticker sheet, not the PDF', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.labels.button') }))
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.labels.a4') }))
+    expect(print).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('mebel-labels')).toBeInTheDocument()
+    expect(screen.queryByTestId('mebel-print')).toBeNull()
+    expect(screen.getAllByTestId('label').length).toBeGreaterThan(5)
+    print.mockRestore()
+  })
+
+  it('a link with ?part= opens that part on the drilling tab', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <ConfirmProvider>
+        <MemoryRouter initialEntries={['/mebel/p1?part=M1-02']}>
+          <Routes>
+            <Route path="/mebel/:id" element={<MebelProjectPage />} />
+          </Routes>
+        </MemoryRouter>
+        </ConfirmProvider>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByRole('tab', { name: t('mebel.tab.drilling'), selected: true })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: `M1-02 — ${t('mebel.drill.holes')}` })).toBeInTheDocument()
+  })
 })

@@ -2564,6 +2564,11 @@
     "relayout_hint": "Pastki shkaflar va penallar ketma-ket, devor shkaflari pastki shkaflar ustida",
     "position_short": "joyi {{x}}",
     "view_hide": "3D'ni yashirish",
-    "view_show": "3D'ni ko'rsatish"
+    "view_show": "3D'ni ko'rsatish",
+    "labels": {
+      "button": "Yorliqlar",
+      "a4": "A4 varaq (3×8, 70×37 mm)",
+      "roll": "Rulon 58×40 mm"
+    }
   }
 }
