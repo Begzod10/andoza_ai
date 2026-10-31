@@ -20,7 +20,11 @@ export default function MebelListPage() {
 
   const create = useMutation({
     mutationFn: () => {
-      const name = t("mebel.default_name");
+      // "Oshxona", then "Oshxona 2", "Oshxona 3": never two projects with one name
+      const base = t("mebel.default_name");
+      const taken = new Set((projects ?? []).map((p) => p.name));
+      let name = base;
+      for (let i = 2; taken.has(name); i++) name = `${base} ${i}`;
       return createMebelProject(name, newProject(name));
     },
     onSuccess: (p) => {

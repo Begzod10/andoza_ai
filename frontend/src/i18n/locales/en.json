@@ -2463,7 +2463,7 @@
       "drawer_shallow": "Too shallow for a drawer (slides start at {{min}} mm)"
     },
     "warning": {
-      "shelf_sag": "A {{length}} mm long 16 mm shelf may sag",
+      "shelf_sag": "A {{length}} mm long {{t}} mm shelf may sag",
       "part_exceeds_sheet": "A {{length}}×{{width}} mm part does not fit the sheet",
       "unpriced": "Some lines have no price: add it to the price book or the catalogue",
       "thickness_board": "Chipboard: the chosen sheet is {{actual}} mm, the setting {{expected}} mm",

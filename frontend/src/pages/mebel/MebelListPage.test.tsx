@@ -78,4 +78,18 @@ describe('MebelListPage', () => {
     expect(data.cabinets).toHaveLength(1)
     expect(data.cabinets[0]).toMatchObject({ width: 600, height: 720, depth: 560 })
   })
+
+  it('a new project takes a name not already in the list', async () => {
+    const base = i18n.t('mebel.default_name')
+    vi.mocked(api.listMebelProjects).mockResolvedValue([
+      { id: 'a', name: base, updated_at: '2026-10-29T10:00:00Z' },
+      { id: 'b', name: `${base} 2`, updated_at: '2026-10-29T10:00:00Z' },
+    ])
+    vi.mocked(api.createMebelProject).mockResolvedValue({ id: 'new1', name: 'x', data: {} as never })
+    mount()
+    await screen.findByText(`${base} 2`)
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('mebel.new_project') }))
+    await waitFor(() => expect(vi.mocked(api.createMebelProject)).toHaveBeenCalled())
+    expect(vi.mocked(api.createMebelProject).mock.calls[0][0]).toBe(`${base} 3`)
+  })
 })

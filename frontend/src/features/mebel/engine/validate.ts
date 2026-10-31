@@ -80,8 +80,10 @@ export function validateCabinets(
 export function partWarnings(parts: Part[]): Warning[] {
   const warnings: Warning[] = []
   for (const p of parts) {
-    if (p.role === 'shelf' && p.thickness === 16 && p.finished.length > 800) {
-      warnings.push({ code: 'shelf_sag', cabinetId: p.cabinetId, params: { length: p.finished.length } })
+    // longest unsupported span a shelf of this thickness holds without sagging
+    const span = p.thickness === 16 ? 800 : p.thickness === 18 ? 900 : null
+    if (p.role === 'shelf' && span != null && p.finished.length > span) {
+      warnings.push({ code: 'shelf_sag', cabinetId: p.cabinetId, params: { length: p.finished.length, t: p.thickness } })
     }
   }
   return warnings
