@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeProject, EMPTY_PRICE_BOOK, validateProject } from '../index'
-import { slideLength } from '../rules/drawers'
+import { MAX_BOX_HEIGHT, slideLength } from '../rules/drawers'
 import { newProject } from '../model'
 import type { CabinetSpec, ConstructionDefaults, FurnitureProject, Part } from '../model'
 
@@ -38,6 +38,18 @@ describe('drawers', () => {
     expect(byRole(r.parts, 'drawer_end')[0].finished).toEqual({ length: 507, width: 197 })
     const bottom = byRole(r.parts, 'drawer_bottom')[0]
     expect(bottom).toMatchObject({ material: 'back', finished: { length: 539, width: 500 } })
+  })
+
+  it('a tall front gets a box no higher than 250 mm, standing at its bottom', () => {
+    for (const n of [1, 2] as const) {
+      const r = run(project({ drawers: n }))
+      expect(r.errors).toEqual([])
+      const sides = byRole(r.parts, 'drawer_side')
+      expect(sides.every(s => s.finished.width === MAX_BOX_HEIGHT)).toBe(true)
+      expect(byRole(r.parts, 'drawer_end').every(e => e.finished.width === MAX_BOX_HEIGHT)).toBe(true)
+    }
+    // three drawers: 237 − 40 = 197, under the cap, unchanged
+    expect(byRole(run(project()).parts, 'drawer_side')[0].finished.width).toBe(197)
   })
 
   it('a drawer cabinet has no door and no shelf', () => {
