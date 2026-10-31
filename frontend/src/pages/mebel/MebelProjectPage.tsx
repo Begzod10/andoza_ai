@@ -30,6 +30,7 @@ export default function MebelProjectPage() {
   const { id = "" } = useParams();
   const m = useMebelProject(id);
   const [tab, setTab] = useState<Tab>("parts");
+  const [pane, setPane] = useState<"params" | "result">("params");
   const [showCut, setShowCut] = useState(true);
   const [priceBookOpen, setPriceBookOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
@@ -99,14 +100,25 @@ export default function MebelProjectPage() {
         </button>
       </header>
 
+      {/* On a phone the settings and the result take turns; a wide screen shows both. */}
+      <div className="flex gap-1 px-4 pt-3 lg:hidden">
+        {(["params", "result"] as const).map((k) => (
+          <button key={k} type="button" aria-pressed={pane === k} onClick={() => setPane(k)}
+            className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold ${pane === k ? "bg-neutral-900 text-white" : "bg-white text-neutral-600"}`}>
+            {t(`mebel.pane.${k}`)}
+          </button>
+        ))}
+      </div>
+
       <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[340px_1fr]">
-        <aside className="rounded-2xl bg-white p-4 shadow-sm lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
+        <aside data-testid="mebel-params"
+          className={`${pane === "params" ? "" : "hidden "}rounded-2xl bg-white p-4 shadow-sm lg:block lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto`}>
           <AiSuggest update={m.setProject} cabinetCount={project.cabinets.length} />
           <div className="h-4" />
           <ParamsPanel project={project} update={m.setProject} errors={result.errors} catalog={m.options} />
         </aside>
 
-        <main className="flex min-w-0 flex-col gap-4">
+        <main data-testid="mebel-result" className={`${pane === "result" ? "flex" : "hidden"} min-w-0 flex-col gap-4 lg:flex`}>
           <div ref={viewRef} className="h-[38vh] min-h-[240px] overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t("mebel.view3d")}>
             <CabinetView parts={result.parts} selectedPartId={m.selectedPartId} onSelect={m.setSelectedPartId} wallLift={wallLift} />
           </div>
