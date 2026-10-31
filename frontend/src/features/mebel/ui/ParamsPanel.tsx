@@ -216,17 +216,19 @@ export function ParamsPanel({
 
       <section className="flex flex-col gap-2">
         {/* stays in view while the list scrolls */}
-        <div className="sticky top-0 z-10 -mx-1 flex items-center justify-between bg-white px-1 py-2">
-          <h2 className="text-sm font-bold text-neutral-900">{t("mebel.cabinets")}</h2>
-          <button type="button" onClick={() => update((p) => ({ ...p, cabinets: relayout(p.cabinets) }))}
-            title={t("mebel.relayout_hint")}
-            className="ml-auto mr-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900">
-            {t("mebel.relayout")}
-          </button>
-          <div className="flex gap-1" role="group" aria-label={t("mebel.add_cabinet")}>
+        <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-2 bg-white px-1 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-neutral-900">{t("mebel.cabinets")}</h2>
+            <button type="button" onClick={() => update((p) => ({ ...p, cabinets: relayout(p.cabinets) }))}
+              title={t("mebel.relayout_hint")}
+              className="whitespace-nowrap text-xs font-semibold text-neutral-600 hover:text-neutral-900">
+              {t("mebel.relayout")}
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-1" role="group" aria-label={t("mebel.add_cabinet")}>
             {(["base", "wall", "tall"] as const).map((type) => (
               <button key={type} type="button" onClick={() => addCabinet(type)}
-                className="rounded-full bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                className="whitespace-nowrap rounded-full bg-blue-50 px-2 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
                 {t(`mebel.add.${type}`)}
               </button>
             ))}
