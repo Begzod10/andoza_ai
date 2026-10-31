@@ -11,6 +11,8 @@ const BOX_BELOW_FRONT = 40
 const BOX_LIFT = 20
 const BOX_SETBACK = 2
 export const MIN_BOX_HEIGHT = 80
+/** A deep (pot) drawer's box; a taller front keeps its box at the bottom, not a box as tall as the front. */
+export const MAX_BOX_HEIGHT = 250
 
 /** Drawers on a cabinet: only a base cabinet has them; null or missing is none. */
 export function drawerCount(cab: Pick<CabinetSpec, 'type' | 'drawers'>): number {
@@ -74,7 +76,7 @@ export function drawerParts(cab: CabinetSpec, d: ConstructionDefaults, firstInde
         { L1: visible, L2: visible, W1: visible, W2: visible }, 'length',
         [x0 + g, x0 + cab.width - g, fy1, top, zFront, zFront + d.facade.thickness])
     }
-    const hq = h - BOX_BELOW_FRONT
+    const hq = Math.min(h - BOX_BELOW_FRONT, MAX_BOX_HEIGHT)
     // the box clears the carcass bottom (and its own HDF bottom) on the lowest drawer
     const y1 = Math.max(fy1 + BOX_LIFT, t + d.back.thickness)
     const zb2 = zFront - BOX_SETBACK
