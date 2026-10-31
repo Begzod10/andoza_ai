@@ -19,7 +19,7 @@ export function CutListTable({
   const { t } = useTranslation();
   return (
     <div className="overflow-x-auto">
-      <table aria-label={t("mebel.tab.parts")} className="w-full min-w-[640px] text-left text-sm">
+      <table aria-label={t("mebel.tab.parts")} className="w-full text-left text-sm sm:min-w-[640px]">
         <thead className="text-xs text-neutral-500">
           <tr>
             <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.id")}</th>
