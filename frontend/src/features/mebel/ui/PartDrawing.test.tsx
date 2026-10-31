@@ -66,3 +66,19 @@ describe('HoleTable', () => {
     expect(pin.textContent).toContain(String(left.finished.length - 346))
   })
 })
+
+describe('PartDrawing end labels', () => {
+  it('sit inside the part, so they never cross the dimensions on the left', () => {
+    for (const role of ['side_left', 'side_right'] as const) {
+      const { container, unmount } = render(<PartDrawing part={side(role)} />)
+      expect(container.querySelectorAll('[data-end]')).toHaveLength(2)
+      for (const e of container.querySelectorAll('[data-end]')) {
+        const x = Number(e.getAttribute('x')), dy = Number(e.getAttribute('dy'))
+        // rotated −90°: dy moves the text along x; at the left edge it must move in (+)
+        if (x === 0) expect(dy).toBeGreaterThan(0)
+        else expect(dy).toBeLessThan(0)
+      }
+      unmount()
+    }
+  })
+})
