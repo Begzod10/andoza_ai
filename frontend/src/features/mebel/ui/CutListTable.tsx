@@ -46,7 +46,12 @@ export function CutListTable({
               >
                 <td className="px-2 py-2 text-xs text-neutral-500">{g.partIds.join(", ")}</td>
                 <td className="px-2 py-2 font-medium text-neutral-900">{groupName(g)}</td>
-                <td className="px-2 py-2">{materialName ? materialName(g) : t(`mebel.material.${g.material}`)}</td>
+                {(() => {
+                  const name = materialName ? materialName(g) : t(`mebel.material.${g.material}`);
+                  // catalogue names run long: cut short on screen so the sizes stay in view
+                  return <td data-testid="material-cell" title={name}
+                    className="max-w-[9rem] truncate px-2 py-2 print:max-w-none print:whitespace-normal">{name}</td>;
+                })()}
                 <td className="px-2 py-2 text-right tabular-nums">{g.thickness}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.length)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.width)}</td>

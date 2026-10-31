@@ -354,4 +354,30 @@ describe('MebelProjectPage drawer fixes', () => {
     await act(async () => {})
     expect(vi.mocked(api.savePriceBook).mock.calls[0][0].sheets).toEqual({ board16: 480000, board18: 556000, back: 120000, mdfM2: 350000 })
   })
+
+  it('on a phone, one switch shows the settings or the result, not one long page', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    const settings = screen.getByRole('button', { name: t('mebel.pane.params') })
+    const result = screen.getByRole('button', { name: t('mebel.pane.result') })
+    const aside = screen.getByTestId('mebel-params')
+    const main = screen.getByTestId('mebel-result')
+    // the settings first; on a wide screen both stay (lg:)
+    expect(settings).toHaveAttribute('aria-pressed', 'true')
+    expect(main.className).toMatch(/(^| )hidden( |$)/)
+    expect(main.className).toContain('lg:flex')
+    fireEvent.click(result)
+    expect(result).toHaveAttribute('aria-pressed', 'true')
+    expect(aside.className).toMatch(/(^| )hidden( |$)/)
+    expect(aside.className).toContain('lg:block')
+    expect(main.className).not.toMatch(/(^| )hidden( |$)/)
+  })
+
+  it('a long material name is cut short on screen, whole on hover and in print', async () => {
+    mount()
+    const cell = within(await screen.findByRole('table', { name: t('mebel.tab.parts') })).getAllByTestId('material-cell')[0]
+    expect(cell.className).toContain('truncate')
+    expect(cell.className).toContain('print:whitespace-normal')
+    expect(cell).toHaveAttribute('title', cell.textContent)
+  })
 })
