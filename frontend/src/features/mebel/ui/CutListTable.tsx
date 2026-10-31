@@ -25,7 +25,7 @@ export function CutListTable({
             <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.id")}</th>
             <th className="px-2 py-2 font-medium">{t("mebel.col.part")}</th>
             <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.material")}</th>
-            <th className="px-2 py-2 text-right font-medium">{t("mebel.col.thickness")}</th>
+            <th className="hidden sm:table-cell print:table-cell px-2 py-2 text-right font-medium">{t("mebel.col.thickness")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.length")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.width")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.qty")}</th>
@@ -49,11 +49,11 @@ export function CutListTable({
                 {(() => {
                   const name = materialName ? materialName(g) : t(`mebel.material.${g.material}`);
                   // catalogue names run long: cut short on screen so the sizes stay in view;
-                  // on a phone the id, material and grain columns give way to the sizes
+                  // on a phone the id, material, thickness and grain columns give way to the sizes
                   return <td data-testid="material-cell" title={name}
                     className="hidden sm:table-cell print:table-cell max-w-[9rem] truncate px-2 py-2 print:max-w-none print:whitespace-normal">{name}</td>;
                 })()}
-                <td className="px-2 py-2 text-right tabular-nums">{g.thickness}</td>
+                <td className="hidden sm:table-cell print:table-cell px-2 py-2 text-right tabular-nums">{g.thickness}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.length)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.width)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{g.qty}</td>

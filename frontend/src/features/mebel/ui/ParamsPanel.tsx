@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import type { TKey } from "@/i18n";
 import { newCabinet } from "@/features/mebel/engine";
-import { nextX } from "./layout";
+import { nextX, relayout } from "./layout";
 import type { CabinetSpec, ConstructionDefaults, EdgeBandRef, FurnitureProject, Warning } from "@/features/mebel/engine";
 
 export interface CatalogOption { id: string; name: string }
@@ -15,6 +15,7 @@ export const ERROR_FIELD: Record<string, keyof CabinetSpec> = {
   width_range: "width", inner_width: "width", height_range: "height",
   depth_range: "depth", shelf_depth: "depth", shelves_range: "shelves",
   drawers_range: "drawers", drawers_type: "drawers", drawer_low: "drawers", drawer_shallow: "drawers",
+  position_range: "position",
 };
 
 const field = "w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none";
@@ -187,6 +188,11 @@ export function ParamsPanel({
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-neutral-900">{t("mebel.cabinets")}</h2>
+          <button type="button" onClick={() => update((p) => ({ ...p, cabinets: relayout(p.cabinets) }))}
+            title={t("mebel.relayout_hint")}
+            className="ml-auto mr-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900">
+            {t("mebel.relayout")}
+          </button>
           <div className="flex gap-1" role="group" aria-label={t("mebel.add_cabinet")}>
             {(["base", "wall", "tall"] as const).map((type) => (
               <button key={type} type="button" onClick={() => addCabinet(type)}
@@ -215,6 +221,8 @@ export function ParamsPanel({
                   options={["0", "1", "2", "3", "4"].map((v) => ({ value: v, label: v }))}
                   onChange={(v) => setCabinet(c.id, { drawers: Number(v) as 0 | 1 | 2 | 3 | 4 })} />
               )}
+              <NumField id={`${c.id}-x`} label={t("mebel.position_x")} value={c.position.x} error={errorFor(c.id, "position")}
+                onChange={(v) => setCabinet(c.id, { position: { ...c.position, x: v } })} />
               <Select id={`${c.id}-doors`} label={t("mebel.doors")} disabled={(c.drawers ?? 0) > 0}
                 value={c.doors == null ? "auto" : String(c.doors)}
                 options={["auto", "0", "1", "2"].map((v) => ({ value: v, label: v === "auto" ? t("mebel.doors_auto") : v }))}

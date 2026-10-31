@@ -2460,7 +2460,8 @@
       "drawers_range": "Drawers must be {{min}}–{{max}}",
       "drawers_type": "Only base cabinets have drawers",
       "drawer_low": "Drawer too low: its box needs at least {{min}} mm",
-      "drawer_shallow": "Too shallow for a drawer (slides start at {{min}} mm)"
+      "drawer_shallow": "Too shallow for a drawer (slides start at {{min}} mm)",
+      "position_range": "Position must be 0 or more"
     },
     "warning": {
       "shelf_sag": "A {{length}} mm long {{t}} mm shelf may sag",
@@ -2557,6 +2558,9 @@
     "pane": {
       "params": "Settings",
       "result": "Result"
-    }
+    },
+    "position_x": "Position (from left), mm",
+    "relayout": "Re-arrange",
+    "relayout_hint": "Base and tall cabinets in a row, wall cabinets over the base ones"
   }
 }

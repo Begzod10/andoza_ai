@@ -2460,7 +2460,8 @@
       "drawers_range": "Tortmalar {{min}}–{{max}} ta bo'lishi kerak",
       "drawers_type": "Tortma faqat pastki shkafda bo'ladi",
       "drawer_low": "Tortma juda past: qutisi kamida {{min}} mm bo'lishi kerak",
-      "drawer_shallow": "Shkaf tortma uchun juda sayoz (yo'naltiruvchi kamida {{min}} mm)"
+      "drawer_shallow": "Shkaf tortma uchun juda sayoz (yo'naltiruvchi kamida {{min}} mm)",
+      "position_range": "Joyi 0 yoki undan katta bo'lishi kerak"
     },
     "warning": {
       "shelf_sag": "{{length}} mm uzun {{t}} mm polka egilishi mumkin",
@@ -2557,6 +2558,9 @@
     "pane": {
       "params": "Sozlamalar",
       "result": "Natija"
-    }
+    },
+    "position_x": "Joyi (chapdan), mm",
+    "relayout": "Qayta joylashtirish",
+    "relayout_hint": "Pastki shkaflar va penallar ketma-ket, devor shkaflari pastki shkaflar ustida"
   }
 }

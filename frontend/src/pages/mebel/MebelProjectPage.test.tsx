@@ -394,4 +394,26 @@ describe('MebelProjectPage drawer fixes', () => {
     // and the table itself does not hold a desktop width
     expect(table.className).not.toMatch(/(^| )min-w-/)
   })
+
+  it('each cabinet has its place along the wall, and Re-arrange lays them out again', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.add.base') }))
+    const x2 = () => screen.getAllByLabelText(t('mebel.position_x'))[1] as HTMLInputElement
+    expect(x2().value).toBe('600')
+    fireEvent.change(x2(), { target: { value: '900' } })
+    expect(x2().value).toBe('900')
+    fireEvent.change(x2(), { target: { value: '-5' } })
+    expect(screen.getByText(t('mebel.error.position_range'))).toBeInTheDocument()
+    fireEvent.change(x2(), { target: { value: '900' } })
+    // a gap after M1: re-arranging closes it
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.relayout') }))
+    expect(x2().value).toBe('600')
+  })
+
+  it('on a phone the thickness column gives way too', async () => {
+    mount()
+    const table = await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect(within(table).getByRole('columnheader', { name: t('mebel.col.thickness') }).className).toContain('hidden sm:table-cell')
+  })
 })
