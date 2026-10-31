@@ -65,8 +65,16 @@ export function AiSuggest({
   const tooMany = !!proposal && cabinetCount + proposal.cabinets.length > MAX_CABINETS;
 
   return (
-    <section className="flex flex-col gap-2 rounded-2xl bg-blue-50/60 p-3">
-      <label htmlFor="mebel-ai" className="text-sm font-bold text-neutral-900">{t("mebel.ai.label")}</label>
+    // folded until wanted: one line at the top of the panel
+    <details data-testid="section-ai" className="group rounded-2xl bg-blue-50/60 p-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-bold text-blue-800">
+        {`✦ ${t("mebel.ai.label")}`}
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 transition-transform group-open:rotate-180">
+          <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+      <label htmlFor="mebel-ai" className="sr-only">{t("mebel.ai.label")}</label>
       <textarea id="mebel-ai" value={text} maxLength={1000} rows={3} onChange={(e) => setText(e.target.value)}
         placeholder={t("mebel.ai.placeholder")}
         className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm" />
@@ -102,6 +110,7 @@ export function AiSuggest({
           </div>
         </div>
       )}
-    </section>
+      </div>
+    </details>
   );
 }

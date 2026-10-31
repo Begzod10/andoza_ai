@@ -2561,6 +2561,9 @@
     },
     "position_x": "Joyi (chapdan), mm",
     "relayout": "Qayta joylashtirish",
-    "relayout_hint": "Pastki shkaflar va penallar ketma-ket, devor shkaflari pastki shkaflar ustida"
+    "relayout_hint": "Pastki shkaflar va penallar ketma-ket, devor shkaflari pastki shkaflar ustida",
+    "position_short": "joyi {{x}}",
+    "view_hide": "3D'ni yashirish",
+    "view_show": "3D'ni ko'rsatish"
   }
 }

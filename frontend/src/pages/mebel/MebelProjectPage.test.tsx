@@ -416,4 +416,57 @@ describe('MebelProjectPage drawer fixes', () => {
     const table = await screen.findByRole('table', { name: t('mebel.tab.parts') })
     expect(within(table).getByRole('columnheader', { name: t('mebel.col.thickness') }).className).toContain('hidden sm:table-cell')
   })
+
+})
+
+describe('MebelProjectPage layout', () => {
+  const rowOfCab = (label: string) => screen.getByTestId(`cabinet-${label}`) as HTMLDetailsElement
+
+  it('cabinets are one-line rows; one opens at a time', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.add.wall') }))
+    // the new cabinet opens, the first one closes
+    expect(rowOfCab('M2').open).toBe(true)
+    expect(rowOfCab('M1').open).toBe(false)
+    expect(within(rowOfCab('M2')).getByText(/600×720×300/)).toBeInTheDocument()
+    fireEvent.click(within(rowOfCab('M1')).getByText('M1'))
+    expect(rowOfCab('M1').open).toBe(true)
+    expect(rowOfCab('M2').open).toBe(false)
+  })
+
+  it('a cabinet with an error stays open and is marked', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.add.base') }))
+    fireEvent.change(screen.getAllByLabelText(t('mebel.width'))[0], { target: { value: '50' } })
+    expect(rowOfCab('M1').open).toBe(true)
+    expect(within(rowOfCab('M1')).getByTestId('cabinet-error-dot')).toBeInTheDocument()
+  })
+
+  it('settings, doors and the AI box start folded', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    expect((screen.getByTestId('section-settings') as HTMLDetailsElement).open).toBe(false)
+    expect((screen.getByTestId('section-facade') as HTMLDetailsElement).open).toBe(false)
+    expect((screen.getByTestId('section-ai') as HTMLDetailsElement).open).toBe(false)
+  })
+
+  it('the 3D view can be hidden to give the tables the room', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.view_hide') }))
+    expect(screen.queryByTestId('cabinet-view')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.view_show') }))
+    expect(screen.getByTestId('cabinet-view')).toBeInTheDocument()
+  })
+
+  it('selecting a part opens its cabinet', async () => {
+    mount()
+    await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    fireEvent.click(screen.getByRole('button', { name: t('mebel.add.wall') }))
+    expect(rowOfCab('M1').open).toBe(false)
+    fireEvent.click(rowOf(i18n.t('mebel.part.bottom')))
+    expect(rowOfCab('M1').open).toBe(true)
+  })
 })

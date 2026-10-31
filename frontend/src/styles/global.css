@@ -229,6 +229,21 @@
     background: var(--color-neutral-400);
   }
 
+  /* A panel that scrolls on its own: a scrollbar wide enough to see and grab */
+  .scroll-visible {
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--color-neutral-400) transparent;
+  }
+  .scroll-visible::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-visible::-webkit-scrollbar-thumb {
+    background: var(--color-neutral-400);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
   /* Headings */
   h1 {
     font-size: 3.5rem;
