@@ -46,12 +46,11 @@ export function PartDrawing({ part, print = false }: { part: Part; print?: boole
       <text x={0} y={-pad / 3} fontSize={font} fill="#111" fontWeight={700}>{`${part.id}  ${L}×${W}`}</text>
       <text x={0} y={W + padBottom - pad * 0.3} fontSize={font * 0.8} fill="#555">{t("mebel.drill.front_edge")}</text>
       {isSide && (
-        <>
-          <text x={x(0)} y={W / 2} textAnchor={mirror ? "start" : "end"} dx={mirror ? 6 : -6} fontSize={font * 0.8} fill="#111"
-            transform={`rotate(-90 ${x(0)} ${W / 2})`}>{t("mebel.drill.end_bottom")}</text>
-          <text x={x(L)} y={W / 2} fontSize={font * 0.8} fill="#111" textAnchor="middle"
-            transform={`rotate(-90 ${x(L)} ${W / 2})`} dy={mirror ? -8 : 20}>{t("mebel.drill.end_top")}</text>
-        </>
+        // Inside the part, clear of the dimensions that run up its left edge.
+        [[x(0), t("mebel.drill.end_bottom")], [x(L), t("mebel.drill.end_top")]].map(([ex, label]) => (
+          <text key={label as string} data-end={label} x={ex} y={W / 2} fontSize={font * 0.8} fill="#111" textAnchor="middle"
+            transform={`rotate(-90 ${ex} ${W / 2})`} dy={ex === 0 ? font * 0.9 : -font * 0.3}>{label}</text>
+        ))
       )}
       {holes.map(({ h, x: hx, y: hy, edge }, i) => {
         const r = Math.max(h.diameter / 2, 4);
