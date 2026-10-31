@@ -53,6 +53,10 @@ describe('computeProject', () => {
     p.defaults.board.thickness = 16
     expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).warnings)).toContain('shelf_sag')
     p.defaults.board.thickness = 18
+    // an 18 mm shelf holds to 900 mm: 962 sags, 862 does not
+    const w = computeProject(p, EMPTY_PRICE_BOOK, {}).warnings.find(x => x.code === 'shelf_sag')
+    expect(w?.params).toEqual({ length: 962, t: 18 })
+    p.cabinets[0].width = 900
     expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).warnings)).not.toContain('shelf_sag')
   })
 

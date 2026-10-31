@@ -11,7 +11,8 @@ const NO_EDGES: Part['edges'] = { L1: null, L2: null, W1: null, W2: null }
 export function carcassParts(
   cab: CabinetSpec,
   d: ConstructionDefaults,
-  opts: { top: 'rails' | 'panel'; bottomJoint: ConstructionDefaults['bottomJoint'] },
+  /** `hangs`: a wall cabinet, whose sides' bottom ends are seen from below. */
+  opts: { top: 'rails' | 'panel'; bottomJoint: ConstructionDefaults['bottomJoint']; hangs?: boolean },
 ): Part[] {
   const { width: W, height: H, depth: D } = cab
   const t = d.board.thickness
@@ -58,13 +59,15 @@ export function carcassParts(
 
   const sideH = under ? H - t : H
   const sideY1 = under ? t : 0
-  const sideEdges = { L1: visible, L2: null, W1: hidden, W2: null }
+  const sideEdges = { L1: visible, L2: null, W1: hidden, W2: opts.hangs ? visible : null }
   add('side_left', { length: sideH, width: Dc }, sideEdges, [x0, x0 + t, sideY1, H, zc0, zFront])
   add('side_right', { length: sideH, width: Dc }, sideEdges, [x0 + W - t, x0 + W, sideY1, H, zc0, zFront])
 
   const bottomW = under ? W : W - 2 * t
   const bx1 = under ? x0 : x0 + t
-  add('bottom', { length: bottomW, width: Dc }, { ...NO_EDGES, L1: visible }, [bx1, bx1 + bottomW, 0, t, zc0, zFront])
+  // under the sides, the bottom's ends show on the cabinet's sides
+  add('bottom', { length: bottomW, width: Dc }, { ...NO_EDGES, L1: visible, ...(under ? { W1: hidden, W2: hidden } : {}) },
+    [bx1, bx1 + bottomW, 0, t, zc0, zFront])
 
   const inner = W - 2 * t
   if (opts.top === 'rails') {

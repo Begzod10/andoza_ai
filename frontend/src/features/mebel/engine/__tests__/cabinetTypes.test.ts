@@ -77,3 +77,23 @@ describe('wall and tall cabinets', () => {
     expect(computeProject(old, EMPTY_PRICE_BOOK, {}).parts).toEqual(typed.parts)
   })
 })
+
+describe('end edges that show', () => {
+  it("a wall cabinet's sides are banded at the bottom end, seen from below", () => {
+    const p = newProject('x')
+    p.cabinets = [{ ...newCabinet('M1', 0, 'wall'), id: 'w' }]
+    const side = computeProject(p, EMPTY_PRICE_BOOK, {}).parts.find(x => x.role === 'side_left')!
+    expect(side.edges.W2).toEqual({ band: 'visible', thickness: 2 })
+    // a base cabinet's sides stand on legs behind the plinth: no band there
+    const base = computeProject(newProject('y'), EMPTY_PRICE_BOOK, {}).parts.find(x => x.role === 'side_left')!
+    expect(base.edges.W2).toBeNull()
+  })
+
+  it('a bottom under the sides is banded on both ends', () => {
+    const p = newProject('x')
+    p.defaults.bottomJoint = 'under_sides'
+    const bottom = computeProject(p, EMPTY_PRICE_BOOK, {}).parts.find(x => x.role === 'bottom')!
+    expect(bottom.edges.W1).toEqual({ band: 'hidden', thickness: 0.4 })
+    expect(bottom.edges.W2).toEqual({ band: 'hidden', thickness: 0.4 })
+  })
+})

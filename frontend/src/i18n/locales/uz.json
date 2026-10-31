@@ -2463,7 +2463,7 @@
       "drawer_shallow": "Shkaf tortma uchun juda sayoz (yo'naltiruvchi kamida {{min}} mm)"
     },
     "warning": {
-      "shelf_sag": "{{length}} mm uzun 16 mm polka egilishi mumkin",
+      "shelf_sag": "{{length}} mm uzun {{t}} mm polka egilishi mumkin",
       "part_exceeds_sheet": "{{length}}×{{width}} mm detal listga sig'maydi",
       "unpriced": "Ba'zi qatorlarning narxi yo'q: narx daftariga yoki katalogga qo'shing",
       "thickness_board": "LDSP: tanlangan list {{actual}} mm, sozlamada {{expected}} mm",
