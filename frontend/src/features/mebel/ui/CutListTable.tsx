@@ -22,14 +22,14 @@ export function CutListTable({
       <table aria-label={t("mebel.tab.parts")} className="w-full min-w-[640px] text-left text-sm">
         <thead className="text-xs text-neutral-500">
           <tr>
-            <th className="px-2 py-2 font-medium">{t("mebel.col.id")}</th>
+            <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.id")}</th>
             <th className="px-2 py-2 font-medium">{t("mebel.col.part")}</th>
-            <th className="px-2 py-2 font-medium">{t("mebel.col.material")}</th>
+            <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.material")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.thickness")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.length")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.width")}</th>
             <th className="px-2 py-2 text-right font-medium">{t("mebel.col.qty")}</th>
-            <th className="px-2 py-2 font-medium">{t("mebel.col.grain")}</th>
+            <th className="hidden sm:table-cell print:table-cell px-2 py-2 font-medium">{t("mebel.col.grain")}</th>
             <th className="px-2 py-2 font-medium">{t("mebel.col.edges")}</th>
           </tr>
         </thead>
@@ -44,19 +44,20 @@ export function CutListTable({
                 onClick={() => onSelect(g.partIds[0])}
                 className={`cursor-pointer border-t border-neutral-100 ${selected ? "bg-blue-50" : "hover:bg-neutral-50"}`}
               >
-                <td className="px-2 py-2 text-xs text-neutral-500">{g.partIds.join(", ")}</td>
+                <td className="hidden sm:table-cell print:table-cell px-2 py-2 text-xs text-neutral-500">{g.partIds.join(", ")}</td>
                 <td className="px-2 py-2 font-medium text-neutral-900">{groupName(g)}</td>
                 {(() => {
                   const name = materialName ? materialName(g) : t(`mebel.material.${g.material}`);
-                  // catalogue names run long: cut short on screen so the sizes stay in view
+                  // catalogue names run long: cut short on screen so the sizes stay in view;
+                  // on a phone the id, material and grain columns give way to the sizes
                   return <td data-testid="material-cell" title={name}
-                    className="max-w-[9rem] truncate px-2 py-2 print:max-w-none print:whitespace-normal">{name}</td>;
+                    className="hidden sm:table-cell print:table-cell max-w-[9rem] truncate px-2 py-2 print:max-w-none print:whitespace-normal">{name}</td>;
                 })()}
                 <td className="px-2 py-2 text-right tabular-nums">{g.thickness}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.length)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatMm(size.width)}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{g.qty}</td>
-                <td className="px-2 py-2">{t(`mebel.grain.${g.grain}`)}</td>
+                <td className="hidden sm:table-cell print:table-cell px-2 py-2">{t(`mebel.grain.${g.grain}`)}</td>
                 <td className="px-2 py-2 tabular-nums">{edgesSummary(g.edges)}</td>
               </tr>
             );

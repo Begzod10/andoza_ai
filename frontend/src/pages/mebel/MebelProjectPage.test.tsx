@@ -380,4 +380,16 @@ describe('MebelProjectPage drawer fixes', () => {
     expect(cell.className).toContain('print:whitespace-normal')
     expect(cell).toHaveAttribute('title', cell.textContent)
   })
+
+  it('on a phone the cut list keeps the sizes: id, material and grain columns hide below sm', async () => {
+    mount()
+    const table = await screen.findByRole('table', { name: t('mebel.tab.parts') })
+    const header = (name: string) => within(table).getByRole('columnheader', { name })
+    for (const name of [t('mebel.col.id'), t('mebel.col.material'), t('mebel.col.grain')]) {
+      expect(header(name).className).toContain('hidden sm:table-cell print:table-cell')
+    }
+    for (const name of [t('mebel.col.part'), t('mebel.col.length'), t('mebel.col.width'), t('mebel.col.qty')]) {
+      expect(header(name).className).not.toContain('hidden')
+    }
+  })
 })
