@@ -2539,7 +2539,9 @@
       },
       "end_bottom": "↓ bottom",
       "end_top": "↑ top",
-      "mdf_hinge_note": "The facade shop drills the hinge cups (Ø35): 22.5 mm from the edge, 100 mm from the ends."
+      "mdf_hinge_note": "The facade shop drills the hinge cups (Ø35): 22.5 mm from the edge, 100 mm from the ends.",
+      "from_left": "From left edge, mm",
+      "from_front": "From front edge, mm"
     },
     "ai": {
       "label": "Add with AI",
