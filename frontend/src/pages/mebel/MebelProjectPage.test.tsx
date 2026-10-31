@@ -391,5 +391,7 @@ describe('MebelProjectPage drawer fixes', () => {
     for (const name of [t('mebel.col.part'), t('mebel.col.length'), t('mebel.col.width'), t('mebel.col.qty')]) {
       expect(header(name).className).not.toContain('hidden')
     }
+    // and the table itself does not hold a desktop width
+    expect(table.className).not.toMatch(/(^| )min-w-/)
   })
 })
