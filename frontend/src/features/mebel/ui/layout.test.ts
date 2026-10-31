@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextX } from './layout'
+import { nextX, relayout } from './layout'
 import { newCabinet } from '@/features/mebel/engine'
 import type { CabinetSpec } from '@/features/mebel/engine'
 
@@ -24,5 +24,19 @@ describe('nextX', () => {
     expect(nextX(row, 'wall', 600)).toBe(600)
     expect(nextX(row, 'wall', 1200)).toBe(600)
     expect(nextX(row, 'wall', 1300)).toBe(2400)
+  })
+})
+
+describe('relayout', () => {
+  it('lays an old project out again: the floor row in order, wall cabinets over the base ones', () => {
+    // saved before wall cabinets hung over the base row: they were put after the tall one
+    const old = [cab('base', 0), cab('base', 600), cab('tall', 1200), cab('wall', 1800), cab('wall', 2400)]
+    expect(relayout(old).map(c => [c.type, c.position.x])).toEqual([
+      ['base', 0], ['base', 600], ['tall', 1200], ['wall', 0], ['wall', 600],
+    ])
+  })
+
+  it('closes gaps in the floor row and keeps its order', () => {
+    expect(relayout([cab('base', 900), cab('base', 0, 450)]).map(c => c.position.x)).toEqual([450, 0])
   })
 })

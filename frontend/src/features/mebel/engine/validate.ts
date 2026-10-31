@@ -62,6 +62,7 @@ export function validateCabinets(
         if (Math.min(...frontHeights(c, d, nDrawers)) - 40 < MIN_BOX_HEIGHT) errors.push({ code: 'drawer_low', cabinetId: c.id, params: { min: MIN_BOX_HEIGHT } })
       }
     }
+    if (!(Number.isFinite(c.position?.x) && c.position.x >= 0)) errors.push({ code: 'position_range', cabinetId: c.id })
     // a saved "auto" may come back as null
     if (c.doors != null && ![0, 1, 2].includes(c.doors)) errors.push({ code: 'doors_range', cabinetId: c.id, params: { min: 0, max: 2 } })
     // the server stores whole millimetres
@@ -79,10 +80,13 @@ export function validateCabinets(
 /** Warnings about computed parts: the calculation still stands. */
 export function partWarnings(parts: Part[]): Warning[] {
   const warnings: Warning[] = []
-  for (const p of parts) {
+  // one warning per cabinet: the longest of its sagging shelves
+  const seen = new Set<string>()
+  for (const p of [...parts].sort((a, b) => b.finished.length - a.finished.length)) {
     // longest unsupported span a shelf of this thickness holds without sagging
     const span = p.thickness === 16 ? 800 : p.thickness === 18 ? 900 : null
-    if (p.role === 'shelf' && span != null && p.finished.length > span) {
+    if (p.role === 'shelf' && span != null && p.finished.length > span && !seen.has(p.cabinetId)) {
+      seen.add(p.cabinetId)
       warnings.push({ code: 'shelf_sag', cabinetId: p.cabinetId, params: { length: p.finished.length, t: p.thickness } })
     }
   }

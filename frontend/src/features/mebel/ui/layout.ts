@@ -22,3 +22,25 @@ export function nextX(cabinets: CabinetSpec[], type: CabinetSpec["type"], width:
   }
   return x;
 }
+
+/**
+ * Lays every cabinet out again by the rules above: the floor row in its present
+ * order from x = 0 with no gaps, then each wall cabinet in the first gap over it.
+ * For projects saved before wall cabinets hung over the base row.
+ */
+export function relayout(cabinets: CabinetSpec[]): CabinetSpec[] {
+  const placed = new Map<string, number>();
+  const done: CabinetSpec[] = [];
+  const byX = (a: CabinetSpec, b: CabinetSpec) => a.position.x - b.position.x;
+  for (const c of cabinets.filter((c) => c.type !== "wall").sort(byX)) {
+    const x = nextX(done, c.type, w(c));
+    placed.set(c.id, x);
+    done.push({ ...c, position: { ...c.position, x } });
+  }
+  for (const c of cabinets.filter((c) => c.type === "wall").sort(byX)) {
+    const x = nextX(done, c.type, w(c));
+    placed.set(c.id, x);
+    done.push({ ...c, position: { ...c.position, x } });
+  }
+  return cabinets.map((c) => ({ ...c, position: { ...c.position, x: placed.get(c.id) ?? c.position.x } }));
+}

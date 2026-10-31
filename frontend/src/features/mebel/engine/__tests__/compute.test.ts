@@ -60,6 +60,20 @@ describe('computeProject', () => {
     expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).warnings)).not.toContain('shelf_sag')
   })
 
+  it('one sag warning per cabinet, however many shelves sag', () => {
+    const p = newProject('x')
+    p.cabinets[0] = { ...p.cabinets[0], width: 1000, shelves: 3 }
+    expect(codes(computeProject(p, EMPTY_PRICE_BOOK, {}).warnings).filter(c => c === 'shelf_sag')).toHaveLength(1)
+  })
+
+  it('a cabinet placed at a negative or missing position is an error', () => {
+    const p = newProject('x')
+    p.cabinets[0].position = { x: -10, z: 0 }
+    expect(codes(validateProject(p).errors)).toContain('position_range')
+    p.cabinets[0].position = { x: Number.NaN, z: 0 }
+    expect(codes(validateProject(p).errors)).toContain('position_range')
+  })
+
   it('a part bigger than the sheet warns but still computes', () => {
     const p = newProject('x')
     p.defaults.sheet = { length: 600, width: 500 }
