@@ -250,7 +250,9 @@
       "olchamlar_koppburchak_other": "{{area}} m² · {{count}} walls · ceiling {{height}} m",
       "havola_bekor": "Revoke",
       "saqlanmadi": "Not saved",
-      "qayta_urinish": "Retry"
+      "qayta_urinish": "Retry",
+      "xona_olchami_btn": "Room size: {{dims}}. Change",
+      "olcham_eshik_deraza": "Size, doors and windows"
     },
     "iso": {
       "preview_aria": "Isometric room preview",

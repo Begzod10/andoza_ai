@@ -43,10 +43,10 @@ describe('studio components in another language', () => {
     act(() => applyLanguage('ru'))
     // The summary is built from useMemo'd figures: its labels must still follow.
     expect(screen.getByRole('heading', { name: 'Настройки комнаты' })).toBeInTheDocument()
-    expect(screen.getByText('Площадь')).toBeInTheDocument()
+    expect(screen.getByText(/Площадь/)).toBeInTheDocument() // in the one-line summary
     act(() => applyLanguage('en'))
     expect(screen.getByRole('heading', { name: 'Room settings' })).toBeInTheDocument()
-    expect(screen.getByText('Area')).toBeInTheDocument()
+    expect(screen.getByText(/Area/)).toBeInTheDocument()
     expect(screen.getByText('Windows and doors')).toBeInTheDocument()
   })
 })

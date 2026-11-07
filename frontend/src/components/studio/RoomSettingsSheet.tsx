@@ -3,6 +3,8 @@ import { formatDecimal } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { DoorOpen, Grid2x2 } from "lucide-react";
+import { SidePanel } from "@/components/ui/SidePanel";
+import { useWideStudio } from "@/lib/compactStudio";
 import { useRoomStore, computeFloorArea, computePerimeter } from "@/store/roomStore";
 import type { RoomGeometry, WallElement } from "@/store/roomStore";
 import { WINDOW_STYLES, resolveWindowStyle } from "@/lib/windowStyles";
@@ -49,6 +51,10 @@ function wallLabel(t: TFunction, id: string): string {
 // point WallOpenings.tsx marks it positionAuto: false permanently.
 const DEFAULT_WINDOW = { type: "deraza" as const, width: 900, height: 1200, sill_height: 800, position: 0, positionAuto: true };
 const DEFAULT_DOOR   = { type: "eshik"  as const, width: 900, height: 2100, sill_height: 0,   position: 0, positionAuto: true };
+
+/** "+ Deraza" and "+ Eshik": one kind of button, neither louder than the other. */
+const ADD_OPENING_BUTTON =
+  "flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 bg-white text-[13px] font-bold text-gray-700 hover:border-brand hover:text-brand";
 
 function MiniStepper({
   label,
@@ -187,22 +193,13 @@ function RoomSummary({ geometry }: { geometry: RoomGeometry }) {
   ];
 
   return (
-    <div
-      className="grid grid-cols-3 gap-2 mb-4"
+    <p
+      className="mt-2 mb-5 text-[12px] text-muted tabular-nums"
       role="group"
       aria-label={t('studio.room_settings.room_measures')}
     >
-      {stats.map((s) => (
-        <div key={s.label} className="bg-[#F9FAFB] rounded-2xl px-3 py-2.5 text-center">
-          <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">
-            {s.label}
-          </p>
-          <p className="text-[15px] font-bold text-gray-900 tabular-nums mt-0.5">
-            {s.value}
-          </p>
-        </div>
-      ))}
-    </div>
+      {stats.map((s) => `${s.label} ${s.value}`).join(" · ")}
+    </p>
   );
 }
 
@@ -309,6 +306,7 @@ export default function RoomSettingsSheet({
   const setWallLength = useRoomStore((s) => s.setWallLength);
   const setCeilingH   = useRoomStore((s) => s.setCeilingHeight);
   const addElement    = useRoomStore((s) => s.addElement);
+  const wide          = useWideStudio();
 
   // Which wall's "+ Deraza" is pending a style/size choice — null when no
   // chooser is open. Set on button click; the window is only actually
@@ -360,7 +358,121 @@ export default function RoomSettingsSheet({
     else               { setWallLength("B", val); setWallLength("D", val); }
   }
 
+  const windowSheet = (
+    <NewWindowSheet
+        isOpen={pendingWindowWallId !== null}
+        onClose={() => setPendingWindowWallId(null)}
+        onConfirm={(values) => {
+          if (pendingWindowWallId) {
+            addElement(pendingWindowWallId, { ...DEFAULT_WINDOW, ...values });
+          }
+          setPendingWindowWallId(null);
+        }}
+      />
+  );
+
+  // Sizes first (what the sheet is for), then the openings, then the room's kind.
+  const content = (
+    <>
+          {/* ── Room dimensions ──────────────────────────────── */}
+          <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">
+            {t('studio.room_settings.sizes')}
+          </p>
+          <div className="bg-[#F9FAFB] rounded-2xl px-4">
+            {isRect ? (
+              <>
+                <DimStepper
+                  label={t('studio.room_settings.length')} sub={t('studio.room_settings.ac')}
+                  value={wallA} onChange={(v) => setLength("AC", v)}
+                  min={1000} max={15000} step={100}
+                />
+                <DimStepper
+                  label={t('studio.room_settings.width')} sub={t('studio.room_settings.bd')}
+                  value={wallB} onChange={(v) => setLength("BD", v)}
+                  min={1000} max={15000} step={100}
+                />
+              </>
+            ) : (
+              geometry.walls.map((wall) => (
+                <DimStepper
+                  key={wall.id}
+                  label={wallLabel(t, wall.id)}
+                  value={wall.length}
+                  onChange={(v) => setWallLength(wall.id, v)}
+                  min={1000} max={15000} step={100}
+                  decimals={2}
+                />
+              ))
+            )}
+            <DimStepper
+              label={t('studio.room_settings.ceiling_height')}
+              value={ceilingHeight} onChange={setCeilingH}
+              min={2000} max={4500} step={100}
+            />
+          </div>
+
+          {/* ── Read-only room summary ───────────────────────── */}
+          <RoomSummary geometry={geometry} />
+
+          {/* ── Windows & Doors ──────────────────────────────── */}
+          <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">
+            {t('studio.room_settings.openings_title')}
+          </p>
+          <div className="space-y-3">
+            {geometry.walls.map((wall) => (
+              <div key={wall.id} className="bg-[#F9FAFB] rounded-2xl px-4 py-3">
+                <p className="text-[13px] font-bold text-gray-600 mb-1">
+                  {wallLabel(t, wall.id)}
+                </p>
+
+                {wall.elements.length === 0 && (
+                  <p className="text-[12px] text-muted mb-2">{t('studio.room_settings.no_element')}</p>
+                )}
+
+                {wall.elements.map((el) => (
+                  <ElementRow key={el.id} wallId={wall.id} el={el} />
+                ))}
+
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => setPendingWindowWallId(wall.id)}
+                    className={ADD_OPENING_BUTTON}
+                  >
+                    <Grid2x2 size={14} aria-hidden="true" />
+                    {t('studio.room_settings.add_window')}
+                  </button>
+                  <button
+                    onClick={() => addElement(wall.id, DEFAULT_DOOR)}
+                    className={ADD_OPENING_BUTTON}
+                  >
+                    <DoorOpen size={14} aria-hidden="true" />
+                    {t('studio.room_settings.add_door')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* ── Room type ────────────────────────────────────── */}
+          <div className="mt-5">
+            <RoomTypePicker roomId={roomId} />
+          </div>
+
+    </>
+  );
+
   if (!open) return null;
+
+  // Desktop: a panel beside the room, so a resized wall shows in 3D as it changes. Phone: the sheet.
+  if (wide) {
+    return (
+      <>
+        <SidePanel open onOpenChange={(o) => { if (!o) onClose(); }} title={t('studio.room_settings.title')} closeLabel={t('common.yopish')}>
+          <div className="px-4 pb-6">{content}</div>
+        </SidePanel>
+        {windowSheet}
+      </>
+    );
+  }
 
   return (
     <>
@@ -396,100 +508,11 @@ export default function RoomSettingsSheet({
             </button>
           </div>
 
-          {/* ── Room type ────────────────────────────────────── */}
-          <div className="mb-4">
-            <RoomTypePicker roomId={roomId} />
-          </div>
-
-          {/* ── Read-only room summary ───────────────────────── */}
-          <RoomSummary geometry={geometry} />
-
-          {/* ── Room dimensions ──────────────────────────────── */}
-          <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">
-            {t('studio.room_settings.sizes')}
-          </p>
-          <div className="bg-[#F9FAFB] rounded-2xl px-4 mb-5">
-            {isRect ? (
-              <>
-                <DimStepper
-                  label={t('studio.room_settings.length')} sub={t('studio.room_settings.ac')}
-                  value={wallA} onChange={(v) => setLength("AC", v)}
-                  min={1000} max={15000} step={100}
-                />
-                <DimStepper
-                  label={t('studio.room_settings.width')} sub={t('studio.room_settings.bd')}
-                  value={wallB} onChange={(v) => setLength("BD", v)}
-                  min={1000} max={15000} step={100}
-                />
-              </>
-            ) : (
-              geometry.walls.map((wall) => (
-                <DimStepper
-                  key={wall.id}
-                  label={wallLabel(t, wall.id)}
-                  value={wall.length}
-                  onChange={(v) => setWallLength(wall.id, v)}
-                  min={1000} max={15000} step={100}
-                  decimals={2}
-                />
-              ))
-            )}
-            <DimStepper
-              label={t('studio.room_settings.ceiling_height')}
-              value={ceilingHeight} onChange={setCeilingH}
-              min={2000} max={4500} step={100}
-            />
-          </div>
-
-          {/* ── Windows & Doors ──────────────────────────────── */}
-          <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">
-            {t('studio.room_settings.openings_title')}
-          </p>
-          <div className="space-y-3">
-            {geometry.walls.map((wall) => (
-              <div key={wall.id} className="bg-[#F9FAFB] rounded-2xl px-4 py-3">
-                <p className="text-[13px] font-bold text-gray-600 mb-1">
-                  {wallLabel(t, wall.id)}
-                </p>
-
-                {wall.elements.length === 0 && (
-                  <p className="text-[12px] text-muted mb-2">{t('studio.room_settings.no_element')}</p>
-                )}
-
-                {wall.elements.map((el) => (
-                  <ElementRow key={el.id} wallId={wall.id} el={el} />
-                ))}
-
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => setPendingWindowWallId(wall.id)}
-                    className="flex-1 py-2 rounded-xl text-[13px] font-bold text-brand bg-brand-tint"
-                  >
-                    {t('studio.room_settings.add_window')}
-                  </button>
-                  <button
-                    onClick={() => addElement(wall.id, DEFAULT_DOOR)}
-                    className="flex-1 py-2 rounded-xl text-[13px] font-bold text-gray-700 bg-[#EDEEF1]"
-                  >
-                    {t('studio.room_settings.add_door')}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          {content}
         </div>
       </div>
     </div>
-    <NewWindowSheet
-      isOpen={pendingWindowWallId !== null}
-      onClose={() => setPendingWindowWallId(null)}
-      onConfirm={(values) => {
-        if (pendingWindowWallId) {
-          addElement(pendingWindowWallId, { ...DEFAULT_WINDOW, ...values });
-        }
-        setPendingWindowWallId(null);
-      }}
-    />
+    {windowSheet}
     </>
   );
 }

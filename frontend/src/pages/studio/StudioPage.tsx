@@ -6,6 +6,7 @@ import { storeGeometryToApiGeometry } from "@/lib/apiRoomGeometry";
 import { useNoPageZoom } from "@/hooks/useNoPageZoom";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import RoomSettingsSheet from "@/components/studio/RoomSettingsSheet";
+import { Ruler } from "lucide-react";
 import { RoomTypeBadge } from "@/components/studio/RoomTypeBadge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -566,14 +567,16 @@ export default function StudioPage() {
                 <p className="text-[16px] lg:text-[20px] font-extrabold text-ink truncate">{room.name}</p>
               </button>
               <div className="text-[11px] text-ink-muted flex items-center gap-1 min-w-0">
+                {/* A button that looks like one and says what it opens: the bare "4.5 × 3.2 m ✎"
+                    line was never found (2026-11-07). */}
                 <button
-                  className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
+                  className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap rounded-full border border-line px-2 py-0.5 hover:bg-card-soft hover:text-ink transition-colors"
                   onClick={() => setSettingsOpen(true)}
+                  aria-label={t("studio.page.xona_olchami_btn", { dims: dimsLabel })}
+                  title={t("studio.page.xona_olchami_btn", { dims: dimsLabel })}
                 >
+                  <Ruler size={11} aria-hidden="true" />
                   {dimsLabel}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M7 1.5L8.5 3 3.5 8H2V6.5L7 1.5z"/>
-                  </svg>
                 </button>
                 {/* Only once the store holds THIS room: while it still holds
                     another (switching rooms, or the fetch failed) the type on
@@ -616,6 +619,14 @@ export default function StudioPage() {
             <div className="relative">
               <StudioMenu ref={menuButtonRef} open={menuOpen} onOpenChange={setMenuOpen}>
                 <div ref={setMenuSlotEl} />
+                {/* The way to the sizes on a phone, where the header's size line is hidden. */}
+                <button
+                  onClick={() => { setMenuOpen(false); setSettingsOpen(true) }}
+                  className={`${MENU_ROW} border-b border-line`}
+                >
+                  <Ruler className={MENU_ICON} aria-hidden="true" />
+                  <span>{t("studio.page.olcham_eshik_deraza")}</span>
+                </button>
                 <DiscardDesignMenuItem roomId={room.id} onDone={() => setMenuOpen(false)} />
                 {room.id !== 'local' && (
                   <button

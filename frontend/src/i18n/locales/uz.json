@@ -250,7 +250,9 @@
       "olchamlar_koppburchak_other": "{{area}} m² · {{count}} devor · shift {{height}} m",
       "havola_bekor": "Bekor qilish",
       "saqlanmadi": "Saqlanmadi",
-      "qayta_urinish": "Qayta urinish"
+      "qayta_urinish": "Qayta urinish",
+      "xona_olchami_btn": "Xona o'lchami: {{dims}}. O'zgartirish",
+      "olcham_eshik_deraza": "O'lcham, eshik va derazalar"
     },
     "iso": {
       "preview_aria": "Isometric room preview",

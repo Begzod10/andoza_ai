@@ -262,7 +262,9 @@
       "olchamlar_koppburchak_many": "{{area}} м² · {{count}} стен · потолок {{height}} м",
       "havola_bekor": "Отключить",
       "saqlanmadi": "Не сохранено",
-      "qayta_urinish": "Повторить"
+      "qayta_urinish": "Повторить",
+      "xona_olchami_btn": "Размеры комнаты: {{dims}}. Изменить",
+      "olcham_eshik_deraza": "Размеры, двери и окна"
     },
     "iso": {
       "preview_aria": "Изометрический вид комнаты",
