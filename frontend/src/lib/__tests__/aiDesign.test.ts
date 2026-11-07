@@ -95,7 +95,7 @@ describe('applyDesignPlan', () => {
   it('applies only the parts that are switched on', () => {
     const counts = applyDesignPlan(plan(), { walls: false, floor: true, lights: false, furniture: false }, catalog)
     const s = useRoomStore.getState()
-    expect(counts).toEqual({ walls: false, floor: true, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [], placedLights: [], droppedLights: [] })
+    expect(counts).toEqual({ walls: false, floor: true, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [], placedLights: [], droppedLights: [], ownLightsKept: [] })
     expect(s.lights).toHaveLength(0) && expect(s.furniture).toHaveLength(0)
     expect(s.designState.wallCoverings.ALL).not.toEqual({ kind: 'paint', color: '#2c2c2c' })
   })
@@ -155,6 +155,32 @@ describe('lights from an earlier design', () => {
     const lights = useRoomStore.getState().lights
     expect(lights.filter((l) => l.id === 'mine')).toHaveLength(1)
     expect(lights).toHaveLength(1 + plan().lights.length)
+  })
+
+  it("puts no ceiling light on top of one the user hung there: theirs stays, the design's is left out and said to be", () => {
+    // Prod (2026-11-07): the user's round ceiling light and the design's square panel overlapped.
+    useRoomStore.getState().addLight({ id: 'mine', xMm: 1900, zMm: 1800, type: 'ceiling' })
+    const p = plan(); p.lights = [{ type: 'led_panel', zone: 'center' }, { type: 'bra', zone: 'wall_B' }]
+    const counts = applyDesignPlan(p, ALL_PARTS, catalog)
+    const lights = useRoomStore.getState().lights
+    expect(lights.map((l) => l.type).sort()).toEqual(['bra', 'ceiling'])
+    expect(counts.ownLightsKept).toEqual([{ type: 'led_panel', count: 1 }])
+    expect(counts.placedLights.map((l) => l.type)).toEqual(['bra'])
+  })
+
+  it("a ceiling light well clear of the user's own is put in as usual", () => {
+    useRoomStore.getState().addLight({ id: 'mine', xMm: 400, zMm: 400, type: 'ceiling' })
+    const p = plan(); p.lights = [{ type: 'led_panel', zone: 'center' }]
+    const counts = applyDesignPlan(p, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().lights.map((l) => l.type).sort()).toEqual(['ceiling', 'led_panel'])
+    expect(counts.ownLightsKept).toEqual([])
+  })
+
+  it("the user's wall lamp does not keep a ceiling light out from above it", () => {
+    useRoomStore.getState().addLight({ id: 'mine', xMm: 2000, zMm: 2000, type: 'bra', wallId: 'A' })
+    const p = plan(); p.lights = [{ type: 'led_panel', zone: 'center' }]
+    applyDesignPlan(p, ALL_PARTS, catalog)
+    expect(useRoomStore.getState().lights.map((l) => l.type)).toContain('led_panel')
   })
 
   it('marks the lights it puts in as the design\'s', () => {

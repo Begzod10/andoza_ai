@@ -52,7 +52,9 @@ export interface AppliedCounts { walls: boolean; floor: boolean; lights: number;
   /** The plan's lights that were put in the room, in its order (`lights` of them). */
   placedLights: AiDesignPlan['lights']
   /** The lights left out, by type, with how many: a floor lamp with nowhere clear to stand. */
-  droppedLights: Array<{ type: string; count: number }> }
+  droppedLights: Array<{ type: string; count: number }>
+  /** Ceiling lights left out because the user's own ceiling light already hangs there. */
+  ownLightsKept: Array<{ type: string; count: number }> }
 
 const FALLBACK_SIZE = { w: 0.9, d: 0.7 }
 
@@ -197,11 +199,14 @@ export interface RoomDesign {
  * size the studio draws them, and one taller than the ceiling is drawn smaller (`sizeOf`). Without
  * it, at the catalog's size.
  */
+/** How near a design's ceiling light may come to one the user hung, mm: closer, the two overlap. */
+const OWN_LIGHT_CLEARANCE_MM = 600
+
 export function designRoomState(
   prev: RoomDesign, geometry: RoomGeometry, plan: AiDesignPlan, parts: DesignParts, catalog: CatalogFurniture[], roomType?: string,
   ceilingMm?: number,
 ): RoomDesign & { applied: AppliedCounts } {
-  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [], placedLights: [], droppedLights: [] }
+  const applied: AppliedCounts = { walls: false, floor: false, lights: 0, furniture: 0, skipped: 0, dropped: [], placed: [], swapped: [], placedLights: [], droppedLights: [], ownLightsKept: [] }
   let designState = prev.designState
   let furniture = prev.furniture
   let lights = prev.lights
@@ -288,6 +293,7 @@ export function designRoomState(
   if (parts.lights) {
     // An earlier design's lights go; the user's own stay (and new ones are added beside them).
     lights = lights.filter((l) => !l.fromDesign)
+    const ownOnCeiling = lights.filter((l) => { const m = lightType(l.type).mount; return m !== 'wall' && m !== 'floor' })
     // A rug lies under things, and a piece hung on the wall is above them: a lamp may stand there.
     const solid: Rect[] = furniture.flatMap((f) => {
       const item = byId.get(f.furniture_id)
@@ -315,6 +321,13 @@ export function designRoomState(
         spot = { xMm: Math.round(moved.x * 1000 + model.offsetMm.x), zMm: Math.round(moved.z * 1000 + model.offsetMm.z) }
         // The next floor lamp keeps off this one (two in one corner would share its spot).
         solid.push({ x: moved.x, z: moved.z, w: type.sizeM.w, d: type.sizeM.d, rotation: 0 })
+      }
+      // A ceiling light the user hung near this spot keeps it: the two would overlap on the ceiling.
+      if (type.mount !== 'wall' && type.mount !== 'floor' && ownOnCeiling.some((l) => Math.hypot(l.xMm - spot.xMm, l.zMm - spot.zMm) < OWN_LIGHT_CLEARANCE_MM)) {
+        const kept = applied.ownLightsKept.find((d) => d.type === type.id)
+        if (kept) kept.count++
+        else applied.ownLightsKept.push({ type: type.id, count: 1 })
+        continue
       }
       lights = [...lights, { id: nanoid(), type: type.id as LightTypeId, ...spot, fromDesign: true }]
       applied.placedLights.push(light)

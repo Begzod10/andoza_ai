@@ -650,6 +650,11 @@ export function AiBuilderSheet({ open, onOpenChange, onSave, roomId, aptId, room
               {/* Told before the layout: a sentence about a piece that did not fit would describe a room that is not there. */}
               <p className="mt-1 text-sm leading-snug text-gray-700">{applied ? summaryWithout(plan.summary, leftOut, [...applied.placed.map((p) => p.name), ...applied.swapped.map((s) => s.from)]) : plan.summary}</p>
               {plan.image_notes && <p className="mt-2 text-xs leading-snug text-gray-600">{plan.image_notes}</p>}
+              {applied && applied.ownLightsKept.length > 0 && (
+                <p className="mt-2 text-xs leading-snug text-gray-600">
+                  {t("ai.oz_chirogingiz_qoldi", { list: applied.ownLightsKept.map((l) => t(lightType(l.type).nameKey)).join(", ") })}
+                </p>
+              )}
               {leftOut.length > 0 && (
                 <p className="mt-2 text-xs leading-snug text-amber-800">{t("ai.joy_yetmadi_royxat", { list: countedNames(leftOut) })}</p>
               )}

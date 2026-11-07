@@ -1327,6 +1327,7 @@
     "qollandi": "Изменения применены.",
     "xato": "Ошибка AI. Попробуйте ещё раз.",
     "joy_yetmadi_royxat": "Не хватило места: {{list}}",
+    "oz_chirogingiz_qoldi": "На потолке уже есть ваш светильник, он остался: {{list}} поверх него не добавлен.",
     "orniga_qoyildi": "Вместо «{{from}}» поставлено «{{to}}»",
     "dropped_item_one": "{{name}}",
     "dropped_item_other": "{{name}} ({{count}})",

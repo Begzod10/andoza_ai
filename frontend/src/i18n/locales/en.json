@@ -1275,6 +1275,7 @@
     "qollandi": "The changes were applied.",
     "xato": "AI error. Please try again.",
     "joy_yetmadi_royxat": "Not enough room: {{list}}",
+    "oz_chirogingiz_qoldi": "Your own ceiling light stays where it is: {{list}} wasn't added on top of it.",
     "orniga_qoyildi": "{{to}} placed instead of {{from}}",
     "dropped_item_one": "{{name}}",
     "dropped_item_other": "{{name}} ({{count}})",
